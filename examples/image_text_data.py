@@ -1,13 +1,10 @@
 """Image, text, font metrics, and lightweight data helper demo.
 
-This example defaults to the headless backend because image and text APIs are
-currently implemented by the deterministic Pillow renderer.
-
-Run/export:
-    uv run python examples/image_text_data.py
-
-Equivalent explicit command:
+Run/export deterministically with Pillow/headless:
     uv run python examples/image_text_data.py --backend headless --frames 1
+
+Run interactively with native Pyglet image/text support:
+    uv run python examples/image_text_data.py --backend pyglet
 """
 
 from __future__ import annotations
@@ -116,7 +113,7 @@ def main() -> None:
     parser.add_argument("--frames", type=int, default=1)
     args = parser.parse_args()
     global EXPORT_CANVAS
-    EXPORT_CANVAS = args.backend in {p5.HEADLESS, p5.PILLOW}
+    EXPORT_CANVAS = args.backend in {p5.HEADLESS, p5.PILLOW, p5.PYGLET}
     p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
 
 

@@ -18,6 +18,9 @@ class BackendCapabilities:
     text: bool = False
     images: bool = False
     pixels: bool = True
+    pixel_readback: bool = True
+    pixel_update: bool = True
+    canvas_export: bool = True
     paths: bool = True
     transforms: bool = True
     blend_modes: frozenset[str] = field(default_factory=frozenset)

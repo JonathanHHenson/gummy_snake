@@ -89,8 +89,10 @@ Responsible for:
 - fill and stroke rendering
 - transform application
 - HiDPI coordinate mapping
-- capability errors for APIs that are not implemented natively yet
-- pixel/export capability handling
+- native image drawing from p5-py `Image` objects
+- native text drawing and text metrics
+- native framebuffer readback for `load_pixels` and `save_canvas`
+- explicit capability errors for APIs that are not implemented natively yet
 
 ## Rendering approach options
 
@@ -150,6 +152,10 @@ Implemented:
 - `triangle`
 - `quad`
 - `arc`
+- `image` and `image_mode`, including destination scaling and source-rectangle cropping
+- `text`, `text_width`, `text_ascent`, and `text_descent`
+- `load_pixels`
+- `save_canvas`
 
 The public `SketchContext` continues to flatten these into renderer polygons or polylines before calling the renderer:
 
@@ -176,20 +182,22 @@ framebuffer_y = physical_height - logical_y * pixel_density
 
 The renderer tracks both logical dimensions and physical framebuffer dimensions so `width()`, `height()`, `pixel_density()`, and `display_density()` remain distinct concepts.
 
-## Pixel and export APIs
+## Assets, text, pixel, and export APIs
 
-The native renderer capability-gates these APIs in the first milestone:
+The native renderer now supports common image and text workflows:
 
-- `image`
-- `text`
-- `text_width`, `text_ascent`, and `text_descent`
-- `load_pixels`
-- `update_pixels`
-- `save_canvas`
+- `image` uploads Pillow-backed `Image` RGBA data to Pyglet image data/textures and draws sprites in p5 logical coordinates.
+- `image(img, x, y, w, h, sx, sy, sw, sh)` crops the source rectangle before upload.
+- `text` uses Pyglet labels with p5 fill color, text size, horizontal/vertical alignment, leading, multiline splitting, loaded font registration where practical, and active translation/rotation transforms.
+- `text_width`, `text_ascent`, and `text_descent` use Pyglet label/font metrics and may differ slightly from Pillow metrics.
+- `save_canvas` captures the current native framebuffer at physical pixel dimensions and writes a top-left-oriented RGBA image.
+- `load_pixels` uses the same framebuffer readback path and returns a physical RGBA buffer.
 
-They raise `BackendCapabilityError` with guidance to use the headless backend. Pillow remains the canonical deterministic path for image drawing, text rendering, pixel reads/writes, image export, and golden tests.
+`update_pixels` remains explicitly capability-gated for the native Pyglet renderer. Uploading arbitrary edited pixel buffers back into the live native framebuffer requires a separate texture/framebuffer update path; until that lands, use the headless/Pillow backend for pixel-write workflows.
 
-Epic `061_native_pyglet_assets_text_export` tracks native support for these remaining renderer-dependent APIs. In particular, `native_save_canvas_pixels.toml` requires `save_canvas` to work in the Pyglet backend by capturing the native framebuffer with correct p5 top-left orientation and physical HiDPI dimensions. The same framebuffer readback path should also be evaluated for `load_pixels`; `update_pixels` may either upload to a native texture/framebuffer path or remain explicitly capability-gated with documentation.
+Framebuffer readback is tied to the current native OpenGL context. `PygletRenderer` flushes the current draw batch before reading, so `save_canvas` and `load_pixels` can be used from a sketch draw callback. Captures use physical HiDPI dimensions, not logical `width()`/`height()`.
+
+Pillow remains the canonical deterministic path for golden tests and exact image/text/pixel comparisons.
 
 ## Migration status
 
@@ -197,7 +205,8 @@ Epic `061_native_pyglet_assets_text_export` tracks native support for these rema
 2. Basic primitive rendering is implemented through Pyglet-native draw commands.
 3. Transform, path, and curve support is provided by applying p5-py transform matrices and reusing shared geometry flattening before renderer calls.
 4. HiDPI logical and physical dimensions are covered by focused unit tests.
-5. Image, text, pixel, and export behavior is explicitly capability-gated for the native renderer until epic `061_native_pyglet_assets_text_export` is implemented.
-6. `PygletBackend` uses `PygletRenderer` by default.
-7. The bridge-specific Pillow image upload path has been removed from the default Pyglet backend.
-8. The headless Pillow backend remains available for deterministic export and tests.
+5. Image drawing, text rendering/metrics, framebuffer readback, and canvas export are implemented for native Pyglet.
+6. `update_pixels` remains explicitly capability-gated for native Pyglet until a texture/framebuffer upload path is added.
+7. `PygletBackend` uses `PygletRenderer` by default.
+8. The bridge-specific Pillow image upload path has been removed from the default Pyglet backend.
+9. The headless Pillow backend remains available for deterministic export and tests.

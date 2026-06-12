@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from math import cos, pi, sin
+from math import atan2, cos, hypot, pi, sin
 from pathlib import Path
 from typing import Any
+
+from PIL import Image as PILImage
 
 from p5_py import constants as c
 from p5_py.assets.image import Image
@@ -189,10 +191,19 @@ class PygletRenderer:
         *,
         source: tuple[int, int, int, int] | None = None,
     ) -> None:
-        raise BackendCapabilityError(
-            "image() is not supported by the native Pyglet renderer yet. "
-            "Use the headless backend for deterministic image drawing."
+        del style
+        if dw <= 0 or dh <= 0:
+            return
+        texture = self._texture_for_image(image, source)
+        left, bottom, width, height, rotation = self._transformed_framebuffer_rect(
+            dx, dy, dw, dh, transform
         )
+        sprite = self._make_sprite(texture, x=left, y=bottom)
+        sprite.scale_x = width / max(1, texture.width)
+        sprite.scale_y = height / max(1, texture.height)
+        if rotation:
+            sprite.rotation = rotation
+        self._drawables.append(sprite)
 
     def text(
         self,
@@ -202,31 +213,44 @@ class PygletRenderer:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        raise BackendCapabilityError(
-            "text() is not supported by the native Pyglet renderer yet. "
-            "Use the headless backend for deterministic text drawing."
-        )
+        if style.fill_color is None:
+            return
+        lines = str(value).splitlines() or [""]
+        for line_index, line in enumerate(lines):
+            tx, ty = transform.transform_point(x, y + line_index * style.text_leading)
+            px, py = self._to_framebuffer(tx, ty)
+            label = self._make_label(
+                line,
+                x=px,
+                y=py,
+                style=style,
+                transform=transform,
+            )
+            self._drawables.append(label)
 
     def text_width(self, value: str, style: StyleState) -> float:
-        raise BackendCapabilityError(
-            "text_width() is not supported by the native Pyglet renderer yet."
+        labels = [self._measure_label(line, style) for line in (str(value).splitlines() or [""])]
+        return max(
+            (float(getattr(label, "content_width", 0.0)) / self.pixel_density for label in labels),
+            default=0.0,
         )
 
     def text_ascent(self, style: StyleState) -> float:
-        raise BackendCapabilityError(
-            "text_ascent() is not supported by the native Pyglet renderer yet."
-        )
+        font = self._load_pyglet_font(style)
+        ascent = getattr(font, "ascent", None)
+        if ascent is None:
+            return style.text_size * 0.8
+        return float(ascent) / self.pixel_density
 
     def text_descent(self, style: StyleState) -> float:
-        raise BackendCapabilityError(
-            "text_descent() is not supported by the native Pyglet renderer yet."
-        )
+        font = self._load_pyglet_font(style)
+        descent = getattr(font, "descent", None)
+        if descent is None:
+            return style.text_size * 0.2
+        return abs(float(descent)) / self.pixel_density
 
     def load_pixels(self) -> list[int]:
-        raise BackendCapabilityError(
-            "load_pixels() is not supported by the native Pyglet renderer yet. "
-            "Use the headless backend for deterministic pixel reads."
-        )
+        return list(self._read_framebuffer_rgba())
 
     def update_pixels(self, pixels: list[int]) -> None:
         raise BackendCapabilityError(
@@ -235,10 +259,12 @@ class PygletRenderer:
         )
 
     def save(self, path: str | Path) -> None:
-        raise BackendCapabilityError(
-            "save_canvas() is not supported by the native Pyglet renderer yet. "
-            "Use the headless backend for deterministic image export."
+        image = PILImage.frombytes(
+            "RGBA",
+            (self.physical_width, self.physical_height),
+            self._read_framebuffer_rgba(),
         )
+        image.save(path)
 
     def draw(self) -> None:
         if self._batch is not None:
@@ -324,6 +350,133 @@ class PygletRenderer:
         shape_class = getattr(pyglet.shapes, name)
         shape = shape_class(*args, **kwargs, batch=self._batch)
         self._drawables.append(shape)
+
+    def _texture_for_image(
+        self, image: Image, source: tuple[int, int, int, int] | None = None
+    ) -> Any:
+        source_image = image.pillow
+        if source is not None:
+            sx, sy, sw, sh = source
+            source_image = source_image.crop((sx, sy, sx + sw, sy + sh))
+        source_image = source_image.convert("RGBA")
+        pyglet = self._load_pyglet()
+        image_data = pyglet.image.ImageData(
+            source_image.width,
+            source_image.height,
+            "RGBA",
+            source_image.tobytes(),
+            pitch=-source_image.width * 4,
+        )
+        texture_getter = getattr(image_data, "get_texture", None)
+        return texture_getter() if callable(texture_getter) else image_data
+
+    def _make_sprite(self, texture: Any, *, x: float, y: float) -> Any:
+        pyglet = self._load_pyglet()
+        if self._batch is None:
+            self._batch = pyglet.graphics.Batch()
+        return pyglet.sprite.Sprite(texture, x=x, y=y, batch=self._batch)
+
+    def _transformed_framebuffer_rect(
+        self, x: float, y: float, width: float, height: float, transform: Matrix2D
+    ) -> tuple[float, float, float, float, float]:
+        p1 = transform.transform_point(x, y)
+        p2 = transform.transform_point(x + width, y)
+        p3 = transform.transform_point(x, y + height)
+        fb_points = [self._to_framebuffer(*point) for point in (p1, p2, p3)]
+        left = fb_points[0][0]
+        top = fb_points[0][1]
+        width_px = max(0.0, hypot(fb_points[1][0] - left, fb_points[1][1] - top))
+        height_px = max(0.0, hypot(fb_points[2][0] - left, fb_points[2][1] - top))
+        bottom = top - height_px
+        rotation = -atan2(fb_points[1][1] - top, fb_points[1][0] - left) * 180 / pi
+        return left, bottom, width_px, height_px, rotation
+
+    def _make_label(
+        self,
+        value: str,
+        *,
+        x: float,
+        y: float,
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> Any:
+        pyglet = self._load_pyglet()
+        if self._batch is None:
+            self._batch = pyglet.graphics.Batch()
+        label = pyglet.text.Label(
+            value,
+            font_name=self._pyglet_font_name(style),
+            font_size=style.text_size * self.pixel_density,
+            x=x,
+            y=y,
+            anchor_x=self._pyglet_anchor_x(style),
+            anchor_y=self._pyglet_anchor_y(style),
+            color=style.fill_color.to_tuple() if style.fill_color is not None else (0, 0, 0, 0),
+            batch=self._batch,
+        )
+        rotation = -atan2(transform.b, transform.a) * 180 / pi
+        if rotation:
+            label.rotation = rotation
+        return label
+
+    def _measure_label(self, value: str, style: StyleState) -> Any:
+        pyglet = self._load_pyglet()
+        return pyglet.text.Label(
+            value,
+            font_name=self._pyglet_font_name(style),
+            font_size=style.text_size * self.pixel_density,
+        )
+
+    def _load_pyglet_font(self, style: StyleState) -> Any:
+        pyglet = self._load_pyglet()
+        font_name = self._pyglet_font_name(style)
+        return pyglet.font.load(font_name, style.text_size * self.pixel_density)
+
+    def _pyglet_font_name(self, style: StyleState) -> str | None:
+        font = style.text_font
+        if font.path is not None:
+            pyglet = self._load_pyglet()
+            add_file = getattr(pyglet.font, "add_file", None)
+            if callable(add_file):
+                add_file(str(font.path))
+            return font.name or font.path.stem
+        return None if font.name == "default" else font.name
+
+    def _pyglet_anchor_x(self, style: StyleState) -> str:
+        if style.text_align_x == c.CENTER:
+            return "center"
+        if style.text_align_x == c.RIGHT:
+            return "right"
+        return "left"
+
+    def _pyglet_anchor_y(self, style: StyleState) -> str:
+        if style.text_align_y == c.TOP:
+            return "top"
+        if style.text_align_y == c.CENTER:
+            return "center"
+        if style.text_align_y == c.BOTTOM:
+            return "bottom"
+        return "baseline"
+
+    def _read_framebuffer_rgba(self) -> bytes:
+        self.draw()
+        pyglet = self._load_pyglet()
+        manager = pyglet.image.get_buffer_manager()
+        color_buffer = manager.get_color_buffer()
+        image_data_getter = getattr(color_buffer, "get_image_data", None)
+        image_data = image_data_getter() if callable(image_data_getter) else color_buffer
+        width = int(getattr(image_data, "width", self.physical_width))
+        height = int(getattr(image_data, "height", self.physical_height))
+        get_data = getattr(image_data, "get_data", None)
+        if not callable(get_data):
+            raise BackendCapabilityError("Pyglet framebuffer readback is unavailable.")
+        data: Any = get_data("RGBA", -width * 4)
+        if width == self.physical_width and height == self.physical_height:
+            return bytes(data)
+        image = PILImage.frombytes("RGBA", (width, height), bytes(data))
+        return image.resize(
+            (self.physical_width, self.physical_height), PILImage.Resampling.NEAREST
+        ).tobytes()
 
 
 def _angle_steps(count: int):

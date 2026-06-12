@@ -9,32 +9,32 @@ acceptance_criteria = '''
 `PygletRenderer.draw_image` supports p5-py `Image` objects by uploading Pillow-backed RGBA data to Pyglet textures or image data, drawing with logical p5 coordinates, honoring `image_mode`, supporting scaling, and supporting source rectangle cropping. Behavior is covered by unit tests with fake Pyglet objects where possible and documented backend differences where native rendering differs from Pillow.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Design a texture upload/cache path from `p5_py.assets.image.Image` to native Pyglet texture/image objects without leaking Pyglet dependencies into the public API.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement `PygletRenderer.draw_image` for full-image drawing, destination scaling, active transform application, p5 top-left coordinate mapping, and HiDPI pixel density.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement source-rectangle cropping for the p5-py `image(img, x, y, w, h, sx, sy, sw, sh)` overload.
 '''
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add focused unit tests with fake Pyglet texture/sprite objects and at least one manual or documented interactive smoke test.
 '''

@@ -15,7 +15,12 @@ class PygletBackend:
     name = c.PYGLET
     capabilities = BackendCapabilities(
         interactive=True,
+        text=True,
+        images=True,
         pixels=False,
+        pixel_readback=True,
+        pixel_update=False,
+        canvas_export=True,
         paths=True,
         transforms=True,
         blend_modes=frozenset({c.BLEND, c.REPLACE}),
