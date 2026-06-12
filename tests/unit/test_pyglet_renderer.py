@@ -44,10 +44,15 @@ class Circle(FakeShape):
     calls = []
 
 
+class MultiLine(FakeShape):
+    calls = []
+
+
 class FakeShapes:
     Polygon = Polygon
     Line = Line
     Circle = Circle
+    MultiLine = MultiLine
 
 
 class FakePyglet:
@@ -57,7 +62,7 @@ class FakePyglet:
 
 
 def reset_shape_calls():
-    for shape_class in (Polygon, Line, Circle):
+    for shape_class in (Polygon, Line, Circle, MultiLine):
         shape_class.calls.clear()
 
 
@@ -92,7 +97,12 @@ def test_native_renderer_draws_fill_and_stroke_for_closed_polygons():
     renderer.polygon([(1, 1), (4, 1), (4, 4)], style, Matrix2D.identity())
 
     assert len(Polygon.calls) == 1
-    assert len(Line.calls) == 3
+    assert len(Line.calls) == 0
+    assert len(MultiLine.calls) == 1
+    _name, args, kwargs = MultiLine.calls[-1]
+    assert args == ((1.0, 19.0), (4.0, 19.0), (4.0, 16.0))
+    assert kwargs["closed"] is True
+    assert kwargs["color"] == (0, 0, 255, 255)
 
 
 def test_native_renderer_gates_pixel_and_export_apis():

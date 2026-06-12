@@ -118,9 +118,7 @@ class PygletRenderer:
         if style.fill_color is not None and close and len(transformed) >= 3:
             self._raw_polygon(transformed, style.fill_color.to_tuple())
         if style.stroke_color is not None:
-            stroke_points = [*transformed, transformed[0]] if close else transformed
-            for p1, p2 in zip(stroke_points, stroke_points[1:], strict=False):
-                self._line_between(p1, p2, style)
+            self._joined_polyline(transformed, style, closed=close)
 
     def ellipse(
         self,
@@ -176,8 +174,7 @@ class PygletRenderer:
                     self._to_framebuffer(*transform.transform_point(px, py))
                     for px, py in arc_points
                 ]
-                for p1, p2 in zip(transformed, transformed[1:], strict=False):
-                    self._line_between(p1, p2, style)
+                self._joined_polyline(transformed, style, closed=False)
 
     def load_pixels(self) -> list[int]:
         raise BackendCapabilityError(
@@ -236,6 +233,24 @@ class PygletRenderer:
             p1[1],
             p2[0],
             p2[1],
+            thickness=max(1, style.stroke_weight * self.pixel_density),
+            color=color,
+        )
+
+    def _joined_polyline(
+        self,
+        points: list[tuple[float, float]],
+        style: StyleState,
+        *,
+        closed: bool,
+    ) -> None:
+        color = _rgba(style.stroke_color)
+        if len(points) < 2 or color is None:
+            return
+        self._add_shape(
+            "MultiLine",
+            *points,
+            closed=closed,
             thickness=max(1, style.stroke_weight * self.pixel_density),
             color=color,
         )

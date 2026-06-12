@@ -112,11 +112,7 @@ class PillowRenderer:
             self.draw.polygon(transformed, fill=style.fill_color.to_tuple())
         if style.stroke_color is not None:
             stroke_points = [*transformed, transformed[0]] if close else transformed
-            self.draw.line(
-                stroke_points,
-                fill=style.stroke_color.to_tuple(),
-                width=_stroke_width(style, self.pixel_density),
-            )
+            self._draw_joined_polyline(stroke_points, style)
 
     def ellipse(
         self,
@@ -170,11 +166,21 @@ class PillowRenderer:
             if style.stroke_color is not None:
                 physical_transform = self._physical_transform(transform)
                 transformed = [physical_transform.transform_point(px, py) for px, py in arc_points]
-                self.draw.line(
-                    transformed,
-                    fill=style.stroke_color.to_tuple(),
-                    width=_stroke_width(style, self.pixel_density),
-                )
+                self._draw_joined_polyline(transformed, style)
+
+    def _draw_joined_polyline(
+        self,
+        points: list[tuple[float, float]],
+        style: StyleState,
+    ) -> None:
+        if len(points) < 2 or style.stroke_color is None:
+            return
+        self.draw.line(
+            points,
+            fill=style.stroke_color.to_tuple(),
+            width=_stroke_width(style, self.pixel_density),
+            joint="curve",
+        )
 
     def load_pixels(self) -> list[int]:
         return list(self.image.tobytes())
