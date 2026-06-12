@@ -37,7 +37,6 @@ def setup() -> None:
     SHIELD = p5.load_image(ASSET_DIR / "Effects/shield3.png")
     FIRE = p5.load_image(ASSET_DIR / "Effects/fire17.png")
     POWERUP = p5.load_image(ASSET_DIR / "Power-ups/powerupBlue_shield.png")
-    build_pixel_starfield()
 
 
 def build_pixel_starfield() -> None:
@@ -45,19 +44,29 @@ def build_pixel_starfield() -> None:
     pixels = p5.pixels()
     width = p5.width()
     height = p5.height()
+    density = p5.pixel_density()
+    physical_width = max(1, int(round(width * density)))
+    physical_height = max(1, int(round(height * density)))
 
-    for y in range(height):
-        for x in range(width):
-            index = (y * width + x) * 4
-            glow = int(32 + 40 * (y / max(1, height - 1)))
-            pixels[index : index + 4] = [6, 10 + glow // 3, glow, 255]
+    for y in range(physical_height):
+        logical_y = y / density
+        glow = int(32 + 40 * (logical_y / max(1, height - 1)))
+        for x in range(physical_width):
+            offset = (y * physical_width + x) * 4
+            pixels[offset : offset + 4] = [6, 10 + glow // 3, glow, 255]
 
+    star_size = max(1, int(round(density)))
     for index in range(220):
-        x = (index * 131 + 17) % width
-        y = (index * 79 + index * index) % height
+        logical_x = (index * 131 + 17) % width
+        logical_y = (index * 79 + index * index) % height
         brightness = 150 + (index % 4) * 26
-        offset = (y * width + x) * 4
-        pixels[offset : offset + 4] = [brightness, min(255, brightness + 18), 255, 255]
+        color = [brightness, min(255, brightness + 18), 255, 255]
+        start_x = min(physical_width - 1, max(0, int(round(logical_x * density))))
+        start_y = min(physical_height - 1, max(0, int(round(logical_y * density))))
+        for y in range(start_y, min(physical_height, start_y + star_size)):
+            for x in range(start_x, min(physical_width, start_x + star_size)):
+                offset = (y * physical_width + x) * 4
+                pixels[offset : offset + 4] = color
 
     p5.update_pixels()
 
@@ -71,6 +80,7 @@ def draw() -> None:
     assert UFO is not None
     assert POWERUP is not None
 
+    build_pixel_starfield()
     draw_scene_layers(SHIP, SHIELD, FIRE, UFO, POWERUP)
     draw_pixel_buffer_callout()
     draw_export_card()
@@ -121,14 +131,16 @@ def draw_scene_layers(
 
 def draw_pixel_buffer_callout() -> None:
     rows = p5.pixel_array()
-    sample = rows[20][20]
+    sample_x = min(len(rows[0]) - 1, int(round(20 * p5.pixel_density())))
+    sample_y = min(len(rows) - 1, int(round(20 * p5.pixel_density())))
+    sample = rows[sample_y][sample_x]
     p5.no_stroke()
     p5.fill(255, 255, 255, 28)
     p5.rect(28, 326, 308, 78)
     p5.fill(255, 255, 255, 220)
     p5.text_size(14)
     p5.text("Starfield was written with load_pixels(), pixels(), update_pixels().", 42, 356)
-    p5.text(f"pixel_array()[20][20] = RGBA{sample}", 42, 382)
+    p5.text(f"logical pixel (20, 20) = RGBA{sample}", 42, 382)
 
 
 def draw_export_card() -> None:

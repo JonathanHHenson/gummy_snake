@@ -2,6 +2,8 @@ import pytest
 from PIL import Image as PILImage
 
 import p5_py as p5
+from p5_py.backends.pillow import PillowRenderer
+from p5_py.core.color import Color
 from p5_py.exceptions import ArgumentValidationError
 
 
@@ -72,3 +74,20 @@ def test_blend_region_can_copy_canvas_region_with_add_mode():
     pixels = context.load_pixels()
 
     assert pixels[12:16] == [20, 20, 30, 255]
+
+
+def test_blend_region_scales_destination_for_physical_density():
+    renderer = PillowRenderer(4, 4, pixel_density=2)
+    source = PILImage.new("RGBA", (2, 2), (255, 0, 0, 255))
+    renderer.background(Color(0, 0, 0, 255))
+
+    renderer.blend_region(source, (0, 0, 2, 2), (1, 1, 1, 1), p5.BLEND)
+    pixels = renderer.load_pixels()
+
+    def pixel_at(x: int, y: int) -> list[int]:
+        offset = (y * renderer.physical_width + x) * 4
+        return pixels[offset : offset + 4]
+
+    assert pixel_at(1, 1) == [0, 0, 0, 255]
+    assert pixel_at(2, 2) == [255, 0, 0, 255]
+    assert pixel_at(3, 3) == [255, 0, 0, 255]

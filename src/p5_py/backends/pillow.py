@@ -354,11 +354,25 @@ class PillowRenderer:
         dx, dy, dw, dh = destination
         if sw <= 0 or sh <= 0 or dw <= 0 or dh <= 0:
             return
-        image = self.image if source_image is None else source_image.convert("RGBA")
+        if source_image is None:
+            sx, sy, sw, sh = self._scale_rect(source)
+            image = self.image
+        else:
+            image = source_image.convert("RGBA")
+        dx, dy, dw, dh = self._scale_rect(destination)
         crop = image.crop((sx, sy, sx + sw, sy + sh)).resize((dw, dh), PILImage.Resampling.LANCZOS)
         overlay = PILImage.new("RGBA", self.image.size, (0, 0, 0, 0))
         overlay.alpha_composite(crop, (dx, dy))
         self._composite_overlay(overlay, mode)
+
+    def _scale_rect(self, rect: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        x, y, width, height = rect
+        return (
+            int(round(x * self.pixel_density)),
+            int(round(y * self.pixel_density)),
+            int(round(width * self.pixel_density)),
+            int(round(height * self.pixel_density)),
+        )
 
     def _draw_with_style(self, style: StyleState, draw_op) -> None:
         original = self.image
