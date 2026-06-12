@@ -189,7 +189,7 @@ The native renderer capability-gates these APIs in the first milestone:
 
 They raise `BackendCapabilityError` with guidance to use the headless backend. Pillow remains the canonical deterministic path for image drawing, text rendering, pixel reads/writes, image export, and golden tests.
 
-Future native support can use framebuffer readback for `load_pixels` and `save_canvas`, and either texture upload/update or an explicit documented limitation for `update_pixels`.
+Epic `061_native_pyglet_assets_text_export` tracks native support for these remaining renderer-dependent APIs. In particular, `native_save_canvas_pixels.toml` requires `save_canvas` to work in the Pyglet backend by capturing the native framebuffer with correct p5 top-left orientation and physical HiDPI dimensions. The same framebuffer readback path should also be evaluated for `load_pixels`; `update_pixels` may either upload to a native texture/framebuffer path or remain explicitly capability-gated with documentation.
 
 ## Migration status
 
@@ -197,7 +197,7 @@ Future native support can use framebuffer readback for `load_pixels` and `save_c
 2. Basic primitive rendering is implemented through Pyglet-native draw commands.
 3. Transform, path, and curve support is provided by applying p5-py transform matrices and reusing shared geometry flattening before renderer calls.
 4. HiDPI logical and physical dimensions are covered by focused unit tests.
-5. Pixel and export behavior is explicitly capability-gated for the native renderer.
+5. Image, text, pixel, and export behavior is explicitly capability-gated for the native renderer until epic `061_native_pyglet_assets_text_export` is implemented.
 6. `PygletBackend` uses `PygletRenderer` by default.
 7. The bridge-specific Pillow image upload path has been removed from the default Pyglet backend.
 8. The headless Pillow backend remains available for deterministic export and tests.

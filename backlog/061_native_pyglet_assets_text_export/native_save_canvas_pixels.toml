@@ -1,0 +1,47 @@
+[my_pbi]
+title = "Implement native Pyglet save_canvas and pixel readback"
+description = '''
+As a sketch author using the interactive Pyglet backend,
+I want `save_canvas` to export the current native canvas,
+So that interactive sketches can save snapshots without switching to the headless backend.
+'''
+acceptance_criteria = '''
+`save_canvas` works in the native Pyglet backend by reading or capturing the current framebuffer at physical resolution and writing an image file with correct top-left p5 orientation. `load_pixels` is implemented using the same readback path if feasible. `update_pixels` is either implemented through a texture/framebuffer update path or remains capability-gated with clear documentation. HiDPI behavior and timing requirements are documented and tested.
+'''
+priotity = 'high'
+status = 'TODO'
+
+[my_pbi.task_1]
+order = 1
+status = 'TODO'
+description = '''
+Evaluate Pyglet framebuffer/image buffer APIs for capturing the currently rendered native framebuffer after `present`/draw.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'TODO'
+description = '''
+Implement `PygletRenderer.save` / `save_canvas` for native Pyglet rendering, preserving p5 top-left orientation and physical pixel dimensions.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'TODO'
+description = '''
+Add `load_pixels` support from native framebuffer readback if feasible, returning physical RGBA buffers consistent with the Pillow renderer.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'TODO'
+description = '''
+Decide whether `update_pixels` should upload to a native texture/framebuffer or remain explicitly capability-gated, and document the decision.
+'''
+
+[my_pbi.task_5]
+order = 5
+status = 'TODO'
+description = '''
+Add tests for save/export behavior using fake Pyglet image-buffer objects where possible, plus an interactive smoke-test command documented for manual verification.
+'''

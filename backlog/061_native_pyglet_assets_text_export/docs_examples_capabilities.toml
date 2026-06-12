@@ -1,0 +1,33 @@
+[my_pbi]
+title = "Document native Pyglet asset, text, and export capabilities"
+description = '''
+As a p5-py user,
+I want clear documentation and examples for which APIs work in native Pyglet versus headless Pillow,
+So that I can choose the right backend and understand current limitations.
+'''
+acceptance_criteria = '''
+Docs describe native Pyglet support for images, text, `save_canvas`, and pixel APIs once implemented, including differences from Pillow/headless behavior and HiDPI implications. Examples that currently default to headless are updated or supplemented with interactive Pyglet variants when native support lands.
+'''
+priotity = 'medium'
+status = 'TODO'
+
+[my_pbi.task_1]
+order = 1
+status = 'TODO'
+description = '''
+Update `docs/native_pyglet_renderer.md` as native support lands, replacing capability-gated notes with supported behavior and known limitations.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'TODO'
+description = '''
+Update `docs/project_plan.md` and examples documentation to make backend capability differences clear.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'TODO'
+description = '''
+Update examples that currently default to headless for image/text workflows so they can also demonstrate native Pyglet support when available.
+'''
