@@ -9,7 +9,6 @@ from p5_py.backends.pyglet_renderer import PygletRenderer
 from p5_py.core.color import Color
 from p5_py.core.state import StyleState
 from p5_py.core.transform import Matrix2D
-from p5_py.exceptions import BackendCapabilityError
 
 
 class FakeBatch:
@@ -198,7 +197,19 @@ def test_native_backend_reports_implemented_capabilities():
     assert capabilities.text is True
     assert capabilities.pixel_readback is True
     assert capabilities.canvas_export is True
-    assert capabilities.pixel_update is False
+    assert capabilities.pixels is True
+    assert capabilities.pixel_update is True
+    assert {
+        "blend",
+        "replace",
+        "add",
+        "darkest",
+        "lightest",
+        "difference",
+        "exclusion",
+        "multiply",
+        "screen",
+    }.issubset(capabilities.blend_modes)
 
 
 def test_native_renderer_tracks_logical_and_physical_sizes():
@@ -222,6 +233,19 @@ def test_native_renderer_maps_p5_coordinates_to_framebuffer_coordinates():
     assert args == (12.0, 16.0, 16.0, 12.0)
     assert kwargs["thickness"] == 4
     assert kwargs["color"] == (0, 0, 0, 255)
+
+
+def test_native_renderer_default_draw_path_does_not_upload_full_canvas_texture():
+    reset_shape_calls()
+    pyglet = FakePyglet()
+    renderer = PygletRenderer(20, 10, pixel_density=2, pyglet=pyglet)
+    style = StyleState(stroke_color=Color(0, 0, 0), stroke_weight=2)
+
+    renderer.line(1, 2, 3, 4, style, Matrix2D.identity())
+    renderer.draw()
+
+    assert pyglet.graphics.batches[-1].drawn is True
+    assert FakeImageData.calls == []
 
 
 def test_native_renderer_draws_fill_and_stroke_for_closed_polygons():
@@ -261,7 +285,7 @@ def test_native_renderer_draws_images_with_texture_upload_and_source_crop():
     assert (width, height, fmt, pitch) == (2, 2, "RGBA", -8)
     assert FakeSprite.calls
     sprite = FakeSprite.calls[-1]
-    assert (sprite.x, sprite.y) == (2.0, 8.0)
+    assert (sprite.x, sprite.y) == (2.0, 16.0)
     assert sprite.scale_x == 3.0
     assert sprite.scale_y == 4.0
 
@@ -307,24 +331,53 @@ def test_native_renderer_draws_and_measures_text():
     assert renderer.text_descent(style) == pytest.approx(2.0)
 
 
-def test_native_renderer_load_pixels_and_save_read_framebuffer_top_left(tmp_path: Path):
-    pyglet = FakePyglet()
-    renderer = PygletRenderer(2, 2, pyglet=pyglet)
+def test_native_renderer_load_pixels_update_pixels_and_save_use_top_left_rgba(tmp_path: Path):
+    renderer = PygletRenderer(2, 2, pyglet=FakePyglet())
+    pixels = [
+        255,
+        0,
+        0,
+        255,
+        0,
+        255,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+    ]
 
-    assert renderer.load_pixels() == list(range(16))
-    assert pyglet.image.framebuffer.calls[-1] == ("RGBA", -8)
+    renderer.update_pixels(pixels)
 
+    assert renderer.load_pixels() == pixels
     output = tmp_path / "capture.png"
     renderer.save(output)
-
     with PILImage.open(output) as saved:
         assert saved.mode == "RGBA"
         assert saved.size == (2, 2)
-        assert saved.tobytes() == bytes(range(16))
+        assert list(saved.tobytes()) == pixels
 
 
-def test_native_renderer_still_gates_update_pixels():
-    renderer = PygletRenderer(pyglet=FakePyglet())
+def test_native_renderer_blend_and_erase_match_pillow_surface():
+    renderer = PygletRenderer(4, 1, pyglet=FakePyglet())
+    renderer.background(Color(100, 100, 100, 255))
+    renderer.polygon(
+        [(0, 0), (1, 0), (1, 1), (0, 1)],
+        StyleState(fill_color=Color(128, 255, 255, 255), stroke_color=None, blend_mode="multiply"),
+        Matrix2D.identity(),
+    )
+    renderer.polygon(
+        [(3, 0), (4, 0), (4, 1), (3, 1)],
+        StyleState(fill_color=Color(255, 255, 255, 255), stroke_color=None, erasing=True),
+        Matrix2D.identity(),
+    )
 
-    with pytest.raises(BackendCapabilityError):
-        renderer.update_pixels([])
+    pixels = renderer.load_pixels()
+
+    assert pixels[0:4] == [50, 100, 100, 255]
+    assert pixels[12:16] == [100, 100, 100, 0]

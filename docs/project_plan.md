@@ -182,7 +182,7 @@ The 040-060 backlog epics are implemented for the deterministic headless/Pillow 
 - Math, random, noise, and vector APIs include p5-style helpers, seedable random/gaussian values, deterministic Perlin-style noise, and mutable `Vector` objects with Python operators.
 - Assets include local image loading, `Image` manipulation (`get`, `set`, `copy`, `resize`, `mask`, and common filters), image drawing with `image_mode`, lightweight text/JSON helpers, font loading, text drawing, alignment, leading, and metrics.
 
-The native Pyglet renderer supports image drawing, text drawing/metrics, framebuffer-backed `load_pixels`, and `save_canvas` export at physical HiDPI resolution. Native `update_pixels` remains capability-gated; use the headless/Pillow backend for deterministic golden tests, exact text/image comparisons, and pixel-write workflows.
+The native Pyglet renderer supports image drawing, transformed image pivots, text drawing/metrics, `load_pixels`, `update_pixels`, `blend_mode`, `blend`, `erase`, and `save_canvas` export at physical HiDPI resolution. Normal frames use native Pyglet drawing; pixel/compositing workflows lazily switch to a deterministic parity surface. The headless/Pillow backend remains the simplest deterministic golden-test and non-interactive export path.
 
 ## 6. Runtime design
 

@@ -30,6 +30,19 @@ class Matrix2D:
     def transform_point(self, x: float, y: float) -> tuple[float, float]:
         return self.a * x + self.c * y + self.e, self.b * x + self.d * y + self.f
 
+    def inverse(self) -> Matrix2D:
+        determinant = self.a * self.d - self.b * self.c
+        if abs(determinant) < 1e-12:
+            raise ValueError("Matrix is not invertible.")
+        return Matrix2D(
+            self.d / determinant,
+            -self.b / determinant,
+            -self.c / determinant,
+            self.a / determinant,
+            (self.c * self.f - self.d * self.e) / determinant,
+            (self.b * self.e - self.a * self.f) / determinant,
+        )
+
     @classmethod
     def identity(cls) -> Matrix2D:
         return cls()

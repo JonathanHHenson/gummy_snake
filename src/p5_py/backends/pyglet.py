@@ -17,16 +17,28 @@ class PygletBackend:
         interactive=True,
         text=True,
         images=True,
-        pixels=False,
+        pixels=True,
         pixel_readback=True,
-        pixel_update=False,
+        pixel_update=True,
         canvas_export=True,
         mouse=True,
         keyboard=True,
         touch=False,
         paths=True,
         transforms=True,
-        blend_modes=frozenset({c.BLEND, c.REPLACE}),
+        blend_modes=frozenset(
+            {
+                c.BLEND,
+                c.REPLACE,
+                c.ADD,
+                c.DARKEST,
+                c.LIGHTEST,
+                c.DIFFERENCE,
+                c.EXCLUSION,
+                c.MULTIPLY,
+                c.SCREEN,
+            }
+        ),
     )
 
     def __init__(self) -> None:

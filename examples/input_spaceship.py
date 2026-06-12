@@ -20,8 +20,6 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image as PILImage
-
 import p5_py as p5
 from p5_py.events.input_state import KeyboardEvent, MouseEvent
 
@@ -79,9 +77,6 @@ class InputSpaceshipDemo(p5.Sketch):
         self.meteor_medium: p5.Image | None = None
         self.meteor_small: p5.Image | None = None
         self.thrust_flame: p5.Image | None = None
-        self._rotated_ship_cache: dict[int, p5.Image] = {}
-        self._rotated_laser_cache: dict[int, p5.Image] = {}
-        self._rotated_asteroid_cache: dict[tuple[int, int], p5.Image] = {}
         self.ship_x = CANVAS_WIDTH / 2
         self.ship_y = CANVAS_HEIGHT / 2
         self.ship_vx = 0.0
@@ -340,7 +335,10 @@ class InputSpaceshipDemo(p5.Sketch):
         if self.laser is None:
             return
         for shot in self.shots:
-            p5.image(self._rotated_laser_image(math.atan2(shot.vy, shot.vx)), shot.x, shot.y)
+            with p5.pushed():
+                p5.translate(shot.x, shot.y)
+                p5.rotate(math.atan2(shot.vy, shot.vx) + math.pi / 2)
+                p5.image(self.laser, 0, 0, LASER_SPRITE_WIDTH, LASER_SPRITE_HEIGHT)
 
     def _draw_asteroids(self) -> None:
         for asteroid in self.asteroids:
@@ -351,9 +349,10 @@ class InputSpaceshipDemo(p5.Sketch):
                 p5.stroke(180, 190, 210)
                 p5.circle(asteroid.x, asteroid.y, diameter)
                 continue
-            p5.image(
-                self._rotated_asteroid_image(asteroid, image, diameter), asteroid.x, asteroid.y
-            )
+            with p5.pushed():
+                p5.translate(asteroid.x, asteroid.y)
+                p5.rotate(asteroid.angle)
+                p5.image(image, 0, 0, diameter, diameter)
 
     def _draw_ship(self) -> None:
         if self.game_over:
@@ -366,7 +365,10 @@ class InputSpaceshipDemo(p5.Sketch):
             self._draw_thrust_flame()
 
         if self.ship is not None:
-            p5.image(self._rotated_ship_image(), self.ship_x, self.ship_y)
+            with p5.pushed():
+                p5.translate(self.ship_x, self.ship_y)
+                p5.rotate(self.ship_angle + math.pi / 2)
+                p5.image(self.ship, 0, 0, SHIP_SPRITE_WIDTH, SHIP_SPRITE_HEIGHT)
         else:
             self._draw_fallback_ship()
 
@@ -412,77 +414,6 @@ class InputSpaceshipDemo(p5.Sketch):
             p5.fill(36, 116, 220, 245)
             p5.triangle(32, 0, -24, -23, -13, 0)
             p5.triangle(32, 0, -13, 0, -24, 23)
-
-    def _rotated_ship_image(self) -> p5.Image:
-        if self.ship is None:
-            raise RuntimeError("Ship image is not loaded.")
-        degrees = round(math.degrees(self.ship_angle + math.pi / 2)) % 360
-        cached = self._rotated_ship_cache.get(degrees)
-        if cached is not None:
-            return cached
-
-        resized = self.ship.pillow.resize(
-            (SHIP_SPRITE_WIDTH, SHIP_SPRITE_HEIGHT),
-            PILImage.Resampling.LANCZOS,
-        )
-        rotated = resized.rotate(
-            -degrees,
-            resample=PILImage.Resampling.BICUBIC,
-            expand=True,
-            fillcolor=(0, 0, 0, 0),
-        )
-        image = p5.Image(rotated)
-        self._rotated_ship_cache[degrees] = image
-        return image
-
-    def _rotated_laser_image(self, angle: float) -> p5.Image:
-        if self.laser is None:
-            raise RuntimeError("Laser image is not loaded.")
-        degrees = round(math.degrees(angle + math.pi / 2)) % 360
-        cached = self._rotated_laser_cache.get(degrees)
-        if cached is not None:
-            return cached
-
-        resized = self.laser.pillow.resize(
-            (LASER_SPRITE_WIDTH, LASER_SPRITE_HEIGHT),
-            PILImage.Resampling.LANCZOS,
-        )
-        rotated = resized.rotate(
-            -degrees,
-            resample=PILImage.Resampling.BICUBIC,
-            expand=True,
-            fillcolor=(0, 0, 0, 0),
-        )
-        image = p5.Image(rotated)
-        self._rotated_laser_cache[degrees] = image
-        return image
-
-    def _rotated_asteroid_image(
-        self,
-        asteroid: Asteroid,
-        source: p5.Image,
-        diameter: float,
-    ) -> p5.Image:
-        degrees = round(math.degrees(asteroid.angle)) % 360
-        key = (asteroid.size, degrees)
-        cached = self._rotated_asteroid_cache.get(key)
-        if cached is not None:
-            return cached
-
-        pixel_diameter = max(1, round(diameter))
-        resized = source.pillow.resize(
-            (pixel_diameter, pixel_diameter),
-            PILImage.Resampling.LANCZOS,
-        )
-        rotated = resized.rotate(
-            -degrees,
-            resample=PILImage.Resampling.BICUBIC,
-            expand=True,
-            fillcolor=(0, 0, 0, 0),
-        )
-        image = p5.Image(rotated)
-        self._rotated_asteroid_cache[key] = image
-        return image
 
     def _asteroid_image(self, asteroid: Asteroid) -> p5.Image | None:
         if asteroid.size >= 3:

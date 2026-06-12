@@ -16,6 +16,8 @@ from p5_py.core.state import StyleState
 from p5_py.core.transform import Matrix2D
 from p5_py.exceptions import ArgumentValidationError
 
+_AFFINE_EPSILON = 1e-12
+
 
 def _rgba(color: Color | None) -> tuple[int, int, int, int] | None:
     return None if color is None else color.to_tuple()
@@ -214,20 +216,47 @@ class PillowRenderer:
         source: tuple[int, int, int, int] | None = None,
     ) -> None:
         def draw_image_op() -> None:
+            if dw <= 0 or dh <= 0:
+                return
             source_image = image.pillow
             if source is not None:
                 sx, sy, sw, sh = source
+                if sw <= 0 or sh <= 0:
+                    return
                 source_image = source_image.crop((sx, sy, sx + sw, sy + sh))
-            resized = source_image.resize(
-                (
-                    max(1, int(round(dw * self.pixel_density))),
-                    max(1, int(round(dh * self.pixel_density))),
-                ),
-                PILImage.Resampling.LANCZOS,
+            if source_image.width <= 0 or source_image.height <= 0:
+                return
+            image_to_canvas = (
+                self._physical_transform(transform)
+                .multiply(Matrix2D.translation(dx, dy))
+                .multiply(
+                    Matrix2D.scaling(
+                        dw / source_image.width,
+                        dh / source_image.height,
+                    )
+                )
             )
-            physical_transform = self._physical_transform(transform)
-            px, py = physical_transform.transform_point(dx, dy)
-            self.image.alpha_composite(resized, (int(round(px)), int(round(py))))
+            if (
+                abs(image_to_canvas.a * image_to_canvas.d - image_to_canvas.b * image_to_canvas.c)
+                < _AFFINE_EPSILON
+            ):
+                return
+            canvas_to_image = image_to_canvas.inverse()
+            transformed = source_image.transform(
+                self.image.size,
+                PILImage.Transform.AFFINE,
+                (
+                    canvas_to_image.a,
+                    canvas_to_image.c,
+                    canvas_to_image.e,
+                    canvas_to_image.b,
+                    canvas_to_image.d,
+                    canvas_to_image.f,
+                ),
+                resample=PILImage.Resampling.BICUBIC,
+                fillcolor=(0, 0, 0, 0),
+            )
+            self.image.alpha_composite(transformed)
             self.draw = ImageDraw.Draw(self.image, "RGBA")
 
         self._draw_with_style(style, draw_image_op)

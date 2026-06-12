@@ -2,7 +2,7 @@
 
 ## Current state
 
-The interactive Pyglet backend now uses a native renderer by default:
+The interactive Pyglet backend uses `PygletRenderer` by default. The renderer uses native Pyglet draw objects for normal frames. A deterministic Pillow parity surface is kept for p5-fidelity features that require pixel-exact compositing, and it is activated lazily only when a sketch uses pixel upload, `blend`, `erase`, or non-default blend modes:
 
 ```text
 p5-py public API
@@ -13,14 +13,16 @@ Renderer protocol
   ↓
 PygletRenderer
   ↓
-Pyglet shape draw commands
+Pillow parity surface for exact 2D semantics
+  ↓
+Pyglet texture presentation
   ↓
 Pyglet/OpenGL framebuffer
 ```
 
-The previous bridge backend was useful for the first implementation because it gave p5-py one deterministic renderer for both tests and interactive sketches. The native path removes the per-frame Pillow raster upload from the default interactive backend while preserving the same public p5-py APIs.
+Normal primitive, image, and text frames present the native Pyglet batch directly. When a parity-only feature is used, the renderer switches to presenting the parity surface so `update_pixels`, `blend`, `erase`, and related readback/export behavior match the headless/Pillow behavior without imposing a full-canvas texture upload on every ordinary frame.
 
-Pillow remains the deterministic renderer for the headless backend, golden tests, pixel-buffer workflows, and non-interactive export.
+Pillow remains the deterministic renderer for the headless backend, golden tests, and non-interactive export.
 
 ## Architecture
 
@@ -35,13 +37,15 @@ Renderer protocol
   ↓
 PygletRenderer
   ↓
+Pillow parity surface + Pyglet texture presentation
+  ↓
 Pyglet/OpenGL framebuffer
 ```
 
 With this split:
 
 - `PygletBackend` owns the window, event loop, input events, resize events, frame scheduling, and shutdown.
-- `PygletRenderer` owns native drawing operations.
+- `PygletRenderer` owns Pyglet presentation and switches to a deterministic parity surface only for pixel/compositing features that need it.
 - `SketchContext` continues to depend only on the renderer/backend protocols.
 - The public API remains unchanged.
 - Pillow remains the deterministic headless renderer and export/golden-test path.
@@ -52,7 +56,7 @@ The first native milestone keeps the backend as a single file and adds a separat
 
 ```text
 src/p5_py/backends/pyglet.py            # window, event loop, input, scheduling
-src/p5_py/backends/pyglet_renderer.py   # native drawing through Pyglet shapes
+src/p5_py/backends/pyglet_renderer.py   # Pyglet presentation plus parity rendering
 ```
 
 The backend can still be split into a package later if Pyglet-specific event, renderer, or capability code grows enough to justify it.
@@ -89,10 +93,10 @@ Responsible for:
 - fill and stroke rendering
 - transform application
 - HiDPI coordinate mapping
-- native image drawing from p5-py `Image` objects
-- native text drawing and text metrics
-- native framebuffer readback for `load_pixels` and `save_canvas`
-- explicit capability errors for APIs that are not implemented natively yet
+- image drawing from p5-py `Image` objects, including transformed/cropped destination rectangles
+- text drawing and text metrics
+- `load_pixels`, `update_pixels`, `blend`, `erase`, and `save_canvas` parity through the renderer surface
+- capability flags that advertise only implemented behavior
 
 ## Rendering approach options
 
@@ -136,7 +140,7 @@ Cons:
 
 ## First native renderer milestone
 
-The first native renderer uses Pyglet shapes plus shared p5-py geometry helpers. This keeps the implementation small and on public Pyglet APIs before introducing lower-level batching or custom OpenGL geometry.
+The first native renderer uses Pyglet draw objects for the common path and a deterministic parity surface as a targeted fallback for pixel/compositing semantics. This keeps ordinary interactive drawing fast while preserving correctness before introducing lower-level batching, shader compositing, or custom OpenGL geometry.
 
 Implemented:
 
@@ -152,9 +156,10 @@ Implemented:
 - `triangle`
 - `quad`
 - `arc`
-- `image` and `image_mode`, including destination scaling and source-rectangle cropping
+- `image` and `image_mode`, including affine transforms, center/corner/corners modes, destination scaling, and source-rectangle cropping
 - `text`, `text_width`, `text_ascent`, and `text_descent`
-- `load_pixels`
+- `load_pixels` and `update_pixels`
+- `blend_mode`, `blend`, `erase`, and `no_erase`
 - `save_canvas`
 
 The public `SketchContext` continues to flatten these into renderer polygons or polylines before calling the renderer:
@@ -171,9 +176,9 @@ The native renderer preserves the current pixel-density model:
 - `width()` and `height()` are logical p5 canvas dimensions.
 - `display_density()` reports the native display density when available.
 - `pixel_density()` controls the logical-to-physical scale.
-- Pyglet native drawing should not double-scale on Retina displays.
+- Pyglet presentation should not double-scale on Retina displays.
 
-`PygletRenderer` receives logical p5 coordinates, applies the active p5-py affine transform, scales by `pixel_density`, and flips the y axis into Pyglet's bottom-left framebuffer coordinate system:
+`PygletRenderer` receives logical p5 coordinates. Native helper objects map them into Pyglet's bottom-left framebuffer coordinate system, while the parity surface scales the same logical coordinates by `pixel_density` before rasterizing:
 
 ```text
 framebuffer_x = logical_x * pixel_density
@@ -186,27 +191,21 @@ The renderer tracks both logical dimensions and physical framebuffer dimensions 
 
 The native renderer now supports common image and text workflows:
 
-- `image` uploads Pillow-backed `Image` RGBA data to Pyglet image data/textures and draws sprites in p5 logical coordinates.
-- `image(img, x, y, w, h, sx, sy, sw, sh)` crops the source rectangle before upload.
-- `text` uses Pyglet labels with p5 fill color, text size, horizontal/vertical alignment, leading, multiline splitting, loaded font registration where practical, and active translation/rotation transforms.
-- `text_width`, `text_ascent`, and `text_descent` use Pyglet label/font metrics and may differ slightly from Pillow metrics.
-- `save_canvas` captures the current native framebuffer at physical pixel dimensions and writes a top-left-oriented RGBA image.
-- `load_pixels` uses the same framebuffer readback path and returns a physical RGBA buffer.
+- `image` honors `image_mode(CORNER)`, `image_mode(CENTER)`, and `image_mode(CORNERS)`, plus active affine transforms, destination scaling, and source-rectangle cropping. `translate(x, y); rotate(a); image(sprite, 0, 0, w, h)` rotates around the expected local origin when the image mode places that origin at the intended pivot.
+- `image(img, x, y, w, h, sx, sy, sw, sh)` crops the source rectangle before transforming the full destination rectangle.
+- `text` uses Pyglet labels for normal rendering and mirrors into the parity surface only after that path has been activated.
+- `save_canvas`, `load_pixels`, and `update_pixels` operate on a top-left-oriented physical RGBA buffer.
+- `blend_mode`, `blend`, `erase`, and `no_erase` follow the same deterministic compositing rules as the headless backend for primitives, images, and text.
 
-`update_pixels` remains explicitly capability-gated for the native Pyglet renderer. Uploading arbitrary edited pixel buffers back into the live native framebuffer requires a separate texture/framebuffer update path; until that lands, use the headless/Pillow backend for pixel-write workflows.
-
-Framebuffer readback is tied to the current native OpenGL context. `PygletRenderer` flushes the current draw batch before reading, so `save_canvas` and `load_pixels` can be used from a sketch draw callback. Captures use physical HiDPI dimensions, not logical `width()`/`height()`.
-
-Pillow remains the canonical deterministic path for golden tests and exact image/text/pixel comparisons.
+Captures use physical HiDPI dimensions, not logical `width()`/`height()`. Normal `save_canvas`/`load_pixels` read from the native framebuffer; once parity mode is active, they use the parity surface. A later renderer milestone can replace the parity surface with shader/framebuffer passes while keeping these semantics.
 
 ## Migration status
 
 1. `PygletRenderer` exists as a concrete implementation of the `Renderer` protocol.
-2. Basic primitive rendering is implemented through Pyglet-native draw commands.
+2. Basic primitive rendering constructs and presents Pyglet draw commands on the normal fast path.
 3. Transform, path, and curve support is provided by applying p5-py transform matrices and reusing shared geometry flattening before renderer calls.
 4. HiDPI logical and physical dimensions are covered by focused unit tests.
-5. Image drawing, text rendering/metrics, framebuffer readback, and canvas export are implemented for native Pyglet.
-6. `update_pixels` remains explicitly capability-gated for native Pyglet until a texture/framebuffer upload path is added.
+5. Image drawing, transformed image pivots, text rendering/metrics, pixel readback/update, compositing, and canvas export are implemented for Pyglet-backed sketches.
+6. `PygletBackend` advertises pixel update and all implemented blend constants.
 7. `PygletBackend` uses `PygletRenderer` by default.
-8. The bridge-specific Pillow image upload path has been removed from the default Pyglet backend.
-9. The headless Pillow backend remains available for deterministic export and tests.
+8. The headless Pillow backend remains available for deterministic export and tests.

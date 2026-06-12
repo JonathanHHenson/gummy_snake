@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from math import atan2, cos, hypot, pi, sin
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from PIL import Image as PILImage
 
 from p5_py import constants as c
 from p5_py.assets.image import Image
+from p5_py.backends.pillow import PillowRenderer
 from p5_py.core.color import Color
 from p5_py.core.state import StyleState
 from p5_py.core.transform import Matrix2D
@@ -48,6 +50,9 @@ class PygletRenderer:
         self._pyglet = pyglet
         self._batch: Any | None = None
         self._drawables: list[Any] = []
+        self._surface = PillowRenderer(width, height, pixel_density)
+        self._parity_active = False
+        self._surface_in_sync = True
         self.resize(width, height, pixel_density)
 
     def resize(self, width: int, height: int, pixel_density: float = 1.0) -> None:
@@ -60,16 +65,24 @@ class PygletRenderer:
         self.pixel_density = float(pixel_density)
         self.physical_width = max(1, int(round(self.width * self.pixel_density)))
         self.physical_height = max(1, int(round(self.height * self.pixel_density)))
+        self._surface.resize(self.width, self.height, self.pixel_density)
+        self._parity_active = False
+        self._surface_in_sync = True
         self._reset_batch()
 
     def begin_frame(self) -> None:
+        if self._parity_active:
+            self._surface.begin_frame()
         self._reset_batch()
 
     def end_frame(self) -> None:
         pass
 
     def background(self, color: Color) -> None:
-        self.clear()
+        self._surface.background(color)
+        self._parity_active = False
+        self._surface_in_sync = True
+        self._reset_batch()
         self._filled_polygon(
             [
                 (0, 0),
@@ -82,9 +95,16 @@ class PygletRenderer:
         )
 
     def clear(self) -> None:
+        self._surface.clear()
+        self._parity_active = False
+        self._surface_in_sync = True
         self._reset_batch()
 
     def point(self, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
+        if self._use_parity_for_style(style):
+            self._surface.point(x, y, style, transform)
+            return
+        self._surface_in_sync = False
         color = _rgba(style.stroke_color or style.fill_color)
         if color is None:
             return
@@ -101,6 +121,10 @@ class PygletRenderer:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        if self._use_parity_for_style(style):
+            self._surface.line(x1, y1, x2, y2, style, transform)
+            return
+        self._surface_in_sync = False
         if style.stroke_color is None:
             return
         p1 = self._to_framebuffer(*transform.transform_point(x1, y1))
@@ -115,6 +139,10 @@ class PygletRenderer:
         *,
         close: bool = True,
     ) -> None:
+        if self._use_parity_for_style(style):
+            self._surface.polygon(points, style, transform, close=close)
+            return
+        self._surface_in_sync = False
         if not points:
             return
         if len(points) == 1:
@@ -194,14 +222,17 @@ class PygletRenderer:
         *,
         source: tuple[int, int, int, int] | None = None,
     ) -> None:
-        del style
+        if self._use_parity_for_style(style):
+            self._surface.draw_image(image, dx, dy, dw, dh, style, transform, source=source)
+            return
+        self._surface_in_sync = False
         if dw <= 0 or dh <= 0:
             return
         texture = self._texture_for_image(image, source)
-        left, bottom, width, height, rotation = self._transformed_framebuffer_rect(
+        x, y, width, height, rotation = self._transformed_framebuffer_rect(
             dx, dy, dw, dh, transform
         )
-        sprite = self._make_sprite(texture, x=left, y=bottom)
+        sprite = self._make_sprite(texture, x=x, y=y)
         sprite.scale_x = width / max(1, texture.width)
         sprite.scale_y = height / max(1, texture.height)
         if rotation:
@@ -216,6 +247,10 @@ class PygletRenderer:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        if self._use_parity_for_style(style):
+            self._surface.text(value, x, y, style, transform)
+            return
+        self._surface_in_sync = False
         if style.fill_color is None:
             return
         lines = str(value).splitlines() or [""]
@@ -253,13 +288,15 @@ class PygletRenderer:
         return abs(float(descent)) / self.pixel_density
 
     def load_pixels(self) -> list[int]:
+        if self._parity_active:
+            return self._surface.load_pixels()
         return list(self._read_framebuffer_rgba())
 
     def update_pixels(self, pixels: list[int]) -> None:
-        raise BackendCapabilityError(
-            "update_pixels() is not supported by the native Pyglet renderer yet. "
-            "Use the headless backend for pixel-buffer workflows."
-        )
+        self._surface.update_pixels(pixels)
+        self._parity_active = True
+        self._surface_in_sync = True
+        self._reset_batch()
 
     def blend_region(
         self,
@@ -268,12 +305,14 @@ class PygletRenderer:
         destination: tuple[int, int, int, int],
         mode: str,
     ) -> None:
-        raise BackendCapabilityError(
-            "blend() region compositing is not supported by the native Pyglet renderer yet. "
-            "Use the headless backend for deterministic blend-mode workflows."
-        )
+        self._activate_parity_surface()
+        self._surface.blend_region(cast(Any, source_image), source, destination, mode)
+        self._reset_batch()
 
     def save(self, path: str | Path) -> None:
+        if self._parity_active:
+            self._surface.save(path)
+            return
         image = PILImage.frombytes(
             "RGBA",
             (self.physical_width, self.physical_height),
@@ -282,8 +321,18 @@ class PygletRenderer:
         image.save(path)
 
     def draw(self) -> None:
-        if self._batch is not None:
+        if self._batch is not None and not self._parity_active:
             self._batch.draw()
+            return
+        if self._pyglet is None:
+            return
+        pyglet = self._load_pyglet()
+        batch = pyglet.graphics.Batch()
+        texture = self._texture_for_pillow(self._surface.get_image())
+        sprite = pyglet.sprite.Sprite(texture, x=0, y=self.physical_height, batch=batch)
+        sprite.scale_x = self.physical_width / max(1, texture.width)
+        sprite.scale_y = self.physical_height / max(1, texture.height)
+        batch.draw()
 
     def bind_pyglet(self, pyglet: Any) -> None:
         if self._pyglet is pyglet:
@@ -304,6 +353,24 @@ class PygletRenderer:
             self._batch = None
             return
         self._batch = self._load_pyglet().graphics.Batch()
+
+    def _use_parity_for_style(self, style: StyleState) -> bool:
+        if self._parity_active:
+            return True
+        if style.erasing or style.blend_mode != c.BLEND:
+            self._activate_parity_surface()
+            return True
+        return False
+
+    def _activate_parity_surface(self) -> None:
+        if self._parity_active:
+            return
+        if not self._surface_in_sync:
+            with suppress(BackendCapabilityError):
+                self._surface.update_pixels(list(self._read_framebuffer_rgba()))
+        self._parity_active = True
+        self._surface_in_sync = True
+        self._reset_batch()
 
     def _to_framebuffer(self, x: float, y: float) -> tuple[float, float]:
         return x * self.pixel_density, self.physical_height - y * self.pixel_density
@@ -373,6 +440,9 @@ class PygletRenderer:
         if source is not None:
             sx, sy, sw, sh = source
             source_image = source_image.crop((sx, sy, sx + sw, sy + sh))
+        return self._texture_for_pillow(source_image)
+
+    def _texture_for_pillow(self, source_image: PILImage.Image) -> Any:
         source_image = source_image.convert("RGBA")
         pyglet = self._load_pyglet()
         image_data = pyglet.image.ImageData(
@@ -383,7 +453,14 @@ class PygletRenderer:
             pitch=-source_image.width * 4,
         )
         texture_getter = getattr(image_data, "get_texture", None)
-        return texture_getter() if callable(texture_getter) else image_data
+        texture = texture_getter() if callable(texture_getter) else image_data
+        texture_any: Any = texture
+        try:
+            texture_any.anchor_x = 0
+            texture_any.anchor_y = texture_any.height
+        except AttributeError:
+            pass
+        return texture
 
     def _make_sprite(self, texture: Any, *, x: float, y: float) -> Any:
         pyglet = self._load_pyglet()
@@ -402,9 +479,8 @@ class PygletRenderer:
         top = fb_points[0][1]
         width_px = max(0.0, hypot(fb_points[1][0] - left, fb_points[1][1] - top))
         height_px = max(0.0, hypot(fb_points[2][0] - left, fb_points[2][1] - top))
-        bottom = top - height_px
         rotation = -atan2(fb_points[1][1] - top, fb_points[1][0] - left) * 180 / pi
-        return left, bottom, width_px, height_px, rotation
+        return left, top, width_px, height_px, rotation
 
     def _make_label(
         self,
