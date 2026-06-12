@@ -1,0 +1,214 @@
+"""Sketch lifecycle runtime."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from contextlib import contextmanager
+from typing import Any
+
+from p5_py.api.current import activate_context
+from p5_py.backends.registry import create_backend
+from p5_py.context import SketchContext
+
+
+class Sketch:
+    """Base class for object-oriented p5-py sketches."""
+
+    def __init__(self, *, backend: str = "pyglet") -> None:
+        self.backend_name = backend
+        self.context: SketchContext | None = None
+        self._running = False
+
+    def preload(self) -> None:
+        pass
+
+    def setup(self) -> None:
+        pass
+
+    def draw(self) -> None:
+        pass
+
+    def run(self, *, backend: str | None = None, max_frames: int | None = None) -> SketchContext:
+        backend_instance = create_backend(backend or self.backend_name)
+        self.context = SketchContext(self, backend_instance)
+        self._running = True
+        with activate_context(self.context):
+            self.preload()
+            self.setup()
+            self.context.ensure_canvas()
+            backend_instance.run(self, max_frames=max_frames)
+        return self.context
+
+    def stop(self) -> None:
+        self._running = False
+        if self.context is not None:
+            self.context.backend.stop()
+
+    def _draw_frame(self) -> None:
+        if not self._running or self.context is None:
+            return
+        context = self.context
+        should_draw = context.state.looping or context.state.redraw_requested
+        if not should_draw:
+            return
+        context.state.timing.begin_frame()
+        context.renderer.begin_frame()
+        with activate_context(context):
+            self.draw()
+        context.renderer.end_frame()
+        context.state.timing.frame_count += 1
+        context.state.redraw_requested = False
+
+    def _dispatch_callback(self, name: str, event: object) -> None:
+        callback = getattr(self, name, None)
+        if callable(callback):
+            try:
+                callback(event)
+            except TypeError:
+                callback()
+
+    # Lifecycle delegates
+    def no_loop(self) -> None:
+        self._ctx.no_loop()
+
+    def loop(self) -> None:
+        self._ctx.loop()
+
+    def redraw(self) -> None:
+        self._ctx.redraw()
+
+    def is_looping(self) -> bool:
+        return self._ctx.is_looping()
+
+    # Canvas / style / drawing delegates
+    def create_canvas(self, width: int, height: int, *, pixel_density: float = 1.0) -> None:
+        self._ctx.create_canvas(width, height, pixel_density=pixel_density)
+
+    def resize_canvas(self, width: int, height: int, *, pixel_density: float | None = None) -> None:
+        self._ctx.resize_canvas(width, height, pixel_density=pixel_density)
+
+    def background(self, *args: object) -> None:
+        self._ctx.background(*args)
+
+    def clear(self) -> None:
+        self._ctx.clear()
+
+    def fill(self, *args: object) -> None:
+        self._ctx.fill(*args)
+
+    def no_fill(self) -> None:
+        self._ctx.no_fill()
+
+    def stroke(self, *args: object) -> None:
+        self._ctx.stroke(*args)
+
+    def no_stroke(self) -> None:
+        self._ctx.no_stroke()
+
+    def stroke_weight(self, weight: float) -> None:
+        self._ctx.stroke_weight(weight)
+
+    def point(self, x: float, y: float) -> None:
+        self._ctx.point(x, y)
+
+    def line(self, x1: float, y1: float, x2: float, y2: float) -> None:
+        self._ctx.line(x1, y1, x2, y2)
+
+    def rect(self, x: float, y: float, width: float, height: float | None = None) -> None:
+        self._ctx.rect(x, y, width, height)
+
+    def square(self, x: float, y: float, size: float) -> None:
+        self._ctx.square(x, y, size)
+
+    def ellipse(self, x: float, y: float, width: float, height: float | None = None) -> None:
+        self._ctx.ellipse(x, y, width, height)
+
+    def circle(self, x: float, y: float, diameter: float) -> None:
+        self._ctx.circle(x, y, diameter)
+
+    def triangle(self, *coords: float) -> None:
+        self._ctx.triangle(*coords)
+
+    def quad(self, *coords: float) -> None:
+        self._ctx.quad(*coords)
+
+    def arc(self, *args: Any) -> None:
+        self._ctx.arc(*args)
+
+    def push(self) -> None:
+        self._ctx.push()
+
+    def pop(self) -> None:
+        self._ctx.pop()
+
+    @contextmanager
+    def pushed(self):
+        self.push()
+        try:
+            yield
+        finally:
+            self.pop()
+
+    def translate(self, x: float, y: float) -> None:
+        self._ctx.translate(x, y)
+
+    def rotate(self, angle: float) -> None:
+        self._ctx.rotate(angle)
+
+    def scale(self, x: float, y: float | None = None) -> None:
+        self._ctx.scale(x, y)
+
+    @property
+    def width(self) -> int:
+        return self._ctx.width
+
+    @property
+    def height(self) -> int:
+        return self._ctx.height
+
+    @property
+    def frame_count(self) -> int:
+        return self._ctx.frame_count
+
+    @property
+    def mouse_x(self) -> float:
+        return self._ctx.mouse_x
+
+    @property
+    def mouse_y(self) -> float:
+        return self._ctx.mouse_y
+
+    @property
+    def _ctx(self) -> SketchContext:
+        if self.context is None:
+            raise RuntimeError("Sketch context is not available until run() starts.")
+        return self.context
+
+
+class FunctionSketch(Sketch):
+    """Sketch wrapper for module-level/global-mode functions."""
+
+    def __init__(
+        self,
+        *,
+        preload: Callable[[], None] | None = None,
+        setup: Callable[[], None] | None = None,
+        draw: Callable[[], None] | None = None,
+        backend: str = "pyglet",
+    ) -> None:
+        super().__init__(backend=backend)
+        self._preload_func = preload
+        self._setup_func = setup
+        self._draw_func = draw
+
+    def preload(self) -> None:
+        if self._preload_func is not None:
+            self._preload_func()
+
+    def setup(self) -> None:
+        if self._setup_func is not None:
+            self._setup_func()
+
+    def draw(self) -> None:
+        if self._draw_func is not None:
+            self._draw_func()
