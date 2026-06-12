@@ -9,21 +9,25 @@ acceptance_criteria = '''
 `Color`, `color`, `color_mode`, channel accessors, and `lerp_color` support RGB, HSB, and HSL modes with configurable ranges. Common p5-style input overloads are validated and tested.
 '''
 priotity = 'high'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Implement normalized internal RGBA storage and mode-aware constructors.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Support grayscale, RGB/RGBA, HSB/HSBA, HSL/HSLA, existing Color objects, and common string color inputs where practical.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Implement channel accessors and `lerp_color` with mode-specific tests.
 '''

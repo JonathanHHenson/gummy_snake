@@ -9,21 +9,25 @@ acceptance_criteria = '''
 `push`, `pop`, `translate`, `rotate`, `scale`, `shear_x`, `shear_y`, `apply_matrix`, `reset_matrix`, and angle modes work consistently in supported renderers. A Python context manager is available for scoped push/pop.
 '''
 priotity = 'high'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Implement 2D affine matrix representation and stack operations.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Implement transform APIs and renderer integration, honoring radians/degrees angle mode.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Add `pushed()` context manager and nested transform/style stack tests.
 '''

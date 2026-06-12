@@ -9,27 +9,32 @@ acceptance_criteria = '''
 `load_pixels`, `update_pixels`, and `pixels` expose canvas data with documented channel order and pixel-density behavior. A Pythonic array-oriented path is available for performance-conscious users.
 '''
 priotity = 'medium'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Define pixel buffer representation, channel order, mutability rules, and pixel density handling.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Implement canvas pixel APIs for the headless/Pillow backend.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Expose an optional NumPy-friendly view or conversion path.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'TODO'
 description = '''
 Add pixel read/write round-trip tests.
 '''

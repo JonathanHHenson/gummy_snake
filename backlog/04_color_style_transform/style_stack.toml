@@ -9,21 +9,25 @@ acceptance_criteria = '''
 `background`, `clear`, `fill`, `no_fill`, `stroke`, `no_stroke`, `stroke_weight`, `stroke_cap`, `stroke_join`, and style stack behavior are implemented and tested with the renderer.
 '''
 priotity = 'high'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Create style state dataclasses for fill, stroke, stroke weight, caps, joins, blend mode, text style, and image mode.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Implement style mutation APIs and renderer style application.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Add tests for style persistence, no-fill/no-stroke behavior, and background clearing.
 '''

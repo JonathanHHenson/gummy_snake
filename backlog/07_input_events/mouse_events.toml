@@ -9,27 +9,32 @@ acceptance_criteria = '''
 Mouse position, previous position, movement delta, pressed state, button state, wheel events, and callbacks for pressed, released, clicked, double-clicked, moved, dragged, and wheel are supported through normalized event objects.
 '''
 priotity = 'high'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Define mouse event dataclasses and input state fields.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Normalize backend mouse events into state updates and callback dispatch.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Expose Pythonic properties and p5.js-compatible aliases.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'TODO'
 description = '''
 Add synthetic event-dispatch tests.
 '''

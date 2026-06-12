@@ -9,21 +9,25 @@ acceptance_criteria = '''
 Model loading and shader APIs have a Python-native proposal, supported asset formats, backend requirements, and clear incompatibility notes for p5.js examples that assume browser/WebGL behavior.
 '''
 priotity = 'low'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Research feasible model formats and Python loaders.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Design Python shader loading and uniform APIs around the selected rendering backend.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Add deferred API stubs and documentation for model and shader APIs.
 '''

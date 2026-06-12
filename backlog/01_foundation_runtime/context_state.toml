@@ -9,21 +9,25 @@ acceptance_criteria = '''
 A `SketchContext` owns canvas state, renderer, backend, timing, style state, transform state, input state, shape state, assets, and pixel state. Public APIs access state through the context rather than ad hoc global variables.
 '''
 priotity = 'high'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
+status = 'DONE'
 description = '''
 Define `SketchContext` and supporting dataclasses for canvas, timing, style, transform, input, assets, and pixels.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'DONE'
 description = '''
 Implement context creation, reset, and cleanup paths for repeated runs.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'DONE'
 description = '''
 Raise clear errors when drawing APIs are called outside an active sketch context.
 '''

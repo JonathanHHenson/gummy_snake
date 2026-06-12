@@ -9,21 +9,25 @@ acceptance_criteria = '''
 The project can build source distributions and wheels, declares optional dependency groups, includes license/readme metadata, and documents release steps. Rust packaging is handled when enabled.
 '''
 priotity = 'medium'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Update packaging metadata, README, classifiers, dependency groups, and package discovery.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Add build checks for pure-Python distributions and maturin-backed wheels.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Document versioning, changelog, release validation, and publishing workflow.
 '''

@@ -9,21 +9,25 @@ acceptance_criteria = '''
 Users can define module-level `preload`, `setup`, and `draw` functions and call `run()`. Global drawing and state functions delegate to the active sketch context and are safe to import with `from p5_py import *`.
 '''
 priotity = 'high'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
+status = 'DONE'
 description = '''
 Implement active-context management for global mode without leaking state between runs.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'DONE'
 description = '''
 Create global wrappers for lifecycle, canvas, style, drawing, transform, math, input, image, text, and pixel APIs as they are implemented.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'DONE'
 description = '''
 Add tests for module-level sketch discovery and explicit callable registration.
 '''

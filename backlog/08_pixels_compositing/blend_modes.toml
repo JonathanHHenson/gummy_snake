@@ -9,27 +9,32 @@ acceptance_criteria = '''
 `blend_mode`, `blend`, `erase`, `no_erase`, and key blend constants are implemented where backend support exists. Unsupported modes report capability errors. Golden tests cover core modes.
 '''
 priotity = 'medium'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Define blend constants, capability flags, and pure-Python/Pillow compositing behavior.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Implement `blend_mode` and `blend` APIs.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Implement erase/no-erase using alpha compositing where supported.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'TODO'
 description = '''
 Add golden tests for core blend modes.
 '''

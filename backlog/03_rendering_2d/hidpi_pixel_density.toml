@@ -1,0 +1,68 @@
+[my_pbi]
+title = "Implement HiDPI pixel-density rendering"
+description = '''
+As a sketch author using a Retina or HiDPI display,
+I want the interactive backend to render at native device resolution,
+So that sketches look sharp instead of being upscaled from a low-resolution buffer.
+'''
+acceptance_criteria = '''
+The Pyglet backend detects the window pixel ratio or framebuffer size, configures the renderer backing buffer at physical-pixel resolution, preserves logical p5 coordinate behavior, exposes pixel-density controls, and documents how pixel density affects rendering and pixel APIs.
+'''
+priotity = 'high'
+status = 'TODO'
+
+[my_pbi.task_1]
+order = 1
+status = 'TODO'
+description = '''
+Define the logical canvas size versus physical backing-buffer size model for all renderers.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'TODO'
+description = '''
+Add public pixel-density APIs, including `pixel_density`, `display_density`, and p5.js aliases such as `pixelDensity` and `displayDensity`.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'TODO'
+description = '''
+Update `CanvasState` and renderer protocols to track logical width/height separately from physical buffer width/height.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'TODO'
+description = '''
+Update `PillowRenderer` so drawing commands are rasterized into a physical-pixel buffer while preserving logical p5 coordinates, stroke weights, transforms, and shape modes.
+'''
+
+[my_pbi.task_5]
+order = 5
+status = 'TODO'
+description = '''
+Update `PygletBackend` to initialize and resize the Pillow backing buffer using the active window pixel ratio or framebuffer size.
+'''
+
+[my_pbi.task_6]
+order = 6
+status = 'TODO'
+description = '''
+Define and test `load_pixels` and `update_pixels` behavior when pixel density is greater than 1.
+'''
+
+[my_pbi.task_7]
+order = 7
+status = 'TODO'
+description = '''
+Add tests for HiDPI presentation sizing, physical backing-buffer dimensions, logical coordinate mapping, and exported image dimensions.
+'''
+
+[my_pbi.task_8]
+order = 8
+status = 'TODO'
+description = '''
+Document the difference between logical canvas coordinates and physical device pixels, including expected behavior on Retina/HiDPI displays.
+'''

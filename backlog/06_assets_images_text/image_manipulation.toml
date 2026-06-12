@@ -9,27 +9,32 @@ acceptance_criteria = '''
 Image objects support `get`, `set`, `copy`, `resize`, `mask`, and common `filter` operations where feasible. Operations are tested and documented with performance guidance.
 '''
 priotity = 'medium'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Implement image region access and mutation APIs.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Implement copy, resize, and mask operations.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Implement common filters such as gray, threshold, invert, blur, posterize, erode, and dilate where practical.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'TODO'
 description = '''
 Add deterministic output tests.
 '''

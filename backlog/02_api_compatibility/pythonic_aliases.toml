@@ -9,21 +9,25 @@ acceptance_criteria = '''
 Each public API has a documented canonical Python name. p5.js camelCase aliases are provided where useful. Alias behavior is tested and does not duplicate implementation logic.
 '''
 priotity = 'high'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
+status = 'DONE'
 description = '''
 Define naming policy for canonical Python APIs, p5 compatibility aliases, constants, and properties.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'DONE'
 description = '''
 Implement a centralized alias registry mapping camelCase names to snake_case implementations.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'DONE'
 description = '''
 Generate or validate documentation tables showing Pythonic names and p5.js aliases.
 '''

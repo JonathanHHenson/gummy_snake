@@ -9,27 +9,32 @@ acceptance_criteria = '''
 Rust implementations exist for selected noise, blend, filter, or pixel operations with equivalent Python fallbacks. Parity tests confirm results match within documented tolerances.
 '''
 priotity = 'low'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Select initial acceleration targets based on profiling data.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Implement narrow Rust functions for one noise path and one pixel/filter path.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Wire strategy selection to use acceleration when available.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'TODO'
 description = '''
 Add parity and benchmark tests.
 '''

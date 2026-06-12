@@ -9,27 +9,32 @@ acceptance_criteria = '''
 `begin_shape`, `end_shape`, `vertex`, `begin_contour`, `end_contour`, Bezier curves, curve vertices, and related curve math APIs are supported or clearly marked partial with tests for supported behavior.
 '''
 priotity = 'medium'
+status = 'IN_PROGRESS'
 
 [my_pbi.task_1]
 order = 1
+status = 'DONE'
 description = '''
 Create shape-construction state for vertices, contours, close/open modes, and shape kinds.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'DONE'
 description = '''
 Implement path rendering for polygonal shapes and contours in supported renderers.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'DONE'
 description = '''
 Implement Bezier and curve helper math including point and tangent functions.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'TODO'
 description = '''
 Add golden and unit tests for custom shapes, contours, and curves.
 '''

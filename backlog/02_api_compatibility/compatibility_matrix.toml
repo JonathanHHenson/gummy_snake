@@ -9,21 +9,25 @@ acceptance_criteria = '''
 A compatibility matrix documents each major p5.js API category, p5-py status, Pythonic equivalent where applicable, implementation notes, and exclusions. Deferred APIs raise clear errors if exposed.
 '''
 priotity = 'medium'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
+status = 'DONE'
 description = '''
 Create a structured compatibility data file grouped by lifecycle, drawing, color, transforms, images, text, input, math, vectors, pixels, 3D, sound, and data.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'DONE'
 description = '''
 Document excluded APIs including DOM, browser-only APIs, `p5.XML`, `p5.Table`, and `p5.TableRow`.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'DONE'
 description = '''
 Add tests ensuring exposed deferred APIs raise package-specific unsupported-feature exceptions.
 '''

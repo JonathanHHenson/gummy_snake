@@ -9,27 +9,32 @@ acceptance_criteria = '''
 Key, key code, pressed state, `key_is_down`, and callbacks for pressed, released, and typed are supported with normalized event objects and documented key-code behavior.
 '''
 priotity = 'high'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Define keyboard event dataclasses, key constants, and input state fields.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Normalize backend keyboard events into state updates and callback dispatch.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Implement `key_is_down` and p5.js-compatible aliases.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'TODO'
 description = '''
 Add synthetic event tests.
 '''

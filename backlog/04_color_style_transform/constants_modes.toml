@@ -9,21 +9,25 @@ acceptance_criteria = '''
 Constants for geometry modes, shape modes, angle modes, text alignment, color modes, blend modes, stroke caps/joins, renderers, and key codes are exposed and documented.
 '''
 priotity = 'medium'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Define constants such as CORNER, CORNERS, CENTER, RADIUS, OPEN, CLOSE, RGB, HSB, HSL, RADIANS, and DEGREES.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Integrate constants with validation logic for style, geometry, color, text, and renderer APIs.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Document constants and add export regression tests.
 '''

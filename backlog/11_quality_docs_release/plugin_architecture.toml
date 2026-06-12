@@ -9,21 +9,25 @@ acceptance_criteria = '''
 A plugin registry supports install/uninstall hooks and lifecycle hooks such as before setup, before draw, after draw, and event handling. Plugins can add APIs without modifying core runtime internals.
 '''
 priotity = 'low'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Define plugin protocol, lifecycle hook names, and registration semantics.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Implement plugin registry with deterministic hook ordering.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Add example plugin and tests covering hooks, API extension, and cleanup.
 '''

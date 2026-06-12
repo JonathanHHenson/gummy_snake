@@ -9,21 +9,25 @@ acceptance_criteria = '''
 `load_strings`, `load_json`, `save_strings`, and `save_json` return and accept plain Python data structures. XML and Table APIs remain excluded with clear documentation.
 '''
 priotity = 'low'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Implement text-line and JSON loading using Python standard-library facilities.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Implement saving helpers for strings and JSON with explicit encoding behavior.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Document why XML, Table, and TableRow are excluded.
 '''

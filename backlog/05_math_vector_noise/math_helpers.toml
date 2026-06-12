@@ -9,21 +9,25 @@ acceptance_criteria = '''
 `map_value`, `constrain`, `norm`, `lerp`, `dist`, `mag`, angle conversion helpers, and selected trig wrappers work with angle mode where applicable. Trivial Python built-ins are not duplicated unless compatibility requires it.
 '''
 priotity = 'medium'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Implement non-trivial math helpers and document omitted built-in equivalents.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Provide compatibility aliases such as `map` carefully.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Add numerical precision and edge-case tests.
 '''

@@ -9,27 +9,32 @@ acceptance_criteria = '''
 A `src/p5_py` package exists with organized modules for runtime, API, constants, exceptions, core systems, drawing, backends, events, assets, pixels, plugins, Rust integration, and testing helpers. The package imports without side effects and exposes an intentional public surface.
 '''
 priotity = 'high'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
+status = 'DONE'
 description = '''
 Create the `src/p5_py` layout and move away from a single `main.py` entry point.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'DONE'
 description = '''
 Define package modules for `api`, `core`, `drawing`, `backends`, `events`, `assets`, `pixels`, `plugins`, `rust`, and `testing`.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'DONE'
 description = '''
 Add package-level exports for initial runtime primitives without importing optional backends eagerly.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'DONE'
 description = '''
 Update project metadata for package discovery, optional dependencies, and development tooling.
 '''

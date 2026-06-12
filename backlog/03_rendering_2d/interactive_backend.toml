@@ -9,27 +9,32 @@ acceptance_criteria = '''
 One interactive backend is selected, implemented behind the backend protocol, and documented. It supports window creation, frame presentation, resize, mouse and keyboard event forwarding, and clean shutdown.
 '''
 priotity = 'high'
+status = 'IN_PROGRESS'
 
 [my_pbi.task_1]
 order = 1
+status = 'DONE'
 description = '''
 Evaluate Pyglet, pygame-ce/SDL, and Skia-related options.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'DONE'
 description = '''
 Implement the selected backend as an optional dependency group.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'DONE'
 description = '''
 Wire backend event-loop timing to sketch lifecycle and renderer protocol.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'IN_PROGRESS'
 description = '''
 Add smoke tests or manual examples for interactive drawing and input.
 '''

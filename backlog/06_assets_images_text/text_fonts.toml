@@ -9,21 +9,25 @@ acceptance_criteria = '''
 `text`, `text_size`, `text_font`, `text_style`, `text_align`, `text_leading`, `text_width`, `text_ascent`, `text_descent`, and `load_font` work in supported renderers with documented backend differences.
 '''
 priotity = 'medium'
+status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
+status = 'TODO'
 description = '''
 Create font abstraction and font-loading API.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'TODO'
 description = '''
 Implement text style state, alignment, leading, multiline layout, and renderer text drawing.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'TODO'
 description = '''
 Implement text metrics APIs with backend capability handling and toleranced tests.
 '''

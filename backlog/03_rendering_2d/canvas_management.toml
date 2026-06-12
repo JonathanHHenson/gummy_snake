@@ -9,21 +9,25 @@ acceptance_criteria = '''
 `create_canvas`, `resize_canvas`, width, height, display dimensions, and pixel density APIs work in headless mode and are prepared for interactive backends. p5.js aliases are available.
 '''
 priotity = 'high'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
+status = 'DONE'
 description = '''
 Implement canvas state and `create_canvas` / `resize_canvas` behavior.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'DONE'
 description = '''
 Expose `width`, `height`, display dimensions, and pixel-density getters/setters through context and global mode.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'DONE'
 description = '''
 Add tests for resizing, renderer recreation or buffer resizing, and state consistency.
 '''

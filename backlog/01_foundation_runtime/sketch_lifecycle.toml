@@ -9,27 +9,32 @@ acceptance_criteria = '''
 The runtime executes `preload` once, `setup` once, and `draw` repeatedly according to loop state. It supports `run`, `stop`, `loop`, `no_loop`, `redraw`, and `is_looping` with deterministic headless tests.
 '''
 priotity = 'high'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
+status = 'DONE'
 description = '''
 Create a `Sketch` class that owns lifecycle methods, timing, context, and backend selection.
 '''
 
 [my_pbi.task_2]
 order = 2
+status = 'DONE'
 description = '''
 Implement lifecycle controls in the class API.
 '''
 
 [my_pbi.task_3]
 order = 3
+status = 'DONE'
 description = '''
 Add deterministic lifecycle tests using a headless backend and bounded frame count.
 '''
 
 [my_pbi.task_4]
 order = 4
+status = 'DONE'
 description = '''
 Document lifecycle differences from p5.js where Python constraints require different behavior.
 '''
