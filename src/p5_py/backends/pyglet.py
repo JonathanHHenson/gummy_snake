@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any, cast
 
 from p5_py import constants as c
@@ -26,6 +27,7 @@ class PygletBackend:
         self._pyglet: Any | None = None
         self._running = False
         self._frames_drawn = 0
+        self._next_frame_time = 0.0
 
     def create_canvas(self, width: int, height: int, pixel_density: float | None = None) -> None:
         pyglet = self._load_pyglet()
@@ -49,7 +51,11 @@ class PygletBackend:
             self.create_canvas(self.renderer.width, self.renderer.height)
         self._install_handlers(sketch)
         self._running = True
+        self._frames_drawn = 0
+        if max_frames == 0:
+            return
         interval = 1.0 / max(1.0, sketch.context.state.timing.target_frame_rate)
+        self._next_frame_time = time.perf_counter()
 
         def tick(_dt: float) -> None:
             if not self._running:
@@ -64,10 +70,12 @@ class PygletBackend:
             if max_frames is not None and self._frames_drawn >= max_frames:
                 self.stop()
                 pyglet.app.exit()
+                return
+            delay = self._next_frame_delay(time.perf_counter(), interval)
+            pyglet.clock.schedule_once(tick, delay)
 
-        pyglet.clock.schedule_interval(tick, interval)
+        pyglet.clock.schedule_once(tick, 0.0)
         pyglet.app.run()
-        pyglet.clock.unschedule(tick)
 
     def stop(self) -> None:
         self._running = False
@@ -109,6 +117,12 @@ class PygletBackend:
             int(round(self.renderer.width * pixel_ratio)),
             int(round(self.renderer.height * pixel_ratio)),
         )
+
+    def _next_frame_delay(self, now: float, interval: float) -> float:
+        self._next_frame_time += interval
+        while self._next_frame_time <= now:
+            self._next_frame_time += interval
+        return max(0.0, self._next_frame_time - now)
 
     def _load_pyglet(self):
         if self._pyglet is None:
