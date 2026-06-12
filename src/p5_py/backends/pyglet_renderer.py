@@ -20,6 +20,9 @@ def _rgba(color: Color | None) -> tuple[int, int, int, int] | None:
     return None if color is None else color.to_tuple()
 
 
+_PYGLET_FONT_DPI = 72
+
+
 class PygletRenderer:
     """Pyglet-native 2D renderer used by the interactive backend.
 
@@ -407,6 +410,7 @@ class PygletRenderer:
             value,
             font_name=self._pyglet_font_name(style),
             font_size=style.text_size * self.pixel_density,
+            dpi=_PYGLET_FONT_DPI,
             x=x,
             y=y,
             anchor_x=self._pyglet_anchor_x(style),
@@ -425,12 +429,15 @@ class PygletRenderer:
             value,
             font_name=self._pyglet_font_name(style),
             font_size=style.text_size * self.pixel_density,
+            dpi=_PYGLET_FONT_DPI,
         )
 
     def _load_pyglet_font(self, style: StyleState) -> Any:
         pyglet = self._load_pyglet()
         font_name = self._pyglet_font_name(style)
-        return pyglet.font.load(font_name, style.text_size * self.pixel_density)
+        return pyglet.font.load(
+            font_name, style.text_size * self.pixel_density, dpi=_PYGLET_FONT_DPI
+        )
 
     def _pyglet_font_name(self, style: StyleState) -> str | None:
         font = style.text_font

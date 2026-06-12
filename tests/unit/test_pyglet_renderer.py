@@ -168,8 +168,8 @@ class FakeFontModule:
     def add_file(self, path):
         self.files.append(path)
 
-    def load(self, name, size):
-        self.loaded.append((name, size))
+    def load(self, name, size, dpi=None):
+        self.loaded.append((name, size, dpi))
         return FakeLoadedFont()
 
 
@@ -300,6 +300,8 @@ def test_native_renderer_draws_and_measures_text():
     assert first.kwargs["anchor_x"] == "center"
     assert first.kwargs["anchor_y"] == "top"
     assert first.kwargs["color"] == (10, 20, 30, 255)
+    assert first.kwargs["font_size"] == 24
+    assert first.kwargs["dpi"] == 72
     assert renderer.text_width("Hi", style) == pytest.approx(12.0)
     assert renderer.text_ascent(style) == pytest.approx(8.0)
     assert renderer.text_descent(style) == pytest.approx(2.0)
