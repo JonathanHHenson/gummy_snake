@@ -1,0 +1,40 @@
+[my_pbi]
+title = "Activate WEBGL renderer selection and native 3D backend integration"
+description = '''
+As a p5-py user,
+I want `create_canvas(..., renderer=WEBGL)` to select a native 3D rendering path,
+So that sketches can opt into advanced 3D behavior without breaking the existing 2D runtime.
+'''
+acceptance_criteria = '''
+A WEBGL renderer-selection path exists without regressing current 2D backends. A native Pyglet-hosted 3D renderer spike can open a context, render at least a triangle or cube, apply depth testing, and expose capability-gated integration through the existing backend/renderer architecture.
+'''
+priotity = 'high'
+status = 'TODO'
+
+[my_pbi.task_1]
+order = 1
+status = 'TODO'
+description = '''
+Add a renderer-selection path for `create_canvas(..., renderer=WEBGL)` and related backend selection logic without changing the default 2D behavior.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'TODO'
+description = '''
+Implement a Pyglet-hosted native 3D renderer spike that can present a triangle or cube with depth testing and logical canvas sizing.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'TODO'
+description = '''
+Wire `Renderer3D` capability checks into backend/runtime code so unsupported backends fail with clear package-specific errors instead of missing methods.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'TODO'
+description = '''
+Add focused tests and a smoke example covering WEBGL renderer activation, capability gating, and the first native 3D frame.
+'''

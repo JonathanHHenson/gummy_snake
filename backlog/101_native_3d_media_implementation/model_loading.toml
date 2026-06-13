@@ -1,0 +1,40 @@
+[my_pbi]
+title = "Implement backend-neutral model loading and drawing"
+description = '''
+As an advanced graphics user,
+I want to load and draw models from native Python asset paths,
+So that p5-py can support common 3D workflows without browser assumptions.
+'''
+acceptance_criteria = '''
+Generated meshes and in-memory `Model3D` values are drawable on the native 3D path. `load_model` supports at least OBJ assets from local files or package resources, returns backend-neutral model data, and documents current material/format limitations. Deterministic tests and examples cover model loading and rendering.
+'''
+priotity = 'medium'
+status = 'TODO'
+
+[my_pbi.task_1]
+order = 1
+status = 'TODO'
+description = '''
+Implement `model()` drawing support for in-memory `Mesh3D` and `Model3D` values using the selected 3D renderer.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'TODO'
+description = '''
+Implement `load_model` for Wavefront OBJ assets loaded from local filesystem paths or package resources.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'TODO'
+description = '''
+Document and enforce first-milestone limitations for materials, textures, URL loading, asynchronous preload semantics, and unsupported advanced formats such as glTF animation.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'TODO'
+description = '''
+Add tests and examples for generated primitives, OBJ loading, and model rendering, and outline follow-up work for glTF or other optional formats.
+'''

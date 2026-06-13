@@ -1,0 +1,40 @@
+[my_pbi]
+title = "Implement foundational sound playback and analysis APIs"
+description = '''
+As a p5-py user,
+I want native Python sound objects for playback and basic analysis,
+So that I can build audio-reactive sketches without browser-only APIs.
+'''
+acceptance_criteria = '''
+`load_sound` returns a backend-neutral sound object with at least play, pause, stop, volume, rate, and pan support on the chosen runtime path. The project documents the selected playback backend, capability differences, and the roadmap for amplitude/FFT analysis and synthesis. Tests cover deterministic non-device behavior where practical.
+'''
+priotity = 'medium'
+status = 'TODO'
+
+[my_pbi.task_1]
+order = 1
+status = 'TODO'
+description = '''
+Prototype basic playback with the existing `pyglet.media` dependency or another justified native Python audio backend, while keeping the public sound object backend-neutral.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'TODO'
+description = '''
+Implement `load_sound` plus first-milestone controls such as play, pause, stop, volume, rate, and pan.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'TODO'
+description = '''
+Define the follow-on API and dependency strategy for amplitude, FFT, waveform analysis, and optional synthesis support.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'TODO'
+description = '''
+Add tests, capability docs, and examples that distinguish supported playback behavior from still-deferred analysis/synthesis features.
+'''

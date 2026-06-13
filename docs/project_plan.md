@@ -185,6 +185,8 @@ The 040-060 backlog epics are implemented for the deterministic headless/Pillow 
 
 The native Pyglet renderer supports image drawing, transformed image pivots, text drawing/metrics, `load_pixels`, `update_pixels`, `blend_mode`, `blend`, `erase`, and `save_canvas` export at physical HiDPI resolution. Normal frames use native Pyglet drawing; pixel/compositing workflows lazily switch to a deterministic parity surface. The headless/Pillow backend remains the simplest deterministic golden-test and non-interactive export path.
 
+Advanced 3D, model/shader, sound, and media work is documented in `docs/advanced_3d_media_strategy.md`. Epic 100 adds backend-agnostic 3D renderer protocol values, a dependency-free wireframe projection prototype, granular compatibility matrix entries, and deferred public stubs for WEBGL/model/shader/sound/media APIs.
+
 ## 6. Runtime design
 
 ### Sketch modes
@@ -381,6 +383,7 @@ Documentation should include:
 - HiDPI rendering guide.
 - Native Pyglet renderer design guide.
 - Rust acceleration guide.
+- Advanced 3D, model/shader, and sound/media strategy guide.
 - Contributor architecture guide.
 - Examples gallery using Python only.
 

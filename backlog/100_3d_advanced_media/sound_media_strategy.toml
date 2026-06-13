@@ -9,25 +9,25 @@ acceptance_criteria = '''
 The project has a documented strategy for sound loading/playback, analysis, synthesis, microphone/camera capture, and exclusions. Basic playback may be prototyped, while browser-dependent capture APIs are marked deferred or excluded.
 '''
 priotity = 'low'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Separate core p5.js APIs from p5.sound-style add-on APIs.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Evaluate Python audio libraries for playback, volume, rate, pan, FFT, and amplitude analysis.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Document privacy, platform, and dependency implications for microphone, camera, and capture APIs.
 '''
