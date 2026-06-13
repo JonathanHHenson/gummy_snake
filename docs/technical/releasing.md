@@ -43,3 +43,40 @@ The package must remain usable without the compiled extension. Rust acceleration
 ## Publishing notes
 
 Before the first public release, confirm the repository license file and any project URLs that should appear in package metadata.
+
+## GitHub Actions publishing
+
+The repository includes `p5_py/.github/workflows/publish.yml` for trusted publishing.
+
+Behavior:
+
+- manual runs via `workflow_dispatch` can publish to either `testpypi` or `pypi`
+- pushing a tag matching `v*` publishes to PyPI automatically after the build and validation steps pass
+
+The workflow:
+
+1. installs dependencies with `uv`
+2. runs `ruff`, `mypy`, `pytest`, and the headless example smoke test
+3. builds the sdist and wheel with `uv build`
+4. verifies the distributions with `twine check`
+5. publishes with `pypa/gh-action-pypi-publish`
+
+### Required one-time PyPI setup
+
+Configure trusted publishing in both PyPI and TestPyPI before using the workflow.
+
+Recommended publisher settings:
+
+- owner: your GitHub user or organization
+- repository: the repository that contains this workflow
+- workflow name: `publish.yml`
+- environment name: `pypi` for PyPI and `testpypi` for TestPyPI
+
+### Suggested release flow
+
+1. bump the version in `pyproject.toml`
+2. update `CHANGELOG.md`
+3. run the local validation commands when preparing the release
+4. trigger the workflow manually against `testpypi`
+5. verify install and metadata from TestPyPI
+6. either trigger the workflow manually against `pypi` or push a `v*` tag
