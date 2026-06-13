@@ -25,6 +25,8 @@ SHIELD: p5.Image | None = None
 FIRE: p5.Image | None = None
 UFO: p5.Image | None = None
 POWERUP: p5.Image | None = None
+STARFIELD_PIXELS: bytes = b""
+STARFIELD_SAMPLE: tuple[int, int, int, int] = (0, 0, 0, 0)
 
 frame_count = 0
 fps_print_interval_ms = 1000.0
@@ -32,20 +34,20 @@ last_fps_print_millis = 0.0
 
 
 def setup() -> None:
-    global FIRE, POWERUP, SHIELD, SHIP, UFO
+    global FIRE, POWERUP, SHIELD, SHIP, STARFIELD_PIXELS, STARFIELD_SAMPLE, UFO
     p5.create_canvas(760, 440)
-    p5.frame_rate(1)
+    p5.frame_rate(60)
     p5.image_mode(p5.CENTER)
     SHIP = p5.load_image(ASSET_DIR / "playerShip3_green.png")
     UFO = p5.load_image(ASSET_DIR / "ufoBlue.png")
     SHIELD = p5.load_image(ASSET_DIR / "Effects/shield3.png")
     FIRE = p5.load_image(ASSET_DIR / "Effects/fire17.png")
     POWERUP = p5.load_image(ASSET_DIR / "Power-ups/powerupBlue_shield.png")
+    STARFIELD_PIXELS, STARFIELD_SAMPLE = build_pixel_starfield()
 
 
-def build_pixel_starfield() -> None:
-    p5.load_pixels()
-    pixels = p5.pixels()
+def build_pixel_starfield() -> tuple[bytes, tuple[int, int, int, int]]:
+    pixels = p5.load_pixels()
     width = p5.width()
     height = p5.height()
     density = p5.pixel_density()
@@ -73,10 +75,20 @@ def build_pixel_starfield() -> None:
                 pixels[offset : offset + 4] = color
 
     p5.update_pixels()
+    sample_x = min(physical_width - 1, int(round(20 * density)))
+    sample_y = min(physical_height - 1, int(round(20 * density)))
+    sample_offset = (sample_y * physical_width + sample_x) * 4
+    sample = (
+        pixels[sample_offset],
+        pixels[sample_offset + 1],
+        pixels[sample_offset + 2],
+        pixels[sample_offset + 3],
+    )
+    return bytes(pixels), sample
 
 
 def draw() -> None:
-    if any(image is None for image in (SHIP, SHIELD, FIRE, UFO, POWERUP)):
+    if any(image is None for image in (SHIP, SHIELD, FIRE, UFO, POWERUP)) or not STARFIELD_PIXELS:
         return
     assert SHIP is not None
     assert SHIELD is not None
@@ -84,7 +96,7 @@ def draw() -> None:
     assert UFO is not None
     assert POWERUP is not None
 
-    build_pixel_starfield()
+    p5.update_pixels(STARFIELD_PIXELS)
     draw_scene_layers(SHIP, SHIELD, FIRE, UFO, POWERUP)
     draw_pixel_buffer_callout()
     draw_export_card()
@@ -149,10 +161,7 @@ def draw_scene_layers(
 
 
 def draw_pixel_buffer_callout() -> None:
-    rows = p5.pixel_array()
-    sample_x = min(len(rows[0]) - 1, int(round(20 * p5.pixel_density())))
-    sample_y = min(len(rows) - 1, int(round(20 * p5.pixel_density())))
-    sample = rows[sample_y][sample_x]
+    sample = STARFIELD_SAMPLE
     p5.no_stroke()
     p5.fill(255, 255, 255, 28)
     p5.rect(28, 326, 308, 78)

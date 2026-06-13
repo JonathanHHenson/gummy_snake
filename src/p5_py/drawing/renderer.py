@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
@@ -102,7 +103,7 @@ class Renderer(Protocol):
 
     def load_pixels(self) -> list[int]: ...
 
-    def update_pixels(self, pixels: list[int]) -> None: ...
+    def update_pixels(self, pixels: Sequence[int]) -> None: ...
 
     def blend_region(
         self,

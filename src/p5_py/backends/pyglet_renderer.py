@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from contextlib import suppress
 from math import atan2, cos, hypot, pi, sin
 from pathlib import Path
@@ -292,7 +293,7 @@ class PygletRenderer:
             return self._surface.load_pixels()
         return list(self._read_framebuffer_rgba())
 
-    def update_pixels(self, pixels: list[int]) -> None:
+    def update_pixels(self, pixels: Sequence[int]) -> None:
         self._surface.update_pixels(pixels)
         self._parity_active = True
         self._surface_in_sync = True

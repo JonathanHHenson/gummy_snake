@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from pathlib import Path
 
 from p5_py import constants as c
@@ -30,7 +31,7 @@ class SketchContext:
         self.backend = backend
         self.renderer = backend.renderer
         self.state = SketchState()
-        self.pixels: list[int] = []
+        self.pixels: Sequence[int] = []
 
     @property
     def width(self) -> int:
@@ -485,12 +486,13 @@ class SketchContext:
         return self.renderer.text_descent(self.state.style)
 
     def load_pixels(self) -> list[int]:
-        self.pixels = self.renderer.load_pixels()
-        return self.pixels
+        pixels = self.renderer.load_pixels()
+        self.pixels = pixels
+        return pixels
 
-    def update_pixels(self, pixels: list[int] | None = None) -> None:
+    def update_pixels(self, pixels: Sequence[int] | None = None) -> None:
         if pixels is not None:
-            self.pixels = list(pixels)
+            self.pixels = pixels
         if not self.pixels:
             self.load_pixels()
         self.renderer.update_pixels(self.pixels)

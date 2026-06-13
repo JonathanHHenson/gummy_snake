@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 from typing import Any
 
@@ -179,7 +179,7 @@ class Sketch:
     def load_pixels(self) -> list[int]:
         return self._ctx.load_pixels()
 
-    def update_pixels(self, pixels: list[int] | None = None) -> None:
+    def update_pixels(self, pixels: Sequence[int] | None = None) -> None:
         self._ctx.update_pixels(pixels)
 
     def save_canvas(self, *args: Any, **kwargs: Any):

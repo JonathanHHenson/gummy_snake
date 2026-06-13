@@ -23,6 +23,17 @@ def test_pixels_round_trip_and_pixel_array_include_physical_density():
     assert context.pixel_array()[0][0] == (255, 0, 0, 255)
 
 
+def test_update_pixels_accepts_bytes_buffer():
+    def setup():
+        p5.create_canvas(2, 1)
+
+    context = p5.run(setup=setup, backend="headless", max_frames=0)
+
+    context.update_pixels(bytes([255, 0, 0, 255, 0, 0, 255, 255]))
+
+    assert context.load_pixels() == [255, 0, 0, 255, 0, 0, 255, 255]
+
+
 def test_save_canvas_adds_default_extension_and_validates_overwrite(tmp_path):
     def setup():
         p5.create_canvas(3, 2)

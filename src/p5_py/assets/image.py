@@ -17,9 +17,11 @@ from p5_py.exceptions import ArgumentValidationError
 @dataclass(slots=True)
 class Image:
     _image: PILImage.Image
+    _version: int
 
     def __init__(self, image: PILImage.Image) -> None:
         self._image = image.convert("RGBA")
+        self._version = 0
 
     @property
     def width(self) -> int:
@@ -32,6 +34,10 @@ class Image:
     @property
     def pillow(self) -> PILImage.Image:
         return self._image
+
+    @property
+    def version(self) -> int:
+        return self._version
 
     def copy(self, *args: int) -> Image:
         if not args:
@@ -70,11 +76,13 @@ class Image:
     ) -> None:
         if isinstance(value, Image):
             self._image.alpha_composite(value.pillow, (int(x), int(y)))
+            self._version += 1
             return
         rgba = value.to_tuple() if isinstance(value, Color) else tuple(value)
         if len(rgba) == 3:
             rgba = (*rgba, 255)
         self._image.putpixel((int(x), int(y)), rgba)
+        self._version += 1
 
     def resize(self, width: int, height: int) -> None:
         target_width = self.width if width == 0 else int(width)
@@ -88,10 +96,12 @@ class Image:
                 "Image.resize() dimensions must be positive or one zero for aspect ratio."
             )
         self._image = self._image.resize((target_width, target_height), PILImage.Resampling.LANCZOS)
+        self._version += 1
 
     def mask(self, mask_image: Image) -> None:
         alpha = mask_image.pillow.convert("L").resize(self._image.size)
         self._image.putalpha(ImageChops.multiply(self._image.getchannel("A"), alpha))
+        self._version += 1
 
     def filter(self, mode: str, value: float | None = None) -> None:
         normalized = mode.lower()
@@ -123,6 +133,7 @@ class Image:
             self._image = self._image.filter(ImageFilter.MaxFilter(3))
         else:
             raise ArgumentValidationError(f"Unsupported image filter {mode!r}.")
+        self._version += 1
 
     def save(self, path: str | Path) -> None:
         self._image.save(path)

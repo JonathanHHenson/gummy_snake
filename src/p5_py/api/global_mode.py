@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 from typing import Any
 
@@ -390,7 +390,7 @@ def load_pixels() -> list[int]:
     return require_context().load_pixels()
 
 
-def pixels() -> list[int]:
+def pixels() -> Sequence[int]:
     context = require_context()
     return context.pixels or context.load_pixels()
 
@@ -399,7 +399,7 @@ def pixel_array():
     return require_context().pixel_array()
 
 
-def update_pixels(pixels: list[int] | None = None) -> None:
+def update_pixels(pixels: Sequence[int] | None = None) -> None:
     require_context().update_pixels(pixels)
 
 

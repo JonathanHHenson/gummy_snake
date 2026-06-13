@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from math import cos, pi, sin
+from collections.abc import Sequence
+from math import ceil, cos, floor, pi, sin
 from pathlib import Path
 from typing import cast
 
@@ -37,6 +38,8 @@ class PillowRenderer:
 
     def __init__(self, width: int = 100, height: int = 100, pixel_density: float = 1.0) -> None:
         self.pixel_density = pixel_density
+        self._resized_image_cache: dict[tuple[object, ...], PILImage.Image] = {}
+        self._text_line_cache: dict[tuple[object, ...], tuple[PILImage.Image, int, int]] = {}
         self.resize(width, height, pixel_density)
 
     def resize(self, width: int, height: int, pixel_density: float = 1.0) -> None:
@@ -215,32 +218,37 @@ class PillowRenderer:
         *,
         source: tuple[int, int, int, int] | None = None,
     ) -> None:
-        def draw_image_op() -> None:
-            if dw <= 0 or dh <= 0:
+        if dw <= 0 or dh <= 0:
+            return
+        source_image = image.pillow
+        if source is not None:
+            sx, sy, sw, sh = source
+            if sw <= 0 or sh <= 0:
                 return
-            source_image = image.pillow
-            if source is not None:
-                sx, sy, sw, sh = source
-                if sw <= 0 or sh <= 0:
-                    return
-                source_image = source_image.crop((sx, sy, sx + sw, sy + sh))
-            if source_image.width <= 0 or source_image.height <= 0:
-                return
-            image_to_canvas = (
-                self._physical_transform(transform)
-                .multiply(Matrix2D.translation(dx, dy))
-                .multiply(
-                    Matrix2D.scaling(
-                        dw / source_image.width,
-                        dh / source_image.height,
-                    )
+            source_image = source_image.crop((sx, sy, sx + sw, sy + sh))
+        if source_image.width <= 0 or source_image.height <= 0:
+            return
+        image_to_canvas = (
+            self._physical_transform(transform)
+            .multiply(Matrix2D.translation(dx, dy))
+            .multiply(
+                Matrix2D.scaling(
+                    dw / source_image.width,
+                    dh / source_image.height,
                 )
             )
-            if (
-                abs(image_to_canvas.a * image_to_canvas.d - image_to_canvas.b * image_to_canvas.c)
-                < _AFFINE_EPSILON
-            ):
-                return
+        )
+        if (
+            abs(image_to_canvas.a * image_to_canvas.d - image_to_canvas.b * image_to_canvas.c)
+            < _AFFINE_EPSILON
+        ):
+            return
+        if abs(image_to_canvas.b) < _AFFINE_EPSILON and abs(image_to_canvas.c) < _AFFINE_EPSILON:
+            cache_key = (id(image), image.version, source)
+            self._draw_axis_aligned_image(source_image, image_to_canvas, style, cache_key)
+            return
+
+        def draw_image_op() -> None:
             canvas_to_image = image_to_canvas.inverse()
             transformed = source_image.transform(
                 self.image.size,
@@ -269,33 +277,82 @@ class PillowRenderer:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        def draw_text() -> None:
-            if style.fill_color is None:
-                return
-            font = style.text_font.pillow_font(style.text_size * self.pixel_density)
-            lines = str(value).splitlines() or [""]
-            physical_transform = self._physical_transform(transform)
-            for line_index, line in enumerate(lines):
-                px, py = physical_transform.transform_point(
-                    x,
-                    y + line_index * style.text_leading,
-                )
-                bbox = self.draw.textbbox((0, 0), line, font=font)
-                width = bbox[2] - bbox[0]
-                height = bbox[3] - bbox[1]
-                if style.text_align_x == c.CENTER:
-                    px -= width / 2
-                elif style.text_align_x == c.RIGHT:
-                    px -= width
-                if style.text_align_y == c.CENTER:
-                    py -= height / 2
-                elif style.text_align_y == c.BOTTOM:
-                    py -= height
-                elif style.text_align_y == c.BASELINE:
-                    py -= self.text_ascent(style)
-                self.draw.text((px, py), line, fill=style.fill_color.to_tuple(), font=font)
+        if style.fill_color is None:
+            return
+        font_size = max(1, int(round(style.text_size * self.pixel_density)))
+        font = style.text_font.pillow_font(font_size)
+        font_key = (style.text_font.path, style.text_font.name, font_size)
+        lines = str(value).splitlines() or [""]
+        physical_transform = self._physical_transform(transform)
+        for line_index, line in enumerate(lines):
+            px, py = physical_transform.transform_point(
+                x,
+                y + line_index * style.text_leading,
+            )
+            bbox = self.draw.textbbox((0, 0), line, font=font)
+            width = bbox[2] - bbox[0]
+            height = bbox[3] - bbox[1]
+            if style.text_align_x == c.CENTER:
+                px -= width / 2
+            elif style.text_align_x == c.RIGHT:
+                px -= width
+            if style.text_align_y == c.CENTER:
+                py -= height / 2
+            elif style.text_align_y == c.BOTTOM:
+                py -= height
+            elif style.text_align_y == c.BASELINE:
+                py -= self.text_ascent(style)
+            self._draw_text_line(line, px, py, font, font_key, style)
 
-        self._draw_with_style(style, draw_text)
+    def _draw_text_line(
+        self,
+        line: str,
+        x: float,
+        y: float,
+        font,
+        font_key: tuple[object, ...],
+        style: StyleState,
+    ) -> None:
+        fill_color = style.fill_color
+        if fill_color is None:
+            return
+        overlay, offset_x, offset_y = self._cached_text_line(
+            line, font, font_key, fill_color.to_tuple()
+        )
+        self_x = floor(x) + offset_x
+        self_y = floor(y) + offset_y
+        if style.erasing:
+            self._erase_region(overlay, self_x, self_y)
+        else:
+            self._composite_region(overlay, self_x, self_y, style.blend_mode)
+
+    def _cached_text_line(
+        self,
+        line: str,
+        font,
+        font_key: tuple[object, ...],
+        fill: tuple[int, int, int, int],
+    ) -> tuple[PILImage.Image, int, int]:
+        cache_key = (*font_key, line, fill)
+        cached = self._text_line_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        bbox = self.draw.textbbox((0, 0), line, font=font)
+        left = floor(bbox[0])
+        top = floor(bbox[1])
+        right = ceil(bbox[2])
+        bottom = ceil(bbox[3])
+        if right <= left or bottom <= top:
+            overlay = PILImage.new("RGBA", (1, 1), (0, 0, 0, 0))
+            return overlay, 0, 0
+        overlay = PILImage.new("RGBA", (right - left, bottom - top), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay, "RGBA")
+        draw.text((-left, -top), line, fill=fill, font=font)
+        if len(self._text_line_cache) > 256:
+            self._text_line_cache.clear()
+        cached = (overlay, left, top)
+        self._text_line_cache[cache_key] = cached
+        return cached
 
     def text_width(self, value: str, style: StyleState) -> float:
         font = style.text_font.pillow_font(style.text_size * self.pixel_density)
@@ -324,7 +381,7 @@ class PillowRenderer:
     def load_pixels(self) -> list[int]:
         return list(self.image.tobytes())
 
-    def update_pixels(self, pixels: list[int]) -> None:
+    def update_pixels(self, pixels: Sequence[int]) -> None:
         expected = self.physical_width * self.physical_height * 4
         if len(pixels) != expected:
             raise ArgumentValidationError(
@@ -342,6 +399,48 @@ class PillowRenderer:
 
     def get_image(self) -> PILImage.Image:
         return self.image
+
+    def _draw_axis_aligned_image(
+        self,
+        source_image: PILImage.Image,
+        image_to_canvas: Matrix2D,
+        style: StyleState,
+        cache_key: tuple[object, ...],
+    ) -> None:
+        left = image_to_canvas.e
+        top = image_to_canvas.f
+        right = image_to_canvas.a * source_image.width + image_to_canvas.e
+        bottom = image_to_canvas.d * source_image.height + image_to_canvas.f
+        dx = int(round(min(left, right)))
+        dy = int(round(min(top, bottom)))
+        dw = int(round(abs(right - left)))
+        dh = int(round(abs(bottom - top)))
+        if dw <= 0 or dh <= 0:
+            return
+        flip_x = right < left
+        flip_y = bottom < top
+        image = source_image
+        if flip_x:
+            image = image.transpose(PILImage.Transpose.FLIP_LEFT_RIGHT)
+        if flip_y:
+            image = image.transpose(PILImage.Transpose.FLIP_TOP_BOTTOM)
+        resized = self._cached_resized_image(image, (*cache_key, dw, dh, flip_x, flip_y), dw, dh)
+        if style.erasing:
+            self._erase_region(resized, dx, dy)
+        else:
+            self._composite_region(resized, dx, dy, style.blend_mode)
+
+    def _cached_resized_image(
+        self, image: PILImage.Image, cache_key: tuple[object, ...], width: int, height: int
+    ) -> PILImage.Image:
+        cached = self._resized_image_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        if len(self._resized_image_cache) > 128:
+            self._resized_image_cache.clear()
+        resized = image.resize((width, height), PILImage.Resampling.BICUBIC)
+        self._resized_image_cache[cache_key] = resized
+        return resized
 
     def blend_region(
         self,
@@ -361,9 +460,7 @@ class PillowRenderer:
             image = source_image.convert("RGBA")
         dx, dy, dw, dh = self._scale_rect(destination)
         crop = image.crop((sx, sy, sx + sw, sy + sh)).resize((dw, dh), PILImage.Resampling.LANCZOS)
-        overlay = PILImage.new("RGBA", self.image.size, (0, 0, 0, 0))
-        overlay.alpha_composite(crop, (dx, dy))
-        self._composite_overlay(overlay, mode)
+        self._composite_region(crop, dx, dy, mode)
 
     def _scale_rect(self, rect: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
         x, y, width, height = rect
@@ -389,21 +486,67 @@ class PillowRenderer:
             self._composite_overlay(overlay, style.blend_mode)
 
     def _erase_overlay(self, overlay: PILImage.Image) -> None:
-        base_r, base_g, base_b, base_a = self.image.split()
+        bbox = overlay.getchannel("A").getbbox()
+        if bbox is None:
+            return
+        self._erase_region(overlay.crop(bbox), bbox[0], bbox[1])
+
+    def _erase_region(self, overlay: PILImage.Image, dx: int, dy: int) -> None:
+        clipped = self._clip_region_to_canvas(overlay, dx, dy)
+        if clipped is None:
+            return
+        overlay, dx, dy = clipped
+        base_region = self.image.crop((dx, dy, dx + overlay.width, dy + overlay.height))
+        base_r, base_g, base_b, base_a = base_region.split()
         overlay_alpha = overlay.getchannel("A")
         new_alpha = ImageChops.subtract(base_a, overlay_alpha)
-        self.image = PILImage.merge("RGBA", (base_r, base_g, base_b, new_alpha))
+        erased = PILImage.merge("RGBA", (base_r, base_g, base_b, new_alpha))
+        self.image.paste(erased, (dx, dy))
         self.draw = ImageDraw.Draw(self.image, "RGBA")
 
     def _composite_overlay(self, overlay: PILImage.Image, mode: str) -> None:
+        bbox = overlay.getchannel("A").getbbox()
+        if bbox is None:
+            return
+        self._composite_region(overlay.crop(bbox), bbox[0], bbox[1], mode)
+
+    def _composite_region(self, overlay: PILImage.Image, dx: int, dy: int, mode: str) -> None:
+        bbox = overlay.getchannel("A").getbbox()
+        if bbox is None:
+            return
+        if bbox != (0, 0, overlay.width, overlay.height):
+            overlay = overlay.crop(bbox)
+            dx += bbox[0]
+            dy += bbox[1]
+        clipped = self._clip_region_to_canvas(overlay, dx, dy)
+        if clipped is None:
+            return
+        overlay, dx, dy = clipped
         if mode == c.BLEND:
-            self.image.alpha_composite(overlay)
+            self.image.alpha_composite(overlay, (dx, dy))
         elif mode == c.REPLACE:
-            self.image.paste(overlay, (0, 0), overlay.getchannel("A"))
+            self.image.paste(overlay, (dx, dy), overlay.getchannel("A"))
         else:
-            blended = self._blend_images(self.image, overlay, mode)
-            self.image = PILImage.composite(blended, self.image, overlay.getchannel("A"))
+            bbox = (dx, dy, dx + overlay.width, dy + overlay.height)
+            base_region = self.image.crop(bbox)
+            blended = self._blend_images(base_region, overlay, mode)
+            composited = PILImage.composite(blended, base_region, overlay.getchannel("A"))
+            self.image.paste(composited, (dx, dy))
         self.draw = ImageDraw.Draw(self.image, "RGBA")
+
+    def _clip_region_to_canvas(
+        self, image: PILImage.Image, dx: int, dy: int
+    ) -> tuple[PILImage.Image, int, int] | None:
+        left = max(0, dx)
+        top = max(0, dy)
+        right = min(self.physical_width, dx + image.width)
+        bottom = min(self.physical_height, dy + image.height)
+        if right <= left or bottom <= top:
+            return None
+        if (left, top, right, bottom) == (dx, dy, dx + image.width, dy + image.height):
+            return image, dx, dy
+        source_box = (left - dx, top - dy, right - dx, bottom - dy)
+        return image.crop(source_box), left, top
 
     def _blend_images(
         self, base: PILImage.Image, overlay: PILImage.Image, mode: str
