@@ -33,7 +33,7 @@ def setup() -> None:
     p5.camera(0, 0, 4.2, 0, 0, 0, 0, 1, 0)
     p5.perspective(math.pi / 3, 720 / 480, 0.1, 100)
     p5.stroke(18, 20, 32)
-    p5.frame_rate(1)
+    p5.frame_rate(60)
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     SOUND = p5.load_sound(ASSET_DIR / "coin-drop-4.wav")
     if PLAY_SOUND and SOUND is not None:
