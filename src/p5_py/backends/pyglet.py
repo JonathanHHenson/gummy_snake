@@ -180,22 +180,13 @@ class PygletBackend:
         if self._renderer_kind == renderer:
             return
         if renderer == c.WEBGL:
-            if PygletWebGLRenderer.native_gl_supported(pyglet):
-                self.renderer = PygletWebGLRenderer(
-                    self.renderer.width,
-                    self.renderer.height,
-                    self.renderer.pixel_density,
-                    pyglet=pyglet,
-                )
-                self.capabilities = replace(self.capabilities, shaders=True)
-            else:
-                self.renderer = PygletRenderer(
-                    self.renderer.width,
-                    self.renderer.height,
-                    self.renderer.pixel_density,
-                    pyglet=pyglet,
-                )
-                self.capabilities = replace(self.capabilities, shaders=False)
+            self.renderer = PygletRenderer(
+                self.renderer.width,
+                self.renderer.height,
+                self.renderer.pixel_density,
+                pyglet=pyglet,
+            )
+            self.capabilities = replace(self.capabilities, shaders=False)
         else:
             self.renderer = PygletRenderer(
                 self.renderer.width,

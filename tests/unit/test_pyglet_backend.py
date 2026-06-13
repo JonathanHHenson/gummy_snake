@@ -1,6 +1,5 @@
 from p5_py.backends.pyglet import PygletBackend
 from p5_py.backends.pyglet_renderer import PygletRenderer
-from p5_py.backends.pyglet_webgl_renderer import PygletWebGLRenderer
 
 
 class FakeBatch:
@@ -185,21 +184,21 @@ def test_pyglet_create_canvas_uses_framebuffer_density_fallback():
     assert backend.renderer.physical_height == 840
 
 
-def test_pyglet_create_canvas_uses_native_webgl_renderer_and_depth_config():
+def test_pyglet_create_canvas_uses_software_webgl_renderer_and_depth_config_by_default():
     backend = PygletBackend()
     backend._pyglet = FakePygletModule()
 
     backend.create_canvas(320, 240, renderer="webgl")
 
-    assert isinstance(backend.renderer, PygletWebGLRenderer)
-    assert backend.capabilities.shaders is True
+    assert isinstance(backend.renderer, PygletRenderer)
+    assert backend.capabilities.shaders is False
     assert FakePygletModule.last_window_kwargs is not None
     config = FakePygletModule.last_window_kwargs["config"]
     assert isinstance(config, FakeConfig)
     assert config.kwargs == {"double_buffer": True, "depth_size": 24}
 
 
-def test_pyglet_create_canvas_falls_back_to_software_webgl_when_native_gl_is_incomplete():
+def test_pyglet_create_canvas_uses_software_webgl_when_native_gl_is_incomplete():
     backend = PygletBackend()
     backend._pyglet = FakeModernOnlyPygletModule()
 
