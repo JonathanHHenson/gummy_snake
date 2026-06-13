@@ -171,7 +171,9 @@ Compatibility notes:
 - GLSL versions differ between WebGL and desktop OpenGL. p5-py should document the selected GLSL target once a renderer is implemented.
 - Browser precision qualifiers, attributes, and built-in uniforms may require adaptation.
 - Shader compilation errors should be package-specific and include file paths, line numbers when available, and backend details.
-- `load_shader`, `create_shader`, `shader`, and `reset_shader` are currently deferred stubs.
+- `load_shader`, `create_shader`, `shader`, and `reset_shader` now work on the native Pyglet WEBGL renderer.
+- The current shader target is a desktop OpenGL compatibility profile, so user shaders should prefer compatibility built-ins such as `gl_Vertex`, `gl_ModelViewProjectionMatrix`, and `gl_FragColor` or the auto-populated `u_projection`, `u_view`, `u_model`, and `u_model_view_projection` uniforms.
+- Headless/software WEBGL keeps its deterministic fallback path but still reports shader binding as unsupported because there is no native GPU shader backend there.
 
 ## Sound and media strategy
 
@@ -230,7 +232,7 @@ Microphone and camera APIs are not simple compatibility aliases for browser APIs
 - `lights_materials`: `partial`
 - `textures`: `partial`
 - `models`: `partial`
-- `shaders`: `deferred`
+- `shaders`: `partial`
 - `sound`: `partial`
 - `sound_playback`: `partial`
 - `sound_analysis`: `deferred`

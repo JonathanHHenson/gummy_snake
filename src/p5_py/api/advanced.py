@@ -6,6 +6,8 @@ from pathlib import Path
 
 from p5_py.api.current import require_context
 from p5_py.assets.model import load_model as _load_model
+from p5_py.assets.shader import create_shader as _create_shader
+from p5_py.assets.shader import load_shader as _load_shader
 from p5_py.assets.sound import Sound
 from p5_py.assets.sound import load_sound as _load_sound
 
@@ -82,6 +84,22 @@ def model(shape: object) -> None:
     require_context().model(shape)
 
 
+def load_shader(vertex_path: str | Path, fragment_path: str | Path):
+    return _load_shader(vertex_path, fragment_path)
+
+
+def create_shader(vertex_source: str, fragment_source: str):
+    return _create_shader(vertex_source, fragment_source)
+
+
+def shader(shader_program) -> None:
+    require_context().shader(shader_program)
+
+
+def reset_shader() -> None:
+    require_context().reset_shader()
+
+
 def load_sound(path: str | Path) -> Sound:
     return _load_sound(path)
 
@@ -99,8 +117,11 @@ normalMaterial = normal_material
 ambientMaterial = ambient_material
 specularMaterial = specular_material
 loadModel = load_model
+loadShader = load_shader
+createShader = create_shader
 loadSound = load_sound
 createAudio = create_audio
+resetShader = reset_shader
 
 
 __all__ = [
@@ -119,8 +140,14 @@ __all__ = [
     "directional_light",
     "directionalLight",
     "load_model",
+    "load_shader",
+    "create_shader",
+    "shader",
+    "reset_shader",
     "load_sound",
     "loadModel",
+    "loadShader",
+    "createShader",
     "loadSound",
     "model",
     "normal_material",
@@ -129,6 +156,7 @@ __all__ = [
     "perspective",
     "texture",
     "plane",
+    "resetShader",
     "point_light",
     "pointLight",
     "shininess",

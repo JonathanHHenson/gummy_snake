@@ -1,4 +1,5 @@
 from p5_py.backends.pyglet import PygletBackend
+from p5_py.backends.pyglet_webgl_renderer import PygletWebGLRenderer
 
 
 class FakeBatch:
@@ -25,23 +26,36 @@ class FakePixelRatioWindow:
         return 2.0
 
 
+class FakeConfig:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+
+class FakeGL:
+    Config = FakeConfig
+
+
 class FakePygletModule:
     graphics = FakeGraphics()
+    gl = FakeGL()
     last_window: FakePixelRatioWindow | None = None
+    last_window_kwargs: dict | None = None
 
     class window:
         @staticmethod
-        def Window(width, height, caption, vsync=False):
+        def Window(width, height, caption, vsync=False, **kwargs):
             FakePygletModule.last_window = FakePixelRatioWindow(vsync=vsync)
+            FakePygletModule.last_window_kwargs = kwargs
             return FakePygletModule.last_window
 
 
 class FakeFramebufferPygletModule:
     graphics = FakeGraphics()
+    gl = FakeGL()
 
     class window:
         @staticmethod
-        def Window(width, height, caption, vsync=False):
+        def Window(width, height, caption, vsync=False, **kwargs):
             return FakeFramebufferWindow()
 
 
@@ -85,6 +99,19 @@ def test_pyglet_create_canvas_uses_framebuffer_density_fallback():
     assert backend.renderer.pixel_density == 2
     assert backend.renderer.physical_width == 1280
     assert backend.renderer.physical_height == 840
+
+
+def test_pyglet_create_canvas_uses_native_webgl_renderer_and_depth_config():
+    backend = PygletBackend()
+    backend._pyglet = FakePygletModule()
+
+    backend.create_canvas(320, 240, renderer="webgl")
+
+    assert isinstance(backend.renderer, PygletWebGLRenderer)
+    assert FakePygletModule.last_window_kwargs is not None
+    config = FakePygletModule.last_window_kwargs["config"]
+    assert isinstance(config, FakeConfig)
+    assert config.kwargs == {"double_buffer": True, "depth_size": 24}
 
 
 def test_pyglet_pointer_coordinates_are_scaled_to_logical_canvas_space():

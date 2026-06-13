@@ -24,7 +24,7 @@ COMPATIBILITY_MATRIX = {
     "lights_materials": "partial",
     "textures": "partial",
     "models": "partial",
-    "shaders": "deferred",
+    "shaders": "partial",
     "sound": "partial",
     "sound_playback": "partial",
     "sound_analysis": "deferred",
@@ -159,20 +159,20 @@ def model(*args, **kwargs) -> None:
     _advanced.model(*args, **kwargs)
 
 
-def load_shader(*_args, **_kwargs) -> None:
-    _deferred_webgl_api("load_shader/loadShader")
+def load_shader(*args, **kwargs):
+    return _advanced.load_shader(*args, **kwargs)
 
 
-def create_shader(*_args, **_kwargs) -> None:
-    _deferred_webgl_api("create_shader/createShader")
+def create_shader(*args, **kwargs):
+    return _advanced.create_shader(*args, **kwargs)
 
 
-def shader(*_args, **_kwargs) -> None:
-    _deferred_webgl_api("shader")
+def shader(*args, **kwargs) -> None:
+    _advanced.shader(*args, **kwargs)
 
 
-def reset_shader(*_args, **_kwargs) -> None:
-    _deferred_webgl_api("reset_shader/resetShader")
+def reset_shader(*args, **kwargs) -> None:
+    _advanced.reset_shader(*args, **kwargs)
 
 
 def load_sound(*args, **kwargs):

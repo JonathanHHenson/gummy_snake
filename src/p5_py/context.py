@@ -28,6 +28,8 @@ from p5_py.drawing.renderer3d import (
     Model3D,
     OrthographicProjection,
     PerspectiveProjection,
+    Shader3D,
+    ShaderUniformValue,
     Texture3D,
     Vec3,
 )
@@ -39,7 +41,7 @@ from p5_py.drawing.software3d import (
     sphere_model,
 )
 from p5_py.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
-from p5_py.exceptions import ArgumentValidationError, BackendCapabilityError
+from p5_py.exceptions import ArgumentValidationError, BackendCapabilityError, ShaderUniformError
 
 _MATERIAL_UNSET = object()
 
@@ -63,6 +65,7 @@ class SketchContext:
         self._frame_mouse_dy = 0.0
         self._frame_scroll_x = 0.0
         self._frame_scroll_y = 0.0
+        self._shader3d: Shader3D | None = None
 
     @property
     def width(self) -> int:
@@ -102,7 +105,12 @@ class SketchContext:
             raise BackendCapabilityError(
                 f"Backend {self.backend.name!r} does not support renderer={c.WEBGL!r}."
             )
-        self.backend.create_canvas(int(width), int(height), pixel_density)
+        self.backend.create_canvas(
+            int(width),
+            int(height),
+            pixel_density,
+            renderer=renderer,
+        )
         self.renderer = self.backend.renderer
         self.state.canvas.renderer = renderer
         if renderer == c.WEBGL:
@@ -112,7 +120,12 @@ class SketchContext:
 
     def resize_canvas(self, width: int, height: int, *, pixel_density: float | None = None) -> None:
         density = self.state.canvas.pixel_density if pixel_density is None else pixel_density
-        self.backend.resize_canvas(int(width), int(height), float(density))
+        self.backend.resize_canvas(
+            int(width),
+            int(height),
+            float(density),
+            renderer=self.state.canvas.renderer,
+        )
         self.renderer = self.backend.renderer
         self._sync_canvas_state()
         self.state.canvas.created = True
@@ -628,6 +641,38 @@ class SketchContext:
         )
         self._normal_material3d = False
 
+    def load_shader(self, vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
+        from p5_py.assets.shader import load_shader as _load_shader
+
+        return _load_shader(vertex_path, fragment_path)
+
+    def create_shader(self, vertex_source: str, fragment_source: str) -> Shader3D:
+        from p5_py.assets.shader import create_shader as _create_shader
+
+        return _create_shader(vertex_source, fragment_source)
+
+    def shader(self, shader: Shader3D) -> None:
+        self._require_webgl_mode("shader")
+        if not self.backend.capabilities.shaders:
+            raise BackendCapabilityError(
+                f"Backend {self.backend.name!r} does not support shader()."
+            )
+        if not isinstance(shader, Shader3D):
+            raise ArgumentValidationError("shader() requires a Shader3D value.")
+        self._shader3d = shader
+
+    def reset_shader(self) -> None:
+        self._require_webgl_mode("reset_shader")
+        self._shader3d = None
+
+    def set_shader_uniform(self, name: str, value: object) -> None:
+        self._require_webgl_mode("set_shader_uniform")
+        if self._shader3d is None:
+            raise ShaderUniformError(
+                f"Cannot set uniform {name!r} without an active shader. Call shader(...) first."
+            )
+        self._shader3d.set_uniform(name, cast("ShaderUniformValue", value))
+
     def plane(self, width: float, height: float | None = None) -> None:
         self.model(plane_model(float(width), None if height is None else float(height)))
 
@@ -651,6 +696,18 @@ class SketchContext:
             model = shape
         else:
             raise ArgumentValidationError("model() requires a Mesh3D or Model3D value.")
+
+        native_renderer = self.renderer if getattr(self.renderer, "three_d", False) else None
+        if native_renderer is not None and self.backend.name == c.PYGLET:
+            material = self._effective_3d_material()
+            native_renderer.set_camera(self._camera3d)
+            native_renderer.set_projection(self._projection3d)
+            native_renderer.set_lights(tuple(self._lights3d))
+            native_renderer.set_material(material)
+            native_renderer.set_texture(material.texture)
+            native_renderer.use_shader(self._shader3d)
+            native_renderer.draw_model(model)
+            return
 
         faces = shade_model_faces(
             model,
@@ -989,6 +1046,7 @@ class SketchContext:
         self._frame_mouse_dy = 0.0
         self._frame_scroll_x = 0.0
         self._frame_scroll_y = 0.0
+        self._shader3d = None
 
     def _effective_3d_material(self) -> Material3D:
         if self._material3d is not None:

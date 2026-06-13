@@ -19,3 +19,15 @@ class BackendCapabilityError(UnsupportedFeatureError):
 
 class ArgumentValidationError(P5PyError, TypeError):
     """Raised when a p5-style overloaded API receives invalid arguments."""
+
+
+class ShaderError(P5PyError):
+    """Base class for shader loading, compilation, and binding errors."""
+
+
+class ShaderCompilationError(ShaderError):
+    """Raised when a shader fails to compile or link on the active backend."""
+
+
+class ShaderUniformError(ShaderError):
+    """Raised when a shader uniform cannot be applied."""

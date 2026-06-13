@@ -33,3 +33,4 @@ On Retina/HiDPI displays, the Pyglet backend renders to a higher-resolution back
 - `webgl_wireframe_prototype.py` demonstrates the epic 100 math-only 3D prototype by projecting a cube with `drawing/prototype3d.py` and drawing the resulting wireframe with the existing 2D API. It compares `PerspectiveProjection` and `OrthographicProjection` side by side.
 - `webgl_obj_sound.py` demonstrates the first epic 101 software WEBGL-style implementation by loading `examples/assets/teapot.obj`, rendering it with the new 3D public APIs, and optionally playing `examples/assets/coin-drop-4.wav`.
 - `webgl_texture_orbit.py` demonstrates procedural texture mapping on generated 3D primitives and pointer-driven `orbit_control()` on the current software WEBGL path.
+- `webgl_native_shader.py` demonstrates the native Pyglet WEBGL follow-on path with `create_shader()`, `shader()`, `Shader3D.set_uniform()`, and a depth-tested cube rendered through the new GPU-backed renderer.

@@ -7,7 +7,7 @@ structures without importing OpenGL, Pyglet, or any other rendering package.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol
@@ -61,7 +61,7 @@ type Projection3D = PerspectiveProjection | OrthographicProjection
 
 
 type ShaderUniformValue = (
-    bool | int | float | Vec3 | tuple[float, ...] | tuple[tuple[float, ...], ...]
+    bool | int | float | Vec3 | Texture3D | tuple[float, ...] | tuple[tuple[float, ...], ...]
 )
 
 
@@ -115,15 +115,25 @@ class Model3D:
     source: Path | None = None
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class Shader3D:
-    """Python-native shader description for a future OpenGL-style backend."""
+    """Python-native shader description for an OpenGL-style backend."""
 
     vertex_source: str
     fragment_source: str
-    uniforms: Mapping[str, ShaderUniformValue] = field(default_factory=dict)
+    uniforms: MutableMapping[str, ShaderUniformValue] = field(default_factory=dict)
     vertex_path: Path | None = None
     fragment_path: Path | None = None
+
+    def __post_init__(self) -> None:
+        self.uniforms = dict(self.uniforms)
+
+    def set_uniform(self, name: str, value: ShaderUniformValue) -> None:
+        self.uniforms[name] = value
+
+    def uniform(self, name: str, value: ShaderUniformValue) -> Shader3D:
+        self.set_uniform(name, value)
+        return self
 
 
 class Renderer3D(Renderer, Protocol):

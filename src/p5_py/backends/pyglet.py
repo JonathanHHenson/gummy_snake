@@ -8,6 +8,7 @@ from typing import Any, cast
 from p5_py import constants as c
 from p5_py.backends.base import BackendCapabilities
 from p5_py.backends.pyglet_renderer import PygletRenderer
+from p5_py.backends.pyglet_webgl_renderer import PygletWebGLRenderer
 from p5_py.events.input_state import KeyboardEvent, MouseEvent
 
 
@@ -40,31 +41,51 @@ class PygletBackend:
             }
         ),
         three_d=True,
+        shaders=True,
     )
 
     def __init__(self) -> None:
         self.renderer = PygletRenderer()
+        self._renderer_kind = c.P2D
         self._window: Any | None = None
         self._pyglet: Any | None = None
         self._running = False
         self._frames_drawn = 0
         self._next_frame_time = 0.0
 
-    def create_canvas(self, width: int, height: int, pixel_density: float | None = None) -> None:
+    def create_canvas(
+        self,
+        width: int,
+        height: int,
+        pixel_density: float | None = None,
+        *,
+        renderer: str = c.P2D,
+    ) -> None:
         pyglet = self._load_pyglet()
+        self._ensure_renderer(renderer, pyglet)
         self.renderer.bind_pyglet(pyglet)
         if self._window is None:
-            self._window = pyglet.window.Window(
-                width=width, height=height, caption="p5-py", vsync=False
-            )
+            window_kwargs = {"width": width, "height": height, "caption": "p5-py", "vsync": False}
+            if renderer == c.WEBGL:
+                config_type = getattr(getattr(pyglet, "gl", None), "Config", None)
+                if callable(config_type):
+                    window_kwargs["config"] = config_type(double_buffer=True, depth_size=24)
+            self._window = pyglet.window.Window(**window_kwargs)
         else:
             self._window.set_vsync(False)
             self._window.set_size(width, height)
         density = self._display_density_for_width(width) if pixel_density is None else pixel_density
         self.renderer.resize(width, height, density)
 
-    def resize_canvas(self, width: int, height: int, pixel_density: float | None = None) -> None:
-        self.create_canvas(width, height, pixel_density)
+    def resize_canvas(
+        self,
+        width: int,
+        height: int,
+        pixel_density: float | None = None,
+        *,
+        renderer: str = c.P2D,
+    ) -> None:
+        self.create_canvas(width, height, pixel_density, renderer=renderer)
 
     def run(self, sketch, *, max_frames: int | None = None) -> None:
         pyglet = self._load_pyglet()
@@ -152,6 +173,25 @@ class PygletBackend:
             self._pyglet = pyglet
 
         return self._pyglet
+
+    def _ensure_renderer(self, renderer: str, pyglet: Any) -> None:
+        if self._renderer_kind == renderer:
+            return
+        if renderer == c.WEBGL:
+            self.renderer = PygletWebGLRenderer(
+                self.renderer.width,
+                self.renderer.height,
+                self.renderer.pixel_density,
+                pyglet=pyglet,
+            )
+        else:
+            self.renderer = PygletRenderer(
+                self.renderer.width,
+                self.renderer.height,
+                self.renderer.pixel_density,
+                pyglet=pyglet,
+            )
+        self._renderer_kind = renderer
 
     def _normalize_mouse_button(self, button: object) -> str:
         pyglet = self._load_pyglet()

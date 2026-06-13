@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
+from p5_py import constants as c
 from p5_py.drawing.renderer import Renderer
 
 if TYPE_CHECKING:
@@ -38,11 +39,21 @@ class Backend(Protocol):
     renderer: Renderer
 
     def create_canvas(
-        self, width: int, height: int, pixel_density: float | None = None
+        self,
+        width: int,
+        height: int,
+        pixel_density: float | None = None,
+        *,
+        renderer: str = c.P2D,
     ) -> None: ...
 
     def resize_canvas(
-        self, width: int, height: int, pixel_density: float | None = None
+        self,
+        width: int,
+        height: int,
+        pixel_density: float | None = None,
+        *,
+        renderer: str = c.P2D,
     ) -> None: ...
 
     def display_density(self) -> float: ...

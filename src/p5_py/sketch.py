@@ -201,6 +201,18 @@ class Sketch:
     def model(self, shape: object) -> None:
         self._ctx.model(shape)
 
+    def load_shader(self, vertex_path: str, fragment_path: str):
+        return self._ctx.load_shader(vertex_path, fragment_path)
+
+    def create_shader(self, vertex_source: str, fragment_source: str):
+        return self._ctx.create_shader(vertex_source, fragment_source)
+
+    def shader(self, shader_program) -> None:
+        self._ctx.shader(shader_program)
+
+    def reset_shader(self) -> None:
+        self._ctx.reset_shader()
+
     def push(self) -> None:
         self._ctx.push()
 

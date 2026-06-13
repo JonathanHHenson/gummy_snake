@@ -55,8 +55,9 @@ With this split:
 The first native milestone keeps the backend as a single file and adds a separate renderer module:
 
 ```text
-src/p5_py/backends/pyglet.py            # window, event loop, input, scheduling
-src/p5_py/backends/pyglet_renderer.py   # Pyglet presentation plus parity rendering
+src/p5_py/backends/pyglet.py                 # window, event loop, input, scheduling
+src/p5_py/backends/pyglet_renderer.py        # Pyglet presentation plus parity rendering
+src/p5_py/backends/pyglet_webgl_renderer.py  # native depth-tested WEBGL renderer + shader path
 ```
 
 The backend can still be split into a package later if Pyglet-specific event, renderer, or capability code grows enough to justify it.
@@ -207,5 +208,6 @@ Captures use physical HiDPI dimensions, not logical `width()`/`height()`. Normal
 4. HiDPI logical and physical dimensions are covered by focused unit tests.
 5. Image drawing, transformed image pivots, text rendering/metrics, pixel readback/update, compositing, and canvas export are implemented for Pyglet-backed sketches.
 6. `PygletBackend` advertises pixel update and all implemented blend constants.
-7. `PygletBackend` uses `PygletRenderer` by default.
-8. The headless Pillow backend remains available for deterministic export and tests.
+7. `PygletBackend` uses `PygletRenderer` by default and switches to `PygletWebGLRenderer` for `create_canvas(..., renderer=WEBGL)`.
+8. The native WEBGL renderer requests a depth-capable context and exposes package-level `load_shader`, `create_shader`, `shader`, and `reset_shader` APIs on that path.
+9. The headless Pillow backend remains available for deterministic export and tests.

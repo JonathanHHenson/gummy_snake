@@ -34,10 +34,26 @@ class HeadlessBackend:
         self.renderer = PillowRenderer()
         self._running = False
 
-    def create_canvas(self, width: int, height: int, pixel_density: float | None = None) -> None:
+    def create_canvas(
+        self,
+        width: int,
+        height: int,
+        pixel_density: float | None = None,
+        *,
+        renderer: str = c.P2D,
+    ) -> None:
+        del renderer
         self.renderer.resize(width, height, 1.0 if pixel_density is None else pixel_density)
 
-    def resize_canvas(self, width: int, height: int, pixel_density: float | None = None) -> None:
+    def resize_canvas(
+        self,
+        width: int,
+        height: int,
+        pixel_density: float | None = None,
+        *,
+        renderer: str = c.P2D,
+    ) -> None:
+        del renderer
         self.renderer.resize(width, height, 1.0 if pixel_density is None else pixel_density)
 
     def display_density(self) -> float:

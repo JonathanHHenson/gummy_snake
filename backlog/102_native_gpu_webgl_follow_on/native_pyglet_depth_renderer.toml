@@ -9,25 +9,25 @@ acceptance_criteria = '''
 A Pyglet-hosted native 3D renderer can open a depth-capable context, render at least a triangle or cube with logical canvas sizing, and integrate through the existing backend/renderer capability gates without regressing the software WEBGL fallback.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add a native 3D draw path that can receive `Model3D`, camera, and projection state from `SketchContext` while preserving the existing software fallback.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Request a depth-capable Pyglet window/context, render at least a triangle or cube with depth testing, and keep logical canvas sizing distinct from physical framebuffer sizing.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add focused renderer/backend tests plus a smoke example covering the first native 3D frame and framebuffer readback/export behavior.
 '''

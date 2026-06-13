@@ -25,12 +25,12 @@ def test_advanced_3d_and_media_compatibility_matrix_entries_track_partial_and_de
         "lights_materials",
         "textures",
         "models",
+        "shaders",
         "sound",
         "sound_playback",
         "media_playback",
     }
     deferred_keys = {
-        "shaders",
         "sound_analysis",
         "sound_synthesis",
         "media_capture",
@@ -42,12 +42,8 @@ def test_advanced_3d_and_media_compatibility_matrix_entries_track_partial_and_de
         assert p5.COMPATIBILITY_MATRIX[key] == "deferred"
 
 
-def test_remaining_advanced_shader_and_media_stubs_are_deferred():
+def test_remaining_media_stubs_are_deferred():
     deferred_calls = [
-        (p5.loadShader, ("shader.vert", "shader.frag")),
-        (p5.createShader, ("vertex", "fragment")),
-        (p5.shader, (object(),)),
-        (p5.resetShader, ()),
         (p5.createVideo, ("movie.mp4",)),
         (p5.createCapture, ("video",)),
     ]
