@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from p5_py import constants as c
 from p5_py.assets.image import Image
@@ -43,20 +43,24 @@ from p5_py.drawing.software3d import (
 from p5_py.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from p5_py.exceptions import ArgumentValidationError, BackendCapabilityError, ShaderUniformError
 
+if TYPE_CHECKING:
+    from p5_py.plugins.registry import PluginRegistry
+
 _MATERIAL_UNSET = object()
 
 
 class SketchContext:
     """Mutable state and operations for one running sketch."""
 
-    def __init__(self, sketch, backend) -> None:
+    def __init__(self, sketch, backend, *, plugins: PluginRegistry) -> None:
         self.sketch = sketch
         self.backend = backend
         self.renderer = backend.renderer
+        self.plugins = plugins
         self.state = SketchState()
         self.pixels: Sequence[int] = []
         self._camera3d = Camera3D()
-        self._projection3d = PerspectiveProjection()
+        self._projection3d: PerspectiveProjection | OrthographicProjection = PerspectiveProjection()
         self._lights3d: list[Light3D] = []
         self._material3d: Material3D | None = None
         self._normal_material3d = False
@@ -775,14 +779,24 @@ class SketchContext:
     def image(self, image: Image, x: float, y: float, *args: float) -> None:
         if not isinstance(image, Image):
             raise ArgumentValidationError("image() requires a p5_py Image object.")
+        w: float
+        h: float
+        source: tuple[int, int, int, int] | None
         if len(args) == 0:
-            w, h = image.width, image.height
+            w = float(image.width)
+            h = float(image.height)
             source = None
         elif len(args) == 2:
-            w, h = args
+            w = float(args[0])
+            h = float(args[1])
             source = None
         elif len(args) == 6:
-            w, h, sx, sy, sw, sh = args
+            w = float(args[0])
+            h = float(args[1])
+            sx = float(args[2])
+            sy = float(args[3])
+            sw = float(args[4])
+            sh = float(args[5])
             source = (int(sx), int(sy), int(sw), int(sh))
         else:
             raise ArgumentValidationError(
@@ -1000,6 +1014,7 @@ class SketchContext:
             self._frame_scroll_x += event.scroll_x
             self._frame_scroll_y += event.scroll_y
         self.update_mouse_event(event, pressed=pressed)
+        self.plugins.dispatch_event("on_mouse_event", self, event)
         self.sketch._dispatch_callback(event.type, event)
 
     def update_keyboard_event(self, event: KeyboardEvent, *, pressed: bool | None = None) -> None:
@@ -1020,6 +1035,7 @@ class SketchContext:
         elif event.type == "key_released":
             pressed = False
         self.update_keyboard_event(event, pressed=pressed)
+        self.plugins.dispatch_event("on_keyboard_event", self, event)
         self.sketch._dispatch_callback(event.type, event)
 
     def update_touch_event(self, event: TouchEvent) -> None:
@@ -1028,6 +1044,7 @@ class SketchContext:
 
     def dispatch_touch_event(self, event: TouchEvent) -> None:
         self.update_touch_event(event)
+        self.plugins.dispatch_event("on_touch_event", self, event)
         self.sketch._dispatch_callback(event.type, event)
 
     def key_is_down(self, key_code: int) -> bool:

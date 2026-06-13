@@ -9,6 +9,7 @@ from typing import Any
 from p5_py.api.current import activate_context
 from p5_py.backends.registry import create_backend
 from p5_py.context import SketchContext
+from p5_py.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 
 
 class Sketch:
@@ -30,12 +31,16 @@ class Sketch:
 
     def run(self, *, backend: str | None = None, max_frames: int | None = None) -> SketchContext:
         backend_instance = create_backend(backend or self.backend_name)
-        self.context = SketchContext(self, backend_instance)
+        self.context = SketchContext(self, backend_instance, plugins=GLOBAL_PLUGIN_REGISTRY)
+        GLOBAL_PLUGIN_REGISTRY.bind_runtime(self.context, self)
         self._running = True
         with activate_context(self.context):
+            self.context.plugins.dispatch_lifecycle("before_preload", self.context)
             self.preload()
+            self.context.plugins.dispatch_lifecycle("before_setup", self.context)
             self.setup()
             self.context.ensure_canvas()
+            self.context.plugins.dispatch_lifecycle("after_setup", self.context)
             backend_instance.run(self, max_frames=max_frames)
         return self.context
 
@@ -55,7 +60,9 @@ class Sketch:
         context.begin_frame()
         context.renderer.begin_frame()
         with activate_context(context):
+            context.plugins.dispatch_lifecycle("before_draw", context)
             self.draw()
+            context.plugins.dispatch_lifecycle("after_draw", context)
         context.renderer.end_frame()
         context.end_frame()
         context.state.timing.frame_count += 1

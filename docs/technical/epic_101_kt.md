@@ -69,7 +69,7 @@ Still deferred:
 - `src/p5_py/assets/sound.py`
 - `src/p5_py/drawing/software3d.py`
 - `src/p5_py/testing/resources/triangle.obj`
-- `docs/epic_101_kt.md`
+- `docs/technical/epic_101_kt.md`
 
 ### Core wiring
 - `src/p5_py/context.py`
@@ -90,7 +90,7 @@ Still deferred:
 - `examples/webgl_obj_sound.py`
 - `examples/webgl_texture_orbit.py`
 - `examples/README.md`
-- `docs/advanced_3d_media_strategy.md`
+- `docs/technical/advanced_3d_media_strategy.md`
 - `backlog/101_native_3d_media_implementation/*.toml`
 - `backlog/102_native_gpu_webgl_follow_on/*.toml`
 - `backlog/103_native_media_video_capture/*.toml`

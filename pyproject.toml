@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -8,6 +8,17 @@ version = "0.1.0"
 description = "A Pythonic creative coding package inspired by p5.js."
 readme = "README.md"
 requires-python = ">=3.12"
+license-files = ["LICENSE*"]
+keywords = ["creative-coding", "graphics", "p5", "p5js", "python"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Artistic Software",
+    "Topic :: Multimedia :: Graphics",
+]
 dependencies = [
     "pillow>=12.2.0",
     "pyglet>=2.1.14",
@@ -20,8 +31,12 @@ media = [
 
 [dependency-groups]
 dev = [
+    "mypy>=1.18.2",
     "pytest>=9.0.3",
     "ruff>=0.15.17",
+]
+release = [
+    "maturin>=1.9.4",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -38,9 +53,18 @@ features = ["extension-module"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.uv]
+default-groups = ["dev"]

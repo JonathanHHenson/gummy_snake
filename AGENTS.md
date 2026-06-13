@@ -154,7 +154,7 @@ PygletBackend presents that image in a native Pyglet window
 This is intentional for now. See:
 
 ```text
-docs/native_pyglet_renderer.md
+docs/technical/native_pyglet_renderer.md
 ```
 
 The planned next rendering milestone is a native `PygletRenderer`.
@@ -171,7 +171,7 @@ p5-py distinguishes logical canvas dimensions from physical backing-buffer dimen
 See:
 
 ```text
-docs/hidpi_rendering.md
+docs/technical/hidpi_rendering.md
 ```
 
 Do not regress Retina/HiDPI behavior when changing renderers or backends.
@@ -299,9 +299,9 @@ Update docs when changing architecture, public APIs, rendering behavior, backend
 Relevant docs include:
 
 ```text
-docs/project_plan.md
-docs/hidpi_rendering.md
-docs/native_pyglet_renderer.md
+docs/technical/project_plan.md
+docs/technical/hidpi_rendering.md
+docs/technical/native_pyglet_renderer.md
 ```
 
 ## Rust guidance

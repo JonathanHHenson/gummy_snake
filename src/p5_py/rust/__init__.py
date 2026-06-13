@@ -29,6 +29,8 @@ class _AcceleratedModule(Protocol):
     def exclusion_blend_rgb(self, base: bytes, overlay: bytes) -> bytes: ...
 
 
+_loaded_accelerated: _AcceleratedModule | None
+
 try:
     from p5_py.rust import _accelerated as _loaded_accelerated
 except ImportError as exc:

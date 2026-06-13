@@ -71,5 +71,5 @@ Add tests for native Pyglet rendering parity using fake Pyglet objects where pos
 order = 9
 status = 'DONE'
 description = '''
-Update docs and examples, including `docs/native_pyglet_renderer.md`, `docs/hidpi_rendering.md` if needed, and examples that currently default to headless because of Pillow-only compositing or pixel update support.
+Update docs and examples, including `docs/technical/native_pyglet_renderer.md`, `docs/technical/hidpi_rendering.md` if needed, and examples that currently default to headless because of Pillow-only compositing or pixel update support.
 '''

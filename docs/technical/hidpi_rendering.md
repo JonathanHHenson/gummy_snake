@@ -14,7 +14,7 @@ If the active display density is `2`, the interactive Pyglet backend renders int
 circle(320, 210, 100)
 ```
 
-Internally, renderers scale drawing coordinates, transforms, images, pixel buffers, and stroke weights by the active pixel density before rasterizing or presenting. The Pyglet renderer uses native Pyglet drawing for normal frames and lazily switches to a physical-size parity surface for pixel/compositing workflows that require exact headless-backend semantics. See `docs/native_pyglet_renderer.md`.
+Internally, renderers scale drawing coordinates, transforms, images, pixel buffers, and stroke weights by the active pixel density before rasterizing or presenting. The Pyglet renderer uses native Pyglet drawing for normal frames and lazily switches to a physical-size parity surface for pixel/compositing workflows that require exact headless-backend semantics. See `docs/technical/native_pyglet_renderer.md`.
 
 ## APIs
 

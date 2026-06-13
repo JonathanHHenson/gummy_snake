@@ -4,6 +4,7 @@ from p5_py.backends.headless import HeadlessBackend
 from p5_py.context import SketchContext
 from p5_py.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from p5_py.exceptions import BackendCapabilityError
+from p5_py.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from p5_py.sketch import Sketch
 
 
@@ -21,7 +22,7 @@ class EventSketch(Sketch):
 
 def make_context():
     sketch = EventSketch()
-    context = SketchContext(sketch, HeadlessBackend())
+    context = SketchContext(sketch, HeadlessBackend(), plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
     return sketch, context
 

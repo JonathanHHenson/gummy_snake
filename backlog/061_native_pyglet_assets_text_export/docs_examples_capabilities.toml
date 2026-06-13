@@ -15,14 +15,14 @@ status = 'DONE'
 order = 1
 status = 'DONE'
 description = '''
-Update `docs/native_pyglet_renderer.md` as native support lands, replacing capability-gated notes with supported behavior and known limitations.
+Update `docs/technical/native_pyglet_renderer.md` as native support lands, replacing capability-gated notes with supported behavior and known limitations.
 '''
 
 [my_pbi.task_2]
 order = 2
 status = 'DONE'
 description = '''
-Update `docs/project_plan.md` and examples documentation to make backend capability differences clear.
+Update `docs/technical/project_plan.md` and examples documentation to make backend capability differences clear.
 '''
 
 [my_pbi.task_3]

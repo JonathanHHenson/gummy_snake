@@ -16,7 +16,7 @@ uv run python examples/basic_shapes.py --backend headless --frames 1
 
 Export examples save PNG files when run headlessly or when their draw loop reaches the configured frame count.
 
-On Retina/HiDPI displays, the Pyglet backend renders to a higher-resolution backing buffer while keeping p5 coordinates logical. See `docs/hidpi_rendering.md` for details.
+On Retina/HiDPI displays, the Pyglet backend renders to a higher-resolution backing buffer while keeping p5 coordinates logical. See `docs/technical/hidpi_rendering.md` for details.
 
 ## Examples
 
@@ -30,6 +30,7 @@ On Retina/HiDPI displays, the Pyglet backend renders to a higher-resolution back
 - `color_style_filters.py` demonstrates RGB/HSB color modes, `lerp_color`, stroke caps/joins, `image_mode`, and image filters. This example defaults to `headless` because image/text drawing is currently implemented by the Pillow renderer.
 - `asteroids.py` demonstrates normalized mouse and keyboard callbacks, `key_is_down`, mouse movement deltas, and p5-style input state using the Kenney space shooter assets. It defaults to `pyglet` for interactive input and can export a deterministic headless preview.
 - `pixels_blend_export.py` demonstrates `load_pixels`, `pixels`, `update_pixels`, `pixel_array`, `blend_mode`, `blend`, `erase`, `no_erase`, and `save_canvas` using the Kenney space shooter assets. This example defaults to `headless` for deterministic Pillow compositing.
+- `plugin_hooks.py` demonstrates the epic 110 plugin registry with deterministic lifecycle hooks and a plugin-provided `draw_grid()` API that installs and uninstalls cleanly.
 - `webgl_wireframe_prototype.py` demonstrates the epic 100 math-only 3D prototype by projecting a cube with `drawing/prototype3d.py` and drawing the resulting wireframe with the existing 2D API. It compares `PerspectiveProjection` and `OrthographicProjection` side by side.
 - `webgl_obj_sound.py` demonstrates the first epic 101 software WEBGL-style implementation by loading `examples/assets/teapot.obj`, rendering it with the new 3D public APIs, and optionally playing `examples/assets/coin-drop-4.wav`.
 - `webgl_primitives_gallery.py` demonstrates the broader epic 101 WEBGL-style public API surface with `create_camera()`, `camera()`, `perspective()`, `ortho()`, `plane()`, `box()`, `sphere()`, `ambient_light()`, `directional_light()`, `point_light()`, `ambient_material()`, `specular_material()`, `shininess()`, and `normal_material()`.

@@ -181,11 +181,11 @@ The 040-060 backlog epics are implemented for the deterministic headless/Pillow 
 - Color, style, constants, and transform APIs include RGB/HSB/HSL color modes, style stacks, stroke/fill mutation, affine transforms, angle modes, and p5-style aliases.
 - Math, random, noise, and vector APIs include p5-style helpers, seedable random/gaussian values, deterministic Perlin-style noise, and mutable `Vector` objects with Python operators.
 - Assets include local image loading, `Image` manipulation (`get`, `set`, `copy`, `resize`, `mask`, and common filters), image drawing with `image_mode`, lightweight text/JSON helpers, font loading, text drawing, alignment, leading, and metrics.
-- Optional Rust acceleration is scaffolded through `crates/p5_accel` and `p5_py.rust`, with Python fallbacks for `noise_3d` and packed RGB `EXCLUSION` blending. See `docs/rust_acceleration.md` for build and benchmark commands.
+- Optional Rust acceleration is scaffolded through `crates/p5_accel` and `p5_py.rust`, with Python fallbacks for `noise_3d` and packed RGB `EXCLUSION` blending. See `docs/technical/rust_acceleration.md` for build and benchmark commands.
 
 The native Pyglet renderer supports image drawing, transformed image pivots, text drawing/metrics, `load_pixels`, `update_pixels`, `blend_mode`, `blend`, `erase`, and `save_canvas` export at physical HiDPI resolution. Normal frames use native Pyglet drawing; pixel/compositing workflows lazily switch to a deterministic parity surface. The headless/Pillow backend remains the simplest deterministic golden-test and non-interactive export path.
 
-Advanced 3D, model/shader, sound, and media work is documented in `docs/advanced_3d_media_strategy.md`. Epic 100 adds backend-agnostic 3D renderer protocol values, a dependency-free wireframe projection prototype, granular compatibility matrix entries, and deferred public stubs for WEBGL/model/shader/sound/media APIs.
+Advanced 3D, model/shader, sound, and media work is documented in `docs/technical/advanced_3d_media_strategy.md`. Epic 100 adds backend-agnostic 3D renderer protocol values, a dependency-free wireframe projection prototype, granular compatibility matrix entries, and deferred public stubs for WEBGL/model/shader/sound/media APIs.
 
 ## 6. Runtime design
 
@@ -262,7 +262,7 @@ The context should own:
 1. **Headless backend** for tests and deterministic rendering.
 2. **Pillow raster backend** for early 2D output, image export, and golden tests.
 3. **Interactive Pyglet backend** for native windows, event handling, and interactive presentation.
-4. **Native Pyglet renderer** to replace the current Pillow bridge for interactive drawing. See `docs/native_pyglet_renderer.md`.
+4. **Native Pyglet renderer** to replace the current Pillow bridge for interactive drawing. See `docs/technical/native_pyglet_renderer.md`.
 5. **OpenGL/3D backend** for WebGL-like features if the 2D core is stable.
 
 ### Renderer protocol

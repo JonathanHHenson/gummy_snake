@@ -9,25 +9,25 @@ acceptance_criteria = '''
 Documentation covers installation, getting started, lifecycle, Pythonic API conventions, compatibility, excluded APIs, rendering backends, images, pixels, events, and examples. All examples are Python-only.
 '''
 priotity = 'medium'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Write getting started and installation docs.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Create examples for drawing, animation, transforms, color, images, text, input, vectors, and pixels.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Document compatibility aliases, Pythonic differences, unsupported features, and migration guidance.
 '''

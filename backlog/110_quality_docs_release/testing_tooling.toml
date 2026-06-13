@@ -9,32 +9,32 @@ acceptance_criteria = '''
 `pytest`, `ruff`, and static typing checks are configured. Tests cover unit, contract, golden, compatibility, and integration layers. Common commands are documented.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add pytest structure for unit, contract, golden, parity, and integration tests.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Configure ruff formatting/linting and type checking.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add CI-friendly commands for fast tests, full tests, linting, and typing.
 '''
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Document test-writing guidelines.
 '''

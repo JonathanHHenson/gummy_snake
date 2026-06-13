@@ -42,7 +42,7 @@ def _deferred_webgl_api(name: str) -> None:
     unsupported_feature(
         name,
         "This WEBGL-style API is deferred on the current software 3D path. "
-        "See docs/advanced_3d_media_strategy.md for the supported slice "
+        "See docs/technical/advanced_3d_media_strategy.md for the supported slice "
         "and native-renderer follow-on work.",
     )
 
@@ -51,7 +51,7 @@ def _deferred_sound_api(name: str) -> None:
     unsupported_feature(
         name,
         "Sound APIs are deferred pending a native Python audio backend decision. "
-        "See docs/advanced_3d_media_strategy.md.",
+        "See docs/technical/advanced_3d_media_strategy.md.",
     )
 
 
@@ -60,7 +60,7 @@ def _deferred_media_api(name: str) -> None:
         name,
         "Native media playback/capture APIs are deferred because they have platform, "
         "privacy, and dependency implications outside the browser. "
-        "See docs/advanced_3d_media_strategy.md.",
+        "See docs/technical/advanced_3d_media_strategy.md.",
     )
 
 

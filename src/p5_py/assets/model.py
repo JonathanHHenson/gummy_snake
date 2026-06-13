@@ -119,11 +119,11 @@ def _parse_obj(text: str, *, source: Path) -> Model3D:
     if not state.vertices or not state.faces:
         raise ArgumentValidationError(f"OBJ model {source!s} contained no drawable faces.")
 
-    texcoords = ()
+    texcoords: tuple[tuple[float, float], ...] = ()
     if state.vertex_texcoords and all(value is not None for value in state.vertex_texcoords):
         texcoords = tuple(value for value in state.vertex_texcoords if value is not None)
 
-    normals = ()
+    normals: tuple[Vec3, ...] = ()
     if state.vertex_normals and all(value is not None for value in state.vertex_normals):
         normals = tuple(value for value in state.vertex_normals if value is not None)
 

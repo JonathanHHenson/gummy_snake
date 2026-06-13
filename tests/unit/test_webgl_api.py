@@ -11,6 +11,7 @@ from p5_py.context import SketchContext
 from p5_py.drawing.renderer3d import Model3D, Shader3D
 from p5_py.events.input_state import MouseEvent
 from p5_py.exceptions import ArgumentValidationError, BackendCapabilityError, ShaderUniformError
+from p5_py.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from p5_py.sketch import Sketch
 
 
@@ -21,7 +22,7 @@ class _WebGLSketch(Sketch):
 
 def make_context() -> SketchContext:
     sketch = _WebGLSketch()
-    context = SketchContext(sketch, HeadlessBackend())
+    context = SketchContext(sketch, HeadlessBackend(), plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
     context.create_canvas(96, 96, renderer=p5.WEBGL)
     return context
@@ -230,7 +231,7 @@ def test_set_shader_uniform_requires_active_shader():
 def test_shader_can_upgrade_pyglet_backend_from_software_webgl_to_native_shader_path():
     sketch = _WebGLSketch()
     backend = FakeUpgradeablePygletBackend()
-    context = SketchContext(sketch, backend)
+    context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
     context.create_canvas(96, 96, renderer=p5.WEBGL)
     program = p5.create_shader("void main() { gl_Position = vec4(0.0); }", "void main() { }")
@@ -244,7 +245,7 @@ def test_shader_can_upgrade_pyglet_backend_from_software_webgl_to_native_shader_
 def test_native_pyglet_renderer_path_receives_camera_projection_shader_and_model_calls():
     sketch = _WebGLSketch()
     backend = FakePyglet3DBackend()
-    context = SketchContext(sketch, backend)
+    context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
     context.create_canvas(96, 96, renderer=p5.WEBGL)
     program = p5.create_shader(
