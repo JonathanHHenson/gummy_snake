@@ -5,6 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from p5_py.api.current import require_context
+from p5_py.assets.media import Capture, Video
+from p5_py.assets.media import create_capture as _create_capture
+from p5_py.assets.media import create_video as _create_video
 from p5_py.assets.model import load_model as _load_model
 from p5_py.assets.shader import create_shader as _create_shader
 from p5_py.assets.shader import load_shader as _load_shader
@@ -108,6 +111,20 @@ def create_audio(path: str | Path) -> Sound:
     return _load_sound(path)
 
 
+def create_video(path: str | Path) -> Video:
+    return _create_video(path)
+
+
+def create_capture(
+    kind: str = "video",
+    *,
+    device: int | str = 0,
+    width: int | None = None,
+    height: int | None = None,
+) -> Capture:
+    return _create_capture(kind, device=device, width=width, height=height)
+
+
 createCamera = create_camera
 orbitControl = orbit_control
 ambientLight = ambient_light
@@ -121,11 +138,15 @@ loadShader = load_shader
 createShader = create_shader
 loadSound = load_sound
 createAudio = create_audio
+createVideo = create_video
+createCapture = create_capture
 resetShader = reset_shader
 
 
 __all__ = [
     "Sound",
+    "Video",
+    "Capture",
     "ambient_light",
     "orbit_control",
     "ambient_material",
@@ -134,8 +155,12 @@ __all__ = [
     "box",
     "camera",
     "create_audio",
+    "create_video",
+    "create_capture",
     "create_camera",
     "createAudio",
+    "createVideo",
+    "createCapture",
     "createCamera",
     "directional_light",
     "directionalLight",

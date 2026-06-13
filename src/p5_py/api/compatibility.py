@@ -30,7 +30,7 @@ COMPATIBILITY_MATRIX = {
     "sound_analysis": "deferred",
     "sound_synthesis": "deferred",
     "media_playback": "partial",
-    "media_capture": "deferred",
+    "media_capture": "partial",
 }
 
 
@@ -183,12 +183,12 @@ def create_audio(*args, **kwargs):
     return _advanced.create_audio(*args, **kwargs)
 
 
-def create_video(*_args, **_kwargs) -> None:
-    _deferred_media_api("create_video/createVideo")
+def create_video(*args, **kwargs):
+    return _advanced.create_video(*args, **kwargs)
 
 
-def create_capture(*_args, **_kwargs) -> None:
-    _deferred_media_api("create_capture/createCapture")
+def create_capture(*args, **kwargs):
+    return _advanced.create_capture(*args, **kwargs)
 
 
 createDiv = create_div

@@ -185,7 +185,8 @@ Compatibility notes:
 | p5.sound-style file playback | `load_sound`, play/pause/stop, volume/rate/pan | Partial using `pyglet.media` |
 | p5.sound-style analysis | amplitude, FFT, waveform | Deferred until playback backend and optional numeric dependency are selected |
 | p5.sound-style synthesis | oscillators, envelopes, filters | Deferred and optional |
-| Video playback and capture | `create_video`, `create_capture` | Deferred because of platform, permission, and dependency implications |
+| File-backed video playback | `create_video`, explicit `play()` / `pause()` / `read()` lifecycle | Partial using optional `opencv-python-headless` |
+| Camera capture | `create_capture("video")`, explicit `read()` / `close()` lifecycle | Partial using optional `opencv-python-headless` |
 | Microphone capture | microphone input and amplitude/FFT | Deferred because of OS permissions and device handling |
 
 The core package should not expose browser media elements. Any future media objects should be Python classes with explicit lifecycle methods and no DOM assumptions.
@@ -205,8 +206,9 @@ Recommendation:
 
 1. Do not add additional audio dependencies for the first playback milestone.
 2. Basic playback now uses `pyglet.media` because it is already installed and can be wrapped behind a backend-neutral `Sound` object.
-3. If analysis/capture becomes a product goal, evaluate an optional `sounddevice`/`soundfile`/NumPy stack or `miniaudio` with explicit extras such as `p5-py[sound]`.
-4. Keep sound objects backend-neutral so headless tests can use fake players/sample buffers without opening audio devices.
+3. Video playback and camera capture now use an optional `media` extra backed by `opencv-python-headless`. This keeps native media decoding/device access out of the core install while still providing a practical first Python-native API.
+4. If microphone analysis/capture becomes a product goal, evaluate an optional `sounddevice`/`soundfile`/NumPy stack or `miniaudio` with explicit extras such as `p5-py[sound]`.
+5. Keep sound and media objects backend-neutral so headless tests can use fake players/capture objects without opening real devices.
 
 ### Privacy, platform, and dependency implications
 
@@ -219,7 +221,30 @@ Microphone and camera APIs are not simple compatibility aliases for browser APIs
 - Audio capture often needs PortAudio, CoreAudio/WASAPI/ALSA/PulseAudio integration, or a wrapper package.
 - Captured audio/video can contain sensitive user data, so future APIs must make device access explicit and document when data leaves memory or is written to disk.
 
-`load_sound` and `create_audio` now load local files into a backend-neutral `Sound` object with `play`, `pause`, `stop`, `volume`, `rate`, and `pan` controls. `create_video` and `create_capture` remain deferred with clear package-specific errors.
+`load_sound` and `create_audio` now load local files into a backend-neutral `Sound` object with `play`, `pause`, `stop`, `volume`, `rate`, and `pan` controls.
+
+`create_video(path)` now stages file-backed video playback through a backend-neutral `Video` object with explicit lifecycle semantics:
+
+- `play()` marks the stream as advancing.
+- `pause()` freezes advancement while preserving the last decoded frame.
+- `stop()` pauses and seeks back to the beginning.
+- `read()` returns the current/next frame as a p5-py `Image`, which can be drawn through the existing `image()` API.
+- `looping(True)` restarts at the beginning when the stream reaches the end.
+- audio tracks are intentionally ignored in this first milestone.
+
+`create_capture("video", ...)` now stages camera capture through a backend-neutral `Capture` object with explicit lifecycle semantics:
+
+- `read()` returns the latest decoded camera frame as a p5-py `Image`.
+- `pause()` / `play()` stop or resume frame acquisition.
+- `close()` releases the device explicitly.
+- optional `width=` / `height=` requests are forwarded as best-effort capture hints.
+
+Predictable failure behavior is intentional:
+
+- If the optional dependency is missing, both APIs raise `BackendCapabilityError` with install guidance for `p5-py[media]`.
+- If a file cannot be opened, `create_video()` raises `ArgumentValidationError`.
+- If a camera cannot be opened, `create_capture()` raises `BackendCapabilityError` explaining that headless environments, missing devices, or denied OS permissions are common causes.
+- `create_capture("audio")` and other microphone-oriented modes remain deferred with a package-specific `UnsupportedFeatureError`.
 
 ## Compatibility matrix updates
 
@@ -238,7 +263,7 @@ Microphone and camera APIs are not simple compatibility aliases for browser APIs
 - `sound_analysis`: `deferred`
 - `sound_synthesis`: `deferred`
 - `media_playback`: `partial`
-- `media_capture`: `deferred`
+- `media_capture`: `partial`
 
 Implemented wrappers live in `src/p5_py/api/advanced.py` and are re-exported through `src/p5_py/api/compatibility.py` and `src/p5_py/__init__.py`. Remaining deferred APIs still raise immediate, intentional package-specific errors instead of failing with missing attributes.
 
@@ -248,4 +273,4 @@ Implemented wrappers live in `src/p5_py/api/advanced.py` and are re-exported thr
 2. Add shader compilation, binding, and uniform support.
 3. Extend model loading beyond OBJ when there is demand, likely starting with optional glTF support.
 4. Add amplitude/FFT analysis and optional synthesis on top of the current sound object design.
-5. Stage `create_video` and `create_capture` with explicit permission and capability behavior.
+5. Extend the staged `create_video` / `create_capture` APIs with tighter sketch-loop integration, optional audio-track support, and broader device/media format coverage once there is product demand.

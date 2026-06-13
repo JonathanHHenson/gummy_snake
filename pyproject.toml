@@ -13,6 +13,11 @@ dependencies = [
     "pyglet>=2.1.14",
 ]
 
+[project.optional-dependencies]
+media = [
+    "opencv-python-headless>=4.13.0.92",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",

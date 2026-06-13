@@ -1,7 +1,7 @@
 import pytest
 
 import p5_py as p5
-from p5_py import UnsupportedFeatureError
+from p5_py import ArgumentValidationError, UnsupportedFeatureError
 
 
 def test_dom_apis_are_explicitly_excluded():
@@ -29,11 +29,11 @@ def test_advanced_3d_and_media_compatibility_matrix_entries_track_partial_and_de
         "sound",
         "sound_playback",
         "media_playback",
+        "media_capture",
     }
     deferred_keys = {
         "sound_analysis",
         "sound_synthesis",
-        "media_capture",
     }
 
     for key in partial_keys:
@@ -42,12 +42,8 @@ def test_advanced_3d_and_media_compatibility_matrix_entries_track_partial_and_de
         assert p5.COMPATIBILITY_MATRIX[key] == "deferred"
 
 
-def test_remaining_media_stubs_are_deferred():
-    deferred_calls = [
-        (p5.createVideo, ("movie.mp4",)),
-        (p5.createCapture, ("video",)),
-    ]
+def test_media_stubs_now_fail_with_explicit_runtime_errors(tmp_path):
+    missing_video = tmp_path / "missing.mp4"
 
-    for api, args in deferred_calls:
-        with pytest.raises(UnsupportedFeatureError, match="deferred"):
-            api(*args)
+    with pytest.raises(ArgumentValidationError, match="Video file does not exist"):
+        p5.createVideo(missing_video)
