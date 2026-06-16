@@ -1,0 +1,61 @@
+[my_pbi]
+title = "Implement p5_canvas interactive runtime and input events"
+description = '''
+As an interactive sketch author,
+I want the Rust canvas backend to create windows, schedule frames, and normalize input events,
+So that interactive sketches work without depending on Pyglet.
+'''
+acceptance_criteria = '''
+The `canvas` backend supports an interactive window mode that creates/resizes a native window, reports display density, schedules frames according to p5-py timing state, calls `sketch._draw_frame()` in the existing lifecycle order, presents rendered frames, handles close/stop, and dispatches normalized mouse and keyboard events to `SketchContext`. Headless mode remains available without creating a window.
+'''
+priotity = 'high'
+status = 'TODO'
+
+[my_pbi.task_1]
+order = 1
+status = 'TODO'
+description = '''
+Select and document the native window/event-loop dependency for `p5_canvas`, including macOS, Linux, and Windows support and constraints around Python callback execution with the GIL.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'TODO'
+description = '''
+Implement Rust interactive canvas/window creation, resize handling, display-density detection, present, close, and stop primitives exposed through the PyO3 bridge.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'TODO'
+description = '''
+Implement frame scheduling for interactive mode so `target_frame_rate`, `no_loop`, `loop`, `redraw`, `max_frames`, and `stop` preserve existing sketch lifecycle behavior.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'TODO'
+description = '''
+Implement headless runtime behavior in `canvas`: no window creation, default one-frame run when `max_frames` is omitted, no frames when `max_frames=0`, and deterministic `display_density()` behavior.
+'''
+
+[my_pbi.task_5]
+order = 5
+status = 'TODO'
+description = '''
+Normalize mouse events for moved, dragged, pressed, released, clicked, double-clicked, and wheel, including logical coordinate conversion, pixel-density scaling, y-axis flipping, buttons, deltas, and modifiers.
+'''
+
+[my_pbi.task_6]
+order = 6
+status = 'TODO'
+description = '''
+Normalize keyboard events for pressed, released, and typed callbacks, including p5-py key-code constants, printable text, modifiers, pressed-key state, and repeat/platform edge cases.
+'''
+
+[my_pbi.task_7]
+order = 7
+status = 'TODO'
+description = '''
+Add synthetic event tests, fake-runtime tests, and manual interactive smoke-test instructions for frame scheduling, resize, close, mouse input, keyboard input, and display density.
+'''

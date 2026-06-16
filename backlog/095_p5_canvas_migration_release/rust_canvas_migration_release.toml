@@ -1,0 +1,61 @@
+[my_pbi]
+title = "Migrate p5-py to the p5_canvas backend safely"
+description = '''
+As a maintainer,
+I want a measured migration from Pillow/Pyglet to the Rust canvas backend,
+So that the new backend can become the default without breaking existing sketches, tests, examples, or packaging.
+'''
+acceptance_criteria = '''
+The `canvas` backend is validated across supported platforms and examples, documentation explains how to use and build it, CI covers Rust and Python behavior, and the default backend only changes after documented parity criteria are met. Existing `headless`, `pillow`, and `pyglet` backends remain available or are deprecated through an explicit release plan.
+'''
+priotity = 'medium'
+status = 'TODO'
+
+[my_pbi.task_1]
+order = 1
+status = 'TODO'
+description = '''
+Define the parity checklist for replacing both current interactive and headless modes, including 2D rendering, image/text behavior, pixels/compositing, event handling, HiDPI behavior, examples, and packaging.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'TODO'
+description = '''
+Add CI coverage for Rust unit tests, Python tests with the extension available, Python fallback/unavailable-extension tests, and platform-specific smoke tests where practical.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'TODO'
+description = '''
+Run and update examples and docs so sketches can opt into `--backend canvas`, while preserving existing `headless` and `pyglet` examples during the migration window.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'TODO'
+description = '''
+Update technical documentation, including `p5_canvas` design status, HiDPI behavior, backend capability tables, build instructions, troubleshooting, and any known platform limitations.
+'''
+
+[my_pbi.task_5]
+order = 5
+status = 'TODO'
+description = '''
+Introduce default-backend selection logic that uses `canvas` only when parity criteria are met and the extension is available, with clear fallback/error behavior for environments without native support.
+'''
+
+[my_pbi.task_6]
+order = 6
+status = 'TODO'
+description = '''
+Create a deprecation or retention plan for Pillow/Pyglet backends after `p5_canvas` becomes stable, including release notes, compatibility guidance, and maintainer rollback strategy.
+'''
+
+[my_pbi.task_7]
+order = 7
+status = 'TODO'
+description = '''
+Perform final validation with `uv run ruff check .`, `uv run pytest`, Rust tests, headless and interactive smoke tests, and representative examples before changing backend defaults.
+'''
