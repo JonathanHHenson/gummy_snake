@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "p5py_vibe"
-version = "0.1.2"
+version = "0.1.3"
 description = "A Pythonic creative coding package inspired by p5.js."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -52,6 +52,9 @@ features = ["extension-module"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+    "benchmark: opt-in runtime performance benchmarks",
+]
 
 [tool.mypy]
 python_version = "3.12"
