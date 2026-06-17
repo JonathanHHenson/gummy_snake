@@ -196,7 +196,14 @@ Candidate Rust dependencies to evaluate in the foundation epic:
 - `image` for PNG/export/image decoding support where needed.
 - `cosmic-text`, `fontdue`, or another Rust text stack for text layout and metrics.
 
-The final choices should be documented with tradeoffs before implementation commits to them.
+For epic 092, the first implemented 2D stack is a CPU software RGBA surface inside `crates/p5_canvas`, exposed through PyO3 as `p5.rust._canvas.Canvas`.
+
+Tradeoffs:
+
+- It is deterministic and supports headless readback/export without requiring a window, GPU device, or platform-specific render loop.
+- It keeps the Python adapter thin: Python converts `Color`, `StyleState`, and `Matrix2D` into simple bridge payloads, while Rust owns canvas sizing, frame lifecycle, pixel buffers, and primitive rasterization.
+- It is intentionally not the final interactive renderer. GPU-backed presentation, native window events, image caching, text shaping, blend-mode parity beyond `BLEND`, and future WEBGL/3D remain separate milestones.
+- PNG export uses Rust's `image` crate. No new Python runtime dependency is required.
 
 ## Python API design
 
@@ -433,8 +440,8 @@ uvx maturin build --release
 Build the canvas extension explicitly:
 
 ```sh
-uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
-uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
+uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml
 ```
 
 Run Rust crate tests directly with Cargo:

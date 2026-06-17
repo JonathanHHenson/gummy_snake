@@ -9,17 +9,18 @@ from __future__ import annotations
 
 from importlib import import_module
 from types import ModuleType
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 from p5.exceptions import BackendCapabilityError
 
 P5_CANVAS_BUILD_COMMAND = (
-    "uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml "
-    "--module-name p5.rust._canvas --python-source src --features extension-module"
+    "uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml"
 )
 
 
 class _CanvasModule(Protocol):
+    Canvas: type[Any]
+
     def health_check(self) -> str: ...
 
 

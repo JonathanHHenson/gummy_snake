@@ -9,6 +9,7 @@ name = "_canvas"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+image = { version = "0.25.8", default-features = false, features = ["png"] }
 pyo3 = "0.22.6"
 
 [features]

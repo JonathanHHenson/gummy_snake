@@ -9,46 +9,46 @@ acceptance_criteria = '''
 `CanvasRenderer` delegates 2D rendering to Rust for frame lifecycle, background, clear, point, line, polygon, ellipse, arc, transformed geometry, fill/stroke state, stroke weight, and the core logical-to-physical pixel-density mapping. Headless parity tests compare deterministic output against the existing Pillow renderer within documented tolerances. Capability flags advertise only implemented behavior.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Choose and document the Rust rendering stack for 2D primitives and offscreen surfaces, including tradeoffs for GPU rendering, deterministic readback, cross-platform support, and future WEBGL/3D compatibility.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement Rust canvas sizing with logical width/height, physical width/height, pixel density validation, and top-left p5 coordinate semantics at the Python boundary.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement frame lifecycle, `background`, and `clear` in Rust with RGBA output matching the current headless semantics.
 '''
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement `point`, `line`, `polygon`, `ellipse`, and `arc`, including fill, stroke, stroke weight, open/closed path behavior, and affine transforms passed from Python `Matrix2D`.
 '''
 
 [my_pbi.task_5]
 order = 5
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add Python adapter conversion for `Color`, `StyleState`, and `Matrix2D` into Rust bridge payloads without making Rust depend on Python style internals.
 '''
 
 [my_pbi.task_6]
 order = 6
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add renderer contract and parity tests for primitive drawing, transforms, pixel density, clear/background behavior, and invalid canvas argument errors.
 '''
