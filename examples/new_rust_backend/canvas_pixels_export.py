@@ -1,6 +1,9 @@
 """Pixel-buffer round trip and export demo for the Rust canvas backend.
 
-Run:
+Run interactively:
+    uv run python examples/new_rust_backend/canvas_pixels_export.py
+
+Run a bounded offscreen/export pass instead:
     uv run python examples/new_rust_backend/canvas_pixels_export.py --frames 1
 
 The background is written directly through load_pixels()/update_pixels(), then
@@ -14,16 +17,15 @@ from pathlib import Path
 
 import p5
 
-OUTPUT = Path("examples/output/new_rust_backend/canvas_pixels_export.png")
-EXPORT_CANVAS = False
+DEFAULT_OUTPUT = Path("examples/output/new_rust_backend/canvas_pixels_export.png")
+EXPORT_CANVAS = True
+OUTPUT = DEFAULT_OUTPUT
 STARFIELD_PIXELS: bytes = b""
 
 
 def setup() -> None:
-    global STARFIELD_PIXELS
     p5.create_canvas(640, 360, pixel_density=1.5)
     p5.frame_rate(1)
-    STARFIELD_PIXELS = build_pixel_background()
 
 
 def build_pixel_background() -> bytes:
@@ -50,7 +52,7 @@ def build_pixel_background() -> bytes:
 
 
 def draw() -> None:
-    p5.update_pixels(STARFIELD_PIXELS)
+    p5.update_pixels(build_pixel_background())
     draw_nebula_shapes()
     draw_pixel_density_markers()
 
@@ -92,14 +94,20 @@ def draw_pixel_density_markers() -> None:
     p5.rect(34, 86, 140, 18)
 
 
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", default=p5.CANVAS, choices=p5.available_backends())
-    parser.add_argument("--frames", type=int, default=1)
-    args = parser.parse_args()
+    parser.add_argument("--frames", type=int)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--no-save", action="store_true")
+    return parser.parse_args()
 
-    global EXPORT_CANVAS
-    EXPORT_CANVAS = args.backend in {p5.CANVAS, p5.HEADLESS, p5.PILLOW}
+
+def main() -> None:
+    args = parse_args()
+    global EXPORT_CANVAS, OUTPUT
+    OUTPUT = args.output
+    EXPORT_CANVAS = not args.no_save and args.frames is not None and args.frames > 0
     p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
 
 

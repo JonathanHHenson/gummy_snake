@@ -11,6 +11,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 image = { version = "0.25.8", default-features = false, features = ["png"] }
 pyo3 = "0.22.6"
+softbuffer = "0.4.8"
+winit = "0.30.13"
 
 [features]
 default = []

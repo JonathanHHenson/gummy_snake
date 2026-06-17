@@ -23,6 +23,8 @@ class _CanvasModule(Protocol):
 
     def health_check(self) -> str: ...
 
+    def native_window_available(self) -> bool: ...
+
 
 _loaded_canvas: ModuleType | None
 _CANVAS_IMPORT_ERROR: ImportError | None
@@ -58,6 +60,15 @@ def canvas_health_check() -> str:
     return str(_canvas.health_check())
 
 
+def canvas_native_window_available() -> bool:
+    """Return whether the loaded canvas extension has native window support."""
+
+    if _canvas is None:
+        return False
+    native_window_available = getattr(_canvas, "native_window_available", None)
+    return bool(native_window_available()) if callable(native_window_available) else False
+
+
 def require_canvas_extension() -> _CanvasModule:
     """Return the loaded canvas extension or raise a backend capability error."""
 
@@ -75,6 +86,7 @@ def require_canvas_extension() -> _CanvasModule:
 __all__ = [
     "P5_CANVAS_BUILD_COMMAND",
     "canvas_health_check",
+    "canvas_native_window_available",
     "canvas_import_error",
     "is_canvas_available",
     "require_canvas_extension",

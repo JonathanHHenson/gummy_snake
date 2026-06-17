@@ -1,6 +1,9 @@
 """Transform and pixel-density demo for the experimental Rust canvas backend.
 
-Run:
+Run interactively:
+    uv run python examples/new_rust_backend/canvas_transforms_density.py
+
+Run a bounded offscreen/export pass instead:
     uv run python examples/new_rust_backend/canvas_transforms_density.py --frames 1
 
 This sketch intentionally avoids text/images because those are not implemented
@@ -15,8 +18,9 @@ from pathlib import Path
 
 import p5
 
-OUTPUT = Path("examples/output/new_rust_backend/canvas_transforms_density.png")
-EXPORT_CANVAS = False
+DEFAULT_OUTPUT = Path("examples/output/new_rust_backend/canvas_transforms_density.png")
+EXPORT_CANVAS = True
+OUTPUT = DEFAULT_OUTPUT
 
 
 def setup() -> None:
@@ -29,10 +33,12 @@ def draw() -> None:
     p5.background(18, 22, 34)
     draw_density_probe()
 
+    p5.push()
     p5.translate(p5.width() / 2, p5.height() / 2)
     draw_rotating_petals()
     draw_nested_squares()
     draw_orbit_points()
+    p5.pop()
 
     if EXPORT_CANVAS and p5.frame_count() == 0:
         OUTPUT.parent.mkdir(parents=True, exist_ok=True)
@@ -91,14 +97,20 @@ def draw_orbit_points() -> None:
     p5.circle(0, 0, 22)
 
 
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", default=p5.CANVAS, choices=p5.available_backends())
-    parser.add_argument("--frames", type=int, default=1)
-    args = parser.parse_args()
+    parser.add_argument("--frames", type=int)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--no-save", action="store_true")
+    return parser.parse_args()
 
-    global EXPORT_CANVAS
-    EXPORT_CANVAS = args.backend in {p5.CANVAS, p5.HEADLESS, p5.PILLOW}
+
+def main() -> None:
+    args = parse_args()
+    global EXPORT_CANVAS, OUTPUT
+    OUTPUT = args.output
+    EXPORT_CANVAS = not args.no_save and args.frames is not None and args.frames > 0
     p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
 
 

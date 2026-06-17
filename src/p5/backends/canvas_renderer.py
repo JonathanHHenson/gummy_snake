@@ -48,11 +48,18 @@ class CanvasRenderer:
         self.physical_height = 0
         self.pixel_density = 1.0
 
-    def resize(self, width: int, height: int, pixel_density: float = 1.0) -> None:
+    def resize(
+        self,
+        width: int,
+        height: int,
+        pixel_density: float = 1.0,
+        *,
+        mode: str = c.HEADLESS,
+    ) -> None:
         canvas_type = self._canvas_type()
         try:
             if self._canvas is None:
-                self._canvas = canvas_type(width, height, pixel_density, "headless", c.P2D)
+                self._canvas = canvas_type(width, height, pixel_density, mode, c.P2D)
             else:
                 self._canvas.resize(width, height, pixel_density, c.P2D)
             self._sync_dimensions()
@@ -76,6 +83,11 @@ class CanvasRenderer:
     def close(self) -> None:
         if self._canvas is not None:
             self._canvas.close()
+
+    def runtime_canvas(self) -> Any:
+        """Return the underlying Rust canvas/runtime object for backend event-loop calls."""
+
+        return self._require_canvas()
 
     def background(self, color: Color) -> None:
         self._call("background drawing", self._require_canvas().background, color.to_tuple())

@@ -1,10 +1,16 @@
+mod runtime;
+
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict};
+use runtime::{
+    native_window_available as runtime_native_window_available, InteractiveRuntime, RuntimeEvent,
+};
 use std::f64::consts::PI;
 
 const SUPPORTED_RENDERER: &str = "p2d";
 const SUPPORTED_MODE: &str = "headless";
+const INTERACTIVE_MODE: &str = "interactive";
 const SUPPORTED_BLEND_MODE: &str = "blend";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,14 +49,18 @@ type Matrix = (f64, f64, f64, f64, f64, f64);
 
 type Point = (f64, f64);
 
-#[pyclass]
+#[pyclass(unsendable)]
 struct Canvas {
     width: i64,
     height: i64,
     physical_width: usize,
     physical_height: usize,
     pixel_density: f64,
+    mode: String,
+    window_open: bool,
+    closed: bool,
     pixels: Vec<u8>,
+    runtime: Option<InteractiveRuntime>,
 }
 
 #[pymethods]
@@ -72,7 +82,11 @@ impl Canvas {
             physical_width,
             physical_height,
             pixel_density,
+            mode: mode.to_string(),
+            window_open: mode == INTERACTIVE_MODE,
+            closed: false,
             pixels: vec![0; physical_width * physical_height * 4],
+            runtime: None,
         })
     }
 
@@ -91,6 +105,13 @@ impl Canvas {
         self.physical_width = physical_width;
         self.physical_height = physical_height;
         self.pixels = vec![0; physical_width * physical_height * 4];
+        if let Some(runtime) = self.runtime.as_mut() {
+            runtime
+                .request_resize(width, height, pixel_density)
+                .map_err(|err| {
+                    PyValueError::new_err(format!("Failed to resize native canvas window: {err}"))
+                })?;
+        }
         Ok(())
     }
 
@@ -105,16 +126,83 @@ impl Canvas {
     }
 
     fn display_density(&self) -> f64 {
-        1.0
+        if let Some(runtime) = self.runtime.as_ref() {
+            runtime.display_density()
+        } else if self.window_open {
+            self.pixel_density.max(1.0)
+        } else {
+            1.0
+        }
+    }
+
+    fn native_window_available(&self) -> bool {
+        runtime_native_window_available()
+    }
+
+    fn open_window(&mut self) -> PyResult<()> {
+        self.mode = INTERACTIVE_MODE.to_string();
+        self.window_open = true;
+        self.closed = false;
+        self.runtime = Some(
+            InteractiveRuntime::open(self.width, self.height).map_err(|err| {
+                PyValueError::new_err(format!("Failed to open native canvas window: {err}"))
+            })?,
+        );
+        Ok(())
+    }
+
+    fn should_close(&self) -> bool {
+        self.closed
+            || self
+                .runtime
+                .as_ref()
+                .map(|runtime| runtime.should_close())
+                .unwrap_or(false)
+    }
+
+    fn poll_events(&mut self) -> PyResult<Vec<Py<PyAny>>> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return Ok(Vec::new());
+        };
+        let events = runtime.poll_events().map_err(|err| {
+            PyValueError::new_err(format!("Failed to poll native canvas events: {err}"))
+        })?;
+        if runtime.should_close() {
+            self.closed = true;
+        }
+        Python::with_gil(|py| {
+            events
+                .into_iter()
+                .map(|event| runtime_event_to_pyobject(py, event))
+                .collect()
+        })
     }
 
     fn begin_frame(&mut self) {}
 
     fn end_frame(&mut self) {}
 
-    fn present(&self) {}
+    fn present(&mut self) -> PyResult<()> {
+        if let Some(runtime) = self.runtime.as_mut() {
+            runtime
+                .present(&self.pixels, self.physical_width, self.physical_height)
+                .map_err(|err| {
+                    PyValueError::new_err(format!("Failed to present native canvas frame: {err}"))
+                })?;
+            if runtime.should_close() {
+                self.closed = true;
+            }
+        }
+        Ok(())
+    }
 
-    fn close(&mut self) {}
+    fn close(&mut self) {
+        self.closed = true;
+        if let Some(runtime) = self.runtime.as_mut() {
+            runtime.close();
+        }
+        self.runtime = None;
+    }
 
     fn background(&mut self, rgba: (u8, u8, u8, u8)) {
         let color = Rgba::from_tuple(rgba).as_array();
@@ -369,17 +457,78 @@ fn health_check() -> &'static str {
     "rust-canvas"
 }
 
+#[pyfunction]
+fn native_window_available() -> bool {
+    runtime_native_window_available()
+}
+
 #[pymodule]
 fn _canvas(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(health_check, m)?)?;
+    m.add_function(wrap_pyfunction!(native_window_available, m)?)?;
     m.add_class::<Canvas>()?;
     Ok(())
 }
 
+fn runtime_event_to_pyobject(py: Python<'_>, event: RuntimeEvent) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item("type", event.event_type)?;
+    if let Some(x) = event.x {
+        dict.set_item("x", x)?;
+    }
+    if let Some(y) = event.y {
+        dict.set_item("y", y)?;
+    }
+    if let Some(dx) = event.dx {
+        dict.set_item("dx", dx)?;
+    }
+    if let Some(dy) = event.dy {
+        dict.set_item("dy", dy)?;
+    }
+    if let Some(button) = event.button {
+        dict.set_item("button", button)?;
+    }
+    if let Some(scroll_x) = event.scroll_x {
+        dict.set_item("scroll_x", scroll_x)?;
+    }
+    if let Some(scroll_y) = event.scroll_y {
+        dict.set_item("scroll_y", scroll_y)?;
+    }
+    if let Some(modifiers) = event.modifiers {
+        dict.set_item("modifiers", modifiers)?;
+    }
+    if let Some(key) = event.key {
+        if !key.is_empty() {
+            dict.set_item("key", key)?;
+        }
+    }
+    if let Some(code) = event.code {
+        if !code.is_empty() {
+            dict.set_item("code", code)?;
+        }
+    }
+    if let Some(text) = event.text {
+        dict.set_item("text", text)?;
+    }
+    if let Some(width) = event.width {
+        dict.set_item("width", width)?;
+    }
+    if let Some(height) = event.height {
+        dict.set_item("height", height)?;
+    }
+    if let Some(pixel_density) = event.pixel_density {
+        dict.set_item("pixel_density", pixel_density)?;
+    }
+    if let Some(coordinates) = event.coordinates {
+        dict.set_item("coordinates", coordinates)?;
+    }
+    Ok(dict.into_any().unbind())
+}
+
 fn validate_mode_and_renderer(mode: &str, renderer: &str) -> PyResult<()> {
-    if mode != SUPPORTED_MODE {
+    if mode != SUPPORTED_MODE && mode != INTERACTIVE_MODE {
         return Err(PyValueError::new_err(format!(
-            "Unsupported canvas mode {mode:?}; only {SUPPORTED_MODE:?} is implemented."
+            "Unsupported canvas mode {mode:?}; supported modes are {SUPPORTED_MODE:?} and {INTERACTIVE_MODE:?}."
         )));
     }
     validate_renderer(renderer)
@@ -701,6 +850,7 @@ mod tests {
     #[test]
     fn health_check_reports_canvas_backend() {
         assert_eq!(health_check(), "rust-canvas");
+        assert_eq!(native_window_available(), runtime_native_window_available());
     }
 
     #[test]
@@ -730,5 +880,21 @@ mod tests {
 
         canvas.clear();
         assert_eq!(canvas.load_pixels(), vec![0; 8]);
+    }
+
+    #[test]
+    fn interactive_runtime_primitives_track_open_and_close_state() {
+        let mut canvas = Canvas::new(10, 8, 2.0, INTERACTIVE_MODE, SUPPORTED_RENDERER).unwrap();
+
+        assert_eq!(canvas.display_density(), 2.0);
+        assert!(!canvas.should_close());
+        assert!(canvas.poll_events().unwrap().is_empty());
+        assert_eq!(
+            canvas.native_window_available(),
+            runtime_native_window_available()
+        );
+
+        canvas.close();
+        assert!(canvas.should_close());
     }
 }

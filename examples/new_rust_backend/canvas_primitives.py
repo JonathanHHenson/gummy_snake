@@ -1,6 +1,9 @@
 """Core 2D primitive demo for the experimental Rust canvas backend.
 
-Run with the Rust canvas backend:
+Run interactively with the Rust canvas backend:
+    uv run python examples/new_rust_backend/canvas_primitives.py
+
+Run a bounded offscreen/export pass instead:
     uv run python examples/new_rust_backend/canvas_primitives.py --frames 1
 
 Compare against Pillow/headless:
@@ -14,8 +17,9 @@ from pathlib import Path
 
 import p5
 
-OUTPUT = Path("examples/output/new_rust_backend/canvas_primitives.png")
-EXPORT_CANVAS = False
+DEFAULT_OUTPUT = Path("examples/output/new_rust_backend/canvas_primitives.png")
+EXPORT_CANVAS = True
+OUTPUT = DEFAULT_OUTPUT
 
 
 def setup() -> None:
@@ -95,14 +99,20 @@ def draw_arcs() -> None:
     p5.arc(490, 255, 95, 95, 0.2, 5.3, p5.OPEN)
 
 
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", default=p5.CANVAS, choices=p5.available_backends())
-    parser.add_argument("--frames", type=int, default=1)
-    args = parser.parse_args()
+    parser.add_argument("--frames", type=int)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--no-save", action="store_true")
+    return parser.parse_args()
 
-    global EXPORT_CANVAS
-    EXPORT_CANVAS = args.backend in {p5.CANVAS, p5.HEADLESS, p5.PILLOW}
+
+def main() -> None:
+    args = parse_args()
+    global EXPORT_CANVAS, OUTPUT
+    OUTPUT = args.output
+    EXPORT_CANVAS = not args.no_save and args.frames is not None and args.frames > 0
     p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
 
 

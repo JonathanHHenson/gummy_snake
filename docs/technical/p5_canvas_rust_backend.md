@@ -378,6 +378,36 @@ logical_dy = -native_physical_dy / pixel_density
 
 The Rust event layer should normalize platform-specific buttons and key codes into p5-py constants before Python updates `InputState`, or it should pass enough structured information for `CanvasBackend` to do that normalization consistently.
 
+### Epic 093 runtime bridge decision
+
+For the interactive runtime/input milestone, the Python adapter uses a polling bridge rather than letting Rust call arbitrary Python from native callbacks directly:
+
+```python
+canvas.native_window_available() -> bool
+canvas.open_window() -> None
+canvas.should_close() -> bool
+canvas.poll_events() -> list[dict[str, object]]
+```
+
+`CanvasBackend` owns frame scheduling and calls `sketch._draw_frame()` in the existing lifecycle order. Between scheduled frames it drains `poll_events()` and dispatches normalized `MouseEvent` and `KeyboardEvent` objects into `SketchContext`.
+
+The selected native window/input dependency is `winit`, with `softbuffer` as the initial presentation layer for the existing CPU RGBA surface. This keeps the first native runtime aligned with the current software renderer while leaving `wgpu` available for a later GPU renderer milestone. The bridge now reports `native_window_available() == True` on supported desktop targets and exposes `open_window()`, `should_close()`, `poll_events()`, and `present()` through the PyO3 canvas object so unbounded `backend="canvas"` runs can enter the native interactive loop while bounded runs remain offscreen.
+
+Rust-originated event payloads passed through `poll_events()` should use physical window coordinates by default:
+
+```python
+{"type": "mouse_pressed", "x": 20, "y": 10, "button": 1, "modifiers": 0}
+{"type": "mouse_dragged", "x": 24, "y": 6, "dx": 4, "dy": -8, "button": "left"}
+{"type": "mouse_wheel", "x": 24, "y": 6, "scroll_x": 1, "scroll_y": -2}
+{"type": "key_pressed", "key": "a"}
+{"type": "key_pressed", "code": "ArrowLeft"}
+{"type": "key_typed", "text": "é"}
+{"type": "resized", "width": 640, "height": 420, "pixel_density": 2.0}
+{"type": "close"}
+```
+
+If Rust emits already-logical coordinates, include `"coordinates": "logical"` to skip pixel-density scaling and y-axis flipping in Python.
+
 ## Headless runtime semantics
 
 Headless mode should preserve current behavior unless intentionally changed later:
@@ -483,6 +513,21 @@ Once `canvas` exists, add smoke commands such as:
 ```sh
 uv run python examples/basic_shapes.py --backend canvas --frames 1
 ```
+
+For epic 093 runtime/input bridge changes, run focused synthetic tests:
+
+```sh
+uv run pytest tests/unit/test_rust_canvas.py
+PYO3_PYTHON=/Users/jhenson/zed_projects/p5_py/.venv/bin/python3 cargo test --manifest-path crates/p5_canvas/Cargo.toml
+```
+
+After the `winit`/`softbuffer` native layer is enabled and `native_window_available()` returns `True`, manually smoke-test:
+
+```sh
+uv run python examples/basic_shapes.py --backend canvas
+```
+
+Confirm that a native window opens, close stops the sketch cleanly, resizing updates `width()`, `height()`, and `display_density()`, mouse move/drag/press/release/click/double-click/wheel callbacks receive logical coordinates, and key press/release/type callbacks update `key`, `key_code`, `key_is_pressed`, and `key_is_down()`.
 
 ## Migration plan
 
