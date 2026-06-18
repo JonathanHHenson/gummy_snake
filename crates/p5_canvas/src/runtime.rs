@@ -159,13 +159,12 @@ mod desktop {
 
         pub fn present(
             &mut self,
-            rgba_pixels: &[u8],
+            packed_pixels: &[u32],
             physical_width: usize,
             physical_height: usize,
         ) -> Result<(), String> {
-            self.pump_events()?;
             self.app
-                .present(rgba_pixels, physical_width, physical_height)
+                .present(packed_pixels, physical_width, physical_height)
         }
 
         pub fn request_resize(
@@ -210,6 +209,8 @@ mod desktop {
         pixel_density: f64,
         physical_width: u32,
         physical_height: u32,
+        surface_width: u32,
+        surface_height: u32,
         window_id: Option<WindowId>,
         window: Option<Arc<Window>>,
         context: Option<Context<Arc<Window>>>,
@@ -231,6 +232,8 @@ mod desktop {
                 pixel_density: 1.0,
                 physical_width: logical_width.max(1) as u32,
                 physical_height: logical_height.max(1) as u32,
+                surface_width: 0,
+                surface_height: 0,
                 window_id: None,
                 window: None,
                 context: None,
@@ -278,7 +281,7 @@ mod desktop {
 
         fn present(
             &mut self,
-            rgba_pixels: &[u8],
+            packed_pixels: &[u32],
             physical_width: usize,
             physical_height: usize,
         ) -> Result<(), String> {
@@ -296,25 +299,36 @@ mod desktop {
             ) else {
                 return Ok(());
             };
-            surface
-                .resize(width, height)
-                .map_err(|err| err.to_string())?;
+            if self.surface_width != target_width || self.surface_height != target_height {
+                surface
+                    .resize(width, height)
+                    .map_err(|err| err.to_string())?;
+                self.surface_width = target_width;
+                self.surface_height = target_height;
+            }
             let mut buffer = surface.buffer_mut().map_err(|err| err.to_string())?;
-            buffer.fill(0x00000000);
 
-            let copy_width = physical_width.min(target_width as usize);
-            let copy_height = physical_height.min(target_height as usize);
-            for y in 0..copy_height {
-                for x in 0..copy_width {
-                    let offset = (y * physical_width + x) * 4;
-                    if offset + 3 >= rgba_pixels.len() {
-                        break;
+            if physical_width == target_width as usize && physical_height == target_height as usize
+            {
+                let pixels = &packed_pixels[..packed_pixels.len().min(buffer.len())];
+                buffer[..pixels.len()].copy_from_slice(pixels);
+            } else {
+                buffer.fill(0x00000000);
+                if physical_width > 0 && physical_height > 0 {
+                    let target_width_usize = target_width as usize;
+                    let target_height_usize = target_height as usize;
+                    for y in 0..target_height_usize {
+                        let src_y = y * physical_height / target_height_usize;
+                        let src_row = src_y * physical_width;
+                        let dst_row = y * target_width_usize;
+                        for x in 0..target_width_usize {
+                            let src_x = x * physical_width / target_width_usize;
+                            let src_index = src_row + src_x;
+                            if src_index < packed_pixels.len() {
+                                buffer[dst_row + x] = packed_pixels[src_index];
+                            }
+                        }
                     }
-                    let r = rgba_pixels[offset] as u32;
-                    let g = rgba_pixels[offset + 1] as u32;
-                    let b = rgba_pixels[offset + 2] as u32;
-                    let a = rgba_pixels[offset + 3] as u32;
-                    buffer[y * target_width as usize + x] = (a << 24) | (r << 16) | (g << 8) | b;
                 }
             }
 
@@ -343,6 +357,8 @@ mod desktop {
                 surface
                     .resize(width, height)
                     .map_err(|err| err.to_string())?;
+                self.surface_width = size.width;
+                self.surface_height = size.height;
             }
             self.events.push(RuntimeEvent::resized(
                 self.logical_width,

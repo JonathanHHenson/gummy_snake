@@ -360,12 +360,10 @@ class AsteroidsDemo:
             # Draw ship body as two triangles (bow pointing UP in local space)
             half_width = SHIP_RADIUS * 0.85
             wing_slot_y = SHIP_RADIUS * 0.18
-            wing_offset = SHIP_RADIUS * 0.45
 
             p5.stroke(170, 225, 255, 255)
             p5.stroke_weight(3)
             p5.fill(36, 116, 220, 245)
-            # Left triangle: nose at (0,-SH), bottom-left at (-half, SH*0.72), notch at (-wing_slot_y/13*,SH*0.18)
             # Simplified: two triangles forming a pointed bow shape
             p5.triangle(0, -SHIP_RADIUS, -half_width, SHIP_RADIUS * 0.72, 0, wing_slot_y)
             p5.triangle(0, -SHIP_RADIUS, 0, wing_slot_y, half_width, SHIP_RADIUS * 0.72)

@@ -146,6 +146,20 @@ src/p5/rust/canvas.py            # Optional import wrapper and capability checks
 crates/p5_canvas/                # Rust extension crate
 ```
 
+Benchmark coverage for the canvas backend lives under `tests/benchmark/test_canvas_backend_perf.py`.
+Run it explicitly with:
+
+```sh
+uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
+```
+
+Interactive canvas-versus-pyglet benchmarking lives under
+`tests/benchmark/test_interactive_backend_perf.py`:
+
+```sh
+uv run pytest tests/benchmark/test_interactive_backend_perf.py --run-benchmarks -s
+```
+
 The registry should eventually expose:
 
 ```python
