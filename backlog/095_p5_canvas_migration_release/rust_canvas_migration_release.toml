@@ -9,60 +9,60 @@ acceptance_criteria = '''
 The `canvas` backend is validated as a GPU renderer across supported platforms and examples, documentation explains how to use and build it, CI covers Rust and Python behavior where practical, benchmarks demonstrate performance wins for representative sketches, and the default backend only changes after documented GPU parity criteria are met. Existing `headless`, `pillow`, and `pyglet` backends remain available or are deprecated through an explicit release plan. Performance validation includes both headless canvas benchmark variants and the interactive canvas-versus-pyglet benchmark, with regressions investigated before default-backend migration.
 '''
 priotity = 'medium'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Define the GPU parity checklist for replacing both current interactive and headless modes, including primitive rendering, image/text behavior, pixels/compositing, event handling, HiDPI behavior, readback/export, examples, packaging, and performance thresholds. Include explicit guards against ordinary-frame GPU regressions such as eager CPU pixel mirrors, implicit readbacks, and avoidable surface-present throttling.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add CI coverage for Rust unit tests, Python tests with the extension available, Python fallback/unavailable-extension tests, command-encoding tests that do not require a physical display, and platform-specific GPU smoke tests where practical.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Run and update examples and docs so sketches can opt into `--backend canvas`, while preserving existing `headless` and `pyglet` examples during the migration window.
 '''
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Update technical documentation, including `p5_canvas` GPU design status, HiDPI behavior, backend capability tables, build instructions, GPU adapter troubleshooting, readback/export behavior, and known platform limitations.
 '''
 
 [my_pbi.task_5]
 order = 5
-status = 'TODO'
+status = 'DONE'
 description = '''
 Introduce default-backend selection logic that uses `canvas` only when GPU parity criteria are met, the extension is available, and a supported GPU adapter/surface path exists, with clear fallback/error behavior for environments without native support.
 '''
 
 [my_pbi.task_6]
 order = 6
-status = 'TODO'
+status = 'DONE'
 description = '''
 Create a deprecation or retention plan for Pillow/Pyglet backends after the GPU-backed `p5_canvas` path becomes stable, including release notes, compatibility guidance, benchmark evidence, and maintainer rollback strategy.
 '''
 
 [my_pbi.task_7]
 order = 7
-status = 'TODO'
+status = 'DONE'
 description = '''
 Perform final validation with `uv run ruff check .`, `uv run pytest`, Rust tests, GPU readback parity tests, headless and interactive smoke tests, representative examples, and opt-in canvas benchmarks before changing backend defaults.
 '''
 
 [my_pbi.task_8]
 order = 8
-status = 'TODO'
+status = 'DONE'
 description = '''
 Capture benchmark evidence for the migration decision using `tests/benchmark/test_canvas_backend_perf.py --run-benchmarks` and `tests/benchmark/test_interactive_backend_perf.py --run-benchmarks -s`. Require representative primitive-heavy canvas scenes to remain faster than Pyglet on supported interactive platforms, or document and resolve the blocker before changing defaults.
 '''

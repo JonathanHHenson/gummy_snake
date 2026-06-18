@@ -105,6 +105,8 @@ Technical docs:
 - `docs/technical/hidpi_rendering.md`
 - `docs/technical/native_pyglet_renderer.md`
 - `docs/technical/rust_acceleration.md`
+- `docs/technical/p5_canvas_rust_backend.md`
+- `docs/technical/canvas_migration_release.md`
 - `docs/technical/advanced_3d_media_strategy.md`
 - `docs/technical/project_plan.md`
 
@@ -118,6 +120,7 @@ uv run ruff format .
 uv run mypy src
 uv run pytest
 uv run python examples/basic_shapes.py --backend headless --frames 1
+cargo test --manifest-path crates/p5_canvas/Cargo.toml
 uv build
 ```
 

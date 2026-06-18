@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from typing import Any
 
 from p5.api.current import activate_context
-from p5.backends.registry import create_backend
+from p5.backends.registry import create_backend, select_default_backend
 from p5.context import SketchContext
 from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 
@@ -15,8 +15,8 @@ from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 class Sketch:
     """Base class for object-oriented p5-py sketches."""
 
-    def __init__(self, *, backend: str = "pyglet") -> None:
-        self.backend_name = backend
+    def __init__(self, *, backend: str | None = None) -> None:
+        self.backend_name = backend or select_default_backend()
         self.context: SketchContext | None = None
         self._running = False
 
@@ -327,7 +327,7 @@ class FunctionSketch(Sketch):
         preload: Callable[[], None] | None = None,
         setup: Callable[[], None] | None = None,
         draw: Callable[[], None] | None = None,
-        backend: str = "pyglet",
+        backend: str | None = None,
     ) -> None:
         super().__init__(backend=backend)
         self._preload_func = preload

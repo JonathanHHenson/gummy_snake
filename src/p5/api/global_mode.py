@@ -45,7 +45,7 @@ def run(
     preload: Callable[[], None] | None = None,
     setup: Callable[[], None] | None = None,
     draw: Callable[[], None] | None = None,
-    backend: str = "pyglet",
+    backend: str | None = None,
     max_frames: int | None = None,
 ):
     current_frame = inspect.currentframe()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from PIL import Image as PILImage
 from PIL import ImageChops, ImageFilter, ImageOps
@@ -12,6 +12,16 @@ from PIL import ImageChops, ImageFilter, ImageOps
 from p5 import constants as c
 from p5.core.color import Color
 from p5.exceptions import ArgumentValidationError
+
+
+class _RustP5Image(Protocol):
+    width: int
+    height: int
+    version: int
+
+    def save(self, path: str) -> None: ...
+
+    def to_rgba_bytes(self) -> bytes: ...
 
 
 @dataclass(slots=True)
@@ -159,7 +169,7 @@ def create_image(width: int, height: int) -> Image:
 class P5Image:
     """Rust-managed image asset with Pillow import/export compatibility."""
 
-    def __init__(self, rust_image: object) -> None:
+    def __init__(self, rust_image: _RustP5Image) -> None:
         self._rust_image = rust_image
 
     @classmethod

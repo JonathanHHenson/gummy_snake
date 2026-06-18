@@ -30,8 +30,15 @@ Interactive native backend intended for:
 
 ### `canvas`
 
-Experimental Rust-backed backend scaffold for the future `p5_canvas` renderer/runtime.
-It is opt-in, is not the default, and currently requires the optional `p5.rust._canvas` extension. Until rendering/runtime support lands, selecting `backend="canvas"` without the extension raises `BackendCapabilityError` with local build instructions.
+Experimental Rust-backed GPU renderer/runtime for the future default canvas path.
+It is opt-in, is not the default, and currently requires the optional
+`p5.rust._canvas` extension. Selecting `backend="canvas"` without the extension
+raises `BackendCapabilityError` with local build instructions and fallback
+backend guidance.
+
+The automatic default remains `pyglet` until the documented canvas parity gate
+is intentionally enabled and the installed extension reports both a GPU adapter
+and native window/surface support.
 
 ## Choosing a backend
 
@@ -48,6 +55,13 @@ p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
 ```python
 p5.run(setup=setup, draw=draw, backend="pyglet")
 ```
+
+```python
+p5.run(setup=setup, draw=draw, backend="canvas", max_frames=1)
+```
+
+See `docs/technical/canvas_migration_release.md` for the migration checklist
+and default-backend policy.
 
 ## HiDPI
 

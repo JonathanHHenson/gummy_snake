@@ -18,8 +18,25 @@ P5_CANVAS_BUILD_COMMAND = (
 )
 
 
+class _RustP5Image(Protocol):
+    width: int
+    height: int
+    version: int
+
+    @staticmethod
+    def from_file(path: str) -> _RustP5Image: ...
+
+    @staticmethod
+    def from_rgba_bytes(width: int, height: int, pixels: bytes) -> _RustP5Image: ...
+
+    def save(self, path: str) -> None: ...
+
+    def to_rgba_bytes(self) -> bytes: ...
+
+
 class _CanvasModule(Protocol):
     Canvas: type[Any]
+    P5Image: type[_RustP5Image]
 
     def health_check(self) -> str: ...
 

@@ -174,7 +174,7 @@ _BACKENDS = {
 }
 ```
 
-After parity, default backend selection can change from `pyglet` to `canvas` when the extension is available. The existing backends should remain addressable by explicit name during at least one migration window.
+After parity, default backend selection can change from `pyglet` to `canvas` when the extension is available and runtime capability checks pass. The existing backends should remain addressable by explicit name during at least one migration window. See `docs/technical/canvas_migration_release.md` for the release checklist, benchmark gates, and rollback plan.
 
 ## Rust crate layout
 
