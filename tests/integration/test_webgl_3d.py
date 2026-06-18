@@ -18,7 +18,7 @@ def test_webgl_box_renders_non_empty_headless_canvas():
         p5.directional_light(255, 255, 255, -0.4, -0.7, -1.0)
         p5.box(70)
 
-    context = p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     pixels = context.load_pixels()
     assert any(value > 0 for value in pixels)
@@ -41,7 +41,7 @@ def test_webgl_textured_plane_renders_expected_quadrant_colors():
     def draw():
         p5.plane(48, 48)
 
-    context = p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     pixels = context.load_pixels()
 
@@ -77,7 +77,7 @@ def test_webgl_obj_model_renders_from_example_asset():
         p5.directional_light(255, 220, 210, -0.3, -0.7, -1.0)
         p5.model(teapot)
 
-    context = p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     pixels = context.load_pixels()
     assert any(value > 0 for value in pixels)
@@ -99,7 +99,7 @@ def test_canvas_webgl_box_renders_non_empty_canvas():
         p5.directional_light(255, 255, 255, -0.4, -0.7, -1.0)
         p5.box(70)
 
-    context = p5.run(setup=setup, draw=draw, backend=p5.CANVAS, max_frames=1)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     pixels = context.load_pixels()
     assert any(value > 0 for value in pixels)
@@ -126,7 +126,7 @@ def test_canvas_webgl_shader_binding_and_uniforms_are_accepted():
         p5.ambient_material(255, 180, 80)
         p5.box(60)
 
-    context = p5.run(setup=setup, draw=draw, backend=p5.CANVAS, max_frames=1)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     assert context._shader3d is program
     assert program.uniforms["u_time"] == 1.25

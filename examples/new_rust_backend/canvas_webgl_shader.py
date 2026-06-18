@@ -38,11 +38,11 @@ class CanvasWebGLShaderDemo(p5.Sketch):
     def __init__(
         self,
         *,
-        backend: str = p5.CANVAS,
+        headless: bool | None = None,
         export_canvas: bool = False,
         output: Path = DEFAULT_OUTPUT,
     ) -> None:
-        super().__init__(backend=backend)
+        super().__init__(headless=headless)
         self.export_canvas = export_canvas
         self.output = output
         self.program = p5.create_shader(VERTEX_SHADER, FRAGMENT_SHADER)
@@ -87,7 +87,10 @@ class CanvasWebGLShaderDemo(p5.Sketch):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.CANVAS, choices=[p5.CANVAS, p5.PYGLET, "headless"])
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=None)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--no-save", action="store_true")
@@ -95,7 +98,7 @@ def main() -> None:
 
     export_canvas = not args.no_save and args.frames is not None and args.frames > 0
     demo = CanvasWebGLShaderDemo(
-        backend=args.backend,
+        headless=args.headless,
         export_canvas=export_canvas,
         output=args.output,
     )

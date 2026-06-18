@@ -1,10 +1,10 @@
 """Textured WEBGL-style box demo with optional orbit controls.
 
 Headless/export:
-    uv run python examples/webgl_texture_orbit.py --backend headless --frames 1
+    uv run python examples/webgl_texture_orbit.py --headless --frames 1
 
 Interactive:
-    uv run python examples/webgl_texture_orbit.py --backend pyglet
+    uv run python examples/webgl_texture_orbit.py --interactive
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pathlib import Path
 import p5
 
 OUTPUT = Path("examples/output/webgl_texture_orbit.png")
-BACKEND = p5.HEADLESS
+HEADLESS = None
 EXPORT_CANVAS = False
 TEXTURE = None
 
@@ -48,7 +48,7 @@ def draw() -> None:
     p5.ambient_light(90)
     p5.directional_light(255, 255, 255, -0.3, -0.6, -1.0)
 
-    if BACKEND == p5.HEADLESS:
+    if HEADLESS is not False:
         orbit = p5.frame_count() * 0.06
         p5.camera(math.sin(orbit) * 180.0, -40.0, math.cos(orbit) * 220.0, 0, 0, 0, 0, 1, 0)
     else:
@@ -64,14 +64,17 @@ def draw() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.HEADLESS, choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=1)
     args = parser.parse_args()
 
-    global BACKEND, EXPORT_CANVAS
-    BACKEND = args.backend
-    EXPORT_CANVAS = args.backend in {p5.HEADLESS, p5.PILLOW, p5.PYGLET}
-    p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
+    global HEADLESS, EXPORT_CANVAS
+    HEADLESS = args.headless
+    EXPORT_CANVAS = args.headless is not False or args.frames is not None
+    p5.run(setup=setup, draw=draw, headless=args.headless, max_frames=args.frames)
 
 
 if __name__ == "__main__":

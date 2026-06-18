@@ -6,9 +6,6 @@ import math
 from dataclasses import dataclass
 from typing import cast
 
-from PIL import Image as PILImage
-from PIL import ImageDraw
-
 from p5.assets.image import Image as P5Image
 from p5.drawing.renderer3d import (
     Camera3D,
@@ -240,8 +237,7 @@ def rasterize_faces_image(
 ) -> P5Image:
     width = max(1, int(math.ceil(viewport_width)))
     height = max(1, int(math.ceil(viewport_height)))
-    overlay = PILImage.new("RGBA", (width, height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay, "RGBA")
+    overlay = P5Image(width, height)
 
     for face in faces:
         if (
@@ -251,9 +247,9 @@ def rasterize_faces_image(
         ):
             _draw_textured_face(overlay, face)
             continue
-        draw.polygon(list(face.points), fill=_rgba_to_int(face.color))
+        _draw_polygon(overlay, face.points, _rgba_to_int(face.color))
 
-    return P5Image(overlay)
+    return overlay
 
 
 def _project_mesh_faces(
@@ -366,14 +362,13 @@ def _shade_face(
     return _clamp_rgba((result[0], result[1], result[2], base_a))
 
 
-def _draw_textured_face(image: PILImage.Image, face: ShadedFace) -> None:
+def _draw_textured_face(image: P5Image, face: ShadedFace) -> None:
     if face.texture is None or face.texcoords is None:
         return
-    texture = face.texture.pillow.convert("RGBA")
     for triangle_points, triangle_texcoords in _triangulated_face(face.points, face.texcoords):
         _draw_textured_triangle(
             image,
-            texture,
+            face.texture,
             triangle_points,
             triangle_texcoords,
             modulation=face.color,
@@ -392,8 +387,8 @@ def _triangulated_face(
 
 
 def _draw_textured_triangle(
-    target: PILImage.Image,
-    texture: PILImage.Image,
+    target: P5Image,
+    texture: P5Image,
     points: tuple[ScreenPoint, ScreenPoint, ScreenPoint],
     texcoords: tuple[UVCoord, UVCoord, UVCoord],
     *,
@@ -404,7 +399,7 @@ def _draw_textured_triangle(
     if denominator == 0:
         return
 
-    width, height = target.size
+    width, height = target.width, target.height
     min_x = max(0, int(math.floor(min(x1, x2, x3))))
     max_x = min(width - 1, int(math.ceil(max(x1, x2, x3))))
     min_y = max(0, int(math.floor(min(y1, y2, y3))))
@@ -434,15 +429,45 @@ def _draw_textured_triangle(
                     int(round((1.0 - max(0.0, min(1.0, v))) * (texture.height - 1))),
                 ),
             )
-            sampled = cast(tuple[int, int, int, int], texture.getpixel((tx, ty)))
+            sampled = texture._pixel(tx, ty)
             shaded = (
                 int(round(sampled[0] * modulation[0])),
                 int(round(sampled[1] * modulation[1])),
                 int(round(sampled[2] * modulation[2])),
                 int(round(sampled[3] * modulation[3])),
             )
-            destination = cast(tuple[int, int, int, int], target.getpixel((px, py)))
-            target.putpixel((px, py), _alpha_over(destination, shaded))
+            target._put_pixel(px, py, _alpha_over(target._pixel(px, py), shaded))
+
+
+def _draw_polygon(
+    target: P5Image,
+    points: tuple[ScreenPoint, ...],
+    color: tuple[int, int, int, int],
+) -> None:
+    if len(points) < 3:
+        return
+    min_x = max(0, int(math.floor(min(point[0] for point in points))))
+    max_x = min(target.width - 1, int(math.ceil(max(point[0] for point in points))))
+    min_y = max(0, int(math.floor(min(point[1] for point in points))))
+    max_y = min(target.height - 1, int(math.ceil(max(point[1] for point in points))))
+    for py in range(min_y, max_y + 1):
+        for px in range(min_x, max_x + 1):
+            if _point_in_polygon(px + 0.5, py + 0.5, points):
+                target._put_pixel(px, py, _alpha_over(target._pixel(px, py), color))
+
+
+def _point_in_polygon(x: float, y: float, points: tuple[ScreenPoint, ...]) -> bool:
+    inside = False
+    previous = points[-1]
+    for current in points:
+        xi, yi = current
+        xj, yj = previous
+        if ((yi > y) != (yj > y)) and (
+            x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi
+        ):
+            inside = not inside
+        previous = current
+    return inside
 
 
 def _alpha_over(

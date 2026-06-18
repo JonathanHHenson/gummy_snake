@@ -19,10 +19,7 @@ classifiers = [
     "Topic :: Artistic Software",
     "Topic :: Multimedia :: Graphics",
 ]
-dependencies = [
-    "pillow>=12.2.0",
-    "pyglet>=2.1.14",
-]
+dependencies = []
 
 [project.optional-dependencies]
 media = [

@@ -1,13 +1,13 @@
 """Pixel buffer, blend mode, erase, and save_canvas demo.
 
-This example defaults to the deterministic headless backend because pixel update and
-Pillow blend/compositing are the most complete path for image-processing sketches.
+This example defaults to deterministic canvas offscreen mode because pixel update and
+blend/compositing are covered by the canvas runtime.
 
 Run/export:
     uv run python examples/pixels_blend_export.py
 
 Equivalent explicit command:
-    uv run python examples/pixels_blend_export.py --backend headless --frames 1
+    uv run python examples/pixels_blend_export.py --headless --frames 1
 """
 
 from __future__ import annotations
@@ -182,12 +182,15 @@ def draw_export_card() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.HEADLESS, choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=1)
     args = parser.parse_args()
     global EXPORT_CANVAS
-    EXPORT_CANVAS = args.backend in {p5.HEADLESS, p5.PILLOW}
-    p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
+    EXPORT_CANVAS = args.headless is not False or args.frames is not None
+    p5.run(setup=setup, draw=draw, headless=args.headless, max_frames=args.frames)
 
 
 if __name__ == "__main__":

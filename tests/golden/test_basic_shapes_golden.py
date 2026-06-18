@@ -15,10 +15,10 @@ def _render_reference_pixels() -> bytes:
         p5.fill(0, 0, 255)
         p5.circle(11, 7, 4)
 
-    context = p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
     return bytes(context.load_pixels())
 
 
-def test_headless_basic_shapes_golden_hash():
+def test_canvas_basic_shapes_golden_hash():
     digest = hashlib.sha256(_render_reference_pixels()).hexdigest()
-    assert digest == "09d3632ba4e6d4fd8df9a0f7a4f51ef8d09b8fb7414ac8d994b2a66e27c92b23"
+    assert digest == "8163600793b1e8e5f317a6c9d9343d5bf8ff73d3d9e30728637b88740b8602c8"

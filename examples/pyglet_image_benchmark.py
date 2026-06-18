@@ -1,15 +1,15 @@
-"""Benchmark common 2D image and primitive draw paths on the Pyglet backend.
+"""Benchmark common 2D image and primitive draw paths on the canvas backend.
 
 Interactive default:
-    uv run python examples/pyglet_image_benchmark.py
+    uv run python examples/canvas_image_benchmark.py
 
 Specific variant:
-    uv run python examples/pyglet_image_benchmark.py --variant rect_image_nosmooth
+    uv run python examples/canvas_image_benchmark.py --variant rect_image_nosmooth
 
 Run a fixed number of frames and print a summary:
-    uv run python examples/pyglet_image_benchmark.py --frames 300
+    uv run python examples/canvas_image_benchmark.py --frames 300
 
-This benchmark is intended to help catch regressions in the native Pyglet
+This benchmark is intended to help catch regressions in the native canvas
 renderer image path, especially interactions between:
 
 - native primitive drawing
@@ -94,7 +94,10 @@ def draw() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.PYGLET, choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--variant", default="rect_image_nosmooth", choices=VARIANTS)
     parser.add_argument("--frames", type=int, default=DEFAULT_FRAMES)
     args = parser.parse_args()
@@ -102,7 +105,7 @@ def main() -> None:
     global VARIANT, FRAME_TARGET
     VARIANT = args.variant
     FRAME_TARGET = args.frames
-    p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
+    p5.run(setup=setup, draw=draw, headless=args.headless, max_frames=args.frames)
 
 
 if __name__ == "__main__":

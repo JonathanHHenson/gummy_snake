@@ -4,10 +4,10 @@ This sketch intentionally leans on two accelerated paths when the optional Rust
 extension is installed:
 
 - `p5.noise()` for the animated background field.
-- Pillow `EXCLUSION` blend compositing for the glowing orbit overlays.
+- Canvas `EXCLUSION` blend compositing for the glowing orbit overlays.
 
 Interactive:
-    uv run python examples/accelerated_noise_pixels.py --backend pyglet
+    uv run python examples/accelerated_noise_pixels.py --interactive
 
 Headless/export:
     uv run python examples/accelerated_noise_pixels.py
@@ -38,7 +38,7 @@ def setup() -> None:
     p5.noise_detail(4, 0.52)
     p5.text_size(14)
     ACCELERATION_LABEL = health_check()
-    print(f"Acceleration backend: {ACCELERATION_LABEL}")
+    print(f"Acceleration path: {ACCELERATION_LABEL}")
 
 
 def draw() -> None:
@@ -111,24 +111,27 @@ def draw_overlay_text() -> None:
     p5.rect(22, 22, 330, 84)
     p5.fill(255, 255, 255, 230)
     p5.text("Accelerated noise + EXCLUSION blend demo", 36, 48)
-    p5.text(f"backend: {ACCELERATION_LABEL}", 36, 70)
+    p5.text(f"acceleration: {ACCELERATION_LABEL}", 36, 70)
     p5.text(f"extension installed: {acceleration_active}", 36, 92)
 
     p5.fill(5, 12, 26, 168)
     p5.rect(426, 330, 270, 58)
     p5.fill(255, 255, 255, 220)
-    p5.text("headless export writes:", 442, 354)
+    p5.text("canvas export writes:", 442, 354)
     p5.text(str(OUTPUT), 442, 376)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.HEADLESS, choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=1)
     args = parser.parse_args()
     global EXPORT_CANVAS
-    EXPORT_CANVAS = args.backend in {p5.HEADLESS, p5.PILLOW}
-    p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
+    EXPORT_CANVAS = args.headless is not False or args.frames is not None
+    p5.run(setup=setup, draw=draw, headless=args.headless, max_frames=args.frames)
 
 
 if __name__ == "__main__":

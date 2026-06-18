@@ -6,7 +6,7 @@ This repository uses a hatchling-based pure-Python build by default, with option
 
 1. update version metadata in `pyproject.toml`
 2. update `CHANGELOG.md`
-3. run lint, typing, tests, and a headless example smoke test
+3. run lint, typing, tests, and a canvas example smoke test
 4. build pure-Python distributions
 5. optionally build Rust-backed wheels
 6. inspect build artifacts
@@ -19,7 +19,7 @@ uv sync --dev
 uv run ruff check .
 uv run mypy src
 uv run pytest
-uv run python examples/basic_shapes.py --backend headless --frames 1
+uv run python examples/basic_shapes.py --headless --frames 1
 uv build
 uvx maturin build --release
 uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
@@ -65,7 +65,7 @@ Behavior:
 The workflow:
 
 1. installs dependencies with `uv`
-2. runs `ruff`, `mypy`, `pytest`, and the headless example smoke test
+2. runs `ruff`, `mypy`, `pytest`, and the canvas example smoke test
 3. builds the sdist and wheel with `uv build`
 4. verifies the distributions with `twine check`
 5. publishes with `pypa/gh-action-pypi-publish`

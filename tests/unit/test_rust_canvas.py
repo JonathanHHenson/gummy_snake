@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PIL import Image as PILImage
 
 from p5 import Image
 from p5 import constants as c
@@ -197,7 +196,7 @@ class FakeSketch:
 
 class EventSketch(Sketch):
     def __init__(self) -> None:
-        super().__init__(backend="canvas")
+        super().__init__()
         self.events: list[tuple[object, ...]] = []
 
     def mouse_pressed(self, event) -> None:
@@ -397,7 +396,7 @@ def test_canvas_renderer_pixels_and_save_round_trip(tmp_path: Path) -> None:
 def test_canvas_renderer_bridges_images_and_blend_regions() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(4, 2)
-    image = Image(PILImage.new("RGBA", (2, 1), (255, 0, 0, 255)))
+    image = Image(2, 1, bytes([255, 0, 0, 255, 255, 0, 0, 255]))
     style = StyleState(fill_color=None, stroke_color=None)
     transform = Matrix2D.identity()
 
@@ -408,12 +407,12 @@ def test_canvas_renderer_bridges_images_and_blend_regions() -> None:
     canvas = renderer._canvas
     assert canvas is not None
     assert canvas.calls[-3][0] == "draw_image"
-    assert canvas.calls[-3][1] == image.pillow.tobytes()
+    assert canvas.calls[-3][1] == image.to_rgba_bytes()
     assert canvas.calls[-3][2:4] == (2, 1)
     assert canvas.calls[-3][-1] == (0, 0, 1, 1)
     assert canvas.calls[-2] == (
         "blend_region",
-        image.pillow.tobytes(),
+        image.to_rgba_bytes(),
         2,
         1,
         (0, 0, 1, 1),

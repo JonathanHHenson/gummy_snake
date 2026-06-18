@@ -111,7 +111,10 @@ def draw() -> None:
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--backend", default="pyglet")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=None)
     args = parser.parse_args()
-    p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
+    p5.run(setup=setup, draw=draw, headless=args.headless, max_frames=args.frames)

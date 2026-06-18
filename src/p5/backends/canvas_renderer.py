@@ -62,7 +62,7 @@ class CanvasRenderer:
         height: int,
         pixel_density: float = 1.0,
         *,
-        mode: str = c.HEADLESS,
+        mode: str = "headless",
     ) -> None:
         canvas_type = self._canvas_type()
         try:
@@ -225,7 +225,7 @@ class CanvasRenderer:
             return
         image_key = id(image)
         cached_version = self._image_cache_versions.get(image_key) if cache else None
-        image_pixels = None if cached_version == image.version else image.pillow.tobytes()
+        image_pixels = None if cached_version == image.version else image.to_rgba_bytes()
         callback = getattr(self._require_canvas(), "draw_cached_image", None)
         if cache and callable(callback):
             self._call(
@@ -249,7 +249,7 @@ class CanvasRenderer:
         self._call(
             "image drawing",
             self._require_canvas().draw_image,
-            image_pixels if image_pixels is not None else image.pillow.tobytes(),
+            image_pixels if image_pixels is not None else image.to_rgba_bytes(),
             image.width,
             image.height,
             dx,
@@ -330,7 +330,17 @@ class CanvasRenderer:
         mode: str,
     ) -> None:
         if isinstance(source_image, Image):
-            source_image = source_image.pillow
+            self._call(
+                "region blending",
+                self._require_canvas().blend_region,
+                source_image.to_rgba_bytes(),
+                source_image.width,
+                source_image.height,
+                source,
+                destination,
+                mode,
+            )
+            return
         if source_image is None:
             self._call(
                 "region blending",
@@ -370,7 +380,7 @@ class CanvasRenderer:
         if canvas_type is None:
             raise BackendCapabilityError(
                 "The experimental 'canvas' backend found p5.rust._canvas, but the extension does "
-                "not expose Canvas. Rebuild p5_canvas or select backend='headless'."
+                "not expose Canvas. Rebuild p5_canvas before running p5-py."
             )
         return canvas_type
 

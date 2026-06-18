@@ -1,6 +1,6 @@
 import pytest
 
-from p5.backends.headless import HeadlessBackend
+from p5.backends.canvas import CanvasBackend
 from p5.context import SketchContext
 from p5.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from p5.exceptions import BackendCapabilityError
@@ -10,7 +10,7 @@ from p5.sketch import Sketch
 
 class EventSketch(Sketch):
     def __init__(self):
-        super().__init__(backend="headless")
+        super().__init__()
         self.events = []
 
     def mouse_pressed(self, event):
@@ -22,7 +22,7 @@ class EventSketch(Sketch):
 
 def make_context():
     sketch = EventSketch()
-    context = SketchContext(sketch, HeadlessBackend(), plugins=GLOBAL_PLUGIN_REGISTRY)
+    context = SketchContext(sketch, CanvasBackend(), plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
     return sketch, context
 
@@ -74,6 +74,7 @@ def test_touch_event_updates_when_backend_declares_support():
 
 def test_touch_event_reports_capability_error_when_unsupported():
     _sketch, context = make_context()
+    context.state.input.touch_supported = False
 
     with pytest.raises(BackendCapabilityError, match="Touch input is not supported"):
         context.update_touch_event(TouchEvent(touches=[TouchPoint(id=1, x=2, y=3)]))

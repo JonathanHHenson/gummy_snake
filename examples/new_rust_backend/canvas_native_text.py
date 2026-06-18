@@ -11,8 +11,8 @@ OUTPUT = Path("examples/output/new_rust_backend/canvas_native_text.png")
 
 
 class CanvasNativeTextDemo(p5.Sketch):
-    def __init__(self, *, backend: str = "canvas", export_canvas: bool = False) -> None:
-        super().__init__(backend=backend)
+    def __init__(self, *, headless: bool | None = None, export_canvas: bool = False) -> None:
+        super().__init__(headless=headless)
         self.export_canvas = export_canvas
 
     def setup(self) -> None:
@@ -51,12 +51,15 @@ class CanvasNativeTextDemo(p5.Sketch):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default="canvas", choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=None)
     parser.add_argument("--no-save", action="store_true")
     args = parser.parse_args()
     demo = CanvasNativeTextDemo(
-        backend=args.backend,
+        headless=args.headless,
         export_canvas=not args.no_save and args.frames is not None and args.frames > 0,
     )
     demo.run(max_frames=args.frames)

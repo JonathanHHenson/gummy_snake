@@ -720,7 +720,7 @@ class SketchContext:
             raise ArgumentValidationError("model() requires a Mesh3D or Model3D value.")
 
         native_renderer = self.renderer if getattr(self.renderer, "three_d", False) else None
-        if native_renderer is not None and self.backend.name == c.PYGLET:
+        if native_renderer is not None:
             material = self._effective_3d_material()
             native_renderer.set_camera(self._camera3d)
             native_renderer.set_projection(self._projection3d)
@@ -940,7 +940,7 @@ class SketchContext:
             source_image = None
             sx, sy, sw, sh, dx, dy, dw, dh, mode = args
         elif len(args) == 10 and isinstance(args[0], Image):
-            source_image = args[0].pillow
+            source_image = args[0]
             sx, sy, sw, sh, dx, dy, dw, dh, mode = args[1:]
         else:
             raise ArgumentValidationError(

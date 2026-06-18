@@ -17,7 +17,7 @@ def test_global_mode_explicit_callbacks():
         p5.no_stroke()
         p5.circle(8, 6, 6)
 
-    context = p5.run(setup=setup, draw=draw, backend="headless", max_frames=2)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=2)
 
     assert frames == [0, 1]
     assert context.width == 16
@@ -34,7 +34,7 @@ def test_p5_aliases_delegate_to_pythonic_api():
     def draw():
         p5.rect(1, 1, 8, 8)
 
-    context = p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
     pixels = context.load_pixels()
     assert any(value == 255 for value in pixels)
 
@@ -53,4 +53,4 @@ def test_image_sampling_api_and_aliases():
         with pytest.raises(ArgumentValidationError):
             p5.image_sampling("bogus")
 
-    p5.run(setup=setup, draw=lambda: None, backend="headless", max_frames=0)
+    p5.run(setup=setup, draw=lambda: None, headless=True, max_frames=0)

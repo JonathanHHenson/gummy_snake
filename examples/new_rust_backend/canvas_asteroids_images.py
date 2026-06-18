@@ -31,31 +31,23 @@ class ImageAsteroidsDemo(AsteroidsDemo):
     def __init__(
         self,
         *,
-        backend: str = p5.CANVAS,
+        headless: bool | None = None,
         export_canvas: bool = False,
         output: Path = DEFAULT_IMAGE_OUTPUT,
     ) -> None:
-        super().__init__(backend=backend, export_canvas=export_canvas, output=output)
+        super().__init__(headless=headless, export_canvas=export_canvas, output=output)
         self.use_sprite_assets = True
 
     def setup(self) -> None:
         p5.create_canvas(CANVAS_WIDTH, CANVAS_HEIGHT, pixel_density=2)
         p5.frame_rate(60)
         p5.image_mode(p5.CENTER)
-        if self.backend_name == p5.CANVAS:
-            self.ship = p5.P5Image.from_file(ASSET_DIR / "playerShip1_blue.png")
-            self.laser = p5.P5Image.from_file(ASSET_DIR / "Lasers/laserBlue01.png")
-            self.meteor_large = p5.P5Image.from_file(ASSET_DIR / "Meteors/meteorGrey_big1.png")
-            self.meteor_medium = p5.P5Image.from_file(ASSET_DIR / "Meteors/meteorGrey_med1.png")
-            self.meteor_small = p5.P5Image.from_file(ASSET_DIR / "Meteors/meteorGrey_small1.png")
-            self.thrust_flame = p5.P5Image.from_file(ASSET_DIR / "Effects/fire17.png")
-        else:
-            self.ship = p5.load_image(ASSET_DIR / "playerShip1_blue.png")
-            self.laser = p5.load_image(ASSET_DIR / "Lasers/laserBlue01.png")
-            self.meteor_large = p5.load_image(ASSET_DIR / "Meteors/meteorGrey_big1.png")
-            self.meteor_medium = p5.load_image(ASSET_DIR / "Meteors/meteorGrey_med1.png")
-            self.meteor_small = p5.load_image(ASSET_DIR / "Meteors/meteorGrey_small1.png")
-            self.thrust_flame = p5.load_image(ASSET_DIR / "Effects/fire17.png")
+        self.ship = p5.P5Image.from_file(ASSET_DIR / "playerShip1_blue.png")
+        self.laser = p5.P5Image.from_file(ASSET_DIR / "Lasers/laserBlue01.png")
+        self.meteor_large = p5.P5Image.from_file(ASSET_DIR / "Meteors/meteorGrey_big1.png")
+        self.meteor_medium = p5.P5Image.from_file(ASSET_DIR / "Meteors/meteorGrey_med1.png")
+        self.meteor_small = p5.P5Image.from_file(ASSET_DIR / "Meteors/meteorGrey_small1.png")
+        self.thrust_flame = p5.P5Image.from_file(ASSET_DIR / "Effects/fire17.png")
         self._reset_game()
 
     def _draw_hud(self) -> None:
@@ -78,7 +70,10 @@ class ImageAsteroidsDemo(AsteroidsDemo):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.CANVAS, choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int)
     parser.add_argument("--output", type=Path, default=DEFAULT_IMAGE_OUTPUT)
     parser.add_argument("--no-save", action="store_true")
@@ -88,7 +83,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     export_canvas = not args.no_save and args.frames is not None and args.frames > 0
-    demo = ImageAsteroidsDemo(backend=args.backend, export_canvas=export_canvas, output=args.output)
+    demo = ImageAsteroidsDemo(
+        headless=args.headless,
+        export_canvas=export_canvas,
+        output=args.output,
+    )
     demo.run(max_frames=args.frames)
 
 

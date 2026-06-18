@@ -66,14 +66,14 @@ class AsteroidsDemo(p5.Sketch):
     def __init__(
         self,
         *,
-        backend: str = p5.CANVAS,
+        headless: bool | None = None,
         export_canvas: bool = False,
         output: Path = DEFAULT_OUTPUT,
     ) -> None:
-        super().__init__(backend=backend)
+        super().__init__(headless=headless)
         self.export_canvas = export_canvas
         self.output = output
-        self.use_sprite_assets = backend != p5.CANVAS
+        self.use_sprite_assets = False
         self.ship: p5.Image | p5.P5Image | None = None
         self.laser: p5.Image | p5.P5Image | None = None
         self.meteor_large: p5.Image | p5.P5Image | None = None
@@ -513,7 +513,10 @@ def _wrapped_distance(x1: float, y1: float, x2: float, y2: float) -> float:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.CANVAS, choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--no-save", action="store_true")
@@ -523,7 +526,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     export_canvas = not args.no_save and args.frames is not None and args.frames > 0
-    demo = AsteroidsDemo(backend=args.backend, export_canvas=export_canvas, output=args.output)
+    demo = AsteroidsDemo(headless=args.headless, export_canvas=export_canvas, output=args.output)
     demo.run(max_frames=args.frames)
 
 

@@ -18,8 +18,14 @@ OUTPUT = Path("examples/output/new_rust_backend/canvas_sound_media.png")
 class CanvasSoundMediaDemo(p5.Sketch):
     sound: ClassVar[Sound | None] = None
 
-    def __init__(self, *, backend: str = "canvas", play: bool = False, export_canvas: bool = False):
-        super().__init__(backend=backend)
+    def __init__(
+        self,
+        *,
+        headless: bool | None = None,
+        play: bool = False,
+        export_canvas: bool = False,
+    ):
+        super().__init__(headless=headless)
         self.play_on_start = play
         self.export_canvas = export_canvas
         self.status = "sound ready"
@@ -68,13 +74,16 @@ class CanvasSoundMediaDemo(p5.Sketch):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default="canvas", choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=None)
     parser.add_argument("--play", action="store_true")
     parser.add_argument("--no-save", action="store_true")
     args = parser.parse_args()
     demo = CanvasSoundMediaDemo(
-        backend=args.backend,
+        headless=args.headless,
         play=args.play,
         export_canvas=not args.no_save and args.frames is not None and args.frames > 0,
     )

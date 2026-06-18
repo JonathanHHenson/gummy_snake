@@ -1,3 +1,4 @@
+import argparse
 from dataclasses import dataclass
 
 import p5
@@ -169,7 +170,14 @@ def draw():
 
 
 def main():
-    p5.run(setup=setup, draw=draw)
+    parser = argparse.ArgumentParser()
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
+    parser.add_argument("--frames", type=int, default=None)
+    args = parser.parse_args()
+    p5.run(setup=setup, draw=draw, headless=args.headless, max_frames=args.frames)
 
 
 if __name__ == "__main__":

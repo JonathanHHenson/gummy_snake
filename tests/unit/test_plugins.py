@@ -15,7 +15,7 @@ def _clear_plugin_registry():
 
 class HookSketch(Sketch):
     def __init__(self, events: list[str]) -> None:
-        super().__init__(backend="headless")
+        super().__init__()
         self.events = events
 
     def preload(self) -> None:
@@ -140,7 +140,7 @@ def test_plugin_ordering_is_deterministic_by_priority_then_install_order():
 
     class DrawOnceSketch(Sketch):
         def __init__(self) -> None:
-            super().__init__(backend="headless")
+            super().__init__()
 
         def setup(self) -> None:
             self.create_canvas(4, 4)
@@ -159,7 +159,7 @@ def test_plugins_receive_events_before_sketch_callbacks():
 
     class EventSketch(Sketch):
         def __init__(self) -> None:
-            super().__init__(backend="headless")
+            super().__init__()
 
         def setup(self) -> None:
             self.create_canvas(8, 8)

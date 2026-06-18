@@ -97,7 +97,7 @@ CHILD_CODE = textwrap.dedent(
             return
         global demo
         demo = AsteroidsDemo(export_canvas=False)
-        p5.run(setup=setup, draw=draw, backend=p5.CANVAS, max_frames=frames)
+        p5.run(setup=setup, draw=draw, headless=True, max_frames=frames)
         elapsed = time.perf_counter() - start
         print(
             json.dumps(

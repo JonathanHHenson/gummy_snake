@@ -8,13 +8,13 @@ For example, on a Retina display, this sketch creates a logical canvas of `640 x
 create_canvas(640, 420)
 ```
 
-If the active display density is `2`, the interactive Pyglet backend renders into a physical backing buffer of `1280 x 840` while preserving the logical p5 coordinate system. A call like this still uses logical coordinates:
+If the active display density is `2`, the canvas backend renders into a physical backing buffer of `1280 x 840` while preserving the logical p5 coordinate system. A call like this still uses logical coordinates:
 
 ```python
 circle(320, 210, 100)
 ```
 
-Internally, renderers scale drawing coordinates, transforms, images, pixel buffers, and stroke weights by the active pixel density before rasterizing or presenting. The Pyglet renderer uses native Pyglet drawing for normal frames and lazily switches to a physical-size parity surface for pixel/compositing workflows that require exact headless-backend semantics. See `docs/technical/native_pyglet_renderer.md`.
+Internally, the canvas renderer scales drawing coordinates, transforms, images, pixel buffers, and stroke weights by the active pixel density before rasterizing, reading back, exporting, or presenting.
 
 ## APIs
 
@@ -34,8 +34,8 @@ displayDensity()
 
 ## Backend behavior
 
-- The headless backend defaults to pixel density `1` unless a sketch explicitly requests another density.
-- The Pyglet backend defaults to the native window/display density when creating a canvas.
+- Bounded offscreen canvas runs default to pixel density `1` unless a sketch explicitly requests another density.
+- Interactive canvas runs may use the native display density reported by the canvas runtime.
 - `width()` and `height()` return logical canvas dimensions.
 - The renderer tracks physical backing-buffer dimensions separately.
 - `load_pixels()` and `update_pixels()` operate on the physical backing buffer, so the pixel list length is `logical_width * logical_height * pixel_density * pixel_density * 4` for RGBA data.

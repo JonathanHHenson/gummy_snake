@@ -6,7 +6,7 @@ import pytest
 
 import p5
 from p5.backends.base import BackendCapabilities
-from p5.backends.headless import HeadlessBackend
+from p5.backends.canvas import CanvasBackend
 from p5.context import SketchContext
 from p5.drawing.renderer3d import Model3D, Shader3D
 from p5.events.input_state import MouseEvent
@@ -17,12 +17,14 @@ from p5.sketch import Sketch
 
 class _WebGLSketch(Sketch):
     def __init__(self):
-        super().__init__(backend="headless")
+        super().__init__()
 
 
 def make_context() -> SketchContext:
     sketch = _WebGLSketch()
-    context = SketchContext(sketch, HeadlessBackend(), plugins=GLOBAL_PLUGIN_REGISTRY)
+    backend = CanvasBackend()
+    backend.capabilities = BackendCapabilities(three_d=True, shaders=False)
+    context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
     context.create_canvas(96, 96, renderer=p5.WEBGL)
     return context
@@ -142,8 +144,8 @@ class Fake3DRenderer:
     def sphere(self, radius, detail_x=24, detail_y=16) -> None: ...
 
 
-class FakePyglet3DBackend:
-    name = p5.PYGLET
+class FakeCanvas3DBackend:
+    name = "canvas"
     capabilities = BackendCapabilities(three_d=True, shaders=True)
 
     def __init__(self):
@@ -167,7 +169,7 @@ class FakePyglet3DBackend:
     def present(self) -> None: ...
 
 
-class FakeUpgradeablePygletBackend(FakePyglet3DBackend):
+class FakeUpgradeableCanvasBackend(FakeCanvas3DBackend):
     def __init__(self):
         super().__init__()
         self.capabilities = BackendCapabilities(three_d=True, shaders=False)
@@ -211,7 +213,7 @@ def test_load_shader_and_create_shader_round_trip(tmp_path: Path):
     assert isinstance(created, Shader3D)
 
 
-def test_shader_requires_backend_shader_capability_on_headless_context():
+def test_shader_requires_backend_shader_capability_on_canvas_context():
     context = make_context()
     program = p5.create_shader(
         "void main() { gl_Position = gl_Vertex; }", "void main() { gl_FragColor = vec4(1.0); }"
@@ -228,9 +230,9 @@ def test_set_shader_uniform_requires_active_shader():
         context.set_shader_uniform("u_time", 1.0)
 
 
-def test_shader_can_upgrade_pyglet_backend_from_software_webgl_to_native_shader_path():
+def test_shader_can_upgrade_canvas_backend_from_software_webgl_to_native_shader_path():
     sketch = _WebGLSketch()
-    backend = FakeUpgradeablePygletBackend()
+    backend = FakeUpgradeableCanvasBackend()
     context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
     context.create_canvas(96, 96, renderer=p5.WEBGL)
@@ -242,9 +244,9 @@ def test_shader_can_upgrade_pyglet_backend_from_software_webgl_to_native_shader_
     assert context.renderer is backend.renderer
 
 
-def test_native_pyglet_renderer_path_receives_camera_projection_shader_and_model_calls():
+def test_native_canvas_renderer_path_receives_camera_projection_shader_and_model_calls():
     sketch = _WebGLSketch()
-    backend = FakePyglet3DBackend()
+    backend = FakeCanvas3DBackend()
     context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
     context.create_canvas(96, 96, renderer=p5.WEBGL)

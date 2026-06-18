@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from PIL import Image as PILImage
 
 import p5.rust as rust_acceleration
-from p5.backends.pillow import _exclusion
 from p5.core import random as random_module
 from p5.rust import _accelerated as original_accelerated
 from p5.rust import (
@@ -99,17 +97,6 @@ def test_exclusion_blend_acceleration_matches_python_reference() -> None:
     overlay = bytes([255, 128, 64, 0, 50, 200])
 
     assert exclusion_blend_rgb(base, overlay) == exclusion_blend_rgb_python(base, overlay)
-
-
-def test_pillow_exclusion_uses_acceleration_layer_formula() -> None:
-    base = PILImage.new("RGB", (2, 1))
-    base.putdata([(0, 64, 128), (255, 10, 20)])
-    overlay = PILImage.new("RGB", (2, 1))
-    overlay.putdata([(255, 128, 64), (0, 50, 200)])
-
-    result = _exclusion(base, overlay)
-
-    assert result.tobytes() == exclusion_blend_rgb_python(base.tobytes(), overlay.tobytes())
 
 
 def test_benchmark_smoke_helpers_run_with_or_without_extension() -> None:

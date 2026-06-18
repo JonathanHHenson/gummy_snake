@@ -1,10 +1,10 @@
 """WEBGL primitives, materials, camera, and projection gallery.
 
 Headless/export:
-    uv run python examples/webgl_primitives_gallery.py --backend headless --frames 1
+    uv run python examples/webgl_primitives_gallery.py --headless --frames 1
 
 Interactive:
-    uv run python examples/webgl_primitives_gallery.py --backend pyglet
+    uv run python examples/webgl_primitives_gallery.py --interactive
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pathlib import Path
 import p5
 
 OUTPUT = Path("examples/output/webgl_primitives_gallery.png")
-BACKEND = p5.HEADLESS
+HEADLESS = None
 EXPORT_CANVAS = False
 PROJECTION = "perspective"
 
@@ -38,7 +38,7 @@ def configure_projection() -> None:
 
 
 def configure_camera() -> None:
-    if BACKEND == p5.HEADLESS:
+    if HEADLESS is not False:
         orbit = p5.frame_count() * 0.045
         p5.camera(
             math.sin(orbit) * 420.0,
@@ -101,7 +101,10 @@ def draw() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.HEADLESS, choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=1)
     parser.add_argument(
         "--projection",
@@ -111,11 +114,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    global BACKEND, EXPORT_CANVAS, PROJECTION
-    BACKEND = args.backend
-    EXPORT_CANVAS = args.backend in {p5.HEADLESS, p5.PILLOW, p5.PYGLET}
+    global HEADLESS, EXPORT_CANVAS, PROJECTION
+    HEADLESS = args.headless
+    EXPORT_CANVAS = args.headless is not False or args.frames is not None
     PROJECTION = args.projection
-    p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
+    p5.run(setup=setup, draw=draw, headless=args.headless, max_frames=args.frames)
 
 
 if __name__ == "__main__":

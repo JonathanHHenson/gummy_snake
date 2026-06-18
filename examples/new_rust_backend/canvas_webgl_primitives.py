@@ -3,8 +3,8 @@
 Run interactively:
     uv run python examples/new_rust_backend/canvas_webgl_primitives.py
 
-Compare with Pyglet:
-    uv run python examples/new_rust_backend/canvas_webgl_primitives.py --backend pyglet
+Compare with canvas:
+    uv run python examples/new_rust_backend/canvas_webgl_primitives.py --interactive
 
 Run/export a bounded preview:
     uv run python examples/new_rust_backend/canvas_webgl_primitives.py --frames 1
@@ -25,11 +25,11 @@ class CanvasWebGLPrimitivesDemo(p5.Sketch):
     def __init__(
         self,
         *,
-        backend: str = p5.CANVAS,
+        headless: bool | None = None,
         export_canvas: bool = False,
         output: Path = DEFAULT_OUTPUT,
     ) -> None:
-        super().__init__(backend=backend)
+        super().__init__(headless=headless)
         self.export_canvas = export_canvas
         self.output = output
         self.teapot = p5.load_model(Path("examples/assets/teapot.obj"), normalize=True)
@@ -75,7 +75,10 @@ class CanvasWebGLPrimitivesDemo(p5.Sketch):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.CANVAS, choices=[p5.CANVAS, p5.PYGLET, "headless"])
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=None)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--no-save", action="store_true")
@@ -83,7 +86,7 @@ def main() -> None:
 
     export_canvas = not args.no_save and args.frames is not None and args.frames > 0
     demo = CanvasWebGLPrimitivesDemo(
-        backend=args.backend,
+        headless=args.headless,
         export_canvas=export_canvas,
         output=args.output,
     )

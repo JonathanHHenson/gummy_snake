@@ -46,13 +46,9 @@ ITALIC = "italic"
 BOLD = "bold"
 BOLDITALIC = "bolditalic"
 
-# Renderers / backends
+# Renderers
 P2D = "p2d"
 WEBGL = "webgl"
-HEADLESS = "headless"
-PYGLET = "pyglet"
-PILLOW = "pillow"
-CANVAS = "canvas"
 
 # Blend modes
 BLEND = "blend"
@@ -108,7 +104,6 @@ __all__ = [
     "CORNER",
     "CORNERS",
     "CENTER",
-    "CANVAS",
     "RADIUS",
     "OPEN",
     "CLOSE",
@@ -142,9 +137,6 @@ __all__ = [
     "BOLDITALIC",
     "P2D",
     "WEBGL",
-    "HEADLESS",
-    "PYGLET",
-    "PILLOW",
     "BLEND",
     "ADD",
     "DARKEST",

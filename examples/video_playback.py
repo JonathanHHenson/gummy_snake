@@ -1,10 +1,10 @@
 """File-backed video playback demo for the staged native media API.
 
 Headless/export placeholder:
-    uv run python examples/video_playback.py --backend headless --frames 1
+    uv run python examples/video_playback.py --headless --frames 1
 
 Interactive with a local video file:
-    uv run python examples/video_playback.py --backend pyglet --video /path/to/movie.mp4
+    uv run python examples/video_playback.py --interactive --video /path/to/movie.mp4
 
 Notes:
     - Requires the optional media extra: `uv add --optional media opencv-python-headless`
@@ -84,15 +84,18 @@ def draw() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default=p5.HEADLESS, choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=1)
     parser.add_argument("--video", type=Path, default=None, help="Path to a local video file.")
     args = parser.parse_args()
 
     global EXPORT_CANVAS, VIDEO_PATH
-    EXPORT_CANVAS = args.backend in {p5.HEADLESS, p5.PILLOW, p5.PYGLET}
+    EXPORT_CANVAS = args.headless is not False or args.frames is not None
     VIDEO_PATH = args.video
-    p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
+    p5.run(setup=setup, draw=draw, headless=args.headless, max_frames=args.frames)
 
     if VIDEO is not None:
         VIDEO.close()

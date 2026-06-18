@@ -45,7 +45,7 @@ def run(
     preload: Callable[[], None] | None = None,
     setup: Callable[[], None] | None = None,
     draw: Callable[[], None] | None = None,
-    backend: str | None = None,
+    headless: bool | None = None,
     max_frames: int | None = None,
 ):
     current_frame = inspect.currentframe()
@@ -55,7 +55,7 @@ def run(
         preload=preload or caller_globals.get("preload"),
         setup=setup or caller_globals.get("setup"),
         draw=draw or caller_globals.get("draw"),
-        backend=backend,
+        headless=headless,
     )
     return sketch.run(max_frames=max_frames)
 

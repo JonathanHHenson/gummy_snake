@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from typing import Any
 
 from p5.api.current import activate_context
-from p5.backends.registry import create_backend, select_default_backend
+from p5.backends.registry import create_backend
 from p5.context import SketchContext
 from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 
@@ -15,8 +15,8 @@ from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 class Sketch:
     """Base class for object-oriented p5-py sketches."""
 
-    def __init__(self, *, backend: str | None = None) -> None:
-        self.backend_name = backend or select_default_backend()
+    def __init__(self, *, headless: bool | None = None) -> None:
+        self.headless = headless
         self.context: SketchContext | None = None
         self._running = False
 
@@ -29,8 +29,14 @@ class Sketch:
     def draw(self) -> None:
         pass
 
-    def run(self, *, backend: str | None = None, max_frames: int | None = None) -> SketchContext:
-        backend_instance = create_backend(backend or self.backend_name)
+    def run(
+        self,
+        *,
+        headless: bool | None = None,
+        max_frames: int | None = None,
+    ) -> SketchContext:
+        runtime_headless = self.headless if headless is None else headless
+        backend_instance = create_backend(headless=runtime_headless)
         self.context = SketchContext(self, backend_instance, plugins=GLOBAL_PLUGIN_REGISTRY)
         GLOBAL_PLUGIN_REGISTRY.bind_runtime(self.context, self)
         self._running = True
@@ -327,9 +333,9 @@ class FunctionSketch(Sketch):
         preload: Callable[[], None] | None = None,
         setup: Callable[[], None] | None = None,
         draw: Callable[[], None] | None = None,
-        backend: str | None = None,
+        headless: bool | None = None,
     ) -> None:
-        super().__init__(backend=backend)
+        super().__init__(headless=headless)
         self._preload_func = preload
         self._setup_func = setup
         self._draw_func = draw

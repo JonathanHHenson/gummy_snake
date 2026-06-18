@@ -7,12 +7,26 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import cast
 
-from PIL import ImageColor
-
 from p5 import constants as c
 from p5.exceptions import ArgumentValidationError
 
 Number = int | float
+
+_NAMED_COLORS: dict[str, tuple[int, int, int, int]] = {
+    "black": (0, 0, 0, 255),
+    "white": (255, 255, 255, 255),
+    "red": (255, 0, 0, 255),
+    "green": (0, 128, 0, 255),
+    "blue": (0, 0, 255, 255),
+    "yellow": (255, 255, 0, 255),
+    "cyan": (0, 255, 255, 255),
+    "magenta": (255, 0, 255, 255),
+    "gray": (128, 128, 128, 255),
+    "grey": (128, 128, 128, 255),
+    "orange": (255, 165, 0, 255),
+    "purple": (128, 0, 128, 255),
+    "transparent": (0, 0, 0, 0),
+}
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 255.0) -> float:
@@ -67,11 +81,7 @@ class Color:
         if len(values) == 1 and isinstance(values[0], Color):
             return values[0]
         if len(values) == 1 and isinstance(values[0], str):
-            try:
-                rgba = cast(tuple[int, int, int, int], ImageColor.getcolor(values[0], "RGBA"))
-            except ValueError as exc:
-                raise ArgumentValidationError(f"Unknown color string {values[0]!r}.") from exc
-            return cls(*rgba)
+            return cls(*_parse_color_string(values[0]))
         if not values:
             raise ArgumentValidationError("color() requires at least one argument.")
         if not all(isinstance(value, int | float) for value in values):
@@ -107,6 +117,24 @@ class Color:
             r, g, b = colorsys.hls_to_rgb(first, third, second)
             return cls(_to_u8(r * 255), _to_u8(g * 255), _to_u8(b * 255), alpha)
         raise ArgumentValidationError(f"Unsupported color mode {mode!r}.")
+
+
+def _parse_color_string(value: str) -> tuple[int, int, int, int]:
+    normalized = value.strip().lower()
+    if normalized in _NAMED_COLORS:
+        return _NAMED_COLORS[normalized]
+    if normalized.startswith("#"):
+        hex_value = normalized[1:]
+        if len(hex_value) in {3, 4}:
+            parts = [int(component * 2, 16) for component in hex_value]
+        elif len(hex_value) in {6, 8}:
+            parts = [int(hex_value[index : index + 2], 16) for index in range(0, len(hex_value), 2)]
+        else:
+            raise ArgumentValidationError(f"Unknown color string {value!r}.")
+        if len(parts) == 3:
+            parts.append(255)
+        return cast(tuple[int, int, int, int], tuple(parts))
+    raise ArgumentValidationError(f"Unknown color string {value!r}.")
 
 
 def lerp_color(start: Color, stop: Color, amount: Number) -> Color:

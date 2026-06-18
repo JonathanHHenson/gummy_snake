@@ -1,8 +1,8 @@
-"""Optional Rust canvas backend bridge.
+"""Optional Rust canvas runtime bridge.
 
-The public package remains importable without the compiled extension. Selecting
-``backend="canvas"`` requires :mod:`p5.rust._canvas` and fails with a clear
-package-specific error when the extension is absent.
+The public package remains importable without the compiled extension. Running
+sketches requires :mod:`p5.rust._canvas` and fails with a clear package-specific
+error when the extension is absent.
 """
 
 from __future__ import annotations
@@ -105,9 +105,10 @@ def require_canvas_extension() -> _CanvasModule:
 
     detail = f" Import failed: {_CANVAS_IMPORT_ERROR}" if _CANVAS_IMPORT_ERROR else ""
     raise BackendCapabilityError(
-        "The 'canvas' backend requires the optional Rust extension p5.rust._canvas. "
-        f"Build it locally with `{P5_CANVAS_BUILD_COMMAND}` or select backend='pyglet' "
-        f"or backend='headless'.{detail}"
+        "p5-py requires the Rust canvas extension p5.rust._canvas. "
+        f"Build it locally with `{P5_CANVAS_BUILD_COMMAND}`; bounded runs use "
+        f"headless=True or max_frames, while interactive runs require a canvas extension "
+        f"built with native window support.{detail}"
     )
 
 

@@ -11,7 +11,7 @@ def test_color_modes_hsb():
         color = p5.color(120, 100, 100, 1)
         assert color.to_tuple() == (0, 255, 0, 255)
 
-    p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+    p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
 
 def test_matrix_translation_and_rotation():

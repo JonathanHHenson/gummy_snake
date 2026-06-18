@@ -43,7 +43,7 @@ uv run mypy src
 Headless rendering smoke test:
 
 ```sh
-uv run python examples/basic_shapes.py --backend headless --frames 1
+uv run python examples/basic_shapes.py --headless --frames 1
 ```
 
 Package build smoke test:
@@ -84,7 +84,7 @@ Prefer the smallest deterministic test that proves behavior.
 Recommended approach:
 
 1. start with unit tests for pure logic or API validation
-2. use `headless` when pixel output or frame determinism matters
+2. use bounded `canvas` runs when pixel output or frame determinism matters
 3. add contract tests for backend/renderer capability behavior
 4. add golden tests only for stable representative rendering slices
 5. add parity tests when two implementations or aliases should agree

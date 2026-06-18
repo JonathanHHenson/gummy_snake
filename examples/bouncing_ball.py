@@ -4,7 +4,7 @@ Interactive:
     uv run python examples/bouncing_ball.py
 
 Headless smoke run:
-    uv run python examples/bouncing_ball.py --backend headless --frames 5
+    uv run python examples/bouncing_ball.py --headless --frames 5
 """
 
 from __future__ import annotations
@@ -68,10 +68,13 @@ def print_fps() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", default="pyglet", choices=p5.available_backends())
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--headless", dest="headless", action="store_true")
+    mode.add_argument("--interactive", dest="headless", action="store_false")
+    parser.set_defaults(headless=None)
     parser.add_argument("--frames", type=int, default=None)
     args = parser.parse_args()
-    p5.run(setup=setup, draw=draw, backend=args.backend, max_frames=args.frames)
+    p5.run(setup=setup, draw=draw, headless=args.headless, max_frames=args.frames)
 
 
 if __name__ == "__main__":

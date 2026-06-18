@@ -1,7 +1,5 @@
 from typing import cast
 
-from PIL import Image as PILImage
-
 import p5
 
 
@@ -11,7 +9,7 @@ def _rgba_at(pixels: list[int], width: int, x: int, y: int) -> tuple[int, int, i
 
 
 def test_nearest_image_sampling_preserves_hard_edges_when_scaled():
-    sprite = p5.Image(PILImage.new("RGBA", (2, 1), (0, 0, 0, 0)))
+    sprite = p5.create_image(2, 1)
     sprite.set(0, 0, (255, 0, 0, 255))
     sprite.set(1, 0, (0, 255, 0, 255))
 
@@ -23,7 +21,7 @@ def test_nearest_image_sampling_preserves_hard_edges_when_scaled():
     def draw():
         p5.image(sprite, 0, 0, 4, 2)
 
-    context = p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
     pixels = context.load_pixels()
 
     assert _rgba_at(pixels, 4, 0, 0) == (255, 0, 0, 255)

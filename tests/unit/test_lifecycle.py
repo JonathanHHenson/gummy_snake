@@ -3,7 +3,7 @@ from p5 import Sketch
 
 class CounterSketch(Sketch):
     def __init__(self):
-        super().__init__(backend="headless")
+        super().__init__()
         self.calls = []
 
     def preload(self):
@@ -31,7 +31,7 @@ def test_sketch_lifecycle_runs_in_order():
 def test_no_loop_prevents_draw_frames():
     class NoLoopSketch(Sketch):
         def __init__(self):
-            super().__init__(backend="headless")
+            super().__init__()
 
         def setup(self):
             self.create_canvas(10, 10)

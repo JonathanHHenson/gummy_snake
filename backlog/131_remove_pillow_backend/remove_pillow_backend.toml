@@ -9,32 +9,32 @@ acceptance_criteria = '''
 The `pillow` backend alias, `PillowRenderer`, Pillow-only rendering paths, Pillow text bridge, and Pillow dependency are removed only after canvas provides deterministic offscreen/headless rendering, native text, image decoding or replacement image handling, pixels/compositing, golden-test strategy, and export parity. Former `backend="headless"` workflows either run through canvas offscreen mode or are replaced by a documented canvas test/export mode.
 '''
 priotity = 'medium'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Audit every Pillow dependency, including image loading/manipulation, text rendering, headless rendering, golden tests, export, and fallback code paths.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement or confirm canvas-owned replacements for deterministic offscreen rendering, image operations, native text, pixel buffers, compositing, and export.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Remove `PillowRenderer`, the `pillow` backend alias, Pillow-specific tests/docs, and the Pillow dependency after replacement tests pass.
 '''
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Replace golden-test and headless-example workflows with canvas offscreen validation and update release notes with migration and rollback guidance.
 '''

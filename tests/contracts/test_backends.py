@@ -1,15 +1,20 @@
-from p5.backends import available_backends, create_backend, register_backend
-from p5.backends.headless import HeadlessBackend
+from p5.backends import create_backend
+from p5.backends.canvas import CanvasBackend
 
 
-def test_default_backends_are_registered():
-    assert "canvas" in available_backends()
-    assert "headless" in available_backends()
-    assert "pillow" in available_backends()
-    assert "pyglet" in available_backends()
+def test_canvas_runtime_is_constructed_without_backend_name():
+    assert isinstance(create_backend(), CanvasBackend)
 
 
-def test_custom_backend_registration():
-    register_backend("custom-test", HeadlessBackend)
-    backend = create_backend("custom-test")
-    assert isinstance(backend, HeadlessBackend)
+def test_headless_false_requests_interactive_canvas_runtime():
+    backend = create_backend(headless=False)
+
+    assert isinstance(backend, CanvasBackend)
+    assert backend._interactive is True
+
+
+def test_headless_true_requests_offscreen_canvas_runtime():
+    backend = create_backend(headless=True)
+
+    assert isinstance(backend, CanvasBackend)
+    assert backend._interactive is False

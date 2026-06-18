@@ -82,7 +82,7 @@ class CanvasBackend:
     ``SketchContext``.
     """
 
-    name = c.CANVAS
+    name = "canvas"
     capabilities = BackendCapabilities(
         interactive=False,
         headless=True,
@@ -155,7 +155,7 @@ class CanvasBackend:
             width,
             height,
             1.0 if pixel_density is None else pixel_density,
-            mode=c.HEADLESS,
+            mode="headless",
         )
 
     def resize_canvas(

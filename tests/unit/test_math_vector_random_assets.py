@@ -22,7 +22,7 @@ def test_math_helpers_and_angle_mode():
         assert p5.cos(60) == pytest.approx(0.5)
         assert p5.atan2(1, 0) == pytest.approx(90)
 
-    p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+    p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
 
 def test_vector_instance_and_static_helpers():
@@ -94,5 +94,5 @@ def test_image_manipulation_and_drawing_with_text(tmp_path: Path):
         assert p5.text_ascent() > 0
         assert p5.text_descent() >= 0
 
-    context = p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
     assert len(set(context.load_pixels())) > 1

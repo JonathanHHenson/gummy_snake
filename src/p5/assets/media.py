@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
-from PIL import Image as PILImage
-
 from p5.assets.image import Image
 from p5.exceptions import (
     ArgumentValidationError,
@@ -332,19 +330,35 @@ def _frame_to_image(frame: Any) -> Image:
         raise BackendCapabilityError(
             "Decoded media frames could not be converted into p5-py images."
         )
+    height = int(shape[0])
+    width = int(shape[1])
     if len(shape) == 2:
-        pil = PILImage.fromarray(frame, mode="L").convert("RGBA")
-        return Image(pil)
+        pixels = bytearray(width * height * 4)
+        for y in range(height):
+            for x in range(width):
+                gray = int(frame[y, x])
+                offset = (y * width + x) * 4
+                pixels[offset : offset + 4] = bytes((gray, gray, gray, 255))
+        return Image(width, height, pixels)
     if len(shape) != 3:
         raise BackendCapabilityError("Decoded media frames must be grayscale, BGR, or BGRA arrays.")
 
     channels = int(shape[2])
+    pixels = bytearray(width * height * 4)
     if channels == 3:
-        converted = frame[:, :, ::-1]
-        return Image(PILImage.fromarray(converted, mode="RGB"))
+        for y in range(height):
+            for x in range(width):
+                b, g, r = (int(value) for value in frame[y, x])
+                offset = (y * width + x) * 4
+                pixels[offset : offset + 4] = bytes((r, g, b, 255))
+        return Image(width, height, pixels)
     if channels == 4:
-        converted = frame[:, :, [2, 1, 0, 3]]
-        return Image(PILImage.fromarray(converted, mode="RGBA"))
+        for y in range(height):
+            for x in range(width):
+                b, g, r, a = (int(value) for value in frame[y, x])
+                offset = (y * width + x) * 4
+                pixels[offset : offset + 4] = bytes((r, g, b, a))
+        return Image(width, height, pixels)
     raise BackendCapabilityError("Decoded media frames must have 1, 3, or 4 channels.")
 
 
