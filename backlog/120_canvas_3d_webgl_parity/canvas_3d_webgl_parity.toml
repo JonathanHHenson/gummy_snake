@@ -1,0 +1,47 @@
+[my_pbi]
+title = "Add WEBGL and 3D rendering parity to the canvas backend"
+description = '''
+As an advanced graphics sketch author,
+I want the GPU-backed canvas backend to support the existing WEBGL-style 3D APIs,
+So that sketches no longer need the Pyglet WEBGL renderer for 3D scenes.
+'''
+acceptance_criteria = '''
+`create_canvas(..., renderer=WEBGL)` works with `backend="canvas"` for the documented 3D API surface by using the established software-projected 3D layer and presenting the resulting draw commands through the Rust canvas renderer. Camera, projection, lights, materials, textures, model drawing, resize, HiDPI, readback, and export behavior are covered by tests and examples. Interactive benchmarks compare the new canvas WEBGL examples against Pyglet, and `CanvasBackend.capabilities.three_d` is changed to `True`.
+'''
+priotity = 'high'
+status = 'DONE'
+
+[my_pbi.task_1]
+order = 1
+status = 'DONE'
+description = '''
+Document the canvas WEBGL architecture, including the current software-projected 3D path, Rust canvas presentation, and the later Rust-native optimization boundary.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'DONE'
+description = '''
+Enable canvas WEBGL contexts to render generated 3D primitives and model meshes through the existing projection, material, light, texture, and 2D draw-command path.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'DONE'
+description = '''
+Wire Python `renderer=WEBGL` contexts to the canvas 3D renderer with package-specific errors for unsupported 3D operations during migration.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'DONE'
+description = '''
+Add parity tests and example smoke tests for WEBGL primitives, textured geometry, model loading, lighting, camera/projection controls, HiDPI export, and readback.
+'''
+
+[my_pbi.task_5]
+order = 5
+status = 'DONE'
+description = '''
+Update backend capability flags and documentation only after canvas WEBGL parity meets the release checklist.
+'''

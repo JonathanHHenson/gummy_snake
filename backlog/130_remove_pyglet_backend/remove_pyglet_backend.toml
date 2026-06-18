@@ -1,0 +1,40 @@
+[my_pbi]
+title = "Delete the Pyglet backend after canvas replacement"
+description = '''
+As a maintainer,
+I want to remove the Pyglet backend once canvas covers its responsibilities,
+So that the project has a single native runtime and renderer stack.
+'''
+acceptance_criteria = '''
+The Pyglet backend, Pyglet renderer, Pyglet WEBGL renderer, Pyglet-specific tests, Pyglet-specific docs, and Pyglet dependency are removed after canvas provides interactive windows, input, WEBGL/3D, shaders, sound/media replacement paths, examples, and benchmark evidence. Explicit migration notes explain how former `backend="pyglet"` sketches run on canvas.
+'''
+priotity = 'medium'
+status = 'TODO'
+
+[my_pbi.task_1]
+order = 1
+status = 'TODO'
+description = '''
+Create a removal checklist that maps every Pyglet responsibility to an implemented canvas or backend-independent replacement.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'TODO'
+description = '''
+Remove Pyglet backend registration, backend classes, renderers, dependency declarations, and obsolete Pyglet-specific tests after replacement coverage passes.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'TODO'
+description = '''
+Update examples, docs, compatibility guidance, and release notes so `backend="pyglet"` either errors with migration guidance or is no longer documented.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'TODO'
+description = '''
+Run full validation, canvas interactive smoke tests, WEBGL/shader/media tests, benchmarks, packaging checks, and release-candidate rollback review before merging removal.
+'''

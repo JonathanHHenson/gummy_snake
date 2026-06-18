@@ -2,6 +2,7 @@ import math
 from pathlib import Path
 
 import p5
+from p5.rust.canvas import is_canvas_available
 
 
 def test_webgl_box_renders_non_empty_headless_canvas():
@@ -80,3 +81,53 @@ def test_webgl_obj_model_renders_from_example_asset():
 
     pixels = context.load_pixels()
     assert any(value > 0 for value in pixels)
+
+
+def test_canvas_webgl_box_renders_non_empty_canvas():
+    if not is_canvas_available():
+        return
+
+    def setup():
+        p5.create_canvas(96, 96, p5.WEBGL)
+        p5.background(12, 16, 28)
+        p5.no_stroke()
+        p5.camera(0, 0, 180, 0, 0, 0, 0, 1, 0)
+        p5.ambient_material(120, 200, 255)
+
+    def draw():
+        p5.ambient_light(40)
+        p5.directional_light(255, 255, 255, -0.4, -0.7, -1.0)
+        p5.box(70)
+
+    context = p5.run(setup=setup, draw=draw, backend=p5.CANVAS, max_frames=1)
+
+    pixels = context.load_pixels()
+    assert any(value > 0 for value in pixels)
+
+
+def test_canvas_webgl_shader_binding_and_uniforms_are_accepted():
+    if not is_canvas_available():
+        return
+
+    program = p5.create_shader(
+        "void main() { gl_Position = gl_Vertex; }",
+        "void main() { gl_FragColor = vec4(1.0); }",
+    )
+
+    def setup():
+        p5.create_canvas(96, 96, p5.WEBGL)
+        p5.background(0)
+        p5.no_stroke()
+        p5.camera(0, 0, 180, 0, 0, 0, 0, 1, 0)
+        p5.shader(program)
+        program.set_uniform("u_time", 1.25)
+
+    def draw():
+        p5.ambient_material(255, 180, 80)
+        p5.box(60)
+
+    context = p5.run(setup=setup, draw=draw, backend=p5.CANVAS, max_frames=1)
+
+    assert context._shader3d is program
+    assert program.uniforms["u_time"] == 1.25
+    assert any(value > 0 for value in context.load_pixels())

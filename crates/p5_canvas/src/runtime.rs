@@ -6,7 +6,9 @@ mod desktop {
     use super::*;
     use winit::application::ApplicationHandler;
     use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize, Size};
-    use winit::event::{ElementState, Ime, MouseButton, MouseScrollDelta, WindowEvent};
+    use winit::event::{
+        ElementState, Force, Ime, MouseButton, MouseScrollDelta, TouchPhase, WindowEvent,
+    };
     use winit::event_loop::{ActiveEventLoop, EventLoop};
     use winit::keyboard::{Key, ModifiersState, NamedKey};
     use winit::platform::pump_events::{EventLoopExtPumpEvents, PumpStatus};
@@ -34,6 +36,11 @@ mod desktop {
         pub height: Option<i64>,
         pub pixel_density: Option<f64>,
         pub coordinates: Option<&'static str>,
+        pub touch_id: Option<u64>,
+        pub phase: Option<&'static str>,
+        pub pressure: Option<f64>,
+        pub timestamp: Option<f64>,
+        pub device: Option<String>,
     }
 
     impl RuntimeEvent {
@@ -55,6 +62,11 @@ mod desktop {
                 height: None,
                 pixel_density: None,
                 coordinates: None,
+                touch_id: None,
+                phase: None,
+                pressure: None,
+                timestamp: None,
+                device: None,
             }
         }
 
@@ -115,6 +127,24 @@ mod desktop {
         fn key_typed(text: String) -> Self {
             let mut event = Self::new("key_typed");
             event.text = Some(text);
+            event
+        }
+
+        fn touch(
+            event_type: &'static str,
+            touch_id: u64,
+            x: f64,
+            y: f64,
+            phase: &'static str,
+            pressure: Option<f64>,
+        ) -> Self {
+            let mut event = Self::new(event_type);
+            event.touch_id = Some(touch_id);
+            event.x = Some(x);
+            event.y = Some(y);
+            event.phase = Some(phase);
+            event.pressure = pressure;
+            event.timestamp = Some(Instant::now().elapsed().as_secs_f64());
             event
         }
     }
@@ -213,6 +243,7 @@ mod desktop {
         modifiers: ModifiersState,
         pressed_button: Option<String>,
         last_click: Option<ClickState>,
+        active_touches: Vec<u64>,
         closed: bool,
         has_close_event: bool,
     }
@@ -232,6 +263,7 @@ mod desktop {
                 modifiers: ModifiersState::default(),
                 pressed_button: None,
                 last_click: None,
+                active_touches: Vec::new(),
                 closed: false,
                 has_close_event: false,
             }
@@ -360,6 +392,35 @@ mod desktop {
                     when: Instant::now(),
                 });
             }
+        }
+
+        fn push_touch_event(&mut self, touch: winit::event::Touch) {
+            let phase = touch_phase_name(touch.phase);
+            let event_type = match touch.phase {
+                TouchPhase::Started => "touch_started",
+                TouchPhase::Moved => "touch_moved",
+                TouchPhase::Ended => "touch_ended",
+                TouchPhase::Cancelled => "touch_cancelled",
+            };
+            let pressure = touch.force.map(touch_pressure);
+            match touch.phase {
+                TouchPhase::Started | TouchPhase::Moved => {
+                    if !self.active_touches.contains(&touch.id) {
+                        self.active_touches.push(touch.id);
+                    }
+                }
+                TouchPhase::Ended | TouchPhase::Cancelled => {
+                    self.active_touches.retain(|existing| *existing != touch.id);
+                }
+            }
+            self.events.push(RuntimeEvent::touch(
+                event_type,
+                touch.id,
+                touch.location.x,
+                touch.location.y,
+                phase,
+                pressure,
+            ));
         }
 
         fn is_double_click(
@@ -511,8 +572,8 @@ mod desktop {
                 | WindowEvent::RotationGesture { .. }
                 | WindowEvent::DoubleTapGesture { .. }
                 | WindowEvent::TouchpadPressure { .. }
-                | WindowEvent::Moved(_)
-                | WindowEvent::Touch(_) => {}
+                | WindowEvent::Moved(_) => {}
+                WindowEvent::Touch(touch) => self.push_touch_event(touch),
             }
         }
     }
@@ -522,6 +583,32 @@ mod desktop {
         button: Option<String>,
         position: PhysicalPosition<f64>,
         when: Instant,
+    }
+
+    fn touch_phase_name(phase: TouchPhase) -> &'static str {
+        match phase {
+            TouchPhase::Started => "started",
+            TouchPhase::Moved => "moved",
+            TouchPhase::Ended => "ended",
+            TouchPhase::Cancelled => "cancelled",
+        }
+    }
+
+    fn touch_pressure(force: Force) -> f64 {
+        match force {
+            Force::Calibrated {
+                force,
+                max_possible_force,
+                ..
+            } => {
+                if max_possible_force > 0.0 {
+                    (force / max_possible_force).clamp(0.0, 1.0)
+                } else {
+                    force.max(0.0)
+                }
+            }
+            Force::Normalized(value) => value.clamp(0.0, 1.0),
+        }
     }
 
     fn normalize_mouse_button(button: MouseButton) -> Option<String> {
@@ -627,6 +714,11 @@ mod desktop {
         pub height: Option<i64>,
         pub pixel_density: Option<f64>,
         pub coordinates: Option<&'static str>,
+        pub touch_id: Option<u64>,
+        pub phase: Option<&'static str>,
+        pub pressure: Option<f64>,
+        pub timestamp: Option<f64>,
+        pub device: Option<String>,
     }
 
     pub struct InteractiveRuntime;

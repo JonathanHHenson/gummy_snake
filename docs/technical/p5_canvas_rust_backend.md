@@ -486,7 +486,9 @@ BackendCapabilities(
 )
 ```
 
-WEBGL/3D and shader support should be a separate milestone. The backend should not claim `three_d=True` or `shaders=True` until it can replace the current `PygletWebGLRenderer` behavior.
+Canvas now accepts `create_canvas(..., renderer=WEBGL)` and shader binding/uniform APIs through the existing software-projected 3D layer, presenting the generated 2D draw commands through the Rust canvas renderer. This makes WEBGL-mode primitives, models, materials, lights, and shader API calls available on `backend="canvas"` while preserving the existing deterministic projection semantics.
+
+This is not yet a Rust-native 3D shader pipeline. A future optimization can move projection, depth, materials, and shader execution fully into Rust/WGPU once the public WEBGL behavior and performance gates are stable.
 
 ## Build and packaging strategy
 

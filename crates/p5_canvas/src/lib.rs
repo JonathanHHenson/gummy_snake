@@ -1026,6 +1026,44 @@ impl Canvas {
         Ok(())
     }
 
+    fn text_width(&mut self, value: &str, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+        let parsed_style = parse_style(style)?;
+        if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
+            return Err(PyValueError::new_err("text_size must be positive."));
+        }
+        let font = self.load_text_font(&parsed_style)?;
+        let font_size = (parsed_style.text_size * self.pixel_density)
+            .round()
+            .max(1.0) as usize;
+        Ok(text_width(value, &font, font_size) / self.pixel_density)
+    }
+
+    fn text_ascent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+        let parsed_style = parse_style(style)?;
+        if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
+            return Err(PyValueError::new_err("text_size must be positive."));
+        }
+        let font = self.load_text_font(&parsed_style)?;
+        let font_size = (parsed_style.text_size * self.pixel_density)
+            .round()
+            .max(1.0) as usize;
+        let scaled_font = font.as_scaled(PxScale::from(font_size as f32));
+        Ok(scaled_font.ascent().ceil().max(0.0) as f64 / self.pixel_density)
+    }
+
+    fn text_descent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+        let parsed_style = parse_style(style)?;
+        if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
+            return Err(PyValueError::new_err("text_size must be positive."));
+        }
+        let font = self.load_text_font(&parsed_style)?;
+        let font_size = (parsed_style.text_size * self.pixel_density)
+            .round()
+            .max(1.0) as usize;
+        let scaled_font = font.as_scaled(PxScale::from(font_size as f32));
+        Ok(scaled_font.descent().abs().ceil().max(0.0) as f64 / self.pixel_density)
+    }
+
     #[pyo3(signature = (source_pixels, source_width, source_height, source, destination, mode))]
     fn blend_region(
         &mut self,
@@ -1744,6 +1782,21 @@ fn runtime_event_to_pyobject(py: Python<'_>, event: RuntimeEvent) -> PyResult<Py
     if let Some(coordinates) = event.coordinates {
         dict.set_item("coordinates", coordinates)?;
     }
+    if let Some(touch_id) = event.touch_id {
+        dict.set_item("id", touch_id)?;
+    }
+    if let Some(phase) = event.phase {
+        dict.set_item("phase", phase)?;
+    }
+    if let Some(pressure) = event.pressure {
+        dict.set_item("pressure", pressure)?;
+    }
+    if let Some(timestamp) = event.timestamp {
+        dict.set_item("timestamp", timestamp)?;
+    }
+    if let Some(device) = event.device {
+        dict.set_item("device", device)?;
+    }
     Ok(dict.into_any().unbind())
 }
 
@@ -1834,6 +1887,26 @@ fn render_text_line(line: &str, font: &FontArc, font_size: usize, fill: Rgba) ->
         bbox_top: min_y,
         ascent,
     }
+}
+
+fn text_width(value: &str, font: &FontArc, font_size: usize) -> f64 {
+    let scale = PxScale::from(font_size as f32);
+    let scaled_font = font.as_scaled(scale);
+    let mut max_width = 0.0_f32;
+    for line in value.split('\n') {
+        let mut caret = 0.0_f32;
+        let mut previous: Option<GlyphId> = None;
+        for ch in line.chars() {
+            let glyph_id = scaled_font.glyph_id(ch);
+            if let Some(previous_id) = previous {
+                caret += scaled_font.kern(previous_id, glyph_id);
+            }
+            caret += scaled_font.h_advance(glyph_id);
+            previous = Some(glyph_id);
+        }
+        max_width = max_width.max(caret);
+    }
+    max_width as f64
 }
 
 fn default_font_paths() -> &'static [&'static str] {

@@ -144,6 +144,18 @@ class FakeCanvas:
     def text(self, *args: object) -> None:
         self.calls.append(("text", *args))
 
+    def text_width(self, value: str, style: dict[str, object]) -> float:
+        self.calls.append(("text_width", value, style))
+        return len(value) * float(style["text_size"]) * 0.5
+
+    def text_ascent(self, style: dict[str, object]) -> float:
+        self.calls.append(("text_ascent", style))
+        return float(style["text_size"]) * 0.8
+
+    def text_descent(self, style: dict[str, object]) -> float:
+        self.calls.append(("text_descent", style))
+        return float(style["text_size"]) * 0.2
+
     def load_pixels(self) -> bytes:
         return self.pixels
 
@@ -278,9 +290,9 @@ def test_canvas_backend_reports_implemented_capabilities() -> None:
             c.SCREEN,
         }
     )
-    assert capabilities.three_d is False
-    assert capabilities.shaders is False
-    assert capabilities.sound is False
+    assert capabilities.three_d is True
+    assert capabilities.shaders is True
+    assert capabilities.sound is True
 
 
 def test_canvas_backend_enables_input_capabilities_when_native_runtime_is_available(
@@ -294,9 +306,10 @@ def test_canvas_backend_enables_input_capabilities_when_native_runtime_is_availa
     assert backend.capabilities.interactive is True
     assert backend.capabilities.mouse is True
     assert backend.capabilities.keyboard is True
+    assert backend.capabilities.touch is True
 
 
-def test_canvas_backend_runs_headless_frames_and_rejects_webgl(
+def test_canvas_backend_runs_headless_frames_and_accepts_webgl(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
@@ -314,8 +327,8 @@ def test_canvas_backend_runs_headless_frames_and_rejects_webgl(
     backend.run(sketch, max_frames=2)  # type: ignore[arg-type]
     assert sketch.frames == 2
 
-    with pytest.raises(BackendCapabilityError, match="P2D"):
-        backend.create_canvas(10, 10, renderer=c.WEBGL)
+    backend.create_canvas(10, 10, renderer=c.WEBGL)
+    assert backend.renderer.width == 10
 
 
 def test_canvas_renderer_allocates_and_mirrors_dimensions() -> None:
@@ -429,7 +442,7 @@ def test_canvas_renderer_maps_rust_value_errors() -> None:
         renderer.update_pixels([1, 2, 3])
 
 
-def test_canvas_renderer_text_metrics_use_pillow_and_text_draw_command() -> None:
+def test_canvas_renderer_text_metrics_use_rust_canvas_and_text_draw_command() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(20, 20)
     style = StyleState(fill_color=Color(255, 255, 255, 255), stroke_color=None)
@@ -440,6 +453,8 @@ def test_canvas_renderer_text_metrics_use_pillow_and_text_draw_command() -> None
     renderer.text("hello", 0, 12, style, Matrix2D.identity())
     assert renderer._canvas is not None
     assert renderer._canvas.calls[-1][0] == "text"
+    assert renderer._canvas.calls[-4][0] == "text_width"
+    assert renderer._canvas.calls[-4][1] == "hello"
 
 
 def test_canvas_backend_headless_run_defaults_to_requested_frame_count(
@@ -549,6 +564,40 @@ def test_canvas_backend_dispatches_keyboard_events_and_pressed_state(
         ("key_pressed", None, c.LEFT_ARROW),
         ("key_typed", "é", ord("é")),
     ]
+
+
+def test_canvas_backend_dispatches_touch_events_with_logical_coordinates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+
+    backend._dispatch_canvas_event(
+        sketch,
+        {
+            "type": "touch_started",
+            "id": 7,
+            "x": 20,
+            "y": 10,
+            "pressure": 0.5,
+            "phase": "started",
+            "timestamp": 1.25,
+            "device": "screen",
+        },
+    )
+    backend._dispatch_canvas_event(
+        sketch,
+        {"type": "touch_moved", "id": 7, "x": 24, "y": 6, "pressure": 0.75},
+    )
+
+    assert sketch.context is not None
+    touch = sketch.context.touches[0]
+    assert touch.id == 7
+    assert (touch.x, touch.y) == (12, 47)
+    assert (touch.previous_x, touch.previous_y) == (10, 45)
+    assert touch.pressure == 0.75
+
+    backend._dispatch_canvas_event(sketch, {"type": "touch_ended", "id": 7, "x": 24, "y": 6})
+    assert sketch.context.touches == []
 
 
 def test_canvas_backend_handles_resize_events(monkeypatch: pytest.MonkeyPatch) -> None:

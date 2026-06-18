@@ -1,0 +1,40 @@
+[my_pbi]
+title = "Move sound and media runtime support off Pyglet"
+description = '''
+As a multimedia sketch author,
+I want audio and media APIs to work without Pyglet,
+So that deleting the Pyglet backend does not remove sound, video, or capture workflows.
+'''
+acceptance_criteria = '''
+Sound playback, audio element helpers, video playback, and capture APIs no longer depend on Pyglet backend internals. Canvas runtime integration has clear lifecycle semantics, optional dependency boundaries remain documented, headless behavior is predictable, and `CanvasBackend.capabilities.sound` is set to `True` only when sound behavior is implemented and tested.
+'''
+priotity = 'high'
+status = 'DONE'
+
+[my_pbi.task_1]
+order = 1
+status = 'DONE'
+description = '''
+Inventory all current Pyglet media dependencies and choose replacement native Python or Rust-backed implementations for sound playback and media lifecycle needs.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'DONE'
+description = '''
+Implement backend-independent or canvas-runtime-owned sound playback with play, pause, stop, volume, rate, pan, duration, and cleanup behavior.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'DONE'
+description = '''
+Ensure video playback and capture APIs keep their optional dependency model while integrating cleanly with canvas frame scheduling and texture/image upload paths.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'DONE'
+description = '''
+Add tests, examples, documentation, and platform failure guidance for missing devices, denied permissions, missing codecs, and headless environments.
+'''

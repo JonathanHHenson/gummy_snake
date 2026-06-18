@@ -148,14 +148,15 @@ def test_canvas_renderer_supports_blend_modes_and_erase() -> None:
     assert pixels[12:16] == [100, 100, 100, 0]
 
 
-def test_canvas_renderer_text_uses_pillow_metrics_and_rust_draw_command() -> None:
+def test_canvas_renderer_text_uses_native_rust_metrics_and_draw_command() -> None:
     canvas = CanvasRenderer(require_canvas_extension())
-    pillow = PillowRenderer()
     canvas.resize(48, 24)
-    pillow.resize(48, 24)
     style = StyleState(fill_color=Color(255, 255, 255, 255), stroke_color=None)
 
-    assert canvas.text_width("Hi", style) == pytest.approx(pillow.text_width("Hi", style))
+    assert canvas.text_width("Hi", style) > 0
+    assert canvas.text_width("Hi\nHello", style) >= canvas.text_width("Hi", style)
+    assert canvas.text_ascent(style) > 0
+    assert canvas.text_descent(style) >= 0
     canvas.clear()
     canvas.text("Hi", 2, 14, style, Matrix2D.identity())
 

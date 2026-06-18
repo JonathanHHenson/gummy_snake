@@ -282,24 +282,31 @@ class CanvasRenderer:
         )
 
     def text_width(self, value: str, style: StyleState) -> float:
-        from p5.backends.pillow import PillowRenderer
-
-        return PillowRenderer(self.width or 1, self.height or 1, self.pixel_density).text_width(
-            value, style
+        return float(
+            self._call(
+                "text measurement",
+                self._require_canvas().text_width,
+                value,
+                _style_payload(style),
+            )
         )
 
     def text_ascent(self, style: StyleState) -> float:
-        from p5.backends.pillow import PillowRenderer
-
-        return PillowRenderer(self.width or 1, self.height or 1, self.pixel_density).text_ascent(
-            style
+        return float(
+            self._call(
+                "text ascent measurement",
+                self._require_canvas().text_ascent,
+                _style_payload(style),
+            )
         )
 
     def text_descent(self, style: StyleState) -> float:
-        from p5.backends.pillow import PillowRenderer
-
-        return PillowRenderer(self.width or 1, self.height or 1, self.pixel_density).text_descent(
-            style
+        return float(
+            self._call(
+                "text descent measurement",
+                self._require_canvas().text_descent,
+                _style_payload(style),
+            )
         )
 
     def load_pixels(self) -> list[int]:

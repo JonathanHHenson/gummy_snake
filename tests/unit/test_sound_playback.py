@@ -1,15 +1,15 @@
+import wave
 from pathlib import Path
 
 import p5
 from p5.assets import sound as sound_module
 
 
-class _FakeSource:
-    duration = 1.25
-
-
 class _FakePlayer:
-    def __init__(self) -> None:
+    instances = []
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
         self.queued = []
         self.play_calls = 0
         self.pause_calls = 0
@@ -18,6 +18,7 @@ class _FakePlayer:
         self.volume = 0.0
         self.pitch = 0.0
         self.position = (0.0, 0.0, 0.0)
+        _FakePlayer.instances.append(self)
 
     def queue(self, source) -> None:
         self.queued.append(source)
@@ -35,24 +36,19 @@ class _FakePlayer:
         self.delete_calls += 1
 
 
-class _FakeMedia:
-    Player = _FakePlayer
-    last_load = None
-
-    @staticmethod
-    def load(path: str, *, streaming: bool) -> _FakeSource:
-        _FakeMedia.last_load = (path, streaming)
-        return _FakeSource()
+def _write_wav(path: Path) -> None:
+    with wave.open(str(path), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(8000)
+        wav.writeframes(b"\0\0" * 10000)
 
 
-class _FakePyglet:
-    media = _FakeMedia
-
-
-def test_load_sound_and_create_audio_wrap_pyglet_media(monkeypatch, tmp_path: Path):
+def test_load_sound_and_create_audio_use_backend_neutral_player(monkeypatch, tmp_path: Path):
     sound_path = tmp_path / "tone.wav"
-    sound_path.write_bytes(b"RIFFfakeWAVE")
-    monkeypatch.setattr(sound_module, "_load_pyglet_module", lambda: _FakePyglet)
+    _write_wav(sound_path)
+    _FakePlayer.instances.clear()
+    monkeypatch.setattr(sound_module, "_NativeAudioPlayer", _FakePlayer)
 
     clip = p5.load_sound(sound_path)
     clip.volume(0.4)
@@ -61,9 +57,9 @@ def test_load_sound_and_create_audio_wrap_pyglet_media(monkeypatch, tmp_path: Pa
     clip.play()
 
     assert clip.duration == 1.25
-    assert _FakeMedia.last_load == (str(sound_path), False)
     player = clip._player
     assert player is not None
+    assert player.path == sound_path
     assert player.play_calls == 1
     assert player.volume == 0.4
     assert player.pitch == 1.5

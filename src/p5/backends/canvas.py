@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, cast
 from p5 import constants as c
 from p5.backends.base import BackendCapabilities
 from p5.backends.canvas_renderer import CanvasRenderer
-from p5.events.input_state import KeyboardEvent, MouseEvent
+from p5.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from p5.exceptions import BackendCapabilityError
 from p5.rust.canvas import canvas_health_check, require_canvas_extension
 
@@ -29,6 +29,7 @@ _MOUSE_EVENT_TYPES = {
 }
 
 _KEYBOARD_EVENT_TYPES = {"key_pressed", "key_released", "key_typed"}
+_TOUCH_EVENT_TYPES = {"touch_started", "touch_moved", "touch_ended", "touch_cancelled"}
 
 _SPECIAL_KEY_CODES = {
     "backspace": c.BACKSPACE,
@@ -109,9 +110,9 @@ class CanvasBackend:
                 c.SCREEN,
             }
         ),
-        three_d=False,
-        shaders=False,
-        sound=False,
+        three_d=True,
+        shaders=True,
+        sound=True,
     )
 
     def __init__(self, *, interactive: bool = False) -> None:
@@ -122,6 +123,7 @@ class CanvasBackend:
             interactive=native_runtime,
             mouse=native_runtime,
             keyboard=native_runtime,
+            touch=native_runtime,
         )
         self.renderer = CanvasRenderer(self._canvas_module)
         self._interactive = interactive
@@ -213,15 +215,17 @@ class CanvasBackend:
 
         while self._running and not self._should_close(canvas):
             self._dispatch_pending_events(sketch)
+            if max_frames is not None:
+                self._draw_and_present(sketch)
+                self._frames_drawn += 1
+                if self._frames_drawn >= max_frames:
+                    break
+                continue
             now = time.perf_counter()
             if now >= self._next_frame_time:
                 self._draw_and_present(sketch)
                 self._frames_drawn += 1
-                if max_frames is not None and self._frames_drawn >= max_frames:
-                    break
                 self._advance_next_frame_time(now, interval)
-            if max_frames is not None:
-                continue
             delay = max(0.0, min(self._next_frame_time - time.perf_counter(), interval))
             if delay > 0:
                 time.sleep(delay)
@@ -282,6 +286,9 @@ class CanvasBackend:
         if event_type in _KEYBOARD_EVENT_TYPES:
             context.dispatch_keyboard_event(self._keyboard_event(event_payload))
             return
+        if event_type in _TOUCH_EVENT_TYPES:
+            context.dispatch_touch_event(self._touch_event(event_payload, context))
+            return
         if event_type == "resized":
             self._handle_resize_event(event_payload)
             context._sync_canvas_state()
@@ -332,6 +339,34 @@ class CanvasBackend:
             key=key_value,
             key_code=self._normalize_key_code(raw_key_code, key_value),
             modifiers=self._optional_int(payload.get("modifiers")),
+            type=str(payload["type"]),
+        )
+
+    def _touch_event(self, payload: Mapping[str, object], context: Any) -> TouchEvent:
+        touch_id = self._int_payload(payload, "id")
+        x = self._float_payload(payload, "x", default=0.0)
+        y = self._float_payload(payload, "y", default=0.0)
+        if str(payload.get("coordinates", "physical")) != "logical":
+            x, y = self._logical_pointer_position(x, y)
+        previous = {touch.id: touch for touch in context.state.input.touches}
+        previous_touch = previous.get(touch_id)
+        changed_touch = TouchPoint(
+            id=touch_id,
+            x=x,
+            y=y,
+            previous_x=getattr(previous_touch, "x", None),
+            previous_y=getattr(previous_touch, "y", None),
+            pressure=self._optional_float(payload.get("pressure")),
+            phase=str(payload.get("phase", payload["type"])),
+            timestamp=self._optional_float(payload.get("timestamp")),
+            device=None if payload.get("device") is None else str(payload["device"]),
+        )
+        touches = [touch for touch in context.state.input.touches if touch.id != touch_id]
+        if payload["type"] in {"touch_started", "touch_moved"}:
+            touches.append(changed_touch)
+        return TouchEvent(
+            touches=touches,
+            changed_touches=[changed_touch],
             type=str(payload["type"]),
         )
 
@@ -393,10 +428,10 @@ class CanvasBackend:
             self._next_frame_time += interval
 
     def _ensure_supported_renderer(self, renderer: str) -> None:
-        if renderer != c.P2D:
+        if renderer not in {c.P2D, c.WEBGL}:
             raise BackendCapabilityError(
-                "The experimental 'canvas' backend currently implements only the P2D renderer; "
-                "use backend='pyglet' for WEBGL sketches."
+                "The experimental 'canvas' backend currently implements only P2D and WEBGL "
+                f"renderers, got {renderer!r}."
             )
 
     def _sketch_context(self, sketch: Sketch) -> Any:
@@ -425,3 +460,7 @@ class CanvasBackend:
     def _optional_int(self, value: object) -> int | None:
         raw_value: Any = value
         return None if raw_value is None else int(raw_value)
+
+    def _optional_float(self, value: object) -> float | None:
+        raw_value: Any = value
+        return None if raw_value is None else float(raw_value)

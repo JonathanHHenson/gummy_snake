@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import shutil
+import signal
+import subprocess
+import wave
 from pathlib import Path
 from typing import Any
 
@@ -11,15 +15,16 @@ from p5.exceptions import ArgumentValidationError, BackendCapabilityError
 class Sound:
     """Loaded sound asset with simple playback controls.
 
-    The first milestone uses ``pyglet.media`` under the hood but keeps the public
-    object backend-neutral and lazily creates players so loading does not require an
-    audio device.
+    Loading is backend-neutral and does not require an audio device. Playback is
+    delegated to a small platform player when one is available; otherwise
+    ``play()`` raises ``BackendCapabilityError`` while metadata and controls
+    remain usable for sketches and tests.
     """
 
-    def __init__(self, source: object, *, path: Path, pyglet_module: Any) -> None:
+    def __init__(self, source: object, *, path: Path, player_factory: Any | None = None) -> None:
         self._source = source
         self._path = path
-        self._pyglet = pyglet_module
+        self._player_factory = player_factory or _NativeAudioPlayer
         self._player: Any | None = None
         self._volume = 1.0
         self._rate = 1.0
@@ -96,12 +101,8 @@ class Sound:
         return self._pan
 
     def _create_player(self) -> Any:
-        media = getattr(self._pyglet, "media", self._pyglet)
-        player_class = getattr(media, "Player", None)
-        if player_class is None:
-            raise BackendCapabilityError("pyglet.media Player support is unavailable.")
         try:
-            return player_class()
+            return self._player_factory(self._path)
         except Exception as exc:  # pragma: no cover - backend-specific failure path
             raise BackendCapabilityError(
                 "Audio playback is unavailable on this system. Could not create a sound player."
@@ -109,14 +110,16 @@ class Sound:
 
     def _queue_source(self, player: Any) -> None:
         queue = getattr(player, "queue", None)
-        if not callable(queue):
-            raise BackendCapabilityError("pyglet.media Player.queue() is unavailable.")
-        queue(self._source)
+        if callable(queue):
+            queue(self._source)
 
     def _apply_controls(self, player: Any) -> None:
-        player.volume = self._volume
-        player.pitch = self._rate
-        player.position = (self._pan, 0.0, 0.0)
+        if hasattr(player, "volume"):
+            player.volume = self._volume
+        if hasattr(player, "pitch"):
+            player.pitch = self._rate
+        if hasattr(player, "position"):
+            player.position = (self._pan, 0.0, 0.0)
 
     def _dispose_player(self, player: Any) -> None:
         delete = getattr(player, "delete", None)
@@ -128,22 +131,83 @@ def load_sound(path: str | Path) -> Sound:
     sound_path = Path(path)
     if not sound_path.exists():
         raise ArgumentValidationError(f"Sound file does not exist: {sound_path!s}.")
-    pyglet = _load_pyglet_module()
-    media = getattr(pyglet, "media", pyglet)
-    load = getattr(media, "load", None)
-    if not callable(load):
-        raise BackendCapabilityError("pyglet.media.load() is unavailable.")
-    try:
-        source = load(str(sound_path), streaming=False)
-    except Exception as exc:
-        raise ArgumentValidationError(f"Could not load sound {sound_path!s}.") from exc
-    return Sound(source, path=sound_path, pyglet_module=pyglet)
+    source = _load_audio_source(sound_path)
+    return Sound(source, path=sound_path)
 
 
-def _load_pyglet_module() -> Any:
-    import pyglet
+class _AudioSource:
+    def __init__(self, *, duration: float | None) -> None:
+        self.duration = duration
 
-    return pyglet
+
+class _NativeAudioPlayer:
+    def __init__(self, path: Path) -> None:
+        self._path = path
+        self._process: subprocess.Popen[bytes] | None = None
+        self.volume = 1.0
+        self.pitch = 1.0
+        self.position = (0.0, 0.0, 0.0)
+
+    def play(self) -> None:
+        command = _platform_play_command(self._path)
+        if command is None:
+            raise BackendCapabilityError(
+                "Audio playback requires an available platform player such as afplay, paplay, "
+                "aplay, or ffplay."
+            )
+        self._process = subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def pause(self) -> None:
+        if self._process is None:
+            return
+        if hasattr(signal, "SIGSTOP"):
+            self._process.send_signal(signal.SIGSTOP)
+        else:  # pragma: no cover - Windows-specific fallback
+            self.delete()
+
+    def seek(self, value: float) -> None:
+        if value == 0:
+            self.delete()
+
+    def delete(self) -> None:
+        process = self._process
+        self._process = None
+        if process is None or process.poll() is not None:
+            return
+        process.terminate()
+        try:
+            process.wait(timeout=1.0)
+        except subprocess.TimeoutExpired:  # pragma: no cover - process-specific failure path
+            process.kill()
+
+
+def _load_audio_source(path: Path) -> _AudioSource:
+    if path.suffix.lower() == ".wav":
+        try:
+            with wave.open(str(path), "rb") as wav:
+                frames = wav.getnframes()
+                rate = wav.getframerate()
+                duration = frames / rate if rate > 0 else None
+                return _AudioSource(duration=duration)
+        except wave.Error as exc:
+            raise ArgumentValidationError(f"Could not load sound {path!s}.") from exc
+    return _AudioSource(duration=None)
+
+
+def _platform_play_command(path: Path) -> list[str] | None:
+    if player := shutil.which("afplay"):
+        return [player, str(path)]
+    if player := shutil.which("paplay"):
+        return [player, str(path)]
+    if player := shutil.which("aplay"):
+        return [player, str(path)]
+    if player := shutil.which("ffplay"):
+        return [player, "-nodisp", "-autoexit", "-loglevel", "quiet", str(path)]
+    return None
 
 
 __all__ = ["Sound", "load_sound"]

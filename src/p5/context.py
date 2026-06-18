@@ -58,6 +58,7 @@ class SketchContext:
         self.renderer = backend.renderer
         self.plugins = plugins
         self.state = SketchState()
+        self.state.input.touch_supported = bool(backend.capabilities.touch)
         self.pixels: Sequence[int] = []
         self._camera3d = Camera3D()
         self._projection3d: PerspectiveProjection | OrthographicProjection = PerspectiveProjection()

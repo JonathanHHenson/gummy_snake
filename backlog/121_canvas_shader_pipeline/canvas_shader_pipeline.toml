@@ -1,0 +1,40 @@
+[my_pbi]
+title = "Move shader APIs onto the canvas backend"
+description = '''
+As a shader user,
+I want `load_shader`, `create_shader`, `shader`, and uniform updates to work through the canvas backend,
+So that custom GPU effects do not depend on the Pyglet renderer.
+'''
+acceptance_criteria = '''
+The canvas backend supports the documented shader object API for WEBGL-mode sketches. Shader loading, source creation, binding, reset, and uniform updates work on `backend="canvas"` through the current software-projected WEBGL path. Tests and examples cover source-string shaders, uniform updates, fallback behavior, and interactive performance against Pyglet. `CanvasBackend.capabilities.shaders` is changed to `True`; native Rust/WGPU shader compilation remains a later optimization.
+'''
+priotity = 'high'
+status = 'DONE'
+
+[my_pbi.task_1]
+order = 1
+status = 'DONE'
+description = '''
+Use the existing Python-native `Shader3D` representation for canvas WEBGL-mode shader objects during the software-projected milestone.
+'''
+
+[my_pbi.task_2]
+order = 2
+status = 'DONE'
+description = '''
+Enable shader object creation, binding, reset, and uniform storage for canvas WEBGL-mode rendering.
+'''
+
+[my_pbi.task_3]
+order = 3
+status = 'DONE'
+description = '''
+Preserve package-specific shader argument and uniform errors for canvas, while documenting that native Rust shader compilation diagnostics are deferred.
+'''
+
+[my_pbi.task_4]
+order = 4
+status = 'DONE'
+description = '''
+Add tests and examples for shader loading, source-string shaders, uniform updates, texture uniforms, failure diagnostics, and non-shader fallback behavior.
+'''

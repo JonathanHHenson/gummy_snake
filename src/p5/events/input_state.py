@@ -36,6 +36,10 @@ class TouchPoint:
     y: float
     previous_x: float | None = None
     previous_y: float | None = None
+    pressure: float | None = None
+    phase: str | None = None
+    timestamp: float | None = None
+    device: str | None = None
 
 
 @dataclass(slots=True)
@@ -88,6 +92,10 @@ class InputState:
                     previous_y=touch.previous_y
                     if touch.previous_y is not None
                     else getattr(old, "y", None),
+                    pressure=touch.pressure,
+                    phase=touch.phase,
+                    timestamp=touch.timestamp,
+                    device=touch.device,
                 )
             )
         self.touches = updated
