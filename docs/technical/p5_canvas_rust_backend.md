@@ -209,6 +209,13 @@ The renderer stack for the next phase should be `wgpu`-first:
 - Export, `load_pixels()`, and parity tests use explicit GPU-to-CPU readback from top-left-oriented RGBA textures.
 - Capability flags and fallback errors must distinguish "extension unavailable", "GPU adapter unavailable", and "feature not yet implemented".
 
+Performance-sensitive implementation constraints:
+
+- Ordinary GPU-backed drawing and presentation must not keep a full CPU RGBA mirror up to date. The CPU parity buffer may become stale after `background()`, `clear()`, primitives, images, text, or blend commands; it should be refreshed only by explicit readback/export paths such as `load_pixels()` and `save_canvas()`.
+- Full-canvas CPU writes are acceptable only when the GPU path is unavailable or when an explicit pixel API requires CPU-visible data.
+- Interactive surface configuration should prefer low-latency present modes where the platform exposes them (`Immediate`, then `Mailbox`, falling back to `Fifo`) and keep queued frame latency minimal. Avoid adding a second sleep/throttle layer on top of a blocking present path for bounded throughput benchmarks.
+- Any future asset, text, pixel, blend, or export feature should include a quick check that the common primitive-heavy benchmarks remain faster than the current Pyglet path.
+
 Candidate Rust dependencies to evaluate in the foundation epic:
 
 - `pyo3` for the Python extension boundary, matching the existing `p5_accel` approach.
@@ -514,7 +521,7 @@ Use layered validation:
 5. Input event tests using synthetic Rust-side events and Python `InputState` assertions.
 6. Interactive smoke tests for native windows, `wgpu` surface presentation, frame scheduling, resize, close, and display density.
 7. Platform CI coverage where practical for macOS, Linux, and Windows.
-8. Performance benchmarks that prove common primitive-heavy sketches render faster than the current Pillow and Pyglet paths without per-draw readback.
+8. Performance benchmarks that prove common primitive-heavy sketches render faster than the current Pillow and Pyglet paths without per-draw readback, eager CPU parity-buffer updates, or avoidable present-mode throttling.
 
 For bridge changes, keep running:
 

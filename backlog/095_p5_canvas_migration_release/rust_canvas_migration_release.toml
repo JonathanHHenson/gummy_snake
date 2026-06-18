@@ -6,7 +6,7 @@ I want a measured migration from Pillow/Pyglet to the GPU-backed Rust canvas bac
 So that the new backend can become the default only after it proves rendering parity, native runtime stability, packaging reliability, and meaningful performance gains.
 '''
 acceptance_criteria = '''
-The `canvas` backend is validated as a GPU renderer across supported platforms and examples, documentation explains how to use and build it, CI covers Rust and Python behavior where practical, benchmarks demonstrate performance wins for representative sketches, and the default backend only changes after documented GPU parity criteria are met. Existing `headless`, `pillow`, and `pyglet` backends remain available or are deprecated through an explicit release plan.
+The `canvas` backend is validated as a GPU renderer across supported platforms and examples, documentation explains how to use and build it, CI covers Rust and Python behavior where practical, benchmarks demonstrate performance wins for representative sketches, and the default backend only changes after documented GPU parity criteria are met. Existing `headless`, `pillow`, and `pyglet` backends remain available or are deprecated through an explicit release plan. Performance validation includes both headless canvas benchmark variants and the interactive canvas-versus-pyglet benchmark, with regressions investigated before default-backend migration.
 '''
 priotity = 'medium'
 status = 'TODO'
@@ -15,7 +15,7 @@ status = 'TODO'
 order = 1
 status = 'TODO'
 description = '''
-Define the GPU parity checklist for replacing both current interactive and headless modes, including primitive rendering, image/text behavior, pixels/compositing, event handling, HiDPI behavior, readback/export, examples, packaging, and performance thresholds.
+Define the GPU parity checklist for replacing both current interactive and headless modes, including primitive rendering, image/text behavior, pixels/compositing, event handling, HiDPI behavior, readback/export, examples, packaging, and performance thresholds. Include explicit guards against ordinary-frame GPU regressions such as eager CPU pixel mirrors, implicit readbacks, and avoidable surface-present throttling.
 '''
 
 [my_pbi.task_2]
@@ -57,5 +57,12 @@ Create a deprecation or retention plan for Pillow/Pyglet backends after the GPU-
 order = 7
 status = 'TODO'
 description = '''
-Perform final validation with `uv run ruff check .`, `uv run pytest`, Rust tests, GPU readback parity tests, headless and interactive smoke tests, and representative examples before changing backend defaults.
+Perform final validation with `uv run ruff check .`, `uv run pytest`, Rust tests, GPU readback parity tests, headless and interactive smoke tests, representative examples, and opt-in canvas benchmarks before changing backend defaults.
+'''
+
+[my_pbi.task_8]
+order = 8
+status = 'TODO'
+description = '''
+Capture benchmark evidence for the migration decision using `tests/benchmark/test_canvas_backend_perf.py --run-benchmarks` and `tests/benchmark/test_interactive_backend_perf.py --run-benchmarks -s`. Require representative primitive-heavy canvas scenes to remain faster than Pyglet on supported interactive platforms, or document and resolve the blocker before changing defaults.
 '''

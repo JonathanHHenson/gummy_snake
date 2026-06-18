@@ -330,29 +330,33 @@ impl Canvas {
 
     fn background(&mut self, rgba: (u8, u8, u8, u8)) {
         let color = Rgba::from_tuple(rgba).as_array();
-        let packed = rgba_to_present_pixel(&color);
-        for (pixel, present_pixel) in self
-            .pixels
-            .chunks_exact_mut(4)
-            .zip(self.present_pixels.iter_mut())
-        {
-            pixel.copy_from_slice(&color);
-            *present_pixel = packed;
-        }
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.set_clear_color(gpu_color(Rgba::from_tuple(rgba)));
             self.render_dirty = true;
             self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        } else {
+            let packed = rgba_to_present_pixel(&color);
+            for (pixel, present_pixel) in self
+                .pixels
+                .chunks_exact_mut(4)
+                .zip(self.present_pixels.iter_mut())
+            {
+                pixel.copy_from_slice(&color);
+                *present_pixel = packed;
+            }
         }
     }
 
     fn clear(&mut self) {
-        self.pixels.fill(0);
-        self.present_pixels.fill(0);
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.clear_transparent();
             self.render_dirty = true;
             self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        } else {
+            self.pixels.fill(0);
+            self.present_pixels.fill(0);
         }
     }
 

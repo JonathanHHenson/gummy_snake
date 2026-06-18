@@ -6,7 +6,7 @@ I want images, text, pixels, blending, erase, and save operations to be implemen
 So that the Rust canvas backend grows feature coverage without returning to CPU rasterization as the main rendering path.
 '''
 acceptance_criteria = '''
-After the GPU foundation, primitive renderer, and GPU presentation path are in place, the Rust canvas backend supports image drawing with GPU texture upload/caching, GPU text rendering through a glyph atlas, explicit GPU readback/update for pixel APIs, GPU compositing and advertised blend modes, `erase`/`no_erase`, and `save_canvas` export from GPU textures with top-left physical RGBA semantics. Tests compare deterministic readback/export behavior against Pillow where practical and document accepted text/font tolerances.
+After the GPU foundation, primitive renderer, and GPU presentation path are in place, the Rust canvas backend supports image drawing with GPU texture upload/caching, GPU text rendering through a glyph atlas, explicit GPU readback/update for pixel APIs, GPU compositing and advertised blend modes, `erase`/`no_erase`, and `save_canvas` export from GPU textures with top-left physical RGBA semantics. Tests compare deterministic readback/export behavior against Pillow where practical and document accepted text/font tolerances. New asset, pixel, compositing, and export features preserve the ordinary-frame GPU fast path by avoiding eager full-canvas CPU parity-buffer updates or implicit readbacks outside explicit pixel/export APIs.
 '''
 priotity = 'high'
 status = 'TODO'
@@ -36,7 +36,7 @@ Choose and implement the Rust text stack for font loading, shaping, metrics, gly
 order = 4
 status = 'TODO'
 description = '''
-Implement `load_pixels` and `update_pixels` through explicit GPU readback and upload staging, preserving top-left-oriented physical RGBA buffers, exact buffer length validation, and correct behavior after subsequent GPU drawing.
+Implement `load_pixels` and `update_pixels` through explicit GPU readback and upload staging, preserving top-left-oriented physical RGBA buffers, exact buffer length validation, and correct behavior after subsequent GPU drawing. Keep CPU-visible pixel data lazily synchronized so ordinary draw calls can mark the parity buffer stale instead of rewriting it every frame.
 '''
 
 [my_pbi.task_5]
@@ -57,7 +57,7 @@ Implement GPU blend modes `BLEND`, `REPLACE`, `ADD`, `DARKEST`, `LIGHTEST`, `DIF
 order = 7
 status = 'TODO'
 description = '''
-Implement `save_canvas`/renderer `save` export from GPU textures via explicit readback, preserving physical HiDPI output dimensions, RGBA channel order, and deterministic file output for headless tests.
+Implement `save_canvas`/renderer `save` export from GPU textures via explicit readback, preserving physical HiDPI output dimensions, RGBA channel order, and deterministic file output for headless tests. Ensure export readback does not become part of normal presentation or ordinary draw-frame completion.
 '''
 
 [my_pbi.task_8]
@@ -65,4 +65,11 @@ order = 8
 status = 'TODO'
 description = '''
 Update capability flags so `canvas` advertises text, images, pixels, pixel readback/update, export, and blend modes only as each GPU-backed feature reaches tested support.
+'''
+
+[my_pbi.task_9]
+order = 9
+status = 'TODO'
+description = '''
+Run the opt-in canvas performance benchmarks after adding images, text, pixels, blend modes, or export support, and investigate any regression where common primitive-heavy scenes stop outperforming the current Pyglet backend.
 '''

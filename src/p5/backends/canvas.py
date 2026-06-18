@@ -208,6 +208,8 @@ class CanvasBackend:
                 if max_frames is not None and self._frames_drawn >= max_frames:
                     break
                 self._advance_next_frame_time(now, interval)
+            if max_frames is not None:
+                continue
             delay = max(0.0, min(self._next_frame_time - time.perf_counter(), interval))
             if delay > 0:
                 time.sleep(delay)

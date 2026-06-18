@@ -651,12 +651,14 @@ fn surface_config(
     height: u32,
 ) -> Option<wgpu::SurfaceConfiguration> {
     let format = preferred_surface_format(&capabilities.formats)?;
-    let present_mode = capabilities
-        .present_modes
-        .iter()
-        .copied()
-        .find(|mode| *mode == wgpu::PresentMode::Fifo)
-        .or_else(|| capabilities.present_modes.first().copied())?;
+    let present_mode = [
+        wgpu::PresentMode::Immediate,
+        wgpu::PresentMode::Mailbox,
+        wgpu::PresentMode::Fifo,
+    ]
+    .into_iter()
+    .find(|mode| capabilities.present_modes.contains(mode))
+    .or_else(|| capabilities.present_modes.first().copied())?;
     let alpha_mode = capabilities
         .alpha_modes
         .iter()
@@ -671,7 +673,7 @@ fn surface_config(
         width,
         height,
         present_mode,
-        desired_maximum_frame_latency: 2,
+        desired_maximum_frame_latency: 1,
         alpha_mode,
         view_formats: vec![],
     })
@@ -736,5 +738,36 @@ mod tests {
         ]);
 
         assert_eq!(format, Some(wgpu::TextureFormat::Bgra8UnormSrgb));
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    #[test]
+    fn surface_config_prefers_immediate_present_mode_when_available() {
+        let capabilities = wgpu::SurfaceCapabilities {
+            formats: vec![wgpu::TextureFormat::Rgba8Unorm],
+            present_modes: vec![wgpu::PresentMode::Fifo, wgpu::PresentMode::Immediate],
+            alpha_modes: vec![wgpu::CompositeAlphaMode::Opaque],
+            usages: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        };
+
+        let config = surface_config(&capabilities, 640, 480).unwrap();
+
+        assert_eq!(config.present_mode, wgpu::PresentMode::Immediate);
+        assert_eq!(config.desired_maximum_frame_latency, 1);
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    #[test]
+    fn surface_config_falls_back_to_fifo_present_mode() {
+        let capabilities = wgpu::SurfaceCapabilities {
+            formats: vec![wgpu::TextureFormat::Rgba8Unorm],
+            present_modes: vec![wgpu::PresentMode::Fifo],
+            alpha_modes: vec![wgpu::CompositeAlphaMode::Opaque],
+            usages: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        };
+
+        let config = surface_config(&capabilities, 640, 480).unwrap();
+
+        assert_eq!(config.present_mode, wgpu::PresentMode::Fifo);
     }
 }
