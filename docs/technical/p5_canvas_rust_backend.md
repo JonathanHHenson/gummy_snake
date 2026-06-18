@@ -218,7 +218,9 @@ Candidate Rust dependencies to evaluate in the foundation epic:
 - `image` for PNG/export/image decoding support where needed.
 - `cosmic-text`, `fontdue`, or another Rust text stack for text layout and metrics.
 
-Epics 091-093 established a CPU software renderer and a native runtime bridge. That implementation is now an interim compatibility scaffold, not the target architecture. Before extending the Rust backend with assets, text, pixel mutation, blend modes, or release migration, the next PBIs should introduce a GPU device layer, command model, primitive pipelines, offscreen texture path, presentation path, and readback/export path. New feature PBIs should target the GPU renderer directly.
+Epics 091-092 now establish the first `wgpu` renderer foundation for offscreen/headless rendering. The Rust canvas can initialize a GPU adapter/device/queue, create offscreen textures, record primitive draw commands, tessellate core 2D primitives on the CPU, rasterize them through GPU render passes, and read pixels back only for explicit compatibility APIs such as `load_pixels()` and `save_canvas()`. The previous CPU software renderer remains only as a fallback when a GPU adapter is unavailable or when a feature has not yet moved to the GPU path.
+
+Epic 093 replaces the interim CPU window presenter with direct `winit` + `wgpu::Surface` presentation. New feature PBIs for images, text, pixels, blend modes, and export should target the GPU renderer directly.
 
 ## Python API design
 
@@ -408,9 +410,9 @@ canvas.poll_events() -> list[dict[str, object]]
 
 `CanvasBackend` owns frame scheduling and calls `sketch._draw_frame()` in the existing lifecycle order. Between scheduled frames it drains `poll_events()` and dispatches normalized `MouseEvent` and `KeyboardEvent` objects into `SketchContext`.
 
-The selected native window/input dependency is `winit`. The completed runtime bridge used the existing CPU RGBA surface as an interim presentation target, but the target runtime must present through `wgpu` surfaces and must share the same GPU renderer used by headless/offscreen mode. The bridge reports `native_window_available() == True` on supported desktop targets and exposes `open_window()`, `should_close()`, `poll_events()`, and `present()` through the PyO3 canvas object so unbounded `backend="canvas"` runs can enter the native interactive loop while bounded runs remain offscreen.
+The selected native window/input dependency is `winit`. Interactive presentation now uses `wgpu::Surface` objects owned by the GPU renderer, sharing the same command encoding path as headless/offscreen rendering. The bridge reports `native_window_available() == True` on supported desktop targets and exposes `open_window()`, `should_close()`, `poll_events()`, and `present()` through the PyO3 canvas object so unbounded `backend="canvas"` runs can enter the native interactive loop while bounded runs remain offscreen.
 
-The next runtime work should bind each native window to a `wgpu::Surface`, recreate surface configuration on resize/display-density changes, render the current command buffer directly into the swapchain texture, and keep offscreen rendering on GPU textures when no window is present. The CPU software presenter should remain only as a temporary compatibility path until the GPU presenter is complete.
+Each native window is bound to a `wgpu::Surface`; surface configuration is recreated on resize/display-density changes and when the surface is lost or outdated. `present()` renders the current command buffer directly into the swapchain texture. Ordinary interactive presentation no longer copies a CPU RGBA surface into the window.
 
 Rust-originated event payloads passed through `poll_events()` should use physical window coordinates by default:
 

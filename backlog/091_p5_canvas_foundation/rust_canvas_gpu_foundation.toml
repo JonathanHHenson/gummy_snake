@@ -9,46 +9,46 @@ acceptance_criteria = '''
 `p5_canvas` owns a `wgpu` renderer foundation that can initialize a GPU adapter/device/queue, create offscreen textures, expose clear capability and unavailable-GPU errors through the Python bridge, and record a minimal frame command stream without changing the public p5-py API. The existing CPU renderer remains only as an interim compatibility path and no new user-facing rendering feature is added to it.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add `wgpu` renderer infrastructure to `crates/p5_canvas`, including adapter/device/queue initialization, feature/limit selection, surface-format policy, and explicit errors for missing or unsupported GPU adapters.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Define the Rust-side frame command model for p5 drawing operations, including stable command payloads for color, style, transforms, geometry, images, text, pixels, and future batching.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Create GPU texture ownership for logical/physical canvas dimensions, pixel density, top-left p5 coordinate semantics, multisampling policy if used, and offscreen render targets.
 '''
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Expose Python bridge health/capability methods that distinguish extension availability, GPU adapter availability, unsupported GPU features, and individual unimplemented renderer features.
 '''
 
 [my_pbi.task_5]
 order = 5
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add focused Rust and Python tests for GPU initialization boundaries, unavailable-GPU errors, command recording invariants, canvas dimension handling, and preservation of the existing public backend selection behavior.
 '''
 
 [my_pbi.task_6]
 order = 6
-status = 'TODO'
+status = 'DONE'
 description = '''
 Update technical documentation and benchmark scaffolding to mark the CPU surface as interim, describe the GPU-first architecture, and define baseline measurements for primitive-heavy sketches.
 '''

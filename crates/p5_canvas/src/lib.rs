@@ -1,3 +1,4 @@
+mod gpu;
 mod runtime;
 
 use pyo3::exceptions::PyValueError;
@@ -121,6 +122,11 @@ struct Canvas {
     pixels: Vec<u8>,
     present_pixels: Vec<u32>,
     runtime: Option<InteractiveRuntime>,
+    gpu: Option<gpu::GpuRenderer>,
+    gpu_error: Option<String>,
+    render_dirty: bool,
+    offscreen_dirty: bool,
+    pixels_stale: bool,
 }
 
 #[pymethods]
@@ -136,6 +142,10 @@ impl Canvas {
     ) -> PyResult<Self> {
         validate_mode_and_renderer(mode, renderer)?;
         let (physical_width, physical_height) = physical_dimensions(width, height, pixel_density)?;
+        let (gpu, gpu_error) = match gpu::GpuRenderer::new(physical_width, physical_height) {
+            Ok(renderer) => (Some(renderer), None),
+            Err(err) => (None, Some(err)),
+        };
         Ok(Self {
             width,
             height,
@@ -148,6 +158,11 @@ impl Canvas {
             pixels: vec![0; physical_width * physical_height * 4],
             present_pixels: vec![0; physical_width * physical_height],
             runtime: None,
+            gpu,
+            gpu_error,
+            render_dirty: false,
+            offscreen_dirty: false,
+            pixels_stale: false,
         })
     }
 
@@ -167,6 +182,14 @@ impl Canvas {
         self.physical_height = physical_height;
         self.pixels = vec![0; physical_width * physical_height * 4];
         self.present_pixels = vec![0; physical_width * physical_height];
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.resize(physical_width, physical_height);
+            gpu.clear_transparent();
+            gpu.render();
+        }
+        self.render_dirty = false;
+        self.offscreen_dirty = false;
+        self.pixels_stale = false;
         if let Some(runtime) = self.runtime.as_mut() {
             runtime
                 .request_resize(width, height, pixel_density)
@@ -199,6 +222,16 @@ impl Canvas {
 
     fn native_window_available(&self) -> bool {
         runtime_native_window_available()
+    }
+
+    fn gpu_available(&self) -> bool {
+        self.gpu.is_some()
+    }
+
+    fn gpu_status(&self) -> String {
+        self.gpu_error
+            .clone()
+            .unwrap_or_else(|| "available".to_string())
     }
 
     fn open_window(&mut self) -> PyResult<()> {
@@ -240,21 +273,43 @@ impl Canvas {
         })
     }
 
-    fn begin_frame(&mut self) {}
+    fn begin_frame(&mut self) {
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.begin_frame();
+        }
+        self.render_dirty = false;
+    }
 
-    fn end_frame(&mut self) {}
+    fn end_frame(&mut self) {
+        if self.render_dirty && self.runtime.is_none() {
+            self.render_gpu_frame(false);
+        }
+    }
 
     fn present(&mut self) -> PyResult<()> {
+        if self.render_dirty && self.runtime.is_none() {
+            self.render_gpu_frame(false);
+        }
         if let Some(runtime) = self.runtime.as_mut() {
-            runtime
-                .present(
-                    &self.present_pixels,
-                    self.physical_width,
-                    self.physical_height,
+            let window = runtime.window().ok_or_else(|| {
+                PyValueError::new_err("Native canvas window is not available for presentation.")
+            })?;
+            let (surface_width, surface_height) = runtime.physical_size();
+            let gpu = self.gpu.as_mut().ok_or_else(|| {
+                PyValueError::new_err(
+                    self.gpu_error
+                        .clone()
+                        .unwrap_or_else(|| "GPU presentation is unavailable.".to_string()),
                 )
-                .map_err(|err| {
-                    PyValueError::new_err(format!("Failed to present native canvas frame: {err}"))
-                })?;
+            })?;
+            if self.render_dirty {
+                gpu.present_to_window(window, surface_width, surface_height)
+                    .map_err(|err| {
+                        PyValueError::new_err(format!("Failed to present native GPU frame: {err}"))
+                    })?;
+                self.render_dirty = false;
+                self.pixels_stale = true;
+            }
             if runtime.should_close() {
                 self.closed = true;
             }
@@ -266,6 +321,9 @@ impl Canvas {
         self.closed = true;
         if let Some(runtime) = self.runtime.as_mut() {
             runtime.close();
+        }
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.drop_surface();
         }
         self.runtime = None;
     }
@@ -281,11 +339,21 @@ impl Canvas {
             pixel.copy_from_slice(&color);
             *present_pixel = packed;
         }
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.set_clear_color(gpu_color(Rgba::from_tuple(rgba)));
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+        }
     }
 
     fn clear(&mut self) {
         self.pixels.fill(0);
         self.present_pixels.fill(0);
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.clear_transparent();
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+        }
     }
 
     fn point(&mut self, x: f64, y: f64, style: &Bound<'_, PyAny>, matrix: Matrix) -> PyResult<()> {
@@ -303,6 +371,10 @@ impl Canvas {
             self.physical_width,
             self.physical_height,
         );
+        self.draw_gpu_disc(tx, ty, radius, color);
+        if self.gpu.is_some() && !style.erasing {
+            return Ok(());
+        }
         let Some(mut overlay) = OverlayRegion::from_bounds(
             bounds,
             self.physical_width,
@@ -335,6 +407,10 @@ impl Canvas {
         let p2 = self.transform_point(matrix, x2, y2);
         let radius = stroke_width(style.stroke_weight, self.pixel_density) / 2.0;
         let bounds = clipped_bounds(&[p1, p2], radius, self.physical_width, self.physical_height);
+        self.draw_gpu_segment(p1, p2, radius * 2.0, stroke);
+        if self.gpu.is_some() && !style.erasing {
+            return Ok(());
+        }
         let Some(mut overlay) = OverlayRegion::from_bounds(
             bounds,
             self.physical_width,
@@ -376,6 +452,10 @@ impl Canvas {
             self.physical_width,
             self.physical_height,
         );
+        self.draw_gpu_polygon(&transformed, &style, close, self.pixel_density);
+        if self.gpu.is_some() && !style.erasing {
+            return Ok(());
+        }
         let Some(mut overlay) = OverlayRegion::from_bounds(
             bounds,
             self.physical_width,
@@ -423,6 +503,10 @@ impl Canvas {
                 self.physical_width,
                 self.physical_height,
             );
+            self.draw_gpu_axis_aligned_ellipse(cx, cy, rx, ry, &parsed_style, self.pixel_density);
+            if self.gpu.is_some() && !parsed_style.erasing {
+                return Ok(());
+            }
             let Some(mut overlay) = OverlayRegion::from_bounds(
                 bounds,
                 self.physical_width,
@@ -508,6 +592,28 @@ impl Canvas {
                     self.physical_width,
                     self.physical_height,
                 );
+                if parsed_style.fill.is_some() && mode != "open" {
+                    self.draw_gpu_polygon(
+                        &transformed,
+                        &Style {
+                            stroke: None,
+                            ..parsed_style.clone()
+                        },
+                        true,
+                        self.pixel_density,
+                    );
+                }
+                if let Some(stroke) = parsed_style.stroke {
+                    self.draw_gpu_polyline(
+                        &transformed,
+                        false,
+                        stroke_width(parsed_style.stroke_weight, self.pixel_density),
+                        stroke,
+                    );
+                }
+                if self.gpu.is_some() && !parsed_style.erasing {
+                    return Ok(());
+                }
                 let Some(mut overlay) = OverlayRegion::from_bounds(
                     bounds,
                     self.physical_width,
@@ -543,7 +649,12 @@ impl Canvas {
         }
     }
 
-    fn load_pixels(&self) -> Vec<u8> {
+    fn load_pixels(&mut self) -> Vec<u8> {
+        if self.offscreen_dirty {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
         self.pixels.clone()
     }
 
@@ -557,10 +668,22 @@ impl Canvas {
         }
         self.pixels = pixels;
         self.sync_present_pixels_from_rgba();
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.upload_pixels(&self.pixels)
+                .map_err(|err| PyValueError::new_err(format!("Failed to upload pixels: {err}")))?;
+        }
+        self.render_dirty = false;
+        self.offscreen_dirty = false;
+        self.pixels_stale = false;
         Ok(())
     }
 
-    fn save(&self, path: &str) -> PyResult<()> {
+    fn save(&mut self, path: &str) -> PyResult<()> {
+        if self.offscreen_dirty {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
         image::save_buffer_with_format(
             path,
             &self.pixels,
@@ -609,6 +732,190 @@ impl Canvas {
             self.present_pixels[index] = rgba_to_present_pixel(rgba);
         }
     }
+
+    fn render_gpu_frame(&mut self, readback: bool) {
+        let Some(gpu) = self.gpu.as_mut() else {
+            self.render_dirty = false;
+            self.offscreen_dirty = false;
+            return;
+        };
+        gpu.render();
+        self.render_dirty = false;
+        self.offscreen_dirty = false;
+        self.pixels_stale = true;
+        if readback {
+            self.read_gpu_pixels();
+        }
+    }
+
+    fn read_gpu_pixels(&mut self) {
+        let Some(gpu) = self.gpu.as_ref() else {
+            self.pixels_stale = false;
+            return;
+        };
+        match gpu.read_pixels() {
+            Ok(pixels) => {
+                self.pixels = pixels;
+                self.sync_present_pixels_from_rgba();
+                self.pixels_stale = false;
+            }
+            Err(err) => {
+                self.gpu_error = Some(err);
+                self.pixels_stale = false;
+            }
+        }
+    }
+
+    fn draw_gpu_polygon(
+        &mut self,
+        points: &[Point],
+        style: &Style,
+        close: bool,
+        pixel_density: f64,
+    ) {
+        if style.erasing {
+            return;
+        }
+        if close && points.len() >= 3 {
+            if let Some(fill) = style.fill {
+                let mut vertices = Vec::with_capacity((points.len() - 2) * 3);
+                for index in 1..points.len() - 1 {
+                    push_triangle(
+                        &mut vertices,
+                        points[0],
+                        points[index],
+                        points[index + 1],
+                        fill,
+                    );
+                }
+                self.draw_gpu_triangles(vertices);
+            }
+        }
+        if let Some(stroke) = style.stroke {
+            self.draw_gpu_polyline(
+                points,
+                close,
+                stroke_width(style.stroke_weight, pixel_density),
+                stroke,
+            );
+        }
+    }
+
+    fn draw_gpu_polyline(&mut self, points: &[Point], close: bool, stroke_width: f64, color: Rgba) {
+        if points.len() < 2 {
+            return;
+        }
+        for pair in points.windows(2) {
+            self.draw_gpu_segment(pair[0], pair[1], stroke_width, color);
+        }
+        if close {
+            self.draw_gpu_segment(
+                *points.last().expect("non-empty points"),
+                points[0],
+                stroke_width,
+                color,
+            );
+        }
+    }
+
+    fn draw_gpu_segment(&mut self, p1: Point, p2: Point, stroke_width: f64, color: Rgba) {
+        let dx = p2.0 - p1.0;
+        let dy = p2.1 - p1.1;
+        let length = (dx * dx + dy * dy).sqrt();
+        if length <= f64::EPSILON {
+            self.draw_gpu_disc(p1.0, p1.1, (stroke_width / 2.0).max(0.5), color);
+            return;
+        }
+        let half = (stroke_width / 2.0).max(0.5);
+        let nx = -dy / length * half;
+        let ny = dx / length * half;
+        let a = (p1.0 + nx, p1.1 + ny);
+        let b = (p1.0 - nx, p1.1 - ny);
+        let c = (p2.0 - nx, p2.1 - ny);
+        let d = (p2.0 + nx, p2.1 + ny);
+        let mut vertices = Vec::with_capacity(6);
+        push_triangle(&mut vertices, a, b, c, color);
+        push_triangle(&mut vertices, a, c, d, color);
+        self.draw_gpu_triangles(vertices);
+    }
+
+    fn draw_gpu_disc(&mut self, cx: f64, cy: f64, radius: f64, color: Rgba) {
+        if radius <= 0.0 {
+            return;
+        }
+        let steps = 24usize;
+        let mut vertices = Vec::with_capacity(steps * 3);
+        for index in 0..steps {
+            let a = 2.0 * PI * index as f64 / steps as f64;
+            let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
+            push_triangle(
+                &mut vertices,
+                (cx, cy),
+                (cx + a.cos() * radius, cy + a.sin() * radius),
+                (cx + b.cos() * radius, cy + b.sin() * radius),
+                color,
+            );
+        }
+        self.draw_gpu_triangles(vertices);
+    }
+
+    fn draw_gpu_axis_aligned_ellipse(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+        style: &Style,
+        pixel_density: f64,
+    ) {
+        if style.erasing || rx <= 0.0 || ry <= 0.0 {
+            return;
+        }
+        if let Some(fill) = style.fill {
+            let steps = 64usize;
+            let mut vertices = Vec::with_capacity(steps * 3);
+            for index in 0..steps {
+                let a = 2.0 * PI * index as f64 / steps as f64;
+                let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
+                push_triangle(
+                    &mut vertices,
+                    (cx, cy),
+                    (cx + a.cos() * rx, cy + a.sin() * ry),
+                    (cx + b.cos() * rx, cy + b.sin() * ry),
+                    fill,
+                );
+            }
+            self.draw_gpu_triangles(vertices);
+        }
+        if let Some(stroke) = style.stroke {
+            let half_width = (stroke_width(style.stroke_weight, pixel_density) / 2.0).max(0.5);
+            let outer_rx = rx + half_width;
+            let outer_ry = ry + half_width;
+            let inner_rx = (rx - half_width).max(0.0);
+            let inner_ry = (ry - half_width).max(0.0);
+            let steps = 64usize;
+            let mut vertices = Vec::with_capacity(steps * 6);
+            for index in 0..steps {
+                let a = 2.0 * PI * index as f64 / steps as f64;
+                let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
+                let outer_a = (cx + a.cos() * outer_rx, cy + a.sin() * outer_ry);
+                let inner_a = (cx + a.cos() * inner_rx, cy + a.sin() * inner_ry);
+                let inner_b = (cx + b.cos() * inner_rx, cy + b.sin() * inner_ry);
+                let outer_b = (cx + b.cos() * outer_rx, cy + b.sin() * outer_ry);
+                push_triangle(&mut vertices, outer_a, inner_a, inner_b, stroke);
+                push_triangle(&mut vertices, outer_a, inner_b, outer_b, stroke);
+            }
+            self.draw_gpu_triangles(vertices);
+        }
+    }
+
+    fn draw_gpu_triangles(&mut self, vertices: Vec<([f32; 2], gpu::GpuColor)>) {
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_triangles(vertices);
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+        }
+    }
 }
 
 #[pyfunction]
@@ -621,10 +928,16 @@ fn native_window_available() -> bool {
     runtime_native_window_available()
 }
 
+#[pyfunction]
+fn gpu_available() -> bool {
+    gpu::GpuRenderer::is_available()
+}
+
 #[pymodule]
 fn _canvas(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(health_check, m)?)?;
     m.add_function(wrap_pyfunction!(native_window_available, m)?)?;
+    m.add_function(wrap_pyfunction!(gpu_available, m)?)?;
     m.add_class::<Canvas>()?;
     Ok(())
 }
@@ -1092,6 +1405,32 @@ fn rgba_to_present_pixel(rgba: &[u8]) -> u32 {
     ((rgba[3] as u32) << 24) | ((rgba[0] as u32) << 16) | ((rgba[1] as u32) << 8) | rgba[2] as u32
 }
 
+fn gpu_color(color: Rgba) -> gpu::GpuColor {
+    gpu::GpuColor {
+        r: color.r,
+        g: color.g,
+        b: color.b,
+        a: color.a,
+    }
+}
+
+fn push_triangle(
+    vertices: &mut Vec<([f32; 2], gpu::GpuColor)>,
+    a: Point,
+    b: Point,
+    c: Point,
+    color: Rgba,
+) {
+    let color = gpu_color(color);
+    vertices.push((point_to_gpu(a), color));
+    vertices.push((point_to_gpu(b), color));
+    vertices.push((point_to_gpu(c), color));
+}
+
+fn point_to_gpu(point: Point) -> [f32; 2] {
+    [point.0 as f32, point.1 as f32]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1129,6 +1468,52 @@ mod tests {
 
         canvas.clear();
         assert_eq!(canvas.load_pixels(), vec![0; 8]);
+    }
+
+    #[test]
+    fn gpu_status_reports_available_or_clear_error() {
+        let canvas = Canvas::new(4, 4, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+
+        if canvas.gpu_available() {
+            assert_eq!(canvas.gpu_status(), "available");
+        } else {
+            assert_ne!(canvas.gpu_status(), "available");
+        }
+    }
+
+    #[test]
+    fn gpu_path_renders_background_and_triangle_when_available() {
+        let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        if !canvas.gpu_available() {
+            return;
+        }
+
+        canvas.begin_frame();
+        canvas.background((255, 255, 255, 255));
+        canvas.draw_gpu_polygon(
+            &[(1.0, 1.0), (6.0, 1.0), (1.0, 6.0)],
+            &Style {
+                fill: Some(Rgba {
+                    r: 255,
+                    g: 0,
+                    b: 0,
+                    a: 255,
+                }),
+                stroke: None,
+                stroke_weight: 1.0,
+                blend_mode: SUPPORTED_BLEND_MODE.to_string(),
+                erasing: false,
+            },
+            true,
+            1.0,
+        );
+        canvas.end_frame();
+
+        let pixels = canvas.load_pixels();
+        assert!(pixels.chunks_exact(4).any(|rgba| rgba == [255, 0, 0, 255]));
+        assert!(pixels
+            .chunks_exact(4)
+            .any(|rgba| rgba == [255, 255, 255, 255]));
     }
 
     #[test]

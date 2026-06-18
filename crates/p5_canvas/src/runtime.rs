@@ -1,11 +1,9 @@
-use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 mod desktop {
     use super::*;
-    use softbuffer::{Context, Surface};
     use winit::application::ApplicationHandler;
     use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize, Size};
     use winit::event::{ElementState, Ime, MouseButton, MouseScrollDelta, WindowEvent};
@@ -157,16 +155,6 @@ mod desktop {
             Ok(self.app.drain_events())
         }
 
-        pub fn present(
-            &mut self,
-            packed_pixels: &[u32],
-            physical_width: usize,
-            physical_height: usize,
-        ) -> Result<(), String> {
-            self.app
-                .present(packed_pixels, physical_width, physical_height)
-        }
-
         pub fn request_resize(
             &mut self,
             logical_width: i64,
@@ -181,8 +169,17 @@ mod desktop {
             self.app.closed = true;
             self.app.events.push(RuntimeEvent::close());
             self.app.window = None;
-            self.app.surface = None;
-            self.app.context = None;
+        }
+
+        pub fn window(&self) -> Option<Arc<Window>> {
+            self.app.window.as_ref().map(Arc::clone)
+        }
+
+        pub fn physical_size(&self) -> (u32, u32) {
+            (
+                self.app.physical_width.max(1),
+                self.app.physical_height.max(1),
+            )
         }
 
         fn pump_events(&mut self) -> Result<(), String> {
@@ -209,12 +206,8 @@ mod desktop {
         pixel_density: f64,
         physical_width: u32,
         physical_height: u32,
-        surface_width: u32,
-        surface_height: u32,
         window_id: Option<WindowId>,
         window: Option<Arc<Window>>,
-        context: Option<Context<Arc<Window>>>,
-        surface: Option<Surface<Arc<Window>, Arc<Window>>>,
         events: Vec<RuntimeEvent>,
         cursor_position: Option<PhysicalPosition<f64>>,
         modifiers: ModifiersState,
@@ -232,12 +225,8 @@ mod desktop {
                 pixel_density: 1.0,
                 physical_width: logical_width.max(1) as u32,
                 physical_height: logical_height.max(1) as u32,
-                surface_width: 0,
-                surface_height: 0,
                 window_id: None,
                 window: None,
-                context: None,
-                surface: None,
                 events: Vec::new(),
                 cursor_position: None,
                 modifiers: ModifiersState::default(),
@@ -279,63 +268,6 @@ mod desktop {
             Ok(())
         }
 
-        fn present(
-            &mut self,
-            packed_pixels: &[u32],
-            physical_width: usize,
-            physical_height: usize,
-        ) -> Result<(), String> {
-            let Some(window) = self.window.as_ref() else {
-                return Ok(());
-            };
-            let Some(surface) = self.surface.as_mut() else {
-                return Ok(());
-            };
-            let target_width = self.physical_width.max(1);
-            let target_height = self.physical_height.max(1);
-            let (Some(width), Some(height)) = (
-                NonZeroU32::new(target_width),
-                NonZeroU32::new(target_height),
-            ) else {
-                return Ok(());
-            };
-            if self.surface_width != target_width || self.surface_height != target_height {
-                surface
-                    .resize(width, height)
-                    .map_err(|err| err.to_string())?;
-                self.surface_width = target_width;
-                self.surface_height = target_height;
-            }
-            let mut buffer = surface.buffer_mut().map_err(|err| err.to_string())?;
-
-            if physical_width == target_width as usize && physical_height == target_height as usize
-            {
-                let pixels = &packed_pixels[..packed_pixels.len().min(buffer.len())];
-                buffer[..pixels.len()].copy_from_slice(pixels);
-            } else {
-                buffer.fill(0x00000000);
-                if physical_width > 0 && physical_height > 0 {
-                    let target_width_usize = target_width as usize;
-                    let target_height_usize = target_height as usize;
-                    for y in 0..target_height_usize {
-                        let src_y = y * physical_height / target_height_usize;
-                        let src_row = src_y * physical_width;
-                        let dst_row = y * target_width_usize;
-                        for x in 0..target_width_usize {
-                            let src_x = x * physical_width / target_width_usize;
-                            let src_index = src_row + src_x;
-                            if src_index < packed_pixels.len() {
-                                buffer[dst_row + x] = packed_pixels[src_index];
-                            }
-                        }
-                    }
-                }
-            }
-
-            window.pre_present_notify();
-            buffer.present().map_err(|err| err.to_string())
-        }
-
         fn handle_resize(&mut self, size: PhysicalSize<u32>) -> Result<(), String> {
             if size.width == 0 || size.height == 0 {
                 return Ok(());
@@ -347,18 +279,6 @@ mod desktop {
                 let logical_size = size.to_logical::<f64>(self.pixel_density);
                 self.logical_width = logical_size.width.round().max(1.0) as i64;
                 self.logical_height = logical_size.height.round().max(1.0) as i64;
-            }
-            if let Some(surface) = self.surface.as_mut() {
-                let (Some(width), Some(height)) =
-                    (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
-                else {
-                    return Ok(());
-                };
-                surface
-                    .resize(width, height)
-                    .map_err(|err| err.to_string())?;
-                self.surface_width = size.width;
-                self.surface_height = size.height;
             }
             self.events.push(RuntimeEvent::resized(
                 self.logical_width,
@@ -494,45 +414,6 @@ mod desktop {
             self.logical_width = logical_size.width.round().max(1.0) as i64;
             self.logical_height = logical_size.height.round().max(1.0) as i64;
 
-            let context = match Context::new(Arc::clone(&window)) {
-                Ok(context) => context,
-                Err(_) => {
-                    self.closed = true;
-                    self.has_close_event = true;
-                    self.events.push(RuntimeEvent::close());
-                    event_loop.exit();
-                    return;
-                }
-            };
-            let mut surface = match Surface::new(&context, Arc::clone(&window)) {
-                Ok(surface) => surface,
-                Err(_) => {
-                    self.closed = true;
-                    self.has_close_event = true;
-                    self.events.push(RuntimeEvent::close());
-                    event_loop.exit();
-                    return;
-                }
-            };
-            let (Some(width), Some(height)) = (
-                NonZeroU32::new(self.physical_width),
-                NonZeroU32::new(self.physical_height),
-            ) else {
-                self.closed = true;
-                self.has_close_event = true;
-                self.events.push(RuntimeEvent::close());
-                event_loop.exit();
-                return;
-            };
-            if surface.resize(width, height).is_err() {
-                self.closed = true;
-                self.has_close_event = true;
-                self.events.push(RuntimeEvent::close());
-                event_loop.exit();
-                return;
-            }
-            self.context = Some(context);
-            self.surface = Some(surface);
             self.window = Some(window);
         }
 
@@ -553,8 +434,6 @@ mod desktop {
                         self.events.push(RuntimeEvent::close());
                     }
                     self.window = None;
-                    self.surface = None;
-                    self.context = None;
                     event_loop.exit();
                 }
                 WindowEvent::Resized(size) => {

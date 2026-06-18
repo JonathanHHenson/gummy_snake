@@ -15,6 +15,7 @@ from p5.exceptions import ArgumentValidationError, BackendCapabilityError
 from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from p5.rust import canvas as canvas_bridge
 from p5.rust.canvas import (
+    canvas_gpu_available,
     canvas_health_check,
     canvas_import_error,
     canvas_native_window_available,
@@ -75,6 +76,12 @@ class FakeCanvas:
 
     def display_density(self) -> float:
         return 1.0 if not self.window_open else max(1.0, self.pixel_density)
+
+    def gpu_available(self) -> bool:
+        return True
+
+    def gpu_status(self) -> str:
+        return "available"
 
     def open_window(self) -> None:
         self.mode = "interactive"
@@ -149,6 +156,9 @@ class FakeCanvasModule:
     def native_window_available(self) -> bool:
         return True
 
+    def gpu_available(self) -> bool:
+        return True
+
 
 class FakeSketch:
     def __init__(self) -> None:
@@ -198,6 +208,7 @@ def make_canvas_context(monkeypatch: pytest.MonkeyPatch) -> tuple[EventSketch, C
 def test_canvas_health_check_reports_unavailable_or_extension() -> None:
     assert canvas_health_check() in {"unavailable", "rust-canvas"}
     assert canvas_native_window_available() in {True, False}
+    assert canvas_gpu_available() in {True, False}
     assert is_canvas_available() in {True, False}
     assert canvas_import_error() is None or isinstance(canvas_import_error(), ImportError)
 
@@ -210,6 +221,7 @@ def test_canvas_wrapper_uses_loaded_extension(monkeypatch: pytest.MonkeyPatch) -
     assert is_canvas_available()
     assert canvas_health_check() == "fake-canvas"
     assert canvas_native_window_available() is True
+    assert canvas_gpu_available() is True
     assert require_canvas_extension() is fake
 
 
@@ -290,6 +302,8 @@ def test_canvas_renderer_allocates_and_mirrors_dimensions() -> None:
     assert renderer.physical_width == 18
     assert renderer.physical_height == 9
     assert renderer.pixel_density == 1.5
+    assert renderer.runtime_canvas().gpu_available() is True
+    assert renderer.runtime_canvas().gpu_status() == "available"
 
 
 def test_canvas_renderer_converts_style_color_and_transform_payloads() -> None:

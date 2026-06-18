@@ -25,6 +25,8 @@ class _CanvasModule(Protocol):
 
     def native_window_available(self) -> bool: ...
 
+    def gpu_available(self) -> bool: ...
+
 
 _loaded_canvas: ModuleType | None
 _CANVAS_IMPORT_ERROR: ImportError | None
@@ -69,6 +71,15 @@ def canvas_native_window_available() -> bool:
     return bool(native_window_available()) if callable(native_window_available) else False
 
 
+def canvas_gpu_available() -> bool:
+    """Return whether the loaded canvas extension can initialize a GPU adapter."""
+
+    if _canvas is None:
+        return False
+    gpu_available = getattr(_canvas, "gpu_available", None)
+    return bool(gpu_available()) if callable(gpu_available) else False
+
+
 def require_canvas_extension() -> _CanvasModule:
     """Return the loaded canvas extension or raise a backend capability error."""
 
@@ -86,6 +97,7 @@ def require_canvas_extension() -> _CanvasModule:
 __all__ = [
     "P5_CANVAS_BUILD_COMMAND",
     "canvas_health_check",
+    "canvas_gpu_available",
     "canvas_native_window_available",
     "canvas_import_error",
     "is_canvas_available",

@@ -9,46 +9,46 @@ acceptance_criteria = '''
 Interactive `canvas` windows are backed by `winit` plus `wgpu::Surface`, resize/display-density changes reconfigure GPU surfaces and render targets correctly, frame scheduling preserves the existing Python sketch lifecycle, input normalization remains compatible with current events, and ordinary presentation does not copy a CPU RGBA surface into the window.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'DONE'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Bind `winit` windows to `wgpu::Surface` objects, select/configure surface formats and present modes, and recreate surface configuration safely on resize, scale-factor changes, and adapter/device loss.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Route interactive `present()` through GPU render passes into the current swapchain texture, sharing command execution with the offscreen renderer and avoiding CPU image upload for ordinary frames.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Preserve existing frame scheduling semantics for `target_frame_rate`, `no_loop`, `loop`, `redraw`, bounded `max_frames`, unbounded runs, close, and `stop` while using the GPU presentation path.
 '''
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Keep mouse and keyboard event normalization compatible with the completed runtime bridge, including logical coordinate conversion, pixel-density scaling, y-axis flipping, modifiers, repeat behavior, and callback ordering.
 '''
 
 [my_pbi.task_5]
 order = 5
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add synthetic runtime tests, focused GPU surface lifecycle tests where practical, and manual smoke-test instructions for macOS, Linux, and Windows interactive presentation.
 '''
 
 [my_pbi.task_6]
 order = 6
-status = 'TODO'
+status = 'DONE'
 description = '''
 Document fallback behavior for environments without a usable GPU surface, including when bounded offscreen rendering can continue and when `BackendCapabilityError` should direct users to `headless` or `pyglet`.
 '''
