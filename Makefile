@@ -14,7 +14,7 @@ test:
 	uv run pytest
 
 smoke:
-	uv run python examples/basic_shapes.py --backend headless --frames 1
+	uv run python examples/basic_shapes.py --headless --frames 1
 
 build:
 	uv build
@@ -22,4 +22,14 @@ build:
 build-rust:
 	uvx maturin build --release
 
-check: lint typecheck test smoke build
+build-accel:
+	uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
+
+version-check:
+	uv run python scripts/bump_version.py --check
+
+bump-version:
+	@test -n "$(VERSION)" || (echo "Usage: make bump-version VERSION=0.2.3|patch|minor|major"; exit 2)
+	uv run python scripts/bump_version.py $(VERSION)
+
+check: lint typecheck test smoke version-check build

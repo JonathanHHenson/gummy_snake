@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
 
@@ -315,13 +316,12 @@ def _release_capture(capture: Any) -> None:
 
 def _load_cv2_module() -> Any:
     try:
-        import cv2
+        return import_module("cv2")
     except Exception as exc:  # pragma: no cover - import failure depends on environment
         raise BackendCapabilityError(
             "Video playback/capture requires the optional media extra. Install it with "
             "`uv add --optional media opencv-python-headless` or `pip install p5-py[media]`."
         ) from exc
-    return cv2
 
 
 def _frame_to_image(frame: Any) -> Image:

@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling>=1.27.0"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.9.4,<2"]
+build-backend = "maturin"
 
 [project]
 name = "p5py_vibe"
-version = "0.2.2"
+version = "0.2.3"
 description = "A Pythonic creative coding package inspired by p5.js."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -36,12 +36,9 @@ release = [
     "maturin>=1.9.4",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/p5"]
-
 [tool.maturin]
-manifest-path = "crates/p5_accel/Cargo.toml"
-module-name = "p5.rust._accelerated"
+manifest-path = "crates/p5_canvas/Cargo.toml"
+module-name = "p5.rust._canvas"
 python-source = "src"
 bindings = "pyo3"
 features = ["extension-module"]

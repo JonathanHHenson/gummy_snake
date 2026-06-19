@@ -462,9 +462,7 @@ def _point_in_polygon(x: float, y: float, points: tuple[ScreenPoint, ...]) -> bo
     for current in points:
         xi, yi = current
         xj, yj = previous
-        if ((yi > y) != (yj > y)) and (
-            x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi
-        ):
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi):
             inside = not inside
         previous = current
     return inside

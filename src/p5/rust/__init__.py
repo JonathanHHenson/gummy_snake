@@ -176,9 +176,10 @@ def animated_noise_rgba(
     if density <= 0 or not math.isfinite(density):
         raise ValueError("density must be positive.")
     _validate_noise_octaves(octaves)
-    accelerated = getattr(_accelerated, "animated_noise_rgba", None)
-    if prefer_accelerated and callable(accelerated):
-        return bytes(accelerated(width, height, density, time, seed, octaves, falloff))
+    if prefer_accelerated and _accelerated is not None:
+        return bytes(
+            _accelerated.animated_noise_rgba(width, height, density, time, seed, octaves, falloff)
+        )
     return _animated_noise_rgba_bytes(
         width,
         height,

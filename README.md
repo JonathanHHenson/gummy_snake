@@ -6,7 +6,7 @@ It keeps the familiar p5 sketch lifecycle and many p5-style APIs while staying n
 
 ## Status
 
-The current package supports a strong 2D-first workflow, a deterministic headless renderer, a native Pyglet interactive backend, optional WEBGL-style/3D APIs, optional media extras, and optional Rust acceleration for a few compute-heavy paths.
+The current package supports a strong 2D-first workflow on the Rust `p5_canvas` runtime, bounded/headless runs for deterministic tests and export, interactive native windows when available, optional WEBGL-style/3D APIs, optional media extras, and optional Rust acceleration for a few compute-heavy paths.
 
 The public API is intentionally Python-first:
 
@@ -57,18 +57,18 @@ p5.run(setup=setup, draw=draw)
 Run a sketch headlessly for deterministic tests or export flows:
 
 ```sh
-uv run python examples/basic_shapes.py --backend headless --frames 1
+uv run python examples/basic_shapes.py --headless --frames 1
 ```
 
-## Backends
+## Runtime
 
-`p5-py` keeps the user-facing API backend-agnostic.
+`p5-py` keeps the user-facing API backend-agnostic while routing rendering, assets, text, pixels, export, and presentation through the Rust `p5_canvas` runtime.
 
-- `headless` renders deterministically with Pillow and is ideal for tests, CI, and export.
-- `pillow` is currently an alias of `headless`.
-- `pyglet` opens a native interactive window and presents frames with HiDPI support.
+- use `headless=True` or `--headless` for bounded/offscreen tests, CI, and export
+- use interactive runs for native windows when the installed canvas extension supports them
+- `load_image()` and image saving are canvas-owned and require the packaged `p5.rust._canvas` extension
 
-For backend details, see `docs/user/backends.md`.
+For runtime details, see `docs/user/backends.md`.
 
 ## Examples
 
@@ -119,7 +119,8 @@ uv run ruff check .
 uv run ruff format .
 uv run mypy src
 uv run pytest
-uv run python examples/basic_shapes.py --backend headless --frames 1
+uv run python examples/basic_shapes.py --headless --frames 1
+uv run python scripts/bump_version.py --check
 cargo test --manifest-path crates/p5_canvas/Cargo.toml
 uv build
 ```
@@ -131,6 +132,8 @@ make lint
 make test-fast
 make test
 make typecheck
+make version-check
+make bump-version VERSION=patch
 make build
 ```
 

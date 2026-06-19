@@ -55,7 +55,7 @@ uv build
 Rust acceleration wheel smoke test:
 
 ```sh
-uvx maturin build --release
+uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
 ```
 
 Rust canvas crate and wheel smoke tests:

@@ -175,9 +175,7 @@ def test_canvas_dense_scene_regression_ratio() -> None:
 
     dense_ratio = dense.mean_fps / sparse.mean_fps
     print(
-        "benchmark ratios: "
-        f"dense/sparse={dense_ratio:.3f} "
-        f"asteroids_fps={asteroids.mean_fps:.2f}"
+        f"benchmark ratios: dense/sparse={dense_ratio:.3f} asteroids_fps={asteroids.mean_fps:.2f}"
     )
 
     assert sparse.mean_fps >= dense.mean_fps

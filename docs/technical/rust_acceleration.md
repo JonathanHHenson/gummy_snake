@@ -1,16 +1,14 @@
 # Rust acceleration
 
-`p5-py` keeps Rust optional. The Python package must work without compiling any
-native extension, and accelerated functions must have deterministic Python
-fallbacks with parity tests.
+`p5-py` keeps narrow compute acceleration optional. The published runtime package requires the `p5_canvas` extension, while accelerated helper functions must still have deterministic Python fallbacks with parity tests.
 
 ## Current scope
 
 The first accelerated targets are narrow, pure computational paths:
 
 - `noise_3d`: the Perlin-style noise core used by `p5.core.random.noise()`.
-- `exclusion_blend_rgb`: the packed RGB byte loop used by the Pillow renderer's
-  `EXCLUSION` blend mode.
+- `exclusion_blend_rgb`: the packed RGB byte loop used by fallback/reference
+  `EXCLUSION` blend behavior.
 
 These were selected because sketches commonly call noise once per point or pixel,
 and per-pixel blend/filter loops are easy to isolate from renderer and backend
@@ -47,22 +45,18 @@ From the repository root, install the normal Python development environment:
 uv sync --dev
 ```
 
-Build the existing acceleration extension into the active environment with the
-default maturin settings:
+Build the required canvas extension into the active environment with the root Maturin settings:
 
 ```sh
 uvx maturin develop --release
 ```
 
-The `pyproject.toml` `[tool.maturin]` settings point maturin at
-`crates/p5_accel/Cargo.toml` and install the extension as
-`p5.rust._accelerated` under the `src` Python source tree.
+The root `pyproject.toml` `[tool.maturin]` settings point Maturin at `crates/p5_canvas/Cargo.toml` and install the extension as `p5.rust._canvas` under the `src` Python source tree.
 
-Build the canvas foundation extension explicitly so it coexists with
-`p5_accel` without changing the default maturin target:
+Build the optional acceleration extension explicitly when you want to test the Rust fast path:
 
 ```sh
-uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+uvx maturin develop --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
 ```
 
 You can confirm which acceleration implementation is active with:
@@ -89,22 +83,19 @@ Expected values are:
 
 ## Packaging commands
 
-Build a Rust-acceleration-backed wheel locally with the default maturin target:
+Build the runtime package wheel locally with the default Maturin target:
 
 ```sh
 uvx maturin build --release
 ```
 
-Build a canvas-extension-backed wheel explicitly with:
+Build the optional acceleration wheel explicitly with:
 
 ```sh
-uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
 ```
 
-The default pure-Python build remains hatchling-based, so users and CI jobs that
-do not build Rust still receive the Python fallback behavior. The `canvas`
-backend is opt-in and raises `BackendCapabilityError` when selected without the
-`p5.rust._canvas` extension.
+The published runtime wheel must contain `p5.rust._canvas`. The optional `p5.rust._accelerated` module is separate and continues to preserve Python fallback behavior when absent.
 
 ## Tests and parity checks
 

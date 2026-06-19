@@ -31,10 +31,9 @@ close cleanly.
 
 ## Packaging
 
-Pillow and Pyglet are no longer project dependencies. Source installs require
-the Rust canvas extension for runtime construction. Missing extension errors
-must mention the local `uvx maturin develop ... crates/p5_canvas ...` build
-command.
+Pillow and Pyglet are no longer project dependencies. Published wheels must include the Rust canvas extension at `p5.rust._canvas`; pure-Python runtime wheels are invalid because image assets, rendering, text, pixel APIs, export, and presentation are canvas-owned.
+
+Source installs require Rust tooling to build the canvas extension for runtime construction. Missing extension errors must mention the local `uvx maturin develop ... crates/p5_canvas ...` build command.
 
 ## Rollback
 

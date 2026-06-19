@@ -1,67 +1,45 @@
-# Rendering backends
+# Runtime modes
 
-The public `p5-py` API is backend-agnostic.
+The public `p5-py` API is backend-agnostic. Sketch code should call `create_canvas()`, `background()`, `image()`, `load_pixels()`, and other public APIs without depending on renderer internals.
 
-Your sketch code should call `create_canvas()`, `background()`, `image()`, `load_pixels()`, and other public APIs without depending on backend internals.
+At runtime, drawing, presentation, image asset loading/saving, text, pixel readback/update, and canvas export are owned by the Rust `p5_canvas` extension exposed as `p5.rust._canvas`.
 
-## Available backends
+## Modes
 
-### `headless`
+### Bounded/headless
 
-Deterministic Pillow-backed rendering intended for:
+Use bounded/headless mode for:
 
 - CI
 - unit/integration tests
 - PNG export
 - reproducible examples
 
-### `pillow`
-
-Currently an alias of `headless`.
-
-### `pyglet`
-
-Interactive native backend intended for:
-
-- windows and event loops
-- normalized keyboard and mouse input
-- native presentation
-- HiDPI-aware interactive drawing
-
-### `canvas`
-
-Experimental Rust-backed GPU renderer/runtime for the future default canvas path.
-It is opt-in, is not the default, and currently requires the optional
-`p5.rust._canvas` extension. Selecting `backend="canvas"` without the extension
-raises `BackendCapabilityError` with local build instructions and fallback
-backend guidance.
-
-The automatic default remains `pyglet` until the documented canvas parity gate
-is intentionally enabled and the installed extension reports both a GPU adapter
-and native window/surface support.
-
-## Choosing a backend
-
-Use `headless` when you need reproducibility.
-Use `pyglet` when you need an actual interactive window.
-Use `canvas` only when working on the experimental Rust backend bridge.
-
 Examples:
 
 ```python
-p5.run(setup=setup, draw=draw, backend="headless", max_frames=1)
+p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
 ```
+
+```sh
+uv run python examples/basic_shapes.py --headless --frames 1
+```
+
+Bounded/headless mode still uses the canvas runtime; it does not switch to Pillow or another Python image backend.
+
+### Interactive
+
+Use interactive mode for native windows and input:
 
 ```python
-p5.run(setup=setup, draw=draw, backend="pyglet")
+p5.run(setup=setup, draw=draw, headless=False)
 ```
 
-```python
-p5.run(setup=setup, draw=draw, backend="canvas", max_frames=1)
-```
+Interactive mode requires an installed `p5.rust._canvas` extension with native window support. If native window support is unavailable, bounded/headless runs can still work while unbounded interactive runs raise `BackendCapabilityError` with rebuild guidance.
 
-See `docs/technical/canvas_migration_release.md` for the migration checklist
-and default-backend policy.
+## Images and assets
+
+`load_image()`, `create_image().save()`, drawing with `image()`, and canvas export are canvas-owned. Published wheels must include `p5.rust._canvas`; otherwise image loading fails with `BackendCapabilityError` because there is no supported Pillow fallback.
 
 ## HiDPI
 
@@ -73,9 +51,8 @@ and default-backend policy.
 
 See `docs/technical/hidpi_rendering.md` for the full model.
 
-## Current renderer strategy
+## Related docs
 
-The headless path uses Pillow directly.
-The current native Pyglet path supports native presentation and a growing native renderer surface while preserving deterministic fallback behavior for parity-sensitive operations.
-
-See `docs/technical/native_pyglet_renderer.md` for current implementation notes.
+- `docs/technical/canvas_required_runtime.md`
+- `docs/technical/canvas_migration_release.md`
+- `docs/technical/p5_canvas_rust_backend.md`

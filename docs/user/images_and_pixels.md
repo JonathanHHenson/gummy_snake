@@ -16,6 +16,8 @@ Useful image APIs include:
 
 The `Image` type also supports pixel-oriented operations such as `get()`, `set()`, `copy()`, `resize()`, `mask()`, and common filters.
 
+Image file loading and saving are owned by the Rust `p5_canvas` runtime through `p5.rust._canvas`. Published wheels must include that extension; there is no supported Pillow fallback.
+
 `image_sampling()` controls how `image()` scales textures. Use `p5.NEAREST` or `no_smooth()` for crisp pixel-art scaling, and `p5.LINEAR` or `smooth()` for interpolated scaling.
 
 ## Pixels

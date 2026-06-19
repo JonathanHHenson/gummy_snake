@@ -17,6 +17,7 @@ jobs:
       - run: uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
       - run: uv run ruff check .
       - run: uv run mypy src
+      - run: uv run python scripts/bump_version.py --check
       - run: uv run pytest
       - run: uv run python examples/basic_shapes.py --headless --frames 1
 
@@ -28,6 +29,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
+      - uses: dtolnay/rust-toolchain@stable
       - run: uv build
 
   build-rust:
@@ -40,7 +42,7 @@ jobs:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
       - run: uv sync --dev
-      - run: uvx maturin build --release
+      - run: uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
       - run: cargo test --manifest-path crates/p5_canvas/Cargo.toml
       - run: uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml
 

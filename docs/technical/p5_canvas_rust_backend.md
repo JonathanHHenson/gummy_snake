@@ -501,18 +501,18 @@ crates/p5_accel/   -> p5.rust._accelerated
 crates/p5_canvas/  -> p5.rust._canvas
 ```
 
-`pyproject.toml` keeps its single `[tool.maturin]` section pointed at `crates/p5_accel/Cargo.toml`, so existing acceleration commands continue to build `p5.rust._accelerated` by default:
+`pyproject.toml` keeps its single `[tool.maturin]` section pointed at `crates/p5_canvas/Cargo.toml`, so default runtime package builds include `p5.rust._canvas`:
 
 ```sh
 uvx maturin develop --release
 uvx maturin build --release
 ```
 
-Build the canvas extension explicitly:
+Build the optional acceleration extension explicitly:
 
 ```sh
-uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
-uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml
+uvx maturin develop --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
+uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
 ```
 
 Run Rust crate tests directly with Cargo:
