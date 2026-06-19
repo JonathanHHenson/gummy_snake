@@ -260,10 +260,11 @@ impl GpuRenderer {
             force_fallback_adapter: false,
         }))
         .map_err(|err| format!("No supported GPU adapter is available for p5_canvas: {err}"))?;
+        let limits = adapter.limits();
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("p5_canvas device"),
             required_features: wgpu::Features::empty(),
-            required_limits: wgpu::Limits::downlevel_defaults(),
+            required_limits: limits.clone(),
             memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::Off,
         }))
@@ -305,7 +306,6 @@ impl GpuRenderer {
             &image_bind_group_layout,
             wgpu::TextureFormat::Rgba8Unorm,
         );
-        let limits = device.limits();
         let texture_size = checked_texture_size(width, height, limits.max_texture_dimension_2d)?;
         let texture = create_offscreen_texture(&device, texture_size);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import re
 import time
 from collections.abc import Iterable, Mapping
 from dataclasses import replace
@@ -11,7 +13,7 @@ from p5 import constants as c
 from p5.backends.base import BackendCapabilities
 from p5.backends.canvas_renderer import CanvasRenderer
 from p5.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
-from p5.exceptions import BackendCapabilityError
+from p5.exceptions import ArgumentValidationError, BackendCapabilityError
 from p5.rust.canvas import canvas_health_check, require_canvas_extension
 
 if TYPE_CHECKING:
@@ -30,6 +32,7 @@ _MOUSE_EVENT_TYPES = {
 
 _KEYBOARD_EVENT_TYPES = {"key_pressed", "key_released", "key_typed"}
 _TOUCH_EVENT_TYPES = {"touch_started", "touch_moved", "touch_ended", "touch_cancelled"}
+_TEXTURE_LIMIT_RE = re.compile(r"GPU texture limit of (\d+)")
 
 _SPECIAL_KEY_CODES = {
     "backspace": c.BACKSPACE,
@@ -378,7 +381,32 @@ class CanvasBackend:
             "pixel_density",
             default=self.renderer.pixel_density,
         )
-        self.renderer.resize(width, height, pixel_density)
+        try:
+            self.renderer.resize(width, height, pixel_density)
+        except ArgumentValidationError as exc:
+            capped_density = self._resize_event_fallback_density(width, height, pixel_density, exc)
+            if capped_density is None:
+                raise
+            self.renderer.resize(width, height, capped_density)
+
+    def _resize_event_fallback_density(
+        self,
+        width: int,
+        height: int,
+        pixel_density: float,
+        exc: ArgumentValidationError,
+    ) -> float | None:
+        match = _TEXTURE_LIMIT_RE.search(str(exc))
+        if match is None:
+            return None
+        max_dimension = max(width, height)
+        if max_dimension <= 0:
+            return None
+        texture_limit = int(match.group(1))
+        capped_density = math.nextafter(texture_limit / max_dimension, 0.0)
+        if capped_density <= 0 or capped_density >= pixel_density:
+            return None
+        return capped_density
 
     def _logical_pointer_position(self, x: float, y: float) -> tuple[float, float]:
         density = self.renderer.pixel_density
