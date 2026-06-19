@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from p5.assets.image import Image
 from p5.core.color import Color
 from p5.core.state import StyleState
 from p5.core.transform import Matrix2D
+
+if TYPE_CHECKING:
+    from p5.assets.image import P5Image
 
 
 class Renderer(Protocol):
@@ -75,7 +78,7 @@ class Renderer(Protocol):
 
     def draw_image(
         self,
-        image: Image,
+        image: Image | P5Image,
         dx: float,
         dy: float,
         dw: float,

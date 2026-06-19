@@ -14,10 +14,11 @@ jobs:
         with:
           python-version-file: .python-version
       - run: uv sync --dev
+      - run: uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
       - run: uv run ruff check .
       - run: uv run mypy src
       - run: uv run pytest
-      - run: uv run python examples/basic_shapes.py --backend headless --frames 1
+      - run: uv run python examples/basic_shapes.py --headless --frames 1
 
   build-python:
     runs-on: ubuntu-latest
@@ -38,9 +39,10 @@ jobs:
         with:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
+      - run: uv sync --dev
       - run: uvx maturin build --release
       - run: cargo test --manifest-path crates/p5_canvas/Cargo.toml
-      - run: uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+      - run: uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml
 
   canvas-extension-python:
     runs-on: ubuntu-latest
@@ -52,5 +54,5 @@ jobs:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
       - run: uv sync --dev
-      - run: uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
-      - run: uv run pytest tests/unit/test_rust_canvas.py tests/contracts/test_canvas_backend.py tests/contracts/test_canvas_renderer_parity.py
+      - run: uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
+      - run: uv run pytest tests/unit/test_rust_canvas.py tests/contracts/test_canvas_backend.py

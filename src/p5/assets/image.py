@@ -20,6 +20,13 @@ class _RustP5Image(Protocol):
     def to_rgba_bytes(self) -> bytes: ...
 
 
+class _ImageSource(Protocol):
+    width: int
+    height: int
+
+    def tobytes(self) -> bytes: ...
+
+
 @dataclass(slots=True)
 class Image:
     """Mutable RGBA image used by p5-py asset APIs."""
@@ -31,7 +38,7 @@ class Image:
 
     def __init__(
         self,
-        width: int | object,
+        width: int | _ImageSource,
         height: int | None = None,
         pixels: bytes | bytearray | None = None,
     ) -> None:

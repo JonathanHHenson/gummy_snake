@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from p5.backends.base import Backend
 from p5.backends.canvas import CanvasBackend
 
@@ -19,4 +21,4 @@ def canvas_default_eligibility() -> tuple[bool, str]:
 
 
 def create_backend(*, headless: bool | None = None) -> Backend:
-    return CanvasBackend(interactive=headless is False)
+    return cast(Backend, CanvasBackend(interactive=headless is False))
