@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from p5 import constants as c
+from p5.api.current import activate_context
 from p5.assets.image import Image, P5Image
 from p5.assets.text import Font
 from p5.core import math as p5math
@@ -1359,8 +1360,9 @@ class SketchContext:
             self._frame_scroll_x += event.scroll_x
             self._frame_scroll_y += event.scroll_y
         self.update_mouse_event(event, pressed=pressed)
-        self.plugins.dispatch_event("on_mouse_event", self, event)
-        self.sketch._dispatch_callback(event.type, event)
+        with activate_context(self):
+            self.plugins.dispatch_event("on_mouse_event", self, event)
+            self.sketch._dispatch_callback(event.type, event)
 
     def update_keyboard_event(self, event: KeyboardEvent, *, pressed: bool | None = None) -> None:
         self.state.input.key = event.key
@@ -1380,8 +1382,9 @@ class SketchContext:
         elif event.type == "key_released":
             pressed = False
         self.update_keyboard_event(event, pressed=pressed)
-        self.plugins.dispatch_event("on_keyboard_event", self, event)
-        self.sketch._dispatch_callback(event.type, event)
+        with activate_context(self):
+            self.plugins.dispatch_event("on_keyboard_event", self, event)
+            self.sketch._dispatch_callback(event.type, event)
 
     def update_touch_event(self, event: TouchEvent) -> None:
         self.state.input.require_touch_supported()
@@ -1389,8 +1392,9 @@ class SketchContext:
 
     def dispatch_touch_event(self, event: TouchEvent) -> None:
         self.update_touch_event(event)
-        self.plugins.dispatch_event("on_touch_event", self, event)
-        self.sketch._dispatch_callback(event.type, event)
+        with activate_context(self):
+            self.plugins.dispatch_event("on_touch_event", self, event)
+            self.sketch._dispatch_callback(event.type, event)
 
     def key_is_down(self, key_code: int) -> bool:
         return self.state.input.key_is_down(key_code)

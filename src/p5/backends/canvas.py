@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 import re
 import time
 from collections.abc import Iterable, Mapping
@@ -118,7 +119,7 @@ class CanvasBackend:
         sound=True,
     )
 
-    def __init__(self, *, interactive: bool = False) -> None:
+    def __init__(self, *, headless: bool | None = None) -> None:
         self._canvas_module = require_canvas_extension()
         native_runtime = self._native_window_available()
         self.capabilities = replace(
@@ -129,10 +130,13 @@ class CanvasBackend:
             touch=native_runtime,
         )
         self.renderer = CanvasRenderer(self._canvas_module)
-        self._interactive = interactive
+        self._headless = headless
+        self._interactive = headless is False
         self._running = False
         self._frames_drawn = 0
         self._next_frame_time = 0.0
+        self._debug = os.environ.get("P5_CANVAS_DEBUG") == "1"
+        self._last_idle_debug_frame: int | None = None
 
     def health_check(self) -> str:
         """Return the underlying Rust canvas extension health check."""
@@ -154,10 +158,11 @@ class CanvasBackend:
         renderer: str = c.P2D,
     ) -> None:
         self._ensure_supported_renderer(renderer)
+        density = self.renderer.pixel_density if pixel_density is None else pixel_density
         self.renderer.resize(
             width,
             height,
-            1.0 if pixel_density is None else pixel_density,
+            density,
             mode="headless",
         )
 
@@ -184,7 +189,8 @@ class CanvasBackend:
         """
 
         should_run_interactive = self._interactive or (
-            max_frames is None
+            self._headless is None
+            and max_frames is None
             and self.capabilities.interactive
             and getattr(sketch, "context", None) is not None
         )
@@ -217,30 +223,72 @@ class CanvasBackend:
         self._next_frame_time = time.perf_counter()
 
         while self._running and not self._should_close(canvas):
+            was_looping = context.state.looping
             self._dispatch_pending_events(sketch)
+            self._wake_for_pending_draw(context, was_looping=was_looping)
             if max_frames is not None:
-                self._draw_and_present(sketch)
-                self._frames_drawn += 1
+                drew_frame = self._draw_and_present(sketch)
+                self._debug_interactive_tick("bounded interactive tick", context, drew_frame)
+                if drew_frame:
+                    self._frames_drawn += 1
+                elif not context.state.looping and not context.state.redraw_requested:
+                    break
                 if self._frames_drawn >= max_frames:
                     break
                 continue
             now = time.perf_counter()
-            if now >= self._next_frame_time:
-                self._draw_and_present(sketch)
-                self._frames_drawn += 1
+            draw_pending = context.state.looping or context.state.redraw_requested
+            if draw_pending and now >= self._next_frame_time:
+                drew_frame = self._draw_and_present(sketch)
+                if drew_frame:
+                    self._frames_drawn += 1
+                self._debug_interactive_tick("interactive draw tick", context, drew_frame)
                 self._advance_next_frame_time(now, interval)
-            delay = max(0.0, min(self._next_frame_time - time.perf_counter(), interval))
+            elif not draw_pending:
+                self._debug_interactive_idle(context)
+            if draw_pending:
+                delay = max(0.0, min(self._next_frame_time - time.perf_counter(), interval))
+            else:
+                delay = min(interval, 1.0 / 60.0)
             if delay > 0:
                 time.sleep(delay)
         self.stop()
 
-    def _draw_and_present(self, sketch: Sketch) -> None:
+    def _wake_for_pending_draw(self, context: Any, *, was_looping: bool) -> None:
+        if context.state.redraw_requested or (context.state.looping and not was_looping):
+            self._next_frame_time = time.perf_counter()
+
+    def _debug_interactive_tick(self, label: str, context: Any, drew_frame: bool) -> None:
+        if not self._debug:
+            return
+        self._last_idle_debug_frame = None
+        print(
+            "[canvas-debug] "
+            f"{label} drew={drew_frame} looping={context.state.looping} "
+            f"redraw={context.state.redraw_requested} frame={context.state.timing.frame_count}",
+            flush=True,
+        )
+
+    def _debug_interactive_idle(self, context: Any) -> None:
+        if not self._debug or self._last_idle_debug_frame == context.state.timing.frame_count:
+            return
+        self._last_idle_debug_frame = context.state.timing.frame_count
+        print(
+            "[canvas-debug] interactive idle "
+            f"looping={context.state.looping} redraw={context.state.redraw_requested} "
+            f"frame={context.state.timing.frame_count}",
+            flush=True,
+        )
+
+    def _draw_and_present(self, sketch: Sketch) -> bool:
         context = getattr(sketch, "context", None)
         before_frame_count = context.state.timing.frame_count if context is not None else None
         sketch._draw_frame()
         after_frame_count = context.state.timing.frame_count if context is not None else None
         if before_frame_count is None or after_frame_count != before_frame_count:
             self.present()
+            return True
+        return False
 
     def _open_interactive_window(self, canvas: object) -> None:
         native_window_available = getattr(canvas, "native_window_available", None)

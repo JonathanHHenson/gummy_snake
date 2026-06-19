@@ -42,3 +42,45 @@ def test_no_loop_prevents_draw_frames():
 
     context = NoLoopSketch().run(max_frames=2)
     assert context.frame_count == 0
+
+
+def test_no_loop_called_from_draw_prevents_later_draw_frames():
+    class StopAfterFirstDrawSketch(Sketch):
+        def __init__(self):
+            super().__init__()
+            self.draws = 0
+
+        def setup(self):
+            self.create_canvas(10, 10)
+
+        def draw(self):
+            self.draws += 1
+            self.no_loop()
+
+    sketch = StopAfterFirstDrawSketch()
+    context = sketch.run(max_frames=4)
+
+    assert sketch.draws == 1
+    assert context.frame_count == 1
+
+
+def test_redraw_draws_one_frame_while_looping_is_disabled():
+    class RedrawSketch(Sketch):
+        def __init__(self):
+            super().__init__()
+            self.draws = 0
+
+        def setup(self):
+            self.create_canvas(10, 10)
+            self.no_loop()
+            self.redraw()
+
+        def draw(self):
+            self.draws += 1
+
+    sketch = RedrawSketch()
+    context = sketch.run(max_frames=4)
+
+    assert sketch.draws == 1
+    assert context.frame_count == 1
+    assert context.is_looping() is False

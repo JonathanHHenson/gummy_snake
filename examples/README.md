@@ -1,44 +1,29 @@
 # p5-py examples
 
-These examples are Python-only sketches using the current p5-py MVP API.
+These examples are grouped by feature area and all use the current canvas-first runtime.
 
-Run an interactive sketch with the required canvas runtime:
-
-```sh
-uv run python examples/basic_shapes.py
-```
-
-Run a bounded offscreen pass:
+Run any sketch interactively:
 
 ```sh
-uv run python examples/basic_shapes.py --headless --frames 1
+uv run python examples/01_getting_started/basic_shapes.py --interactive
 ```
 
-Export examples save PNG files when their draw loop reaches the configured frame count.
+Run a bounded headless preview and save an output image:
 
-On Retina/HiDPI displays, the canvas backend renders to a higher-resolution backing buffer while keeping p5 coordinates logical. See `docs/technical/hidpi_rendering.md` for details.
+```sh
+uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
+```
 
-## Examples
+Most examples save to `examples/output/` when `--frames` is provided. Pass `--no-save` to skip image export.
 
-- `basic_shapes.py` demonstrates canvas creation, colors, fills, strokes, primitives, arcs, and export.
-- `bouncing_ball.py` demonstrates animation state, frame drawing, and simple physics.
-- `transforms.py` demonstrates `push`, `pop`, `translate`, `rotate`, `scale`, and angle mode.
-- `custom_shape.py` demonstrates `begin_shape`, `vertex`, `quadratic_vertex`, `bezier`, and shape export.
-- `vector_noise_flow.py` demonstrates `Vector`, `create_vector`, seeded `random`, `noise`, `map_value`, angle mode, and animation.
-- `accelerated_noise_pixels.py` demonstrates the optional Rust-backed `noise()` path plus `EXCLUSION` blend compositing. It defaults to canvas so the saved PNG is deterministic whether the acceleration extension is installed or the Python fallback is active.
-- `image_text_data.py` demonstrates `Image`, `create_image`, image pixel edits, image filters, text drawing/metrics, `load_json`, `save_json`, `load_strings`, `save_strings`, `load_bytes`, `save_bytes`, and `create_writer`.
-- `reference_completion.py` demonstrates spline drawing/math, canvas `get`/`set`/`copy`, text bounds/properties, accessibility metadata, and local OBJ/STL mesh export.
-- `image_flip_sampling.py` demonstrates `image()` mirroring with `push`/`translate`/`scale(-1, 1)` plus `image_sampling()`, `smooth()`, and `no_smooth()` using the same sprite in both interpolated and pixel-art modes.
-- `color_style_filters.py` demonstrates RGB/HSB color modes, `lerp_color`, stroke caps/joins, `image_mode`, and image filters.
-- `asteroids.py` demonstrates normalized mouse and keyboard callbacks, `key_is_down`, mouse movement deltas, and p5-style input state using the Kenney space shooter assets.
-- `pixels_blend_export.py` demonstrates `load_pixels`, `pixels`, `update_pixels`, `pixel_array`, `blend_mode`, `blend`, `erase`, `no_erase`, and `save_canvas` using the Kenney space shooter assets.
-- `plugin_hooks.py` demonstrates the epic 110 plugin registry with deterministic lifecycle hooks and a plugin-provided `draw_grid()` API that installs and uninstalls cleanly.
-- `webgl_wireframe_prototype.py` demonstrates the epic 100 math-only 3D prototype by projecting a cube with `drawing/prototype3d.py` and drawing the resulting wireframe with the existing 2D API. It compares `PerspectiveProjection` and `OrthographicProjection` side by side.
-- `webgl_obj_sound.py` demonstrates the first epic 101 software WEBGL-style implementation by loading `examples/assets/teapot.obj`, rendering it with the new 3D public APIs, and optionally playing `examples/assets/coin-drop-4.wav`.
-- `webgl_primitives_gallery.py` demonstrates the broader epic 101 WEBGL-style public API surface with `create_camera()`, `camera()`, `perspective()`, `ortho()`, `plane()`, `box()`, `sphere()`, `ambient_light()`, `directional_light()`, `point_light()`, `ambient_material()`, `specular_material()`, `shininess()`, and `normal_material()`.
-- `webgl_texture_orbit.py` demonstrates procedural texture mapping on generated 3D primitives and pointer-driven `orbit_control()` on the current software WEBGL path.
-- `webgl_native_shader.py` demonstrates `create_shader()`, `shader()`, `Shader3D.set_uniform()`, and a depth-tested cube rendered through the canvas renderer.
-- `audio_controls.py` demonstrates the new sound/media playback APIs with `create_audio()`, `Sound.volume()`, `Sound.rate()`, `Sound.pan()`, and optional native playback of `examples/assets/coin-drop-4.wav`.
-- `video_capture.py` demonstrates the staged native camera API with `create_capture()`, `Capture.read()`, and drawing captured frames through the existing `image()` API. It requires the optional `media` extra and may still fail predictably on headless systems or when camera permissions are denied.
-- `video_playback.py` demonstrates file-backed playback with `create_video()`, `Video.play()`, `Video.looping()`, `Video.seek()`, and `Video.read()`. It requires the optional `media` extra plus a user-supplied local video file because the repository does not bundle a sample video asset.
-- `new_rust_backend/` contains focused examples for the required Rust canvas runtime, including primitive rendering, transforms/pixel-density mapping, pixel-buffer updates, and PNG export.
+## Groups
+
+- `01_getting_started`: first sketches, timing, and drawing basics.
+- `02_drawing`: primitives, curves, transforms, color, compositing, and pixels.
+- `03_assets`: images, generated images, data files, and sound asset metadata.
+- `04_text`: text rendering, measurement, and accessibility descriptions.
+- `05_interaction`: mouse, keyboard, touch state, and lifecycle controls.
+- `06_math`: vectors, random numbers, noise, mapping, and interpolation.
+- `07_plugins`: plugin hook ordering and plugin-provided APIs.
+- `08_3d`: current WEBGL primitives, lights, materials, model loading, and textures.
+- `games`: small sprite-based games using the included assets.

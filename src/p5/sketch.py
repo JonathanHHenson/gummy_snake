@@ -11,6 +11,23 @@ from p5.backends.registry import create_backend
 from p5.context import SketchContext
 from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 
+EVENT_CALLBACK_NAMES = (
+    "mouse_moved",
+    "mouse_dragged",
+    "mouse_pressed",
+    "mouse_released",
+    "mouse_clicked",
+    "mouse_double_clicked",
+    "mouse_wheel",
+    "key_pressed",
+    "key_released",
+    "key_typed",
+    "touch_started",
+    "touch_moved",
+    "touch_ended",
+    "touch_cancelled",
+)
+
 
 class Sketch:
     """Base class for object-oriented p5-py sketches."""
@@ -333,12 +350,14 @@ class FunctionSketch(Sketch):
         preload: Callable[[], None] | None = None,
         setup: Callable[[], None] | None = None,
         draw: Callable[[], None] | None = None,
+        event_callbacks: dict[str, Callable[..., None]] | None = None,
         headless: bool | None = None,
     ) -> None:
         super().__init__(headless=headless)
         self._preload_func = preload
         self._setup_func = setup
         self._draw_func = draw
+        self._event_callbacks = event_callbacks or {}
 
     def preload(self) -> None:
         if self._preload_func is not None:
@@ -351,3 +370,13 @@ class FunctionSketch(Sketch):
     def draw(self) -> None:
         if self._draw_func is not None:
             self._draw_func()
+
+    def _dispatch_callback(self, name: str, event: object) -> None:
+        callback = self._event_callbacks.get(name)
+        if callback is None:
+            super()._dispatch_callback(name, event)
+            return
+        try:
+            callback(event)
+        except TypeError:
+            callback()

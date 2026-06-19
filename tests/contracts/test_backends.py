@@ -10,6 +10,7 @@ def test_headless_false_requests_interactive_canvas_runtime():
     backend = create_backend(headless=False)
 
     assert isinstance(backend, CanvasBackend)
+    assert backend._headless is False
     assert backend._interactive is True
 
 
@@ -17,4 +18,5 @@ def test_headless_true_requests_offscreen_canvas_runtime():
     backend = create_backend(headless=True)
 
     assert isinstance(backend, CanvasBackend)
+    assert backend._headless is True
     assert backend._interactive is False

@@ -334,6 +334,20 @@ def test_canvas_backend_runs_headless_frames_and_accepts_webgl(
     assert backend.renderer.width == 10
 
 
+def test_canvas_backend_repeated_create_canvas_preserves_existing_pixel_density(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    backend = CanvasBackend()
+    backend.create_canvas(100, 50, pixel_density=2)
+
+    backend.create_canvas(100, 50)
+
+    assert backend.renderer.pixel_density == 2
+    assert backend.renderer.physical_width == 200
+
+
 def test_canvas_renderer_allocates_and_mirrors_dimensions() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
 
@@ -527,6 +541,47 @@ def test_canvas_backend_interactive_max_frames_stops_after_requested_frame(
     assert sketch.context.frame_count == 1
 
 
+def test_canvas_backend_interactive_max_frames_exits_when_paused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    assert sketch.context is not None
+    sketch.context.no_loop()
+
+    backend._run_interactive(sketch, max_frames=1)
+
+    assert sketch.context.frame_count == 0
+
+
+def test_canvas_backend_unbounded_interactive_respects_no_loop_from_draw(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    assert sketch.context is not None
+    canvas = backend.renderer.runtime_canvas()
+    polls = 0
+
+    def poll_events() -> list[dict[str, object]]:
+        nonlocal polls
+        polls += 1
+        if polls >= 5:
+            canvas.closed = True
+        return []
+
+    def draw_frame() -> None:
+        sketch.context.state.timing.frame_count += 1
+        sketch.context.no_loop()
+
+    canvas.poll_events = poll_events  # type: ignore[method-assign]
+    sketch._draw_frame = draw_frame  # type: ignore[method-assign]
+    monkeypatch.setattr("p5.backends.canvas.time.sleep", lambda _delay: None)
+
+    backend._run_interactive(sketch)
+
+    assert sketch.context.frame_count == 1
+    assert polls >= 5
+
+
 def test_canvas_backend_unbounded_context_run_uses_interactive_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -537,6 +592,25 @@ def test_canvas_backend_unbounded_context_run_uses_interactive_runtime(
     backend.run(sketch)
 
     assert ("open_window",) in canvas.calls
+
+
+def test_canvas_backend_explicit_headless_suppresses_unbounded_interactive_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    backend = CanvasBackend(headless=True)
+    sketch = EventSketch()
+    context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
+    sketch.context = context
+    sketch._running = True
+    context.create_canvas(100, 50, pixel_density=2)
+    canvas = backend.renderer.runtime_canvas()
+
+    backend.run(sketch)
+
+    assert ("open_window",) not in canvas.calls
+    assert sketch.context.frame_count == 1
 
 
 def test_canvas_backend_dispatches_mouse_events_with_logical_coordinates(

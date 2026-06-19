@@ -69,7 +69,7 @@ from p5.core.math import (
 )
 from p5.core.random import noise, noise_detail, noise_seed, random, random_gaussian, random_seed
 from p5.core.vector import create_vector
-from p5.sketch import FunctionSketch
+from p5.sketch import EVENT_CALLBACK_NAMES, FunctionSketch
 
 map = map_value
 
@@ -79,16 +79,52 @@ def run(
     preload: Callable[[], None] | None = None,
     setup: Callable[[], None] | None = None,
     draw: Callable[[], None] | None = None,
+    mouse_moved: Callable[..., None] | None = None,
+    mouse_dragged: Callable[..., None] | None = None,
+    mouse_pressed: Callable[..., None] | None = None,
+    mouse_released: Callable[..., None] | None = None,
+    mouse_clicked: Callable[..., None] | None = None,
+    mouse_double_clicked: Callable[..., None] | None = None,
+    mouse_wheel: Callable[..., None] | None = None,
+    key_pressed: Callable[..., None] | None = None,
+    key_released: Callable[..., None] | None = None,
+    key_typed: Callable[..., None] | None = None,
+    touch_started: Callable[..., None] | None = None,
+    touch_moved: Callable[..., None] | None = None,
+    touch_ended: Callable[..., None] | None = None,
+    touch_cancelled: Callable[..., None] | None = None,
     headless: bool | None = None,
     max_frames: int | None = None,
 ):
     current_frame = inspect.currentframe()
     caller_frame = current_frame.f_back if current_frame is not None else None
     caller_globals = caller_frame.f_globals if caller_frame is not None else {}
+    explicit_event_callbacks = {
+        "mouse_moved": mouse_moved,
+        "mouse_dragged": mouse_dragged,
+        "mouse_pressed": mouse_pressed,
+        "mouse_released": mouse_released,
+        "mouse_clicked": mouse_clicked,
+        "mouse_double_clicked": mouse_double_clicked,
+        "mouse_wheel": mouse_wheel,
+        "key_pressed": key_pressed,
+        "key_released": key_released,
+        "key_typed": key_typed,
+        "touch_started": touch_started,
+        "touch_moved": touch_moved,
+        "touch_ended": touch_ended,
+        "touch_cancelled": touch_cancelled,
+    }
+    event_callbacks = {
+        name: callback
+        for name in EVENT_CALLBACK_NAMES
+        if callable(callback := explicit_event_callbacks[name] or caller_globals.get(name))
+    }
     sketch = FunctionSketch(
         preload=preload or caller_globals.get("preload"),
         setup=setup or caller_globals.get("setup"),
         draw=draw or caller_globals.get("draw"),
+        event_callbacks=event_callbacks,
         headless=headless,
     )
     return sketch.run(max_frames=max_frames)

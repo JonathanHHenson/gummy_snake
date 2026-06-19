@@ -21,4 +21,4 @@ def canvas_default_eligibility() -> tuple[bool, str]:
 
 
 def create_backend(*, headless: bool | None = None) -> Backend:
-    return cast(Backend, CanvasBackend(interactive=headless is False))
+    return cast(Backend, CanvasBackend(headless=headless))
