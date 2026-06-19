@@ -460,6 +460,27 @@ def test_canvas_renderer_text_metrics_use_rust_canvas_and_text_draw_command() ->
     assert renderer._canvas.calls[-4][1] == "hello"
 
 
+def test_canvas_renderer_caches_text_metrics_by_style() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(20, 20)
+    style = StyleState(fill_color=Color(255, 255, 255, 255), stroke_color=None)
+
+    assert renderer.text_width("hello", style) == renderer.text_width("hello", style)
+    assert renderer.text_ascent(style) == renderer.text_ascent(style)
+    assert renderer.text_descent(style) == renderer.text_descent(style)
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    assert [call[0] for call in canvas.calls].count("text_width") == 1
+    assert [call[0] for call in canvas.calls].count("text_ascent") == 1
+    assert [call[0] for call in canvas.calls].count("text_descent") == 1
+
+    larger_style = style.copy()
+    larger_style.text_size = 24.0
+    assert renderer.text_width("hello", larger_style) != renderer.text_width("hello", style)
+    assert [call[0] for call in canvas.calls].count("text_width") == 2
+
+
 def test_canvas_backend_headless_run_defaults_to_requested_frame_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -9,18 +9,18 @@ acceptance_criteria = '''
 The deferred offscreen rendering entries are resolved with a native design and implementation plan. `create_graphics`, framebuffer-like APIs, and any `drawing_context` substitute preserve backend/renderer boundaries and do not expose Rust internals in public APIs. `no_canvas` is either implemented with a clear canvas-runtime meaning or remains explicitly excluded/deferred with documentation. Headless tests cover offscreen drawing, readback, resizing, pixel density, and resource cleanup; performance-sensitive paths avoid unnecessary GPU/CPU readbacks.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'IN_PROGRESS'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Write a technical design for offscreen graphics and framebuffer ownership across SketchContext, CanvasBackend, CanvasRenderer, and `p5_canvas`.
 '''
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Define Pythonic public APIs for `create_graphics`, framebuffer creation/drawing/readback/resizing/removal, and a safe substitute for `drawing_context` if one is appropriate.
 '''
@@ -41,7 +41,7 @@ Add Python adapter classes for graphics/framebuffer objects without leaking conc
 
 [my_pbi.task_5]
 order = 5
-status = 'TODO'
+status = 'DONE'
 description = '''
 Evaluate `no_canvas` against the canvas-required runtime and either implement a bounded/no-presentation mode or document an explicit package-specific exclusion.
 '''
@@ -62,7 +62,7 @@ Profile offscreen render target switching and readback paths, documenting perfor
 
 [my_pbi.task_8]
 order = 8
-status = 'TODO'
+status = 'DONE'
 description = '''
 Update compatibility inventory, user backend docs, and technical canvas runtime docs with the final offscreen rendering status.
 '''

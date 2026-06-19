@@ -8,7 +8,7 @@ from typing import Any, Protocol, cast
 
 from p5.assets._paths import resolve_asset_path
 from p5.core.color import Color
-from p5.exceptions import ArgumentValidationError
+from p5.exceptions import ArgumentValidationError, UnsupportedFeatureError
 
 
 class _RustP5Image(Protocol):
@@ -95,6 +95,39 @@ class Image:
 
     def tobytes(self) -> bytes:
         return self.to_rgba_bytes()
+
+    @property
+    def pixels(self) -> list[int]:
+        return list(self._pixels)
+
+    def load_pixels(self) -> list[int]:
+        return self.pixels
+
+    def update_pixels(
+        self, pixels: bytes | bytearray | list[int] | tuple[int, ...] | None = None
+    ) -> None:
+        if pixels is not None:
+            try:
+                payload = bytes(pixels)
+            except ValueError as exc:
+                raise ArgumentValidationError(
+                    "Image pixel values must be integers between 0 and 255."
+                ) from exc
+            expected = self.width * self.height * 4
+            if len(payload) != expected:
+                raise ArgumentValidationError(
+                    f"Image pixel buffer must contain {expected} bytes, got {len(payload)}."
+                )
+            self._pixels = bytearray(payload)
+        self._version += 1
+
+    def pixel_density(self, value: float | None = None) -> float:
+        if value is None or value == 1:
+            return 1.0
+        raise UnsupportedFeatureError(
+            "Image.pixel_density() only supports density 1.0. Image HiDPI buffers are "
+            "deferred until the Rust canvas runtime exposes image-level density semantics."
+        )
 
     def copy(self, *args: int) -> Image:
         if not args:
@@ -207,6 +240,53 @@ class Image:
         else:
             raise ArgumentValidationError(f"Unsupported image filter {mode!r}.")
         self._version += 1
+
+    def blend(self, *args: object) -> None:
+        raise UnsupportedFeatureError(
+            "Image.blend() is deferred. Use canvas-level blend(...) for Rust-backed region "
+            "blending until image-local blend modes are implemented."
+        )
+
+    def delay(self, *args: object) -> None:
+        raise UnsupportedFeatureError(
+            "Animated image frame delay controls are deferred because p5-py currently loads "
+            "images as single RGBA frames through the Rust canvas runtime."
+        )
+
+    def get_current_frame(self) -> int:
+        raise UnsupportedFeatureError(
+            "Animated image frame controls are deferred because p5-py currently loads images "
+            "as single RGBA frames through the Rust canvas runtime."
+        )
+
+    def num_frames(self) -> int:
+        return 1
+
+    def play(self) -> None:
+        raise UnsupportedFeatureError(
+            "Animated image playback is deferred because p5-py currently loads images as "
+            "single RGBA frames through the Rust canvas runtime."
+        )
+
+    def pause(self) -> None:
+        raise UnsupportedFeatureError(
+            "Animated image playback is deferred because p5-py currently loads images as "
+            "single RGBA frames through the Rust canvas runtime."
+        )
+
+    def reset(self) -> None:
+        raise UnsupportedFeatureError(
+            "Animated image frame controls are deferred because p5-py currently loads images "
+            "as single RGBA frames through the Rust canvas runtime."
+        )
+
+    def set_frame(self, frame: int) -> None:
+        if int(frame) == 0:
+            return None
+        raise UnsupportedFeatureError(
+            "Animated image frame controls are deferred because p5-py currently loads images "
+            "as single RGBA frames through the Rust canvas runtime."
+        )
 
     def save(self, path: str | Path) -> None:
         P5Image.from_rgba_bytes(self.width, self.height, self.to_rgba_bytes()).save(path)

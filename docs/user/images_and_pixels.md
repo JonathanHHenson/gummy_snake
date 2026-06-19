@@ -14,7 +14,9 @@ Useful image APIs include:
 - `smooth()`
 - `no_smooth()`
 
-The `Image` type also supports pixel-oriented operations such as `get()`, `set()`, `copy()`, `resize()`, `mask()`, and common filters.
+The `Image` type also supports pixel-oriented operations such as `get()`, `set()`, `copy()`, `resize()`, `mask()`, `load_pixels()`, `update_pixels()`, `pixels`, and common filters.
+
+`Image.pixel_density()` currently reports `1.0`. Image-local HiDPI buffers, `Image.blend()`, and animated image frame controls such as `delay()`, `play()`, `pause()`, `reset()`, and `set_frame()` are explicit deferred APIs until the Rust canvas runtime exposes image-level density, local blend-mode, and animated-frame semantics. Static images report `num_frames() == 1`.
 
 Image file loading and saving are owned by the Rust `p5_canvas` runtime through `p5.rust._canvas`. Published wheels must include that extension; there is no supported Pillow fallback.
 

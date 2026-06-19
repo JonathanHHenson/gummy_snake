@@ -9,7 +9,7 @@ acceptance_criteria = '''
 Pointer, keyboard, touch, device sensor, accessibility, and IO entries currently classified as partial/deferred are implemented or explicitly classified with package-specific errors. Native event callbacks include mouse/key/touch callback parity where the canvas runtime can provide events. Accessibility helpers use native metadata/test hooks rather than DOM output. Local IO includes bytes and writer-style workflows where useful. Browser pointer lock, Blob/client-side-save, XML, Table, and TableRow remain excluded unless project policy changes. Tests cover event dispatch, state values, unsupported stubs, and local file behavior.
 '''
 priotity = 'medium'
-status = 'TODO'
+status = 'IN_PROGRESS'
 
 [my_pbi.task_1]
 order = 1
@@ -34,14 +34,14 @@ Expand touch event tests and APIs for touch start/move/end behavior while preser
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Decide whether native pointer lock has a safe cross-platform equivalent; otherwise add explicit unsupported stubs and documentation for request/exit pointer lock names.
 '''
 
 [my_pbi.task_5]
 order = 5
-status = 'TODO'
+status = 'DONE'
 description = '''
 Design a native sensor provider interface for acceleration/orientation APIs or keep them deferred with stronger documentation and package-specific stubs for all common p5.js sensor names.
 '''
@@ -62,7 +62,7 @@ Add Pythonic local IO helpers for bytes and writer workflows, including `load_by
 
 [my_pbi.task_8]
 order = 8
-status = 'TODO'
+status = 'DONE'
 description = '''
 Document explicit exclusions for browser Blob/client-side save, XML, Table, TableRow, browser URL/storage, and DOM-only IO helpers.
 '''

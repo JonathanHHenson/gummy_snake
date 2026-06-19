@@ -9,7 +9,7 @@ acceptance_criteria = '''
 Pythonic snake_case APIs are implemented for the remaining core 2D and image/canvas entries that make sense in p5-py, including spline helpers, contour support, clipping, tint/no_tint, canvas get/set/copy/filter helpers, save_frames/save_gif where feasible, and richer Image method parity. APIs that require unavailable Rust canvas semantics are implemented in the Rust canvas runtime first or remain package-specific deferred stubs with clear guidance. Pixel and image operations are benchmarked or reviewed for memory churn, deterministic headless tests cover behavior, and HiDPI pixel semantics are preserved.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'IN_PROGRESS'
 
 [my_pbi.task_1]
 order = 1
@@ -41,14 +41,14 @@ Add canvas-level pixel/image helpers `get`, `set`, `copy`, and `filter` while pr
 
 [my_pbi.task_5]
 order = 5
-status = 'TODO'
+status = 'DONE'
 description = '''
 Complete Image method parity where feasible, including `blend`, `load_pixels`, `update_pixels`, `pixel_density`, image `pixels`, and explicit animated GIF behavior for unsupported frame controls.
 '''
 
 [my_pbi.task_6]
 order = 6
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement or explicitly defer `save_frames` and `save_gif` based on native canvas runtime export capabilities, with bounded/headless tests for deterministic frame capture.
 '''
@@ -62,7 +62,7 @@ Profile representative large-image and canvas-pixel operations, minimize unneces
 
 [my_pbi.task_8]
 order = 8
-status = 'TODO'
+status = 'DONE'
 description = '''
 Update compatibility inventory, user docs, and technical rendering docs when these APIs move from partial/deferred to supported or Pythonic equivalent.
 '''

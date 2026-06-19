@@ -54,15 +54,15 @@ Many missing APIs are small compatibility utilities. They should be added only w
 - Quaternion helpers: still deferred until a concrete native 3D camera/model workflow requires them. The current public 3D APIs do not need a standalone quaternion object, so adding one now would create API surface without a runtime-backed use case.
 - Data conversion/formatting: `boolean`, `byte`, `char`, `float_`, `hex_`, `int_`, `str_`, `unchar`, `unhex`, `nf`, `nfc`, `nfp`, `nfs`, `shuffle`, and `split_tokens`.
 - Time/date/environment: `day`, `month`, `year`, `hour`, `minute`, `second`, `get_target_frame_rate`, `window_width`, `window_height`, display dimensions, focus state, and `cursor` / `no_cursor` no-ops until native cursor control exists.
-- Browser URL and localStorage helpers are explicit package-specific stubs (`get_url`, `get_url_path`, `get_url_params`, `local_storage`) and do not silently emulate browser state.
+- Browser URL, localStorage, and Blob/client-side-save helpers are explicit package-specific stubs (`get_url`, `get_url_path`, `get_url_params`, `local_storage`, `create_blob`, `save_blob`, `load_blob`) and do not silently emulate browser state.
 
 ### Events, accessibility, and IO gaps
 
 Current mouse/keyboard/touch support is partial. The beta reference includes browser/device APIs that need careful classification:
 
 - Pointer/keyboard callbacks and variables: `mouse_clicked`, `double_clicked`, `mouse_dragged`, `mouse_moved`, `mouse_released`, `mouse_wheel`, `key_pressed`, `key_released`, `key_typed`, `win_mouse_x/y`, previous window mouse values, and `code` semantics.
-- Pointer lock is browser-specific and should remain excluded unless the native window runtime offers an explicit equivalent.
-- Device acceleration/orientation APIs should remain deferred or excluded until a native sensor provider is selected.
+- Pointer lock is browser-specific and remains excluded through `request_pointer_lock` and `exit_pointer_lock` stubs unless the native window runtime offers an explicit equivalent.
+- Device acceleration/orientation APIs remain deferred through explicit current/previous value and device callback stubs until a native sensor provider is selected.
 - Accessibility helpers such as `describe`, `describe_element`, `grid_output`, and `text_output` are implemented as native metadata/test hooks rather than browser DOM output.
 - IO helpers focus on local file workflows such as text, bytes, JSON, and writer-style output. Browser Blob/client-side save behavior is not a native Python concept.
 
@@ -73,8 +73,8 @@ The 3D/media work is intentionally partial. Missing beta-reference areas should 
 - Remaining 3D geometry gaps: `build_geometry`, `free_geometry`, and rich p5.Geometry-style mutation helpers. `cone`, `cylinder`, `ellipsoid`, `torus`, `create_model`, `save_obj`, and `save_stl` are implemented.
 - Camera/projection/interaction: `frustum`, `set_camera`, `roll`, debug grid/axes helpers, line perspective, and screen/world coordinate conversion.
 - Lights/materials: `lights`, `no_lights`, `spot_light`, `image_light`, `panorama`, `light_falloff`, `specular_color`, `emissive_material`, `metalness`, `texture_mode`, and `texture_wrap`.
-- Shader object parity: `Shader3D` now exposes Pythonic uniform, version, context-copy, hook-inspection, and source-modification helpers. WebGPU-like compute/storage APIs remain deferred.
-- WebGPU, p5.strands, storage buffers, and compute shaders should remain deferred or excluded unless the Rust canvas runtime grows a native GPU abstraction that can support them safely.
+- Shader object parity: `Shader3D` now exposes Pythonic uniform, version, context-copy, hook-inspection, and source-modification helpers. Shader variant helpers are explicit deferred stubs.
+- WebGPU, p5.strands, storage buffers, and compute shaders remain deferred or excluded through explicit public stubs unless the Rust canvas runtime grows a native GPU abstraction that can support them safely.
 
 ## Explicit exclusions and non-goals
 

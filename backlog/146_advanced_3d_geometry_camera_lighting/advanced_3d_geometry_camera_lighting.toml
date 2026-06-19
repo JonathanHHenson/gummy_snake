@@ -9,7 +9,7 @@ acceptance_criteria = '''
 Advanced 3D entries classified as partial are implemented or split into explicit native milestones. Coverage includes missing primitives, geometry construction/export, p5.Geometry-like values, camera/projection controls, debug helpers, screen/world coordinate conversion, line perspective, lights, material properties, texture modes, and texture wrapping. APIs remain Pythonic and snake_case at the public boundary. Renderer/Rust changes preserve the backend/renderer boundary, deterministic tests cover geometry math and headless rendering, and performance-sensitive mesh generation avoids avoidable per-frame allocations.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'IN_PROGRESS'
 
 [my_pbi.task_1]
 order = 1

@@ -60,52 +60,52 @@ notes = "Native canvas environment equivalents. Cursor APIs are safe no-ops unti
 
 [[entry]]
 reference = "getURL/getURLPath/getURLParams/localStorage"
-p5_py = ["get_url", "get_url_path", "get_url_params", "local_storage"]
+p5_py = ["get_url", "get_url_path", "get_url_params", "local_storage", "create_blob", "save_blob", "load_blob"]
 status = "excluded"
 module = "p5.api.compatibility"
-notes = "Browser URL/storage state is intentionally excluded; use urllib.parse or explicit local persistence."
+notes = "Browser URL/storage and Blob/client-side-save state are intentionally excluded; use urllib.parse, bytes/io helpers, or explicit local persistence."
 
 [[entry]]
-reference = "accelerationX/Y/Z, rotationX/Y/Z, pRotationX/Y/Z, deviceMoved/deviceTurned"
-p5_py = ["acceleration_x", "acceleration_y", "acceleration_z", "rotation_x", "rotation_y", "rotation_z", "orientation_x", "orientation_y", "orientation_z", "device_moved", "device_turned"]
+reference = "accelerationX/Y/Z, pAccelerationX/Y/Z, rotationX/Y/Z, pRotationX/Y/Z, deviceMoved/deviceTurned/deviceShaken"
+p5_py = ["acceleration_x", "acceleration_y", "acceleration_z", "previous_acceleration_x", "previous_acceleration_y", "previous_acceleration_z", "rotation_x", "rotation_y", "rotation_z", "previous_rotation_x", "previous_rotation_y", "previous_rotation_z", "orientation_x", "orientation_y", "orientation_z", "device_moved", "device_turned", "device_shaken"]
 status = "deferred"
 module = "p5.api.compatibility"
 notes = "Native sensor provider not selected. Public stubs raise package-specific errors."
 
 [[entry]]
-reference = "DOM elements, p5.XML, p5.Table, p5.TableRow"
-p5_py = ["create_div", "create_button", "select", "load_xml", "load_table"]
+reference = "DOM elements, form/file inputs, p5.XML, p5.Table, p5.TableRow"
+p5_py = ["create_div", "create_button", "create_input", "create_slider", "create_checkbox", "create_select", "create_radio", "create_color_picker", "create_file_input", "select", "select_all", "remove_elements", "load_xml", "load_table", "table_row"]
 status = "excluded"
 module = "p5.api.compatibility"
 notes = "Explicit non-goals for p5-py."
 
 [[entry]]
 reference = "spline/splinePoint/splineTangent/splineVertex/splineProperties/beginContour/endContour/normal/vertexProperty"
-p5_py = ["begin_shape", "vertex", "bezier_vertex", "quadratic_vertex", "spline_vertex", "end_shape", "spline", "spline_point", "spline_tangent", "spline_property", "spline_properties"]
+p5_py = ["begin_shape", "vertex", "bezier_vertex", "quadratic_vertex", "spline_vertex", "end_shape", "spline", "spline_point", "spline_tangent", "spline_property", "spline_properties", "begin_contour", "end_contour", "normal", "vertex_property"]
 status = "partial"
 module = "p5.api.global_mode"
-notes = "Catmull-Rom spline drawing/math and tightness properties are supported. Contours, normal, and vertexProperty still need native renderer path/property semantics."
+notes = "Catmull-Rom spline drawing/math and tightness properties are supported. Contours, normal, and vertexProperty are public deferred stubs until native renderer path/property semantics exist."
 
 [[entry]]
 reference = "beginClip/clip/endClip/tint/noTint/filter/saveFrames/saveGif"
-p5_py = ["Image", "create_image", "get", "set", "copy", "filter", "save_canvas"]
+p5_py = ["Image", "create_image", "get", "set", "copy", "filter", "save_canvas", "begin_clip", "clip", "end_clip", "tint", "no_tint", "save_frames", "save_gif"]
 status = "partial"
 module = "p5.assets.image"
-notes = "Image filters, canvas get/set/copy/filter helpers, and export helpers exist for local image/canvas workflows. Canvas clipping, tint, animated frame export, and GIF controls need Rust canvas semantics."
+notes = "Image filters, image load/update pixels helpers, canvas get/set/copy/filter helpers, and export helpers exist for local image/canvas workflows. Image-local blend, HiDPI density, animated frame controls, canvas clipping, tint, animated frame export, and GIF controls are explicit deferred APIs pending Rust canvas semantics."
 
 [[entry]]
 reference = "textBounds/textDirection/textWrap/textWeight/textProperties/textProperty/fontBounds/fontWidth/fontAscent/fontDescent"
-p5_py = ["text", "text_width", "text_ascent", "text_descent", "text_font", "text_style", "text_bounds", "text_direction", "text_wrap", "text_weight", "text_properties", "text_property", "font_bounds", "font_width", "font_ascent", "font_descent"]
+p5_py = ["text", "text_width", "text_ascent", "text_descent", "text_font", "text_style", "text_bounds", "text_direction", "text_wrap", "text_weight", "text_properties", "text_property", "font_bounds", "font_width", "font_ascent", "font_descent", "text_to_points", "text_to_paths", "text_to_contours", "text_to_model"]
 status = "partial"
 module = "p5.api.global_mode"
-notes = "Text bounds/properties and font metric wrappers are supported over the current native width/ascent/descent contract. Font outline/path extraction remains deferred."
+notes = "Text bounds/properties and font metric wrappers are supported over the current native width/ascent/descent contract with bounded renderer-side measurement caching. Font outline/path extraction remains explicit deferred Font methods."
 
 [[entry]]
 reference = "createGraphics/framebuffer/noCanvas/drawingContext"
-p5_py = []
+p5_py = ["create_graphics", "create_framebuffer", "drawing_context", "no_canvas"]
 status = "deferred"
-module = "p5.backends.canvas"
-notes = "Offscreen graphics and drawing-context escape hatches need a canvas-runtime design that preserves backend/renderer boundaries. noCanvas conflicts with the canvas-required runtime."
+module = "p5.api.compatibility"
+notes = "Public stubs raise package-specific deferred errors. Offscreen graphics/framebuffer ownership is documented in docs/technical/offscreen_graphics_framebuffer_design.md; drawingContext remains excluded because public APIs must not expose Rust or browser canvas internals."
 
 [[entry]]
 reference = "mouseClicked/doubleClicked/mouseDragged/mouseMoved/mouseReleased/mouseWheel/keyPressed/keyReleased/keyTyped/window mouse values/code semantics"
@@ -116,10 +116,10 @@ notes = "Normalized native input state exists. Callback parity depends on canvas
 
 [[entry]]
 reference = "touches/touchStarted/touchMoved/touchEnded/pointer lock"
-p5_py = ["touches"]
+p5_py = ["touches", "request_pointer_lock", "exit_pointer_lock"]
 status = "partial"
 module = "p5.events.input_state"
-notes = "Touch state is native-runtime backed. Browser pointer lock is excluded unless a native equivalent is deliberately designed."
+notes = "Touch state is native-runtime backed. Browser pointer lock is excluded via explicit public stubs unless a native equivalent is deliberately designed."
 
 [[entry]]
 reference = "describe/describeElement/gridOutput/textOutput"
@@ -137,38 +137,45 @@ notes = "Local text, bytes, JSON, and writer workflows are supported. Browser Bl
 
 [[entry]]
 reference = "cone/cylinder/ellipsoid/torus/buildGeometry/createModel/saveObj/saveStl/freeGeometry/p5.Geometry"
-p5_py = ["plane", "box", "sphere", "ellipsoid", "cylinder", "cone", "torus", "create_model", "save_obj", "save_stl", "load_model", "model"]
+p5_py = ["plane", "box", "sphere", "ellipsoid", "cylinder", "cone", "torus", "create_model", "build_geometry", "free_geometry", "save_obj", "save_stl", "load_model", "model"]
 status = "partial"
 module = "p5.api.advanced"
-notes = "Generated 3D primitives, model wrapping, and deterministic OBJ/STL export are supported. buildGeometry/freeGeometry and rich p5.Geometry mutation helpers remain deferred."
+notes = "Generated 3D primitives, model wrapping, and deterministic OBJ/STL export are supported. buildGeometry/freeGeometry and rich p5.Geometry mutation helpers are public deferred stubs."
 
 [[entry]]
 reference = "frustum/setCamera/roll/debugMode/noDebugMode/screenToWorld/worldToScreen"
-p5_py = ["create_camera", "camera", "perspective", "ortho", "orbit_control"]
+p5_py = ["create_camera", "camera", "perspective", "ortho", "orbit_control", "frustum", "set_camera", "roll", "debug_mode", "no_debug_mode", "screen_to_world", "world_to_screen"]
 status = "partial"
 module = "p5.api.advanced"
-notes = "Basic camera/projection/interaction APIs exist. Coordinate conversion and debug helpers remain deferred."
+notes = "Basic camera/projection/interaction APIs exist. Remaining camera, coordinate conversion, and debug helpers are public deferred stubs in p5.api.compatibility."
 
 [[entry]]
 reference = "lights/noLights/spotLight/imageLight/panorama/lightFalloff/specularColor/emissiveMaterial/metalness/textureMode/textureWrap"
-p5_py = ["ambient_light", "directional_light", "point_light", "normal_material", "ambient_material", "specular_material", "shininess", "texture"]
+p5_py = ["ambient_light", "directional_light", "point_light", "lights", "no_lights", "spot_light", "image_light", "panorama", "light_falloff", "specular_color", "normal_material", "ambient_material", "specular_material", "shininess", "emissive_material", "metalness", "texture", "texture_mode", "texture_wrap"]
 status = "partial"
 module = "p5.api.advanced"
-notes = "Selected lights/materials/textures are implemented; richer WebGL material and environment APIs remain deferred."
+notes = "Selected lights/materials/textures are implemented. Richer light, material, environment, texture mode, and wrapping APIs are public deferred stubs in p5.api.compatibility."
 
 [[entry]]
-reference = "p5.Shader hook inspection/modification/context-copy APIs"
-p5_py = ["load_shader", "create_shader", "shader", "reset_shader"]
-status = "pythonic_equivalent"
+reference = "p5.Shader hook inspection/modification/context-copy APIs, filter/image/stroke/color/material shader variants"
+p5_py = ["load_shader", "create_shader", "shader", "reset_shader", "create_filter_shader", "filter_shader", "create_image_shader", "create_stroke_shader", "create_color_shader", "create_material_shader", "normal_shader"]
+status = "partial"
 module = "p5.assets.shader"
-notes = "Shader3D exposes Pythonic set_uniform, version, copy_to_context, inspect_hooks, and modify methods. Browser WebGL context-copy semantics are represented as backend-neutral value copies."
+notes = "Shader3D exposes Pythonic set_uniform, version, copy_to_context, inspect_hooks, and modify methods. Browser WebGL context-copy semantics are represented as backend-neutral value copies. Shader variant helper names are deferred stubs until a native shader variant design exists."
 
 [[entry]]
 reference = "WebGPU, p5.strands, storage buffers, compute shaders"
-p5_py = []
+p5_py = ["webgpu_context", "create_storage_buffer", "update_storage_buffer", "read_storage_buffer", "create_compute_shader", "dispatch_compute", "strands"]
 status = "deferred"
 module = "p5.api.compatibility"
-notes = "Deferred unless the Rust canvas runtime grows a safe native GPU abstraction; p5.strands browser-specific semantics are excluded."
+notes = "Deferred unless the Rust canvas runtime grows a safe native GPU abstraction; p5.strands browser-specific semantics are excluded through an explicit public stub."
+
+[[entry]]
+reference = "p5.Amplitude, p5.FFT, p5.AudioIn, oscillators, envelopes, filters, getAudioContext"
+p5_py = ["create_amplitude", "create_fft", "create_audio_in", "create_audio_input", "create_oscillator", "create_envelope", "create_sound_filter", "get_audio_context"]
+status = "deferred"
+module = "p5.api.compatibility"
+notes = "Sound analysis, synthesis, audio capture, and audio-context escape hatches are deferred pending an optional native audio backend and privacy/platform design."
 
 [[entry]]
 reference = "JavaScript educational pages"

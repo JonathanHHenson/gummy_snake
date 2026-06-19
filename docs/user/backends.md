@@ -51,8 +51,21 @@ Interactive mode requires an installed `p5.rust._canvas` extension with native w
 
 See `docs/technical/hidpi_rendering.md` for the full model.
 
+## Offscreen graphics
+
+`create_graphics()`, `create_framebuffer()`, and `no_canvas()` are explicit
+deferred APIs. They raise `UnsupportedFeatureError` instead of falling back to a
+separate Python renderer or exposing canvas internals. Bounded/headless runs
+already use an offscreen `p5_canvas` surface for the main sketch; user-created
+offscreen render targets still need native ownership, resize, readback, and
+cleanup semantics in `p5_canvas`.
+
+See `docs/technical/offscreen_graphics_framebuffer_design.md` for the planned
+ownership model.
+
 ## Related docs
 
 - `docs/technical/canvas_required_runtime.md`
 - `docs/technical/canvas_migration_release.md`
+- `docs/technical/offscreen_graphics_framebuffer_design.md`
 - `docs/technical/p5_canvas_rust_backend.md`

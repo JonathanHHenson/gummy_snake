@@ -130,6 +130,42 @@ def test_environment_helpers_and_explicit_browser_sensor_exclusions():
             helper()
 
 
+def test_offscreen_graphics_and_no_canvas_are_explicitly_deferred():
+    for helper in (p5.create_graphics, p5.create_framebuffer):
+        with pytest.raises(UnsupportedFeatureError, match="offscreen_graphics_framebuffer_design"):
+            helper(16, 16)
+
+    with pytest.raises(UnsupportedFeatureError, match="p5_canvas surface"):
+        p5.no_canvas()
+
+
+def test_advanced_3d_gap_apis_are_explicitly_deferred():
+    deferred_helpers = (
+        p5.frustum,
+        p5.set_camera,
+        p5.roll,
+        p5.screen_to_world,
+        p5.world_to_screen,
+        p5.debug_mode,
+        p5.no_debug_mode,
+        p5.lights,
+        p5.no_lights,
+        p5.spot_light,
+        p5.image_light,
+        p5.panorama,
+        p5.light_falloff,
+        p5.specular_color,
+        p5.emissive_material,
+        p5.metalness,
+        p5.texture_mode,
+        p5.texture_wrap,
+    )
+
+    for helper in deferred_helpers:
+        with pytest.raises(UnsupportedFeatureError, match="advanced WEBGL-style API"):
+            helper()
+
+
 def test_accessibility_helpers_store_native_metadata():
     def setup():
         p5.create_canvas(10, 10)

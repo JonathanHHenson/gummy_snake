@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections import OrderedDict
+from collections.abc import Callable, Hashable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from p5 import constants as c
 from p5.assets.image import Image, P5Image
@@ -12,6 +13,9 @@ from p5.core.color import Color
 from p5.core.state import StyleState
 from p5.core.transform import Matrix2D
 from p5.exceptions import ArgumentValidationError, BackendCapabilityError
+
+_TEXT_METRIC_CACHE_LIMIT = 256
+_TextMetricKey = tuple[str, str | None, tuple[tuple[str, Hashable], ...]]
 
 
 def _color_payload(color: Color | None) -> tuple[int, int, int, int] | None:
@@ -39,6 +43,20 @@ def _matrix_payload(transform: Matrix2D) -> tuple[float, float, float, float, fl
     return (transform.a, transform.b, transform.c, transform.d, transform.e, transform.f)
 
 
+def _text_metric_key(kind: str, style: StyleState, value: str | None = None) -> _TextMetricKey:
+    payload = _style_payload(style)
+    return (
+        kind,
+        value,
+        tuple(
+            sorted(
+                (payload_key, cast(Hashable, payload_value))
+                for payload_key, payload_value in payload.items()
+            )
+        ),
+    )
+
+
 class CanvasRenderer:
     """Renderer protocol adapter for ``p5.rust._canvas``.
 
@@ -55,6 +73,7 @@ class CanvasRenderer:
         self.physical_height = 0
         self.pixel_density = 1.0
         self._image_cache_versions: dict[int, int] = {}
+        self._text_metric_cache: OrderedDict[_TextMetricKey, float] = OrderedDict()
 
     def resize(
         self,
@@ -282,31 +301,28 @@ class CanvasRenderer:
         )
 
     def text_width(self, value: str, style: StyleState) -> float:
-        return float(
-            self._call(
-                "text measurement",
-                self._require_canvas().text_width,
-                value,
-                _style_payload(style),
-            )
+        return self._cached_text_metric(
+            _text_metric_key("width", style, value),
+            "text measurement",
+            self._require_canvas().text_width,
+            value,
+            _style_payload(style),
         )
 
     def text_ascent(self, style: StyleState) -> float:
-        return float(
-            self._call(
-                "text ascent measurement",
-                self._require_canvas().text_ascent,
-                _style_payload(style),
-            )
+        return self._cached_text_metric(
+            _text_metric_key("ascent", style),
+            "text ascent measurement",
+            self._require_canvas().text_ascent,
+            _style_payload(style),
         )
 
     def text_descent(self, style: StyleState) -> float:
-        return float(
-            self._call(
-                "text descent measurement",
-                self._require_canvas().text_descent,
-                _style_payload(style),
-            )
+        return self._cached_text_metric(
+            _text_metric_key("descent", style),
+            "text descent measurement",
+            self._require_canvas().text_descent,
+            _style_payload(style),
         )
 
     def load_pixels(self) -> list[int]:
@@ -411,3 +427,20 @@ class CanvasRenderer:
             raise BackendCapabilityError(
                 f"The 'canvas' backend failed during {operation}: {exc}"
             ) from exc
+
+    def _cached_text_metric(
+        self,
+        key: _TextMetricKey,
+        operation: str,
+        callback: Callable[..., Any],
+        *args: object,
+    ) -> float:
+        cached = self._text_metric_cache.get(key)
+        if cached is not None:
+            self._text_metric_cache.move_to_end(key)
+            return cached
+        value = float(self._call(operation, callback, *args))
+        self._text_metric_cache[key] = value
+        if len(self._text_metric_cache) > _TEXT_METRIC_CACHE_LIMIT:
+            self._text_metric_cache.popitem(last=False)
+        return value

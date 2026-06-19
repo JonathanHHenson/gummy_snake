@@ -44,6 +44,10 @@ supported user path.
   canvas runtime.
 - Future native acceleration should extend `p5_canvas` or isolated Rust/Python
   helper modules, not introduce a second public runtime backend.
+- Future offscreen graphics and framebuffer APIs must be implemented as
+  `p5_canvas` render targets behind Python adapter objects. `create_graphics()`,
+  `create_framebuffer()`, and `no_canvas()` currently raise package-specific
+  deferred errors; see `docs/technical/offscreen_graphics_framebuffer_design.md`.
 
 ## Migration Notes
 

@@ -28,11 +28,18 @@ Expected differences from browser p5.js include:
 The package intentionally excludes browser-only areas such as:
 
 - DOM element helpers such as `create_div()` and `create_button()`
+- DOM form/file-input helpers such as `create_input()`, `create_slider()`, `create_select()`, and `create_file_input()`
 - `p5.XML`
 - `p5.Table` and `p5.TableRow`
+- browser Blob/client-side-save, URL, and storage helpers
+- browser pointer lock
 - browser-only APIs with no native Python equivalent
 
 These compatibility stubs raise explicit `p5` exceptions so unsupported features fail clearly.
+
+Device sensors, advanced shader variants, WebGPU/storage-buffer/compute APIs, sound analysis/synthesis, and audio capture are deferred rather than silently omitted. The exported snake_case stubs raise `UnsupportedFeatureError` until a native Python or Rust canvas runtime design exists.
+
+Text metrics use the native canvas runtime for `text_width()`, ascent/descent, and bounds helpers. Repeated measurements are cached per renderer with a bounded cache. Font outline/path helpers such as `Font.text_to_points()`, `Font.text_to_paths()`, `Font.text_to_contours()`, and `Font.text_to_model()` are explicit deferred APIs until native font shaping and outline extraction are available.
 
 ## Migration guidance
 

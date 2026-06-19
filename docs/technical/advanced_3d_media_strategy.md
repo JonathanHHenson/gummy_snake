@@ -90,14 +90,22 @@ The public API is intentionally Pythonic and exports snake_case names only:
 | `perspective(...)` | Implemented |
 | `ortho(...)` | Implemented |
 | `orbit_control()` | Implemented on interactive backends with mouse drag + wheel input |
+| `frustum(...)`, `set_camera(...)`, `roll(...)` | Deferred stubs |
+| `screen_to_world(...)`, `world_to_screen(...)` | Deferred stubs |
+| `debug_mode(...)`, `no_debug_mode()` | Deferred stubs |
 | `ambient_light(...)` | Implemented |
 | `directional_light(...)` | Implemented |
 | `point_light(...)` | Implemented |
+| `lights()`, `no_lights()`, `spot_light(...)` | Deferred stubs |
+| `image_light(...)`, `panorama(...)` | Deferred stubs |
+| `light_falloff(...)`, `specular_color(...)` | Deferred stubs |
 | `normal_material()` | Implemented |
 | `ambient_material(...)` | Implemented |
 | `specular_material(...)` | Implemented |
 | `shininess(value)` | Implemented |
+| `emissive_material(...)`, `metalness(...)` | Deferred stubs |
 | `texture(image)` | Implemented as a software-mapped texture path for UV-capable meshes/primitives |
+| `texture_mode(...)`, `texture_wrap(...)` | Deferred stubs |
 | `plane(...)`, `box(...)`, `sphere(...)` | Implemented |
 
 ## Model loading and shader adaptation
@@ -172,8 +180,10 @@ Compatibility notes:
 - Browser precision qualifiers, attributes, and built-in uniforms may require adaptation.
 - Shader compilation errors should be package-specific and include file paths, line numbers when available, and backend details.
 - `load_shader`, `create_shader`, `shader`, and `reset_shader` now work on the native Pyglet WEBGL renderer.
+- Shader variant helpers such as `create_filter_shader`, `filter_shader`, `create_image_shader`, `create_stroke_shader`, `create_color_shader`, `create_material_shader`, and `normal_shader` are exported as deferred stubs until a native shader variant design exists.
 - The current shader target is a desktop OpenGL compatibility profile, so user shaders should prefer compatibility built-ins such as `gl_Vertex`, `gl_ModelViewProjectionMatrix`, and `gl_FragColor` or the auto-populated `u_projection`, `u_view`, `u_model`, and `u_model_view_projection` uniforms.
 - Headless/software WEBGL keeps its deterministic fallback path but still reports shader binding as unsupported because there is no native GPU shader backend there.
+- WebGPU/storage-buffer/compute names such as `webgpu_context`, `create_storage_buffer`, `update_storage_buffer`, `read_storage_buffer`, `create_compute_shader`, `dispatch_compute`, and `strands` are explicit deferred/excluded stubs. They should not be implemented until the Rust canvas runtime exposes a safe native GPU abstraction with clear synchronization, resource-limit, and packaging semantics.
 
 ## Sound and media strategy
 
@@ -245,6 +255,7 @@ Predictable failure behavior is intentional:
 - If a file cannot be opened, `create_video()` raises `ArgumentValidationError`.
 - If a camera cannot be opened, `create_capture()` raises `BackendCapabilityError` explaining that headless environments, missing devices, or denied OS permissions are common causes.
 - `create_capture("audio")` and other microphone-oriented modes remain deferred with a package-specific `UnsupportedFeatureError`.
+- Sound analysis, synthesis, audio input, and audio-context escape hatches remain deferred with package-specific stubs: `create_amplitude`, `create_fft`, `create_audio_in`, `create_audio_input`, `create_oscillator`, `create_envelope`, `create_sound_filter`, and `get_audio_context`.
 
 ## Compatibility matrix updates
 
@@ -264,6 +275,8 @@ Predictable failure behavior is intentional:
 - `sound_synthesis`: `deferred`
 - `media_playback`: `partial`
 - `media_capture`: `partial`
+- `webgpu`: `deferred`
+- `strands_compute`: `excluded`
 
 Implemented wrappers live in `src/p5/api/advanced.py` and are re-exported through `src/p5/api/compatibility.py` and `src/p5/__init__.py`. Remaining deferred APIs still raise immediate, intentional package-specific errors instead of failing with missing attributes.
 

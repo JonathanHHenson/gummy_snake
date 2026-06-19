@@ -9,7 +9,7 @@ acceptance_criteria = '''
 Shader APIs currently classified as partial and WebGPU/strands/storage-buffer/compute APIs currently classified as deferred are either implemented on a native Rust GPU abstraction or explicitly excluded/deferred with actionable errors. Shader object parity includes uniform handling, version reporting, context-copy decisions, hook inspection/modification decisions, filter/image/stroke shader variants where feasible, and documentation of differences from p5.js. WebGPU, storage buffers, and compute shader APIs are implemented only if the Rust canvas runtime provides a safe native abstraction. Tests cover shader creation, uniforms, failure modes, and any GPU-compute readback behavior.
 '''
 priotity = 'medium'
-status = 'TODO'
+status = 'IN_PROGRESS'
 
 [my_pbi.task_1]
 order = 1
@@ -34,7 +34,7 @@ Design native shader variant APIs for filter, image, stroke, color, material, an
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Decide whether a Rust native GPU abstraction can safely support WebGPU-like storage buffers and compute shaders; if not, keep WebGPU, p5.strands, storage buffers, and compute APIs explicitly deferred or excluded.
 '''
@@ -48,7 +48,7 @@ If native compute support is accepted, implement storage buffer creation/update/
 
 [my_pbi.task_6]
 order = 6
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add package-specific unsupported stubs for common advanced shader/WebGPU names that users are likely to try before native support exists.
 '''
@@ -62,7 +62,7 @@ Add shader and GPU tests that cover supported paths, missing capability errors, 
 
 [my_pbi.task_8]
 order = 8
-status = 'TODO'
+status = 'DONE'
 description = '''
 Document security, platform, performance, and packaging implications for any native GPU compute support, and update the compatibility inventory.
 '''

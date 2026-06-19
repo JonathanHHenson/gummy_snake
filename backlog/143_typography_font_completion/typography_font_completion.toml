@@ -9,11 +9,11 @@ acceptance_criteria = '''
 Text APIs classified as partial in the reference inventory are implemented or explicitly deferred based on native canvas text capabilities. Coverage includes font ascent/descent/width/bounds helpers, `text_bounds`, `text_direction`, `text_wrap`, `text_weight`, `text_properties`, `text_property`, and feasible Font outline/path helpers. Metrics are deterministic in bounded/headless tests, documentation describes platform/font limitations, and any expensive text measurement caches are designed to avoid unbounded growth.
 '''
 priotity = 'high'
-status = 'TODO'
+status = 'IN_PROGRESS'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Audit current Rust canvas text measurement capabilities and define the exact native text metric contract for logical coordinates, HiDPI backing buffers, and loaded fonts.
 '''
@@ -34,7 +34,7 @@ Implement text property APIs including `text_direction`, `text_wrap`, `text_weig
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Evaluate Font outline/path/model helpers (`text_to_points`, `text_to_paths`, `text_to_contours`, `text_to_model`) and implement Python-native equivalents only where native font shaping support is sufficient.
 '''
@@ -48,14 +48,14 @@ Add deterministic tests using packaged test fonts and document any platform-depe
 
 [my_pbi.task_6]
 order = 6
-status = 'TODO'
+status = 'DONE'
 description = '''
 Review and optimize text measurement caching so repeated `text_width`/bounds calls avoid redundant Rust/native work without leaking memory across sketches.
 '''
 
 [my_pbi.task_7]
 order = 7
-status = 'TODO'
+status = 'DONE'
 description = '''
 Update user typography docs, compatibility inventory, and native text technical docs after implementation or explicit deferral decisions.
 '''

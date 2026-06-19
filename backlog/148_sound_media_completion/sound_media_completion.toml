@@ -9,11 +9,11 @@ acceptance_criteria = '''
 Compatibility matrix entries for sound, sound playback, sound analysis, sound synthesis, media playback, and media capture are implemented, split into explicit native milestones, or documented as deferred/excluded. Local-file audio/video workflows remain Python-native and avoid browser DOM/media element semantics. Capture APIs address privacy, platform dependencies, and optional extras. Tests cover supported local playback/capture wrappers, missing capability failures, and documentation describes dependency, packaging, and privacy implications.
 '''
 priotity = 'medium'
-status = 'TODO'
+status = 'IN_PROGRESS'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Audit existing sound, video, and capture wrappers against `COMPATIBILITY_MATRIX` partial/deferred categories and document which APIs are in scope for native Python support.
 '''
@@ -27,7 +27,7 @@ Complete local sound playback lifecycle APIs where feasible, including load, pla
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Decide whether sound analysis and synthesis need a native optional dependency; implement a minimal backend or keep these entries deferred with explicit package-specific errors.
 '''
@@ -62,7 +62,7 @@ Benchmark representative media frame paths and avoid unnecessary pixel/frame cop
 
 [my_pbi.task_8]
 order = 8
-status = 'TODO'
+status = 'DONE'
 description = '''
 Update user media docs, compatibility matrix, optional dependency documentation, and release notes when media statuses change.
 '''
