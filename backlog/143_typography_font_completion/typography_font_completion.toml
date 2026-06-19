@@ -20,14 +20,14 @@ Audit current Rust canvas text measurement capabilities and define the exact nat
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement `font_ascent`, `font_descent`, `font_width`, `font_bounds`, and `text_bounds` where native text APIs can provide deterministic results.
 '''
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement text property APIs including `text_direction`, `text_wrap`, `text_weight`, `text_properties`, and `text_property`, preserving existing `text_size`, `text_font`, `text_style`, `text_align`, and `text_leading` behavior.
 '''
@@ -41,7 +41,7 @@ Evaluate Font outline/path/model helpers (`text_to_points`, `text_to_paths`, `te
 
 [my_pbi.task_5]
 order = 5
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add deterministic tests using packaged test fonts and document any platform-dependent font fallback limitations.
 '''

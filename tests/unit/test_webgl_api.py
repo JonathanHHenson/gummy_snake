@@ -68,6 +68,31 @@ def test_orbit_control_applies_mouse_wheel_zoom():
     assert _camera_radius(context) < initial_radius
 
 
+def test_shader_object_parity_helpers_copy_and_modify():
+    shader = Shader3D(
+        vertex_source="#version 300 es\nin vec3 position;\nvoid main() {}",
+        fragment_source="uniform vec4 color;\nvoid main() {}",
+    )
+    shader.set_uniform("color", (1.0, 0.0, 0.0, 1.0))
+
+    assert shader.version() == "glsl-es-300"
+    assert shader.inspect_hooks() == {
+        "vertex": True,
+        "fragment": True,
+        "uniforms": True,
+        "attributes": True,
+    }
+
+    copied = shader.copy_to_context()
+    copied.set_uniform("color", (0.0, 1.0, 0.0, 1.0))
+    assert shader.uniforms["color"] == (1.0, 0.0, 0.0, 1.0)
+    assert copied.uniforms["color"] == (0.0, 1.0, 0.0, 1.0)
+
+    modified = shader.modify(fragment_source="void main() {}", uniforms={"time": 1.5})
+    assert modified.fragment_source == "void main() {}"
+    assert modified.uniforms["time"] == 1.5
+
+
 class Fake3DRenderer:
     three_d = True
     width = 96

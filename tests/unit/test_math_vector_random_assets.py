@@ -49,6 +49,25 @@ def test_vector_instance_and_static_helpers():
     assert p5.Vector.lerp((0, 0, 0), (10, 20, 30), 0.5) == p5.Vector(5, 10, 15)
 
 
+def test_spline_helpers_draw_and_measure():
+    def setup():
+        p5.create_canvas(20, 20)
+        p5.spline_property("tightness", 0)
+        assert p5.spline_point(0, 10, 20, 30, 0) == pytest.approx(10)
+        assert p5.spline_point(0, 10, 20, 30, 1) == pytest.approx(20)
+        assert p5.spline_tangent(0, 10, 20, 30, 0.5) == pytest.approx(10)
+        p5.no_fill()
+        p5.stroke(255)
+        p5.begin_shape()
+        p5.vertex(2, 10)
+        p5.spline_vertex(8, 2)
+        p5.spline_vertex(14, 10)
+        p5.end_shape()
+
+    context = p5.run(setup=setup, headless=True, max_frames=0)
+    assert any(value != 0 for value in context.load_pixels())
+
+
 def test_random_and_noise_are_seedable():
     p5.random_seed(123)
     first = [p5.random(), p5.random(10), p5.random(-1, 1), p5.random(["a", "b", "c"])]
@@ -138,6 +157,17 @@ def test_image_manipulation_and_drawing_with_text(tmp_path: Path):
         assert p5.text_width("Hi") > 0
         assert p5.text_ascent() > 0
         assert p5.text_descent() >= 0
+        bounds = p5.text_bounds("Hi", 10, 20)
+        assert bounds["width"] > 0
+        assert p5.font_width("Hi") == pytest.approx(bounds["width"])
+        assert p5.font_ascent() == pytest.approx(p5.text_ascent())
+        assert p5.font_descent() == pytest.approx(p5.text_descent())
+        assert p5.font_bounds("Hi", 10, 20)["height"] == pytest.approx(bounds["height"])
+        assert p5.text_direction("rtl") == "rtl"
+        assert p5.text_wrap("char") == "char"
+        assert p5.text_weight(700) == 700
+        assert p5.text_property("direction") == "rtl"
+        assert p5.text_properties()["wrap"] == "char"
 
     context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
     assert len(set(context.load_pixels())) > 1

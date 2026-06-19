@@ -38,11 +38,11 @@ The current public API already covers substantial non-browser sketching:
 
 The high-value non-browser 2D gaps are mostly additive APIs on top of existing renderer/state foundations:
 
-- Spline and custom shape parity: `spline`, `spline_point`, `spline_tangent`, `spline_vertex`, `spline_properties`, `spline_property`, `begin_contour`, `end_contour`, `bezier_order`, `normal`, and `vertex_property`.
+- Remaining custom shape gaps after the Pythonic spline slice: `begin_contour`, `end_contour`, `bezier_order`, `normal`, and `vertex_property`. Catmull-Rom `spline`, `spline_point`, `spline_tangent`, `spline_vertex`, `spline_properties`, and `spline_property` are implemented.
 - Color readers/mutators: `red`, `green`, `blue`, `alpha`, `hue`, `saturation`, `brightness`, `lightness`, `palette_lerp`, plus `Color` methods such as contrast, channel setters, alpha setter, and string formatting.
 - Clipping/tinting: `begin_clip`, `clip`, `end_clip`, `tint`, and `no_tint` need native canvas semantics.
-- Image/canvas pixel helpers: canvas-level `get`, `set`, `copy`, `filter`, `create_image`, `save_frames`, `save_gif`, and fuller `Image` method parity including animated GIF controls where feasible.
-- Typography: font ascent/descent/width/bounds helpers, `text_bounds`, `text_direction`, `text_wrap`, `text_weight`, `text_properties`, and `text_property`.
+- Remaining image/canvas gaps: clipping/tinting, `save_frames`, `save_gif`, and animated GIF controls where feasible. Canvas-level `get`, `set`, `copy`, and `filter` are implemented over the physical RGBA backing buffer.
+- Remaining typography gaps: font outline/path helpers and richer shaping semantics. Font ascent/descent/width/bounds helpers, `text_bounds`, `text_direction`, `text_wrap`, `text_weight`, `text_properties`, and `text_property` are implemented over the current native metric contract.
 - Offscreen rendering: `create_graphics`, framebuffer-like equivalents, `no_canvas`, and any `drawing_context` substitute need explicit canvas-runtime design before implementation.
 
 ### Math, data, and environment gaps
@@ -63,17 +63,17 @@ Current mouse/keyboard/touch support is partial. The beta reference includes bro
 - Pointer/keyboard callbacks and variables: `mouse_clicked`, `double_clicked`, `mouse_dragged`, `mouse_moved`, `mouse_released`, `mouse_wheel`, `key_pressed`, `key_released`, `key_typed`, `win_mouse_x/y`, previous window mouse values, and `code` semantics.
 - Pointer lock is browser-specific and should remain excluded unless the native window runtime offers an explicit equivalent.
 - Device acceleration/orientation APIs should remain deferred or excluded until a native sensor provider is selected.
-- Accessibility helpers such as `describe`, `describe_element`, `grid_output`, and `text_output` produce browser screen-reader output in p5.js. A native Python equivalent would need a separate design, likely metadata/test hooks rather than DOM output.
+- Accessibility helpers such as `describe`, `describe_element`, `grid_output`, and `text_output` are implemented as native metadata/test hooks rather than browser DOM output.
 - IO helpers focus on local file workflows such as text, bytes, JSON, and writer-style output. Browser Blob/client-side save behavior is not a native Python concept.
 
 ### Advanced 3D, shaders, and WebGPU gaps
 
 The 3D/media work is intentionally partial. Missing beta-reference areas should be separated into practical native milestones:
 
-- 3D primitives and geometry: `cone`, `cylinder`, `ellipsoid`, `torus`, `build_geometry`, `create_model`, `save_obj`, `save_stl`, `free_geometry`, and p5.Geometry-style methods/properties.
+- Remaining 3D geometry gaps: `build_geometry`, `free_geometry`, and rich p5.Geometry-style mutation helpers. `cone`, `cylinder`, `ellipsoid`, `torus`, `create_model`, `save_obj`, and `save_stl` are implemented.
 - Camera/projection/interaction: `frustum`, `set_camera`, `roll`, debug grid/axes helpers, line perspective, and screen/world coordinate conversion.
 - Lights/materials: `lights`, `no_lights`, `spot_light`, `image_light`, `panorama`, `light_falloff`, `specular_color`, `emissive_material`, `metalness`, `texture_mode`, and `texture_wrap`.
-- Shader object parity: hook modification/inspection and context-copy APIs do not map directly to the current native shader design and should be explicitly classified.
+- Shader object parity: `Shader3D` now exposes Pythonic uniform, version, context-copy, hook-inspection, and source-modification helpers. WebGPU-like compute/storage APIs remain deferred.
 - WebGPU, p5.strands, storage buffers, and compute shaders should remain deferred or excluded unless the Rust canvas runtime grows a native GPU abstraction that can support them safely.
 
 ## Explicit exclusions and non-goals

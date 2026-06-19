@@ -32,6 +32,22 @@ def test_update_pixels_accepts_bytes_buffer():
     assert context.load_pixels() == [255, 0, 0, 255, 0, 0, 255, 255]
 
 
+def test_canvas_get_set_copy_and_filter_helpers():
+    def setup():
+        p5.create_canvas(3, 2)
+        p5.background(0, 0, 0, 255)
+        p5.set(1, 0, p5.Color(10, 20, 30, 255))
+        assert p5.get(1, 0) == p5.Color(10, 20, 30, 255)
+        region = p5.get(1, 0, 1, 1)
+        assert isinstance(region, p5.Image)
+        p5.copy(1, 0, 1, 1, 2, 1, 1, 1)
+        assert p5.get(2, 1) == p5.Color(10, 20, 30, 255)
+        p5.filter(p5.INVERT)
+
+    context = p5.run(setup=setup, headless=True, max_frames=0)
+    assert context.get(2, 1) == p5.Color(245, 235, 225, 255)
+
+
 def test_gpu_queued_text_preserves_pixels_from_update_pixels():
     def setup():
         p5.create_canvas(8, 8)

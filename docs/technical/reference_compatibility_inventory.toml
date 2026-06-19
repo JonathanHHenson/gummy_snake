@@ -81,24 +81,24 @@ notes = "Explicit non-goals for p5-py."
 
 [[entry]]
 reference = "spline/splinePoint/splineTangent/splineVertex/splineProperties/beginContour/endContour/normal/vertexProperty"
-p5_py = ["begin_shape", "vertex", "bezier_vertex", "quadratic_vertex", "end_shape"]
+p5_py = ["begin_shape", "vertex", "bezier_vertex", "quadratic_vertex", "spline_vertex", "end_shape", "spline", "spline_point", "spline_tangent", "spline_property", "spline_properties"]
 status = "partial"
 module = "p5.api.global_mode"
-notes = "Current renderer supports custom shapes and Beziers. Spline/property/contour APIs require native renderer path semantics before public exposure."
+notes = "Catmull-Rom spline drawing/math and tightness properties are supported. Contours, normal, and vertexProperty still need native renderer path/property semantics."
 
 [[entry]]
 reference = "beginClip/clip/endClip/tint/noTint/filter/saveFrames/saveGif"
-p5_py = ["Image", "create_image", "save_canvas"]
+p5_py = ["Image", "create_image", "get", "set", "copy", "filter", "save_canvas"]
 status = "partial"
 module = "p5.assets.image"
-notes = "Image filters and export helpers exist for local image/canvas workflows. Canvas clipping, tint, animated frame export, and GIF controls need Rust canvas semantics."
+notes = "Image filters, canvas get/set/copy/filter helpers, and export helpers exist for local image/canvas workflows. Canvas clipping, tint, animated frame export, and GIF controls need Rust canvas semantics."
 
 [[entry]]
 reference = "textBounds/textDirection/textWrap/textWeight/textProperties/textProperty/fontBounds/fontWidth/fontAscent/fontDescent"
-p5_py = ["text", "text_width", "text_ascent", "text_descent", "text_font", "text_style"]
+p5_py = ["text", "text_width", "text_ascent", "text_descent", "text_font", "text_style", "text_bounds", "text_direction", "text_wrap", "text_weight", "text_properties", "text_property", "font_bounds", "font_width", "font_ascent", "font_descent"]
 status = "partial"
 module = "p5.api.global_mode"
-notes = "Basic native text metrics are available. Rich font bounds, wrapping, direction, and batch property APIs remain renderer-dependent."
+notes = "Text bounds/properties and font metric wrappers are supported over the current native width/ascent/descent contract. Font outline/path extraction remains deferred."
 
 [[entry]]
 reference = "createGraphics/framebuffer/noCanvas/drawingContext"
@@ -123,10 +123,10 @@ notes = "Touch state is native-runtime backed. Browser pointer lock is excluded 
 
 [[entry]]
 reference = "describe/describeElement/gridOutput/textOutput"
-p5_py = []
-status = "deferred"
-module = "docs"
-notes = "Browser screen-reader DOM output does not map to native canvas. Future work should design metadata/test hooks rather than DOM output."
+p5_py = ["describe", "describe_element", "grid_output", "text_output"]
+status = "pythonic_equivalent"
+module = "p5.api.global_mode"
+notes = "Native metadata/test hooks are supported. Browser DOM/screen-reader output semantics remain excluded."
 
 [[entry]]
 reference = "loadBytes/saveBytes/createWriter/browser Blob client-side save"
@@ -137,10 +137,10 @@ notes = "Local text, bytes, JSON, and writer workflows are supported. Browser Bl
 
 [[entry]]
 reference = "cone/cylinder/ellipsoid/torus/buildGeometry/createModel/saveObj/saveStl/freeGeometry/p5.Geometry"
-p5_py = ["plane", "box", "sphere", "load_model", "model"]
+p5_py = ["plane", "box", "sphere", "ellipsoid", "cylinder", "cone", "torus", "create_model", "save_obj", "save_stl", "load_model", "model"]
 status = "partial"
 module = "p5.api.advanced"
-notes = "Current 3D slice supports selected primitives and models. Rich geometry construction/export remains deferred to native 3D milestones."
+notes = "Generated 3D primitives, model wrapping, and deterministic OBJ/STL export are supported. buildGeometry/freeGeometry and rich p5.Geometry mutation helpers remain deferred."
 
 [[entry]]
 reference = "frustum/setCamera/roll/debugMode/noDebugMode/screenToWorld/worldToScreen"
@@ -159,9 +159,9 @@ notes = "Selected lights/materials/textures are implemented; richer WebGL materi
 [[entry]]
 reference = "p5.Shader hook inspection/modification/context-copy APIs"
 p5_py = ["load_shader", "create_shader", "shader", "reset_shader"]
-status = "partial"
+status = "pythonic_equivalent"
 module = "p5.assets.shader"
-notes = "Current native shader support does not expose p5.js hook/context-copy semantics; these remain explicitly classified rather than emulated."
+notes = "Shader3D exposes Pythonic set_uniform, version, copy_to_context, inspect_hooks, and modify methods. Browser WebGL context-copy semantics are represented as backend-neutral value copies."
 
 [[entry]]
 reference = "WebGPU, p5.strands, storage buffers, compute shaders"

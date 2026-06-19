@@ -79,6 +79,62 @@ def sphere(radius: float, detail_x: int = 24, detail_y: int = 16) -> None:
     require_context().sphere(radius, detail_x, detail_y)
 
 
+def ellipsoid(
+    radius_x: float,
+    radius_y: float | None = None,
+    radius_z: float | None = None,
+    detail_x: int = 24,
+    detail_y: int = 16,
+) -> None:
+    require_context().ellipsoid(radius_x, radius_y, radius_z, detail_x, detail_y)
+
+
+def cylinder(
+    radius: float,
+    height: float,
+    detail_x: int = 24,
+    detail_y: int = 1,
+    *,
+    bottom_cap: bool = True,
+    top_cap: bool = True,
+) -> None:
+    require_context().cylinder(
+        radius, height, detail_x, detail_y, bottom_cap=bottom_cap, top_cap=top_cap
+    )
+
+
+def cone(
+    radius: float,
+    height: float,
+    detail_x: int = 24,
+    detail_y: int = 1,
+    *,
+    cap: bool = True,
+) -> None:
+    require_context().cone(radius, height, detail_x, detail_y, cap=cap)
+
+
+def torus(
+    radius: float,
+    tube_radius: float | None = None,
+    detail_x: int = 24,
+    detail_y: int = 12,
+) -> None:
+    require_context().torus(radius, tube_radius, detail_x, detail_y)
+
+
+def create_model(mesh: object):
+    return require_context().create_model(mesh)
+
+
+def save_obj(model_value, path: str | Path):
+    return require_context().save_obj(model_value, path)
+
+
+def save_stl(model_value, path: str | Path):
+    return require_context().save_stl(model_value, path)
+
+
 def load_model(path: str | Path, normalize: bool = False, *, package: str | None = None):
     return _load_model(path, normalize, package=package)
 
@@ -155,4 +211,11 @@ __all__ = [
     "shininess",
     "specular_material",
     "sphere",
+    "ellipsoid",
+    "cylinder",
+    "cone",
+    "torus",
+    "create_model",
+    "save_obj",
+    "save_stl",
 ]

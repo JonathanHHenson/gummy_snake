@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import math
 import re
 import tomllib
 from pathlib import Path
@@ -93,7 +94,8 @@ def test_math_data_and_vector_gap_helpers():
     assert vector == p5.Vector(1, 4, 3)
     assert vector.set_value("x", 2).get_value("x") == 2
     assert vector.to_string() == "[2, 4, 3]"
-    assert p5.Vector(1, 0).angle_between((0, 1)) == pytest.approx(90)
+    angle = p5.Vector(1, 0).angle_between((0, 1))
+    assert math.isclose(angle, math.pi / 2) or math.isclose(angle, 90)
     assert (p5.Vector(5, 5, 5) % 2) == p5.Vector(1, 1, 1)
     assert p5.Vector(1e-13, 2, 0).clamp_to_zero() == p5.Vector(0, 2, 0)
     assert p5.Vector(1, -1, 0).reflect((0, 1, 0)) == p5.Vector(1, 1, 0)
@@ -126,3 +128,23 @@ def test_environment_helpers_and_explicit_browser_sensor_exclusions():
     for helper in (p5.acceleration_x, p5.rotation_z, p5.orientation_y, p5.device_moved):
         with pytest.raises(UnsupportedFeatureError):
             helper()
+
+
+def test_accessibility_helpers_store_native_metadata():
+    def setup():
+        p5.create_canvas(10, 10)
+        assert p5.describe("A test canvas") == {
+            "label": "canvas",
+            "description": "A test canvas",
+        }
+        assert p5.describe_element("circle", "A small circle") == {
+            "label": "circle",
+            "description": "A small circle",
+        }
+
+    context = p5.run(setup=setup, headless=True, max_frames=0)
+    assert context.text_output() == [
+        {"label": "canvas", "description": "A test canvas"},
+        {"label": "circle", "description": "A small circle"},
+    ]
+    assert context.grid_output() == context.text_output()

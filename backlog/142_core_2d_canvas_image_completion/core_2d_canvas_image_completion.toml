@@ -13,7 +13,7 @@ status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement Catmull-Rom spline math and drawing APIs: `spline`, `spline_point`, `spline_tangent`, `spline_vertex`, and spline property helpers where they map cleanly to the current shape renderer.
 '''
@@ -34,7 +34,7 @@ Implement backend-safe clipping and image tint state: `begin_clip`, `clip`, `end
 
 [my_pbi.task_4]
 order = 4
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add canvas-level pixel/image helpers `get`, `set`, `copy`, and `filter` while preserving physical-buffer HiDPI semantics for `load_pixels` and `update_pixels`.
 '''

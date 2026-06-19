@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
 from p5.assets.image import Image as P5Image
@@ -153,6 +154,226 @@ def sphere_model(radius: float, detail_x: int = 24, detail_y: int = 16) -> Model
     return Model3D(
         meshes=(Mesh3D(vertices=tuple(vertices), faces=tuple(faces), texcoords=tuple(texcoords)),)
     )
+
+
+def ellipsoid_model(
+    radius_x: float,
+    radius_y: float | None = None,
+    radius_z: float | None = None,
+    detail_x: int = 24,
+    detail_y: int = 16,
+) -> Model3D:
+    ry = radius_x if radius_y is None else radius_y
+    rz = radius_x if radius_z is None else radius_z
+    model = sphere_model(1.0, detail_x, detail_y)
+    mesh = model.meshes[0]
+    vertices = tuple(
+        Vec3(vertex.x * radius_x, vertex.y * ry, vertex.z * rz) for vertex in mesh.vertices
+    )
+    return Model3D(meshes=(Mesh3D(vertices=vertices, faces=mesh.faces, texcoords=mesh.texcoords),))
+
+
+def cylinder_model(
+    radius: float,
+    height: float,
+    detail_x: int = 24,
+    detail_y: int = 1,
+    *,
+    bottom_cap: bool = True,
+    top_cap: bool = True,
+) -> Model3D:
+    if radius <= 0 or height <= 0:
+        raise ArgumentValidationError("cylinder() radius and height must be positive.")
+    if detail_x < 3 or detail_y < 1:
+        raise ArgumentValidationError("cylinder() detail values must be at least 3 and 1.")
+    vertices: list[Vec3] = []
+    texcoords: list[UVCoord] = []
+    faces: list[tuple[int, ...]] = []
+    half_height = height / 2.0
+    for iy in range(detail_y + 1):
+        y = -half_height + height * iy / detail_y
+        v = iy / detail_y
+        for ix in range(detail_x):
+            theta = math.tau * ix / detail_x
+            vertices.append(Vec3(math.cos(theta) * radius, y, math.sin(theta) * radius))
+            texcoords.append((ix / detail_x, v))
+
+    def vertex_index(ix: int, iy: int) -> int:
+        return iy * detail_x + (ix % detail_x)
+
+    for iy in range(detail_y):
+        for ix in range(detail_x):
+            faces.append(
+                (
+                    vertex_index(ix, iy),
+                    vertex_index(ix + 1, iy),
+                    vertex_index(ix + 1, iy + 1),
+                    vertex_index(ix, iy + 1),
+                )
+            )
+    if bottom_cap:
+        center = len(vertices)
+        vertices.append(Vec3(0.0, -half_height, 0.0))
+        texcoords.append((0.5, 0.5))
+        for ix in range(detail_x):
+            faces.append((center, vertex_index(ix + 1, 0), vertex_index(ix, 0)))
+    if top_cap:
+        center = len(vertices)
+        vertices.append(Vec3(0.0, half_height, 0.0))
+        texcoords.append((0.5, 0.5))
+        for ix in range(detail_x):
+            faces.append((center, vertex_index(ix, detail_y), vertex_index(ix + 1, detail_y)))
+    return Model3D(
+        meshes=(Mesh3D(vertices=tuple(vertices), faces=tuple(faces), texcoords=tuple(texcoords)),)
+    )
+
+
+def cone_model(
+    radius: float,
+    height: float,
+    detail_x: int = 24,
+    detail_y: int = 1,
+    *,
+    cap: bool = True,
+) -> Model3D:
+    if radius <= 0 or height <= 0:
+        raise ArgumentValidationError("cone() radius and height must be positive.")
+    if detail_x < 3 or detail_y < 1:
+        raise ArgumentValidationError("cone() detail values must be at least 3 and 1.")
+    vertices: list[Vec3] = []
+    texcoords: list[UVCoord] = []
+    faces: list[tuple[int, ...]] = []
+    half_height = height / 2.0
+    for iy in range(detail_y + 1):
+        fraction = iy / detail_y
+        ring_radius = radius * (1.0 - fraction)
+        y = -half_height + height * fraction
+        for ix in range(detail_x):
+            theta = math.tau * ix / detail_x
+            vertices.append(Vec3(math.cos(theta) * ring_radius, y, math.sin(theta) * ring_radius))
+            texcoords.append((ix / detail_x, fraction))
+
+    def vertex_index(ix: int, iy: int) -> int:
+        return iy * detail_x + (ix % detail_x)
+
+    for iy in range(detail_y):
+        for ix in range(detail_x):
+            if iy == detail_y - 1:
+                faces.append(
+                    (vertex_index(ix, iy), vertex_index(ix + 1, iy), vertex_index(ix, iy + 1))
+                )
+            else:
+                faces.append(
+                    (
+                        vertex_index(ix, iy),
+                        vertex_index(ix + 1, iy),
+                        vertex_index(ix + 1, iy + 1),
+                        vertex_index(ix, iy + 1),
+                    )
+                )
+    if cap:
+        center = len(vertices)
+        vertices.append(Vec3(0.0, -half_height, 0.0))
+        texcoords.append((0.5, 0.5))
+        for ix in range(detail_x):
+            faces.append((center, vertex_index(ix + 1, 0), vertex_index(ix, 0)))
+    return Model3D(
+        meshes=(Mesh3D(vertices=tuple(vertices), faces=tuple(faces), texcoords=tuple(texcoords)),)
+    )
+
+
+def torus_model(
+    radius: float,
+    tube_radius: float | None = None,
+    detail_x: int = 24,
+    detail_y: int = 12,
+) -> Model3D:
+    tube = radius / 4.0 if tube_radius is None else tube_radius
+    if radius <= 0 or tube <= 0:
+        raise ArgumentValidationError("torus() radius values must be positive.")
+    if detail_x < 3 or detail_y < 3:
+        raise ArgumentValidationError("torus() detail values must be at least 3.")
+    vertices: list[Vec3] = []
+    texcoords: list[UVCoord] = []
+    faces: list[tuple[int, ...]] = []
+    for iy in range(detail_y):
+        phi = math.tau * iy / detail_y
+        cos_phi = math.cos(phi)
+        sin_phi = math.sin(phi)
+        for ix in range(detail_x):
+            theta = math.tau * ix / detail_x
+            ring = radius + tube * math.cos(theta)
+            vertices.append(Vec3(ring * cos_phi, tube * math.sin(theta), ring * sin_phi))
+            texcoords.append((ix / detail_x, iy / detail_y))
+
+    def vertex_index(ix: int, iy: int) -> int:
+        return (iy % detail_y) * detail_x + (ix % detail_x)
+
+    for iy in range(detail_y):
+        for ix in range(detail_x):
+            faces.append(
+                (
+                    vertex_index(ix, iy),
+                    vertex_index(ix + 1, iy),
+                    vertex_index(ix + 1, iy + 1),
+                    vertex_index(ix, iy + 1),
+                )
+            )
+    return Model3D(
+        meshes=(Mesh3D(vertices=tuple(vertices), faces=tuple(faces), texcoords=tuple(texcoords)),)
+    )
+
+
+def save_obj(model: Model3D, path: str | Path) -> Path:
+    output = Path(path)
+    lines: list[str] = ["# Generated by p5-py"]
+    vertex_offset = 1
+    for mesh in model.meshes:
+        for vertex in mesh.vertices:
+            lines.append(f"v {vertex.x:.9g} {vertex.y:.9g} {vertex.z:.9g}")
+        for u, v in mesh.texcoords:
+            lines.append(f"vt {u:.9g} {v:.9g}")
+        for face in mesh.faces:
+            lines.append("f " + " ".join(str(index + vertex_offset) for index in face))
+        vertex_offset += len(mesh.vertices)
+    output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return output
+
+
+def save_stl(model: Model3D, path: str | Path, *, name: str = "p5_py_model") -> Path:
+    output = Path(path)
+    lines = [f"solid {name}"]
+    for mesh in model.meshes:
+        for face in mesh.faces:
+            if len(face) < 3:
+                continue
+            first = face[0]
+            for index in range(1, len(face) - 1):
+                a = mesh.vertices[first]
+                b = mesh.vertices[face[index]]
+                c = mesh.vertices[face[index + 1]]
+                normal = _triangle_normal(a, b, c)
+                lines.append(f"  facet normal {normal.x:.9g} {normal.y:.9g} {normal.z:.9g}")
+                lines.append("    outer loop")
+                for vertex in (a, b, c):
+                    lines.append(f"      vertex {vertex.x:.9g} {vertex.y:.9g} {vertex.z:.9g}")
+                lines.append("    endloop")
+                lines.append("  endfacet")
+    lines.append(f"endsolid {name}")
+    output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return output
+
+
+def _triangle_normal(a: Vec3, b: Vec3, c: Vec3) -> Vec3:
+    ux, uy, uz = b.x - a.x, b.y - a.y, b.z - a.z
+    vx, vy, vz = c.x - a.x, c.y - a.y, c.z - a.z
+    nx = uy * vz - uz * vy
+    ny = uz * vx - ux * vz
+    nz = ux * vy - uy * vx
+    length = math.sqrt(nx * nx + ny * ny + nz * nz)
+    if length == 0:
+        return Vec3(0.0, 0.0, 0.0)
+    return Vec3(nx / length, ny / length, nz / length)
 
 
 def shade_model_faces(

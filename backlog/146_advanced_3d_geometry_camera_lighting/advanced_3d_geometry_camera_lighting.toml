@@ -13,7 +13,7 @@ status = 'TODO'
 
 [my_pbi.task_1]
 order = 1
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement missing 3D primitives `cone`, `cylinder`, `ellipsoid`, and `torus` with reusable mesh generation and level-of-detail controls.
 '''
@@ -27,7 +27,7 @@ Design and implement Pythonic geometry objects for `build_geometry`, `create_mod
 
 [my_pbi.task_3]
 order = 3
-status = 'TODO'
+status = 'DONE'
 description = '''
 Add model/geometry export helpers `save_obj` and `save_stl`, preserving local-file semantics and deterministic output ordering.
 '''

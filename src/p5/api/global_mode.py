@@ -248,6 +248,10 @@ def quadratic_vertex(*coords: float) -> None:
     require_context().quadratic_vertex(*coords)
 
 
+def spline_vertex(x: float, y: float) -> None:
+    require_context().spline_vertex(x, y)
+
+
 def end_shape(mode: str = "open") -> None:
     require_context().end_shape(mode)
 
@@ -256,12 +260,32 @@ def bezier(*coords: float) -> None:
     require_context().bezier(*coords)
 
 
+def spline(*coords: float) -> None:
+    require_context().spline(*coords)
+
+
 def bezier_point(a: float, b: float, c: float, d: float, t: float) -> float:
     return _geometry.bezier_point(a, b, c, d, t)
 
 
 def bezier_tangent(a: float, b: float, c: float, d: float, t: float) -> float:
     return _geometry.bezier_tangent(a, b, c, d, t)
+
+
+def spline_point(a: float, b: float, c: float, d: float, t: float) -> float:
+    return require_context().spline_point(a, b, c, d, t)
+
+
+def spline_tangent(a: float, b: float, c: float, d: float, t: float) -> float:
+    return require_context().spline_tangent(a, b, c, d, t)
+
+
+def spline_property(name: str, value: float | None = None) -> float:
+    return require_context().spline_property(name, value)
+
+
+def spline_properties(**properties: float) -> dict[str, float]:
+    return require_context().spline_properties(**properties)
 
 
 def push() -> None:
@@ -498,6 +522,64 @@ def text_descent() -> float:
     return require_context().text_descent()
 
 
+def font_ascent(font: Any | None = None) -> float:
+    return require_context().font_ascent(font)
+
+
+def font_descent(font: Any | None = None) -> float:
+    return require_context().font_descent(font)
+
+
+def font_width(value: object, font: Any | None = None) -> float:
+    return require_context().font_width(value, font)
+
+
+def font_bounds(
+    value: object, x: float = 0.0, y: float = 0.0, font: Any | None = None
+) -> dict[str, float]:
+    return require_context().font_bounds(value, x, y, font)
+
+
+def text_bounds(value: object, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
+    return require_context().text_bounds(value, x, y)
+
+
+def text_direction(value: str | None = None) -> str:
+    return require_context().text_direction(value)
+
+
+def text_wrap(value: str | None = None) -> str:
+    return require_context().text_wrap(value)
+
+
+def text_weight(value: int | None = None) -> int:
+    return require_context().text_weight(value)
+
+
+def text_property(name: str, value: object | None = None) -> object:
+    return require_context().text_property(name, value)
+
+
+def text_properties(**properties: object) -> dict[str, object]:
+    return require_context().text_properties(**properties)
+
+
+def describe(description: object, *, label: str = "canvas") -> dict[str, str]:
+    return require_context().describe(description, label=label)
+
+
+def describe_element(name: object, description: object) -> dict[str, str]:
+    return require_context().describe_element(name, description)
+
+
+def text_output() -> list[dict[str, str]]:
+    return require_context().text_output()
+
+
+def grid_output() -> list[dict[str, str]]:
+    return require_context().grid_output()
+
+
 def load_pixels() -> list[int]:
     return require_context().load_pixels()
 
@@ -513,6 +595,22 @@ def pixel_array():
 
 def update_pixels(pixels: Sequence[int] | None = None) -> None:
     require_context().update_pixels(pixels)
+
+
+def get(x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None):
+    return require_context().get(x, y, w, h)
+
+
+def set(x: int, y: int, value: Any) -> None:
+    require_context().set(x, y, value)
+
+
+def copy(*args: object):
+    return require_context().copy(*args)
+
+
+def filter(mode: str, value: float | None = None) -> None:
+    require_context().filter(mode, value)
 
 
 def save_canvas(path: str, *, extension: str | None = None, overwrite: bool = True):
@@ -574,10 +672,16 @@ __all__ = [
     "vertex",
     "bezier_vertex",
     "quadratic_vertex",
+    "spline_vertex",
     "end_shape",
     "bezier",
+    "spline",
     "bezier_point",
     "bezier_tangent",
+    "spline_point",
+    "spline_tangent",
+    "spline_property",
+    "spline_properties",
     "push",
     "pop",
     "pushed",
@@ -635,6 +739,20 @@ __all__ = [
     "text_width",
     "text_ascent",
     "text_descent",
+    "font_ascent",
+    "font_descent",
+    "font_width",
+    "font_bounds",
+    "text_bounds",
+    "text_direction",
+    "text_wrap",
+    "text_weight",
+    "text_property",
+    "text_properties",
+    "describe",
+    "describe_element",
+    "text_output",
+    "grid_output",
     "load_image",
     "create_image",
     "load_font",
@@ -645,6 +763,15 @@ __all__ = [
     "save_strings",
     "load_json",
     "save_json",
+    "load_pixels",
+    "update_pixels",
+    "pixels",
+    "pixel_array",
+    "get",
+    "set",
+    "copy",
+    "filter",
+    "save_canvas",
     "create_vector",
     "map_value",
     "map",

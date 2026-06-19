@@ -48,7 +48,7 @@ Design a native sensor provider interface for acceleration/orientation APIs or k
 
 [my_pbi.task_6]
 order = 6
-status = 'TODO'
+status = 'DONE'
 description = '''
 Design and implement accessibility metadata/test hooks for `describe`, `describe_element`, `grid_output`, and `text_output`, avoiding browser DOM/screen-reader output semantics.
 '''

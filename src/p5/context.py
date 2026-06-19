@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from p5 import constants as c
 from p5.assets.image import Image, P5Image
@@ -15,8 +15,15 @@ from p5.core.color import Color, lerp_color
 from p5.core.geometry import (
     flatten_cubic,
     flatten_quadratic,
+    flatten_spline,
     resolve_ellipse,
     resolve_rect,
+)
+from p5.core.geometry import (
+    spline_point as geometry_spline_point,
+)
+from p5.core.geometry import (
+    spline_tangent as geometry_spline_tangent,
 )
 from p5.core.state import SketchState, StateStackEntry
 from p5.core.transform import Matrix2D
@@ -35,10 +42,20 @@ from p5.drawing.renderer3d import (
 )
 from p5.drawing.software3d import (
     box_model,
+    cone_model,
+    cylinder_model,
+    ellipsoid_model,
     plane_model,
     rasterize_faces_image,
     shade_model_faces,
     sphere_model,
+    torus_model,
+)
+from p5.drawing.software3d import (
+    save_obj as save_obj_model,
+)
+from p5.drawing.software3d import (
+    save_stl as save_stl_model,
 )
 from p5.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from p5.exceptions import ArgumentValidationError, BackendCapabilityError, ShaderUniformError
@@ -71,6 +88,11 @@ class SketchContext:
         self._frame_scroll_x = 0.0
         self._frame_scroll_y = 0.0
         self._shader3d: Shader3D | None = None
+        self._spline_tightness = 0.0
+        self._text_direction = "ltr"
+        self._text_wrap = "word"
+        self._text_weight = 400
+        self._accessibility_descriptions: list[dict[str, str]] = []
 
     @property
     def width(self) -> int:
@@ -384,6 +406,64 @@ class SketchContext:
             raise ArgumentValidationError("quadratic_vertex() requires an initial vertex().")
         p0 = self.state.shape.vertices[-1]
         self.state.shape.vertices.extend(flatten_quadratic(p0, (cx, cy), (x3, y3)))
+
+    def spline_vertex(self, x: float, y: float) -> None:
+        if not self.state.shape.active:
+            raise ArgumentValidationError(
+                "spline_vertex() must be called between begin_shape() and end_shape()."
+            )
+        vertices = self.state.shape.vertices
+        point = (float(x), float(y))
+        if not vertices:
+            vertices.append(point)
+            return
+        if len(vertices) == 1:
+            vertices.append(point)
+            return
+        p0 = vertices[-2]
+        p1 = vertices[-1]
+        p2 = point
+        p3 = point
+        vertices.extend(flatten_spline(p0, p1, p2, p3, tightness=self._spline_tightness))
+
+    def spline(self, *coords: float) -> None:
+        if len(coords) != 8:
+            raise ArgumentValidationError("spline() requires eight coordinate values.")
+        p0 = (float(coords[0]), float(coords[1]))
+        p1 = (float(coords[2]), float(coords[3]))
+        p2 = (float(coords[4]), float(coords[5]))
+        p3 = (float(coords[6]), float(coords[7]))
+        previous_fill = self.state.style.fill_color
+        self.state.style.fill_color = None
+        self.renderer.polygon(
+            [p1, *flatten_spline(p0, p1, p2, p3, tightness=self._spline_tightness)],
+            self.state.style,
+            self.state.transform.matrix,
+            close=False,
+        )
+        self.state.style.fill_color = previous_fill
+
+    def spline_point(self, a: float, b: float, cc: float, d: float, t: float) -> float:
+        return geometry_spline_point(
+            float(a), float(b), float(cc), float(d), float(t), self._spline_tightness
+        )
+
+    def spline_tangent(self, a: float, b: float, cc: float, d: float, t: float) -> float:
+        return geometry_spline_tangent(
+            float(a), float(b), float(cc), float(d), float(t), self._spline_tightness
+        )
+
+    def spline_property(self, name: str, value: float | None = None) -> float:
+        if name != "tightness":
+            raise ArgumentValidationError("Only spline_property('tightness') is supported.")
+        if value is not None:
+            self._spline_tightness = float(value)
+        return self._spline_tightness
+
+    def spline_properties(self, **properties: float) -> dict[str, float]:
+        for name, value in properties.items():
+            self.spline_property(name, value)
+        return {"tightness": self._spline_tightness}
 
     def end_shape(self, mode: str = c.OPEN) -> None:
         if not self.state.shape.active:
@@ -710,6 +790,85 @@ class SketchContext:
     def sphere(self, radius: float, detail_x: int = 24, detail_y: int = 16) -> None:
         self.model(sphere_model(float(radius), int(detail_x), int(detail_y)))
 
+    def ellipsoid(
+        self,
+        radius_x: float,
+        radius_y: float | None = None,
+        radius_z: float | None = None,
+        detail_x: int = 24,
+        detail_y: int = 16,
+    ) -> None:
+        self.model(
+            ellipsoid_model(
+                float(radius_x),
+                None if radius_y is None else float(radius_y),
+                None if radius_z is None else float(radius_z),
+                int(detail_x),
+                int(detail_y),
+            )
+        )
+
+    def cylinder(
+        self,
+        radius: float,
+        height: float,
+        detail_x: int = 24,
+        detail_y: int = 1,
+        *,
+        bottom_cap: bool = True,
+        top_cap: bool = True,
+    ) -> None:
+        self.model(
+            cylinder_model(
+                float(radius),
+                float(height),
+                int(detail_x),
+                int(detail_y),
+                bottom_cap=bottom_cap,
+                top_cap=top_cap,
+            )
+        )
+
+    def cone(
+        self,
+        radius: float,
+        height: float,
+        detail_x: int = 24,
+        detail_y: int = 1,
+        *,
+        cap: bool = True,
+    ) -> None:
+        self.model(cone_model(float(radius), float(height), int(detail_x), int(detail_y), cap=cap))
+
+    def torus(
+        self,
+        radius: float,
+        tube_radius: float | None = None,
+        detail_x: int = 24,
+        detail_y: int = 12,
+    ) -> None:
+        self.model(
+            torus_model(
+                float(radius),
+                None if tube_radius is None else float(tube_radius),
+                int(detail_x),
+                int(detail_y),
+            )
+        )
+
+    def create_model(self, mesh: object) -> Model3D:
+        if isinstance(mesh, Model3D):
+            return mesh
+        if isinstance(mesh, Mesh3D):
+            return Model3D(meshes=(mesh,))
+        raise ArgumentValidationError("create_model() requires a Mesh3D or Model3D value.")
+
+    def save_obj(self, model: Model3D, path: str | Path) -> Path:
+        return save_obj_model(model, path)
+
+    def save_stl(self, model: Model3D, path: str | Path) -> Path:
+        return save_stl_model(model, path)
+
     def model(self, shape: object) -> None:
         self._require_webgl_mode("model")
         if isinstance(shape, Mesh3D):
@@ -882,6 +1041,109 @@ class SketchContext:
     def text_descent(self) -> float:
         return self.renderer.text_descent(self.state.style)
 
+    def font_ascent(self, font: Font | str | None = None) -> float:
+        previous = self.state.style.text_font
+        if font is not None:
+            self.text_font(font)
+        value = self.text_ascent()
+        self.state.style.text_font = previous
+        return value
+
+    def font_descent(self, font: Font | str | None = None) -> float:
+        previous = self.state.style.text_font
+        if font is not None:
+            self.text_font(font)
+        value = self.text_descent()
+        self.state.style.text_font = previous
+        return value
+
+    def font_width(self, value: object, font: Font | str | None = None) -> float:
+        previous = self.state.style.text_font
+        if font is not None:
+            self.text_font(font)
+        width = self.text_width(value)
+        self.state.style.text_font = previous
+        return width
+
+    def text_bounds(self, value: object, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
+        width = self.text_width(value)
+        ascent = self.text_ascent()
+        descent = self.text_descent()
+        return {
+            "x": float(x),
+            "y": float(y) - ascent,
+            "width": width,
+            "height": ascent + descent,
+        }
+
+    def font_bounds(
+        self, value: object, x: float = 0.0, y: float = 0.0, font: Font | str | None = None
+    ) -> dict[str, float]:
+        previous = self.state.style.text_font
+        if font is not None:
+            self.text_font(font)
+        bounds = self.text_bounds(value, x, y)
+        self.state.style.text_font = previous
+        return bounds
+
+    def text_direction(self, value: str | None = None) -> str:
+        if value is not None:
+            if value not in {"ltr", "rtl"}:
+                raise ArgumentValidationError("text_direction() supports 'ltr' and 'rtl'.")
+            self._text_direction = value
+        return self._text_direction
+
+    def text_wrap(self, value: str | None = None) -> str:
+        if value is not None:
+            if value not in {"word", "char"}:
+                raise ArgumentValidationError("text_wrap() supports 'word' and 'char'.")
+            self._text_wrap = value
+        return self._text_wrap
+
+    def text_weight(self, value: int | None = None) -> int:
+        if value is not None:
+            if value <= 0:
+                raise ArgumentValidationError("text_weight() must be positive.")
+            self._text_weight = int(value)
+            if self._text_weight >= 600 and self.state.style.text_style == c.NORMAL:
+                self.state.style.text_style = c.BOLD
+        return self._text_weight
+
+    def text_property(self, name: str, value: object | None = None) -> object:
+        if name == "direction":
+            return self.text_direction(None if value is None else str(value))
+        if name == "wrap":
+            return self.text_wrap(None if value is None else str(value))
+        if name == "weight":
+            return self.text_weight(None if value is None else int(cast(Any, value)))
+        raise ArgumentValidationError("Unsupported text property.")
+
+    def text_properties(self, **properties: object) -> dict[str, object]:
+        for name, value in properties.items():
+            self.text_property(name, value)
+        return {
+            "direction": self._text_direction,
+            "wrap": self._text_wrap,
+            "weight": self._text_weight,
+            "size": self.state.style.text_size,
+            "style": self.state.style.text_style,
+            "leading": self.state.style.text_leading,
+        }
+
+    def describe(self, description: object, *, label: str = "canvas") -> dict[str, str]:
+        entry = {"label": str(label), "description": str(description)}
+        self._accessibility_descriptions.append(entry)
+        return entry
+
+    def describe_element(self, name: object, description: object) -> dict[str, str]:
+        return self.describe(description, label=str(name))
+
+    def text_output(self) -> list[dict[str, str]]:
+        return list(self._accessibility_descriptions)
+
+    def grid_output(self) -> list[dict[str, str]]:
+        return self.text_output()
+
     def load_pixels(self) -> list[int]:
         pixels = self.renderer.load_pixels()
         self.pixels = pixels
@@ -893,6 +1155,75 @@ class SketchContext:
         if not self.pixels:
             self.load_pixels()
         self.renderer.update_pixels(self.pixels)
+
+    def get(
+        self, x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None
+    ):
+        image = self._canvas_image()
+        if x is None and y is None:
+            return image
+        if x is None or y is None:
+            raise ArgumentValidationError("get() requires both x and y.")
+        density = self.state.canvas.pixel_density
+        px = int(round(x * density))
+        py = int(round(y * density))
+        if w is None and h is None:
+            return image.get(px, py)
+        if w is None or h is None:
+            raise ArgumentValidationError("get() requires both width and height for regions.")
+        return image.get(px, py, int(round(w * density)), int(round(h * density)))
+
+    def set(
+        self,
+        x: int,
+        y: int,
+        value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
+    ) -> None:
+        image = self._canvas_image()
+        density = self.state.canvas.pixel_density
+        image.set(int(round(x * density)), int(round(y * density)), value)
+        self.pixels = list(image.to_rgba_bytes())
+        self.update_pixels(self.pixels)
+
+    def copy(self, *args: object):
+        if len(args) == 0:
+            return self.get()
+        if isinstance(args[0], Image):
+            if len(args) != 9:
+                raise ArgumentValidationError(
+                    "copy(image, sx, sy, sw, sh, dx, dy, dw, dh) requires nine arguments."
+                )
+            source = args[0]
+            sx, sy, sw, sh, dx, dy, dw, dh = (int(cast(Any, value)) for value in args[1:])
+            patch = source.copy(sx, sy, sw, sh, 0, 0, dw, dh)
+            self.set(dx, dy, patch)
+            return None
+        if len(args) == 4:
+            sx, sy, sw, sh = (int(cast(Any, value)) for value in args)
+            return self.get(sx, sy, sw, sh)
+        if len(args) == 8:
+            sx, sy, sw, sh, dx, dy, dw, dh = (int(cast(Any, value)) for value in args)
+            patch = self.get(sx, sy, sw, sh)
+            if not isinstance(patch, Image):
+                raise ArgumentValidationError("copy() source region must produce an Image.")
+            patch.resize(dw, dh)
+            self.set(dx, dy, patch)
+            return None
+        raise ArgumentValidationError("copy() accepts 0, 4, 8, or image plus 8 numeric arguments.")
+
+    def filter(self, mode: str, value: float | None = None) -> None:
+        image = self._canvas_image()
+        image.filter(mode, value)
+        self.pixels = list(image.to_rgba_bytes())
+        self.update_pixels(self.pixels)
+
+    def _canvas_image(self) -> Image:
+        pixels = self.load_pixels()
+        return Image(
+            self.state.canvas.physical_width,
+            self.state.canvas.physical_height,
+            bytes(pixels),
+        )
 
     def pixel_array(self) -> list[list[tuple[int, int, int, int]]]:
         pixels = self.pixels or self.load_pixels()

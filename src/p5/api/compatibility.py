@@ -232,6 +232,34 @@ def sphere(*args, **kwargs) -> None:
     _advanced.sphere(*args, **kwargs)
 
 
+def ellipsoid(*args, **kwargs) -> None:
+    _advanced.ellipsoid(*args, **kwargs)
+
+
+def cylinder(*args, **kwargs) -> None:
+    _advanced.cylinder(*args, **kwargs)
+
+
+def cone(*args, **kwargs) -> None:
+    _advanced.cone(*args, **kwargs)
+
+
+def torus(*args, **kwargs) -> None:
+    _advanced.torus(*args, **kwargs)
+
+
+def create_model(*args, **kwargs):
+    return _advanced.create_model(*args, **kwargs)
+
+
+def save_obj(*args, **kwargs):
+    return _advanced.save_obj(*args, **kwargs)
+
+
+def save_stl(*args, **kwargs):
+    return _advanced.save_stl(*args, **kwargs)
+
+
 def load_model(*args, **kwargs):
     return _advanced.load_model(*args, **kwargs)
 
@@ -311,6 +339,13 @@ __all__ = [
     "plane",
     "box",
     "sphere",
+    "ellipsoid",
+    "cylinder",
+    "cone",
+    "torus",
+    "create_model",
+    "save_obj",
+    "save_stl",
     "load_model",
     "model",
     "load_shader",

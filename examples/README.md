@@ -27,6 +27,7 @@ On Retina/HiDPI displays, the canvas backend renders to a higher-resolution back
 - `vector_noise_flow.py` demonstrates `Vector`, `create_vector`, seeded `random`, `noise`, `map_value`, angle mode, and animation.
 - `accelerated_noise_pixels.py` demonstrates the optional Rust-backed `noise()` path plus `EXCLUSION` blend compositing. It defaults to canvas so the saved PNG is deterministic whether the acceleration extension is installed or the Python fallback is active.
 - `image_text_data.py` demonstrates `Image`, `create_image`, image pixel edits, image filters, text drawing/metrics, `load_json`, `save_json`, `load_strings`, `save_strings`, `load_bytes`, `save_bytes`, and `create_writer`.
+- `reference_completion.py` demonstrates spline drawing/math, canvas `get`/`set`/`copy`, text bounds/properties, accessibility metadata, and local OBJ/STL mesh export.
 - `image_flip_sampling.py` demonstrates `image()` mirroring with `push`/`translate`/`scale(-1, 1)` plus `image_sampling()`, `smooth()`, and `no_smooth()` using the same sprite in both interpolated and pixel-art modes.
 - `color_style_filters.py` demonstrates RGB/HSB color modes, `lerp_color`, stroke caps/joins, `image_mode`, and image filters.
 - `asteroids.py` demonstrates normalized mouse and keyboard callbacks, `key_is_down`, mouse movement deltas, and p5-style input state using the Kenney space shooter assets.

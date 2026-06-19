@@ -20,7 +20,7 @@ Audit current `p5.assets.shader`, `CanvasRenderer`, and Rust canvas shader capab
 
 [my_pbi.task_2]
 order = 2
-status = 'TODO'
+status = 'DONE'
 description = '''
 Implement or explicitly classify p5.Shader-like methods including `set_uniform`, `version`, `copy_to_context`, `inspect_hooks`, and `modify` using Pythonic snake_case names.
 '''
