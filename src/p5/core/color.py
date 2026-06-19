@@ -99,7 +99,7 @@ class Color:
         cls,
         args: Iterable[object],
         *,
-        mode: str = c.RGB,
+        mode: c.ColorMode = c.RGB,
         ranges: tuple[Number, Number, Number, Number] = (255, 255, 255, 255),
     ) -> Color:
         values = tuple(args)

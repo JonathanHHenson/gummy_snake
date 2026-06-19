@@ -3,42 +3,39 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from p5.context import SketchContext
     from p5.events.input_state import KeyboardEvent, MouseEvent, TouchEvent
     from p5.plugins.registry import PluginRegistry
 
-LifecycleHookName = Literal[
-    "before_preload",
-    "before_setup",
-    "after_setup",
-    "before_draw",
-    "after_draw",
-]
-EventHookName = Literal[
-    "on_event",
-    "on_mouse_event",
-    "on_keyboard_event",
-    "on_touch_event",
-]
+
+class LifecycleHookName(StrEnum):
+    """Plugin lifecycle hook names."""
+
+    BEFORE_PRELOAD = "before_preload"
+    BEFORE_SETUP = "before_setup"
+    AFTER_SETUP = "after_setup"
+    BEFORE_DRAW = "before_draw"
+    AFTER_DRAW = "after_draw"
+
+
+class EventHookName(StrEnum):
+    """Plugin event hook names."""
+
+    ON_EVENT = "on_event"
+    ON_MOUSE_EVENT = "on_mouse_event"
+    ON_KEYBOARD_EVENT = "on_keyboard_event"
+    ON_TOUCH_EVENT = "on_touch_event"
+
+
 PluginHookName = LifecycleHookName | EventHookName
 PluginApi = Callable[..., Any]
 
-LIFECYCLE_HOOKS: tuple[LifecycleHookName, ...] = (
-    "before_preload",
-    "before_setup",
-    "after_setup",
-    "before_draw",
-    "after_draw",
-)
-EVENT_HOOKS: tuple[EventHookName, ...] = (
-    "on_event",
-    "on_mouse_event",
-    "on_keyboard_event",
-    "on_touch_event",
-)
+LIFECYCLE_HOOKS: tuple[LifecycleHookName, ...] = tuple(LifecycleHookName)
+EVENT_HOOKS: tuple[EventHookName, ...] = tuple(EventHookName)
 PLUGIN_HOOKS: tuple[PluginHookName, ...] = (*LIFECYCLE_HOOKS, *EVENT_HOOKS)
 
 

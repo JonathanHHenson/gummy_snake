@@ -27,7 +27,7 @@ class BackendCapabilities:
     touch: bool = False
     paths: bool = True
     transforms: bool = True
-    blend_modes: frozenset[str] = field(default_factory=frozenset)
+    blend_modes: frozenset[c.BlendMode] = field(default_factory=frozenset)
     three_d: bool = False
     shaders: bool = False
     sound: bool = False
@@ -44,7 +44,7 @@ class Backend(Protocol):
         height: int,
         pixel_density: float | None = None,
         *,
-        renderer: str = c.P2D,
+        renderer: c.RendererMode = c.P2D,
     ) -> None: ...
 
     def resize_canvas(
@@ -53,7 +53,7 @@ class Backend(Protocol):
         height: int,
         pixel_density: float | None = None,
         *,
-        renderer: str = c.P2D,
+        renderer: c.RendererMode = c.P2D,
     ) -> None: ...
 
     def display_density(self) -> float: ...

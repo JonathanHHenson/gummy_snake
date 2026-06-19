@@ -2,41 +2,53 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
+
 from p5.api import advanced as _advanced
 from p5.exceptions import UnsupportedFeatureError
 
-COMPATIBILITY_MATRIX = {
-    "lifecycle": "supported",
-    "global_mode": "supported",
-    "canvas": "supported",
-    "2d_primitives": "supported",
-    "paths_and_curves": "partial",
-    "color": "supported",
-    "transforms": "supported",
-    "mouse_keyboard_input": "partial",
-    "dom": "excluded",
-    "xml": "excluded",
-    "table": "excluded",
-    "webgl": "partial",
-    "webgl_renderer": "partial",
-    "3d_primitives": "partial",
-    "camera_projection": "partial",
-    "lights_materials": "partial",
-    "textures": "partial",
-    "models": "partial",
-    "shaders": "partial",
-    "sound": "partial",
-    "sound_playback": "partial",
-    "sound_analysis": "deferred",
-    "sound_synthesis": "deferred",
-    "media_playback": "partial",
-    "media_capture": "partial",
-    "math_data_environment": "partial",
-    "browser_url_storage": "excluded",
-    "device_sensors": "deferred",
-    "accessibility_output": "deferred",
-    "webgpu": "deferred",
-    "strands_compute": "excluded",
+
+class CompatibilityStatus(StrEnum):
+    """Support status values used by ``COMPATIBILITY_MATRIX``."""
+
+    SUPPORTED = "supported"
+    PARTIAL = "partial"
+    DEFERRED = "deferred"
+    EXCLUDED = "excluded"
+
+
+COMPATIBILITY_MATRIX: dict[str, CompatibilityStatus] = {
+    "lifecycle": CompatibilityStatus.SUPPORTED,
+    "global_mode": CompatibilityStatus.SUPPORTED,
+    "canvas": CompatibilityStatus.SUPPORTED,
+    "2d_primitives": CompatibilityStatus.SUPPORTED,
+    "paths_and_curves": CompatibilityStatus.PARTIAL,
+    "color": CompatibilityStatus.SUPPORTED,
+    "transforms": CompatibilityStatus.SUPPORTED,
+    "mouse_keyboard_input": CompatibilityStatus.PARTIAL,
+    "dom": CompatibilityStatus.EXCLUDED,
+    "xml": CompatibilityStatus.EXCLUDED,
+    "table": CompatibilityStatus.EXCLUDED,
+    "webgl": CompatibilityStatus.PARTIAL,
+    "webgl_renderer": CompatibilityStatus.PARTIAL,
+    "3d_primitives": CompatibilityStatus.PARTIAL,
+    "camera_projection": CompatibilityStatus.PARTIAL,
+    "lights_materials": CompatibilityStatus.PARTIAL,
+    "textures": CompatibilityStatus.PARTIAL,
+    "models": CompatibilityStatus.PARTIAL,
+    "shaders": CompatibilityStatus.PARTIAL,
+    "sound": CompatibilityStatus.PARTIAL,
+    "sound_playback": CompatibilityStatus.PARTIAL,
+    "sound_analysis": CompatibilityStatus.DEFERRED,
+    "sound_synthesis": CompatibilityStatus.DEFERRED,
+    "media_playback": CompatibilityStatus.PARTIAL,
+    "media_capture": CompatibilityStatus.PARTIAL,
+    "math_data_environment": CompatibilityStatus.PARTIAL,
+    "browser_url_storage": CompatibilityStatus.EXCLUDED,
+    "device_sensors": CompatibilityStatus.DEFERRED,
+    "accessibility_output": CompatibilityStatus.DEFERRED,
+    "webgpu": CompatibilityStatus.DEFERRED,
+    "strands_compute": CompatibilityStatus.EXCLUDED,
 }
 
 
@@ -717,6 +729,7 @@ def get_audio_context(*_args, **_kwargs) -> None:
 
 
 __all__ = [
+    "CompatibilityStatus",
     "COMPATIBILITY_MATRIX",
     "unsupported_feature",
     "create_div",

@@ -13,7 +13,7 @@ Number = int | float
 _angle_mode = c.RADIANS
 
 
-def set_angle_mode(mode: str) -> None:
+def set_angle_mode(mode: c.AngleMode) -> None:
     global _angle_mode
     if mode not in {c.RADIANS, c.DEGREES}:
         msg = f"Unsupported angle mode {mode!r}."
@@ -21,7 +21,7 @@ def set_angle_mode(mode: str) -> None:
     _angle_mode = mode
 
 
-def get_angle_mode() -> str:
+def get_angle_mode() -> c.AngleMode:
     return _angle_mode
 
 

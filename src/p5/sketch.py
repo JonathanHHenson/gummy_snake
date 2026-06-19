@@ -6,9 +6,11 @@ from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 from typing import Any
 
+from p5 import constants as c
 from p5.api.current import activate_context
 from p5.backends.registry import create_backend
 from p5.context import SketchContext
+from p5.plugins.base import LifecycleHookName
 from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 
 EVENT_CALLBACK_NAMES = (
@@ -58,12 +60,12 @@ class Sketch:
         GLOBAL_PLUGIN_REGISTRY.bind_runtime(self.context, self)
         self._running = True
         with activate_context(self.context):
-            self.context.plugins.dispatch_lifecycle("before_preload", self.context)
+            self.context.plugins.dispatch_lifecycle(LifecycleHookName.BEFORE_PRELOAD, self.context)
             self.preload()
-            self.context.plugins.dispatch_lifecycle("before_setup", self.context)
+            self.context.plugins.dispatch_lifecycle(LifecycleHookName.BEFORE_SETUP, self.context)
             self.setup()
             self.context.ensure_canvas()
-            self.context.plugins.dispatch_lifecycle("after_setup", self.context)
+            self.context.plugins.dispatch_lifecycle(LifecycleHookName.AFTER_SETUP, self.context)
             backend_instance.run(self, max_frames=max_frames)
         return self.context
 
@@ -83,9 +85,9 @@ class Sketch:
         context.begin_frame()
         context.renderer.begin_frame()
         with activate_context(context):
-            context.plugins.dispatch_lifecycle("before_draw", context)
+            context.plugins.dispatch_lifecycle(LifecycleHookName.BEFORE_DRAW, context)
             self.draw()
-            context.plugins.dispatch_lifecycle("after_draw", context)
+            context.plugins.dispatch_lifecycle(LifecycleHookName.AFTER_DRAW, context)
         context.renderer.end_frame()
         context.end_frame()
         context.state.timing.frame_count += 1
@@ -117,7 +119,7 @@ class Sketch:
         self,
         width: int,
         height: int,
-        renderer: str = "p2d",
+        renderer: c.RendererMode = c.P2D,
         *,
         pixel_density: float | None = None,
     ) -> None:
@@ -287,7 +289,7 @@ class Sketch:
     def save_canvas(self, *args: Any, **kwargs: Any):
         return self._ctx.save_canvas(*args, **kwargs)
 
-    def blend_mode(self, mode: str) -> None:
+    def blend_mode(self, mode: c.BlendMode) -> None:
         self._ctx.blend_mode(mode)
 
     def blend(self, *args: object) -> None:

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from p5 import constants as c
+
 
 def resolve_rect(
-    mode: str,
+    mode: c.ShapeMode,
     x: float,
     y: float,
     w: float,
@@ -27,7 +29,7 @@ def resolve_rect(
 
 
 def resolve_ellipse(
-    mode: str,
+    mode: c.ShapeMode,
     x: float,
     y: float,
     w: float,

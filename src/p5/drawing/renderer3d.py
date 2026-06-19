@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import MutableMapping, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal, Protocol
 
@@ -16,7 +17,14 @@ from p5.drawing.renderer import Renderer
 
 type RGBA = tuple[float, float, float, float]
 type Matrix4 = tuple[tuple[float, ...], ...]
-type LightKind = Literal["ambient", "directional", "point"]
+
+
+class LightKind(StrEnum):
+    """3D light source kinds."""
+
+    AMBIENT = "ambient"
+    DIRECTIONAL = "directional"
+    POINT = "point"
 
 
 @dataclass(frozen=True, slots=True)

@@ -31,6 +31,7 @@ from p5.core.transform import Matrix2D
 from p5.drawing.renderer3d import (
     Camera3D,
     Light3D,
+    LightKind,
     Material3D,
     Mesh3D,
     Model3D,
@@ -60,6 +61,7 @@ from p5.drawing.software3d import (
 )
 from p5.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from p5.exceptions import ArgumentValidationError, BackendCapabilityError, ShaderUniformError
+from p5.plugins.base import EventHookName
 
 if TYPE_CHECKING:
     from p5.plugins.registry import PluginRegistry
@@ -123,7 +125,7 @@ class SketchContext:
         self,
         width: int,
         height: int,
-        renderer: str = c.P2D,
+        renderer: c.RendererMode = c.P2D,
         *,
         pixel_density: float | None = None,
     ) -> None:
@@ -203,7 +205,7 @@ class SketchContext:
 
     def color_mode(
         self,
-        mode: str,
+        mode: c.ColorMode,
         max1: float | None = None,
         max2: float | None = None,
         max3: float | None = None,
@@ -249,32 +251,32 @@ class SketchContext:
             raise ArgumentValidationError("stroke_weight() cannot be negative.")
         self.state.style.stroke_weight = float(weight)
 
-    def stroke_cap(self, cap: str) -> None:
+    def stroke_cap(self, cap: c.StrokeCap) -> None:
         if cap not in {c.ROUND, c.SQUARE, c.PROJECT}:
             raise ArgumentValidationError(f"Unsupported stroke cap {cap!r}.")
         self.state.style.stroke_cap = cap
 
-    def stroke_join(self, join: str) -> None:
+    def stroke_join(self, join: c.StrokeJoin) -> None:
         if join not in {c.MITER, c.BEVEL, c.ROUND}:
             raise ArgumentValidationError(f"Unsupported stroke join {join!r}.")
         self.state.style.stroke_join = join
 
-    def rect_mode(self, mode: str) -> None:
+    def rect_mode(self, mode: c.ShapeMode) -> None:
         if mode not in {c.CORNER, c.CORNERS, c.CENTER, c.RADIUS}:
             raise ArgumentValidationError(f"Unsupported rect mode {mode!r}.")
         self.state.style.rect_mode = mode
 
-    def ellipse_mode(self, mode: str) -> None:
+    def ellipse_mode(self, mode: c.ShapeMode) -> None:
         if mode not in {c.CORNER, c.CORNERS, c.CENTER, c.RADIUS}:
             raise ArgumentValidationError(f"Unsupported ellipse mode {mode!r}.")
         self.state.style.ellipse_mode = mode
 
-    def image_mode(self, mode: str) -> None:
+    def image_mode(self, mode: c.ShapeMode) -> None:
         if mode not in {c.CORNER, c.CORNERS, c.CENTER}:
             raise ArgumentValidationError(f"Unsupported image mode {mode!r}.")
         self.state.style.image_mode = mode
 
-    def image_sampling(self, mode: str | None = None) -> str:
+    def image_sampling(self, mode: c.ImageSampling | None = None) -> c.ImageSampling:
         if mode is not None:
             if mode not in {c.LINEAR, c.NEAREST}:
                 raise ArgumentValidationError(f"Unsupported image sampling mode {mode!r}.")
@@ -355,7 +357,7 @@ class SketchContext:
         height: float,
         start: float,
         stop: float,
-        mode: str = c.OPEN,
+        mode: c.ArcMode = c.OPEN,
     ) -> None:
         ex, ey, ew, eh = resolve_ellipse(
             self.state.style.ellipse_mode,
@@ -376,7 +378,7 @@ class SketchContext:
             self.state.transform.matrix,
         )
 
-    def begin_shape(self, kind: str | None = None) -> None:
+    def begin_shape(self, kind: c.ShapeKind | None = None) -> None:
         self.state.shape.active = True
         self.state.shape.vertices.clear()
         self.state.shape.kind = kind
@@ -466,7 +468,7 @@ class SketchContext:
             self.spline_property(name, value)
         return {"tightness": self._spline_tightness}
 
-    def end_shape(self, mode: str = c.OPEN) -> None:
+    def end_shape(self, mode: c.ArcMode = c.OPEN) -> None:
         if not self.state.shape.active:
             raise ArgumentValidationError("end_shape() requires begin_shape().")
         close = mode == c.CLOSE
@@ -544,7 +546,7 @@ class SketchContext:
     def reset_matrix(self) -> None:
         self.state.transform.matrix = Matrix2D.identity()
 
-    def angle_mode(self, mode: str) -> None:
+    def angle_mode(self, mode: c.AngleMode) -> None:
         if mode not in {c.RADIANS, c.DEGREES}:
             raise ArgumentValidationError(f"Unsupported angle mode {mode!r}.")
         self.angle_mode_value = mode
@@ -678,14 +680,16 @@ class SketchContext:
 
     def ambient_light(self, *args: object) -> None:
         self._require_webgl_mode("ambient_light")
-        self._lights3d.append(Light3D(kind="ambient", color=self._color_to_rgba(self.color(*args))))
+        self._lights3d.append(
+            Light3D(kind=LightKind.AMBIENT, color=self._color_to_rgba(self.color(*args)))
+        )
 
     def directional_light(self, *args: object) -> None:
         self._require_webgl_mode("directional_light")
         color, tail = self._split_color_args(args, tail_count=3)
         self._lights3d.append(
             Light3D(
-                kind="directional",
+                kind=LightKind.DIRECTIONAL,
                 color=self._color_to_rgba(color),
                 direction=Vec3(float(tail[0]), float(tail[1]), float(tail[2])),
             )
@@ -696,7 +700,7 @@ class SketchContext:
         color, tail = self._split_color_args(args, tail_count=3)
         self._lights3d.append(
             Light3D(
-                kind="point",
+                kind=LightKind.POINT,
                 color=self._color_to_rgba(color),
                 position=Vec3(float(tail[0]), float(tail[1]), float(tail[2])),
             )
@@ -1010,14 +1014,14 @@ class SketchContext:
             self.state.style.text_font = font
         return self.state.style.text_font
 
-    def text_style(self, style: str | None = None) -> str:
+    def text_style(self, style: c.TextStyle | None = None) -> c.TextStyle:
         if style is not None:
             if style not in {c.NORMAL, c.ITALIC, c.BOLD, c.BOLDITALIC}:
                 raise ArgumentValidationError(f"Unsupported text style {style!r}.")
             self.state.style.text_style = style
         return self.state.style.text_style
 
-    def text_align(self, horizontal: str, vertical: str | None = None) -> None:
+    def text_align(self, horizontal: c.TextAlign, vertical: c.TextAlign | None = None) -> None:
         if horizontal not in {c.LEFT, c.CENTER, c.RIGHT}:
             raise ArgumentValidationError(f"Unsupported horizontal text alignment {horizontal!r}.")
         if vertical is not None and vertical not in {c.TOP, c.CENTER, c.BOTTOM, c.BASELINE}:
@@ -1212,7 +1216,7 @@ class SketchContext:
             return None
         raise ArgumentValidationError("copy() accepts 0, 4, 8, or image plus 8 numeric arguments.")
 
-    def filter(self, mode: str, value: float | None = None) -> None:
+    def filter(self, mode: c.ImageFilter, value: float | None = None) -> None:
         image = self._canvas_image()
         image.filter(mode, value)
         self.pixels = list(image.to_rgba_bytes())
@@ -1260,7 +1264,7 @@ class SketchContext:
         self.renderer.save(output)
         return output
 
-    def blend_mode(self, mode: str) -> None:
+    def blend_mode(self, mode: c.BlendMode) -> None:
         if mode not in self.backend.capabilities.blend_modes:
             raise ArgumentValidationError(
                 f"Unsupported blend mode {mode!r} for backend {self.backend.name!r}."
@@ -1279,8 +1283,8 @@ class SketchContext:
                 "blend() accepts sx, sy, sw, sh, dx, dy, dw, dh, mode or "
                 "image, sx, sy, sw, sh, dx, dy, dw, dh, mode."
             )
-        if not isinstance(mode, str):
-            raise ArgumentValidationError("blend() mode must be a string blend constant.")
+        if not isinstance(mode, c.BlendMode):
+            raise ArgumentValidationError("blend() mode must be a BlendMode enum value.")
         if mode not in self.backend.capabilities.blend_modes:
             raise ArgumentValidationError(
                 f"Unsupported blend mode {mode!r} for backend {self.backend.name!r}."
@@ -1361,7 +1365,7 @@ class SketchContext:
             self._frame_scroll_y += event.scroll_y
         self.update_mouse_event(event, pressed=pressed)
         with activate_context(self):
-            self.plugins.dispatch_event("on_mouse_event", self, event)
+            self.plugins.dispatch_event(EventHookName.ON_MOUSE_EVENT, self, event)
             self.sketch._dispatch_callback(event.type, event)
 
     def update_keyboard_event(self, event: KeyboardEvent, *, pressed: bool | None = None) -> None:
@@ -1383,7 +1387,7 @@ class SketchContext:
             pressed = False
         self.update_keyboard_event(event, pressed=pressed)
         with activate_context(self):
-            self.plugins.dispatch_event("on_keyboard_event", self, event)
+            self.plugins.dispatch_event(EventHookName.ON_KEYBOARD_EVENT, self, event)
             self.sketch._dispatch_callback(event.type, event)
 
     def update_touch_event(self, event: TouchEvent) -> None:
@@ -1393,7 +1397,7 @@ class SketchContext:
     def dispatch_touch_event(self, event: TouchEvent) -> None:
         self.update_touch_event(event)
         with activate_context(self):
-            self.plugins.dispatch_event("on_touch_event", self, event)
+            self.plugins.dispatch_event(EventHookName.ON_TOUCH_EVENT, self, event)
             self.sketch._dispatch_callback(event.type, event)
 
     def key_is_down(self, key_code: int) -> bool:

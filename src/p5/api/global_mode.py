@@ -6,8 +6,9 @@ import inspect
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
+from p5 import constants as c
 from p5.api.current import require_context
 from p5.assets.data import (
     create_writer,
@@ -115,11 +116,11 @@ def run(
         "touch_ended": touch_ended,
         "touch_cancelled": touch_cancelled,
     }
-    event_callbacks = {
-        name: callback
-        for name in EVENT_CALLBACK_NAMES
-        if callable(callback := explicit_event_callbacks[name] or caller_globals.get(name))
-    }
+    event_callbacks: dict[str, Callable[..., None]] = {}
+    for name in EVENT_CALLBACK_NAMES:
+        callback = explicit_event_callbacks[name] or caller_globals.get(name)
+        if callable(callback):
+            event_callbacks[name] = cast(Callable[..., None], callback)
     sketch = FunctionSketch(
         preload=preload or caller_globals.get("preload"),
         setup=setup or caller_globals.get("setup"),
@@ -133,7 +134,7 @@ def run(
 def create_canvas(
     width: int,
     height: int,
-    renderer: str = "p2d",
+    renderer: c.RendererMode = c.P2D,
     *,
     pixel_density: float | None = None,
 ) -> None:
@@ -200,27 +201,27 @@ def stroke_weight(weight: float) -> None:
     require_context().stroke_weight(weight)
 
 
-def stroke_cap(cap: str) -> None:
+def stroke_cap(cap: c.StrokeCap) -> None:
     require_context().stroke_cap(cap)
 
 
-def stroke_join(join: str) -> None:
+def stroke_join(join: c.StrokeJoin) -> None:
     require_context().stroke_join(join)
 
 
-def rect_mode(mode: str) -> None:
+def rect_mode(mode: c.ShapeMode) -> None:
     require_context().rect_mode(mode)
 
 
-def ellipse_mode(mode: str) -> None:
+def ellipse_mode(mode: c.ShapeMode) -> None:
     require_context().ellipse_mode(mode)
 
 
-def image_mode(mode: str) -> None:
+def image_mode(mode: c.ShapeMode) -> None:
     require_context().image_mode(mode)
 
 
-def image_sampling(mode: str | None = None) -> str:
+def image_sampling(mode: c.ImageSampling | None = None) -> c.ImageSampling:
     return require_context().image_sampling(mode)
 
 
@@ -268,7 +269,7 @@ def arc(*args: Any) -> None:
     require_context().arc(*args)
 
 
-def begin_shape(kind: str | None = None) -> None:
+def begin_shape(kind: c.ShapeKind | None = None) -> None:
     require_context().begin_shape(kind)
 
 
@@ -288,7 +289,7 @@ def spline_vertex(x: float, y: float) -> None:
     require_context().spline_vertex(x, y)
 
 
-def end_shape(mode: str = "open") -> None:
+def end_shape(mode: c.ArcMode = c.OPEN) -> None:
     require_context().end_shape(mode)
 
 
@@ -370,7 +371,7 @@ def reset_matrix() -> None:
     require_context().reset_matrix()
 
 
-def angle_mode(mode: str) -> None:
+def angle_mode(mode: c.AngleMode) -> None:
     require_context().angle_mode(mode)
 
 
@@ -534,11 +535,11 @@ def text_font(font: Any | None = None):
     return require_context().text_font(font)
 
 
-def text_style(style: str | None = None) -> str:
+def text_style(style: c.TextStyle | None = None) -> c.TextStyle:
     return require_context().text_style(style)
 
 
-def text_align(horizontal: str, vertical: str | None = None) -> None:
+def text_align(horizontal: c.TextAlign, vertical: c.TextAlign | None = None) -> None:
     require_context().text_align(horizontal, vertical)
 
 
@@ -645,7 +646,7 @@ def copy(*args: object):
     return require_context().copy(*args)
 
 
-def filter(mode: str, value: float | None = None) -> None:
+def filter(mode: c.ImageFilter, value: float | None = None) -> None:
     require_context().filter(mode, value)
 
 
@@ -653,7 +654,7 @@ def save_canvas(path: str, *, extension: str | None = None, overwrite: bool = Tr
     return require_context().save_canvas(path, extension=extension, overwrite=overwrite)
 
 
-def blend_mode(mode: str) -> None:
+def blend_mode(mode: c.BlendMode) -> None:
     require_context().blend_mode(mode)
 
 

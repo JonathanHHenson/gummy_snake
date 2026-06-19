@@ -155,7 +155,7 @@ class CanvasBackend:
         height: int,
         pixel_density: float | None = None,
         *,
-        renderer: str = c.P2D,
+        renderer: c.RendererMode = c.P2D,
     ) -> None:
         self._ensure_supported_renderer(renderer)
         density = self.renderer.pixel_density if pixel_density is None else pixel_density
@@ -172,7 +172,7 @@ class CanvasBackend:
         height: int,
         pixel_density: float | None = None,
         *,
-        renderer: str = c.P2D,
+        renderer: c.RendererMode = c.P2D,
     ) -> None:
         self.create_canvas(width, height, pixel_density, renderer=renderer)
 
@@ -500,7 +500,7 @@ class CanvasBackend:
         while self._next_frame_time <= now:
             self._next_frame_time += interval
 
-    def _ensure_supported_renderer(self, renderer: str) -> None:
+    def _ensure_supported_renderer(self, renderer: c.RendererMode) -> None:
         if renderer not in {c.P2D, c.WEBGL}:
             raise BackendCapabilityError(
                 "The experimental 'canvas' backend currently implements only P2D and WEBGL "

@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
+from p5 import constants as c
 from p5.assets.image import Image
 from p5.core.color import Color
 from p5.core.state import StyleState
@@ -71,7 +72,7 @@ class Renderer(Protocol):
         height: float,
         start: float,
         stop: float,
-        mode: str,
+        mode: c.ArcMode,
         style: StyleState,
         transform: Matrix2D,
     ) -> None: ...
@@ -113,7 +114,7 @@ class Renderer(Protocol):
         source_image: object | None,
         source: tuple[int, int, int, int],
         destination: tuple[int, int, int, int],
-        mode: str,
+        mode: c.BlendMode,
     ) -> None: ...
 
     def save(self, path: str | Path) -> None: ...

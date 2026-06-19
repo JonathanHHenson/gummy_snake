@@ -19,13 +19,13 @@ class CanvasState:
     physical_width: int = 100
     physical_height: int = 100
     pixel_density: float = 1.0
-    renderer: str = c.P2D
+    renderer: c.RendererMode = c.P2D
     created: bool = False
 
 
 @dataclass(slots=True)
 class ColorModeState:
-    mode: str = c.RGB
+    mode: c.ColorMode = c.RGB
     ranges: tuple[float, float, float, float] = (255.0, 255.0, 255.0, 255.0)
 
 
@@ -34,19 +34,19 @@ class StyleState:
     fill_color: Color | None = field(default_factory=lambda: Color(255, 255, 255, 255))
     stroke_color: Color | None = field(default_factory=lambda: Color(0, 0, 0, 255))
     stroke_weight: float = 1.0
-    stroke_cap: str = c.ROUND
-    stroke_join: str = c.MITER
-    rect_mode: str = c.CORNER
-    ellipse_mode: str = c.CENTER
-    image_mode: str = c.CORNER
-    image_sampling: str = c.LINEAR
-    blend_mode: str = c.BLEND
+    stroke_cap: c.StrokeCap = c.ROUND
+    stroke_join: c.StrokeJoin = c.MITER
+    rect_mode: c.ShapeMode = c.CORNER
+    ellipse_mode: c.ShapeMode = c.CENTER
+    image_mode: c.ShapeMode = c.CORNER
+    image_sampling: c.ImageSampling = c.LINEAR
+    blend_mode: c.BlendMode = c.BLEND
     erasing: bool = False
     text_font: Font = field(default_factory=lambda: DEFAULT_FONT)
     text_size: float = 12.0
-    text_style: str = c.NORMAL
-    text_align_x: str = c.LEFT
-    text_align_y: str = c.BASELINE
+    text_style: c.TextStyle = c.NORMAL
+    text_align_x: c.TextAlign = c.LEFT
+    text_align_y: c.TextAlign = c.BASELINE
     text_leading: float = 14.0
 
     def copy(self) -> StyleState:
@@ -62,7 +62,7 @@ class TransformState:
 class ShapeState:
     active: bool = False
     vertices: list[tuple[float, float]] = field(default_factory=list)
-    kind: str | None = None
+    kind: c.ShapeKind | None = None
 
 
 @dataclass(slots=True)

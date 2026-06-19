@@ -197,7 +197,7 @@ class CanvasRenderer:
         height: float,
         start: float,
         stop: float,
-        mode: str,
+        mode: c.ArcMode,
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
@@ -343,7 +343,7 @@ class CanvasRenderer:
         source_image: object | None,
         source: tuple[int, int, int, int],
         destination: tuple[int, int, int, int],
-        mode: str,
+        mode: c.BlendMode,
     ) -> None:
         if isinstance(source_image, Image):
             self._call(

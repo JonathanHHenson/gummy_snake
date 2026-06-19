@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, cast
 
+from p5 import constants as c
 from p5.assets._paths import resolve_asset_path
 from p5.core.color import Color
 from p5.exceptions import ArgumentValidationError, UnsupportedFeatureError
@@ -206,10 +207,8 @@ class Image:
                 self._pixels[offset + 3] = round(self._pixels[offset + 3] * alpha / 255)
         self._version += 1
 
-    def filter(self, mode: str, value: float | None = None) -> None:
-        from p5 import constants as c
-
-        normalized = mode.lower()
+    def filter(self, mode: c.ImageFilter, value: float | None = None) -> None:
+        normalized = mode.value
         if normalized == c.GRAY:
             for offset in range(0, len(self._pixels), 4):
                 gray = round(

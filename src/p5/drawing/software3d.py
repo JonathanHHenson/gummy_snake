@@ -11,6 +11,7 @@ from p5.assets.image import Image as P5Image
 from p5.drawing.renderer3d import (
     Camera3D,
     Light3D,
+    LightKind,
     Material3D,
     Mesh3D,
     Model3D,
@@ -556,7 +557,7 @@ def _shade_face(
     for light in lights:
         light_rgb = light.color[:3]
         intensity = max(0.0, light.intensity)
-        if light.kind == "ambient":
+        if light.kind == LightKind.AMBIENT:
             for index in range(3):
                 result[index] += (
                     base_material_component(base_r, base_g, base_b, index)
@@ -732,11 +733,11 @@ def base_material_component(r: float, g: float, b: float, index: int) -> float:
 
 
 def _light_direction(light: Light3D, center: Vec3) -> Vec3 | None:
-    if light.kind == "directional":
+    if light.kind == LightKind.DIRECTIONAL:
         if light.direction is None:
             return None
         return _normalize(Vec3(-light.direction.x, -light.direction.y, -light.direction.z))
-    if light.kind == "point":
+    if light.kind == LightKind.POINT:
         if light.position is None:
             return None
         return _normalize(_sub(light.position, center))
