@@ -35,6 +35,9 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --dev
 
+      - name: Install canvas extension
+        run: uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
+
       - name: Lint
         run: uv run ruff check .
 
@@ -45,7 +48,7 @@ jobs:
         run: uv run pytest
 
       - name: Smoke test headless example
-        run: uv run python examples/basic_shapes.py --backend headless --frames 1
+        run: uv run python examples/basic_shapes.py --headless --frames 1
 
       - name: Build sdist and wheel
         run: uv build
