@@ -2,33 +2,96 @@
 
 Guidance for AI coding agents working in this repository.
 
-## Project overview
+## Project Overview
 
 This repository contains `p5-py`, a Pythonic creative-coding package inspired by p5.js.
 
-The goal is to provide a familiar p5-style sketching model for Python while keeping the implementation idiomatic, maintainable, typed, testable, and backend-agnostic.
+The project keeps the familiar p5 sketch lifecycle and p5-style drawing model while staying native Python at the public API boundary, typed, testable, backend-agnostic for sketch authors, and packaged around the required Rust `p5_canvas` runtime.
 
-The package must remain native Python. Do not add JavaScript or HTML code.
+Do not add JavaScript, HTML, DOM APIs, browser-only APIs, or browser runtime dependencies.
 
-## Package workflow
+## Current Runtime Model
 
-This project uses `uv`.
+The current runtime is canvas-first:
 
-Use `uv` for dependency and command execution:
+```text
+user sketch
+  -> p5 public API
+  -> Sketch / SketchContext
+  -> CanvasBackend + CanvasRenderer Python adapters
+  -> PyO3 extension p5.rust._canvas
+  -> crates/p5_canvas Rust runtime and renderer
+```
+
+`p5.rust._canvas` owns drawing, presentation, image asset loading/saving, text, pixels, export, and native window/input support when built with those capabilities.
+
+Important consequences:
+
+- There is no supported Pillow/Pyglet runtime fallback.
+- Bounded/headless runs still use `p5_canvas`; they do not switch to a Python image backend.
+- `headless=True` or `--headless` requests offscreen/bounded canvas behavior for tests, CI, and export.
+- `headless=False` or `--interactive` requests native interactive canvas behavior where the installed extension supports it.
+- Missing extension or missing native-window support should raise clear `p5` capability errors with rebuild guidance.
+
+The Python public API must not expose Rust internals or depend on a concrete renderer in user-facing functions.
+
+## Package Workflow
+
+This project uses `uv`. Use `uv` for Python dependency and command execution:
 
 ```sh
 uv sync --dev
-uv run pytest
 uv run ruff check .
 uv run ruff format .
-uv run python examples/basic_shapes.py --backend headless --frames 1
+uv run mypy src
+uv run pytest
+uv run python examples/basic_shapes.py --headless --frames 1
+```
+
+Useful Make targets mirror the same workflow:
+
+```sh
+make lint
+make format
+make typecheck
+make test-fast
+make test
+make smoke
+make check
 ```
 
 Do not use raw `pip install` or unmanaged virtual environments unless explicitly requested.
 
-The active Python version is defined by `.python-version` and `pyproject.toml`.
+The active Python version is defined by `.python-version` and `pyproject.toml`. The package currently targets Python 3.12+.
 
-## Source layout
+## Rust Workflow
+
+Rust code is part of the active runtime, not just a future optimization layer.
+
+Important crates:
+
+```text
+crates/p5_canvas/    required PyO3 canvas runtime extension: p5.rust._canvas
+crates/p5_accel/     optional acceleration extension: p5.rust._accelerated
+```
+
+Common commands:
+
+```sh
+cargo test --manifest-path crates/p5_canvas/Cargo.toml
+uvx maturin develop --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+```
+
+For `p5_accel`:
+
+```sh
+uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
+```
+
+Keep Rust acceleration optional only for features routed through `p5_accel`. Features owned by `p5_canvas` may require the canvas extension because it is the runtime.
+
+## Source Layout
 
 Primary package code lives under:
 
@@ -39,84 +102,39 @@ src/p5/
 Important areas:
 
 ```text
-src/p5/api/          global-mode API and compatibility stubs
-src/p5/backends/     backend implementations and backend registry
-src/p5/core/         color, geometry, state, transforms, math-like core systems
-src/p5/drawing/      renderer protocol and drawing abstractions
-src/p5/events/       normalized input/event state
-src/p5/pixels/       future pixel-buffer functionality
-src/p5/plugins/      future plugin architecture
-src/p5/rust/         future Rust acceleration integration
-src/p5/testing/      future testing helpers
+src/p5/api/          global-mode API, current context access, compatibility stubs
+src/p5/assets/       image, text/font, data, model, shader, sound/media helpers
+src/p5/backends/     canvas backend adapter, renderer adapter, backend construction
+src/p5/core/         color, geometry, math, random/noise, state, transforms, vectors
+src/p5/drawing/      renderer protocols plus 3D/software prototype helpers
+src/p5/events/       normalized mouse, keyboard, and touch input state
+src/p5/plugins/      plugin interfaces and registry
+src/p5/rust/         Python wrappers around PyO3 extensions
+src/p5/testing/      package test resources and helpers
 ```
 
-Tests live under:
+Other important directories:
 
 ```text
-tests/
+tests/unit/          focused API, state, compatibility, assets, events, Rust wrapper tests
+tests/contracts/     backend and renderer contract behavior
+tests/golden/        deterministic render comparisons
+tests/integration/   end-to-end sketch/rendering behavior
+tests/benchmark/     opt-in performance tests
+examples/            runnable sketches and smoke-test entry points
+docs/user/           user-facing documentation
+docs/technical/      architecture, testing, release, and migration notes
+backlog/             TOML PBIs grouped by numbered epic
+crates/              Rust runtime and acceleration crates
 ```
 
-Examples live under:
+Generated artifacts such as `__pycache__/`, compiled `.so` files, build directories, benchmark output, and example image output should not be committed unless the user explicitly asks.
 
-```text
-examples/
-```
+## Architecture Principles
 
-Docs live under:
+### Keep the Public API Pythonic
 
-```text
-docs/
-```
-
-Backlog items live under:
-
-```text
-backlog/<three_digit_epic_name>/<pbi_name>.toml
-```
-
-## Architecture principles
-
-### Keep public API backend-agnostic
-
-The public p5-py API must not directly depend on Pillow, Pyglet, or any future renderer.
-
-The intended layering is:
-
-```text
-user sketch
-  ↓
-p5 public API
-  ↓
-Sketch / SketchContext
-  ↓
-Renderer + Backend protocols
-  ↓
-Concrete backend / renderer
-```
-
-### Separate backend responsibilities from renderer responsibilities
-
-Backends own platform/window/runtime concerns.
-
-Renderers own drawing.
-
-For example:
-
-- `PygletBackend` should own window creation, the event loop, input normalization, frame scheduling, and shutdown.
-- A future `PygletRenderer` should own native Pyglet drawing.
-- `PillowRenderer` should remain the deterministic headless/export renderer.
-
-Do not push sketch lifecycle, API naming policy, or argument parsing into backend-specific code.
-
-### Preserve custom backend support
-
-Future custom backends should be able to integrate by implementing the backend and renderer protocols and registering themselves through the backend registry.
-
-Avoid hardcoding backend classes outside `p5.backends.registry` and backend selection logic.
-
-### Keep p5 compatibility and Pythonic API together
-
-Canonical Python APIs should use `snake_case`, for example:
+Canonical APIs use `snake_case`, for example:
 
 ```python
 create_canvas()
@@ -125,75 +143,163 @@ no_loop()
 pixel_density()
 ```
 
-Do not export p5.js-style camelCase aliases such as `createCanvas()`, `frameRate()`, `noLoop()`, or `pixelDensity()`. Keep the package intentionally Pythonic and require examples/ports to use snake_case names.
+Do not export p5.js-style camelCase aliases such as `createCanvas()`, `frameRate()`, `noLoop()`, or `pixelDensity()`. Convert examples and ports to `snake_case`.
 
-### Keep exports type-checker friendly
+`src/p5/__init__.py` should keep explicit imports and explicit `__all__` entries so Zed/Pyright and other static tooling can see package attributes.
 
-`src/p5/__init__.py` should use explicit imports for public APIs. Avoid dynamic wildcard export machinery that makes Zed/Pyright unable to see package attributes.
+### Preserve Sketch Lifecycle Ownership
 
-## Rendering guidance
+Python `Sketch` and `SketchContext` own lifecycle ordering, global-mode dispatch, state, plugin hooks, timing, and callback invocation. The Rust runtime may schedule frames and provide events, but it should not own p5 API naming policy or sketch semantics.
 
-### Current rendering state
+Frame rendering should preserve the existing high-level order:
 
-The current Pyglet backend is a bridge backend:
+1. update timing/context frame state
+2. begin renderer frame
+3. run sketch `draw()` and plugin hooks
+4. end renderer frame
+5. update context after-frame state
+6. present when a frame was drawn
 
-```text
-PillowRenderer renders the frame
-PygletBackend presents that image in a native Pyglet window
-```
+### Keep Backend/Renderer Boundaries Clear
 
-This is intentional for now. See:
+Backends own runtime concerns: mode selection, native window/event loop, scheduling, display density, shutdown, and event dispatch.
 
-```text
-docs/technical/native_pyglet_renderer.md
-```
+Renderers own drawing concerns: canvas dimensions, primitives, transforms, images, text, pixels, compositing, readback, and export.
 
-The planned next rendering milestone is a native `PygletRenderer`.
+For the current implementation this means:
 
-### HiDPI and pixel density
+- `CanvasBackend` stays a thin adapter around lifecycle/runtime/event concerns.
+- `CanvasRenderer` translates Python state into bridge payloads and mirrors canvas dimensions.
+- `p5.rust.canvas` handles optional import, health checks, and clear capability failures.
+- `crates/p5_canvas` owns the native runtime and rendering implementation.
+
+### Preserve HiDPI Semantics
 
 p5-py distinguishes logical canvas dimensions from physical backing-buffer dimensions.
 
-- `width()` and `height()` are logical p5 dimensions.
+- `width()` and `height()` report logical p5 dimensions.
 - `pixel_density()` controls physical backing scale.
-- `display_density()` reports native display scale when the backend supports it.
-- `load_pixels()` and `update_pixels()` currently operate on physical RGBA buffers.
+- `display_density()` reports native display scale when available.
+- `load_pixels()` and `update_pixels()` operate on physical top-left-oriented RGBA buffers.
 
-See:
+Do not regress Retina/HiDPI behavior when changing runtime, renderer, pixels, export, images, or input coordinate handling. See `docs/technical/hidpi_rendering.md`.
 
-```text
-docs/technical/hidpi_rendering.md
-```
+### Keep Compatibility Explicit
 
-Do not regress Retina/HiDPI behavior when changing renderers or backends.
+The project is p5-inspired, not a direct JavaScript port.
 
-## Exclusions
+Excluded APIs include:
 
-Do not add:
-
-- JavaScript code
-- HTML code
-- DOM APIs
+- DOM and browser element helpers
 - browser-only APIs
 - `p5.XML`
 - `p5.Table`
 - `p5.TableRow`
 
-Excluded APIs should raise clear package-specific errors when exposed as compatibility stubs.
+Unsupported or excluded public compatibility stubs should raise clear package-specific errors, normally `UnsupportedFeatureError` or `BackendCapabilityError`, rather than failing indirectly.
 
-## Backlog conventions
+## Dependencies
+
+Prefer dependencies already present in `pyproject.toml` and the Rust crate manifests.
+
+Current Python project dependencies are intentionally minimal:
+
+- core runtime dependencies are supplied by the packaged Rust canvas extension
+- optional media support uses the `media` extra
+- dev tools include `pytest`, `ruff`, and `mypy`
+- release tooling uses `maturin`
+
+Add Python dependencies only when justified, and use `uv add` or `uv add --dev` so `pyproject.toml` and `uv.lock` stay in sync.
+
+Add Rust dependencies only to the relevant crate manifest and keep platform/build implications in mind.
+
+## Testing And Validation
+
+Before finishing code changes, run the smallest checks that cover the change. For most Python changes:
+
+```sh
+uv run ruff check .
+uv run pytest
+```
+
+Also run when relevant:
+
+```sh
+uv run mypy src
+uv run python examples/basic_shapes.py --headless --frames 1
+cargo test --manifest-path crates/p5_canvas/Cargo.toml
+uv run python scripts/bump_version.py --check
+uv build
+```
+
+If formatting changes are needed:
+
+```sh
+uv run ruff format .
+```
+
+For rendering changes, run at least one bounded/headless smoke test:
+
+```sh
+uv run python examples/basic_shapes.py --headless --frames 1
+```
+
+For native interactive changes, run a representative example with `--interactive` on a desktop build when practical and document any manual validation.
+
+Benchmark tests are opt-in:
+
+```sh
+uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
+```
+
+Check Zed diagnostics when practical.
+
+## Test Expectations
+
+Add or update tests when changing behavior.
+
+Prefer deterministic bounded/headless tests for renderer behavior. Use fake modules/window objects for runtime edge cases where possible. Avoid manual-only interactive tests unless the behavior cannot reasonably be covered headlessly.
+
+Good placement:
+
+- pure API/state logic: `tests/unit/`
+- backend and renderer promises: `tests/contracts/`
+- stable representative output: `tests/golden/`
+- user-visible end-to-end flows: `tests/integration/`
+- performance-sensitive checks: `tests/benchmark/` with explicit opt-in markers
+
+## Documentation Expectations
+
+Update docs when changing architecture, public APIs, runtime behavior, rendering behavior, backend/canvas behavior, packaging, or compatibility status.
+
+Relevant docs include:
+
+```text
+docs/user/backends.md
+docs/user/compatibility.md
+docs/user/images_and_pixels.md
+docs/technical/canvas_required_runtime.md
+docs/technical/canvas_migration_release.md
+docs/technical/hidpi_rendering.md
+docs/technical/p5_canvas_rust_backend.md
+docs/technical/rust_acceleration.md
+docs/technical/testing.md
+docs/technical/project_plan.md
+```
+
+## Backlog Conventions
 
 Backlog epics use a three-digit prefix to allow insertion between epics, for example:
 
 ```text
 010_foundation_runtime
-020_api_compatibility
-030_rendering_2d
-031_native_pyglet_renderer
-040_color_style_transform
+091_p5_canvas_foundation
+095_p5_canvas_migration_release
+130_remove_pyglet_backend
+140_reference_gap_closure
 ```
 
-Each PBI file must use this TOML layout:
+Each PBI file uses this TOML shape:
 
 ```toml
 [my_pbi]
@@ -217,9 +323,9 @@ description = '''
 '''
 ```
 
-Note: the existing schema intentionally uses the misspelled key `priotity`. Preserve it unless the user explicitly requests a schema migration.
+The schema intentionally uses the misspelled key `priotity`. Preserve it unless the user explicitly requests a schema migration.
 
-When completing work that corresponds to backlog items, update both PBI and task statuses.
+When completing work that corresponds to backlog items, update both the parent PBI status and task statuses.
 
 Allowed status values are:
 
@@ -232,109 +338,14 @@ DONE
 Validate backlog TOML after edits:
 
 ```sh
-python - <<'PY'
-from pathlib import Path
-import tomllib
-for path in sorted(Path('backlog').glob('**/*.toml')):
-    with path.open('rb') as f:
-        tomllib.load(f)
-print('Backlog TOML parsed successfully')
-PY
+uv run python -c "from pathlib import Path; import tomllib; [tomllib.load(p.open('rb')) for p in sorted(Path('backlog').glob('**/*.toml'))]; print('Backlog TOML parsed successfully')"
 ```
 
-## Testing and validation
+## Safety Notes
 
-Before finishing code changes, run:
-
-```sh
-uv run ruff check .
-uv run pytest
-```
-
-If formatting changes are needed, run:
-
-```sh
-uv run ruff format .
-```
-
-Also check Zed diagnostics when practical.
-
-For rendering changes, run at least one headless example smoke test, such as:
-
-```sh
-uv run python examples/basic_shapes.py --backend headless --frames 1
-```
-
-If examples generate output files, do not accidentally commit generated artifacts unless the user explicitly wants them tracked.
-
-## Test expectations
-
-Add or update tests when changing behavior.
-
-Current useful test areas:
-
-```text
-tests/contracts/       backend and renderer contract behavior
-tests/integration/     end-to-end sketch rendering behavior
-tests/unit/            API, lifecycle, color, transforms, density, backend details
-```
-
-Prefer deterministic headless tests for renderer behavior where possible.
-
-For interactive Pyglet behavior, use focused unit tests with fake window/module objects when possible, and document any manual smoke tests.
-
-## Documentation expectations
-
-Update docs when changing architecture, public APIs, rendering behavior, backend behavior, or compatibility status.
-
-Relevant docs include:
-
-```text
-docs/technical/project_plan.md
-docs/technical/hidpi_rendering.md
-docs/technical/native_pyglet_renderer.md
-```
-
-## Rust guidance
-
-Rust acceleration is planned but should remain optional and contained.
-
-Future Rust code should live under:
-
-```text
-crates/
-```
-
-Rust should be used only for pure computational hot paths such as:
-
-- noise generation
-- pixel filters
-- blend modes
-- color conversion
-- geometry tessellation
-- path flattening
-
-Every Rust-accelerated feature must have a Python fallback unless the user explicitly changes this requirement.
-
-## Dependency guidance
-
-Prefer existing dependencies already in `pyproject.toml`.
-
-Current core dependencies include:
-
-- Pillow
-- Pyglet
-
-Current dev dependencies include:
-
-- pytest
-- ruff
-
-Add new dependencies only when justified by the task, and use `uv add` or `uv add --dev` so `pyproject.toml` and `uv.lock` stay in sync.
-
-## Safety notes
-
-- Do not modify the sibling `p5.js` repository unless the user explicitly asks.
-- Do not commit changes unless the user explicitly asks.
-- Do not remove or overwrite generated/user files unless you are sure they are artifacts from your own validation commands.
 - Keep changes focused on the requested task.
+- Do not modify the sibling `p5.js` repository unless explicitly asked.
+- Do not commit changes unless explicitly asked.
+- Do not remove or overwrite generated/user files unless you are sure they are artifacts from your own validation commands.
+- Do not reintroduce Pillow/Pyglet fallback paths unless the user explicitly asks for a rollback or compatibility experiment.
+- Do not add browser, JavaScript, HTML, or DOM-based implementation paths.
