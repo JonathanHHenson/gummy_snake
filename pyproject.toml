@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "p5py_vibe"
-version = "0.2.5"
+version = "0.3.0"
 description = "A Pythonic creative coding package inspired by p5.js."
 readme = "README.md"
 requires-python = ">=3.12"

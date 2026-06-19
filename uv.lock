@@ -363,7 +363,7 @@ wheels = [
 
 [[package]]
 name = "p5py-vibe"
-version = "0.2.5"
+version = "0.3.0"
 source = { editable = "." }
 
 [package.optional-dependencies]
