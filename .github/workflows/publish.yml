@@ -94,15 +94,19 @@ jobs:
           - label: linux-x86_64
             os: ubuntu-latest
             target: x86_64
+            maturin-args: --release --out dist --interpreter /opt/python/cp312-cp312/bin/python
           - label: macos-x86_64
             os: macos-13
             target: x86_64-apple-darwin
+            maturin-args: --release --out dist
           - label: macos-arm64
             os: macos-14
             target: aarch64-apple-darwin
+            maturin-args: --release --out dist
           - label: windows-x64
             os: windows-latest
             target: x64
+            maturin-args: --release --out dist
     steps:
       - uses: actions/checkout@v4
 
@@ -114,7 +118,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist
+          args: ${{ matrix.maturin-args }}
           manylinux: auto
 
       - name: Upload wheel

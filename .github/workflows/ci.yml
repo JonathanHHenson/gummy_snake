@@ -42,7 +42,7 @@ jobs:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
       - run: uv sync --dev
-      - run: uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
+      - run: uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml
       - run: cargo test --manifest-path crates/p5_canvas/Cargo.toml
       - run: uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml
 
