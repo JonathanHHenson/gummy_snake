@@ -9,6 +9,7 @@ import wave
 from pathlib import Path
 from typing import Any
 
+from p5.assets._paths import resolve_asset_path
 from p5.exceptions import ArgumentValidationError, BackendCapabilityError
 
 
@@ -128,7 +129,7 @@ class Sound:
 
 
 def load_sound(path: str | Path) -> Sound:
-    sound_path = Path(path)
+    sound_path = resolve_asset_path(path)
     if not sound_path.exists():
         raise ArgumentValidationError(f"Sound file does not exist: {sound_path!s}.")
     source = _load_audio_source(sound_path)

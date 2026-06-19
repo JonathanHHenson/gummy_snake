@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 
+from p5.assets._paths import resolve_asset_path
 from p5.drawing.renderer3d import Mesh3D, Model3D, Vec3
 from p5.exceptions import ArgumentValidationError
 
@@ -44,7 +45,7 @@ def load_model(
 
 def _read_text_asset(path: str | Path, *, package: str | None) -> tuple[str, Path]:
     if package is None:
-        source = Path(path)
+        source = resolve_asset_path(path)
         if not source.exists():
             raise ArgumentValidationError(f"Model file does not exist: {source!s}.")
         try:

@@ -1,3 +1,4 @@
+import runpy
 from pathlib import Path
 
 import pytest
@@ -62,6 +63,30 @@ def test_data_helpers_round_trip(tmp_path: Path):
 
     p5.save_json({"answer": 42}, json_path)
     assert p5.load_json(json_path) == {"answer": 42}
+
+
+def test_load_image_resolves_relative_to_calling_script(tmp_path: Path, monkeypatch):
+    sketch_dir = tmp_path / "sketch"
+    assets_dir = sketch_dir / "assets"
+    assets_dir.mkdir(parents=True)
+
+    asset = p5.create_image(2, 2)
+    asset.set(0, 0, p5.Color(255, 0, 0))
+    asset_path = assets_dir / "sprite.png"
+    asset.save(asset_path)
+
+    script_path = sketch_dir / "main.py"
+    script_path.write_text(
+        "import p5\n\nIMAGE = p5.load_image('assets/sprite.png')\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+    namespace = runpy.run_path(str(script_path))
+
+    loaded = namespace["IMAGE"]
+    assert loaded.width == 2
+    assert loaded.get(0, 0) == p5.Color(255, 0, 0, 255)
 
 
 def test_image_manipulation_and_drawing_with_text(tmp_path: Path):

@@ -6,9 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from p5.assets._paths import resolve_asset_path
+
 
 def load_strings(path: str | Path, *, encoding: str = "utf-8") -> list[str]:
-    return Path(path).read_text(encoding=encoding).splitlines()
+    return resolve_asset_path(path).read_text(encoding=encoding).splitlines()
 
 
 def save_strings(
@@ -18,7 +20,7 @@ def save_strings(
 
 
 def load_json(path: str | Path, *, encoding: str = "utf-8") -> Any:
-    return json.loads(Path(path).read_text(encoding=encoding))
+    return json.loads(resolve_asset_path(path).read_text(encoding=encoding))
 
 
 def save_json(value: Any, path: str | Path, *, encoding: str = "utf-8", indent: int = 2) -> None:

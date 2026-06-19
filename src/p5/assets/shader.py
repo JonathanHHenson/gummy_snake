@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from p5.assets._paths import resolve_asset_path
 from p5.drawing.renderer3d import Shader3D
 from p5.exceptions import ArgumentValidationError
 
 
 def load_shader(vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
-    vertex_file = Path(vertex_path)
-    fragment_file = Path(fragment_path)
+    vertex_file = resolve_asset_path(vertex_path)
+    fragment_file = resolve_asset_path(fragment_path)
     try:
         vertex_source = vertex_file.read_text(encoding="utf-8")
     except OSError as exc:

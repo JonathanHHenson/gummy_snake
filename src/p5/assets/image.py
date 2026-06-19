@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
+from p5.assets._paths import resolve_asset_path
 from p5.core.color import Color
 from p5.exceptions import ArgumentValidationError
 
@@ -53,18 +54,20 @@ class Image:
         else:
             image_width = int(width.width)
             image_height = int(width.height)
-            to_rgba_bytes = getattr(width, "to_rgba_bytes", None)
-            tobytes = getattr(width, "tobytes", None)
-            convert = getattr(width, "convert", None)
+            to_rgba_bytes: Any = getattr(width, "to_rgba_bytes", None)
+            tobytes: Any = getattr(width, "tobytes", None)
+            convert: Any = getattr(width, "convert", None)
             source = convert("RGBA") if callable(convert) else width
             if callable(to_rgba_bytes):
-                payload = bytes(to_rgba_bytes())
-            elif callable(getattr(source, "tobytes", None)):
-                payload = bytes(source.tobytes())
-            elif callable(tobytes):
-                payload = bytes(tobytes())
+                payload = bytes(cast(Any, to_rgba_bytes)())
             else:
-                raise ArgumentValidationError("Image source must expose RGBA bytes.")
+                source_tobytes: Any = getattr(source, "tobytes", None)
+                if callable(source_tobytes):
+                    payload = bytes(cast(Any, source_tobytes)())
+                elif callable(tobytes):
+                    payload = bytes(cast(Any, tobytes)())
+                else:
+                    raise ArgumentValidationError("Image source must expose RGBA bytes.")
         expected = image_width * image_height * 4
         if len(payload) != expected:
             raise ArgumentValidationError(
@@ -265,7 +268,7 @@ def _alpha_over(
 
 
 def load_image(path: str | Path) -> Image:
-    image_path = Path(path)
+    image_path = resolve_asset_path(path)
     if not image_path.exists():
         raise ArgumentValidationError(f"Image file does not exist: {image_path!s}.")
     try:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from p5.assets._paths import resolve_asset_path
 from p5.exceptions import ArgumentValidationError
 
 
@@ -15,7 +16,7 @@ class Font:
 
 
 def load_font(path: str | Path) -> Font:
-    font_path = Path(path)
+    font_path = resolve_asset_path(path)
     if not font_path.exists():
         raise ArgumentValidationError(f"Font file does not exist: {font_path!s}.")
     return Font(path=font_path)
