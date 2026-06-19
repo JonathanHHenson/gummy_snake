@@ -215,7 +215,9 @@ def draw(callback: Callable[[], object]) -> Callable[[], object]:
     return _module_builder(_caller_module_name()).draw(callback)
 
 
-def on(event_name: str) -> Callable[[Callable[..., object]], Callable[..., object]]:
+def on(
+    event_name: str | c.CallbackEventName | c.TouchEventName,
+) -> Callable[[Callable[..., object]], Callable[..., object]]:
     return _module_builder(_caller_module_name()).on(event_name)
 
 

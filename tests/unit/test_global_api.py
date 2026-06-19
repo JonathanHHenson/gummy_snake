@@ -178,6 +178,29 @@ def test_decorator_sketch_builder_runs_callbacks_and_events():
     assert events == [("setup", 12, 9), ("draw", 0), ("mouse", (2.0, 3.0, 0.0))]
 
 
+def test_decorator_event_names_accept_enums_and_strings():
+    app = p5.sketch()
+    events = []
+
+    @app.setup
+    def configure():
+        p5.create_canvas(8, 8)
+
+    @app.on(p5.CallbackEventName.KEY_PRESSED)
+    def handle_key(event):
+        events.append(("key", event.key))
+
+    @app.on(p5.MOUSE_PRESSED)
+    def handle_mouse(event):
+        events.append(("mouse", event.position.tuple()))
+
+    context = app.run(headless=True, max_frames=0)
+    context.dispatch_keyboard_event(KeyboardEvent(key="a", key_code=65, type="key_pressed"))
+    context.dispatch_mouse_event(MouseEvent(x=2, y=3, button="left", type="mouse_pressed"))
+
+    assert events == [("key", "a"), ("mouse", (2.0, 3.0, 0.0))]
+
+
 def test_facades_expose_current_input_state():
     seen = []
 

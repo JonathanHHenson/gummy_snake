@@ -27,7 +27,7 @@ p5.run()
 Use `@p5.on(event_name)` for named event callbacks:
 
 ```python
-@p5.on("key_pressed")
+@p5.on(p5.KEY_PRESSED)
 def handle_key(event) -> None:
     if event.matches("s"):
         p5.save_canvas("frame.png")

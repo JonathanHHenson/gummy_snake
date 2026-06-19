@@ -22,6 +22,7 @@ The enum classes are also public for type annotations and introspection:
 | `MouseButton` | `LEFT`, `CENTER`, `RIGHT` |
 | `KeyCode` | `BACKSPACE`, `TAB`, `ENTER`, `ESCAPE`, `SHIFT`, `CONTROL`, `ALT`, `UP_ARROW`, `DOWN_ARROW`, `LEFT_ARROW`, `RIGHT_ARROW` |
 | `TouchEventName` | `TOUCH_STARTED`, `TOUCH_MOVED`, `TOUCH_ENDED` |
+| `CallbackEventName` | `MOUSE_MOVED`, `MOUSE_DRAGGED`, `MOUSE_PRESSED`, `MOUSE_RELEASED`, `MOUSE_CLICKED`, `MOUSE_DOUBLE_CLICKED`, `MOUSE_WHEEL`, `KEY_PRESSED`, `KEY_RELEASED`, `KEY_TYPED`, `TOUCH_STARTED`, `TOUCH_MOVED`, `TOUCH_ENDED`, `TOUCH_CANCELLED` |
 | `CompatibilityStatus` | `SUPPORTED`, `PARTIAL`, `DEFERRED`, `EXCLUDED` |
 
 Example:
@@ -32,6 +33,14 @@ import p5
 p5.create_canvas(640, 480, renderer=p5.WEBGL)
 p5.rect_mode(p5.CENTER)
 p5.blend_mode(p5.MULTIPLY)
+```
+
+Event decorators accept either callback-name strings or enum members:
+
+```python
+@p5.on(p5.KEY_PRESSED)
+def handle_key(event) -> None:
+    ...
 ```
 
 For code that needs type annotations, prefer the enum classes:

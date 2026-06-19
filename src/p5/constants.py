@@ -158,6 +158,25 @@ class TouchEventName(StrEnum):
     TOUCH_ENDED = "touch_ended"
 
 
+class CallbackEventName(StrEnum):
+    """Normalized sketch callback/event names accepted by ``p5.on()``."""
+
+    MOUSE_MOVED = "mouse_moved"
+    MOUSE_DRAGGED = "mouse_dragged"
+    MOUSE_PRESSED = "mouse_pressed"
+    MOUSE_RELEASED = "mouse_released"
+    MOUSE_CLICKED = "mouse_clicked"
+    MOUSE_DOUBLE_CLICKED = "mouse_double_clicked"
+    MOUSE_WHEEL = "mouse_wheel"
+    KEY_PRESSED = "key_pressed"
+    KEY_RELEASED = "key_released"
+    KEY_TYPED = "key_typed"
+    TOUCH_STARTED = "touch_started"
+    TOUCH_MOVED = "touch_moved"
+    TOUCH_ENDED = "touch_ended"
+    TOUCH_CANCELLED = "touch_cancelled"
+
+
 # Public p5-style names are enum members rather than raw constants.
 CORNER = ShapeMode.CORNER
 CORNERS = ShapeMode.CORNERS
@@ -246,6 +265,18 @@ TOUCH_STARTED = TouchEventName.TOUCH_STARTED
 TOUCH_MOVED = TouchEventName.TOUCH_MOVED
 TOUCH_ENDED = TouchEventName.TOUCH_ENDED
 
+MOUSE_MOVED = CallbackEventName.MOUSE_MOVED
+MOUSE_DRAGGED = CallbackEventName.MOUSE_DRAGGED
+MOUSE_PRESSED = CallbackEventName.MOUSE_PRESSED
+MOUSE_RELEASED = CallbackEventName.MOUSE_RELEASED
+MOUSE_CLICKED = CallbackEventName.MOUSE_CLICKED
+MOUSE_DOUBLE_CLICKED = CallbackEventName.MOUSE_DOUBLE_CLICKED
+MOUSE_WHEEL = CallbackEventName.MOUSE_WHEEL
+KEY_PRESSED = CallbackEventName.KEY_PRESSED
+KEY_RELEASED = CallbackEventName.KEY_RELEASED
+KEY_TYPED = CallbackEventName.KEY_TYPED
+TOUCH_CANCELLED = CallbackEventName.TOUCH_CANCELLED
+
 __all__ = [
     "ShapeMode",
     "ArcMode",
@@ -263,6 +294,7 @@ __all__ = [
     "MouseButton",
     "KeyCode",
     "TouchEventName",
+    "CallbackEventName",
     "CORNER",
     "CORNERS",
     "CENTER",
@@ -336,4 +368,15 @@ __all__ = [
     "TOUCH_STARTED",
     "TOUCH_MOVED",
     "TOUCH_ENDED",
+    "TOUCH_CANCELLED",
+    "MOUSE_MOVED",
+    "MOUSE_DRAGGED",
+    "MOUSE_PRESSED",
+    "MOUSE_RELEASED",
+    "MOUSE_CLICKED",
+    "MOUSE_DOUBLE_CLICKED",
+    "MOUSE_WHEEL",
+    "KEY_PRESSED",
+    "KEY_RELEASED",
+    "KEY_TYPED",
 ]

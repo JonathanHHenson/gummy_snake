@@ -14,22 +14,7 @@ from p5.context import SketchContext
 from p5.plugins.base import LifecycleHookName
 from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 
-EVENT_CALLBACK_NAMES = (
-    "mouse_moved",
-    "mouse_dragged",
-    "mouse_pressed",
-    "mouse_released",
-    "mouse_clicked",
-    "mouse_double_clicked",
-    "mouse_wheel",
-    "key_pressed",
-    "key_released",
-    "key_typed",
-    "touch_started",
-    "touch_moved",
-    "touch_ended",
-    "touch_cancelled",
-)
+EVENT_CALLBACK_NAMES = tuple(event.value for event in c.CallbackEventName)
 
 
 class Sketch:
@@ -420,12 +405,13 @@ class SketchBuilder:
         self._draw_func = callback
         return callback
 
-    def on(self, event_name: str) -> Callable[[Callable[..., object]], Callable[..., object]]:
-        if event_name not in EVENT_CALLBACK_NAMES:
-            raise ValueError(f"Unknown p5 event callback {event_name!r}.")
+    def on(
+        self, event_name: str | c.CallbackEventName | c.TouchEventName
+    ) -> Callable[[Callable[..., object]], Callable[..., object]]:
+        normalized_event_name = _normalize_event_name(event_name)
 
         def decorator(callback: Callable[..., object]) -> Callable[..., object]:
-            self._event_callbacks[event_name] = callback
+            self._event_callbacks[normalized_event_name] = callback
             return callback
 
         return decorator
@@ -451,3 +437,14 @@ class SketchBuilder:
         max_frames: int | None = None,
     ) -> SketchContext:
         return self.to_sketch(headless=headless).run(max_frames=max_frames)
+
+
+def _normalize_event_name(event_name: str | c.CallbackEventName | c.TouchEventName) -> str:
+    normalized = (
+        event_name.value
+        if isinstance(event_name, c.CallbackEventName | c.TouchEventName)
+        else str(event_name)
+    )
+    if normalized not in EVENT_CALLBACK_NAMES:
+        raise ValueError(f"Unknown p5 event callback {event_name!r}.")
+    return normalized
