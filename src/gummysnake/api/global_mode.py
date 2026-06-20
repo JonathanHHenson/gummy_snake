@@ -2,12 +2,84 @@
 
 from __future__ import annotations
 
-import inspect
-from collections.abc import Buffer, Callable, Sequence
+from collections.abc import Sequence
 from contextlib import contextmanager
 from typing import Any, cast
 
 from gummysnake import constants as c
+from gummysnake.api._environment_input import (
+    cursor,
+    delta_time,
+    display_height,
+    display_width,
+    focused,
+    frame_count,
+    frame_rate,
+    get_target_frame_rate,
+    is_looping,
+    key,
+    key_code,
+    key_is_down,
+    key_is_pressed,
+    loop,
+    millis,
+    mouse_button,
+    mouse_is_pressed,
+    mouse_x,
+    mouse_y,
+    moved_x,
+    moved_y,
+    no_cursor,
+    no_loop,
+    pmouse_x,
+    pmouse_y,
+    redraw,
+    touches,
+    window_height,
+    window_width,
+)
+from gummysnake.api._facades import current, keyboard, mouse
+from gummysnake.api._lifecycle import draw, on, preload, run, setup, sketch
+from gummysnake.api._media_text_pixels import (
+    blend,
+    blend_mode,
+    copy,
+    describe,
+    describe_element,
+    erase,
+    filter,
+    font_ascent,
+    font_bounds,
+    font_descent,
+    font_width,
+    get,
+    grid_output,
+    image,
+    load_pixel_bytes,
+    load_pixels,
+    no_erase,
+    pixel_array,
+    pixels,
+    save_canvas,
+    set,
+    text,
+    text_align,
+    text_ascent,
+    text_bounds,
+    text_descent,
+    text_direction,
+    text_font,
+    text_leading,
+    text_output,
+    text_properties,
+    text_property,
+    text_size,
+    text_style,
+    text_weight,
+    text_width,
+    text_wrap,
+    update_pixels,
+)
 from gummysnake.api.current import require_context
 from gummysnake.assets.data import (
     create_writer,
@@ -55,224 +127,14 @@ from gummysnake.core.random import (
     random_seed,
 )
 from gummysnake.core.vector import create_vector
-from gummysnake.sketch import EVENT_CALLBACK_NAMES, FunctionSketch, SketchBuilder
 
 map = map_value
 
-_DECORATED_SKETCHES: dict[str, SketchBuilder] = {}
 _UNSET = object()
-
-
-class CurrentFacade:
-    @property
-    def width(self) -> int:
-        return require_context().width
-
-    @property
-    def height(self) -> int:
-        return require_context().height
-
-    @property
-    def frame_count(self) -> int:
-        return require_context().frame_count
-
-    @property
-    def delta_time(self) -> float:
-        return require_context().delta_time
-
-    @property
-    def pixel_density(self) -> float:
-        return require_context().pixel_density()
-
-    @property
-    def display_density(self) -> float:
-        return require_context().display_density()
-
-    @property
-    def is_looping(self) -> bool:
-        return require_context().is_looping()
-
-
-class MouseFacade:
-    @property
-    def x(self) -> float:
-        return require_context().mouse_x
-
-    @property
-    def y(self) -> float:
-        return require_context().mouse_y
-
-    @property
-    def previous_x(self) -> float:
-        return require_context().pmouse_x
-
-    @property
-    def previous_y(self) -> float:
-        return require_context().pmouse_y
-
-    @property
-    def moved_x(self) -> float:
-        return require_context().moved_x
-
-    @property
-    def moved_y(self) -> float:
-        return require_context().moved_y
-
-    @property
-    def is_pressed(self) -> bool:
-        return require_context().mouse_is_pressed
-
-    @property
-    def button(self) -> str | None:
-        return require_context().mouse_button
-
-    @property
-    def position(self):
-        return create_vector(self.x, self.y)
-
-    @property
-    def previous_position(self):
-        return create_vector(self.previous_x, self.previous_y)
-
-
-class KeyboardFacade:
-    @property
-    def key(self) -> str | None:
-        return require_context().key
-
-    @property
-    def code(self) -> int | None:
-        return require_context().key_code
-
-    @property
-    def is_pressed(self) -> bool:
-        return require_context().key_is_pressed
-
-    def is_down(self, key_code: int | str) -> bool:
-        if isinstance(key_code, str):
-            if len(key_code) != 1:
-                raise ValueError("keyboard.is_down() string keys must be one character.")
-            context = require_context()
-            return context.key_is_down(ord(key_code.lower())) or context.key_is_down(
-                ord(key_code.upper())
-            )
-        return require_context().key_is_down(key_code)
-
-
-current = CurrentFacade()
-mouse = MouseFacade()
-keyboard = KeyboardFacade()
-
-
-def sketch(*, headless: bool | None = None) -> SketchBuilder:
-    return SketchBuilder(headless=headless)
-
-
-def _module_builder(module_name: str, *, headless: bool | None = None) -> SketchBuilder:
-    builder = _DECORATED_SKETCHES.get(module_name)
-    if builder is None:
-        builder = SketchBuilder(headless=headless)
-        _DECORATED_SKETCHES[module_name] = builder
-    elif headless is not None:
-        builder.headless = headless
-    return builder
-
-
-def _caller_module_name() -> str:
-    current_frame = inspect.currentframe()
-    caller_frame = current_frame.f_back.f_back if current_frame and current_frame.f_back else None
-    caller_globals = caller_frame.f_globals if caller_frame is not None else {}
-    return str(caller_globals.get("__name__", "__main__"))
 
 
 def _context_call(name: str, *args: object, **kwargs: object) -> Any:
     return getattr(require_context(), name)(*args, **kwargs)
-
-
-def preload(callback: Callable[[], object]) -> Callable[[], object]:
-    return _module_builder(_caller_module_name()).preload(callback)
-
-
-def setup(callback: Callable[[], object]) -> Callable[[], object]:
-    return _module_builder(_caller_module_name()).setup(callback)
-
-
-def draw(callback: Callable[[], object]) -> Callable[[], object]:
-    return _module_builder(_caller_module_name()).draw(callback)
-
-
-def on(
-    event_name: str | c.CallbackEventName | c.TouchEventName,
-) -> Callable[[Callable[..., object]], Callable[..., object]]:
-    return _module_builder(_caller_module_name()).on(event_name)
-
-
-def run(
-    *,
-    preload: Callable[[], object] | None = None,
-    setup: Callable[[], object] | None = None,
-    draw: Callable[[], object] | None = None,
-    mouse_moved: Callable[..., None] | None = None,
-    mouse_dragged: Callable[..., None] | None = None,
-    mouse_pressed: Callable[..., None] | None = None,
-    mouse_released: Callable[..., None] | None = None,
-    mouse_clicked: Callable[..., None] | None = None,
-    mouse_double_clicked: Callable[..., None] | None = None,
-    mouse_wheel: Callable[..., None] | None = None,
-    key_pressed: Callable[..., None] | None = None,
-    key_released: Callable[..., None] | None = None,
-    key_typed: Callable[..., None] | None = None,
-    touch_started: Callable[..., None] | None = None,
-    touch_moved: Callable[..., None] | None = None,
-    touch_ended: Callable[..., None] | None = None,
-    touch_cancelled: Callable[..., None] | None = None,
-    headless: bool | None = None,
-    max_frames: int | None = None,
-):
-    current_frame = inspect.currentframe()
-    caller_frame = current_frame.f_back if current_frame is not None else None
-    caller_globals = caller_frame.f_globals if caller_frame is not None else {}
-    decorated = _DECORATED_SKETCHES.get(str(caller_globals.get("__name__", "__main__")))
-    explicit_event_callbacks = {
-        "mouse_moved": mouse_moved,
-        "mouse_dragged": mouse_dragged,
-        "mouse_pressed": mouse_pressed,
-        "mouse_released": mouse_released,
-        "mouse_clicked": mouse_clicked,
-        "mouse_double_clicked": mouse_double_clicked,
-        "mouse_wheel": mouse_wheel,
-        "key_pressed": key_pressed,
-        "key_released": key_released,
-        "key_typed": key_typed,
-        "touch_started": touch_started,
-        "touch_moved": touch_moved,
-        "touch_ended": touch_ended,
-        "touch_cancelled": touch_cancelled,
-    }
-    event_callbacks: dict[str, Callable[..., object]] = {}
-    decorated_event_callbacks = decorated.event_callbacks if decorated is not None else {}
-    for name in EVENT_CALLBACK_NAMES:
-        callback = (
-            explicit_event_callbacks[name]
-            or decorated_event_callbacks.get(name)
-            or caller_globals.get(name)
-        )
-        if callable(callback):
-            event_callbacks[name] = cast(Callable[..., None], callback)
-    sketch = FunctionSketch(
-        preload=preload
-        or (decorated.preload_callback if decorated is not None else None)
-        or caller_globals.get("preload"),
-        setup=setup
-        or (decorated.setup_callback if decorated is not None else None)
-        or caller_globals.get("setup"),
-        draw=draw
-        or (decorated.draw_callback if decorated is not None else None)
-        or caller_globals.get("draw"),
-        event_callbacks=event_callbacks,
-        headless=headless,
-    )
-    return sketch.run(max_frames=max_frames)
 
 
 def create_canvas(
@@ -664,281 +526,6 @@ def reset_matrix() -> None:
 
 def angle_mode(mode: c.AngleMode) -> None:
     require_context().angle_mode(mode)
-
-
-def frame_rate(value: float | None = None) -> float:
-    return require_context().frame_rate(value)
-
-
-def frame_count() -> int:
-    return require_context().frame_count
-
-
-def delta_time() -> float:
-    return require_context().delta_time
-
-
-def millis() -> float:
-    return require_context().millis()
-
-
-def no_loop() -> None:
-    require_context().no_loop()
-
-
-def loop() -> None:
-    require_context().loop()
-
-
-def redraw() -> None:
-    require_context().redraw()
-
-
-def is_looping() -> bool:
-    return require_context().is_looping()
-
-
-def get_target_frame_rate() -> float:
-    return require_context().frame_rate()
-
-
-def window_width() -> int:
-    return require_context().width
-
-
-def window_height() -> int:
-    return require_context().height
-
-
-def display_width() -> int:
-    context = require_context()
-    return round(context.width * context.display_density())
-
-
-def display_height() -> int:
-    context = require_context()
-    return round(context.height * context.display_density())
-
-
-def focused() -> bool:
-    return True
-
-
-def cursor(_kind: str | None = None) -> None:
-    # Cursor presentation is backend-owned; this is a safe no-op for portable sketches.
-    return None
-
-
-def no_cursor() -> None:
-    # Cursor presentation is backend-owned; this is a safe no-op for portable sketches.
-    return None
-
-
-def mouse_x() -> float:
-    return require_context().state.input.mouse_x
-
-
-def mouse_y() -> float:
-    return require_context().state.input.mouse_y
-
-
-def pmouse_x() -> float:
-    return require_context().state.input.previous_mouse_x
-
-
-def pmouse_y() -> float:
-    return require_context().state.input.previous_mouse_y
-
-
-def moved_x() -> float:
-    return require_context().moved_x
-
-
-def moved_y() -> float:
-    return require_context().moved_y
-
-
-def mouse_is_pressed() -> bool:
-    return require_context().mouse_is_pressed
-
-
-def mouse_button() -> str | None:
-    return require_context().mouse_button
-
-
-def key() -> str | None:
-    return require_context().key
-
-
-def key_code() -> int | None:
-    return require_context().key_code
-
-
-def key_is_pressed() -> bool:
-    return require_context().key_is_pressed
-
-
-def key_is_down(key_code: int) -> bool:
-    return require_context().key_is_down(key_code)
-
-
-def touches():
-    return require_context().touches
-
-
-def image(*args: Any) -> None:
-    _context_call("image", *args)
-
-
-def text(value: object, x: float, y: float) -> None:
-    _context_call("text", value, x, y)
-
-
-def text_size(size: float | None = None) -> float:
-    return cast(float, _context_call("text_size", size))
-
-
-def text_font(font: Any | None = None):
-    return _context_call("text_font", font)
-
-
-def text_style(style: c.TextStyle | None = None) -> c.TextStyle:
-    return cast(c.TextStyle, _context_call("text_style", style))
-
-
-def text_align(horizontal: c.TextAlign, vertical: c.TextAlign | None = None) -> None:
-    _context_call("text_align", horizontal, vertical)
-
-
-def text_leading(value: float | None = None) -> float:
-    return cast(float, _context_call("text_leading", value))
-
-
-def text_width(value: object) -> float:
-    return cast(float, _context_call("text_width", value))
-
-
-def text_ascent() -> float:
-    return cast(float, _context_call("text_ascent"))
-
-
-def text_descent() -> float:
-    return cast(float, _context_call("text_descent"))
-
-
-def font_ascent(font: Any | None = None) -> float:
-    return cast(float, _context_call("font_ascent", font))
-
-
-def font_descent(font: Any | None = None) -> float:
-    return cast(float, _context_call("font_descent", font))
-
-
-def font_width(value: object, font: Any | None = None) -> float:
-    return cast(float, _context_call("font_width", value, font))
-
-
-def font_bounds(
-    value: object, x: float = 0.0, y: float = 0.0, font: Any | None = None
-) -> dict[str, float]:
-    return cast(dict[str, float], _context_call("font_bounds", value, x, y, font))
-
-
-def text_bounds(value: object, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
-    return cast(dict[str, float], _context_call("text_bounds", value, x, y))
-
-
-def text_direction(value: str | None = None) -> str:
-    return cast(str, _context_call("text_direction", value))
-
-
-def text_wrap(value: str | None = None) -> str:
-    return cast(str, _context_call("text_wrap", value))
-
-
-def text_weight(value: int | None = None) -> int:
-    return cast(int, _context_call("text_weight", value))
-
-
-def text_property(name: str, value: object | None = None) -> object:
-    return _context_call("text_property", name, value)
-
-
-def text_properties(**properties: object) -> dict[str, object]:
-    return cast(dict[str, object], _context_call("text_properties", **properties))
-
-
-def describe(description: object, *, label: str = "canvas") -> dict[str, str]:
-    return cast(dict[str, str], _context_call("describe", description, label=label))
-
-
-def describe_element(name: object, description: object) -> dict[str, str]:
-    return cast(dict[str, str], _context_call("describe_element", name, description))
-
-
-def text_output() -> list[dict[str, str]]:
-    return cast(list[dict[str, str]], _context_call("text_output"))
-
-
-def grid_output() -> list[dict[str, str]]:
-    return cast(list[dict[str, str]], _context_call("grid_output"))
-
-
-def load_pixels() -> list[int]:
-    return cast(list[int], _context_call("load_pixels"))
-
-
-def load_pixel_bytes() -> bytes:
-    return cast(bytes, _context_call("load_pixel_bytes"))
-
-
-def pixels() -> Sequence[int]:
-    context = require_context()
-    return context.pixels or context.load_pixels()
-
-
-def pixel_array():
-    return _context_call("pixel_array")
-
-
-def update_pixels(pixels: Sequence[int] | Buffer | None = None) -> None:
-    _context_call("update_pixels", pixels)
-
-
-def get(x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None):
-    return _context_call("get", x, y, w, h)
-
-
-def set(x: int, y: int, value: Any) -> None:
-    _context_call("set", x, y, value)
-
-
-def copy(*args: object):
-    return _context_call("copy", *args)
-
-
-def filter(mode: c.ImageFilter, value: float | None = None) -> None:
-    _context_call("filter", mode, value)
-
-
-def save_canvas(path: str, *, extension: str | None = None, overwrite: bool = True):
-    return _context_call("save_canvas", path, extension=extension, overwrite=overwrite)
-
-
-def blend_mode(mode: c.BlendMode) -> None:
-    _context_call("blend_mode", mode)
-
-
-def blend(*args: object) -> None:
-    _context_call("blend", *args)
-
-
-def erase() -> None:
-    _context_call("erase")
-
-
-def no_erase() -> None:
-    _context_call("no_erase")
 
 
 __all__ = [

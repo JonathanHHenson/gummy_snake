@@ -25,6 +25,33 @@ def test_basic_primitives_render_non_empty_canvas(tmp_path: Path):
     assert len(set(context.load_pixels())) > 1
 
 
+def test_nested_style_contexts_render_distinct_fill_colors():
+    def setup():
+        gs.create_canvas(36, 12)
+        gs.background(255)
+        gs.no_stroke()
+
+    def draw():
+        with gs.style(stroke=(0, 0, 0)):
+            with gs.style(fill=(255, 0, 0)):
+                gs.rect(0, 0, 12, 12)
+            with gs.style(fill=(0, 255, 0)):
+                gs.rect(12, 0, 12, 12)
+            with gs.style(fill=(0, 0, 255)):
+                gs.rect(24, 0, 12, 12)
+
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    pixels = context.load_pixels()
+
+    def pixel_at(x: int, y: int) -> tuple[int, int, int, int]:
+        offset = (y * 36 + x) * 4
+        return tuple(pixels[offset : offset + 4])  # type: ignore[return-value]
+
+    assert pixel_at(6, 6) == (255, 0, 0, 255)
+    assert pixel_at(18, 6) == (0, 255, 0, 255)
+    assert pixel_at(30, 6) == (0, 0, 255, 255)
+
+
 def test_custom_shape_and_bezier_render():
     def setup():
         gs.create_canvas(40, 40)

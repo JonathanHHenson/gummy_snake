@@ -15,7 +15,7 @@ fn noise3(x: f64, y: f64, z: f64, seed: i64, octaves: u32, falloff: f64) -> PyRe
         return Err(PyValueError::new_err("octaves must be at least 1."));
     }
 
-    Ok(noise_fractal(x, y, z, seed, octaves, falloff)?)
+    noise_fractal(x, y, z, seed, octaves, falloff)
 }
 
 #[pyfunction]

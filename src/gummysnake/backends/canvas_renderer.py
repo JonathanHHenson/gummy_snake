@@ -98,7 +98,7 @@ class CanvasRenderer:
         self.pixel_density = 1.0
         self._image_cache_versions: OrderedDict[int, int] = OrderedDict()
         self._text_metric_cache: OrderedDict[_TextMetricKey, float] = OrderedDict()
-        self._style_payload_cache: dict[int, tuple[int, dict[str, object]]] = {}
+        self._style_payload_cache: dict[int, tuple[StyleState, int, dict[str, object]]] = {}
         self._matrix_payload_cache: dict[int, tuple[Matrix2D, _MatrixPayload]] = {}
         self._line_batch: list[tuple[float, float, float, float]] = []
         self._line_batch_style: dict[str, object] | None = None
@@ -128,12 +128,12 @@ class CanvasRenderer:
         revision = style.revision
         key = id(style)
         cached = self._style_payload_cache.get(key)
-        if cached is not None and cached[0] == revision:
-            return cached[1]
+        if cached is not None and cached[0] is style and cached[1] == revision:
+            return cached[2]
         payload = _style_payload(style)
         if len(self._style_payload_cache) >= _STYLE_PAYLOAD_CACHE_LIMIT:
             self._style_payload_cache.clear()
-        self._style_payload_cache[key] = (revision, payload)
+        self._style_payload_cache[key] = (style, revision, payload)
         return payload
 
     def _matrix_payload(self, transform: Matrix2D) -> _MatrixPayload:

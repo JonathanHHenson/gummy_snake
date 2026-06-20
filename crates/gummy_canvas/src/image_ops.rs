@@ -199,10 +199,12 @@ pub(crate) fn convert_media_frame_to_rgba(
     let mut rgba = vec![0_u8; width * height * 4];
     match channels {
         1 => {
-            for index in 0..(width * height) {
-                let gray = pixels[index];
-                let offset = index * 4;
-                rgba[offset..offset + 4].copy_from_slice(&[gray, gray, gray, 255]);
+            for (src, dst) in pixels
+                .iter()
+                .take(width * height)
+                .zip(rgba.chunks_exact_mut(4))
+            {
+                dst.copy_from_slice(&[*src, *src, *src, 255]);
             }
         }
         3 => {
