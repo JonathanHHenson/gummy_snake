@@ -121,6 +121,12 @@ class SketchContext:
     def mouse_y(self) -> float:
         return self.state.input.mouse_y
 
+    def _mark_style_changed(self) -> None:
+        self.state.style.mark_changed()
+
+    def _set_transform_matrix(self, matrix: Matrix2D) -> None:
+        self.state.transform.set_matrix(matrix)
+
     def create_canvas(
         self,
         width: int,
@@ -236,58 +242,71 @@ class SketchContext:
 
     def fill(self, *args: object) -> None:
         self.state.style.fill_color = self.color(*args)
+        self._mark_style_changed()
 
     def no_fill(self) -> None:
         self.state.style.fill_color = None
+        self._mark_style_changed()
 
     def stroke(self, *args: object) -> None:
         self.state.style.stroke_color = self.color(*args)
+        self._mark_style_changed()
 
     def no_stroke(self) -> None:
         self.state.style.stroke_color = None
+        self._mark_style_changed()
 
     def stroke_weight(self, weight: float) -> None:
         if weight < 0:
             raise ArgumentValidationError("stroke_weight() cannot be negative.")
         self.state.style.stroke_weight = float(weight)
+        self._mark_style_changed()
 
     def stroke_cap(self, cap: c.StrokeCap) -> None:
         if cap not in {c.ROUND, c.SQUARE, c.PROJECT}:
             raise ArgumentValidationError(f"Unsupported stroke cap {cap!r}.")
         self.state.style.stroke_cap = cap
+        self._mark_style_changed()
 
     def stroke_join(self, join: c.StrokeJoin) -> None:
         if join not in {c.MITER, c.BEVEL, c.ROUND}:
             raise ArgumentValidationError(f"Unsupported stroke join {join!r}.")
         self.state.style.stroke_join = join
+        self._mark_style_changed()
 
     def rect_mode(self, mode: c.ShapeMode) -> None:
         if mode not in {c.CORNER, c.CORNERS, c.CENTER, c.RADIUS}:
             raise ArgumentValidationError(f"Unsupported rect mode {mode!r}.")
         self.state.style.rect_mode = mode
+        self._mark_style_changed()
 
     def ellipse_mode(self, mode: c.ShapeMode) -> None:
         if mode not in {c.CORNER, c.CORNERS, c.CENTER, c.RADIUS}:
             raise ArgumentValidationError(f"Unsupported ellipse mode {mode!r}.")
         self.state.style.ellipse_mode = mode
+        self._mark_style_changed()
 
     def image_mode(self, mode: c.ShapeMode) -> None:
         if mode not in {c.CORNER, c.CORNERS, c.CENTER}:
             raise ArgumentValidationError(f"Unsupported image mode {mode!r}.")
         self.state.style.image_mode = mode
+        self._mark_style_changed()
 
     def image_sampling(self, mode: c.ImageSampling | None = None) -> c.ImageSampling:
         if mode is not None:
             if mode not in {c.LINEAR, c.NEAREST}:
                 raise ArgumentValidationError(f"Unsupported image sampling mode {mode!r}.")
             self.state.style.image_sampling = mode
+            self._mark_style_changed()
         return self.state.style.image_sampling
 
     def smooth(self) -> None:
         self.state.style.image_sampling = c.LINEAR
+        self._mark_style_changed()
 
     def no_smooth(self) -> None:
         self.state.style.image_sampling = c.NEAREST
+        self._mark_style_changed()
 
     def point(self, x: float, y: float) -> None:
         self.renderer.point(float(x), float(y), self.state.style, self.state.transform.matrix)
@@ -311,12 +330,7 @@ class SketchContext:
             float(width),
             float(h),
         )
-        self.renderer.polygon(
-            [(rx, ry), (rx + rw, ry), (rx + rw, ry + rh), (rx, ry + rh)],
-            self.state.style,
-            self.state.transform.matrix,
-            close=True,
-        )
+        self.renderer.rect(rx, ry, rw, rh, self.state.style, self.state.transform.matrix)
 
     def square(self, x: float, y: float, size: float) -> None:
         self.rect(x, y, size, size)
@@ -336,18 +350,32 @@ class SketchContext:
         self.ellipse(x, y, diameter, diameter)
 
     def triangle(self, x1: float, y1: float, x2: float, y2: float, x3: float, y3: float) -> None:
-        self.renderer.polygon(
-            [(float(x1), float(y1)), (float(x2), float(y2)), (float(x3), float(y3))],
+        self.renderer.triangle(
+            float(x1),
+            float(y1),
+            float(x2),
+            float(y2),
+            float(x3),
+            float(y3),
             self.state.style,
             self.state.transform.matrix,
-            close=True,
         )
 
     def quad(self, *coords: float) -> None:
         if len(coords) != 8:
             raise ArgumentValidationError("quad() requires eight coordinate values.")
-        points = [(float(coords[i]), float(coords[i + 1])) for i in range(0, 8, 2)]
-        self.renderer.polygon(points, self.state.style, self.state.transform.matrix, close=True)
+        self.renderer.quad(
+            float(coords[0]),
+            float(coords[1]),
+            float(coords[2]),
+            float(coords[3]),
+            float(coords[4]),
+            float(coords[5]),
+            float(coords[6]),
+            float(coords[7]),
+            self.state.style,
+            self.state.transform.matrix,
+        )
 
     def arc(
         self,
@@ -438,6 +466,7 @@ class SketchContext:
         p3 = (float(coords[6]), float(coords[7]))
         previous_fill = self.state.style.fill_color
         self.state.style.fill_color = None
+        self._mark_style_changed()
         self.renderer.polygon(
             [p1, *flatten_spline(p0, p1, p2, p3, tightness=self._spline_tightness)],
             self.state.style,
@@ -445,6 +474,7 @@ class SketchContext:
             close=False,
         )
         self.state.style.fill_color = previous_fill
+        self._mark_style_changed()
 
     def spline_point(self, a: float, b: float, cc: float, d: float, t: float) -> float:
         return geometry_spline_point(
@@ -491,6 +521,7 @@ class SketchContext:
         p3 = (float(coords[6]), float(coords[7]))
         previous_fill = self.state.style.fill_color
         self.state.style.fill_color = None
+        self._mark_style_changed()
         self.renderer.polygon(
             [p0, *flatten_cubic(p0, p1, p2, p3)],
             self.state.style,
@@ -498,6 +529,7 @@ class SketchContext:
             close=False,
         )
         self.state.style.fill_color = previous_fill
+        self._mark_style_changed()
 
     def push(self) -> None:
         self.state.stack.append(
@@ -510,41 +542,43 @@ class SketchContext:
             raise ArgumentValidationError("pop() called without matching push().")
         entry = self.state.stack.pop()
         self.state.style = entry.style
-        self.state.transform.matrix = entry.matrix
+        self.state.transform.set_matrix(entry.matrix)
         self._material3d, self._normal_material3d = self._material3d_style_stack.pop()
 
     def translate(self, x: float, y: float) -> None:
-        self.state.transform.matrix = self.state.transform.matrix.multiply(
-            Matrix2D.translation(float(x), float(y))
+        self._set_transform_matrix(
+            self.state.transform.matrix.multiply(Matrix2D.translation(float(x), float(y)))
         )
 
     def rotate(self, angle: float) -> None:
-        self.state.transform.matrix = self.state.transform.matrix.multiply(
-            Matrix2D.rotation(self._angle(angle))
+        self._set_transform_matrix(
+            self.state.transform.matrix.multiply(Matrix2D.rotation(self._angle(angle)))
         )
 
     def scale(self, x: float, y: float | None = None) -> None:
-        self.state.transform.matrix = self.state.transform.matrix.multiply(
-            Matrix2D.scaling(float(x), None if y is None else float(y))
+        self._set_transform_matrix(
+            self.state.transform.matrix.multiply(
+                Matrix2D.scaling(float(x), None if y is None else float(y))
+            )
         )
 
     def shear_x(self, angle: float) -> None:
-        self.state.transform.matrix = self.state.transform.matrix.multiply(
-            Matrix2D.shear_x(self._angle(angle))
+        self._set_transform_matrix(
+            self.state.transform.matrix.multiply(Matrix2D.shear_x(self._angle(angle)))
         )
 
     def shear_y(self, angle: float) -> None:
-        self.state.transform.matrix = self.state.transform.matrix.multiply(
-            Matrix2D.shear_y(self._angle(angle))
+        self._set_transform_matrix(
+            self.state.transform.matrix.multiply(Matrix2D.shear_y(self._angle(angle)))
         )
 
     def apply_matrix(self, a: float, b: float, cc: float, d: float, e: float, f: float) -> None:
-        self.state.transform.matrix = self.state.transform.matrix.multiply(
-            Matrix2D(a, b, cc, d, e, f)
+        self._set_transform_matrix(
+            self.state.transform.matrix.multiply(Matrix2D(a, b, cc, d, e, f))
         )
 
     def reset_matrix(self) -> None:
-        self.state.transform.matrix = Matrix2D.identity()
+        self._set_transform_matrix(Matrix2D.identity())
 
     def angle_mode(self, mode: c.AngleMode) -> None:
         if mode not in {c.RADIANS, c.DEGREES}:
@@ -1005,6 +1039,7 @@ class SketchContext:
             if size <= 0:
                 raise ArgumentValidationError("text_size() must be positive.")
             self.state.style.text_size = float(size)
+            self._mark_style_changed()
         return self.state.style.text_size
 
     def text_font(self, font: Font | str | None = None) -> Font:
@@ -1012,6 +1047,7 @@ class SketchContext:
             if isinstance(font, str):
                 font = Font(name=font)
             self.state.style.text_font = font
+            self._mark_style_changed()
         return self.state.style.text_font
 
     def text_style(self, style: c.TextStyle | None = None) -> c.TextStyle:
@@ -1019,6 +1055,7 @@ class SketchContext:
             if style not in {c.NORMAL, c.ITALIC, c.BOLD, c.BOLDITALIC}:
                 raise ArgumentValidationError(f"Unsupported text style {style!r}.")
             self.state.style.text_style = style
+            self._mark_style_changed()
         return self.state.style.text_style
 
     def text_align(self, horizontal: c.TextAlign, vertical: c.TextAlign | None = None) -> None:
@@ -1027,14 +1064,17 @@ class SketchContext:
         if vertical is not None and vertical not in {c.TOP, c.CENTER, c.BOTTOM, c.BASELINE}:
             raise ArgumentValidationError(f"Unsupported vertical text alignment {vertical!r}.")
         self.state.style.text_align_x = horizontal
+        self._mark_style_changed()
         if vertical is not None:
             self.state.style.text_align_y = vertical
+            self._mark_style_changed()
 
     def text_leading(self, value: float | None = None) -> float:
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("text_leading() must be positive.")
             self.state.style.text_leading = float(value)
+            self._mark_style_changed()
         return self.state.style.text_leading
 
     def text_width(self, value: object) -> float:
@@ -1052,6 +1092,7 @@ class SketchContext:
             self.text_font(font)
         value = self.text_ascent()
         self.state.style.text_font = previous
+        self._mark_style_changed()
         return value
 
     def font_descent(self, font: Font | str | None = None) -> float:
@@ -1060,6 +1101,7 @@ class SketchContext:
             self.text_font(font)
         value = self.text_descent()
         self.state.style.text_font = previous
+        self._mark_style_changed()
         return value
 
     def font_width(self, value: object, font: Font | str | None = None) -> float:
@@ -1068,6 +1110,7 @@ class SketchContext:
             self.text_font(font)
         width = self.text_width(value)
         self.state.style.text_font = previous
+        self._mark_style_changed()
         return width
 
     def text_bounds(self, value: object, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
@@ -1089,6 +1132,7 @@ class SketchContext:
             self.text_font(font)
         bounds = self.text_bounds(value, x, y)
         self.state.style.text_font = previous
+        self._mark_style_changed()
         return bounds
 
     def text_direction(self, value: str | None = None) -> str:
@@ -1112,6 +1156,7 @@ class SketchContext:
             self._text_weight = int(value)
             if self._text_weight >= 600 and self.state.style.text_style == c.NORMAL:
                 self.state.style.text_style = c.BOLD
+                self._mark_style_changed()
         return self._text_weight
 
     def text_property(self, name: str, value: object | None = None) -> object:
@@ -1270,6 +1315,7 @@ class SketchContext:
                 f"Unsupported blend mode {mode!r} for backend {self.backend.name!r}."
             )
         self.state.style.blend_mode = mode
+        self._mark_style_changed()
 
     def blend(self, *args: object) -> None:
         if len(args) == 9:
@@ -1298,9 +1344,11 @@ class SketchContext:
 
     def erase(self) -> None:
         self.state.style.erasing = True
+        self._mark_style_changed()
 
     def no_erase(self) -> None:
         self.state.style.erasing = False
+        self._mark_style_changed()
 
     @property
     def pmouse_x(self) -> float:

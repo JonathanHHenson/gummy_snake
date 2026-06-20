@@ -15,7 +15,10 @@ from p5.core.transform import Matrix2D
 from p5.exceptions import ArgumentValidationError, BackendCapabilityError
 
 _TEXT_METRIC_CACHE_LIMIT = 256
+_STYLE_PAYLOAD_CACHE_LIMIT = 256
+_MATRIX_PAYLOAD_CACHE_LIMIT = 256
 _TextMetricKey = tuple[str, str | None, tuple[tuple[str, Hashable], ...]]
+_MatrixPayload = tuple[float, float, float, float, float, float]
 
 
 def _color_payload(color: Color | None) -> tuple[int, int, int, int] | None:
@@ -74,6 +77,11 @@ class CanvasRenderer:
         self.pixel_density = 1.0
         self._image_cache_versions: dict[int, int] = {}
         self._text_metric_cache: OrderedDict[_TextMetricKey, float] = OrderedDict()
+        self._style_payload_cache: dict[int, tuple[int, dict[str, object]]] = {}
+        self._matrix_payload_cache: dict[int, tuple[Matrix2D, _MatrixPayload]] = {}
+        self._line_batch: list[tuple[float, float, float, float]] = []
+        self._line_batch_style: dict[str, object] | None = None
+        self._line_batch_matrix: _MatrixPayload | None = None
 
     def resize(
         self,
@@ -83,6 +91,7 @@ class CanvasRenderer:
         *,
         mode: str = "headless",
     ) -> None:
+        self._flush_line_batch()
         canvas_type = self._canvas_type()
         try:
             if self._canvas is None:
@@ -93,6 +102,29 @@ class CanvasRenderer:
         except ValueError as exc:
             raise ArgumentValidationError(str(exc)) from exc
 
+    def _style_payload(self, style: StyleState) -> dict[str, object]:
+        revision = style.revision
+        key = id(style)
+        cached = self._style_payload_cache.get(key)
+        if cached is not None and cached[0] == revision:
+            return cached[1]
+        payload = _style_payload(style)
+        if len(self._style_payload_cache) >= _STYLE_PAYLOAD_CACHE_LIMIT:
+            self._style_payload_cache.clear()
+        self._style_payload_cache[key] = (revision, payload)
+        return payload
+
+    def _matrix_payload(self, transform: Matrix2D) -> _MatrixPayload:
+        key = id(transform)
+        cached = self._matrix_payload_cache.get(key)
+        if cached is not None and cached[0] == transform:
+            return cached[1]
+        payload = _matrix_payload(transform)
+        if len(self._matrix_payload_cache) >= _MATRIX_PAYLOAD_CACHE_LIMIT:
+            self._matrix_payload_cache.clear()
+        self._matrix_payload_cache[key] = (transform, payload)
+        return payload
+
     def display_density(self) -> float:
         if self._canvas is None:
             return 1.0
@@ -102,12 +134,15 @@ class CanvasRenderer:
         self._require_canvas().begin_frame()
 
     def end_frame(self) -> None:
+        self._flush_line_batch()
         self._require_canvas().end_frame()
 
     def present(self) -> None:
+        self._flush_line_batch()
         self._require_canvas().present()
 
     def close(self) -> None:
+        self._flush_line_batch()
         if self._canvas is not None:
             self._canvas.close()
 
@@ -117,19 +152,22 @@ class CanvasRenderer:
         return self._require_canvas()
 
     def background(self, color: Color) -> None:
+        self._flush_line_batch()
         self._call("background drawing", self._require_canvas().background, color.to_tuple())
 
     def clear(self) -> None:
+        self._flush_line_batch()
         self._call("canvas clearing", self._require_canvas().clear)
 
     def point(self, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
+        self._flush_line_batch()
         self._call(
             "point drawing",
             self._require_canvas().point,
             x,
             y,
-            _style_payload(style),
-            _matrix_payload(transform),
+            self._style_payload(style),
+            self._matrix_payload(transform),
         )
 
     def line(
@@ -141,16 +179,19 @@ class CanvasRenderer:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        self._call(
-            "line drawing",
-            self._require_canvas().line,
-            x1,
-            y1,
-            x2,
-            y2,
-            _style_payload(style),
-            _matrix_payload(transform),
-        )
+        style_payload = self._style_payload(style)
+        matrix_payload = self._matrix_payload(transform)
+        if (
+            self._line_batch
+            and (
+                self._line_batch_style is not style_payload
+                or self._line_batch_matrix is not matrix_payload
+            )
+        ):
+            self._flush_line_batch()
+        self._line_batch.append((x1, y1, x2, y2))
+        self._line_batch_style = style_payload
+        self._line_batch_matrix = matrix_payload
 
     def polygon(
         self,
@@ -160,14 +201,107 @@ class CanvasRenderer:
         *,
         close: bool = True,
     ) -> None:
+        self._flush_line_batch()
         self._call(
             "polygon drawing",
             self._require_canvas().polygon,
             points,
-            _style_payload(style),
-            _matrix_payload(transform),
+            self._style_payload(style),
+            self._matrix_payload(transform),
             close,
         )
+
+    def rect(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> None:
+        self._flush_line_batch()
+        callback = getattr(self._require_canvas(), "rect", None)
+        if callable(callback):
+            self._call(
+                "rectangle drawing",
+                callback,
+                x,
+                y,
+                width,
+                height,
+                self._style_payload(style),
+                self._matrix_payload(transform),
+            )
+            return
+        self.polygon(
+            [(x, y), (x + width, y), (x + width, y + height), (x, y + height)],
+            style,
+            transform,
+            close=True,
+        )
+
+    def triangle(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> None:
+        self._flush_line_batch()
+        callback = getattr(self._require_canvas(), "triangle", None)
+        if callable(callback):
+            self._call(
+                "triangle drawing",
+                callback,
+                x1,
+                y1,
+                x2,
+                y2,
+                x3,
+                y3,
+                self._style_payload(style),
+                self._matrix_payload(transform),
+            )
+            return
+        self.polygon([(x1, y1), (x2, y2), (x3, y3)], style, transform, close=True)
+
+    def quad(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        x4: float,
+        y4: float,
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> None:
+        self._flush_line_batch()
+        callback = getattr(self._require_canvas(), "quad", None)
+        if callable(callback):
+            self._call(
+                "quadrilateral drawing",
+                callback,
+                x1,
+                y1,
+                x2,
+                y2,
+                x3,
+                y3,
+                x4,
+                y4,
+                self._style_payload(style),
+                self._matrix_payload(transform),
+            )
+            return
+        self.polygon([(x1, y1), (x2, y2), (x3, y3), (x4, y4)], style, transform, close=True)
 
     def ellipse(
         self,
@@ -178,6 +312,7 @@ class CanvasRenderer:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        self._flush_line_batch()
         self._call(
             "ellipse drawing",
             self._require_canvas().ellipse,
@@ -185,8 +320,8 @@ class CanvasRenderer:
             y,
             width,
             height,
-            _style_payload(style),
-            _matrix_payload(transform),
+            self._style_payload(style),
+            self._matrix_payload(transform),
         )
 
     def arc(
@@ -201,6 +336,7 @@ class CanvasRenderer:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        self._flush_line_batch()
         self._call(
             "arc drawing",
             self._require_canvas().arc,
@@ -211,8 +347,8 @@ class CanvasRenderer:
             start,
             stop,
             mode,
-            _style_payload(style),
-            _matrix_payload(transform),
+            self._style_payload(style),
+            self._matrix_payload(transform),
         )
 
     def draw_image(
@@ -228,6 +364,7 @@ class CanvasRenderer:
         source: tuple[int, int, int, int] | None = None,
         cache: bool = True,
     ) -> None:
+        self._flush_line_batch()
         if isinstance(image, P5Image):
             self._call(
                 "image drawing",
@@ -237,8 +374,8 @@ class CanvasRenderer:
                 dy,
                 dw,
                 dh,
-                _style_payload(style),
-                _matrix_payload(transform),
+                self._style_payload(style),
+                self._matrix_payload(transform),
                 source,
             )
             return
@@ -259,8 +396,8 @@ class CanvasRenderer:
                 dy,
                 dw,
                 dh,
-                _style_payload(style),
-                _matrix_payload(transform),
+                self._style_payload(style),
+                self._matrix_payload(transform),
                 source,
             )
             self._image_cache_versions[image_key] = image.version
@@ -275,8 +412,8 @@ class CanvasRenderer:
             dy,
             dw,
             dh,
-            _style_payload(style),
-            _matrix_payload(transform),
+            self._style_payload(style),
+            self._matrix_payload(transform),
             source,
         )
 
@@ -288,6 +425,7 @@ class CanvasRenderer:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        self._flush_line_batch()
         if style.fill_color is None:
             return
         self._call(
@@ -296,40 +434,45 @@ class CanvasRenderer:
             value,
             x,
             y,
-            _style_payload(style),
-            _matrix_payload(transform),
+            self._style_payload(style),
+            self._matrix_payload(transform),
         )
 
     def text_width(self, value: str, style: StyleState) -> float:
+        self._flush_line_batch()
         return self._cached_text_metric(
             _text_metric_key("width", style, value),
             "text measurement",
             self._require_canvas().text_width,
             value,
-            _style_payload(style),
+            self._style_payload(style),
         )
 
     def text_ascent(self, style: StyleState) -> float:
+        self._flush_line_batch()
         return self._cached_text_metric(
             _text_metric_key("ascent", style),
             "text ascent measurement",
             self._require_canvas().text_ascent,
-            _style_payload(style),
+            self._style_payload(style),
         )
 
     def text_descent(self, style: StyleState) -> float:
+        self._flush_line_batch()
         return self._cached_text_metric(
             _text_metric_key("descent", style),
             "text descent measurement",
             self._require_canvas().text_descent,
-            _style_payload(style),
+            self._style_payload(style),
         )
 
     def load_pixels(self) -> list[int]:
+        self._flush_line_batch()
         pixels = self._call("pixel readback", self._require_canvas().load_pixels)
         return list(pixels)
 
     def update_pixels(self, pixels: Sequence[int]) -> None:
+        self._flush_line_batch()
         try:
             payload = bytes(pixels)
         except ValueError as exc:
@@ -345,6 +488,7 @@ class CanvasRenderer:
         destination: tuple[int, int, int, int],
         mode: c.BlendMode,
     ) -> None:
+        self._flush_line_batch()
         if isinstance(source_image, Image):
             self._call(
                 "region blending",
@@ -389,7 +533,27 @@ class CanvasRenderer:
         )
 
     def save(self, path: str | Path) -> None:
+        self._flush_line_batch()
         self._call("canvas export", self._require_canvas().save, str(path))
+
+    def _flush_line_batch(self) -> None:
+        if not self._line_batch:
+            return
+        lines = self._line_batch
+        style = self._line_batch_style
+        matrix = self._line_batch_matrix
+        self._line_batch = []
+        self._line_batch_style = None
+        self._line_batch_matrix = None
+        if style is None or matrix is None:
+            return
+        canvas = self._require_canvas()
+        batch_lines = getattr(canvas, "batch_lines", None)
+        if callable(batch_lines):
+            self._call("batched line drawing", batch_lines, lines, style, matrix)
+            return
+        for x1, y1, x2, y2 in lines:
+            self._call("line drawing", canvas.line, x1, y1, x2, y2, style, matrix)
 
     def _canvas_type(self) -> type[Any]:
         canvas_type = getattr(self._canvas_module, "Canvas", None)

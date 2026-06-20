@@ -54,6 +54,42 @@ class Renderer(Protocol):
         close: bool = True,
     ) -> None: ...
 
+    def rect(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> None: ...
+
+    def triangle(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> None: ...
+
+    def quad(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        x4: float,
+        y4: float,
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> None: ...
+
     def ellipse(
         self,
         x: float,

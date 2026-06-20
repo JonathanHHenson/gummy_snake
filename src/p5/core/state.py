@@ -48,14 +48,23 @@ class StyleState:
     text_align_x: c.TextAlign = c.LEFT
     text_align_y: c.TextAlign = c.BASELINE
     text_leading: float = 14.0
+    revision: int = 0
 
     def copy(self) -> StyleState:
         return replace(self)
+
+    def mark_changed(self) -> None:
+        self.revision += 1
 
 
 @dataclass(slots=True)
 class TransformState:
     matrix: Matrix2D = field(default_factory=Matrix2D.identity)
+    revision: int = 0
+
+    def set_matrix(self, matrix: Matrix2D) -> None:
+        self.matrix = matrix
+        self.revision += 1
 
 
 @dataclass(slots=True)

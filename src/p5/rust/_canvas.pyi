@@ -54,12 +54,51 @@ class Canvas:
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
+    def batch_lines(
+        self,
+        lines: list[tuple[float, float, float, float]],
+        style: dict[str, Any],
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None: ...
     def polygon(
         self,
         points: list[tuple[float, float]],
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
         close: bool = True,
+    ) -> None: ...
+    def rect(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        style: dict[str, Any],
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None: ...
+    def triangle(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        style: dict[str, Any],
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None: ...
+    def quad(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        x4: float,
+        y4: float,
+        style: dict[str, Any],
+        matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
     def ellipse(
         self,

@@ -247,6 +247,8 @@ struct Canvas {
     offscreen_dirty: bool,
     pixels_stale: bool,
     texture_stale: bool,
+    cached_style_key: Option<usize>,
+    cached_style: Option<Style>,
 }
 
 #[pymethods]
@@ -289,6 +291,8 @@ impl Canvas {
             offscreen_dirty: false,
             pixels_stale: false,
             texture_stale: false,
+            cached_style_key: None,
+            cached_style: None,
         })
     }
 
@@ -318,6 +322,8 @@ impl Canvas {
         self.offscreen_dirty = false;
         self.pixels_stale = false;
         self.texture_stale = false;
+        self.cached_style_key = None;
+        self.cached_style = None;
         if let Some(runtime) = self.runtime.as_mut() {
             runtime
                 .request_resize(width, height, pixel_density)
@@ -496,7 +502,7 @@ impl Canvas {
     }
 
     fn point(&mut self, x: f64, y: f64, style: &Bound<'_, PyAny>, matrix: Matrix) -> PyResult<()> {
-        let style = parse_style(style)?;
+        let style = self.cached_style(style)?;
         ensure_supported_style(&style)?;
         let color = match style.stroke.or(style.fill) {
             Some(color) => color,
@@ -539,7 +545,7 @@ impl Canvas {
         style: &Bound<'_, PyAny>,
         matrix: Matrix,
     ) -> PyResult<()> {
-        let style = parse_style(style)?;
+        let style = self.cached_style(style)?;
         ensure_supported_style(&style)?;
         let stroke = match style.stroke {
             Some(color) => color,
@@ -569,6 +575,44 @@ impl Canvas {
         Ok(())
     }
 
+    fn batch_lines(
+        &mut self,
+        lines: Vec<(f64, f64, f64, f64)>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let Some(stroke) = style.stroke else {
+            return Ok(());
+        };
+        let radius = stroke_width(style.stroke_weight, self.pixel_density) / 2.0;
+        for (x1, y1, x2, y2) in lines {
+            let p1 = self.transform_point(matrix, x1, y1);
+            let p2 = self.transform_point(matrix, x2, y2);
+            let bounds =
+                clipped_bounds(&[p1, p2], radius, self.physical_width, self.physical_height);
+            if self.can_queue_gpu_primitives(&style) {
+                self.draw_gpu_segment(p1, p2, radius * 2.0, stroke)?;
+                continue;
+            }
+            self.prepare_cpu_composite();
+            let Some(mut overlay) = OverlayRegion::from_bounds(
+                bounds,
+                self.physical_width,
+                &mut self.pixels,
+                &mut self.present_pixels,
+                style.erasing,
+                &style.blend_mode,
+            ) else {
+                continue;
+            };
+            stroke_segment(&mut overlay, p1, p2, radius * 2.0, stroke);
+            self.upload_cpu_pixels()?;
+        }
+        Ok(())
+    }
+
     #[pyo3(signature = (points, style, matrix, close=true))]
     fn polygon(
         &mut self,
@@ -577,7 +621,7 @@ impl Canvas {
         matrix: Matrix,
         close: bool,
     ) -> PyResult<()> {
-        let style = parse_style(style)?;
+        let style = self.cached_style(style)?;
         ensure_supported_style(&style)?;
         if points.is_empty() {
             return Ok(());
@@ -586,41 +630,72 @@ impl Canvas {
             .iter()
             .map(|(x, y)| self.transform_point(matrix, *x, *y))
             .collect();
-        let padding = if style.stroke.is_some() {
-            stroke_width(style.stroke_weight, self.pixel_density) / 2.0
-        } else {
-            0.0
-        };
-        let bounds = clipped_bounds(
-            &transformed,
-            padding,
-            self.physical_width,
-            self.physical_height,
-        );
-        if self.can_queue_gpu_polygon(&transformed, &style, close) {
-            self.draw_gpu_polygon(&transformed, &style, close, self.pixel_density)?;
-            return Ok(());
-        }
-        self.prepare_cpu_composite();
-        let Some(mut overlay) = OverlayRegion::from_bounds(
-            bounds,
-            self.physical_width,
-            &mut self.pixels,
-            &mut self.present_pixels,
-            style.erasing,
-            &style.blend_mode,
-        ) else {
-            return Ok(());
-        };
-        draw_polygon_overlay(
-            &mut overlay,
-            &transformed,
-            &style,
-            close,
-            self.pixel_density,
-        );
-        self.upload_cpu_pixels()?;
-        Ok(())
+        self.draw_transformed_polygon(&transformed, &style, close)
+    }
+
+    fn rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let points = [
+            self.transform_point(matrix, x, y),
+            self.transform_point(matrix, x + width, y),
+            self.transform_point(matrix, x + width, y + height),
+            self.transform_point(matrix, x, y + height),
+        ];
+        self.draw_transformed_polygon(&points, &style, true)
+    }
+
+    fn triangle(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let points = [
+            self.transform_point(matrix, x1, y1),
+            self.transform_point(matrix, x2, y2),
+            self.transform_point(matrix, x3, y3),
+        ];
+        self.draw_transformed_polygon(&points, &style, true)
+    }
+
+    fn quad(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let points = [
+            self.transform_point(matrix, x1, y1),
+            self.transform_point(matrix, x2, y2),
+            self.transform_point(matrix, x3, y3),
+            self.transform_point(matrix, x4, y4),
+        ];
+        self.draw_transformed_polygon(&points, &style, true)
     }
 
     fn ellipse(
@@ -632,7 +707,7 @@ impl Canvas {
         style: &Bound<'_, PyAny>,
         matrix: Matrix,
     ) -> PyResult<()> {
-        let parsed_style = parse_style(style)?;
+        let parsed_style = self.cached_style(style)?;
         ensure_supported_style(&parsed_style)?;
         if let Some((cx, cy, rx, ry)) =
             self.axis_aligned_ellipse_geometry(matrix, x, y, width, height)
@@ -733,7 +808,7 @@ impl Canvas {
             }
             "chord" => self.polygon(arc_points, style, matrix, true),
             _ => {
-                let parsed_style = parse_style(style)?;
+                let parsed_style = self.cached_style(style)?;
                 ensure_supported_style(&parsed_style)?;
                 let transformed: Vec<Point> = arc_points
                     .iter()
@@ -954,7 +1029,7 @@ impl Canvas {
         style: &Bound<'_, PyAny>,
         matrix: Matrix,
     ) -> PyResult<()> {
-        let parsed_style = parse_style(style)?;
+        let parsed_style = self.cached_style(style)?;
         ensure_supported_style(&parsed_style)?;
         let Some(fill) = parsed_style.fill else {
             return Ok(());
@@ -1028,7 +1103,7 @@ impl Canvas {
     }
 
     fn text_width(&mut self, value: &str, style: &Bound<'_, PyAny>) -> PyResult<f64> {
-        let parsed_style = parse_style(style)?;
+        let parsed_style = self.cached_style(style)?;
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
         }
@@ -1040,7 +1115,7 @@ impl Canvas {
     }
 
     fn text_ascent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
-        let parsed_style = parse_style(style)?;
+        let parsed_style = self.cached_style(style)?;
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
         }
@@ -1053,7 +1128,7 @@ impl Canvas {
     }
 
     fn text_descent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
-        let parsed_style = parse_style(style)?;
+        let parsed_style = self.cached_style(style)?;
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
         }
@@ -1198,7 +1273,7 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
-        let style = parse_style(style)?;
+        let style = self.cached_style(style)?;
         ensure_supported_style(&style)?;
         if dw <= 0.0 || dh <= 0.0 || image_width == 0 || image_height == 0 {
             return Ok(());
@@ -1323,7 +1398,7 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<bool> {
-        let style = parse_style(style)?;
+        let style = self.cached_style(style)?;
         if !self.can_queue_gpu_primitives(&style)
             || style.image_sampling != "nearest"
             || dw <= 0.0
@@ -1387,6 +1462,51 @@ impl Canvas {
             (a * x + c * y + e) * self.pixel_density,
             (b * x + d * y + f) * self.pixel_density,
         )
+    }
+
+    fn cached_style(&mut self, style: &Bound<'_, PyAny>) -> PyResult<Style> {
+        let key = style.as_ptr() as usize;
+        if self.cached_style_key == Some(key) {
+            if let Some(cached) = self.cached_style.as_ref() {
+                return Ok(cached.clone());
+            }
+        }
+        let parsed = parse_style(style)?;
+        self.cached_style_key = Some(key);
+        self.cached_style = Some(parsed.clone());
+        Ok(parsed)
+    }
+
+    fn draw_transformed_polygon(
+        &mut self,
+        points: &[Point],
+        style: &Style,
+        close: bool,
+    ) -> PyResult<()> {
+        let padding = if style.stroke.is_some() {
+            stroke_width(style.stroke_weight, self.pixel_density) / 2.0
+        } else {
+            0.0
+        };
+        let bounds = clipped_bounds(points, padding, self.physical_width, self.physical_height);
+        if self.can_queue_gpu_polygon(points, style, close) {
+            self.draw_gpu_polygon(points, style, close, self.pixel_density)?;
+            return Ok(());
+        }
+        self.prepare_cpu_composite();
+        let Some(mut overlay) = OverlayRegion::from_bounds(
+            bounds,
+            self.physical_width,
+            &mut self.pixels,
+            &mut self.present_pixels,
+            style.erasing,
+            &style.blend_mode,
+        ) else {
+            return Ok(());
+        };
+        draw_polygon_overlay(&mut overlay, points, style, close, self.pixel_density);
+        self.upload_cpu_pixels()?;
+        Ok(())
     }
 
     fn axis_aligned_ellipse_geometry(
