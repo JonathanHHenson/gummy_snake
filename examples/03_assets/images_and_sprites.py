@@ -8,59 +8,59 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import p5
+import gummysnake as gs
 from examples.common import example_parser, save_once
 
 ASSETS = Path("examples/assets")
 OUTPUT = Path("examples/output/03_assets/images_and_sprites.png")
 ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
-SHIP: p5.Image | None = None
-UFO: p5.Image | None = None
-METEOR: p5.Image | None = None
-SHIELD: p5.Image | None = None
+SHIP: gs.Image | None = None
+UFO: gs.Image | None = None
+METEOR: gs.Image | None = None
+SHIELD: gs.Image | None = None
 
 
-@p5.preload
+@gs.preload
 async def preload() -> None:
     global SHIP, UFO, METEOR, SHIELD
-    SHIP = await p5.load_image_async(ASSETS / "playerShip1_blue.png")
-    UFO = await p5.load_image_async(ASSETS / "ufoBlue.png")
-    METEOR = await p5.load_image_async(ASSETS / "Meteors/meteorGrey_big1.png")
-    SHIELD = await p5.load_image_async(ASSETS / "Effects/shield3.png")
+    SHIP = await gs.load_image_async(ASSETS / "playerShip1_blue.png")
+    UFO = await gs.load_image_async(ASSETS / "ufoBlue.png")
+    METEOR = await gs.load_image_async(ASSETS / "Meteors/meteorGrey_big1.png")
+    SHIELD = await gs.load_image_async(ASSETS / "Effects/shield3.png")
 
 
-@p5.setup
+@gs.setup
 def setup() -> None:
-    p5.create_canvas(760, 420)
-    p5.image_mode(p5.CENTER)
-    p5.no_smooth()
+    gs.create_canvas(760, 420)
+    gs.image_mode(gs.CENTER)
+    gs.no_smooth()
 
 
-@p5.draw
+@gs.draw
 def draw() -> None:
     assert SHIP is not None and UFO is not None and METEOR is not None and SHIELD is not None
-    p5.background(9, 13, 28)
+    gs.background(9, 13, 28)
     for i in range(70):
-        p5.stroke(140 + i % 80, 160, 210, 160)
-        p5.point((i * 97) % 760, (i * 53) % 420)
+        gs.stroke(140 + i % 80, 160, 210, 160)
+        gs.point((i * 97) % 760, (i * 53) % 420)
 
-    p5.no_stroke()
-    with p5.transform(
-        translate=p5.Vector(190, 210),
-        rotate=-0.28 + math.sin(p5.current.frame_count * 0.04) * 0.08,
+    gs.no_stroke()
+    with gs.transform(
+        translate=gs.Vector(190, 210),
+        rotate=-0.28 + math.sin(gs.current.frame_count * 0.04) * 0.08,
     ):
-        p5.image(SHIELD, 0, 0, 142, 142)
-        p5.image(SHIP, 0, 0, 104, 78)
+        gs.image(SHIELD, 0, 0, 142, 142)
+        gs.image(SHIP, 0, 0, 104, 78)
 
-    p5.image(UFO, 520, 134, 130, 94)
-    p5.image(METEOR, 545, 285, 128, 128)
-    p5.fill(238)
-    p5.text_size(16)
-    p5.text(f"ship asset: {SHIP.width}x{SHIP.height}", 32, 36)
-    p5.text("image_mode(CENTER), no_smooth(), transformed draw", 32, 392)
+    gs.image(UFO, 520, 134, 130, 94)
+    gs.image(METEOR, 545, 285, 128, 128)
+    gs.fill(238)
+    gs.text_size(16)
+    gs.text(f"ship asset: {SHIP.width}x{SHIP.height}", 32, 36)
+    gs.text("image_mode(CENTER), no_smooth(), transformed draw", 32, 392)
 
-    save_once(ARGS, p5.current.frame_count, p5.save_canvas)
+    save_once(ARGS, gs.current.frame_count, gs.save_canvas)
 
 
 if __name__ == "__main__":
-    p5.run(headless=ARGS.headless, max_frames=ARGS.frames)
+    gs.run(headless=ARGS.headless, max_frames=ARGS.frames)

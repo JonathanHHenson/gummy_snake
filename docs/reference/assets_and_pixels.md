@@ -34,7 +34,7 @@ Image objects also support Python indexing:
 
 ```python
 color = img[x, y]
-img[x, y] = p5.Color(255, 0, 0)
+img[x, y] = gs.Color(255, 0, 0)
 tile = img[x0:x1, y0:y1]
 ```
 
@@ -60,9 +60,9 @@ Performance diagnostics can be enabled when investigating slow pixel or image
 paths:
 
 ```python
-p5.enable_performance_diagnostics()
-pixels = p5.load_pixels()
-report = p5.performance_diagnostics()
+gs.enable_performance_diagnostics()
+pixels = gs.load_pixels()
+report = gs.performance_diagnostics()
 ```
 
 The report contains counters and short public-language messages for readback,
@@ -75,9 +75,9 @@ possible. Full-canvas `load_pixels()` remains a full physical-buffer readback.
 Renderer/runtime counters are available separately:
 
 ```python
-p5.reset_renderer_performance_counters()
+gs.reset_renderer_performance_counters()
 # draw representative frames
-report = p5.renderer_performance_counters()
+report = gs.renderer_performance_counters()
 ```
 
 Text-heavy sketches can inspect `text_cache_hits`, `text_cache_misses`,
@@ -118,7 +118,7 @@ timings.
 - `create_video_async(...)`
 
 Some media helpers require installing the `media` extra.
-Decoded grayscale, BGR, and BGRA frames are converted to p5 RGBA image buffers
+Decoded grayscale, BGR, and BGRA frames are converted to Gummy Snake RGBA image buffers
 by the Rust canvas extension once the optional media dependency supplies a
 contiguous frame buffer.
 

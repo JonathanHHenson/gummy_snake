@@ -7,9 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import p5
+import gummysnake as gs
 from examples.common import example_parser, save_once
-from p5.plugins import Plugin, clear_plugins, install_plugin
+from gummysnake.plugins import Plugin, clear_plugins, install_plugin
 
 OUTPUT = Path("examples/output/07_plugins/plugin_hooks.png")
 ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
@@ -44,23 +44,23 @@ class TracePlugin(Plugin):
 
 
 def setup() -> None:
-    p5.create_canvas(640, 360)
+    gs.create_canvas(640, 360)
 
 
 def draw() -> None:
-    label = p5.trace_label("draw")  # type: ignore[attr-defined]
-    p5.background(245, 244, 238)
-    p5.fill(30, 34, 44)
-    p5.text_size(17)
-    p5.text(f"plugin API returned: {label}", 34, 42)
-    p5.text_size(14)
+    label = gs.trace_label("draw")  # type: ignore[attr-defined]
+    gs.background(245, 244, 238)
+    gs.fill(30, 34, 44)
+    gs.text_size(17)
+    gs.text(f"plugin API returned: {label}", 34, 42)
+    gs.text_size(14)
     for i, event in enumerate(EVENTS[-12:]):
-        p5.text(event, 46, 86 + i * 22)
-    save_once(ARGS, p5.frame_count(), p5.save_canvas)
+        gs.text(event, 46, 86 + i * 22)
+    save_once(ARGS, gs.frame_count(), gs.save_canvas)
 
 
 if __name__ == "__main__":
     clear_plugins()
     install_plugin(TracePlugin())
-    p5.run(setup=setup, draw=draw, headless=ARGS.headless, max_frames=ARGS.frames)
+    gs.run(setup=setup, draw=draw, headless=ARGS.headless, max_frames=ARGS.frames)
     clear_plugins()

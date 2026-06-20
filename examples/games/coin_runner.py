@@ -20,10 +20,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import p5
+import gummysnake as gs
 from examples.common import example_parser, save_once
-from p5.events.input_state import KeyboardEvent, MouseEvent
-from p5.exceptions import BackendCapabilityError
+from gummysnake.events.input_state import KeyboardEvent, MouseEvent
+from gummysnake.exceptions import BackendCapabilityError
 
 ASSETS = Path("examples/assets")
 OUTPUT = Path("examples/output/games/coin_runner.png")
@@ -90,15 +90,15 @@ class Burst:
     age: int = 0
 
 
-class CoinRunner(p5.Sketch):
+class CoinRunner(gs.Sketch):
     def __init__(self) -> None:
         super().__init__(headless=ARGS.headless)
         self.keys: set[str] = set()
-        self.idle: p5.Image | None = None
-        self.run_strip: p5.Image | None = None
-        self.pickup_image: p5.Image | None = None
-        self.ufo: p5.Image | None = None
-        self.sound: p5.Sound | None = None
+        self.idle: gs.Image | None = None
+        self.run_strip: gs.Image | None = None
+        self.pickup_image: gs.Image | None = None
+        self.ufo: gs.Image | None = None
+        self.sound: gs.Sound | None = None
         self.sound_available = True
         self.runner_y = GROUND_Y
         self.previous_runner_y = GROUND_Y
@@ -125,18 +125,18 @@ class CoinRunner(p5.Sketch):
         self.bursts: list[Burst] = []
 
     def preload(self) -> None:
-        self.idle = p5.load_image(ASSETS / "herochar/herochar_idle_anim_strip_4.png")
-        self.run_strip = p5.load_image(ASSETS / "herochar/herochar_run_anim_strip_6.png")
-        self.pickup_image = p5.load_image(ASSETS / "Power-ups/powerupBlue_shield.png")
-        self.ufo = p5.load_image(ASSETS / "ufoBlue.png")
-        self.sound = p5.load_sound(ASSETS / "coin-drop-4.wav")
+        self.idle = gs.load_image(ASSETS / "herochar/herochar_idle_anim_strip_4.png")
+        self.run_strip = gs.load_image(ASSETS / "herochar/herochar_run_anim_strip_6.png")
+        self.pickup_image = gs.load_image(ASSETS / "Power-ups/powerupBlue_shield.png")
+        self.ufo = gs.load_image(ASSETS / "ufoBlue.png")
+        self.sound = gs.load_sound(ASSETS / "coin-drop-4.wav")
         self.sound.volume(0.35)
 
     def setup(self) -> None:
-        p5.create_canvas(CANVAS_WIDTH, CANVAS_HEIGHT)
-        p5.frame_rate(60)
-        p5.image_mode(p5.CENTER)
-        p5.no_smooth()
+        gs.create_canvas(CANVAS_WIDTH, CANVAS_HEIGHT)
+        gs.frame_rate(60)
+        gs.image_mode(gs.CENTER)
+        gs.no_smooth()
         self._reset_game()
 
     def draw(self) -> None:
@@ -144,7 +144,7 @@ class CoinRunner(p5.Sketch):
             self._update()
 
         self._draw_scene()
-        save_once(ARGS, p5.frame_count(), p5.save_canvas)
+        save_once(ARGS, gs.frame_count(), gs.save_canvas)
 
     def key_pressed(self, event: KeyboardEvent) -> None:
         key = _key_name(event)
@@ -279,7 +279,7 @@ class CoinRunner(p5.Sketch):
             if pickup.taken:
                 continue
             sx = pickup.x - self.scroll
-            sy = pickup.y + math.sin(p5.frame_count() * 0.08 + pickup.bob_phase) * 7.0
+            sy = pickup.y + math.sin(gs.frame_count() * 0.08 + pickup.bob_phase) * 7.0
             if _circle_rect_collision(sx, sy, pickup.radius, RUNNER_X, self.runner_y, 42, 58):
                 pickup.taken = True
                 self.combo += 1
@@ -464,31 +464,31 @@ class CoinRunner(p5.Sketch):
         self._draw_hud()
 
     def _draw_background(self) -> None:
-        p5.background(104, 185, 218)
-        p5.no_stroke()
+        gs.background(104, 185, 218)
+        gs.no_stroke()
 
-        p5.fill(255, 245, 174, 210)
-        p5.circle(655, 76, 54)
-        p5.fill(238, 248, 255, 220)
+        gs.fill(255, 245, 174, 210)
+        gs.circle(655, 76, 54)
+        gs.fill(238, 248, 255, 220)
         for index in range(6):
             x = (index * 190 - self.scroll * 0.18) % (CANVAS_WIDTH + 190) - 90
             y = 74 + (index % 3) * 24
-            p5.circle(x, y, 28)
-            p5.circle(x + 26, y + 5, 38)
-            p5.circle(x + 58, y, 25)
+            gs.circle(x, y, 28)
+            gs.circle(x + 26, y + 5, 38)
+            gs.circle(x + 58, y, 25)
 
-        p5.fill(77, 142, 108)
+        gs.fill(77, 142, 108)
         for index in range(15):
             x = (index * 74 - self.scroll * 0.45) % (CANVAS_WIDTH + 90) - 45
             height = 44 + (index % 4) * 16
-            p5.triangle(x, GROUND_TOP + 8, x + 38, GROUND_TOP - height, x + 76, GROUND_TOP + 8)
+            gs.triangle(x, GROUND_TOP + 8, x + 38, GROUND_TOP - height, x + 76, GROUND_TOP + 8)
 
-        p5.fill(50, 112, 76)
-        p5.rect(0, GROUND_TOP, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_TOP)
-        p5.fill(39, 84, 58)
+        gs.fill(50, 112, 76)
+        gs.rect(0, GROUND_TOP, CANVAS_WIDTH, CANVAS_HEIGHT - GROUND_TOP)
+        gs.fill(39, 84, 58)
         for index in range(18):
             x = (index * 54 - self.scroll * 0.92) % (CANVAS_WIDTH + 70) - 35
-            p5.rect(x, GROUND_TOP + 14 + (index % 2) * 10, 34, 6)
+            gs.rect(x, GROUND_TOP + 14 + (index % 2) * 10, 34, 6)
         self._draw_gaps()
 
     def _draw_gaps(self) -> None:
@@ -496,22 +496,22 @@ class CoinRunner(p5.Sketch):
             x = gap.x - self.scroll
             if not -gap.width < x < CANVAS_WIDTH + gap.width:
                 continue
-            p5.fill(23, 44, 43)
-            p5.rect(x - gap.width / 2, GROUND_TOP - 2, gap.width, CANVAS_HEIGHT - GROUND_TOP + 4)
-            p5.fill(16, 29, 35)
-            p5.rect(x - gap.width / 2 + 10, GROUND_TOP + 10, gap.width - 20, 54)
+            gs.fill(23, 44, 43)
+            gs.rect(x - gap.width / 2, GROUND_TOP - 2, gap.width, CANVAS_HEIGHT - GROUND_TOP + 4)
+            gs.fill(16, 29, 35)
+            gs.rect(x - gap.width / 2 + 10, GROUND_TOP + 10, gap.width - 20, 54)
 
     def _draw_platforms(self) -> None:
         for platform in self.platforms:
             x = platform.x - self.scroll
             if not -platform.width < x < CANVAS_WIDTH + platform.width:
                 continue
-            p5.fill(58, 100, 75)
-            p5.rect(x - platform.width / 2, platform.y, platform.width, 16)
-            p5.fill(83, 154, 102)
-            p5.rect(x - platform.width / 2, platform.y - 7, platform.width, 9)
-            p5.fill(35, 74, 52)
-            p5.rect(x - platform.width / 2 + 9, platform.y + 16, platform.width - 18, 5)
+            gs.fill(58, 100, 75)
+            gs.rect(x - platform.width / 2, platform.y, platform.width, 16)
+            gs.fill(83, 154, 102)
+            gs.rect(x - platform.width / 2, platform.y - 7, platform.width, 9)
+            gs.fill(35, 74, 52)
+            gs.rect(x - platform.width / 2 + 9, platform.y + 16, platform.width - 18, 5)
 
     def _draw_pickups(self) -> None:
         assert self.pickup_image is not None
@@ -521,19 +521,19 @@ class CoinRunner(p5.Sketch):
             x = pickup.x - self.scroll
             if not -60 < x < CANVAS_WIDTH + 60:
                 continue
-            y = pickup.y + math.sin(p5.frame_count() * 0.08 + pickup.bob_phase) * 7.0
-            pulse = 1.0 + math.sin(p5.frame_count() * 0.14 + pickup.bob_phase) * 0.08
+            y = pickup.y + math.sin(gs.frame_count() * 0.08 + pickup.bob_phase) * 7.0
+            pulse = 1.0 + math.sin(gs.frame_count() * 0.14 + pickup.bob_phase) * 0.08
             if pickup.kind == "shield":
-                p5.fill(109, 223, 255, 80)
-                p5.circle(x, y, 48 * pulse)
-                p5.image(self.pickup_image, x, y, 39 * pulse, 39 * pulse)
+                gs.fill(109, 223, 255, 80)
+                gs.circle(x, y, 48 * pulse)
+                gs.image(self.pickup_image, x, y, 39 * pulse, 39 * pulse)
             else:
-                p5.fill(255, 220, 73, 100)
-                p5.circle(x, y, 42 * pulse)
-                p5.fill(255, 190, 45)
-                p5.circle(x, y, 26 * pulse)
-                p5.fill(255, 246, 150)
-                p5.circle(x - 5, y - 5, 8 * pulse)
+                gs.fill(255, 220, 73, 100)
+                gs.circle(x, y, 42 * pulse)
+                gs.fill(255, 190, 45)
+                gs.circle(x, y, 26 * pulse)
+                gs.fill(255, 246, 150)
+                gs.circle(x - 5, y - 5, 8 * pulse)
 
     def _draw_hazards(self) -> None:
         for hazard in self.hazards:
@@ -549,26 +549,26 @@ class CoinRunner(p5.Sketch):
 
     def _draw_ufo_hazard(self, x: float, hazard: Hazard) -> None:
         assert self.ufo is not None
-        bob = math.sin(p5.frame_count() * 0.09 + hazard.x * 0.03) * 6
-        p5.image(self.ufo, x, hazard.y + bob, hazard.width, hazard.height)
-        p5.stroke(105, 244, 255, 120)
-        p5.stroke_weight(2)
-        p5.line(x, hazard.y + bob + 18, x, GROUND_TOP + 3)
-        p5.no_stroke()
+        bob = math.sin(gs.frame_count() * 0.09 + hazard.x * 0.03) * 6
+        gs.image(self.ufo, x, hazard.y + bob, hazard.width, hazard.height)
+        gs.stroke(105, 244, 255, 120)
+        gs.stroke_weight(2)
+        gs.line(x, hazard.y + bob + 18, x, GROUND_TOP + 3)
+        gs.no_stroke()
 
     def _draw_gate_hazard(self, x: float, hazard: Hazard) -> None:
-        p5.fill(44, 48, 74)
-        p5.rect(x - hazard.width / 2, hazard.y - hazard.height / 2, hazard.width, hazard.height)
-        p5.fill(255, 204, 86)
-        p5.rect(x - hazard.width / 2 + 8, hazard.y - hazard.height / 2 + 8, 10, hazard.height - 16)
-        p5.rect(x + hazard.width / 2 - 18, hazard.y - hazard.height / 2 + 8, 10, hazard.height - 16)
+        gs.fill(44, 48, 74)
+        gs.rect(x - hazard.width / 2, hazard.y - hazard.height / 2, hazard.width, hazard.height)
+        gs.fill(255, 204, 86)
+        gs.rect(x - hazard.width / 2 + 8, hazard.y - hazard.height / 2 + 8, 10, hazard.height - 16)
+        gs.rect(x + hazard.width / 2 - 18, hazard.y - hazard.height / 2 + 8, 10, hazard.height - 16)
 
     def _draw_barrier_hazard(self, x: float, hazard: Hazard) -> None:
-        p5.fill(86, 67, 68)
-        p5.rect(x - hazard.width / 2, hazard.y - hazard.height / 2, hazard.width, hazard.height)
-        p5.fill(255, 212, 94)
+        gs.fill(86, 67, 68)
+        gs.rect(x - hazard.width / 2, hazard.y - hazard.height / 2, hazard.width, hazard.height)
+        gs.fill(255, 212, 94)
         for offset in (-20, 0, 20):
-            p5.triangle(
+            gs.triangle(
                 x + offset - 10,
                 hazard.y - 20,
                 x + offset,
@@ -580,7 +580,7 @@ class CoinRunner(p5.Sketch):
     def _draw_runner(self) -> None:
         assert self.idle is not None
         assert self.run_strip is not None
-        if self.invulnerable > 0 and p5.frame_count() % 10 < 4 and self.shield == 0:
+        if self.invulnerable > 0 and gs.frame_count() % 10 < 4 and self.shield == 0:
             return
 
         airborne = self._current_floor() is None
@@ -592,9 +592,9 @@ class CoinRunner(p5.Sketch):
             frame_count = 6
 
         frame_w = image.width // frame_count
-        frame = (p5.frame_count() // (6 if airborne else 4)) % frame_count
+        frame = (gs.frame_count() // (6 if airborne else 4)) % frame_count
         source_x = frame * frame_w
-        p5.image(
+        gs.image(
             image,
             RUNNER_X,
             self.runner_y,
@@ -607,55 +607,55 @@ class CoinRunner(p5.Sketch):
         )
 
         if self.shield > 0:
-            p5.no_fill()
-            p5.stroke(90, 225, 255, 95 + self.shield * 36)
-            p5.stroke_weight(3)
-            p5.circle(RUNNER_X, self.runner_y - 5, 78 + self.shield * 5)
-            p5.no_stroke()
+            gs.no_fill()
+            gs.stroke(90, 225, 255, 95 + self.shield * 36)
+            gs.stroke_weight(3)
+            gs.circle(RUNNER_X, self.runner_y - 5, 78 + self.shield * 5)
+            gs.no_stroke()
 
     def _draw_bursts(self) -> None:
         for burst in self.bursts:
             alpha = max(0, 210 - burst.age * 8)
             radius = 12 + burst.age * 2.4
-            p5.no_fill()
-            p5.stroke(255, 255, 255, alpha)
-            p5.stroke_weight(2)
-            p5.circle(burst.x, burst.y, radius)
-            p5.no_stroke()
+            gs.no_fill()
+            gs.stroke(255, 255, 255, alpha)
+            gs.stroke_weight(2)
+            gs.circle(burst.x, burst.y, radius)
+            gs.no_stroke()
 
     def _draw_hud(self) -> None:
-        p5.no_stroke()
-        p5.fill(20, 28, 40, 220)
-        p5.rect(18, 18, 340, 74)
-        p5.fill(255, 255, 255, 240)
-        p5.text_size(17)
-        p5.text(f"Score {self.score}", 32, 42)
-        p5.text(f"Lives {self.lives}   Coins {self.coins}   Shield {self.shield}", 32, 67)
+        gs.no_stroke()
+        gs.fill(20, 28, 40, 220)
+        gs.rect(18, 18, 340, 74)
+        gs.fill(255, 255, 255, 240)
+        gs.text_size(17)
+        gs.text(f"Score {self.score}", 32, 42)
+        gs.text(f"Lives {self.lives}   Coins {self.coins}   Shield {self.shield}", 32, 67)
         if self.combo >= 2:
-            p5.fill(255, 238, 138, 245)
-            p5.text(f"Combo x{self.combo}", 283, 42)
+            gs.fill(255, 238, 138, 245)
+            gs.text(f"Combo x{self.combo}", 283, 42)
 
-        p5.fill(20, 28, 40, 190)
-        p5.text_size(15)
-        p5.text("Hold jump: space/up/click", 24, CANVAS_HEIGHT - 18)
+        gs.fill(20, 28, 40, 190)
+        gs.text_size(15)
+        gs.text("Hold jump: space/up/click", 24, CANVAS_HEIGHT - 18)
 
         if not self.sound_available:
-            p5.fill(20, 28, 40, 150)
-            p5.text("Audio unavailable", CANVAS_WIDTH - 148, CANVAS_HEIGHT - 18)
+            gs.fill(20, 28, 40, 150)
+            gs.text("Audio unavailable", CANVAS_WIDTH - 148, CANVAS_HEIGHT - 18)
 
         if self.game_over:
-            p5.fill(10, 14, 22, 185)
-            p5.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-            p5.fill(255, 255, 255, 245)
-            p5.text_size(36)
-            p5.text("CRASHED", CANVAS_WIDTH / 2 - 78, CANVAS_HEIGHT / 2 - 32)
-            p5.text_size(18)
-            p5.text(
+            gs.fill(10, 14, 22, 185)
+            gs.rect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+            gs.fill(255, 255, 255, 245)
+            gs.text_size(36)
+            gs.text("CRASHED", CANVAS_WIDTH / 2 - 78, CANVAS_HEIGHT / 2 - 32)
+            gs.text_size(18)
+            gs.text(
                 f"Score {self.score}   Best {self.best}",
                 CANVAS_WIDTH / 2 - 86,
                 CANVAS_HEIGHT / 2 + 2,
             )
-            p5.text(
+            gs.text(
                 "Press R or click to run again",
                 CANVAS_WIDTH / 2 - 118,
                 CANVAS_HEIGHT / 2 + 34,
@@ -719,7 +719,7 @@ def _key_name(event: KeyboardEvent) -> str:
         return "space"
     if event.key:
         return event.key.lower()
-    if event.key_code == p5.UP_ARROW:
+    if event.key_code == gs.UP_ARROW:
         return "up"
     return str(event.key_code)
 

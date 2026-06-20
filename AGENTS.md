@@ -4,9 +4,9 @@ Guidance for AI coding agents working in this repository.
 
 ## Project Overview
 
-This repository contains `p5py`, a Pythonic creative-coding package inspired by p5.js. The current package distribution name is `p5py_vibe` / `p5py-vibe`.
+This repository contains `Gummy Snake`, a Pythonic creative-coding and game-development package. The package distribution name is `gummy-snake`.
 
-The project keeps the familiar p5 sketch lifecycle and p5-style drawing model while staying native Python at the public API boundary, typed, testable, backend-agnostic for sketch authors, and packaged around the required Rust `p5_canvas` runtime.
+The project keeps a familiar sketch lifecycle and drawing model while staying native Python at the public API boundary, typed, testable, backend-agnostic for sketch authors, and packaged around the required Rust `gummy_canvas` runtime.
 
 Do not add JavaScript, HTML, DOM APIs, browser-only APIs, or browser runtime dependencies.
 
@@ -16,14 +16,14 @@ The current runtime is canvas-first:
 
 ```text
 user sketch
-  -> p5 public API
+  -> Gummy Snake public API
   -> Sketch / SketchContext
   -> CanvasBackend + CanvasRenderer Python adapters
-  -> PyO3 extension p5.rust._canvas
-  -> crates/p5_canvas Rust runtime and renderer
+  -> PyO3 extension gummysnake.rust._canvas
+  -> crates/gummy_canvas Rust runtime and renderer
 ```
 
-`p5.rust._canvas` owns drawing, presentation, image asset loading/saving,
+`gummysnake.rust._canvas` owns drawing, presentation, image asset loading/saving,
 image-local byte operations, media frame conversion, text, pixels, export, and
 native window/input support when built with those capabilities.
 Current `WEBGL` support is a Rust-backed software 3D path presented through the
@@ -34,11 +34,11 @@ imply native 3D or native shader support from `three_d=True`.
 Important consequences:
 
 - There is no supported Pillow/Pyglet runtime fallback.
-- Bounded/headless runs still use `p5_canvas`; they do not switch to a Python image backend.
+- Bounded/headless runs still use `gummy_canvas`; they do not switch to a Python image backend.
 - `headless=True` or `--headless` requests offscreen/bounded canvas behavior for tests, CI, and export.
 - `headless=False` or `--interactive` requests native interactive canvas behavior where the installed extension supports it.
-- Missing extension or missing native-window support should raise clear `p5` capability errors with rebuild guidance.
-- `p5.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
+- Missing extension or missing native-window support should raise clear Gummy Snake capability errors with rebuild guidance.
+- `gummysnake.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
 
 The Python public API must not expose Rust internals or depend on a concrete renderer in user-facing functions.
@@ -79,46 +79,46 @@ Rust code is part of the active runtime, not just a future optimization layer.
 Important crates:
 
 ```text
-crates/p5_canvas/    required PyO3 canvas runtime extension: p5.rust._canvas
-crates/p5_accel/     optional acceleration extension: p5.rust._accelerated
+crates/gummy_canvas/    required PyO3 canvas runtime extension: gummysnake.rust._canvas
+crates/gummy_accel/     optional acceleration extension: gummysnake.rust._accelerated
 ```
 
 Common commands:
 
 ```sh
-cargo test --manifest-path crates/p5_canvas/Cargo.toml
-uvx maturin develop --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
-uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+cargo test --manifest-path crates/gummy_canvas/Cargo.toml
+uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
+uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
 ```
 
-For `p5_accel`:
+For `gummy_accel`:
 
 ```sh
-uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
+uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --module-name gummysnake.rust._accelerated --python-source src --features extension-module
 ```
 
-Keep Rust acceleration optional only for features routed through `p5_accel`. Features owned by `p5_canvas` may require the canvas extension because it is the runtime.
+Keep Rust acceleration optional only for features routed through `gummy_accel`. Features owned by `gummy_canvas` may require the canvas extension because it is the runtime.
 
 ## Source Layout
 
 Primary package code lives under:
 
 ```text
-src/p5/
+src/gummysnake/
 ```
 
 Important areas:
 
 ```text
-src/p5/api/          global-mode API, current context access, compatibility stubs
-src/p5/assets/       image, text/font, data, model, shader, sound/media helpers
-src/p5/backends/     canvas backend adapter, renderer adapter, backend construction
-src/p5/core/         color, geometry, math, random/noise, state, transforms, vectors
-src/p5/drawing/      renderer protocols plus 3D/software prototype helpers
-src/p5/events/       normalized mouse, keyboard, and touch input state
-src/p5/plugins/      plugin interfaces and registry
-src/p5/rust/         Python wrappers around PyO3 extensions
-src/p5/testing/      package test resources and helpers
+src/gummysnake/api/          global-mode API, current context access, compatibility stubs
+src/gummysnake/assets/       image, text/font, data, model, shader, sound/media helpers
+src/gummysnake/backends/     canvas backend adapter, renderer adapter, backend construction
+src/gummysnake/core/         color, geometry, math, random/noise, state, transforms, vectors
+src/gummysnake/drawing/      renderer protocols plus 3D/software prototype helpers
+src/gummysnake/events/       normalized mouse, keyboard, and touch input state
+src/gummysnake/plugins/      plugin interfaces and registry
+src/gummysnake/rust/         Python wrappers around PyO3 extensions
+src/gummysnake/testing/      package test resources and helpers
 ```
 
 Other important directories:
@@ -154,34 +154,34 @@ pixel_density()
 
 Do not export p5.js-style camelCase aliases such as `createCanvas()`, `frameRate()`, `noLoop()`, or `pixelDensity()`. Convert examples and ports to `snake_case`.
 
-`src/p5/__init__.py` should keep explicit imports and explicit `__all__` entries so Zed/Pyright and other static tooling can see package attributes.
+`src/gummysnake/__init__.py` should keep explicit imports and explicit `__all__` entries so Zed/Pyright and other static tooling can see package attributes.
 
 Prefer Pythonic convenience APIs in user-facing examples and docs when they improve clarity:
 
-- decorator sketches: `@p5.setup`, `@p5.draw`, `@p5.on("key_pressed")`, or `app = p5.sketch()`
-- property facades: `p5.current.width`, `p5.mouse.position`, `p5.keyboard.is_down("a")`
-- context managers: `with p5.style(...):`, `with p5.transform(...):`, and `with p5.pushed():`
+- decorator sketches: `@gs.setup`, `@gs.draw`, `@gs.on("key_pressed")`, or `app = gs.sketch()`
+- property facades: `gs.current.width`, `gs.mouse.position`, `gs.keyboard.is_down("a")`
+- context managers: `with gs.style(...):`, `with gs.transform(...):`, and `with gs.pushed():`
 - Python protocols: vector operators, event vector properties, and image indexing where appropriate
-- dense-loop fast path: `p5.fast()` / `Sketch.fast()` for hot drawing loops where repeated global-mode dispatch would dominate
+- dense-loop fast path: `gs.fast()` / `Sketch.fast()` for hot drawing loops where repeated global-mode dispatch would dominate
 
 Keep the older function-passing and direct state-function APIs working for compatibility, but do not make them the only documented path for new Python-first examples.
 
-`p5.fast()` is a public frame-local facade, not a Rust escape hatch. It should preserve the current public style/transform state and compose with `style()`, `transform()`, and `pushed()` while reducing context lookup and flexible argument-normalization overhead for dense 2D primitive/image/text loops.
+`gs.fast()` is a public frame-local facade, not a Rust escape hatch. It should preserve the current public style/transform state and compose with `style()`, `transform()`, and `pushed()` while reducing context lookup and flexible argument-normalization overhead for dense 2D primitive/image/text loops.
 
 Async-compatible lifecycle callbacks are supported. `preload`, `setup`, `draw`, event callbacks, and plugin hooks may be `async def`. Async asset helpers such as `load_image_async`, `load_json_async`, `load_model_async`, and `load_sound_async` are awaitable compatibility wrappers over the current canvas-owned runtime. Do not move Rust canvas-owned objects or active `SketchContext` state to arbitrary worker threads when extending async behavior; the canvas runtime is not generally thread-sendable.
 
-Public closed-set values should be modeled as enums, not untyped constants. Keep p5-style uppercase public names such as `CENTER`, `WEBGL`, and `BLEND` as enum members exported from `src/p5/constants.py`, and expose the enum classes for type annotations. Prefer `StrEnum` for string-valued drawing/API modes and `IntEnum` only where numeric semantics are part of the public API, such as keyboard key codes.
+Public closed-set values should be modeled as enums, not untyped constants. Keep Gummy Snake-style uppercase public names such as `CENTER`, `WEBGL`, and `BLEND` as enum members exported from `src/gummysnake/constants.py`, and expose the enum classes for type annotations. Prefer `StrEnum` for string-valued drawing/API modes and `IntEnum` only where numeric semantics are part of the public API, such as keyboard key codes.
 
 When adding or changing enum-backed public values:
 
 - update annotations at the API boundary and internal state objects to use the enum type rather than `str` or `int`
-- keep `src/p5/__init__.py` explicit imports and `__all__` entries in sync
+- keep `src/gummysnake/__init__.py` explicit imports and `__all__` entries in sync
 - update `docs/reference/constants_and_enums.md` and any topic-specific reference docs that mention the value
 - avoid reintroducing loose `Literal[...]` or raw constant groups when a reusable enum better expresses the closed set
 
 ### Preserve Sketch Lifecycle Ownership
 
-Python `Sketch` and `SketchContext` own lifecycle ordering, global-mode dispatch, state, plugin hooks, timing, and callback invocation. The Rust runtime may schedule frames and provide events, but it should not own p5 API naming policy or sketch semantics.
+Python `Sketch` and `SketchContext` own lifecycle ordering, global-mode dispatch, state, plugin hooks, timing, and callback invocation. The Rust runtime may schedule frames and provide events, but it should not own Gummy Snake API naming policy or sketch semantics.
 
 Frame rendering should preserve the existing high-level order:
 
@@ -202,14 +202,14 @@ For the current implementation this means:
 
 - `CanvasBackend` stays a thin adapter around lifecycle/runtime/event concerns.
 - `CanvasRenderer` translates Python state into bridge payloads and mirrors canvas dimensions.
-- `p5.rust.canvas` handles optional import, health checks, and clear capability failures.
-- `crates/p5_canvas` owns the native runtime and rendering implementation.
+- `gummysnake.rust.canvas` handles optional import, health checks, and clear capability failures.
+- `crates/gummy_canvas` owns the native runtime and rendering implementation.
 
 ### Preserve HiDPI Semantics
 
-p5py distinguishes logical canvas dimensions from physical backing-buffer dimensions.
+Gummy Snake distinguishes logical canvas dimensions from physical backing-buffer dimensions.
 
-- `width()` and `height()` report logical p5 dimensions.
+- `width()` and `height()` report logical sketch dimensions.
 - `pixel_density()` controls physical backing scale.
 - `display_density()` reports native display scale when available.
 - `load_pixels()` and `update_pixels()` operate on physical top-left-oriented RGBA buffers.
@@ -223,7 +223,7 @@ image caches, never `id(image)`, and preserve bounded Rust image/texture cache
 lifecycle behavior.
 
 Image-local resize, mask, filter, crop/copy, and alpha compositing should keep
-delegating bulk RGBA byte work to `p5_canvas`. Canvas `get(x, y)`,
+delegating bulk RGBA byte work to `gummy_canvas`. Canvas `get(x, y)`,
 `get(x, y, w, h)`, `set(...)`, and full-canvas `filter(...)` should use Rust
 region/filter operations where practical instead of reconstructing a full
 Python `Image`. Optional media helpers may depend on the `media` extra, but
@@ -232,15 +232,15 @@ contiguous decoded frame buffer exists.
 
 ### Keep Compatibility Explicit
 
-The project is p5-inspired, not a direct JavaScript port.
+The project is Python-first, not a direct JavaScript port.
 
 Excluded APIs include:
 
 - DOM and browser element helpers
 - browser-only APIs
-- `p5.XML`
-- `p5.Table`
-- `p5.TableRow`
+- `XML`
+- `Table`
+- `TableRow`
 
 Unsupported or excluded public compatibility stubs should raise clear package-specific errors, normally `UnsupportedFeatureError` or `BackendCapabilityError`, rather than failing indirectly.
 
@@ -273,7 +273,7 @@ Also run when relevant:
 ```sh
 uv run mypy src
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
-cargo test --manifest-path crates/p5_canvas/Cargo.toml
+cargo test --manifest-path crates/gummy_canvas/Cargo.toml
 uv run python scripts/bump_version.py --check
 uv build
 ```
@@ -293,7 +293,7 @@ uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 For coverage reporting:
 
 ```sh
-uv run pytest --cov=p5 --cov-report=term-missing --cov-report=xml
+uv run pytest --cov=gummysnake --cov-report=term-missing --cov-report=xml
 ```
 
 For native interactive changes, run a representative example with `--interactive` on a desktop build when practical and document any manual validation.
@@ -373,8 +373,8 @@ Backlog epics use a three-digit prefix to allow insertion between epics, for exa
 
 ```text
 010_foundation_runtime
-091_p5_canvas_foundation
-095_p5_canvas_migration_release
+091_gummy_canvas_foundation
+095_gummy_canvas_migration_release
 130_remove_pyglet_backend
 140_reference_gap_closure
 ```

@@ -1,6 +1,6 @@
 # Constants and Enums
 
-p5-py exposes p5-style uppercase names such as `p5.CENTER`, `p5.WEBGL`, and `p5.BLEND` as enum members rather than untyped string or integer constants.
+Gummy Snake exposes Gummy Snake-style uppercase names such as `gs.CENTER`, `gs.WEBGL`, and `gs.BLEND` as enum members rather than untyped string or integer constants.
 
 The enum classes are also public for type annotations and introspection:
 
@@ -28,17 +28,17 @@ The enum classes are also public for type annotations and introspection:
 Example:
 
 ```python
-import p5
+import gummysnake as gs
 
-p5.create_canvas(640, 480, renderer=p5.WEBGL)
-p5.rect_mode(p5.CENTER)
-p5.blend_mode(p5.MULTIPLY)
+gs.create_canvas(640, 480, renderer=gs.WEBGL)
+gs.rect_mode(gs.CENTER)
+gs.blend_mode(gs.MULTIPLY)
 ```
 
 Event decorators accept either callback-name strings or enum members:
 
 ```python
-@p5.on(p5.KEY_PRESSED)
+@gs.on(gs.KEY_PRESSED)
 def handle_key(event) -> None:
     ...
 ```
@@ -46,10 +46,10 @@ def handle_key(event) -> None:
 For code that needs type annotations, prefer the enum classes:
 
 ```python
-def set_renderer(renderer: p5.RendererMode = p5.P2D) -> None:
-    p5.create_canvas(400, 400, renderer=renderer)
+def set_renderer(renderer: gs.RendererMode = gs.P2D) -> None:
+    gs.create_canvas(400, 400, renderer=renderer)
 ```
 
-Most enum classes are string-valued enums, so public p5 names remain readable when displayed or passed through backend payloads. `KeyCode` is integer-valued to preserve p5-style keyboard code semantics.
+Most enum classes are string-valued enums, so public Gummy Snake names remain readable when displayed or passed through backend payloads. `KeyCode` is integer-valued to preserve Gummy Snake-style keyboard code semantics.
 
 Plugin hook names (`LifecycleHookName`, `EventHookName`) and renderer-internal 3D light kinds (`LightKind`) are also enums in their implementation modules for plugin and renderer authors.

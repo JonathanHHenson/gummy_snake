@@ -7,14 +7,14 @@ from dataclasses import dataclass
 
 import pytest
 
-import p5
-from p5.api.current import activate_context
-from p5.backends.base import BackendCapabilities
-from p5.context import SketchContext
-from p5.core.state import StyleState
-from p5.core.transform import Matrix2D
-from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
-from p5.sketch import Sketch
+import gummysnake as gs
+from gummysnake.api.current import activate_context
+from gummysnake.backends.base import BackendCapabilities
+from gummysnake.context import SketchContext
+from gummysnake.core.state import StyleState
+from gummysnake.core.transform import Matrix2D
+from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
+from gummysnake.sketch import Sketch
 
 ITERATIONS = 20_000
 REPEATS = 5
@@ -95,7 +95,7 @@ class NoopBackend:
         height: int,
         pixel_density: float | None = None,
         *,
-        renderer=p5.P2D,
+        renderer=gs.P2D,
     ) -> None:
         self.renderer.resize(width, height, 1.0 if pixel_density is None else pixel_density)
 
@@ -105,7 +105,7 @@ class NoopBackend:
         height: int,
         pixel_density: float,
         *,
-        renderer=p5.P2D,
+        renderer=gs.P2D,
     ) -> None:
         self.renderer.resize(width, height, pixel_density)
 
@@ -146,13 +146,13 @@ class ApiBenchmarkSummary:
         return max(self.samples_ns)
 
 
-def _make_context() -> tuple[Sketch, SketchContext, p5.Image]:
+def _make_context() -> tuple[Sketch, SketchContext, gs.Image]:
     sketch = Sketch()
     backend = NoopBackend()
     context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
     context.create_canvas(128, 128)
-    image = p5.Image(8, 8, bytes([255, 0, 0, 255] * 64))
+    image = gs.Image(8, 8, bytes([255, 0, 0, 255] * 64))
     return sketch, context, image
 
 
@@ -167,18 +167,18 @@ def _measure(callback: Callable[[], object]) -> tuple[float, ...]:
     return tuple(samples)
 
 
-def _build_cases(sketch: Sketch, context: SketchContext, image: p5.Image) -> list[ApiBenchmarkCase]:
+def _build_cases(sketch: Sketch, context: SketchContext, image: gs.Image) -> list[ApiBenchmarkCase]:
     renderer = context.renderer
     style = context.state.style
     transform = Matrix2D()
     fast = context.fast()
 
     return [
-        ApiBenchmarkCase("global", "fill", lambda: p5.fill(16, 32, 48, 192)),
-        ApiBenchmarkCase("global", "line", lambda: p5.line(1, 2, 40, 50)),
-        ApiBenchmarkCase("global", "circle", lambda: p5.circle(24, 24, 12)),
-        ApiBenchmarkCase("global", "image", lambda: p5.image(image, 8, 8, 16, 16)),
-        ApiBenchmarkCase("global", "text_width", lambda: p5.text_width("dispatch")),
+        ApiBenchmarkCase("global", "fill", lambda: gs.fill(16, 32, 48, 192)),
+        ApiBenchmarkCase("global", "line", lambda: gs.line(1, 2, 40, 50)),
+        ApiBenchmarkCase("global", "circle", lambda: gs.circle(24, 24, 12)),
+        ApiBenchmarkCase("global", "image", lambda: gs.image(image, 8, 8, 16, 16)),
+        ApiBenchmarkCase("global", "text_width", lambda: gs.text_width("dispatch")),
         ApiBenchmarkCase("sketch", "fill", lambda: sketch.fill(16, 32, 48, 192)),
         ApiBenchmarkCase("sketch", "line", lambda: sketch.line(1, 2, 40, 50)),
         ApiBenchmarkCase("sketch", "circle", lambda: sketch.circle(24, 24, 12)),

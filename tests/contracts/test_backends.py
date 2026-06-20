@@ -1,5 +1,5 @@
-from p5.backends import create_backend
-from p5.backends.canvas import CanvasBackend
+from gummysnake.backends import create_backend
+from gummysnake.backends.canvas import CanvasBackend
 
 
 def test_canvas_runtime_is_constructed_without_backend_name():

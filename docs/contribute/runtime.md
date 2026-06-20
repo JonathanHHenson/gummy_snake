@@ -1,6 +1,6 @@
 # Runtime Model
 
-The runtime is canvas-first and bounded/headless runs still use `p5_canvas`.
+The runtime is canvas-first and bounded/headless runs still use `gummy_canvas`.
 There is no supported Pillow or Pyglet fallback.
 
 The runtime starts in Python, creates a Python context, and then uses the Rust
@@ -13,7 +13,7 @@ sequenceDiagram
     participant C as SketchContext
     participant B as CanvasBackend
     participant R as CanvasRenderer
-    participant X as p5_canvas
+    participant X as gummy_canvas
 
     S->>B: create_backend(headless=...)
     S->>C: create context
@@ -63,7 +63,7 @@ Keep this ordering intact when changing lifecycle behavior.
 
 ## Frame Scheduling
 
-The draw loop checks p5 lifecycle flags before drawing:
+The draw loop checks Gummy Snake lifecycle flags before drawing:
 
 - if `state.looping` is true, draw every scheduled frame
 - if `state.redraw_requested` is true, draw one frame even when looping is off
@@ -105,7 +105,7 @@ polls those events, normalizes them into Python event dataclasses, updates
 
 ```mermaid
 sequenceDiagram
-    participant X as p5_canvas window
+    participant X as gummy_canvas window
     participant B as CanvasBackend
     participant C as SketchContext
     participant S as Sketch
@@ -117,11 +117,11 @@ sequenceDiagram
 ```
 
 Input state should always be updated before the user callback runs, so callback
-code sees the same values that later p5 input functions return.
+code sees the same values that later Gummy Snake input functions return.
 
 ## HiDPI
 
-p5py separates logical and physical size:
+Gummy Snake separates logical and physical size:
 
 - `width()` and `height()` return logical dimensions.
 - `pixel_density()` controls physical backing scale.
@@ -150,14 +150,14 @@ images.
 
 Image-local bulk operations are also canvas-owned. `Image.resize()`,
 `Image.mask()`, supported `Image.filter(...)` modes, crop/copy helpers, and
-image alpha compositing delegate their byte work to `p5_canvas` while Python
+image alpha compositing delegate their byte work to `gummy_canvas` while Python
 keeps public API validation, mutation versioning, and cache-key ownership.
 
 Optional media capture/video helpers remain gated by the `media` extra, but
 decoded grayscale, BGR, and BGRA frame conversion to RGBA is routed through
-`p5_canvas` once the media dependency supplies a contiguous frame buffer.
+`gummy_canvas` once the media dependency supplies a contiguous frame buffer.
 
-Optional `p5_accel` Python fallbacks, such as procedural noise and byte-wise
+Optional `gummy_accel` Python fallbacks, such as procedural noise and byte-wise
 blend reference kernels, preserve correctness for environments without the
 acceleration extension. Treat those Python kernels as reference implementations,
 not performance paths for dense animation workloads. Benchmarks should report
@@ -235,8 +235,8 @@ can disagree.
 
 ## Failure Modes To Preserve
 
-- Missing `p5.rust._canvas` should raise a clear backend capability error.
-- Incompatible `p5.rust._canvas` ABI markers should raise a clear backend
+- Missing `gummysnake.rust._canvas` should raise a clear backend capability error.
+- Incompatible `gummysnake.rust._canvas` ABI markers should raise a clear backend
   capability error before backend construction proceeds.
 - Requesting interactive mode without native-window support should raise a clear
   capability error.

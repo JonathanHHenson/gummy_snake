@@ -6,15 +6,15 @@ import re
 
 import pytest
 
-import p5
-from p5 import UnsupportedFeatureError
+import gummysnake as gs
+from gummysnake import UnsupportedFeatureError
 
 _SNAKE_CASE_RE = re.compile(r"^[a-z_][a-z0-9_]*$|^[A-Z][A-Za-z0-9_]*$")
 
 
 def test_public_function_exports_remain_snake_case_only():
-    for name in p5.__all__:
-        value = getattr(p5, name)
+    for name in gs.__all__:
+        value = getattr(gs, name)
         if inspect.isfunction(value):
             assert _SNAKE_CASE_RE.fullmatch(name), name
             assert not any(
@@ -24,116 +24,116 @@ def test_public_function_exports_remain_snake_case_only():
 
 
 def test_color_gap_helpers_and_immutable_mutators():
-    color = p5.Color(128, 64, 32, 200)
-    assert p5.red(color) == 128
-    assert p5.green(color) == 64
-    assert p5.blue(color) == 32
-    assert p5.alpha(color) == 200
-    assert p5.hue(p5.Color(255, 0, 0)) == pytest.approx(0)
-    assert p5.saturation(p5.Color(255, 0, 0)) == pytest.approx(100)
-    assert p5.brightness(p5.Color(255, 0, 0)) == pytest.approx(100)
-    assert p5.lightness(p5.Color(255, 0, 0)) == pytest.approx(50)
-    assert color.with_alpha(10) == p5.Color(128, 64, 32, 10)
-    assert color.with_red(1).with_green(2).with_blue(3) == p5.Color(1, 2, 3, 200)
-    assert p5.Color(255, 255, 255).contrast_ratio(p5.Color(0, 0, 0)) == pytest.approx(21)
-    assert p5.Color(255, 0, 16, 128).to_hex(include_alpha=True) == "#ff001080"
-    assert p5.palette_lerp([p5.Color(0, 0, 0), p5.Color(100, 0, 0)], 0.5) == p5.Color(50, 0, 0)
+    color = gs.Color(128, 64, 32, 200)
+    assert gs.red(color) == 128
+    assert gs.green(color) == 64
+    assert gs.blue(color) == 32
+    assert gs.alpha(color) == 200
+    assert gs.hue(gs.Color(255, 0, 0)) == pytest.approx(0)
+    assert gs.saturation(gs.Color(255, 0, 0)) == pytest.approx(100)
+    assert gs.brightness(gs.Color(255, 0, 0)) == pytest.approx(100)
+    assert gs.lightness(gs.Color(255, 0, 0)) == pytest.approx(50)
+    assert color.with_alpha(10) == gs.Color(128, 64, 32, 10)
+    assert color.with_red(1).with_green(2).with_blue(3) == gs.Color(1, 2, 3, 200)
+    assert gs.Color(255, 255, 255).contrast_ratio(gs.Color(0, 0, 0)) == pytest.approx(21)
+    assert gs.Color(255, 0, 16, 128).to_hex(include_alpha=True) == "#ff001080"
+    assert gs.palette_lerp([gs.Color(0, 0, 0), gs.Color(100, 0, 0)], 0.5) == gs.Color(50, 0, 0)
 
 
 def test_math_data_and_vector_gap_helpers():
-    assert p5.abs_(-2) == 2
-    assert p5.ceil(1.2) == 2
-    assert p5.floor(1.8) == 1
-    assert p5.sqrt(9) == 3
-    assert p5.pow_(2, 3) == 8
-    assert p5.round_(1.234, 2) == 1.23
-    assert p5.boolean("false") is False
-    assert p5.byte(257) == 1
-    assert p5.char(65) == "A"
-    assert p5.float_("1.5") == 1.5
-    assert p5.hex_(15, 2) == "0F"
-    assert p5.int_("10") == 10
-    assert p5.str_(10) == "10"
-    assert p5.unchar("A") == 65
-    assert p5.unhex("0F") == 15
-    assert p5.nf(7, 3) == "007"
-    assert p5.nfc(1234.5, 1) == "1,234.5"
-    assert p5.nfp(7, 2) == "+07"
-    assert p5.nfs(7, 2) == " 07"
-    assert p5.split_tokens("a, b c") == ["a", "b", "c"]
-    assert sorted(p5.shuffle([1, 2, 3])) == [1, 2, 3]
+    assert gs.abs_(-2) == 2
+    assert gs.ceil(1.2) == 2
+    assert gs.floor(1.8) == 1
+    assert gs.sqrt(9) == 3
+    assert gs.pow_(2, 3) == 8
+    assert gs.round_(1.234, 2) == 1.23
+    assert gs.boolean("false") is False
+    assert gs.byte(257) == 1
+    assert gs.char(65) == "A"
+    assert gs.float_("1.5") == 1.5
+    assert gs.hex_(15, 2) == "0F"
+    assert gs.int_("10") == 10
+    assert gs.str_(10) == "10"
+    assert gs.unchar("A") == 65
+    assert gs.unhex("0F") == 15
+    assert gs.nf(7, 3) == "007"
+    assert gs.nfc(1234.5, 1) == "1,234.5"
+    assert gs.nfp(7, 2) == "+07"
+    assert gs.nfs(7, 2) == " 07"
+    assert gs.split_tokens("a, b c") == ["a", "b", "c"]
+    assert sorted(gs.shuffle([1, 2, 3])) == [1, 2, 3]
 
-    vector = p5.Vector(1, 2, 3)
+    vector = gs.Vector(1, 2, 3)
     assert vector[0] == 1
     vector[1] = 4
-    assert vector == p5.Vector(1, 4, 3)
+    assert vector == gs.Vector(1, 4, 3)
     assert vector.set_value("x", 2).get_value("x") == 2
     assert vector.to_string() == "[2, 4, 3]"
-    angle = p5.Vector(1, 0).angle_between((0, 1))
+    angle = gs.Vector(1, 0).angle_between((0, 1))
     assert math.isclose(angle, math.pi / 2) or math.isclose(angle, 90)
-    assert (p5.Vector(5, 5, 5) % 2) == p5.Vector(1, 1, 1)
-    assert p5.Vector(1e-13, 2, 0).clamp_to_zero() == p5.Vector(0, 2, 0)
-    assert p5.Vector(1, -1, 0).reflect((0, 1, 0)) == p5.Vector(1, 1, 0)
-    assert p5.Vector.slerp((1, 0, 0), (0, 1, 0), 0.5).mag() == pytest.approx(1)
-    assert p5.Vector.random_2d().mag() == pytest.approx(1)
-    assert p5.Vector.random_3d().mag() == pytest.approx(1)
+    assert (gs.Vector(5, 5, 5) % 2) == gs.Vector(1, 1, 1)
+    assert gs.Vector(1e-13, 2, 0).clamp_to_zero() == gs.Vector(0, 2, 0)
+    assert gs.Vector(1, -1, 0).reflect((0, 1, 0)) == gs.Vector(1, 1, 0)
+    assert gs.Vector.slerp((1, 0, 0), (0, 1, 0), 0.5).mag() == pytest.approx(1)
+    assert gs.Vector.random_2d().mag() == pytest.approx(1)
+    assert gs.Vector.random_3d().mag() == pytest.approx(1)
 
 
 def test_environment_helpers_and_explicit_browser_sensor_exclusions():
     def setup():
-        p5.create_canvas(10, 12)
-        p5.frame_rate(24)
+        gs.create_canvas(10, 12)
+        gs.frame_rate(24)
 
     def draw():
-        assert p5.get_target_frame_rate() == 24
-        assert p5.window_width() == 10
-        assert p5.window_height() == 12
-        assert p5.display_width() >= 10
-        assert p5.display_height() >= 12
-        assert p5.focused() is True
-        p5.cursor()
-        p5.no_cursor()
+        assert gs.get_target_frame_rate() == 24
+        assert gs.window_width() == 10
+        assert gs.window_height() == 12
+        assert gs.display_width() >= 10
+        assert gs.display_height() >= 12
+        assert gs.focused() is True
+        gs.cursor()
+        gs.no_cursor()
 
-    p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
-    for helper in (p5.get_url, p5.get_url_path, p5.get_url_params, p5.local_storage):
+    for helper in (gs.get_url, gs.get_url_path, gs.get_url_params, gs.local_storage):
         with pytest.raises(UnsupportedFeatureError):
             helper()
 
-    for helper in (p5.acceleration_x, p5.rotation_z, p5.orientation_y, p5.device_moved):
+    for helper in (gs.acceleration_x, gs.rotation_z, gs.orientation_y, gs.device_moved):
         with pytest.raises(UnsupportedFeatureError):
             helper()
 
 
 def test_offscreen_graphics_and_no_canvas_are_explicitly_deferred():
-    for helper in (p5.create_graphics, p5.create_framebuffer):
+    for helper in (gs.create_graphics, gs.create_framebuffer):
         with pytest.raises(UnsupportedFeatureError, match="offscreen_graphics_framebuffer_design"):
             helper(16, 16)
 
-    with pytest.raises(UnsupportedFeatureError, match="p5_canvas surface"):
-        p5.no_canvas()
+    with pytest.raises(UnsupportedFeatureError, match="gummy_canvas surface"):
+        gs.no_canvas()
 
 
 def test_advanced_3d_gap_apis_are_explicitly_deferred():
     deferred_helpers = (
-        p5.frustum,
-        p5.set_camera,
-        p5.roll,
-        p5.screen_to_world,
-        p5.world_to_screen,
-        p5.debug_mode,
-        p5.no_debug_mode,
-        p5.lights,
-        p5.no_lights,
-        p5.spot_light,
-        p5.image_light,
-        p5.panorama,
-        p5.light_falloff,
-        p5.specular_color,
-        p5.emissive_material,
-        p5.metalness,
-        p5.texture_mode,
-        p5.texture_wrap,
+        gs.frustum,
+        gs.set_camera,
+        gs.roll,
+        gs.screen_to_world,
+        gs.world_to_screen,
+        gs.debug_mode,
+        gs.no_debug_mode,
+        gs.lights,
+        gs.no_lights,
+        gs.spot_light,
+        gs.image_light,
+        gs.panorama,
+        gs.light_falloff,
+        gs.specular_color,
+        gs.emissive_material,
+        gs.metalness,
+        gs.texture_mode,
+        gs.texture_wrap,
     )
 
     for helper in deferred_helpers:
@@ -143,17 +143,17 @@ def test_advanced_3d_gap_apis_are_explicitly_deferred():
 
 def test_accessibility_helpers_store_native_metadata():
     def setup():
-        p5.create_canvas(10, 10)
-        assert p5.describe("A test canvas") == {
+        gs.create_canvas(10, 10)
+        assert gs.describe("A test canvas") == {
             "label": "canvas",
             "description": "A test canvas",
         }
-        assert p5.describe_element("circle", "A small circle") == {
+        assert gs.describe_element("circle", "A small circle") == {
             "label": "circle",
             "description": "A small circle",
         }
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
     assert context.text_output() == [
         {"label": "canvas", "description": "A test canvas"},
         {"label": "circle", "description": "A small circle"},

@@ -20,8 +20,8 @@
 `point`, `line`, `triangle`, and `quad` also accept vector-like point objects:
 
 ```python
-p5.line(p5.Vector(10, 20), p5.Vector(90, 80))
-p5.triangle(a, b, c)
+gs.line(gs.Vector(10, 20), gs.Vector(90, 80))
+gs.triangle(a, b, c)
 ```
 
 For dense loops, bind the frame-local fast facade once and call its strict
@@ -29,8 +29,8 @@ coordinate methods:
 
 ```python
 def draw():
-    p5.background(245)
-    draw_fast = p5.fast()
+    gs.background(245)
+    draw_fast = gs.fast()
     for x, y, dx, dy in vectors:
         draw_fast.line(x, y, x + dx, y + dy)
 ```

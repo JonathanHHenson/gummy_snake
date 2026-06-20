@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from p5.assets.image import Image
-from p5.backends.canvas_renderer import CanvasRenderer, PerformanceCounters
-from p5.constants import BLEND, MULTIPLY
-from p5.core.color import Color
-from p5.core.state import StyleState
-from p5.core.transform import Matrix2D
-from p5.rust.canvas import require_canvas_extension
+from gummysnake.assets.image import Image
+from gummysnake.backends.canvas_renderer import CanvasRenderer, PerformanceCounters
+from gummysnake.constants import BLEND, MULTIPLY
+from gummysnake.core.color import Color
+from gummysnake.core.state import StyleState
+from gummysnake.core.transform import Matrix2D
+from gummysnake.rust.canvas import require_canvas_extension
 
 pytestmark = pytest.mark.stress
 

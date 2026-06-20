@@ -3,7 +3,7 @@
 Create a WEBGL canvas:
 
 ```python
-p5.create_canvas(640, 480, renderer=p5.WEBGL)
+gs.create_canvas(640, 480, renderer=gs.WEBGL)
 ```
 
 ## Camera and Projection
@@ -55,5 +55,4 @@ p5.create_canvas(640, 480, renderer=p5.WEBGL)
 - `normal_shader()`
 
 3D support is evolving. Unsupported shader or WEBGL compatibility APIs raise
-explicit p5 exceptions.
-
+explicit Gummy Snake exceptions.

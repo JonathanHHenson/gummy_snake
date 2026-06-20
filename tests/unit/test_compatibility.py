@@ -1,19 +1,19 @@
 import pytest
 
-import p5
-from p5 import ArgumentValidationError, UnsupportedFeatureError
+import gummysnake as gs
+from gummysnake import ArgumentValidationError, UnsupportedFeatureError
 
 
 def test_dom_apis_are_explicitly_excluded():
     with pytest.raises(UnsupportedFeatureError):
-        p5.create_div("hello")
+        gs.create_div("hello")
 
 
 def test_table_and_xml_are_explicitly_excluded():
     with pytest.raises(UnsupportedFeatureError):
-        p5.load_xml("data.xml")
+        gs.load_xml("data.xml")
     with pytest.raises(UnsupportedFeatureError):
-        p5.load_table("data.csv")
+        gs.load_table("data.csv")
 
 
 @pytest.mark.parametrize(
@@ -33,8 +33,8 @@ def test_table_and_xml_are_explicitly_excluded():
     ],
 )
 def test_dom_and_browser_file_input_stubs_raise_package_errors(name):
-    with pytest.raises(UnsupportedFeatureError, match="p5-py"):
-        getattr(p5, name)()
+    with pytest.raises(UnsupportedFeatureError, match="Gummy Snake"):
+        getattr(gs, name)()
 
 
 @pytest.mark.parametrize(
@@ -53,8 +53,8 @@ def test_dom_and_browser_file_input_stubs_raise_package_errors(name):
     ],
 )
 def test_browser_io_and_data_exclusion_stubs_raise_package_errors(name):
-    with pytest.raises(UnsupportedFeatureError, match="p5-py"):
-        getattr(p5, name)()
+    with pytest.raises(UnsupportedFeatureError, match="Gummy Snake"):
+        getattr(gs, name)()
 
 
 @pytest.mark.parametrize(
@@ -83,8 +83,8 @@ def test_browser_io_and_data_exclusion_stubs_raise_package_errors(name):
     ],
 )
 def test_pointer_lock_and_sensor_stubs_raise_package_errors(name):
-    with pytest.raises(UnsupportedFeatureError, match="p5-py"):
-        getattr(p5, name)()
+    with pytest.raises(UnsupportedFeatureError, match="Gummy Snake"):
+        getattr(gs, name)()
 
 
 @pytest.mark.parametrize(
@@ -111,8 +111,8 @@ def test_pointer_lock_and_sensor_stubs_raise_package_errors(name):
     ],
 )
 def test_rendering_text_and_geometry_gap_stubs_raise_package_errors(name):
-    with pytest.raises(UnsupportedFeatureError, match="p5-py"):
-        getattr(p5, name)()
+    with pytest.raises(UnsupportedFeatureError, match="Gummy Snake"):
+        getattr(gs, name)()
 
 
 @pytest.mark.parametrize(
@@ -135,8 +135,8 @@ def test_rendering_text_and_geometry_gap_stubs_raise_package_errors(name):
     ],
 )
 def test_advanced_shader_webgpu_and_compute_stubs_raise_package_errors(name):
-    with pytest.raises(UnsupportedFeatureError, match="p5-py"):
-        getattr(p5, name)()
+    with pytest.raises(UnsupportedFeatureError, match="Gummy Snake"):
+        getattr(gs, name)()
 
 
 @pytest.mark.parametrize(
@@ -153,8 +153,8 @@ def test_advanced_shader_webgpu_and_compute_stubs_raise_package_errors(name):
     ],
 )
 def test_sound_analysis_synthesis_and_capture_stubs_raise_package_errors(name):
-    with pytest.raises(UnsupportedFeatureError, match="p5-py"):
-        getattr(p5, name)()
+    with pytest.raises(UnsupportedFeatureError, match="Gummy Snake"):
+        getattr(gs, name)()
 
 
 def test_advanced_3d_and_media_compatibility_matrix_entries_track_partial_and_deferred_status():
@@ -187,15 +187,15 @@ def test_advanced_3d_and_media_compatibility_matrix_entries_track_partial_and_de
     }
 
     for key in partial_keys:
-        assert p5.COMPATIBILITY_MATRIX[key] == "partial"
+        assert gs.COMPATIBILITY_MATRIX[key] == "partial"
     for key in deferred_keys:
-        assert p5.COMPATIBILITY_MATRIX[key] == "deferred"
+        assert gs.COMPATIBILITY_MATRIX[key] == "deferred"
     for key in excluded_keys:
-        assert p5.COMPATIBILITY_MATRIX[key] == "excluded"
+        assert gs.COMPATIBILITY_MATRIX[key] == "excluded"
 
 
 def test_media_stubs_now_fail_with_explicit_runtime_errors(tmp_path):
     missing_video = tmp_path / "missing.mp4"
 
     with pytest.raises(ArgumentValidationError, match="Video file does not exist"):
-        p5.create_video(missing_video)
+        gs.create_video(missing_video)

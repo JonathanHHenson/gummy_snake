@@ -4,15 +4,19 @@ from typing import Any, cast
 
 import pytest
 
-import p5
-from p5.backends.base import BackendCapabilities
-from p5.backends.canvas import CanvasBackend
-from p5.context import SketchContext
-from p5.drawing.renderer3d import Model3D, Shader3D
-from p5.events.input_state import MouseEvent
-from p5.exceptions import ArgumentValidationError, BackendCapabilityError, ShaderUniformError
-from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
-from p5.sketch import Sketch
+import gummysnake as gs
+from gummysnake.backends.base import BackendCapabilities
+from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.context import SketchContext
+from gummysnake.drawing.renderer3d import Model3D, Shader3D
+from gummysnake.events.input_state import MouseEvent
+from gummysnake.exceptions import (
+    ArgumentValidationError,
+    BackendCapabilityError,
+    ShaderUniformError,
+)
+from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
+from gummysnake.sketch import Sketch
 
 
 class _WebGLSketch(Sketch):
@@ -26,7 +30,7 @@ def make_context() -> SketchContext:
     backend.capabilities = BackendCapabilities(three_d=True, shaders=False)
     context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
-    context.create_canvas(96, 96, renderer=p5.WEBGL)
+    context.create_canvas(96, 96, renderer=gs.WEBGL)
     return context
 
 
@@ -204,12 +208,12 @@ class FakeCanvas3DBackend:
         self.renderer = Fake3DRenderer()
 
     def create_canvas(
-        self, width: int, height: int, pixel_density: float | None = None, *, renderer: str = p5.P2D
+        self, width: int, height: int, pixel_density: float | None = None, *, renderer: str = gs.P2D
     ) -> None:
         self.renderer.resize(width, height, 1.0 if pixel_density is None else pixel_density)
 
     def resize_canvas(
-        self, width: int, height: int, pixel_density: float | None = None, *, renderer: str = p5.P2D
+        self, width: int, height: int, pixel_density: float | None = None, *, renderer: str = gs.P2D
     ) -> None:
         self.create_canvas(width, height, pixel_density, renderer=renderer)
 
@@ -234,13 +238,13 @@ class FakeUpgradeableCanvasBackend(FakeCanvas3DBackend):
         return True
 
 
-def test_texture_requires_p5_image_and_material_apis_clear_bound_texture():
+def test_texture_requires_gummy_snake_image_and_material_apis_clear_bound_texture():
     context = make_context()
 
-    with pytest.raises(ArgumentValidationError, match="p5 Image"):
+    with pytest.raises(ArgumentValidationError, match="Gummy Snake Image"):
         context.texture(cast(Any, object()))
 
-    checker = p5.create_image(2, 2)
+    checker = gs.create_image(2, 2)
     context.texture(checker)
     assert context._effective_3d_material().texture is not None
 
@@ -254,8 +258,8 @@ def test_load_shader_and_create_shader_round_trip(tmp_path: Path):
     vertex_path.write_text("void main() { gl_Position = gl_Vertex; }", encoding="utf-8")
     fragment_path.write_text("void main() { gl_FragColor = vec4(1.0); }", encoding="utf-8")
 
-    loaded = p5.load_shader(vertex_path, fragment_path)
-    created = p5.create_shader(
+    loaded = gs.load_shader(vertex_path, fragment_path)
+    created = gs.create_shader(
         "void main() { gl_Position = gl_Vertex; }", "void main() { gl_FragColor = vec4(1.0); }"
     )
 
@@ -267,7 +271,7 @@ def test_load_shader_and_create_shader_round_trip(tmp_path: Path):
 
 def test_shader_requires_backend_shader_capability_on_canvas_context():
     context = make_context()
-    program = p5.create_shader(
+    program = gs.create_shader(
         "void main() { gl_Position = gl_Vertex; }", "void main() { gl_FragColor = vec4(1.0); }"
     )
 
@@ -287,8 +291,8 @@ def test_shader_can_upgrade_canvas_backend_from_software_webgl_to_native_shader_
     backend = FakeUpgradeableCanvasBackend()
     context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
-    context.create_canvas(96, 96, renderer=p5.WEBGL)
-    program = p5.create_shader("void main() { gl_Position = vec4(0.0); }", "void main() { }")
+    context.create_canvas(96, 96, renderer=gs.WEBGL)
+    program = gs.create_shader("void main() { gl_Position = vec4(0.0); }", "void main() { }")
 
     context.shader(program)
 
@@ -301,8 +305,8 @@ def test_native_canvas_renderer_path_receives_camera_projection_shader_and_model
     backend = FakeCanvas3DBackend()
     context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
     sketch.context = context
-    context.create_canvas(96, 96, renderer=p5.WEBGL)
-    program = p5.create_shader(
+    context.create_canvas(96, 96, renderer=gs.WEBGL)
+    program = gs.create_shader(
         "void main() { gl_Position = gl_Vertex; }", "void main() { gl_FragColor = vec4(1.0); }"
     )
     context.shader(program)

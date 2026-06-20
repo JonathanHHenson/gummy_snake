@@ -5,10 +5,10 @@ import time
 
 import pytest
 
-import p5
+import gummysnake as gs
 
 
-def _sprite(width: int, height: int, seed: int = 0) -> p5.Image:
+def _sprite(width: int, height: int, seed: int = 0) -> gs.Image:
     pixels = bytearray(width * height * 4)
     for y in range(height):
         for x in range(width):
@@ -17,7 +17,7 @@ def _sprite(width: int, height: int, seed: int = 0) -> p5.Image:
             pixels[offset + 1] = (seed + y * 5) % 256
             pixels[offset + 2] = (x + y + seed) % 256
             pixels[offset + 3] = 255
-    return p5.Image(width, height, bytes(pixels))
+    return gs.Image(width, height, bytes(pixels))
 
 
 def _time_samples(callback, *, samples: int = 5) -> tuple[float, ...]:
@@ -38,7 +38,7 @@ def test_image_local_operation_benchmarks() -> None:
         "copy_region_48": lambda: base.copy(12, 12, 48, 48),
         "resize_96_to_48": lambda: base.copy().resize(48, 48),
         "mask_96": lambda: base.copy().mask(mask),
-        "filter_invert_96": lambda: base.copy().filter(p5.INVERT),
+        "filter_invert_96": lambda: base.copy().filter(gs.INVERT),
         "get_pixel": lambda: base.get(15, 19),
         "set_pixel": lambda: base.copy().set(15, 19, (1, 2, 3, 255)),
     }
@@ -56,16 +56,16 @@ def test_pixel_buffer_workflow_benchmarks() -> None:
     payload = bytes([10, 20, 30, 255] * (160 * 120))
 
     def setup() -> None:
-        p5.create_canvas(160, 120)
-        p5.update_pixels(payload)
+        gs.create_canvas(160, 120)
+        gs.update_pixels(payload)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
 
     cases = {
         "load_pixels_list": context.load_pixels,
         "load_pixel_bytes": context.load_pixel_bytes,
         "get_pixel_region": lambda: context.get(4, 4, 16, 16),
-        "set_pixel_region": lambda: context.set(8, 8, p5.Color(1, 2, 3, 255)),
+        "set_pixel_region": lambda: context.set(8, 8, gs.Color(1, 2, 3, 255)),
         "update_pixels_bytes": lambda: context.update_pixels(payload),
         "update_pixels_memoryview": lambda: context.update_pixels(memoryview(payload)),
     }

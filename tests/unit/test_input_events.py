@@ -1,12 +1,12 @@
 import pytest
 
-from p5.backends.canvas import CanvasBackend
-from p5.context import SketchContext
-from p5.core.vector import Vector
-from p5.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
-from p5.exceptions import BackendCapabilityError
-from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
-from p5.sketch import Sketch
+from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.context import SketchContext
+from gummysnake.core.vector import Vector
+from gummysnake.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
+from gummysnake.exceptions import BackendCapabilityError
+from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
+from gummysnake.sketch import Sketch
 
 
 class EventSketch(Sketch):

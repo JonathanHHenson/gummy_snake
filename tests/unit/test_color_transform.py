@@ -1,17 +1,17 @@
-import p5
-from p5.core.transform import Matrix2D
+import gummysnake as gs
+from gummysnake.core.transform import Matrix2D
 
 
 def test_color_modes_hsb():
     def setup():
-        p5.create_canvas(5, 5)
-        p5.color_mode(p5.HSB)
+        gs.create_canvas(5, 5)
+        gs.color_mode(gs.HSB)
 
     def draw():
-        color = p5.color(120, 100, 100, 1)
+        color = gs.color(120, 100, 100, 1)
         assert color.to_tuple() == (0, 255, 0, 255)
 
-    p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
 
 def test_matrix_translation_and_rotation():

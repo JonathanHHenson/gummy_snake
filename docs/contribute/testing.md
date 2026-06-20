@@ -9,13 +9,13 @@ uv run ruff check .
 uv run mypy src
 uv run pytest
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
-cargo test --manifest-path crates/p5_canvas/Cargo.toml
+cargo test --manifest-path crates/gummy_canvas/Cargo.toml
 ```
 
 For coverage locally:
 
 ```sh
-uv run pytest --cov=p5 --cov-report=term-missing --cov-report=xml
+uv run pytest --cov=gummysnake --cov-report=term-missing --cov-report=xml
 ```
 
 ## Choosing The Right Check
@@ -28,7 +28,7 @@ Use focused checks while developing, then broaden before handing off:
 | Public API export changes | unit tests plus `uv run mypy src` |
 | Backend scheduling or capability behavior | `tests/contracts/` plus relevant unit tests |
 | Renderer or pixel behavior | contract or integration test plus a headless smoke example |
-| Rust canvas runtime behavior | `cargo test --manifest-path crates/p5_canvas/Cargo.toml` plus Python wrapper tests |
+| Rust canvas runtime behavior | `cargo test --manifest-path crates/gummy_canvas/Cargo.toml` plus Python wrapper tests |
 | Long-running resource lifecycle behavior | `uv run pytest tests/stress --run-stress -q -s` |
 | Documentation only | link/path review; no full test suite required unless commands changed |
 | CI workflow changes | local command equivalence where practical |
@@ -54,7 +54,7 @@ uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
-The canvas backend benchmarks require the `p5.rust._canvas` extension and run in
+The canvas backend benchmarks require the `gummysnake.rust._canvas` extension and run in
 bounded headless mode, so they do not open a native window. Each run reports
 frames per second plus the canvas size, pixel density, backend mode, Python
 version, and platform. Every canvas benchmark scenario must average at least
@@ -79,7 +79,7 @@ for dense-loop operations.
 The image pipeline benchmarks measure Rust-backed image-local operations such
 as region copy, resize, mask, filter, get, and set, plus list-based,
 bytes-based, and region-based pixel workflows. Use them when changing `Image`,
-`P5Image`, `load_image()`, media frame conversion, `get()`, `set()`,
+`CanvasImage`, `load_image()`, media frame conversion, `get()`, `set()`,
 `load_pixels()`, `load_pixel_bytes()`, `update_pixels()`, or image cache
 behavior.
 

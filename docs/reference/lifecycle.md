@@ -3,62 +3,62 @@
 ## Decorator Function Mode
 
 ```python
-import p5
+import gummysnake as gs
 
 
-@p5.preload
+@gs.preload
 def preload() -> None:
     pass
 
 
-@p5.setup
+@gs.setup
 def setup() -> None:
-    p5.create_canvas(400, 300)
+    gs.create_canvas(400, 300)
 
 
-@p5.draw
+@gs.draw
 def draw() -> None:
-    p5.background(255)
+    gs.background(255)
 
 
-p5.run()
+gs.run()
 ```
 
-Use `@p5.on(event_name)` for named event callbacks:
+Use `@gs.on(event_name)` for named event callbacks:
 
 ```python
-@p5.on(p5.KEY_PRESSED)
+@gs.on(gs.KEY_PRESSED)
 def handle_key(event) -> None:
     if event.matches("s"):
-        p5.save_canvas("frame.png")
+        gs.save_canvas("frame.png")
 ```
 
 For local registration instead of module-level decorators, create a builder:
 
 ```python
-app = p5.sketch()
+app = gs.sketch()
 
 
 @app.setup
 def setup() -> None:
-    p5.create_canvas(400, 300)
+    gs.create_canvas(400, 300)
 
 
 app.run()
 ```
 
-The older `p5.run(setup=setup, draw=draw, preload=preload)` form is still
+The older `gs.run(setup=setup, draw=draw, preload=preload)` form is still
 supported.
 
 ## Class Mode
 
-Subclass `p5.Sketch` when you prefer object-oriented sketches:
+Subclass `gs.Sketch` when you prefer object-oriented sketches:
 
 ```python
-import p5
+import gummysnake as gs
 
 
-class MySketch(p5.Sketch):
+class MySketch(gs.Sketch):
     def setup(self) -> None:
         self.create_canvas(400, 300)
 
@@ -78,10 +78,10 @@ Awaitable callbacks are run to completion by the synchronous canvas runtime.
 sprite = None
 
 
-@p5.preload
+@gs.preload
 async def preload() -> None:
     global sprite
-    sprite = await p5.load_image_async("assets/sprite.png")
+    sprite = await gs.load_image_async("assets/sprite.png")
 ```
 
 ## Lifecycle Functions
@@ -115,12 +115,12 @@ async def preload() -> None:
 - `pixel_density(value=None)`
 - `display_density()`
 
-The `p5.current` facade exposes common active-sketch properties:
+The `gs.current` facade exposes common active-sketch properties:
 
-- `p5.current.width`
-- `p5.current.height`
-- `p5.current.frame_count`
-- `p5.current.delta_time`
-- `p5.current.pixel_density`
-- `p5.current.display_density`
-- `p5.current.is_looping`
+- `gs.current.width`
+- `gs.current.height`
+- `gs.current.frame_count`
+- `gs.current.delta_time`
+- `gs.current.pixel_density`
+- `gs.current.display_density`
+- `gs.current.is_looping`

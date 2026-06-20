@@ -1,12 +1,12 @@
 # Architecture
 
-p5py keeps sketch semantics in Python and delegates canvas work to Rust.
+Gummy Snake keeps sketch semantics in Python and delegates canvas work to Rust.
 
 ```mermaid
 flowchart LR
     subgraph Python
         User[setup/draw callbacks]
-        Global[p5.api.global_mode]
+        Global[gs.api.global_mode]
         Sketch[Sketch]
         Context[SketchContext]
         State[SketchState]
@@ -15,9 +15,9 @@ flowchart LR
     end
 
     subgraph Rust
-        Wrapper[p5.rust.canvas]
-        Extension[p5.rust._canvas]
-        Canvas[p5_canvas crate]
+        Wrapper[gummysnake.rust.canvas]
+        Extension[gummysnake.rust._canvas]
+        Canvas[gummy_canvas crate]
     end
 
     User --> Global --> Context
@@ -35,14 +35,14 @@ The runtime has a small set of objects that appear in most changes:
 
 | Object | File | Responsibility |
 | --- | --- | --- |
-| `Sketch` | `src/p5/sketch.py` | Owns lifecycle ordering, callback dispatch, and the run loop entry point for class-mode sketches. |
-| `FunctionSketch` | `src/p5/sketch.py` | Wraps module-level `setup()`, `draw()`, and event callbacks so function-mode sketches use the same lifecycle as class-mode sketches. |
-| `SketchContext` | `src/p5/context.py` | Runtime controller for one sketch. It validates high-level p5 operations, updates `SketchState`, calls plugins, and sends drawing work to the renderer. |
-| `SketchState` | `src/p5/core/state.py` | Mutable data for one sketch: canvas dimensions, style, transforms, timing, input, shape-building state, and lifecycle flags. |
-| `CanvasBackend` | `src/p5/backends/canvas.py` | Runtime adapter. It chooses headless vs interactive execution, opens native windows when supported, schedules frames, and dispatches input events. |
-| `CanvasRenderer` | `src/p5/backends/canvas_renderer.py` | Drawing adapter. It translates Python state and drawing requests into payloads understood by the Rust canvas extension. |
-| `p5.rust.canvas` | `src/p5/rust/canvas.py` | Import and capability wrapper for the PyO3 extension. It turns missing native support into clear p5 errors. |
-| `p5_canvas` | `crates/p5_canvas/` | Required Rust canvas runtime and renderer implementation. |
+| `Sketch` | `src/gummysnake/sketch.py` | Owns lifecycle ordering, callback dispatch, and the run loop entry point for class-mode sketches. |
+| `FunctionSketch` | `src/gummysnake/sketch.py` | Wraps module-level `setup()`, `draw()`, and event callbacks so function-mode sketches use the same lifecycle as class-mode sketches. |
+| `SketchContext` | `src/gummysnake/context.py` | Runtime controller for one sketch. It validates high-level Gummy Snake operations, updates `SketchState`, calls plugins, and sends drawing work to the renderer. |
+| `SketchState` | `src/gummysnake/core/state.py` | Mutable data for one sketch: canvas dimensions, style, transforms, timing, input, shape-building state, and lifecycle flags. |
+| `CanvasBackend` | `src/gummysnake/backends/canvas.py` | Runtime adapter. It chooses headless vs interactive execution, opens native windows when supported, schedules frames, and dispatches input events. |
+| `CanvasRenderer` | `src/gummysnake/backends/canvas_renderer.py` | Drawing adapter. It translates Python state and drawing requests into payloads understood by the Rust canvas extension. |
+| `gummysnake.rust.canvas` | `src/gummysnake/rust/canvas.py` | Import and capability wrapper for the PyO3 extension. It turns missing native support into clear Gummy Snake errors. |
+| `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime and renderer implementation. |
 
 ## Ownership Boundaries
 
@@ -105,7 +105,7 @@ classDiagram
     SketchContext --> SketchState : owns mutable data
 ```
 
-`SketchContext` methods are where most p5 semantics live. For example,
+`SketchContext` methods are where most Gummy Snake semantics live. For example,
 `SketchContext.rect()` resolves the current rectangle mode and style before
 asking the renderer to draw. `SketchState` does not draw and does not validate
 public API calls; it only stores the values those methods need.
@@ -114,21 +114,21 @@ public API calls; it only stores the values those methods need.
 
 `SketchState` is the mutable Python data model for one running sketch. It is not
 the sketch object itself, and it is not the Rust canvas. It is the place where
-p5py stores the current p5-style settings that affect later API calls.
+Gummy Snake stores the current Gummy Snake-style settings that affect later API calls.
 
 For example:
 
 ```python
-p5.fill(255, 0, 0)
-p5.no_stroke()
-p5.circle(100, 100, 40)
+gs.fill(255, 0, 0)
+gs.no_stroke()
+gs.circle(100, 100, 40)
 ```
 
 `fill()` and `no_stroke()` update `SketchContext.state.style`. When `circle()`
 runs, `SketchContext` reads that style state, combines it with the current
 transform and color mode, and asks `CanvasRenderer` to draw the circle.
 
-`SketchState` is defined in `src/p5/core/state.py` and contains:
+`SketchState` is defined in `src/gummysnake/core/state.py` and contains:
 
 - `canvas`: logical size, physical size, pixel density, renderer kind, and
   whether a canvas has been created.
@@ -144,30 +144,30 @@ transform and color mode, and asks `CanvasRenderer` to draw the circle.
 
 ```mermaid
 flowchart TD
-    A[p5.fill red] --> B[SketchContext.state.style.fill_color]
-    C[p5.translate] --> D[SketchContext.state.transform.matrix]
-    E[p5.circle] --> F[SketchContext reads state]
+    A[gs.fill red] --> B[SketchContext.state.style.fill_color]
+    C[gs.translate] --> D[SketchContext.state.transform.matrix]
+    E[gs.circle] --> F[SketchContext reads state]
     B --> F
     D --> F
     F --> G[CanvasRenderer draw call]
-    G --> H[p5_canvas Rust renderer]
+    G --> H[gummy_canvas Rust renderer]
 ```
 
 ## Public API Call Flow
 
 Global-mode functions are thin wrappers around the active context. A call such
-as `p5.circle(100, 100, 40)` follows this path:
+as `gs.circle(100, 100, 40)` follows this path:
 
 ```mermaid
 sequenceDiagram
     participant User as User sketch
-    participant API as p5.api.global_mode
-    participant Current as p5.api.current
+    participant API as gs.api.global_mode
+    participant Current as gs.api.current
     participant Ctx as SketchContext
     participant Renderer as CanvasRenderer
-    participant Rust as p5_canvas
+    participant Rust as gummy_canvas
 
-    User->>API: p5.circle(100, 100, 40)
+    User->>API: gs.circle(100, 100, 40)
     API->>Current: require_context()
     Current-->>API: active SketchContext
     API->>Ctx: circle(100, 100, 40)
@@ -176,7 +176,7 @@ sequenceDiagram
     Renderer->>Rust: bridge payload
 ```
 
-This is why public API functions should stay small. If a function needs p5
+This is why public API functions should stay small. If a function needs Gummy Snake
 semantics, validation, state changes, or renderer calls, that logic usually
 belongs on `SketchContext`.
 
@@ -184,36 +184,36 @@ belongs on `SketchContext`.
 
 Use these rules of thumb:
 
-- Add or expose a public function in `src/p5/api/global_mode.py` and
-  `src/p5/__init__.py`.
-- Implement sketch behavior in `SketchContext` when it depends on current p5
+- Add or expose a public function in `src/gummysnake/api/global_mode.py` and
+  `src/gummysnake/__init__.py`.
+- Implement sketch behavior in `SketchContext` when it depends on current Gummy Snake
   state.
 - Add persistent current values to `SketchState` when they must survive across
   API calls or frames.
 - Add one-frame temporary values to `SketchContext` when they are not part of
-  the public p5 state model.
+  the public Gummy Snake state model.
 - Change `CanvasRenderer` when the Python side already knows what should be
   drawn and only needs to translate the request for Rust.
 - Change `CanvasBackend` when the behavior is about windows, scheduling,
   headless vs interactive mode, event polling, or shutdown.
-- Change `p5.rust.canvas` when import/capability errors need to be clearer.
-- Change `crates/p5_canvas` when the renderer/runtime itself lacks a primitive,
+- Change `gummysnake.rust.canvas` when import/capability errors need to be clearer.
+- Change `crates/gummy_canvas` when the renderer/runtime itself lacks a primitive,
   export behavior, asset operation, or native event behavior.
 
 ## Source Map
 
-- `src/p5/api/`: global-mode APIs and compatibility stubs.
-- `src/p5/sketch.py`: sketch lifecycle and callback dispatch.
-- `src/p5/context.py`: mutable sketch state and high-level drawing behavior.
-- `src/p5/backends/`: runtime and renderer adapters.
-- `src/p5/rust/`: Python wrappers around PyO3 extensions.
-- `crates/p5_canvas/`: required canvas runtime.
-- `crates/p5_accel/`: optional acceleration extension.
+- `src/gummysnake/api/`: global-mode APIs and compatibility stubs.
+- `src/gummysnake/sketch.py`: sketch lifecycle and callback dispatch.
+- `src/gummysnake/context.py`: mutable sketch state and high-level drawing behavior.
+- `src/gummysnake/backends/`: runtime and renderer adapters.
+- `src/gummysnake/rust/`: Python wrappers around PyO3 extensions.
+- `crates/gummy_canvas/`: required canvas runtime.
+- `crates/gummy_accel/`: optional acceleration extension.
 
 ## Public API Rule
 
 Canonical public functions use `snake_case`. Do not add camelCase aliases for
-p5.js names. Unsupported browser-only APIs should raise explicit p5 exceptions,
+p5.js names. Unsupported browser-only APIs should raise explicit Gummy Snake exceptions,
 usually `UnsupportedFeatureError` or `BackendCapabilityError`.
 
 ## Common Invariants
@@ -222,7 +222,7 @@ usually `UnsupportedFeatureError` or `BackendCapabilityError`.
 - `create_canvas()` must keep `SketchState.canvas` synchronized with the
   renderer's logical and physical dimensions.
 - `push()` / `pop()` should preserve style and transform state together.
-- Headless rendering must still go through `p5_canvas`.
-- The public API should not expose `p5.rust._canvas` types directly.
+- Headless rendering must still go through `gummy_canvas`.
+- The public API should not expose `gummysnake.rust._canvas` types directly.
 - Missing backend capabilities should fail with package-specific errors, not
   raw import errors or renderer exceptions.

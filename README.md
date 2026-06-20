@@ -1,14 +1,13 @@
-# p5py
+# Gummy Snake
 
-[![PyPI](https://img.shields.io/pypi/v/p5py-vibe.svg)](https://pypi.org/project/p5py-vibe/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/p5py-vibe.svg)](https://pypi.org/project/p5py-vibe/)
+[![PyPI](https://img.shields.io/pypi/v/gummy-snake.svg)](https://pypi.org/project/gummy-snake/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/gummy-snake.svg)](https://pypi.org/project/gummy-snake/)
 [![License: LGPL-2.1](https://img.shields.io/badge/License-LGPL--2.1-blue.svg)](license.txt)
-[![CI](https://github.com/JonathanHHenson/p5.py/actions/workflows/ci.yml/badge.svg)](https://github.com/JonathanHHenson/p5.py/actions/workflows/ci.yml)
-[![Downloads](https://img.shields.io/pypi/dm/p5py-vibe.svg)](https://pypi.org/project/p5py-vibe/)
+[![Downloads](https://img.shields.io/pypi/dm/gummy-snake.svg)](https://pypi.org/project/gummy-snake/)
 
-`p5py` is a friendly Python creative-coding library inspired by p5.js. It is for
-people who want to sketch with code: draw shapes, animate motion, react to input,
-load images, play with pixels, and make small visual experiments without first
+Gummy Snake is a playful Python toolkit for creative coding and small games. It
+is for people who want to sketch with code: draw shapes, animate motion, react
+to input, load sprites, play with pixels, and build visual toys without first
 building a full app.
 
 The public API is Python-first. Function names use `snake_case`, sketches are
@@ -18,14 +17,14 @@ runtime.
 ## Install
 
 ```sh
-pip install p5py-vibe
+pip install gummy-snake
 ```
 
 Install optional media helpers when you need camera, video, or sound-related
 extras:
 
 ```sh
-pip install "p5py-vibe[media]"
+pip install "gummy-snake[media]"
 ```
 
 ## First Sketch
@@ -33,23 +32,23 @@ pip install "p5py-vibe[media]"
 Create a file named `circle_sketch.py`:
 
 ```python
-import p5
+import gummysnake as gs
 
 
-@p5.setup
+@gs.setup
 def setup() -> None:
-    p5.create_canvas(400, 300)
-    p5.no_stroke()
+    gs.create_canvas(400, 300)
+    gs.no_stroke()
 
 
-@p5.draw
+@gs.draw
 def draw() -> None:
-    p5.background(245)
-    p5.fill(255, 90, 90)
-    p5.circle(200, 150, 100)
+    gs.background(245)
+    gs.fill(255, 90, 90)
+    gs.circle(200, 150, 100)
 
 
-p5.run()
+gs.run()
 ```
 
 Run it:
@@ -61,7 +60,7 @@ python circle_sketch.py
 For repeatable scripts, use a bounded headless render:
 
 ```python
-p5.run(headless=True, max_frames=1)
+gs.run(headless=True, max_frames=1)
 ```
 
 Callbacks can also be `async def`, which is useful with async-compatible asset
@@ -71,10 +70,10 @@ helpers:
 image = None
 
 
-@p5.preload
+@gs.preload
 async def preload() -> None:
     global image
-    image = await p5.load_image_async("sprite.png")
+    image = await gs.load_image_async("sprite.png")
 ```
 
 ## What You Can Make
@@ -101,7 +100,7 @@ For pixel effects, `load_pixels()` keeps the compatibility list API and
 lists and buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.
 Small canvas `get()` and `set()` region operations use Rust region calls where
 possible instead of reconstructing the full canvas as a Python image.
-For dense drawing loops, `p5.fast()` returns a frame-local facade that keeps
+For dense drawing loops, `gs.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel
 conversion, upload, texture cache, and CPU compositing fallback paths.
@@ -127,7 +126,7 @@ uv run pytest
 The canvas runtime is a required PyO3 extension:
 
 ```sh
-uvx maturin develop --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
 ```
 
 The contributor documentation explains the architecture, lifecycle, testing
@@ -162,6 +161,7 @@ uv run pytest tests/stress --run-stress -q -s
 
 ## Compatibility
 
-`p5py` is inspired by p5.js, but it is not a browser port. It does not include
-DOM helpers, browser-only APIs, JavaScript aliases, or a Pillow/Pyglet fallback.
-Unsupported features raise explicit package errors so sketches fail clearly.
+Gummy Snake keeps the sketch lifecycle familiar, but it is not a browser port.
+It does not include DOM helpers, browser-only APIs, JavaScript aliases, or a
+Pillow/Pyglet fallback. Unsupported features raise explicit package errors so
+sketches fail clearly.

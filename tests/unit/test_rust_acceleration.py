@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-import p5.rust as rust_acceleration
-from p5.core import random as random_module
-from p5.rust import _accelerated as original_accelerated
-from p5.rust import (
+import gummysnake.rust as rust_acceleration
+from gummysnake.core import random as random_module
+from gummysnake.rust import _accelerated as original_accelerated
+from gummysnake.rust import (
     animated_noise_rgba,
     benchmarks,
     exclusion_blend_rgb,

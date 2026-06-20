@@ -23,7 +23,7 @@ build-rust:
 	uvx maturin build --release
 
 build-accel:
-	uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml --module-name p5.rust._accelerated --python-source src --features extension-module
+	uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --module-name gummysnake.rust._accelerated --python-source src --features extension-module
 
 version-check:
 	uv run python scripts/bump_version.py --check

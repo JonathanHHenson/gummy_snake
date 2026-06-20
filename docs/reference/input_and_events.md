@@ -22,21 +22,21 @@ native window.
 
 ## Property Facades
 
-The `p5.mouse` and `p5.keyboard` facades provide property-style access while a
+The `gs.mouse` and `gs.keyboard` facades provide property-style access while a
 sketch callback is active:
 
-- `p5.mouse.x`
-- `p5.mouse.y`
-- `p5.mouse.position`
-- `p5.mouse.previous_position`
-- `p5.mouse.moved_x`
-- `p5.mouse.moved_y`
-- `p5.mouse.is_pressed`
-- `p5.mouse.button`
-- `p5.keyboard.key`
-- `p5.keyboard.code`
-- `p5.keyboard.is_pressed`
-- `p5.keyboard.is_down(code_or_character)`
+- `gs.mouse.x`
+- `gs.mouse.y`
+- `gs.mouse.position`
+- `gs.mouse.previous_position`
+- `gs.mouse.moved_x`
+- `gs.mouse.moved_y`
+- `gs.mouse.is_pressed`
+- `gs.mouse.button`
+- `gs.keyboard.key`
+- `gs.keyboard.code`
+- `gs.keyboard.is_pressed`
+- `gs.keyboard.is_down(code_or_character)`
 
 ## Callback Names
 

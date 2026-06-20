@@ -8,9 +8,9 @@ implementation details in public sketch APIs.
 Use `renderer_performance_counters()` after drawing representative frames:
 
 ```python
-p5.reset_renderer_performance_counters()
+gs.reset_renderer_performance_counters()
 # draw work
-report = p5.renderer_performance_counters()
+report = gs.renderer_performance_counters()
 ```
 
 The stable top-level counters are:
@@ -40,7 +40,7 @@ the top-level keys in tests and docs.
 | Public operation or state | Typical path | Cost boundary | Preferred pattern |
 | --- | --- | --- | --- |
 | `background()`, `clear()`, basic primitives with `BLEND` | GPU-oriented draw | Low synchronization pressure | Keep normal style state for dense primitive loops. |
-| Batched `line()` calls with same style/transform | Batched GPU-oriented draw | Low bridge overhead | Use `p5.fast()` or local method bindings in dense loops. |
+| Batched `line()` calls with same style/transform | Batched GPU-oriented draw | Low bridge overhead | Use `gs.fast()` or local method bindings in dense loops. |
 | Non-`BLEND` blend modes | CPU compositing fallback | May read/merge/upload pixel regions | Use sparingly in animation hot loops; isolate blended layers when possible. |
 | `erase()` / `no_erase()` drawing | CPU compositing fallback | Requires alpha-modifying pixel work | Prefer normal alpha drawing unless erasure semantics are required. |
 | Loaded images drawn unchanged | Cached texture path | First draw uploads, later draws reuse | Reuse `Image` objects and avoid per-frame mutation. |
@@ -56,9 +56,9 @@ the top-level keys in tests and docs.
 Frame pacing diagnostics are opt-in:
 
 ```python
-p5.enable_frame_pacing_diagnostics()
+gs.enable_frame_pacing_diagnostics()
 # run frames
-report = p5.frame_pacing_diagnostics()
+report = gs.frame_pacing_diagnostics()
 ```
 
 The report includes frame count, event poll count, last/max/mean draw duration,
@@ -72,15 +72,15 @@ Use a desktop build with native window support.
 1. Build the current canvas extension:
 
    ```sh
-   uvx maturin develop --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+   uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
    ```
 
 2. Run an interactive sketch with pacing diagnostics enabled in setup:
 
    ```python
    def setup():
-       p5.create_canvas(720, 480)
-       p5.enable_frame_pacing_diagnostics()
+       gs.create_canvas(720, 480)
+       gs.enable_frame_pacing_diagnostics()
    ```
 
 3. Exercise `loop()`, `no_loop()`, `redraw()`, resize the window if supported,

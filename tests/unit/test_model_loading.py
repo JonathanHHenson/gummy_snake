@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import p5
+import gummysnake as gs
 
 
 def test_load_model_supports_local_obj_with_negative_indices(tmp_path: Path):
@@ -17,7 +17,7 @@ def test_load_model_supports_local_obj_with_negative_indices(tmp_path: Path):
         encoding="utf-8",
     )
 
-    model = p5.load_model(obj_path)
+    model = gs.load_model(obj_path)
 
     assert len(model.meshes) == 1
     mesh = model.meshes[0]
@@ -27,7 +27,7 @@ def test_load_model_supports_local_obj_with_negative_indices(tmp_path: Path):
 
 
 def test_load_model_supports_package_resources_and_normalize():
-    model = p5.load_model("triangle.obj", normalize=True, package="p5.testing.resources")
+    model = gs.load_model("triangle.obj", normalize=True, package="gummysnake.testing.resources")
 
     mesh = model.meshes[0]
     xs = [vertex.x for vertex in mesh.vertices]

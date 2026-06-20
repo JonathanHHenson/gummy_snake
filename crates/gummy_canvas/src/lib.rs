@@ -1,0 +1,4968 @@
+mod gpu;
+mod runtime;
+
+use ab_glyph::{point, Font, FontArc, GlyphId, PxScale, ScaleFont};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::{PyAny, PyBytes, PyDict, PyList};
+use runtime::{
+    native_window_available as runtime_native_window_available, InteractiveRuntime, RuntimeEvent,
+};
+use std::collections::{HashMap, VecDeque};
+use std::f64::consts::PI;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+const SUPPORTED_RENDERER: &str = "p2d";
+const SUPPORTED_MODE: &str = "headless";
+const INTERACTIVE_MODE: &str = "interactive";
+const BLEND_MODE_BLEND: &str = "blend";
+const BLEND_MODE_ADD: &str = "add";
+const BLEND_MODE_DARKEST: &str = "darkest";
+const BLEND_MODE_LIGHTEST: &str = "lightest";
+const BLEND_MODE_DIFFERENCE: &str = "difference";
+const BLEND_MODE_EXCLUSION: &str = "exclusion";
+const BLEND_MODE_MULTIPLY: &str = "multiply";
+const BLEND_MODE_REPLACE: &str = "replace";
+const BLEND_MODE_SCREEN: &str = "screen";
+const IMAGE_CACHE_LIMIT: usize = 1024;
+const TEXTURE_CACHE_LIMIT: usize = 1024;
+const TEXT_CACHE_LIMIT: usize = 512;
+const CANVAS_ABI_VERSION: u32 = 1;
+static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Rgba {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
+}
+
+impl Rgba {
+    fn from_tuple(tuple: (u8, u8, u8, u8)) -> Self {
+        Self {
+            r: tuple.0,
+            g: tuple.1,
+            b: tuple.2,
+            a: tuple.3,
+        }
+    }
+
+    fn as_array(self) -> [u8; 4] {
+        [self.r, self.g, self.b, self.a]
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Style {
+    fill: Option<Rgba>,
+    stroke: Option<Rgba>,
+    stroke_weight: f64,
+    blend_mode: String,
+    erasing: bool,
+    image_sampling: String,
+    text_font_path: Option<String>,
+    text_font_name: String,
+    text_size: f64,
+    text_align_x: String,
+    text_align_y: String,
+    text_leading: f64,
+}
+
+#[derive(Clone, Debug)]
+struct CachedImage {
+    version: u64,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+struct CachedText {
+    texture_key: u64,
+    image: CachedImage,
+    bbox_left: i32,
+    bbox_top: i32,
+    ascent: f64,
+}
+
+#[derive(Clone, Debug, Default)]
+struct PerformanceCounters {
+    gpu_draws: u64,
+    cpu_fallbacks: u64,
+    pixel_readbacks: u64,
+    pixel_uploads: u64,
+    image_cache_hits: u64,
+    image_cache_misses: u64,
+    texture_cache_hits: u64,
+    texture_uploads: u64,
+    text_cache_hits: u64,
+    text_cache_misses: u64,
+    text_cache_evictions: u64,
+    text_measurements: u64,
+    bridge_calls: u64,
+    frames_presented: u64,
+    gpu_frames_rendered: u64,
+    event_polls: u64,
+}
+
+impl PerformanceCounters {
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("gpu_draws", self.gpu_draws)?;
+        dict.set_item("cpu_fallbacks", self.cpu_fallbacks)?;
+        dict.set_item("pixel_readbacks", self.pixel_readbacks)?;
+        dict.set_item("pixel_uploads", self.pixel_uploads)?;
+        dict.set_item("image_cache_hits", self.image_cache_hits)?;
+        dict.set_item("image_cache_misses", self.image_cache_misses)?;
+        dict.set_item("texture_cache_hits", self.texture_cache_hits)?;
+        dict.set_item("texture_uploads", self.texture_uploads)?;
+        dict.set_item("text_cache_hits", self.text_cache_hits)?;
+        dict.set_item("text_cache_misses", self.text_cache_misses)?;
+        dict.set_item("text_cache_evictions", self.text_cache_evictions)?;
+        dict.set_item("text_measurements", self.text_measurements)?;
+        dict.set_item("bridge_calls", self.bridge_calls)?;
+        dict.set_item("frames_presented", self.frames_presented)?;
+        dict.set_item("gpu_frames_rendered", self.gpu_frames_rendered)?;
+        dict.set_item("event_polls", self.event_polls)?;
+        Ok(dict)
+    }
+}
+
+#[pyclass(name = "CanvasImage", unsendable)]
+#[derive(Clone, Debug)]
+struct CanvasImage {
+    key: u64,
+    version: u64,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+}
+
+#[pymethods]
+impl CanvasImage {
+    #[staticmethod]
+    fn from_file(path: &str) -> PyResult<Self> {
+        let image = image::open(path)
+            .map_err(|err| PyValueError::new_err(format!("Could not load image {path}: {err}")))?
+            .to_rgba8();
+        let (width, height) = image.dimensions();
+        Ok(Self::from_pixels(
+            width as usize,
+            height as usize,
+            image.into_raw(),
+        ))
+    }
+
+    #[staticmethod]
+    fn from_rgba_bytes(width: usize, height: usize, pixels: Vec<u8>) -> PyResult<Self> {
+        validate_rgba_buffer(pixels.len(), width, height)?;
+        Ok(Self::from_pixels(width, height, pixels))
+    }
+
+    #[getter]
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    #[getter]
+    fn height(&self) -> usize {
+        self.height
+    }
+
+    #[getter]
+    fn version(&self) -> u64 {
+        self.version
+    }
+
+    fn save(&self, path: &str) -> PyResult<()> {
+        image::save_buffer_with_format(
+            path,
+            &self.pixels,
+            self.width as u32,
+            self.height as u32,
+            image::ColorType::Rgba8,
+            image::ImageFormat::Png,
+        )
+        .map_err(|err| PyValueError::new_err(format!("Failed to save image {path}: {err}")))
+    }
+
+    fn to_rgba_bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        PyBytes::new_bound(py, &self.pixels)
+    }
+}
+
+impl CanvasImage {
+    fn from_pixels(width: usize, height: usize, pixels: Vec<u8>) -> Self {
+        Self {
+            key: NEXT_IMAGE_KEY.fetch_add(1, Ordering::Relaxed),
+            version: 0,
+            width,
+            height,
+            pixels,
+        }
+    }
+}
+
+type Matrix = (f64, f64, f64, f64, f64, f64);
+
+type Point = (f64, f64);
+
+struct OverlayRegion<'a> {
+    min_x: usize,
+    min_y: usize,
+    width: usize,
+    height: usize,
+    canvas_width: usize,
+    pixels: &'a mut [u8],
+    present_pixels: &'a mut [u32],
+    erasing: bool,
+    blend_mode: &'a str,
+}
+
+impl<'a> OverlayRegion<'a> {
+    fn from_bounds(
+        bounds: (usize, usize, usize, usize),
+        canvas_width: usize,
+        pixels: &'a mut [u8],
+        present_pixels: &'a mut [u32],
+        erasing: bool,
+        blend_mode: &'a str,
+    ) -> Option<Self> {
+        let (min_x, min_y, max_x, max_y) = bounds;
+        let width = max_x.saturating_sub(min_x);
+        let height = max_y.saturating_sub(min_y);
+        if width == 0 || height == 0 {
+            return None;
+        }
+        Some(Self {
+            min_x,
+            min_y,
+            width,
+            height,
+            canvas_width,
+            pixels,
+            present_pixels,
+            erasing,
+            blend_mode,
+        })
+    }
+
+    fn max_x(&self) -> usize {
+        self.min_x + self.width
+    }
+
+    fn max_y(&self) -> usize {
+        self.min_y + self.height
+    }
+
+    fn set_pixel(&mut self, x: usize, y: usize, color: Rgba) {
+        let pixel_index = y * self.canvas_width + x;
+        let offset = pixel_index * 4;
+        let dst = &mut self.pixels[offset..offset + 4];
+        let color = color.as_array();
+        if self.erasing {
+            dst[3] = dst[3].saturating_sub(color[3]);
+        } else {
+            blend_pixel(dst, &color, self.blend_mode);
+        }
+        self.present_pixels[pixel_index] = rgba_to_present_pixel(dst);
+    }
+}
+
+#[pyclass(unsendable)]
+struct Canvas {
+    width: i64,
+    height: i64,
+    physical_width: usize,
+    physical_height: usize,
+    pixel_density: f64,
+    mode: String,
+    window_open: bool,
+    closed: bool,
+    pixels: Vec<u8>,
+    present_pixels: Vec<u32>,
+    image_cache: HashMap<u64, CachedImage>,
+    text_cache: HashMap<String, CachedText>,
+    text_cache_order: VecDeque<String>,
+    font_cache: HashMap<String, FontArc>,
+    next_text_key: u64,
+    texture_cache_versions: HashMap<u64, u64>,
+    runtime: Option<InteractiveRuntime>,
+    gpu: Option<gpu::GpuRenderer>,
+    gpu_error: Option<String>,
+    render_dirty: bool,
+    offscreen_dirty: bool,
+    pixels_stale: bool,
+    texture_stale: bool,
+    cached_style_key: Option<usize>,
+    cached_style: Option<Style>,
+    performance_counters: PerformanceCounters,
+}
+
+#[pymethods]
+impl Canvas {
+    #[new]
+    #[pyo3(signature = (width, height, pixel_density=1.0, mode=SUPPORTED_MODE, renderer=SUPPORTED_RENDERER))]
+    fn new(
+        width: i64,
+        height: i64,
+        pixel_density: f64,
+        mode: &str,
+        renderer: &str,
+    ) -> PyResult<Self> {
+        validate_mode_and_renderer(mode, renderer)?;
+        let (physical_width, physical_height) = physical_dimensions(width, height, pixel_density)?;
+        let (gpu, gpu_error) = match gpu::GpuRenderer::new(physical_width, physical_height) {
+            Ok(renderer) => (Some(renderer), None),
+            Err(err) => (None, Some(err)),
+        };
+        Ok(Self {
+            width,
+            height,
+            physical_width,
+            physical_height,
+            pixel_density,
+            mode: mode.to_string(),
+            window_open: mode == INTERACTIVE_MODE,
+            closed: false,
+            pixels: vec![0; physical_width * physical_height * 4],
+            present_pixels: vec![0; physical_width * physical_height],
+            image_cache: HashMap::new(),
+            text_cache: HashMap::new(),
+            text_cache_order: VecDeque::new(),
+            font_cache: HashMap::new(),
+            next_text_key: 1_u64 << 62,
+            texture_cache_versions: HashMap::new(),
+            runtime: None,
+            gpu,
+            gpu_error,
+            render_dirty: false,
+            offscreen_dirty: false,
+            pixels_stale: false,
+            texture_stale: false,
+            cached_style_key: None,
+            cached_style: None,
+            performance_counters: PerformanceCounters::default(),
+        })
+    }
+
+    fn resize(
+        &mut self,
+        width: i64,
+        height: i64,
+        pixel_density: f64,
+        renderer: &str,
+    ) -> PyResult<()> {
+        validate_renderer(renderer)?;
+        let (physical_width, physical_height) = physical_dimensions(width, height, pixel_density)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.resize(physical_width, physical_height)
+                .map_err(PyValueError::new_err)?;
+            gpu.clear_transparent();
+            gpu.render();
+        }
+        self.width = width;
+        self.height = height;
+        self.pixel_density = pixel_density;
+        self.physical_width = physical_width;
+        self.physical_height = physical_height;
+        self.pixels = vec![0; physical_width * physical_height * 4];
+        self.present_pixels = vec![0; physical_width * physical_height];
+        self.render_dirty = false;
+        self.offscreen_dirty = false;
+        self.pixels_stale = false;
+        self.texture_stale = false;
+        self.cached_style_key = None;
+        self.cached_style = None;
+        self.text_cache.clear();
+        self.text_cache_order.clear();
+        if let Some(runtime) = self.runtime.as_mut() {
+            runtime
+                .request_resize(width, height, pixel_density)
+                .map_err(|err| {
+                    PyValueError::new_err(format!("Failed to resize native canvas window: {err}"))
+                })?;
+        }
+        Ok(())
+    }
+
+    fn dimensions(&self) -> (i64, i64, usize, usize, f64) {
+        (
+            self.width,
+            self.height,
+            self.physical_width,
+            self.physical_height,
+            self.pixel_density,
+        )
+    }
+
+    fn display_density(&self) -> f64 {
+        if let Some(runtime) = self.runtime.as_ref() {
+            runtime.display_density()
+        } else if self.window_open {
+            self.pixel_density.max(1.0)
+        } else {
+            1.0
+        }
+    }
+
+    fn native_window_available(&self) -> bool {
+        runtime_native_window_available()
+    }
+
+    fn gpu_available(&self) -> bool {
+        self.gpu.is_some()
+    }
+
+    fn gpu_status(&self) -> String {
+        self.gpu_error
+            .clone()
+            .unwrap_or_else(|| "available".to_string())
+    }
+
+    fn performance_counters<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        self.performance_counters.to_dict(py)
+    }
+
+    fn reset_performance_counters(&mut self) {
+        self.performance_counters = PerformanceCounters::default();
+    }
+
+    fn open_window(&mut self) -> PyResult<()> {
+        self.mode = INTERACTIVE_MODE.to_string();
+        self.window_open = true;
+        self.closed = false;
+        self.runtime = Some(
+            InteractiveRuntime::open(self.width, self.height).map_err(|err| {
+                PyValueError::new_err(format!("Failed to open native canvas window: {err}"))
+            })?,
+        );
+        Ok(())
+    }
+
+    fn should_close(&self) -> bool {
+        self.closed
+            || self
+                .runtime
+                .as_ref()
+                .map(|runtime| runtime.should_close())
+                .unwrap_or(false)
+    }
+
+    fn poll_events(&mut self) -> PyResult<Vec<Py<PyAny>>> {
+        self.performance_counters.event_polls += 1;
+        let Some(runtime) = self.runtime.as_mut() else {
+            return Ok(Vec::new());
+        };
+        let events = runtime.poll_events().map_err(|err| {
+            PyValueError::new_err(format!("Failed to poll native canvas events: {err}"))
+        })?;
+        if runtime.should_close() {
+            self.closed = true;
+        }
+        Python::with_gil(|py| {
+            events
+                .into_iter()
+                .map(|event| runtime_event_to_pyobject(py, event))
+                .collect()
+        })
+    }
+
+    fn begin_frame(&mut self) {
+        self.performance_counters.bridge_calls += 1;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.begin_frame();
+        }
+        self.render_dirty = false;
+    }
+
+    fn end_frame(&mut self) {
+        if self.render_dirty && self.offscreen_dirty && self.runtime.is_none() {
+            self.render_gpu_frame(false);
+        } else if self.runtime.is_none() {
+            self.render_dirty = false;
+        }
+    }
+
+    fn present(&mut self) -> PyResult<()> {
+        self.performance_counters.bridge_calls += 1;
+        if self.render_dirty && self.offscreen_dirty && self.runtime.is_none() {
+            self.render_gpu_frame(false);
+        } else if self.runtime.is_none() {
+            self.render_dirty = false;
+        }
+        if self.runtime.is_some() && self.render_dirty {
+            self.upload_stale_texture(false)?;
+        }
+        if let Some(runtime) = self.runtime.as_mut() {
+            let window = runtime.window().ok_or_else(|| {
+                PyValueError::new_err("Native canvas window is not available for presentation.")
+            })?;
+            let (surface_width, surface_height) = runtime.physical_size();
+            let gpu = self.gpu.as_mut().ok_or_else(|| {
+                PyValueError::new_err(
+                    self.gpu_error
+                        .clone()
+                        .unwrap_or_else(|| "GPU presentation is unavailable.".to_string()),
+                )
+            })?;
+            if self.render_dirty {
+                if self.offscreen_dirty {
+                    gpu.render();
+                    gpu.begin_frame();
+                    self.offscreen_dirty = false;
+                    self.pixels_stale = true;
+                    self.texture_stale = false;
+                }
+                gpu.present_texture_to_window(window, surface_width, surface_height)
+                    .map_err(|err| {
+                        PyValueError::new_err(format!("Failed to present native GPU frame: {err}"))
+                    })?;
+                self.performance_counters.frames_presented += 1;
+                self.render_dirty = false;
+            }
+            if runtime.should_close() {
+                self.closed = true;
+            }
+        }
+        Ok(())
+    }
+
+    fn close(&mut self) {
+        self.closed = true;
+        if let Some(runtime) = self.runtime.as_mut() {
+            runtime.close();
+        }
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.drop_surface();
+        }
+        self.runtime = None;
+    }
+
+    fn background(&mut self, rgba: (u8, u8, u8, u8)) {
+        let color = Rgba::from_tuple(rgba).as_array();
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.set_clear_color(gpu_color(Rgba::from_tuple(rgba)));
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        } else {
+            let packed = rgba_to_present_pixel(&color);
+            fill_rgba_buffer(&mut self.pixels, &color);
+            self.present_pixels.fill(packed);
+        }
+    }
+
+    fn clear(&mut self) {
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.clear_transparent();
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        } else {
+            self.pixels.fill(0);
+            self.present_pixels.fill(0);
+        }
+    }
+
+    fn point(&mut self, x: f64, y: f64, style: &Bound<'_, PyAny>, matrix: Matrix) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let color = match style.stroke.or(style.fill) {
+            Some(color) => color,
+            None => return Ok(()),
+        };
+        let (tx, ty) = self.transform_point(matrix, x, y);
+        let radius = (style.stroke_weight * self.pixel_density / 2.0).max(0.5);
+        let bounds = clipped_bounds(
+            &[(tx, ty)],
+            radius,
+            self.physical_width,
+            self.physical_height,
+        );
+        if self.can_queue_gpu_primitives(&style) {
+            self.draw_gpu_disc(tx, ty, radius, color)?;
+            return Ok(());
+        }
+        self.prepare_cpu_composite();
+        let Some(mut overlay) = OverlayRegion::from_bounds(
+            bounds,
+            self.physical_width,
+            &mut self.pixels,
+            &mut self.present_pixels,
+            style.erasing,
+            &style.blend_mode,
+        ) else {
+            return Ok(());
+        };
+        fill_disc(&mut overlay, tx, ty, radius, color);
+        self.upload_cpu_pixels()?;
+        Ok(())
+    }
+
+    fn line(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let stroke = match style.stroke {
+            Some(color) => color,
+            None => return Ok(()),
+        };
+        let p1 = self.transform_point(matrix, x1, y1);
+        let p2 = self.transform_point(matrix, x2, y2);
+        let radius = stroke_width(style.stroke_weight, self.pixel_density) / 2.0;
+        let bounds = clipped_bounds(&[p1, p2], radius, self.physical_width, self.physical_height);
+        if self.can_queue_gpu_primitives(&style) {
+            self.draw_gpu_segment(p1, p2, radius * 2.0, stroke)?;
+            return Ok(());
+        }
+        self.prepare_cpu_composite();
+        let Some(mut overlay) = OverlayRegion::from_bounds(
+            bounds,
+            self.physical_width,
+            &mut self.pixels,
+            &mut self.present_pixels,
+            style.erasing,
+            &style.blend_mode,
+        ) else {
+            return Ok(());
+        };
+        stroke_segment(&mut overlay, p1, p2, radius * 2.0, stroke);
+        self.upload_cpu_pixels()?;
+        Ok(())
+    }
+
+    fn batch_lines(
+        &mut self,
+        lines: Vec<(f64, f64, f64, f64)>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let Some(stroke) = style.stroke else {
+            return Ok(());
+        };
+        let radius = stroke_width(style.stroke_weight, self.pixel_density) / 2.0;
+        for (x1, y1, x2, y2) in lines {
+            let p1 = self.transform_point(matrix, x1, y1);
+            let p2 = self.transform_point(matrix, x2, y2);
+            let bounds =
+                clipped_bounds(&[p1, p2], radius, self.physical_width, self.physical_height);
+            if self.can_queue_gpu_primitives(&style) {
+                self.draw_gpu_segment(p1, p2, radius * 2.0, stroke)?;
+                continue;
+            }
+            self.prepare_cpu_composite();
+            let Some(mut overlay) = OverlayRegion::from_bounds(
+                bounds,
+                self.physical_width,
+                &mut self.pixels,
+                &mut self.present_pixels,
+                style.erasing,
+                &style.blend_mode,
+            ) else {
+                continue;
+            };
+            stroke_segment(&mut overlay, p1, p2, radius * 2.0, stroke);
+            self.upload_cpu_pixels()?;
+        }
+        Ok(())
+    }
+
+    #[pyo3(signature = (points, style, matrix, close=true))]
+    fn polygon(
+        &mut self,
+        points: Vec<(f64, f64)>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        close: bool,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        if points.is_empty() {
+            return Ok(());
+        }
+        let transformed: Vec<Point> = points
+            .iter()
+            .map(|(x, y)| self.transform_point(matrix, *x, *y))
+            .collect();
+        self.draw_transformed_polygon(&transformed, &style, close)
+    }
+
+    fn rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let points = [
+            self.transform_point(matrix, x, y),
+            self.transform_point(matrix, x + width, y),
+            self.transform_point(matrix, x + width, y + height),
+            self.transform_point(matrix, x, y + height),
+        ];
+        self.draw_transformed_polygon(&points, &style, true)
+    }
+
+    fn triangle(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let points = [
+            self.transform_point(matrix, x1, y1),
+            self.transform_point(matrix, x2, y2),
+            self.transform_point(matrix, x3, y3),
+        ];
+        self.draw_transformed_polygon(&points, &style, true)
+    }
+
+    fn quad(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        let points = [
+            self.transform_point(matrix, x1, y1),
+            self.transform_point(matrix, x2, y2),
+            self.transform_point(matrix, x3, y3),
+            self.transform_point(matrix, x4, y4),
+        ];
+        self.draw_transformed_polygon(&points, &style, true)
+    }
+
+    fn ellipse(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let parsed_style = self.cached_style(style)?;
+        ensure_supported_style(&parsed_style)?;
+        if let Some((cx, cy, rx, ry)) =
+            self.axis_aligned_ellipse_geometry(matrix, x, y, width, height)
+        {
+            let padding = if parsed_style.stroke.is_some() {
+                stroke_width(parsed_style.stroke_weight, self.pixel_density) / 2.0
+            } else {
+                0.0
+            };
+            let bounds = ellipse_bounds(
+                cx,
+                cy,
+                rx,
+                ry,
+                padding,
+                self.physical_width,
+                self.physical_height,
+            );
+            if self.can_queue_gpu_primitives(&parsed_style) {
+                self.draw_gpu_axis_aligned_ellipse(
+                    cx,
+                    cy,
+                    rx,
+                    ry,
+                    &parsed_style,
+                    self.pixel_density,
+                )?;
+                return Ok(());
+            }
+            self.prepare_cpu_composite();
+            let Some(mut overlay) = OverlayRegion::from_bounds(
+                bounds,
+                self.physical_width,
+                &mut self.pixels,
+                &mut self.present_pixels,
+                parsed_style.erasing,
+                &parsed_style.blend_mode,
+            ) else {
+                return Ok(());
+            };
+            draw_axis_aligned_ellipse(
+                &mut overlay,
+                cx,
+                cy,
+                rx,
+                ry,
+                &parsed_style,
+                self.pixel_density,
+            );
+            self.upload_cpu_pixels()?;
+            return Ok(());
+        }
+
+        let cx = x + width / 2.0;
+        let cy = y + height / 2.0;
+        let rx = width / 2.0;
+        let ry = height / 2.0;
+        let points: Vec<Point> = (0..64)
+            .map(|index| {
+                let t = 2.0 * PI * index as f64 / 64.0;
+                (cx + t.cos() * rx, cy + t.sin() * ry)
+            })
+            .collect();
+        self.polygon(points, style, matrix, true)
+    }
+
+    fn arc(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        start: f64,
+        mut stop: f64,
+        mode: &str,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let cx = x + width / 2.0;
+        let cy = y + height / 2.0;
+        let rx = width / 2.0;
+        let ry = height / 2.0;
+        while stop < start {
+            stop += 2.0 * PI;
+        }
+        let steps = ((stop - start).abs() / (2.0 * PI) * 64.0).floor().max(8.0) as usize;
+        let arc_points: Vec<Point> = (0..=steps)
+            .map(|index| {
+                let t = start + (stop - start) * index as f64 / steps as f64;
+                (cx + t.cos() * rx, cy + t.sin() * ry)
+            })
+            .collect();
+        match mode {
+            "pie" => {
+                let mut points = vec![(cx, cy)];
+                points.extend(arc_points);
+                self.polygon(points, style, matrix, true)
+            }
+            "chord" => self.polygon(arc_points, style, matrix, true),
+            _ => {
+                let parsed_style = self.cached_style(style)?;
+                ensure_supported_style(&parsed_style)?;
+                let transformed: Vec<Point> = arc_points
+                    .iter()
+                    .map(|(px, py)| self.transform_point(matrix, *px, *py))
+                    .collect();
+                let padding = if parsed_style.stroke.is_some() {
+                    stroke_width(parsed_style.stroke_weight, self.pixel_density) / 2.0
+                } else {
+                    0.0
+                };
+                let bounds = clipped_bounds(
+                    &transformed,
+                    padding,
+                    self.physical_width,
+                    self.physical_height,
+                );
+                if self.can_queue_gpu_polygon(&transformed, &parsed_style, mode != "open") {
+                    if parsed_style.fill.is_some() && mode != "open" {
+                        self.draw_gpu_polygon(
+                            &transformed,
+                            &Style {
+                                stroke: None,
+                                ..parsed_style.clone()
+                            },
+                            true,
+                            self.pixel_density,
+                        )?;
+                    }
+                    if let Some(stroke) = parsed_style.stroke {
+                        self.draw_gpu_polyline(
+                            &transformed,
+                            false,
+                            stroke_width(parsed_style.stroke_weight, self.pixel_density),
+                            stroke,
+                        )?;
+                    }
+                    return Ok(());
+                }
+                self.prepare_cpu_composite();
+                let Some(mut overlay) = OverlayRegion::from_bounds(
+                    bounds,
+                    self.physical_width,
+                    &mut self.pixels,
+                    &mut self.present_pixels,
+                    parsed_style.erasing,
+                    &parsed_style.blend_mode,
+                ) else {
+                    return Ok(());
+                };
+                if parsed_style.fill.is_some() && mode != "open" {
+                    draw_polygon_overlay(
+                        &mut overlay,
+                        &transformed,
+                        &Style {
+                            stroke: None,
+                            ..parsed_style.clone()
+                        },
+                        true,
+                        self.pixel_density,
+                    );
+                }
+                if let Some(stroke) = parsed_style.stroke {
+                    draw_polyline_stroke(
+                        &mut overlay,
+                        &transformed,
+                        false,
+                        stroke_width(parsed_style.stroke_weight, self.pixel_density),
+                        stroke,
+                    );
+                }
+                self.upload_cpu_pixels()?;
+                Ok(())
+            }
+        }
+    }
+
+    #[pyo3(signature = (image_pixels, image_width, image_height, dx, dy, dw, dh, style, matrix, source=None))]
+    fn draw_image(
+        &mut self,
+        image_pixels: Vec<u8>,
+        image_width: usize,
+        image_height: usize,
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<()> {
+        self.draw_image_pixels(
+            &image_pixels,
+            image_width,
+            image_height,
+            dx,
+            dy,
+            dw,
+            dh,
+            style,
+            matrix,
+            source,
+        )
+    }
+
+    #[pyo3(signature = (image_key, image_version, image_pixels, image_width, image_height, dx, dy, dw, dh, style, matrix, source=None))]
+    fn draw_cached_image(
+        &mut self,
+        image_key: u64,
+        image_version: u64,
+        image_pixels: Option<Vec<u8>>,
+        image_width: usize,
+        image_height: usize,
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<()> {
+        let needs_upload = self
+            .image_cache
+            .get(&image_key)
+            .map(|cached| {
+                cached.version != image_version
+                    || cached.width != image_width
+                    || cached.height != image_height
+            })
+            .unwrap_or(true);
+        if needs_upload {
+            self.performance_counters.image_cache_misses += 1;
+            let pixels = image_pixels.ok_or_else(|| {
+                PyValueError::new_err(
+                    "Image pixels are required the first time an image/version is drawn.",
+                )
+            })?;
+            validate_rgba_buffer(pixels.len(), image_width, image_height)?;
+            self.evict_image_cache_if_needed(image_key);
+            self.image_cache.insert(
+                image_key,
+                CachedImage {
+                    version: image_version,
+                    width: image_width,
+                    height: image_height,
+                    pixels,
+                },
+            );
+        } else {
+            self.performance_counters.image_cache_hits += 1;
+        }
+        if let Some(cached) = self.image_cache.get(&image_key).cloned() {
+            if self.try_draw_gpu_image(image_key, &cached, dx, dy, dw, dh, style, matrix, source)? {
+                return Ok(());
+            }
+        }
+        let cached = self
+            .image_cache
+            .get(&image_key)
+            .ok_or_else(|| PyValueError::new_err("Cached image is not available."))?
+            .clone();
+        self.draw_image_pixels(
+            &cached.pixels,
+            cached.width,
+            cached.height,
+            dx,
+            dy,
+            dw,
+            dh,
+            style,
+            matrix,
+            source,
+        )
+    }
+
+    #[pyo3(signature = (image, dx, dy, dw, dh, style, matrix, source=None))]
+    fn draw_canvas_image(
+        &mut self,
+        image: PyRef<'_, CanvasImage>,
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<()> {
+        if self.try_draw_gpu_image_parts(
+            image.key,
+            image.version,
+            image.width,
+            image.height,
+            &image.pixels,
+            dx,
+            dy,
+            dw,
+            dh,
+            style,
+            matrix,
+            source,
+        )? {
+            return Ok(());
+        }
+        self.draw_image_pixels(
+            &image.pixels,
+            image.width,
+            image.height,
+            dx,
+            dy,
+            dw,
+            dh,
+            style,
+            matrix,
+            source,
+        )
+    }
+
+    fn text(
+        &mut self,
+        value: &str,
+        x: f64,
+        y: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let parsed_style = self.cached_style(style)?;
+        ensure_supported_style(&parsed_style)?;
+        let Some(fill) = parsed_style.fill else {
+            return Ok(());
+        };
+        if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
+            return Err(PyValueError::new_err("text_size must be positive."));
+        }
+        if parsed_style.text_leading <= 0.0 || !parsed_style.text_leading.is_finite() {
+            return Err(PyValueError::new_err("text_leading must be positive."));
+        }
+
+        let lines: Vec<&str> = if value.is_empty() {
+            vec![""]
+        } else {
+            value.split('\n').collect()
+        };
+        for (line_index, line) in lines.iter().enumerate() {
+            let cached = self.cached_text_line(line, fill, &parsed_style)?;
+            if cached.image.width == 0 || cached.image.height == 0 {
+                continue;
+            }
+            let width = cached.image.width as f64 / self.pixel_density;
+            let height = cached.image.height as f64 / self.pixel_density;
+            let mut dx = x;
+            let mut dy = y + line_index as f64 * parsed_style.text_leading;
+            if parsed_style.text_align_x == "center" {
+                dx -= width / 2.0;
+            } else if parsed_style.text_align_x == "right" {
+                dx -= width;
+            }
+            if parsed_style.text_align_y == "center" {
+                dy -= height / 2.0;
+            } else if parsed_style.text_align_y == "bottom" {
+                dy -= height;
+            } else if parsed_style.text_align_y == "baseline" {
+                dy -= cached.ascent / self.pixel_density;
+            }
+            dx += cached.bbox_left as f64 / self.pixel_density;
+            dy += cached.bbox_top as f64 / self.pixel_density;
+
+            if self.try_draw_gpu_image_parts(
+                cached.texture_key,
+                cached.image.version,
+                cached.image.width,
+                cached.image.height,
+                &cached.image.pixels,
+                dx,
+                dy,
+                width,
+                height,
+                style,
+                matrix,
+                None,
+            )? {
+                continue;
+            }
+            self.draw_image_pixels(
+                &cached.image.pixels,
+                cached.image.width,
+                cached.image.height,
+                dx,
+                dy,
+                width,
+                height,
+                style,
+                matrix,
+                None,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn text_width(&mut self, value: &str, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+        self.performance_counters.text_measurements += 1;
+        let parsed_style = self.cached_style(style)?;
+        if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
+            return Err(PyValueError::new_err("text_size must be positive."));
+        }
+        let font = self.load_text_font(&parsed_style)?;
+        let font_size = (parsed_style.text_size * self.pixel_density)
+            .round()
+            .max(1.0) as usize;
+        Ok(text_width(value, &font, font_size) / self.pixel_density)
+    }
+
+    fn text_ascent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+        self.performance_counters.text_measurements += 1;
+        let parsed_style = self.cached_style(style)?;
+        if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
+            return Err(PyValueError::new_err("text_size must be positive."));
+        }
+        let font = self.load_text_font(&parsed_style)?;
+        let font_size = (parsed_style.text_size * self.pixel_density)
+            .round()
+            .max(1.0) as usize;
+        let scaled_font = font.as_scaled(PxScale::from(font_size as f32));
+        Ok(scaled_font.ascent().ceil().max(0.0) as f64 / self.pixel_density)
+    }
+
+    fn text_descent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+        self.performance_counters.text_measurements += 1;
+        let parsed_style = self.cached_style(style)?;
+        if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
+            return Err(PyValueError::new_err("text_size must be positive."));
+        }
+        let font = self.load_text_font(&parsed_style)?;
+        let font_size = (parsed_style.text_size * self.pixel_density)
+            .round()
+            .max(1.0) as usize;
+        let scaled_font = font.as_scaled(PxScale::from(font_size as f32));
+        Ok(scaled_font.descent().abs().ceil().max(0.0) as f64 / self.pixel_density)
+    }
+
+    #[pyo3(signature = (source_pixels, source_width, source_height, source, destination, mode))]
+    fn blend_region(
+        &mut self,
+        source_pixels: Option<Vec<u8>>,
+        source_width: Option<usize>,
+        source_height: Option<usize>,
+        source: (i64, i64, i64, i64),
+        destination: (i64, i64, i64, i64),
+        mode: &str,
+    ) -> PyResult<()> {
+        ensure_supported_blend_mode(mode)?;
+        let (dest_x, dest_y, dest_w, dest_h) = scale_rect(destination, self.pixel_density);
+        if dest_w <= 0 || dest_h <= 0 {
+            return Ok(());
+        }
+        self.prepare_cpu_composite();
+        let source_owned;
+        let (source_data, source_canvas_width, source_canvas_height, source_rect) =
+            if let Some(pixels) = source_pixels {
+                let width = source_width.ok_or_else(|| {
+                    PyValueError::new_err("External blend source width is required.")
+                })?;
+                let height = source_height.ok_or_else(|| {
+                    PyValueError::new_err("External blend source height is required.")
+                })?;
+                validate_rgba_buffer(pixels.len(), width, height)?;
+                source_owned = pixels;
+                (&source_owned[..], width, height, source)
+            } else {
+                (
+                    &self.pixels[..],
+                    self.physical_width,
+                    self.physical_height,
+                    scale_rect(source, self.pixel_density),
+                )
+            };
+        let Some((sx, sy, sw, sh)) =
+            clipped_source_rect(source_rect, source_canvas_width, source_canvas_height)
+        else {
+            return Ok(());
+        };
+        let Some((dx, dy, dw, dh)) = clipped_dest_rect(
+            (dest_x, dest_y, dest_w, dest_h),
+            self.physical_width,
+            self.physical_height,
+        ) else {
+            return Ok(());
+        };
+        let sampled = source_data.to_vec();
+        blit_scaled_region(
+            &mut self.pixels,
+            &mut self.present_pixels,
+            self.physical_width,
+            &sampled,
+            source_canvas_width,
+            sx,
+            sy,
+            sw,
+            sh,
+            dx,
+            dy,
+            dw,
+            dh,
+            false,
+            mode,
+            "linear",
+        );
+        self.upload_cpu_pixels()?;
+        Ok(())
+    }
+
+    fn load_pixels(&mut self) -> Vec<u8> {
+        self.performance_counters.pixel_readbacks += 1;
+        if self.offscreen_dirty && self.pixels_stale {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
+        self.pixels.clone()
+    }
+
+    fn load_pixel_bytes<'py>(&mut self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        self.performance_counters.pixel_readbacks += 1;
+        if self.offscreen_dirty && self.pixels_stale {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
+        PyBytes::new_bound(py, &self.pixels)
+    }
+
+    fn load_pixel_region<'py>(
+        &mut self,
+        py: Python<'py>,
+        x: i64,
+        y: i64,
+        width: i64,
+        height: i64,
+    ) -> PyResult<Bound<'py, PyBytes>> {
+        if width <= 0 || height <= 0 {
+            return Err(PyValueError::new_err(
+                "Pixel region dimensions must be positive.",
+            ));
+        }
+        self.performance_counters.pixel_readbacks += 1;
+        if self.offscreen_dirty && self.pixels_stale {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
+        let region = crop_rgba_with_padding(
+            &self.pixels,
+            self.physical_width,
+            self.physical_height,
+            x,
+            y,
+            width as usize,
+            height as usize,
+        );
+        Ok(PyBytes::new_bound(py, &region))
+    }
+
+    fn update_pixels(&mut self, pixels: Vec<u8>) -> PyResult<()> {
+        self.performance_counters.pixel_uploads += 1;
+        let expected = self.physical_width * self.physical_height * 4;
+        if pixels.len() != expected {
+            return Err(PyValueError::new_err(format!(
+                "Pixel buffer length must be {expected}, got {}.",
+                pixels.len()
+            )));
+        }
+        self.pixels = pixels;
+        self.sync_present_pixels_from_rgba();
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.begin_frame();
+        }
+        self.render_dirty = true;
+        self.offscreen_dirty = false;
+        self.pixels_stale = false;
+        self.texture_stale = true;
+        Ok(())
+    }
+
+    #[pyo3(signature = (pixels, width, height, x, y, alpha_composite = true))]
+    fn update_pixel_region(
+        &mut self,
+        pixels: Vec<u8>,
+        width: usize,
+        height: usize,
+        x: i64,
+        y: i64,
+        alpha_composite: bool,
+    ) -> PyResult<()> {
+        validate_rgba_buffer(pixels.len(), width, height)?;
+        self.performance_counters.pixel_uploads += 1;
+        self.prepare_cpu_composite();
+        if alpha_composite {
+            alpha_composite_rgba_region(
+                &mut self.pixels,
+                self.physical_width,
+                self.physical_height,
+                &pixels,
+                width,
+                height,
+                x,
+                y,
+            );
+        } else {
+            replace_rgba_region(
+                &mut self.pixels,
+                self.physical_width,
+                self.physical_height,
+                &pixels,
+                width,
+                height,
+                x,
+                y,
+            );
+        }
+        self.sync_present_pixels_from_rgba();
+        self.upload_cpu_pixels()?;
+        Ok(())
+    }
+
+    #[pyo3(signature = (mode, value=None))]
+    fn filter_pixels(&mut self, mode: &str, value: Option<f64>) -> PyResult<()> {
+        self.performance_counters.cpu_fallbacks += 1;
+        self.performance_counters.pixel_uploads += 1;
+        self.prepare_cpu_composite();
+        filter_rgba(&mut self.pixels, mode, value)?;
+        self.sync_present_pixels_from_rgba();
+        self.upload_cpu_pixels()?;
+        Ok(())
+    }
+
+    fn save(&mut self, path: &str) -> PyResult<()> {
+        if self.offscreen_dirty && self.pixels_stale {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
+        image::save_buffer_with_format(
+            path,
+            &self.pixels,
+            self.physical_width as u32,
+            self.physical_height as u32,
+            image::ColorType::Rgba8,
+            image::ImageFormat::Png,
+        )
+        .map_err(|err| PyValueError::new_err(format!("Failed to save canvas: {err}")))
+    }
+}
+
+impl Canvas {
+    #[allow(clippy::too_many_arguments)]
+    fn draw_image_pixels(
+        &mut self,
+        image_pixels: &[u8],
+        image_width: usize,
+        image_height: usize,
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        if dw <= 0.0 || dh <= 0.0 || image_width == 0 || image_height == 0 {
+            return Ok(());
+        }
+        validate_rgba_buffer(image_pixels.len(), image_width, image_height)?;
+        let source = source.unwrap_or((0, 0, image_width as i64, image_height as i64));
+        let Some((sx, sy, sw, sh)) = clipped_source_rect(source, image_width, image_height) else {
+            return Ok(());
+        };
+        let image_to_canvas =
+            image_to_canvas_matrix(matrix, dx, dy, dw, dh, sw, sh, self.pixel_density);
+        if matrix_determinant(image_to_canvas).abs() <= f64::EPSILON {
+            return Ok(());
+        }
+        if let Some((dest_x, dest_y, dest_w, dest_h)) = axis_aligned_image_destination(
+            image_to_canvas,
+            sw,
+            sh,
+            self.physical_width,
+            self.physical_height,
+        ) {
+            self.prepare_cpu_composite();
+            blit_scaled_region(
+                &mut self.pixels,
+                &mut self.present_pixels,
+                self.physical_width,
+                image_pixels,
+                image_width,
+                sx,
+                sy,
+                sw,
+                sh,
+                dest_x,
+                dest_y,
+                dest_w,
+                dest_h,
+                style.erasing,
+                &style.blend_mode,
+                &style.image_sampling,
+            );
+            self.upload_cpu_pixels()?;
+            return Ok(());
+        }
+        let Some((dest_x, dest_y, dest_w, dest_h)) = affine_bounds(
+            image_to_canvas,
+            sw,
+            sh,
+            self.physical_width,
+            self.physical_height,
+        ) else {
+            return Ok(());
+        };
+        let canvas_to_image = matrix_inverse(image_to_canvas).ok_or_else(|| {
+            PyValueError::new_err("Image transform is not invertible for gummy_canvas.")
+        })?;
+        self.prepare_cpu_composite();
+        blit_affine_region(
+            &mut self.pixels,
+            &mut self.present_pixels,
+            self.physical_width,
+            image_pixels,
+            image_width,
+            sx,
+            sy,
+            sw,
+            sh,
+            dest_x,
+            dest_y,
+            dest_w,
+            dest_h,
+            canvas_to_image,
+            style.erasing,
+            &style.blend_mode,
+            &style.image_sampling,
+        );
+        self.upload_cpu_pixels()?;
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn try_draw_gpu_image(
+        &mut self,
+        image_key: u64,
+        image: &CachedImage,
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<bool> {
+        self.try_draw_gpu_image_parts(
+            image_key,
+            image.version,
+            image.width,
+            image.height,
+            &image.pixels,
+            dx,
+            dy,
+            dw,
+            dh,
+            style,
+            matrix,
+            source,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn try_draw_gpu_image_parts(
+        &mut self,
+        image_key: u64,
+        image_version: u64,
+        image_width: usize,
+        image_height: usize,
+        image_pixels: &[u8],
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<bool> {
+        let style = self.cached_style(style)?;
+        if !self.can_queue_gpu_primitives(&style) || dw <= 0.0 || dh <= 0.0 {
+            return Ok(false);
+        }
+        let linear_sampling = style.image_sampling != "nearest";
+        let source = source.unwrap_or((0, 0, image_width as i64, image_height as i64));
+        let Some((sx, sy, sw, sh)) = clipped_source_rect(source, image_width, image_height) else {
+            return Ok(true);
+        };
+        let image_to_canvas =
+            image_to_canvas_matrix(matrix, dx, dy, dw, dh, sw, sh, self.pixel_density);
+        if matrix_determinant(image_to_canvas).abs() <= f64::EPSILON {
+            return Ok(true);
+        }
+        let corners = [
+            matrix_transform_point(image_to_canvas, 0.0, 0.0),
+            matrix_transform_point(image_to_canvas, sw as f64, 0.0),
+            matrix_transform_point(image_to_canvas, sw as f64, sh as f64),
+            matrix_transform_point(image_to_canvas, 0.0, sh as f64),
+        ];
+        let texture_version = self.texture_cache_versions.get(&image_key).copied();
+        if texture_version != Some(image_version) {
+            self.performance_counters.texture_uploads += 1;
+            self.evict_texture_cache_if_needed(image_key);
+        } else {
+            self.performance_counters.texture_cache_hits += 1;
+        }
+        if let Some(gpu) = self.gpu.as_mut() {
+            if texture_version != Some(image_version) {
+                gpu.upload_texture(image_key, image_width, image_height, image_pixels)
+                    .map_err(|err| {
+                        PyValueError::new_err(format!("Failed to upload image texture: {err}"))
+                    })?;
+                self.texture_cache_versions.insert(image_key, image_version);
+            }
+            let u0 = sx as f32 / image_width as f32;
+            let v0 = sy as f32 / image_height as f32;
+            let u1 = (sx + sw) as f32 / image_width as f32;
+            let v1 = (sy + sh) as f32 / image_height as f32;
+            let vertices = [
+                (point_to_f32(corners[0]), [u0, v0]),
+                (point_to_f32(corners[1]), [u1, v0]),
+                (point_to_f32(corners[2]), [u1, v1]),
+                (point_to_f32(corners[0]), [u0, v0]),
+                (point_to_f32(corners[2]), [u1, v1]),
+                (point_to_f32(corners[3]), [u0, v1]),
+            ];
+            self.upload_stale_texture(false)?;
+            let Some(gpu) = self.gpu.as_mut() else {
+                return Ok(false);
+            };
+            gpu.draw_image(image_key, vertices, linear_sampling);
+            self.performance_counters.gpu_draws += 1;
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+            self.texture_stale = false;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn transform_point(&self, matrix: Matrix, x: f64, y: f64) -> Point {
+        let (a, b, c, d, e, f) = matrix;
+        (
+            (a * x + c * y + e) * self.pixel_density,
+            (b * x + d * y + f) * self.pixel_density,
+        )
+    }
+
+    fn evict_image_cache_if_needed(&mut self, incoming_key: u64) {
+        if self.image_cache.contains_key(&incoming_key)
+            || self.image_cache.len() < IMAGE_CACHE_LIMIT
+        {
+            return;
+        }
+        if let Some(evicted_key) = self.image_cache.keys().next().copied() {
+            self.image_cache.remove(&evicted_key);
+            self.texture_cache_versions.remove(&evicted_key);
+        }
+    }
+
+    fn evict_texture_cache_if_needed(&mut self, incoming_key: u64) {
+        if self.texture_cache_versions.contains_key(&incoming_key)
+            || self.texture_cache_versions.len() < TEXTURE_CACHE_LIMIT
+        {
+            return;
+        }
+        if let Some(evicted_key) = self.texture_cache_versions.keys().next().copied() {
+            self.texture_cache_versions.remove(&evicted_key);
+        }
+    }
+
+    fn cached_style(&mut self, style: &Bound<'_, PyAny>) -> PyResult<Style> {
+        let key = style.as_ptr() as usize;
+        if self.cached_style_key == Some(key) {
+            if let Some(cached) = self.cached_style.as_ref() {
+                return Ok(cached.clone());
+            }
+        }
+        let parsed = parse_style(style)?;
+        self.cached_style_key = Some(key);
+        self.cached_style = Some(parsed.clone());
+        Ok(parsed)
+    }
+
+    fn draw_transformed_polygon(
+        &mut self,
+        points: &[Point],
+        style: &Style,
+        close: bool,
+    ) -> PyResult<()> {
+        let padding = if style.stroke.is_some() {
+            stroke_width(style.stroke_weight, self.pixel_density) / 2.0
+        } else {
+            0.0
+        };
+        let bounds = clipped_bounds(points, padding, self.physical_width, self.physical_height);
+        if self.can_queue_gpu_polygon(points, style, close) {
+            self.draw_gpu_polygon(points, style, close, self.pixel_density)?;
+            return Ok(());
+        }
+        self.prepare_cpu_composite();
+        let Some(mut overlay) = OverlayRegion::from_bounds(
+            bounds,
+            self.physical_width,
+            &mut self.pixels,
+            &mut self.present_pixels,
+            style.erasing,
+            &style.blend_mode,
+        ) else {
+            return Ok(());
+        };
+        draw_polygon_overlay(&mut overlay, points, style, close, self.pixel_density);
+        self.upload_cpu_pixels()?;
+        Ok(())
+    }
+
+    fn axis_aligned_ellipse_geometry(
+        &self,
+        matrix: Matrix,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    ) -> Option<(f64, f64, f64, f64)> {
+        let (a, b, c, d, e, f) = matrix;
+        if b.abs() > f64::EPSILON || c.abs() > f64::EPSILON {
+            return None;
+        }
+        let cx = x + width / 2.0;
+        let cy = y + height / 2.0;
+        Some((
+            (a * cx + e) * self.pixel_density,
+            (d * cy + f) * self.pixel_density,
+            (width * a * self.pixel_density / 2.0).abs(),
+            (height * d * self.pixel_density / 2.0).abs(),
+        ))
+    }
+
+    fn sync_present_pixels_from_rgba(&mut self) {
+        for (index, rgba) in self.pixels.chunks_exact(4).enumerate() {
+            self.present_pixels[index] = rgba_to_present_pixel(rgba);
+        }
+    }
+
+    fn can_queue_gpu_primitives(&self, style: &Style) -> bool {
+        self.gpu.is_some() && !style.erasing && style.blend_mode == BLEND_MODE_BLEND
+    }
+
+    fn can_queue_gpu_polygon(&self, points: &[Point], style: &Style, close: bool) -> bool {
+        self.can_queue_gpu_primitives(style)
+            && (!close || style.fill.is_none() || polygon_is_convex(points))
+    }
+
+    fn cached_text_line(&mut self, line: &str, fill: Rgba, style: &Style) -> PyResult<CachedText> {
+        let font_size = (style.text_size * self.pixel_density).round().max(1.0) as usize;
+        let font_key = style
+            .text_font_path
+            .clone()
+            .unwrap_or_else(|| format!("name:{}", style.text_font_name));
+        let cache_key = format!(
+            "{}|{}|{}:{}:{}:{}|{}",
+            font_key, font_size, fill.r, fill.g, fill.b, fill.a, line
+        );
+        if let Some(cached) = self.text_cache.get(&cache_key) {
+            let cached = cached.clone();
+            self.performance_counters.text_cache_hits += 1;
+            self.touch_text_cache_key(&cache_key);
+            return Ok(cached);
+        }
+        self.performance_counters.text_cache_misses += 1;
+
+        let font = self.load_text_font(style)?;
+        let rendered = render_text_line(line, &font, font_size, fill);
+        let texture_key = self.next_text_key;
+        self.next_text_key = self.next_text_key.saturating_add(1);
+        let cached = CachedText {
+            texture_key,
+            image: CachedImage {
+                version: 0,
+                width: rendered.width,
+                height: rendered.height,
+                pixels: rendered.pixels,
+            },
+            bbox_left: rendered.bbox_left,
+            bbox_top: rendered.bbox_top,
+            ascent: rendered.ascent,
+        };
+        self.evict_text_cache_if_needed();
+        self.text_cache_order.push_back(cache_key.clone());
+        self.text_cache.insert(cache_key, cached.clone());
+        Ok(cached)
+    }
+
+    fn touch_text_cache_key(&mut self, cache_key: &str) {
+        if let Some(index) = self
+            .text_cache_order
+            .iter()
+            .position(|key| key == cache_key)
+        {
+            if let Some(key) = self.text_cache_order.remove(index) {
+                self.text_cache_order.push_back(key);
+            }
+        }
+    }
+
+    fn evict_text_cache_if_needed(&mut self) {
+        while self.text_cache.len() >= TEXT_CACHE_LIMIT {
+            let Some(evicted_key) = self.text_cache_order.pop_front() else {
+                break;
+            };
+            if let Some(evicted) = self.text_cache.remove(&evicted_key) {
+                self.texture_cache_versions.remove(&evicted.texture_key);
+                self.performance_counters.text_cache_evictions += 1;
+            }
+        }
+    }
+
+    fn load_text_font(&mut self, style: &Style) -> PyResult<FontArc> {
+        if let Some(path) = style.text_font_path.as_ref() {
+            return self.load_text_font_path(path);
+        }
+        for path in default_font_paths() {
+            if let Ok(font) = self.load_text_font_path(path) {
+                return Ok(font);
+            }
+        }
+        Err(PyValueError::new_err(
+            "Could not load a default system font for canvas text.",
+        ))
+    }
+
+    fn load_text_font_path(&mut self, path: &str) -> PyResult<FontArc> {
+        if let Some(font) = self.font_cache.get(path) {
+            return Ok(font.clone());
+        }
+        let bytes = std::fs::read(path)
+            .map_err(|err| PyValueError::new_err(format!("Could not load font {path}: {err}")))?;
+        let font = FontArc::try_from_vec(bytes)
+            .map_err(|_| PyValueError::new_err(format!("Could not parse font {path}.")))?;
+        self.font_cache.insert(path.to_string(), font.clone());
+        Ok(font)
+    }
+
+    fn prepare_cpu_composite(&mut self) {
+        self.performance_counters.cpu_fallbacks += 1;
+        if self.offscreen_dirty && self.pixels_stale {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
+    }
+
+    fn upload_cpu_pixels(&mut self) -> PyResult<()> {
+        self.performance_counters.pixel_uploads += 1;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.begin_frame();
+        }
+        self.render_dirty = true;
+        self.offscreen_dirty = false;
+        self.pixels_stale = false;
+        self.texture_stale = true;
+        Ok(())
+    }
+
+    fn upload_stale_texture(&mut self, consume_mirrored_commands: bool) -> PyResult<()> {
+        if !self.texture_stale {
+            return Ok(());
+        }
+        if let Some(gpu) = self.gpu.as_mut() {
+            self.performance_counters.pixel_uploads += 1;
+            gpu.upload_pixels(&self.pixels)
+                .map_err(|err| PyValueError::new_err(format!("Failed to upload pixels: {err}")))?;
+            if consume_mirrored_commands {
+                gpu.begin_frame();
+            }
+        }
+        self.texture_stale = false;
+        if consume_mirrored_commands {
+            self.offscreen_dirty = false;
+            self.pixels_stale = false;
+        }
+        Ok(())
+    }
+
+    fn render_gpu_frame(&mut self, readback: bool) {
+        if self.upload_stale_texture(false).is_err() {
+            self.render_dirty = false;
+            self.offscreen_dirty = false;
+            self.texture_stale = false;
+            return;
+        }
+        let Some(gpu) = self.gpu.as_mut() else {
+            self.render_dirty = false;
+            self.offscreen_dirty = false;
+            self.texture_stale = false;
+            return;
+        };
+        gpu.render();
+        self.performance_counters.gpu_frames_rendered += 1;
+        gpu.begin_frame();
+        self.render_dirty = false;
+        self.offscreen_dirty = false;
+        self.pixels_stale = true;
+        self.texture_stale = false;
+        if readback {
+            self.read_gpu_pixels();
+        }
+    }
+
+    fn read_gpu_pixels(&mut self) {
+        let Some(gpu) = self.gpu.as_ref() else {
+            self.pixels_stale = false;
+            return;
+        };
+        match gpu.read_pixels() {
+            Ok(pixels) => {
+                self.performance_counters.pixel_readbacks += 1;
+                self.pixels = pixels;
+                self.sync_present_pixels_from_rgba();
+                self.pixels_stale = false;
+            }
+            Err(err) => {
+                self.gpu_error = Some(err);
+                self.pixels_stale = false;
+            }
+        }
+    }
+
+    fn draw_gpu_polygon(
+        &mut self,
+        points: &[Point],
+        style: &Style,
+        close: bool,
+        pixel_density: f64,
+    ) -> PyResult<()> {
+        if style.erasing {
+            return Ok(());
+        }
+        if close && points.len() >= 3 {
+            if let Some(fill) = style.fill {
+                let mut vertices = Vec::with_capacity((points.len() - 2) * 3);
+                for index in 1..points.len() - 1 {
+                    push_triangle(
+                        &mut vertices,
+                        points[0],
+                        points[index],
+                        points[index + 1],
+                        fill,
+                    );
+                }
+                self.draw_gpu_triangles(vertices)?;
+            }
+        }
+        if let Some(stroke) = style.stroke {
+            self.draw_gpu_polyline(
+                points,
+                close,
+                stroke_width(style.stroke_weight, pixel_density),
+                stroke,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn draw_gpu_polyline(
+        &mut self,
+        points: &[Point],
+        close: bool,
+        stroke_width: f64,
+        color: Rgba,
+    ) -> PyResult<()> {
+        if points.len() < 2 {
+            return Ok(());
+        }
+        for pair in points.windows(2) {
+            self.draw_gpu_segment(pair[0], pair[1], stroke_width, color)?;
+        }
+        if close {
+            self.draw_gpu_segment(
+                *points.last().expect("non-empty points"),
+                points[0],
+                stroke_width,
+                color,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn draw_gpu_segment(
+        &mut self,
+        p1: Point,
+        p2: Point,
+        stroke_width: f64,
+        color: Rgba,
+    ) -> PyResult<()> {
+        let dx = p2.0 - p1.0;
+        let dy = p2.1 - p1.1;
+        let length = (dx * dx + dy * dy).sqrt();
+        if length <= f64::EPSILON {
+            self.draw_gpu_disc(p1.0, p1.1, (stroke_width / 2.0).max(0.5), color)?;
+            return Ok(());
+        }
+        let half = (stroke_width / 2.0).max(0.5);
+        let nx = -dy / length * half;
+        let ny = dx / length * half;
+        let a = (p1.0 + nx, p1.1 + ny);
+        let b = (p1.0 - nx, p1.1 - ny);
+        let c = (p2.0 - nx, p2.1 - ny);
+        let d = (p2.0 + nx, p2.1 + ny);
+        let mut vertices = Vec::with_capacity(6);
+        push_triangle(&mut vertices, a, b, c, color);
+        push_triangle(&mut vertices, a, c, d, color);
+        self.draw_gpu_triangles(vertices)
+    }
+
+    fn draw_gpu_disc(&mut self, cx: f64, cy: f64, radius: f64, color: Rgba) -> PyResult<()> {
+        if radius <= 0.0 {
+            return Ok(());
+        }
+        let steps = 24usize;
+        let mut vertices = Vec::with_capacity(steps * 3);
+        for index in 0..steps {
+            let a = 2.0 * PI * index as f64 / steps as f64;
+            let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
+            push_triangle(
+                &mut vertices,
+                (cx, cy),
+                (cx + a.cos() * radius, cy + a.sin() * radius),
+                (cx + b.cos() * radius, cy + b.sin() * radius),
+                color,
+            );
+        }
+        self.draw_gpu_triangles(vertices)
+    }
+
+    fn draw_gpu_axis_aligned_ellipse(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+        style: &Style,
+        pixel_density: f64,
+    ) -> PyResult<()> {
+        if style.erasing || rx <= 0.0 || ry <= 0.0 {
+            return Ok(());
+        }
+        if let Some(fill) = style.fill {
+            let steps = 64usize;
+            let mut vertices = Vec::with_capacity(steps * 3);
+            for index in 0..steps {
+                let a = 2.0 * PI * index as f64 / steps as f64;
+                let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
+                push_triangle(
+                    &mut vertices,
+                    (cx, cy),
+                    (cx + a.cos() * rx, cy + a.sin() * ry),
+                    (cx + b.cos() * rx, cy + b.sin() * ry),
+                    fill,
+                );
+            }
+            self.draw_gpu_triangles(vertices)?;
+        }
+        if let Some(stroke) = style.stroke {
+            let half_width = (stroke_width(style.stroke_weight, pixel_density) / 2.0).max(0.5);
+            let outer_rx = rx + half_width;
+            let outer_ry = ry + half_width;
+            let inner_rx = (rx - half_width).max(0.0);
+            let inner_ry = (ry - half_width).max(0.0);
+            let steps = 64usize;
+            let mut vertices = Vec::with_capacity(steps * 6);
+            for index in 0..steps {
+                let a = 2.0 * PI * index as f64 / steps as f64;
+                let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
+                let outer_a = (cx + a.cos() * outer_rx, cy + a.sin() * outer_ry);
+                let inner_a = (cx + a.cos() * inner_rx, cy + a.sin() * inner_ry);
+                let inner_b = (cx + b.cos() * inner_rx, cy + b.sin() * inner_ry);
+                let outer_b = (cx + b.cos() * outer_rx, cy + b.sin() * outer_ry);
+                push_triangle(&mut vertices, outer_a, inner_a, inner_b, stroke);
+                push_triangle(&mut vertices, outer_a, inner_b, outer_b, stroke);
+            }
+            self.draw_gpu_triangles(vertices)?;
+        }
+        Ok(())
+    }
+
+    fn draw_gpu_triangles(&mut self, vertices: Vec<([f32; 2], gpu::GpuColor)>) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_triangles(vertices);
+            self.performance_counters.gpu_draws += 1;
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        }
+        Ok(())
+    }
+}
+
+#[pyfunction]
+fn health_check() -> &'static str {
+    "rust-canvas"
+}
+
+#[pyfunction]
+fn canvas_abi_version() -> u32 {
+    CANVAS_ABI_VERSION
+}
+
+#[pyfunction]
+fn native_window_available() -> bool {
+    runtime_native_window_available()
+}
+
+#[pyfunction]
+fn gpu_available() -> bool {
+    gpu::GpuRenderer::is_available()
+}
+
+#[pyfunction]
+fn image_resize_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    target_width: usize,
+    target_height: usize,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    if target_width == 0 || target_height == 0 {
+        return Err(PyValueError::new_err(
+            "Image.resize() dimensions must be positive.",
+        ));
+    }
+    let resized = resize_rgba_nearest(&pixels, width, height, target_width, target_height);
+    Ok(PyBytes::new_bound(py, &resized))
+}
+
+#[pyfunction]
+fn image_crop_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    sx: i64,
+    sy: i64,
+    sw: i64,
+    sh: i64,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    if sw <= 0 || sh <= 0 {
+        return Err(PyValueError::new_err(
+            "Image region dimensions must be positive.",
+        ));
+    }
+    let cropped = crop_rgba_with_padding(&pixels, width, height, sx, sy, sw as usize, sh as usize);
+    Ok(PyBytes::new_bound(py, &cropped))
+}
+
+#[pyfunction]
+fn image_alpha_composite_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    source_width: usize,
+    source_height: usize,
+    source_pixels: Vec<u8>,
+    dx: i64,
+    dy: i64,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    validate_rgba_buffer(source_pixels.len(), source_width, source_height)?;
+    let mut composited = pixels;
+    alpha_composite_rgba_region(
+        &mut composited,
+        width,
+        height,
+        &source_pixels,
+        source_width,
+        source_height,
+        dx,
+        dy,
+    );
+    Ok(PyBytes::new_bound(py, &composited))
+}
+
+#[pyfunction]
+fn image_mask_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    mask_width: usize,
+    mask_height: usize,
+    mask_pixels: Vec<u8>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    validate_rgba_buffer(mask_pixels.len(), mask_width, mask_height)?;
+    let mut masked = pixels;
+    apply_rgba_mask(
+        &mut masked,
+        width,
+        height,
+        &mask_pixels,
+        mask_width,
+        mask_height,
+    );
+    Ok(PyBytes::new_bound(py, &masked))
+}
+
+#[pyfunction(signature = (width, height, pixels, mode, value=None))]
+fn image_filter_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    mode: &str,
+    value: Option<f64>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    let mut filtered = pixels;
+    filter_rgba(&mut filtered, mode, value)?;
+    Ok(PyBytes::new_bound(py, &filtered))
+}
+
+#[pyfunction]
+fn media_frame_to_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    channels: usize,
+    pixels: Vec<u8>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    let expected = width
+        .checked_mul(height)
+        .and_then(|pixel_count| pixel_count.checked_mul(channels))
+        .ok_or_else(|| PyValueError::new_err("Media frame dimensions are too large."))?;
+    if pixels.len() != expected {
+        return Err(PyValueError::new_err(format!(
+            "Media frame buffer length must be {expected}, got {}.",
+            pixels.len()
+        )));
+    }
+    let rgba = convert_media_frame_to_rgba(width, height, channels, &pixels)?;
+    Ok(PyBytes::new_bound(py, &rgba))
+}
+
+#[pyfunction]
+fn parse_obj_model<'py>(
+    py: Python<'py>,
+    text: &str,
+    source: &str,
+    normalize: bool,
+) -> PyResult<Bound<'py, PyDict>> {
+    let parsed = parse_obj_text(text, source)?;
+    let parsed = if normalize {
+        normalize_obj_model(parsed)
+    } else {
+        parsed
+    };
+    obj_model_to_dict(py, parsed)
+}
+
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn project_shade_faces<'py>(
+    py: Python<'py>,
+    meshes: &Bound<'py, PyAny>,
+    camera: &Bound<'py, PyAny>,
+    projection: &Bound<'py, PyAny>,
+    viewport_width: f64,
+    viewport_height: f64,
+    material: &Bound<'py, PyAny>,
+    lights: &Bound<'py, PyAny>,
+    normal_material: bool,
+    cull_backfaces: bool,
+) -> PyResult<Bound<'py, PyList>> {
+    if viewport_width <= 0.0 || viewport_height <= 0.0 {
+        return Err(PyValueError::new_err(
+            "viewport dimensions must be positive.",
+        ));
+    }
+    let mesh_payloads = parse_mesh_payloads(meshes)?;
+    let camera = parse_camera_payload(camera)?;
+    let projection = parse_projection_payload(projection)?;
+    validate_projection_payload(&projection)?;
+    let material = parse_material_payload(material)?;
+    let lights = parse_light_payloads(lights)?;
+    let mut faces = Vec::new();
+    for mesh in &mesh_payloads {
+        faces.extend(project_mesh_payload_faces(
+            mesh,
+            &camera,
+            &projection,
+            viewport_width,
+            viewport_height,
+            cull_backfaces,
+        )?);
+    }
+    faces.sort_by(|left, right| right.depth.total_cmp(&left.depth));
+    let output = PyList::empty_bound(py);
+    for face in faces {
+        let color = shade_projected_face(&face, &camera, &material, &lights, normal_material)?;
+        let dict = PyDict::new_bound(py);
+        dict.set_item("points", face.points)?;
+        dict.set_item("depth", face.depth)?;
+        dict.set_item("normal", (face.normal.x, face.normal.y, face.normal.z))?;
+        dict.set_item("center", (face.center.x, face.center.y, face.center.z))?;
+        dict.set_item("texcoords", face.texcoords)?;
+        dict.set_item("color", color)?;
+        output.append(dict)?;
+    }
+    Ok(output)
+}
+
+#[pyfunction]
+fn rasterize_faces_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    faces: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    if width == 0 || height == 0 {
+        return Err(PyValueError::new_err("raster dimensions must be positive."));
+    }
+    let mut pixels = vec![0_u8; width * height * 4];
+    let sequence = faces.downcast::<PyList>()?;
+    for face in sequence.iter() {
+        let dict = face.downcast::<PyDict>()?;
+        let points: Vec<(f64, f64)> = dict
+            .get_item("points")?
+            .ok_or_else(|| PyValueError::new_err("raster face is missing points."))?
+            .extract()?;
+        let color_float: (f64, f64, f64, f64) = dict
+            .get_item("color")?
+            .ok_or_else(|| PyValueError::new_err("raster face is missing color."))?
+            .extract()?;
+        let color = rgba_float_to_u8(color_float);
+        let texcoords_item = dict.get_item("texcoords")?;
+        let texture_item = dict.get_item("texture")?;
+        if let (Some(texcoords_any), Some(texture_any)) = (texcoords_item, texture_item) {
+            if !texture_any.is_none() && !texcoords_any.is_none() {
+                let texcoords: Vec<(f64, f64)> = texcoords_any.extract()?;
+                let texture_dict = texture_any.downcast::<PyDict>()?;
+                let texture_width: usize = texture_dict
+                    .get_item("width")?
+                    .ok_or_else(|| PyValueError::new_err("texture payload is missing width."))?
+                    .extract()?;
+                let texture_height: usize = texture_dict
+                    .get_item("height")?
+                    .ok_or_else(|| PyValueError::new_err("texture payload is missing height."))?
+                    .extract()?;
+                let texture_pixels: Vec<u8> = texture_dict
+                    .get_item("pixels")?
+                    .ok_or_else(|| PyValueError::new_err("texture payload is missing pixels."))?
+                    .extract()?;
+                validate_rgba_buffer(texture_pixels.len(), texture_width, texture_height)?;
+                rasterize_textured_face(
+                    &mut pixels,
+                    width,
+                    height,
+                    &points,
+                    &texcoords,
+                    &texture_pixels,
+                    texture_width,
+                    texture_height,
+                    color_float,
+                );
+                continue;
+            }
+        }
+        rasterize_filled_polygon(&mut pixels, width, height, &points, color);
+    }
+    Ok(PyBytes::new_bound(py, &pixels))
+}
+
+#[pymodule]
+fn _canvas(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(health_check, m)?)?;
+    m.add_function(wrap_pyfunction!(canvas_abi_version, m)?)?;
+    m.add_function(wrap_pyfunction!(native_window_available, m)?)?;
+    m.add_function(wrap_pyfunction!(gpu_available, m)?)?;
+    m.add_function(wrap_pyfunction!(image_resize_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(image_crop_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(image_alpha_composite_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(image_mask_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(image_filter_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(media_frame_to_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_obj_model, m)?)?;
+    m.add_function(wrap_pyfunction!(project_shade_faces, m)?)?;
+    m.add_function(wrap_pyfunction!(rasterize_faces_rgba, m)?)?;
+    m.add("CANVAS_ABI_VERSION", CANVAS_ABI_VERSION)?;
+    m.add_class::<Canvas>()?;
+    m.add_class::<CanvasImage>()?;
+    Ok(())
+}
+
+fn runtime_event_to_pyobject(py: Python<'_>, event: RuntimeEvent) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item("type", event.event_type)?;
+    if let Some(x) = event.x {
+        dict.set_item("x", x)?;
+    }
+    if let Some(y) = event.y {
+        dict.set_item("y", y)?;
+    }
+    if let Some(dx) = event.dx {
+        dict.set_item("dx", dx)?;
+    }
+    if let Some(dy) = event.dy {
+        dict.set_item("dy", dy)?;
+    }
+    if let Some(button) = event.button {
+        dict.set_item("button", button)?;
+    }
+    if let Some(scroll_x) = event.scroll_x {
+        dict.set_item("scroll_x", scroll_x)?;
+    }
+    if let Some(scroll_y) = event.scroll_y {
+        dict.set_item("scroll_y", scroll_y)?;
+    }
+    if let Some(modifiers) = event.modifiers {
+        dict.set_item("modifiers", modifiers)?;
+    }
+    if let Some(key) = event.key {
+        if !key.is_empty() {
+            dict.set_item("key", key)?;
+        }
+    }
+    if let Some(code) = event.code {
+        if !code.is_empty() {
+            dict.set_item("code", code)?;
+        }
+    }
+    if let Some(text) = event.text {
+        dict.set_item("text", text)?;
+    }
+    if let Some(width) = event.width {
+        dict.set_item("width", width)?;
+    }
+    if let Some(height) = event.height {
+        dict.set_item("height", height)?;
+    }
+    if let Some(pixel_density) = event.pixel_density {
+        dict.set_item("pixel_density", pixel_density)?;
+    }
+    if let Some(coordinates) = event.coordinates {
+        dict.set_item("coordinates", coordinates)?;
+    }
+    if let Some(touch_id) = event.touch_id {
+        dict.set_item("id", touch_id)?;
+    }
+    if let Some(phase) = event.phase {
+        dict.set_item("phase", phase)?;
+    }
+    if let Some(pressure) = event.pressure {
+        dict.set_item("pressure", pressure)?;
+    }
+    if let Some(timestamp) = event.timestamp {
+        dict.set_item("timestamp", timestamp)?;
+    }
+    if let Some(device) = event.device {
+        dict.set_item("device", device)?;
+    }
+    Ok(dict.into_any().unbind())
+}
+
+struct RenderedTextLine {
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    bbox_left: i32,
+    bbox_top: i32,
+    ascent: f64,
+}
+
+fn render_text_line(line: &str, font: &FontArc, font_size: usize, fill: Rgba) -> RenderedTextLine {
+    let scale = PxScale::from(font_size as f32);
+    let scaled_font = font.as_scaled(scale);
+    let ascent = scaled_font.ascent().ceil().max(0.0) as f64;
+    let mut caret = 0.0_f32;
+    let mut glyphs = Vec::new();
+    let mut previous: Option<GlyphId> = None;
+    for ch in line.chars() {
+        let glyph_id = scaled_font.glyph_id(ch);
+        if let Some(previous_id) = previous {
+            caret += scaled_font.kern(previous_id, glyph_id);
+        }
+        glyphs.push(glyph_id.with_scale_and_position(scale, point(caret, ascent as f32)));
+        caret += scaled_font.h_advance(glyph_id);
+        previous = Some(glyph_id);
+    }
+
+    let outlines: Vec<_> = glyphs
+        .into_iter()
+        .filter_map(|glyph| font.outline_glyph(glyph))
+        .collect();
+    if outlines.is_empty() {
+        return RenderedTextLine {
+            width: 1,
+            height: font_size.max(1),
+            pixels: vec![0; font_size.max(1) * 4],
+            bbox_left: 0,
+            bbox_top: 0,
+            ascent,
+        };
+    }
+
+    let mut min_x = i32::MAX;
+    let mut min_y = i32::MAX;
+    let mut max_x = i32::MIN;
+    let mut max_y = i32::MIN;
+    for outline in &outlines {
+        let bounds = outline.px_bounds();
+        min_x = min_x.min(bounds.min.x.floor() as i32);
+        min_y = min_y.min(bounds.min.y.floor() as i32);
+        max_x = max_x.max(bounds.max.x.ceil() as i32);
+        max_y = max_y.max(bounds.max.y.ceil() as i32);
+    }
+
+    let width = (max_x - min_x).max(1) as usize;
+    let height = (max_y - min_y).max(1) as usize;
+    let mut pixels = vec![0; width * height * 4];
+    for outline in outlines {
+        let bounds = outline.px_bounds();
+        let glyph_min_x = bounds.min.x.floor() as i32;
+        let glyph_min_y = bounds.min.y.floor() as i32;
+        outline.draw(|gx, gy, coverage| {
+            let x = gx as i32 + glyph_min_x - min_x;
+            let y = gy as i32 + glyph_min_y - min_y;
+            if x < 0 || y < 0 {
+                return;
+            }
+            let x = x as usize;
+            let y = y as usize;
+            if x >= width || y >= height {
+                return;
+            }
+            let offset = (y * width + x) * 4;
+            pixels[offset] = fill.r;
+            pixels[offset + 1] = fill.g;
+            pixels[offset + 2] = fill.b;
+            pixels[offset + 3] = ((fill.a as f32 * coverage).round() as i32).clamp(0, 255) as u8;
+        });
+    }
+
+    RenderedTextLine {
+        width,
+        height,
+        pixels,
+        bbox_left: min_x,
+        bbox_top: min_y,
+        ascent,
+    }
+}
+
+fn text_width(value: &str, font: &FontArc, font_size: usize) -> f64 {
+    let scale = PxScale::from(font_size as f32);
+    let scaled_font = font.as_scaled(scale);
+    let mut max_width = 0.0_f32;
+    for line in value.split('\n') {
+        let mut caret = 0.0_f32;
+        let mut previous: Option<GlyphId> = None;
+        for ch in line.chars() {
+            let glyph_id = scaled_font.glyph_id(ch);
+            if let Some(previous_id) = previous {
+                caret += scaled_font.kern(previous_id, glyph_id);
+            }
+            caret += scaled_font.h_advance(glyph_id);
+            previous = Some(glyph_id);
+        }
+        max_width = max_width.max(caret);
+    }
+    max_width as f64
+}
+
+fn default_font_paths() -> &'static [&'static str] {
+    &[
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+        "C:\\Windows\\Fonts\\segoeui.ttf",
+    ]
+}
+
+fn validate_mode_and_renderer(mode: &str, renderer: &str) -> PyResult<()> {
+    if mode != SUPPORTED_MODE && mode != INTERACTIVE_MODE {
+        return Err(PyValueError::new_err(format!(
+            "Unsupported canvas mode {mode:?}; supported modes are {SUPPORTED_MODE:?} and {INTERACTIVE_MODE:?}."
+        )));
+    }
+    validate_renderer(renderer)
+}
+
+fn validate_renderer(renderer: &str) -> PyResult<()> {
+    if renderer != SUPPORTED_RENDERER {
+        return Err(PyValueError::new_err(format!(
+            "Unsupported renderer {renderer:?}; only {SUPPORTED_RENDERER:?} is implemented."
+        )));
+    }
+    Ok(())
+}
+
+fn physical_dimensions(width: i64, height: i64, pixel_density: f64) -> PyResult<(usize, usize)> {
+    if width <= 0 || height <= 0 {
+        return Err(PyValueError::new_err(
+            "Canvas width and height must be positive.",
+        ));
+    }
+    if pixel_density <= 0.0 || !pixel_density.is_finite() {
+        return Err(PyValueError::new_err("Pixel density must be positive."));
+    }
+    let physical_width = ((width as f64 * pixel_density).round() as i64).max(1) as usize;
+    let physical_height = ((height as f64 * pixel_density).round() as i64).max(1) as usize;
+    Ok((physical_width, physical_height))
+}
+
+fn parse_style(style: &Bound<'_, PyAny>) -> PyResult<Style> {
+    let dict = style.downcast::<PyDict>()?;
+    let fill = parse_optional_rgba(dict, "fill")?;
+    let stroke = parse_optional_rgba(dict, "stroke")?;
+    let stroke_weight = dict
+        .get_item("stroke_weight")?
+        .ok_or_else(|| PyValueError::new_err("Style payload missing 'stroke_weight'."))?
+        .extract::<f64>()?;
+    let blend_mode = dict
+        .get_item("blend_mode")?
+        .ok_or_else(|| PyValueError::new_err("Style payload missing 'blend_mode'."))?
+        .extract::<String>()?;
+    let erasing = dict
+        .get_item("erasing")?
+        .ok_or_else(|| PyValueError::new_err("Style payload missing 'erasing'."))?
+        .extract::<bool>()?;
+    let image_sampling = dict
+        .get_item("image_sampling")?
+        .map(|value| value.extract::<String>())
+        .transpose()?
+        .unwrap_or_else(|| "linear".to_string());
+    let text_font_path = match dict.get_item("text_font_path")? {
+        Some(value) if !value.is_none() => Some(value.extract::<String>()?),
+        _ => None,
+    };
+    let text_font_name = dict
+        .get_item("text_font_name")?
+        .map(|value| value.extract::<String>())
+        .transpose()?
+        .unwrap_or_else(|| "default".to_string());
+    let text_size = dict
+        .get_item("text_size")?
+        .map(|value| value.extract::<f64>())
+        .transpose()?
+        .unwrap_or(12.0);
+    let text_align_x = dict
+        .get_item("text_align_x")?
+        .map(|value| value.extract::<String>())
+        .transpose()?
+        .unwrap_or_else(|| "left".to_string());
+    let text_align_y = dict
+        .get_item("text_align_y")?
+        .map(|value| value.extract::<String>())
+        .transpose()?
+        .unwrap_or_else(|| "baseline".to_string());
+    let text_leading = dict
+        .get_item("text_leading")?
+        .map(|value| value.extract::<f64>())
+        .transpose()?
+        .unwrap_or(14.0);
+    Ok(Style {
+        fill,
+        stroke,
+        stroke_weight,
+        blend_mode,
+        erasing,
+        image_sampling,
+        text_font_path,
+        text_font_name,
+        text_size,
+        text_align_x,
+        text_align_y,
+        text_leading,
+    })
+}
+
+fn parse_optional_rgba(dict: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<Rgba>> {
+    let Some(value) = dict.get_item(key)? else {
+        return Err(PyValueError::new_err(format!(
+            "Style payload missing {key:?}."
+        )));
+    };
+    if value.is_none() {
+        Ok(None)
+    } else {
+        Ok(Some(Rgba::from_tuple(value.extract::<(u8, u8, u8, u8)>()?)))
+    }
+}
+
+fn ensure_supported_style(style: &Style) -> PyResult<()> {
+    if style.stroke_weight < 0.0 || !style.stroke_weight.is_finite() {
+        return Err(PyValueError::new_err("stroke_weight cannot be negative."));
+    }
+    ensure_supported_blend_mode(&style.blend_mode)
+}
+
+fn ensure_supported_blend_mode(mode: &str) -> PyResult<()> {
+    if is_supported_blend_mode(mode) {
+        Ok(())
+    } else {
+        Err(PyValueError::new_err(format!(
+            "Unsupported blend mode {mode:?} for gummy_canvas."
+        )))
+    }
+}
+
+fn is_supported_blend_mode(mode: &str) -> bool {
+    matches!(
+        mode,
+        BLEND_MODE_BLEND
+            | BLEND_MODE_REPLACE
+            | BLEND_MODE_ADD
+            | BLEND_MODE_DARKEST
+            | BLEND_MODE_LIGHTEST
+            | BLEND_MODE_DIFFERENCE
+            | BLEND_MODE_EXCLUSION
+            | BLEND_MODE_MULTIPLY
+            | BLEND_MODE_SCREEN
+    )
+}
+
+fn stroke_width(stroke_weight: f64, pixel_density: f64) -> f64 {
+    (stroke_weight * pixel_density).round().max(1.0)
+}
+
+fn validate_rgba_buffer(length: usize, width: usize, height: usize) -> PyResult<()> {
+    let expected = width
+        .checked_mul(height)
+        .and_then(|pixels| pixels.checked_mul(4))
+        .ok_or_else(|| PyValueError::new_err("Image dimensions are too large."))?;
+    if length == expected {
+        Ok(())
+    } else {
+        Err(PyValueError::new_err(format!(
+            "RGBA buffer length must be {expected}, got {length}."
+        )))
+    }
+}
+
+fn resize_rgba_nearest(
+    pixels: &[u8],
+    width: usize,
+    height: usize,
+    target_width: usize,
+    target_height: usize,
+) -> Vec<u8> {
+    let mut resized = vec![0_u8; target_width * target_height * 4];
+    for y in 0..target_height {
+        let sy = (y * height / target_height).min(height - 1);
+        for x in 0..target_width {
+            let sx = (x * width / target_width).min(width - 1);
+            let src = (sy * width + sx) * 4;
+            let dst = (y * target_width + x) * 4;
+            resized[dst..dst + 4].copy_from_slice(&pixels[src..src + 4]);
+        }
+    }
+    resized
+}
+
+fn crop_rgba_with_padding(
+    pixels: &[u8],
+    width: usize,
+    height: usize,
+    sx: i64,
+    sy: i64,
+    sw: usize,
+    sh: usize,
+) -> Vec<u8> {
+    let mut cropped = vec![0_u8; sw * sh * 4];
+    let copy_x0 = sx.max(0).min(width as i64) as usize;
+    let copy_y0 = sy.max(0).min(height as i64) as usize;
+    let copy_x1 = (sx + sw as i64).max(0).min(width as i64) as usize;
+    let copy_y1 = (sy + sh as i64).max(0).min(height as i64) as usize;
+    if copy_x0 >= copy_x1 || copy_y0 >= copy_y1 {
+        return cropped;
+    }
+    let row_bytes = (copy_x1 - copy_x0) * 4;
+    for src_y in copy_y0..copy_y1 {
+        let dst_y = (src_y as i64 - sy) as usize;
+        let src = (src_y * width + copy_x0) * 4;
+        let dst = (dst_y * sw + (copy_x0 as i64 - sx) as usize) * 4;
+        cropped[dst..dst + row_bytes].copy_from_slice(&pixels[src..src + row_bytes]);
+    }
+    cropped
+}
+
+#[allow(clippy::too_many_arguments)]
+fn alpha_composite_rgba_region(
+    dst: &mut [u8],
+    dst_width: usize,
+    dst_height: usize,
+    src: &[u8],
+    src_width: usize,
+    src_height: usize,
+    dx: i64,
+    dy: i64,
+) {
+    let dst_x0 = dx.max(0).min(dst_width as i64) as usize;
+    let dst_y0 = dy.max(0).min(dst_height as i64) as usize;
+    let dst_x1 = (dx + src_width as i64).max(0).min(dst_width as i64) as usize;
+    let dst_y1 = (dy + src_height as i64).max(0).min(dst_height as i64) as usize;
+    if dst_x0 >= dst_x1 || dst_y0 >= dst_y1 {
+        return;
+    }
+    for ty in dst_y0..dst_y1 {
+        let src_y = (ty as i64 - dy) as usize;
+        for tx in dst_x0..dst_x1 {
+            let src_x = (tx as i64 - dx) as usize;
+            let dst_offset = (ty * dst_width + tx) * 4;
+            let src_offset = (src_y * src_width + src_x) * 4;
+            alpha_composite_pixel(
+                &mut dst[dst_offset..dst_offset + 4],
+                &src[src_offset..src_offset + 4],
+            );
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn replace_rgba_region(
+    dst: &mut [u8],
+    dst_width: usize,
+    dst_height: usize,
+    src: &[u8],
+    src_width: usize,
+    src_height: usize,
+    dx: i64,
+    dy: i64,
+) {
+    let dst_x0 = dx.max(0).min(dst_width as i64) as usize;
+    let dst_y0 = dy.max(0).min(dst_height as i64) as usize;
+    let dst_x1 = (dx + src_width as i64).max(0).min(dst_width as i64) as usize;
+    let dst_y1 = (dy + src_height as i64).max(0).min(dst_height as i64) as usize;
+    if dst_x0 >= dst_x1 || dst_y0 >= dst_y1 {
+        return;
+    }
+    let row_pixels = dst_x1 - dst_x0;
+    let row_bytes = row_pixels * 4;
+    for ty in dst_y0..dst_y1 {
+        let src_y = (ty as i64 - dy) as usize;
+        let src_x = (dst_x0 as i64 - dx) as usize;
+        let src_offset = (src_y * src_width + src_x) * 4;
+        let dst_offset = (ty * dst_width + dst_x0) * 4;
+        dst[dst_offset..dst_offset + row_bytes]
+            .copy_from_slice(&src[src_offset..src_offset + row_bytes]);
+    }
+}
+
+fn apply_rgba_mask(
+    pixels: &mut [u8],
+    width: usize,
+    height: usize,
+    mask_pixels: &[u8],
+    mask_width: usize,
+    mask_height: usize,
+) {
+    for y in 0..height {
+        let my = (y * mask_height / height).min(mask_height - 1);
+        for x in 0..width {
+            let mx = (x * mask_width / width).min(mask_width - 1);
+            let mask_offset = (my * mask_width + mx) * 4;
+            let mask_alpha = ((mask_pixels[mask_offset] as u32
+                + mask_pixels[mask_offset + 1] as u32
+                + mask_pixels[mask_offset + 2] as u32)
+                * mask_pixels[mask_offset + 3] as u32
+                + 382)
+                / 765;
+            let offset = (y * width + x) * 4 + 3;
+            pixels[offset] = ((pixels[offset] as u32 * mask_alpha + 127) / 255) as u8;
+        }
+    }
+}
+
+fn filter_rgba(pixels: &mut [u8], mode: &str, value: Option<f64>) -> PyResult<()> {
+    match mode {
+        "gray" => {
+            for pixel in pixels.chunks_exact_mut(4) {
+                let gray = luma(pixel);
+                pixel[0] = gray;
+                pixel[1] = gray;
+                pixel[2] = gray;
+            }
+        }
+        "invert" => {
+            for pixel in pixels.chunks_exact_mut(4) {
+                pixel[0] = 255 - pixel[0];
+                pixel[1] = 255 - pixel[1];
+                pixel[2] = 255 - pixel[2];
+            }
+        }
+        "threshold" => {
+            let threshold = ((value.unwrap_or(0.5) * 255.0).round()).clamp(0.0, 255.0) as u8;
+            for pixel in pixels.chunks_exact_mut(4) {
+                let bw = if luma(pixel) >= threshold { 255 } else { 0 };
+                pixel[0] = bw;
+                pixel[1] = bw;
+                pixel[2] = bw;
+            }
+        }
+        "blur" | "posterize" | "erode" | "dilate" => {}
+        _ => {
+            return Err(PyValueError::new_err(format!(
+                "Unsupported image filter {mode:?}."
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn luma(pixel: &[u8]) -> u8 {
+    (pixel[0] as f64 * 0.299 + pixel[1] as f64 * 0.587 + pixel[2] as f64 * 0.114).round() as u8
+}
+
+fn convert_media_frame_to_rgba(
+    width: usize,
+    height: usize,
+    channels: usize,
+    pixels: &[u8],
+) -> PyResult<Vec<u8>> {
+    if !matches!(channels, 1 | 3 | 4) {
+        return Err(PyValueError::new_err(
+            "Decoded media frames must have 1, 3, or 4 channels.",
+        ));
+    }
+    let mut rgba = vec![0_u8; width * height * 4];
+    match channels {
+        1 => {
+            for index in 0..(width * height) {
+                let gray = pixels[index];
+                let offset = index * 4;
+                rgba[offset..offset + 4].copy_from_slice(&[gray, gray, gray, 255]);
+            }
+        }
+        3 => {
+            for index in 0..(width * height) {
+                let src = index * 3;
+                let dst = index * 4;
+                rgba[dst..dst + 4].copy_from_slice(&[
+                    pixels[src + 2],
+                    pixels[src + 1],
+                    pixels[src],
+                    255,
+                ]);
+            }
+        }
+        4 => {
+            for index in 0..(width * height) {
+                let src = index * 4;
+                let dst = index * 4;
+                rgba[dst..dst + 4].copy_from_slice(&[
+                    pixels[src + 2],
+                    pixels[src + 1],
+                    pixels[src],
+                    pixels[src + 3],
+                ]);
+            }
+        }
+        _ => unreachable!(),
+    }
+    Ok(rgba)
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Vec3d {
+    x: f64,
+    y: f64,
+    z: f64,
+}
+
+#[derive(Clone, Debug)]
+struct ObjModelData {
+    vertices: Vec<Vec3d>,
+    texcoords: Vec<Option<(f64, f64)>>,
+    normals: Vec<Option<Vec3d>>,
+    faces: Vec<Vec<usize>>,
+}
+
+#[derive(Clone, Debug)]
+struct MeshPayload {
+    vertices: Vec<Vec3d>,
+    faces: Vec<Vec<usize>>,
+    texcoords: Vec<(f64, f64)>,
+}
+
+#[derive(Clone, Debug)]
+struct CameraPayload {
+    eye: Vec3d,
+    target: Vec3d,
+    up: Vec3d,
+}
+
+#[derive(Clone, Debug)]
+enum ProjectionPayload {
+    Perspective {
+        fov_y: f64,
+        aspect: Option<f64>,
+        near: f64,
+        far: f64,
+    },
+    Orthographic {
+        width: f64,
+        height: f64,
+        near: f64,
+        far: f64,
+    },
+}
+
+#[derive(Clone, Debug)]
+struct MaterialPayload {
+    base_color: (f64, f64, f64, f64),
+    emissive_color: (f64, f64, f64, f64),
+    specular_color: (f64, f64, f64, f64),
+    shininess: f64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum LightKindPayload {
+    Ambient,
+    Directional,
+    Point,
+}
+
+#[derive(Clone, Debug)]
+struct LightPayload {
+    kind: LightKindPayload,
+    color: (f64, f64, f64, f64),
+    intensity: f64,
+    position: Option<Vec3d>,
+    direction: Option<Vec3d>,
+}
+
+#[derive(Clone, Debug)]
+struct ProjectedPayloadFace {
+    points: Vec<(f64, f64)>,
+    depth: f64,
+    normal: Vec3d,
+    center: Vec3d,
+    texcoords: Option<Vec<(f64, f64)>>,
+}
+
+fn parse_obj_text(text: &str, source: &str) -> PyResult<ObjModelData> {
+    let mut positions = Vec::new();
+    let mut texcoords = Vec::new();
+    let mut normals = Vec::new();
+    let mut vertices = Vec::new();
+    let mut vertex_texcoords = Vec::new();
+    let mut vertex_normals = Vec::new();
+    let mut faces = Vec::new();
+    let mut vertex_map: HashMap<(usize, Option<usize>, Option<usize>), usize> = HashMap::new();
+    for (line_index, raw_line) in text.lines().enumerate() {
+        let line_number = line_index + 1;
+        let line = raw_line
+            .split_once('#')
+            .map_or(raw_line, |(prefix, _)| prefix)
+            .trim();
+        if line.is_empty() {
+            continue;
+        }
+        let mut parts = line.split_whitespace();
+        let keyword = parts.next().unwrap_or_default();
+        let values: Vec<&str> = parts.collect();
+        match keyword {
+            "v" => {
+                if values.len() < 3 {
+                    return Err(PyValueError::new_err(format!(
+                        "OBJ vertex on line {line_number} in {source} requires x y z."
+                    )));
+                }
+                positions.push(Vec3d {
+                    x: parse_obj_float(values[0], "vertex", line_number, source)?,
+                    y: parse_obj_float(values[1], "vertex", line_number, source)?,
+                    z: parse_obj_float(values[2], "vertex", line_number, source)?,
+                });
+            }
+            "vt" => {
+                if values.len() < 2 {
+                    return Err(PyValueError::new_err(format!(
+                        "OBJ texcoord on line {line_number} in {source} requires u v."
+                    )));
+                }
+                texcoords.push((
+                    parse_obj_float(values[0], "texcoord", line_number, source)?,
+                    parse_obj_float(values[1], "texcoord", line_number, source)?,
+                ));
+            }
+            "vn" => {
+                if values.len() < 3 {
+                    return Err(PyValueError::new_err(format!(
+                        "OBJ normal on line {line_number} in {source} requires x y z."
+                    )));
+                }
+                normals.push(Vec3d {
+                    x: parse_obj_float(values[0], "normal", line_number, source)?,
+                    y: parse_obj_float(values[1], "normal", line_number, source)?,
+                    z: parse_obj_float(values[2], "normal", line_number, source)?,
+                });
+            }
+            "f" => {
+                if values.len() < 3 {
+                    return Err(PyValueError::new_err(format!(
+                        "OBJ face on line {line_number} in {source} requires at least 3 vertices."
+                    )));
+                }
+                let mut face = Vec::with_capacity(values.len());
+                for token in values {
+                    let reference = parse_obj_vertex_ref(
+                        token,
+                        positions.len(),
+                        texcoords.len(),
+                        normals.len(),
+                        line_number,
+                        source,
+                    )?;
+                    let index = if let Some(existing) = vertex_map.get(&reference).copied() {
+                        existing
+                    } else {
+                        let (position_index, texcoord_index, normal_index) = reference;
+                        vertices.push(positions[position_index]);
+                        vertex_texcoords.push(texcoord_index.map(|index| texcoords[index]));
+                        vertex_normals.push(normal_index.map(|index| normals[index]));
+                        let next = vertices.len() - 1;
+                        vertex_map.insert(reference, next);
+                        next
+                    };
+                    face.push(index);
+                }
+                faces.push(face);
+            }
+            "o" | "g" | "s" | "mtllib" | "usemtl" => {}
+            _ => {}
+        }
+    }
+    if vertices.is_empty() || faces.is_empty() {
+        return Err(PyValueError::new_err(format!(
+            "OBJ model {source} contained no drawable faces."
+        )));
+    }
+    Ok(ObjModelData {
+        vertices,
+        texcoords: vertex_texcoords,
+        normals: vertex_normals,
+        faces,
+    })
+}
+
+fn parse_obj_float(raw: &str, kind: &str, line_number: usize, source: &str) -> PyResult<f64> {
+    raw.parse::<f64>().map_err(|err| {
+        PyValueError::new_err(format!(
+            "OBJ {kind} value {raw:?} on line {line_number} in {source} is invalid: {err}."
+        ))
+    })
+}
+
+fn parse_obj_vertex_ref(
+    token: &str,
+    positions_len: usize,
+    texcoords_len: usize,
+    normals_len: usize,
+    line_number: usize,
+    source: &str,
+) -> PyResult<(usize, Option<usize>, Option<usize>)> {
+    let parts: Vec<&str> = token.split('/').collect();
+    if parts.is_empty() || parts[0].is_empty() {
+        return Err(PyValueError::new_err(format!(
+            "OBJ face vertex {token:?} on line {line_number} in {source} is invalid."
+        )));
+    }
+    let position = resolve_obj_index(parts[0], positions_len, "position", line_number, source)?;
+    let texcoord = if parts.len() >= 2 && !parts[1].is_empty() {
+        Some(resolve_obj_index(
+            parts[1],
+            texcoords_len,
+            "texcoord",
+            line_number,
+            source,
+        )?)
+    } else {
+        None
+    };
+    let normal = if parts.len() >= 3 && !parts[2].is_empty() {
+        Some(resolve_obj_index(
+            parts[2],
+            normals_len,
+            "normal",
+            line_number,
+            source,
+        )?)
+    } else {
+        None
+    };
+    Ok((position, texcoord, normal))
+}
+
+fn resolve_obj_index(
+    raw: &str,
+    length: usize,
+    kind: &str,
+    line_number: usize,
+    source: &str,
+) -> PyResult<usize> {
+    if length == 0 {
+        return Err(PyValueError::new_err(format!(
+            "OBJ references a {kind} before any {kind}s were defined on line {line_number} in {source}."
+        )));
+    }
+    let index = raw.parse::<i64>().map_err(|_| {
+        PyValueError::new_err(format!(
+            "OBJ {kind} index {raw:?} on line {line_number} in {source} is invalid."
+        ))
+    })?;
+    let resolved = if index > 0 {
+        index - 1
+    } else {
+        length as i64 + index
+    };
+    if !(0..length as i64).contains(&resolved) {
+        return Err(PyValueError::new_err(format!(
+            "OBJ {kind} index {raw:?} on line {line_number} in {source} is out of range."
+        )));
+    }
+    Ok(resolved as usize)
+}
+
+fn normalize_obj_model(mut model: ObjModelData) -> ObjModelData {
+    if model.vertices.is_empty() {
+        return model;
+    }
+    let mut min_x = f64::INFINITY;
+    let mut min_y = f64::INFINITY;
+    let mut min_z = f64::INFINITY;
+    let mut max_x = f64::NEG_INFINITY;
+    let mut max_y = f64::NEG_INFINITY;
+    let mut max_z = f64::NEG_INFINITY;
+    for vertex in &model.vertices {
+        min_x = min_x.min(vertex.x);
+        min_y = min_y.min(vertex.y);
+        min_z = min_z.min(vertex.z);
+        max_x = max_x.max(vertex.x);
+        max_y = max_y.max(vertex.y);
+        max_z = max_z.max(vertex.z);
+    }
+    let span = (max_x - min_x).max(max_y - min_y).max(max_z - min_z);
+    if span <= 0.0 {
+        return model;
+    }
+    let center = Vec3d {
+        x: (min_x + max_x) / 2.0,
+        y: (min_y + max_y) / 2.0,
+        z: (min_z + max_z) / 2.0,
+    };
+    let scale = 2.0 / span;
+    for vertex in &mut model.vertices {
+        vertex.x = (vertex.x - center.x) * scale;
+        vertex.y = (vertex.y - center.y) * scale;
+        vertex.z = (vertex.z - center.z) * scale;
+    }
+    model
+}
+
+fn obj_model_to_dict<'py>(py: Python<'py>, model: ObjModelData) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item(
+        "vertices",
+        model
+            .vertices
+            .iter()
+            .map(|vertex| (vertex.x, vertex.y, vertex.z))
+            .collect::<Vec<_>>(),
+    )?;
+    dict.set_item("faces", model.faces)?;
+    if model.texcoords.iter().all(Option::is_some) {
+        dict.set_item(
+            "texcoords",
+            model
+                .texcoords
+                .iter()
+                .filter_map(|value| *value)
+                .collect::<Vec<_>>(),
+        )?;
+    } else {
+        dict.set_item("texcoords", Vec::<(f64, f64)>::new())?;
+    }
+    if model.normals.iter().all(Option::is_some) {
+        dict.set_item(
+            "normals",
+            model
+                .normals
+                .iter()
+                .filter_map(|value| *value)
+                .map(|normal| (normal.x, normal.y, normal.z))
+                .collect::<Vec<_>>(),
+        )?;
+    } else {
+        dict.set_item("normals", Vec::<(f64, f64, f64)>::new())?;
+    }
+    Ok(dict)
+}
+
+fn parse_mesh_payloads(meshes: &Bound<'_, PyAny>) -> PyResult<Vec<MeshPayload>> {
+    let sequence = meshes.downcast::<PyList>()?;
+    let mut parsed = Vec::with_capacity(sequence.len());
+    for item in sequence.iter() {
+        let dict = item.downcast::<PyDict>()?;
+        let vertices = dict
+            .get_item("vertices")?
+            .ok_or_else(|| PyValueError::new_err("mesh payload is missing vertices."))?
+            .extract::<Vec<(f64, f64, f64)>>()?
+            .into_iter()
+            .map(|(x, y, z)| Vec3d { x, y, z })
+            .collect();
+        let faces = dict
+            .get_item("faces")?
+            .ok_or_else(|| PyValueError::new_err("mesh payload is missing faces."))?
+            .extract::<Vec<Vec<usize>>>()?;
+        let texcoords = dict
+            .get_item("texcoords")?
+            .map(|value| value.extract::<Vec<(f64, f64)>>())
+            .transpose()?
+            .unwrap_or_default();
+        parsed.push(MeshPayload {
+            vertices,
+            faces,
+            texcoords,
+        });
+    }
+    Ok(parsed)
+}
+
+fn parse_vec3_payload(value: &Bound<'_, PyAny>) -> PyResult<Vec3d> {
+    let (x, y, z): (f64, f64, f64) = value.extract()?;
+    Ok(Vec3d { x, y, z })
+}
+
+fn parse_camera_payload(camera: &Bound<'_, PyAny>) -> PyResult<CameraPayload> {
+    let dict = camera.downcast::<PyDict>()?;
+    Ok(CameraPayload {
+        eye: parse_vec3_payload(
+            &dict
+                .get_item("eye")?
+                .ok_or_else(|| PyValueError::new_err("camera payload is missing eye."))?,
+        )?,
+        target: parse_vec3_payload(
+            &dict
+                .get_item("target")?
+                .ok_or_else(|| PyValueError::new_err("camera payload is missing target."))?,
+        )?,
+        up: parse_vec3_payload(
+            &dict
+                .get_item("up")?
+                .ok_or_else(|| PyValueError::new_err("camera payload is missing up."))?,
+        )?,
+    })
+}
+
+fn parse_projection_payload(projection: &Bound<'_, PyAny>) -> PyResult<ProjectionPayload> {
+    let dict = projection.downcast::<PyDict>()?;
+    let kind: String = dict
+        .get_item("kind")?
+        .ok_or_else(|| PyValueError::new_err("projection payload is missing kind."))?
+        .extract()?;
+    match kind.as_str() {
+        "perspective" => Ok(ProjectionPayload::Perspective {
+            fov_y: dict
+                .get_item("fov_y")?
+                .ok_or_else(|| PyValueError::new_err("projection payload is missing fov_y."))?
+                .extract()?,
+            aspect: dict
+                .get_item("aspect")?
+                .map(|value| value.extract::<Option<f64>>())
+                .transpose()?
+                .flatten(),
+            near: dict
+                .get_item("near")?
+                .ok_or_else(|| PyValueError::new_err("projection payload is missing near."))?
+                .extract()?,
+            far: dict
+                .get_item("far")?
+                .ok_or_else(|| PyValueError::new_err("projection payload is missing far."))?
+                .extract()?,
+        }),
+        "orthographic" => Ok(ProjectionPayload::Orthographic {
+            width: dict
+                .get_item("width")?
+                .ok_or_else(|| PyValueError::new_err("projection payload is missing width."))?
+                .extract()?,
+            height: dict
+                .get_item("height")?
+                .ok_or_else(|| PyValueError::new_err("projection payload is missing height."))?
+                .extract()?,
+            near: dict
+                .get_item("near")?
+                .ok_or_else(|| PyValueError::new_err("projection payload is missing near."))?
+                .extract()?,
+            far: dict
+                .get_item("far")?
+                .ok_or_else(|| PyValueError::new_err("projection payload is missing far."))?
+                .extract()?,
+        }),
+        _ => Err(PyValueError::new_err("unknown projection payload kind.")),
+    }
+}
+
+fn parse_material_payload(material: &Bound<'_, PyAny>) -> PyResult<MaterialPayload> {
+    let dict = material.downcast::<PyDict>()?;
+    Ok(MaterialPayload {
+        base_color: dict
+            .get_item("base_color")?
+            .ok_or_else(|| PyValueError::new_err("material payload is missing base_color."))?
+            .extract()?,
+        emissive_color: dict
+            .get_item("emissive_color")?
+            .ok_or_else(|| PyValueError::new_err("material payload is missing emissive_color."))?
+            .extract()?,
+        specular_color: dict
+            .get_item("specular_color")?
+            .ok_or_else(|| PyValueError::new_err("material payload is missing specular_color."))?
+            .extract()?,
+        shininess: dict
+            .get_item("shininess")?
+            .ok_or_else(|| PyValueError::new_err("material payload is missing shininess."))?
+            .extract()?,
+    })
+}
+
+fn parse_light_payloads(lights: &Bound<'_, PyAny>) -> PyResult<Vec<LightPayload>> {
+    let sequence = lights.downcast::<PyList>()?;
+    let mut parsed = Vec::with_capacity(sequence.len());
+    for item in sequence.iter() {
+        let dict = item.downcast::<PyDict>()?;
+        let kind_raw: String = dict
+            .get_item("kind")?
+            .ok_or_else(|| PyValueError::new_err("light payload is missing kind."))?
+            .extract()?;
+        let kind = match kind_raw.as_str() {
+            "ambient" => LightKindPayload::Ambient,
+            "directional" => LightKindPayload::Directional,
+            "point" => LightKindPayload::Point,
+            _ => return Err(PyValueError::new_err("unknown light payload kind.")),
+        };
+        let position = dict
+            .get_item("position")?
+            .filter(|value| !value.is_none())
+            .map(|value| parse_vec3_payload(&value))
+            .transpose()?;
+        let direction = dict
+            .get_item("direction")?
+            .filter(|value| !value.is_none())
+            .map(|value| parse_vec3_payload(&value))
+            .transpose()?;
+        parsed.push(LightPayload {
+            kind,
+            color: dict
+                .get_item("color")?
+                .ok_or_else(|| PyValueError::new_err("light payload is missing color."))?
+                .extract()?,
+            intensity: dict
+                .get_item("intensity")?
+                .ok_or_else(|| PyValueError::new_err("light payload is missing intensity."))?
+                .extract()?,
+            position,
+            direction,
+        });
+    }
+    Ok(parsed)
+}
+
+fn validate_projection_payload(projection: &ProjectionPayload) -> PyResult<()> {
+    let (near, far) = match projection {
+        ProjectionPayload::Perspective {
+            fov_y,
+            aspect,
+            near,
+            far,
+        } => {
+            if *fov_y <= 0.0 || *fov_y >= 180.0 {
+                return Err(PyValueError::new_err(
+                    "perspective fov_y must be between 0 and 180 degrees.",
+                ));
+            }
+            if aspect.is_some_and(|value| value <= 0.0) {
+                return Err(PyValueError::new_err(
+                    "perspective aspect must be positive when provided.",
+                ));
+            }
+            (*near, *far)
+        }
+        ProjectionPayload::Orthographic {
+            width,
+            height,
+            near,
+            far,
+        } => {
+            if *width <= 0.0 || *height <= 0.0 {
+                return Err(PyValueError::new_err(
+                    "orthographic width and height must be positive.",
+                ));
+            }
+            (*near, *far)
+        }
+    };
+    if near <= 0.0 {
+        return Err(PyValueError::new_err(
+            "projection near plane must be positive.",
+        ));
+    }
+    if far <= near {
+        return Err(PyValueError::new_err(
+            "projection far plane must be greater than the near plane.",
+        ));
+    }
+    Ok(())
+}
+
+fn project_mesh_payload_faces(
+    mesh: &MeshPayload,
+    camera: &CameraPayload,
+    projection: &ProjectionPayload,
+    viewport_width: f64,
+    viewport_height: f64,
+    cull_backfaces: bool,
+) -> PyResult<Vec<ProjectedPayloadFace>> {
+    let mut projected = Vec::new();
+    let has_texcoords = mesh.texcoords.len() == mesh.vertices.len();
+    for indices in &mesh.faces {
+        if indices.len() < 3 {
+            continue;
+        }
+        let mut world_points = Vec::with_capacity(indices.len());
+        for index in indices {
+            let vertex = mesh
+                .vertices
+                .get(*index)
+                .ok_or_else(|| PyValueError::new_err("mesh face index is out of range."))?;
+            world_points.push(*vertex);
+        }
+        let Some(normal) = face_normal_3d(&world_points) else {
+            continue;
+        };
+        let center = face_center_3d(&world_points);
+        if cull_backfaces && dot_3d(normal, sub_3d(camera.eye, center)) <= 0.0 {
+            continue;
+        }
+        let camera_points: Vec<Vec3d> = world_points
+            .iter()
+            .map(|point| camera_space_3d(*point, camera))
+            .collect::<PyResult<_>>()?;
+        if camera_points
+            .iter()
+            .any(|point| !visible_3d(*point, projection))
+        {
+            continue;
+        }
+        let mut screen_points = Vec::with_capacity(camera_points.len());
+        let mut visible = true;
+        for point in &camera_points {
+            if let Some(screen) =
+                project_camera_point_3d(*point, projection, viewport_width, viewport_height)
+            {
+                screen_points.push(screen);
+            } else {
+                visible = false;
+                break;
+            }
+        }
+        if !visible {
+            continue;
+        }
+        let texcoords = if has_texcoords {
+            Some(indices.iter().map(|index| mesh.texcoords[*index]).collect())
+        } else {
+            None
+        };
+        projected.push(ProjectedPayloadFace {
+            points: screen_points,
+            depth: camera_points.iter().map(|point| point.z).sum::<f64>()
+                / camera_points.len() as f64,
+            normal: normalize_3d(normal)?,
+            center,
+            texcoords,
+        });
+    }
+    Ok(projected)
+}
+
+fn shade_projected_face(
+    face: &ProjectedPayloadFace,
+    camera: &CameraPayload,
+    material: &MaterialPayload,
+    lights: &[LightPayload],
+    normal_material: bool,
+) -> PyResult<(f64, f64, f64, f64)> {
+    if normal_material {
+        return Ok(clamp_rgba_float((
+            (face.normal.x + 1.0) / 2.0,
+            (face.normal.y + 1.0) / 2.0,
+            (face.normal.z + 1.0) / 2.0,
+            material.base_color.3,
+        )));
+    }
+    let (base_r, base_g, base_b, base_a) = material.base_color;
+    if lights.is_empty() {
+        return Ok(clamp_rgba_float((
+            base_r + material.emissive_color.0,
+            base_g + material.emissive_color.1,
+            base_b + material.emissive_color.2,
+            base_a,
+        )));
+    }
+    let mut result = [
+        material.emissive_color.0,
+        material.emissive_color.1,
+        material.emissive_color.2,
+    ];
+    let view_dir = normalize_3d(sub_3d(camera.eye, face.center))?;
+    for light in lights {
+        let light_rgb = [light.color.0, light.color.1, light.color.2];
+        let intensity = light.intensity.max(0.0);
+        if light.kind == LightKindPayload::Ambient {
+            for index in 0..3 {
+                result[index] += [base_r, base_g, base_b][index] * light_rgb[index] * intensity;
+            }
+            continue;
+        }
+        let Some(light_dir) = light_direction_3d(light, face.center)? else {
+            continue;
+        };
+        let diffuse = dot_3d(face.normal, light_dir).max(0.0);
+        for index in 0..3 {
+            result[index] +=
+                [base_r, base_g, base_b][index] * light_rgb[index] * diffuse * intensity;
+        }
+        let half_vector = normalize_3d(add_3d(light_dir, view_dir))?;
+        let specular = dot_3d(face.normal, half_vector)
+            .max(0.0)
+            .powf(material.shininess.max(1.0));
+        for (index, component) in [
+            material.specular_color.0,
+            material.specular_color.1,
+            material.specular_color.2,
+        ]
+        .iter()
+        .enumerate()
+        {
+            result[index] += component * light_rgb[index] * specular * intensity;
+        }
+    }
+    Ok(clamp_rgba_float((result[0], result[1], result[2], base_a)))
+}
+
+fn camera_space_3d(point: Vec3d, camera: &CameraPayload) -> PyResult<Vec3d> {
+    let forward = normalize_3d(sub_3d(camera.target, camera.eye))?;
+    let right = normalize_3d(cross_3d(forward, camera.up))?;
+    let true_up = cross_3d(right, forward);
+    let relative = sub_3d(point, camera.eye);
+    Ok(Vec3d {
+        x: dot_3d(relative, right),
+        y: dot_3d(relative, true_up),
+        z: dot_3d(relative, forward),
+    })
+}
+
+fn visible_3d(point: Vec3d, projection: &ProjectionPayload) -> bool {
+    let (near, far) = match projection {
+        ProjectionPayload::Perspective { near, far, .. } => (*near, *far),
+        ProjectionPayload::Orthographic { near, far, .. } => (*near, *far),
+    };
+    near <= point.z && point.z <= far
+}
+
+fn project_camera_point_3d(
+    point: Vec3d,
+    projection: &ProjectionPayload,
+    viewport_width: f64,
+    viewport_height: f64,
+) -> Option<(f64, f64)> {
+    match projection {
+        ProjectionPayload::Perspective { fov_y, aspect, .. } => {
+            let aspect = aspect.unwrap_or(viewport_width / viewport_height);
+            let half_fov = fov_y.to_radians() / 2.0;
+            let scale_y = half_fov.tan() * point.z;
+            if scale_y == 0.0 {
+                return None;
+            }
+            let scale_x = scale_y * aspect;
+            if scale_x == 0.0 {
+                return None;
+            }
+            Some(ndc_to_screen_3d(
+                point.x / scale_x,
+                point.y / scale_y,
+                viewport_width,
+                viewport_height,
+            ))
+        }
+        ProjectionPayload::Orthographic { width, height, .. } => Some(ndc_to_screen_3d(
+            point.x / (width / 2.0),
+            point.y / (height / 2.0),
+            viewport_width,
+            viewport_height,
+        )),
+    }
+}
+
+fn ndc_to_screen_3d(x: f64, y: f64, viewport_width: f64, viewport_height: f64) -> (f64, f64) {
+    (
+        (x + 1.0) * 0.5 * viewport_width,
+        (1.0 - (y + 1.0) * 0.5) * viewport_height,
+    )
+}
+
+fn face_center_3d(points: &[Vec3d]) -> Vec3d {
+    let scale = 1.0 / points.len() as f64;
+    Vec3d {
+        x: points.iter().map(|point| point.x).sum::<f64>() * scale,
+        y: points.iter().map(|point| point.y).sum::<f64>() * scale,
+        z: points.iter().map(|point| point.z).sum::<f64>() * scale,
+    }
+}
+
+fn face_normal_3d(points: &[Vec3d]) -> Option<Vec3d> {
+    if points.len() < 3 {
+        return None;
+    }
+    let normal = cross_3d(sub_3d(points[1], points[0]), sub_3d(points[2], points[0]));
+    if dot_3d(normal, normal) == 0.0 {
+        None
+    } else {
+        Some(normal)
+    }
+}
+
+fn light_direction_3d(light: &LightPayload, center: Vec3d) -> PyResult<Option<Vec3d>> {
+    match light.kind {
+        LightKindPayload::Directional => light
+            .direction
+            .map(|direction| {
+                normalize_3d(Vec3d {
+                    x: -direction.x,
+                    y: -direction.y,
+                    z: -direction.z,
+                })
+            })
+            .transpose(),
+        LightKindPayload::Point => light
+            .position
+            .map(|position| normalize_3d(sub_3d(position, center)))
+            .transpose(),
+        LightKindPayload::Ambient => Ok(None),
+    }
+}
+
+fn sub_3d(a: Vec3d, b: Vec3d) -> Vec3d {
+    Vec3d {
+        x: a.x - b.x,
+        y: a.y - b.y,
+        z: a.z - b.z,
+    }
+}
+
+fn add_3d(a: Vec3d, b: Vec3d) -> Vec3d {
+    Vec3d {
+        x: a.x + b.x,
+        y: a.y + b.y,
+        z: a.z + b.z,
+    }
+}
+
+fn dot_3d(a: Vec3d, b: Vec3d) -> f64 {
+    a.x * b.x + a.y * b.y + a.z * b.z
+}
+
+fn cross_3d(a: Vec3d, b: Vec3d) -> Vec3d {
+    Vec3d {
+        x: a.y * b.z - a.z * b.y,
+        y: a.z * b.x - a.x * b.z,
+        z: a.x * b.y - a.y * b.x,
+    }
+}
+
+fn normalize_3d(value: Vec3d) -> PyResult<Vec3d> {
+    let length = dot_3d(value, value).sqrt();
+    if length == 0.0 {
+        return Err(PyValueError::new_err(
+            "3D vectors must have non-zero length.",
+        ));
+    }
+    Ok(Vec3d {
+        x: value.x / length,
+        y: value.y / length,
+        z: value.z / length,
+    })
+}
+
+fn clamp_rgba_float(color: (f64, f64, f64, f64)) -> (f64, f64, f64, f64) {
+    let max_rgb = color.0.max(color.1).max(color.2);
+    let (r, g, b) = if max_rgb > 1.0 {
+        (color.0 / max_rgb, color.1 / max_rgb, color.2 / max_rgb)
+    } else {
+        (color.0, color.1, color.2)
+    };
+    (
+        r.clamp(0.0, 1.0),
+        g.clamp(0.0, 1.0),
+        b.clamp(0.0, 1.0),
+        color.3.clamp(0.0, 1.0),
+    )
+}
+
+fn rgba_float_to_u8(color: (f64, f64, f64, f64)) -> [u8; 4] {
+    [
+        (color.0.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (color.1.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (color.2.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (color.3.clamp(0.0, 1.0) * 255.0).round() as u8,
+    ]
+}
+
+fn rasterize_filled_polygon(
+    pixels: &mut [u8],
+    width: usize,
+    height: usize,
+    points: &[(f64, f64)],
+    color: [u8; 4],
+) {
+    if points.len() < 3 {
+        return;
+    }
+    let min_x = points
+        .iter()
+        .map(|point| point.0)
+        .fold(f64::INFINITY, f64::min)
+        .floor()
+        .max(0.0) as usize;
+    let max_x = points
+        .iter()
+        .map(|point| point.0)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .ceil()
+        .min((width - 1) as f64) as usize;
+    let min_y = points
+        .iter()
+        .map(|point| point.1)
+        .fold(f64::INFINITY, f64::min)
+        .floor()
+        .max(0.0) as usize;
+    let max_y = points
+        .iter()
+        .map(|point| point.1)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .ceil()
+        .min((height - 1) as f64) as usize;
+    if min_x > max_x || min_y > max_y {
+        return;
+    }
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            if point_in_polygon((x as f64 + 0.5, y as f64 + 0.5), points) {
+                let offset = (y * width + x) * 4;
+                alpha_composite_pixel(&mut pixels[offset..offset + 4], &color);
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn rasterize_textured_face(
+    pixels: &mut [u8],
+    width: usize,
+    height: usize,
+    points: &[(f64, f64)],
+    texcoords: &[(f64, f64)],
+    texture: &[u8],
+    texture_width: usize,
+    texture_height: usize,
+    modulation: (f64, f64, f64, f64),
+) {
+    if points.len() < 3 || points.len() != texcoords.len() {
+        return;
+    }
+    for index in 1..points.len() - 1 {
+        rasterize_textured_triangle(
+            pixels,
+            width,
+            height,
+            [points[0], points[index], points[index + 1]],
+            [texcoords[0], texcoords[index], texcoords[index + 1]],
+            texture,
+            texture_width,
+            texture_height,
+            modulation,
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn rasterize_textured_triangle(
+    pixels: &mut [u8],
+    width: usize,
+    height: usize,
+    points: [(f64, f64); 3],
+    texcoords: [(f64, f64); 3],
+    texture: &[u8],
+    texture_width: usize,
+    texture_height: usize,
+    modulation: (f64, f64, f64, f64),
+) {
+    let [(x1, y1), (x2, y2), (x3, y3)] = points;
+    let denominator = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+    if denominator == 0.0 {
+        return;
+    }
+    let min_x = x1.min(x2).min(x3).floor().max(0.0) as usize;
+    let max_x = x1.max(x2).max(x3).ceil().min((width - 1) as f64) as usize;
+    let min_y = y1.min(y2).min(y3).floor().max(0.0) as usize;
+    let max_y = y1.max(y2).max(y3).ceil().min((height - 1) as f64) as usize;
+    if min_x > max_x || min_y > max_y {
+        return;
+    }
+    for py in min_y..=max_y {
+        let sample_y = py as f64 + 0.5;
+        for px in min_x..=max_x {
+            let sample_x = px as f64 + 0.5;
+            let w1 = ((y2 - y3) * (sample_x - x3) + (x3 - x2) * (sample_y - y3)) / denominator;
+            let w2 = ((y3 - y1) * (sample_x - x3) + (x1 - x3) * (sample_y - y3)) / denominator;
+            let w3 = 1.0 - w1 - w2;
+            if w1 < -1e-6 || w2 < -1e-6 || w3 < -1e-6 {
+                continue;
+            }
+            let u = w1 * texcoords[0].0 + w2 * texcoords[1].0 + w3 * texcoords[2].0;
+            let v = w1 * texcoords[0].1 + w2 * texcoords[1].1 + w3 * texcoords[2].1;
+            let tx = ((u.clamp(0.0, 1.0) * (texture_width - 1) as f64).round() as usize)
+                .min(texture_width - 1);
+            let ty = (((1.0 - v.clamp(0.0, 1.0)) * (texture_height - 1) as f64).round() as usize)
+                .min(texture_height - 1);
+            let src = (ty * texture_width + tx) * 4;
+            let shaded = [
+                (texture[src] as f64 * modulation.0)
+                    .round()
+                    .clamp(0.0, 255.0) as u8,
+                (texture[src + 1] as f64 * modulation.1)
+                    .round()
+                    .clamp(0.0, 255.0) as u8,
+                (texture[src + 2] as f64 * modulation.2)
+                    .round()
+                    .clamp(0.0, 255.0) as u8,
+                (texture[src + 3] as f64 * modulation.3)
+                    .round()
+                    .clamp(0.0, 255.0) as u8,
+            ];
+            let dst = (py * width + px) * 4;
+            alpha_composite_pixel(&mut pixels[dst..dst + 4], &shaded);
+        }
+    }
+}
+
+fn scale_rect(rect: (i64, i64, i64, i64), pixel_density: f64) -> (i64, i64, i64, i64) {
+    (
+        (rect.0 as f64 * pixel_density).round() as i64,
+        (rect.1 as f64 * pixel_density).round() as i64,
+        (rect.2 as f64 * pixel_density).round() as i64,
+        (rect.3 as f64 * pixel_density).round() as i64,
+    )
+}
+
+fn image_to_canvas_matrix(
+    matrix: Matrix,
+    dx: f64,
+    dy: f64,
+    dw: f64,
+    dh: f64,
+    sw: usize,
+    sh: usize,
+    pixel_density: f64,
+) -> Matrix {
+    let physical = (
+        matrix.0 * pixel_density,
+        matrix.1 * pixel_density,
+        matrix.2 * pixel_density,
+        matrix.3 * pixel_density,
+        matrix.4 * pixel_density,
+        matrix.5 * pixel_density,
+    );
+    matrix_multiply(
+        matrix_multiply(physical, (1.0, 0.0, 0.0, 1.0, dx, dy)),
+        (dw / sw as f64, 0.0, 0.0, dh / sh as f64, 0.0, 0.0),
+    )
+}
+
+fn matrix_multiply(left: Matrix, right: Matrix) -> Matrix {
+    (
+        left.0 * right.0 + left.2 * right.1,
+        left.1 * right.0 + left.3 * right.1,
+        left.0 * right.2 + left.2 * right.3,
+        left.1 * right.2 + left.3 * right.3,
+        left.0 * right.4 + left.2 * right.5 + left.4,
+        left.1 * right.4 + left.3 * right.5 + left.5,
+    )
+}
+
+fn matrix_transform_point(matrix: Matrix, x: f64, y: f64) -> Point {
+    (
+        matrix.0 * x + matrix.2 * y + matrix.4,
+        matrix.1 * x + matrix.3 * y + matrix.5,
+    )
+}
+
+fn point_to_f32(point: Point) -> [f32; 2] {
+    [point.0 as f32, point.1 as f32]
+}
+
+fn matrix_determinant(matrix: Matrix) -> f64 {
+    matrix.0 * matrix.3 - matrix.1 * matrix.2
+}
+
+fn matrix_inverse(matrix: Matrix) -> Option<Matrix> {
+    let determinant = matrix_determinant(matrix);
+    if determinant.abs() <= f64::EPSILON {
+        return None;
+    }
+    let inv_det = 1.0 / determinant;
+    let a = matrix.3 * inv_det;
+    let b = -matrix.1 * inv_det;
+    let c = -matrix.2 * inv_det;
+    let d = matrix.0 * inv_det;
+    let e = -(a * matrix.4 + c * matrix.5);
+    let f = -(b * matrix.4 + d * matrix.5);
+    Some((a, b, c, d, e, f))
+}
+
+fn affine_bounds(
+    matrix: Matrix,
+    width: usize,
+    height: usize,
+    canvas_width: usize,
+    canvas_height: usize,
+) -> Option<(usize, usize, usize, usize)> {
+    let corners = [
+        matrix_transform_point(matrix, 0.0, 0.0),
+        matrix_transform_point(matrix, width as f64, 0.0),
+        matrix_transform_point(matrix, width as f64, height as f64),
+        matrix_transform_point(matrix, 0.0, height as f64),
+    ];
+    let min_x = corners
+        .iter()
+        .map(|point| point.0)
+        .fold(f64::INFINITY, f64::min)
+        .floor()
+        .max(0.0) as usize;
+    let min_y = corners
+        .iter()
+        .map(|point| point.1)
+        .fold(f64::INFINITY, f64::min)
+        .floor()
+        .max(0.0) as usize;
+    let max_x = corners
+        .iter()
+        .map(|point| point.0)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .ceil()
+        .min(canvas_width as f64)
+        .max(0.0) as usize;
+    let max_y = corners
+        .iter()
+        .map(|point| point.1)
+        .fold(f64::NEG_INFINITY, f64::max)
+        .ceil()
+        .min(canvas_height as f64)
+        .max(0.0) as usize;
+    if max_x <= min_x || max_y <= min_y {
+        None
+    } else {
+        Some((min_x, min_y, max_x - min_x, max_y - min_y))
+    }
+}
+
+fn axis_aligned_image_destination(
+    matrix: Matrix,
+    width: usize,
+    height: usize,
+    canvas_width: usize,
+    canvas_height: usize,
+) -> Option<(usize, usize, usize, usize)> {
+    if matrix.1.abs() > f64::EPSILON || matrix.2.abs() > f64::EPSILON {
+        return None;
+    }
+    if matrix.0 <= 0.0 || matrix.3 <= 0.0 {
+        return None;
+    }
+    let left = matrix.4.round();
+    let top = matrix.5.round();
+    let dest_width = (matrix.0 * width as f64).round();
+    let dest_height = (matrix.3 * height as f64).round();
+    if left < 0.0 || top < 0.0 || dest_width <= 0.0 || dest_height <= 0.0 {
+        return None;
+    }
+    let right = left + dest_width;
+    let bottom = top + dest_height;
+    if right > canvas_width as f64 || bottom > canvas_height as f64 {
+        return None;
+    }
+    Some((
+        left as usize,
+        top as usize,
+        dest_width as usize,
+        dest_height as usize,
+    ))
+}
+
+fn clipped_source_rect(
+    rect: (i64, i64, i64, i64),
+    width: usize,
+    height: usize,
+) -> Option<(usize, usize, usize, usize)> {
+    let (x, y, w, h) = rect;
+    if w <= 0 || h <= 0 {
+        return None;
+    }
+    let left = x.clamp(0, width as i64) as usize;
+    let top = y.clamp(0, height as i64) as usize;
+    let right = (x + w).clamp(0, width as i64) as usize;
+    let bottom = (y + h).clamp(0, height as i64) as usize;
+    if right <= left || bottom <= top {
+        None
+    } else {
+        Some((left, top, right - left, bottom - top))
+    }
+}
+
+fn clipped_dest_rect(
+    rect: (i64, i64, i64, i64),
+    width: usize,
+    height: usize,
+) -> Option<(usize, usize, usize, usize)> {
+    clipped_source_rect(rect, width, height)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn blit_scaled_region(
+    dst: &mut [u8],
+    present_pixels: &mut [u32],
+    dst_width: usize,
+    src: &[u8],
+    src_width: usize,
+    sx: usize,
+    sy: usize,
+    sw: usize,
+    sh: usize,
+    dx: usize,
+    dy: usize,
+    dw: usize,
+    dh: usize,
+    erasing: bool,
+    blend_mode: &str,
+    sampling: &str,
+) {
+    if sw == 0 || sh == 0 || dw == 0 || dh == 0 {
+        return;
+    }
+    let nearest = sampling == "nearest";
+    let default_blend = blend_mode == BLEND_MODE_BLEND;
+    for out_y in 0..dh {
+        let local_y = if nearest {
+            (out_y * sh / dh).min(sh - 1) as f64
+        } else {
+            (out_y as f64 + 0.5) * sh as f64 / dh as f64 - 0.5
+        };
+        for out_x in 0..dw {
+            let local_x = if nearest {
+                (out_x * sw / dw).min(sw - 1) as f64
+            } else {
+                (out_x as f64 + 0.5) * sw as f64 / dw as f64 - 0.5
+            };
+            let src_pixel =
+                sample_image_pixel(src, src_width, sx, sy, sw, sh, local_x, local_y, nearest);
+            if src_pixel[3] == 0 {
+                continue;
+            }
+            let dst_pixel_index = (dy + out_y) * dst_width + dx + out_x;
+            let dst_offset = dst_pixel_index * 4;
+            let dst_pixel = &mut dst[dst_offset..dst_offset + 4];
+            if erasing {
+                dst_pixel[3] = dst_pixel[3].saturating_sub(src_pixel[3]);
+            } else if default_blend && src_pixel[3] == 255 {
+                dst_pixel.copy_from_slice(&src_pixel);
+            } else {
+                blend_pixel(dst_pixel, &src_pixel, blend_mode);
+            }
+            present_pixels[dst_pixel_index] = rgba_to_present_pixel(dst_pixel);
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn blit_affine_region(
+    dst: &mut [u8],
+    present_pixels: &mut [u32],
+    dst_width: usize,
+    src: &[u8],
+    src_width: usize,
+    sx: usize,
+    sy: usize,
+    sw: usize,
+    sh: usize,
+    dx: usize,
+    dy: usize,
+    dw: usize,
+    dh: usize,
+    canvas_to_image: Matrix,
+    erasing: bool,
+    blend_mode: &str,
+    sampling: &str,
+) {
+    if sw == 0 || sh == 0 || dw == 0 || dh == 0 {
+        return;
+    }
+    let nearest = sampling == "nearest";
+    let default_blend = blend_mode == BLEND_MODE_BLEND;
+    let (a, b, c, d, e, f) = canvas_to_image;
+    for out_y in 0..dh {
+        let canvas_y = dy + out_y;
+        let sample_y = canvas_y as f64 + 0.5;
+        let mut local_x = a * (dx as f64 + 0.5) + c * sample_y + e;
+        let mut local_y = b * (dx as f64 + 0.5) + d * sample_y + f;
+        for out_x in 0..dw {
+            let canvas_x = dx + out_x;
+            if local_x < 0.0 || local_y < 0.0 || local_x >= sw as f64 || local_y >= sh as f64 {
+                local_x += a;
+                local_y += b;
+                continue;
+            }
+            let src_pixel =
+                sample_image_pixel(src, src_width, sx, sy, sw, sh, local_x, local_y, nearest);
+            if src_pixel[3] == 0 {
+                local_x += a;
+                local_y += b;
+                continue;
+            }
+            let dst_pixel_index = canvas_y * dst_width + canvas_x;
+            let dst_offset = dst_pixel_index * 4;
+            let dst_pixel = &mut dst[dst_offset..dst_offset + 4];
+            if erasing {
+                dst_pixel[3] = dst_pixel[3].saturating_sub(src_pixel[3]);
+            } else if default_blend && src_pixel[3] == 255 {
+                dst_pixel.copy_from_slice(&src_pixel);
+            } else {
+                blend_pixel(dst_pixel, &src_pixel, blend_mode);
+            }
+            present_pixels[dst_pixel_index] = rgba_to_present_pixel(dst_pixel);
+            local_x += a;
+            local_y += b;
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn sample_image_pixel(
+    src: &[u8],
+    src_width: usize,
+    sx: usize,
+    sy: usize,
+    sw: usize,
+    sh: usize,
+    local_x: f64,
+    local_y: f64,
+    nearest: bool,
+) -> [u8; 4] {
+    if nearest {
+        let x = sx + local_x.floor().clamp(0.0, (sw - 1) as f64) as usize;
+        let y = sy + local_y.floor().clamp(0.0, (sh - 1) as f64) as usize;
+        let offset = (y * src_width + x) * 4;
+        return [
+            src[offset],
+            src[offset + 1],
+            src[offset + 2],
+            src[offset + 3],
+        ];
+    }
+
+    let clamped_x = local_x.clamp(0.0, (sw - 1) as f64);
+    let clamped_y = local_y.clamp(0.0, (sh - 1) as f64);
+    let x0 = clamped_x.floor() as usize;
+    let y0 = clamped_y.floor() as usize;
+    let x1 = (x0 + 1).min(sw - 1);
+    let y1 = (y0 + 1).min(sh - 1);
+    let tx = clamped_x - x0 as f64;
+    let ty = clamped_y - y0 as f64;
+
+    let p00 = source_pixel(src, src_width, sx + x0, sy + y0);
+    let p10 = source_pixel(src, src_width, sx + x1, sy + y0);
+    let p01 = source_pixel(src, src_width, sx + x0, sy + y1);
+    let p11 = source_pixel(src, src_width, sx + x1, sy + y1);
+
+    let mut out = [0_u8; 4];
+    for channel in 0..4 {
+        let top = p00[channel] as f64 * (1.0 - tx) + p10[channel] as f64 * tx;
+        let bottom = p01[channel] as f64 * (1.0 - tx) + p11[channel] as f64 * tx;
+        out[channel] = (top * (1.0 - ty) + bottom * ty).round().clamp(0.0, 255.0) as u8;
+    }
+    out
+}
+
+fn source_pixel(src: &[u8], src_width: usize, x: usize, y: usize) -> [u8; 4] {
+    let offset = (y * src_width + x) * 4;
+    [
+        src[offset],
+        src[offset + 1],
+        src[offset + 2],
+        src[offset + 3],
+    ]
+}
+
+fn draw_polygon_overlay(
+    overlay: &mut OverlayRegion<'_>,
+    points: &[Point],
+    style: &Style,
+    close: bool,
+    pixel_density: f64,
+) {
+    if points.len() == 1 {
+        let color = style.stroke.or(style.fill);
+        if let Some(color) = color {
+            fill_disc(
+                overlay,
+                points[0].0,
+                points[0].1,
+                (style.stroke_weight * pixel_density / 2.0).max(0.5),
+                color,
+            );
+        }
+        return;
+    }
+
+    if close && points.len() >= 3 {
+        if let Some(fill) = style.fill {
+            fill_polygon(overlay, points, fill);
+        }
+    }
+
+    if let Some(stroke) = style.stroke {
+        draw_polyline_stroke(
+            overlay,
+            points,
+            close,
+            stroke_width(style.stroke_weight, pixel_density),
+            stroke,
+        );
+    }
+}
+
+fn draw_axis_aligned_ellipse(
+    overlay: &mut OverlayRegion<'_>,
+    cx: f64,
+    cy: f64,
+    rx: f64,
+    ry: f64,
+    style: &Style,
+    pixel_density: f64,
+) {
+    if rx <= 0.0 || ry <= 0.0 {
+        return;
+    }
+    if let Some(fill) = style.fill {
+        fill_axis_aligned_ellipse(overlay, cx, cy, rx, ry, fill);
+    }
+    if let Some(stroke) = style.stroke {
+        stroke_axis_aligned_ellipse(
+            overlay,
+            cx,
+            cy,
+            rx,
+            ry,
+            stroke_width(style.stroke_weight, pixel_density),
+            stroke,
+        );
+    }
+}
+
+fn fill_axis_aligned_ellipse(
+    overlay: &mut OverlayRegion<'_>,
+    cx: f64,
+    cy: f64,
+    rx: f64,
+    ry: f64,
+    color: Rgba,
+) {
+    let inv_rx2 = 1.0 / (rx * rx);
+    let inv_ry2 = 1.0 / (ry * ry);
+    for y in overlay.min_y..overlay.max_y() {
+        let dy = y as f64 + 0.5 - cy;
+        let dy2 = dy * dy * inv_ry2;
+        if dy2 > 1.0 {
+            continue;
+        }
+        for x in overlay.min_x..overlay.max_x() {
+            let dx = x as f64 + 0.5 - cx;
+            if dx * dx * inv_rx2 + dy2 <= 1.0 {
+                overlay.set_pixel(x, y, color);
+            }
+        }
+    }
+}
+
+fn stroke_axis_aligned_ellipse(
+    overlay: &mut OverlayRegion<'_>,
+    cx: f64,
+    cy: f64,
+    rx: f64,
+    ry: f64,
+    stroke_width: f64,
+    color: Rgba,
+) {
+    let half_width = (stroke_width / 2.0).max(0.5);
+    let outer_rx = rx + half_width;
+    let outer_ry = ry + half_width;
+    let inner_rx = (rx - half_width).max(0.0);
+    let inner_ry = (ry - half_width).max(0.0);
+    let outer_inv_rx2 = 1.0 / (outer_rx * outer_rx);
+    let outer_inv_ry2 = 1.0 / (outer_ry * outer_ry);
+    let has_inner = inner_rx > 0.0 && inner_ry > 0.0;
+    let inner_inv_rx2 = if has_inner {
+        1.0 / (inner_rx * inner_rx)
+    } else {
+        0.0
+    };
+    let inner_inv_ry2 = if has_inner {
+        1.0 / (inner_ry * inner_ry)
+    } else {
+        0.0
+    };
+
+    for y in overlay.min_y..overlay.max_y() {
+        let dy = y as f64 + 0.5 - cy;
+        let outer_dy2 = dy * dy * outer_inv_ry2;
+        if outer_dy2 > 1.0 {
+            continue;
+        }
+        let inner_dy2 = dy * dy * inner_inv_ry2;
+        for x in overlay.min_x..overlay.max_x() {
+            let dx = x as f64 + 0.5 - cx;
+            let outer = dx * dx * outer_inv_rx2 + outer_dy2;
+            if outer > 1.0 {
+                continue;
+            }
+            let inside_inner = has_inner && dx * dx * inner_inv_rx2 + inner_dy2 <= 1.0;
+            if !inside_inner {
+                overlay.set_pixel(x, y, color);
+            }
+        }
+    }
+}
+
+fn fill_polygon(overlay: &mut OverlayRegion<'_>, points: &[Point], color: Rgba) {
+    for y in overlay.min_y..overlay.max_y() {
+        for x in overlay.min_x..overlay.max_x() {
+            let sample = (x as f64 + 0.5, y as f64 + 0.5);
+            if point_in_polygon(sample, points) {
+                overlay.set_pixel(x, y, color);
+            }
+        }
+    }
+}
+
+fn draw_polyline_stroke(
+    overlay: &mut OverlayRegion<'_>,
+    points: &[Point],
+    close: bool,
+    stroke_width: f64,
+    color: Rgba,
+) {
+    if points.len() < 2 {
+        return;
+    }
+    for pair in points.windows(2) {
+        stroke_segment(overlay, pair[0], pair[1], stroke_width, color);
+    }
+    if close {
+        stroke_segment(
+            overlay,
+            *points.last().expect("non-empty points"),
+            points[0],
+            stroke_width,
+            color,
+        );
+    }
+}
+
+fn stroke_segment(
+    overlay: &mut OverlayRegion<'_>,
+    p1: Point,
+    p2: Point,
+    stroke_width: f64,
+    color: Rgba,
+) {
+    let radius = (stroke_width / 2.0).max(0.5);
+    let radius_squared = radius * radius;
+    for y in overlay.min_y..overlay.max_y() {
+        for x in overlay.min_x..overlay.max_x() {
+            let sample = (x as f64 + 0.5, y as f64 + 0.5);
+            if distance_to_segment_squared(sample, p1, p2) <= radius_squared {
+                overlay.set_pixel(x, y, color);
+            }
+        }
+    }
+}
+
+fn fill_disc(overlay: &mut OverlayRegion<'_>, cx: f64, cy: f64, radius: f64, color: Rgba) {
+    let radius_squared = radius * radius;
+    for y in overlay.min_y..overlay.max_y() {
+        for x in overlay.min_x..overlay.max_x() {
+            let dx = x as f64 + 0.5 - cx;
+            let dy = y as f64 + 0.5 - cy;
+            if dx * dx + dy * dy <= radius_squared {
+                overlay.set_pixel(x, y, color);
+            }
+        }
+    }
+}
+
+fn ellipse_bounds(
+    cx: f64,
+    cy: f64,
+    rx: f64,
+    ry: f64,
+    padding: f64,
+    width: usize,
+    height: usize,
+) -> (usize, usize, usize, usize) {
+    (
+        (cx - rx - padding).floor().max(0.0) as usize,
+        (cy - ry - padding).floor().max(0.0) as usize,
+        (cx + rx + padding).ceil().min(width as f64).max(0.0) as usize,
+        (cy + ry + padding).ceil().min(height as f64).max(0.0) as usize,
+    )
+}
+
+fn clipped_bounds(
+    points: &[Point],
+    padding: f64,
+    width: usize,
+    height: usize,
+) -> (usize, usize, usize, usize) {
+    let min_x = points
+        .iter()
+        .map(|point| point.0)
+        .fold(f64::INFINITY, f64::min)
+        - padding;
+    let min_y = points
+        .iter()
+        .map(|point| point.1)
+        .fold(f64::INFINITY, f64::min)
+        - padding;
+    let max_x = points
+        .iter()
+        .map(|point| point.0)
+        .fold(f64::NEG_INFINITY, f64::max)
+        + padding;
+    let max_y = points
+        .iter()
+        .map(|point| point.1)
+        .fold(f64::NEG_INFINITY, f64::max)
+        + padding;
+    (
+        min_x.floor().max(0.0) as usize,
+        min_y.floor().max(0.0) as usize,
+        max_x.ceil().min(width as f64).max(0.0) as usize,
+        max_y.ceil().min(height as f64).max(0.0) as usize,
+    )
+}
+
+fn point_in_polygon(sample: Point, points: &[Point]) -> bool {
+    let (x, y) = sample;
+    let mut inside = false;
+    let mut previous = *points.last().expect("polygon has at least one point");
+    for &current in points {
+        let intersects = ((current.1 > y) != (previous.1 > y))
+            && (x
+                < (previous.0 - current.0) * (y - current.1) / (previous.1 - current.1)
+                    + current.0);
+        if intersects {
+            inside = !inside;
+        }
+        previous = current;
+    }
+    inside
+}
+
+fn polygon_is_convex(points: &[Point]) -> bool {
+    if points.len() < 4 {
+        return true;
+    }
+    let mut sign = 0.0_f64;
+    for index in 0..points.len() {
+        let a = points[index];
+        let b = points[(index + 1) % points.len()];
+        let c = points[(index + 2) % points.len()];
+        let cross = (b.0 - a.0) * (c.1 - b.1) - (b.1 - a.1) * (c.0 - b.0);
+        if cross.abs() <= f64::EPSILON {
+            continue;
+        }
+        if sign == 0.0 {
+            sign = cross.signum();
+        } else if sign != cross.signum() {
+            return false;
+        }
+    }
+    true
+}
+
+fn distance_to_segment_squared(point: Point, p1: Point, p2: Point) -> f64 {
+    let vx = p2.0 - p1.0;
+    let vy = p2.1 - p1.1;
+    let wx = point.0 - p1.0;
+    let wy = point.1 - p1.1;
+    let length_squared = vx * vx + vy * vy;
+    if length_squared <= f64::EPSILON {
+        let dx = point.0 - p1.0;
+        let dy = point.1 - p1.1;
+        return dx * dx + dy * dy;
+    }
+    let t = ((wx * vx + wy * vy) / length_squared).clamp(0.0, 1.0);
+    let projection = (p1.0 + t * vx, p1.1 + t * vy);
+    let dx = point.0 - projection.0;
+    let dy = point.1 - projection.1;
+    dx * dx + dy * dy
+}
+
+fn alpha_composite_pixel(dst: &mut [u8], src: &[u8]) {
+    let src_alpha = src[3] as u32;
+    if src_alpha == 255 {
+        dst.copy_from_slice(src);
+        return;
+    }
+    let dst_alpha = dst[3] as u32;
+    if src_alpha == 0 {
+        return;
+    }
+    let inv_src_alpha = 255 - src_alpha;
+    let out_alpha = src_alpha + (dst_alpha * inv_src_alpha + 127) / 255;
+    if out_alpha == 0 {
+        dst.copy_from_slice(&[0, 0, 0, 0]);
+        return;
+    }
+    for channel in 0..3 {
+        let src_premul = src[channel] as u32 * src_alpha;
+        let dst_premul = dst[channel] as u32 * dst_alpha * inv_src_alpha / 255;
+        dst[channel] = ((src_premul + dst_premul + out_alpha / 2) / out_alpha) as u8;
+    }
+    dst[3] = out_alpha as u8;
+}
+
+fn blend_pixel(dst: &mut [u8], src: &[u8], mode: &str) {
+    if mode == BLEND_MODE_BLEND {
+        alpha_composite_pixel(dst, src);
+        return;
+    }
+    if mode == BLEND_MODE_REPLACE {
+        alpha_composite_pixel(dst, src);
+        return;
+    }
+    let alpha = src[3] as u32;
+    if alpha == 0 {
+        return;
+    }
+    let base = [dst[0], dst[1], dst[2]];
+    let blend = [
+        blend_channel(base[0], src[0], mode),
+        blend_channel(base[1], src[1], mode),
+        blend_channel(base[2], src[2], mode),
+    ];
+    let inv_alpha = 255 - alpha;
+    for channel in 0..3 {
+        dst[channel] =
+            ((blend[channel] as u32 * alpha + base[channel] as u32 * inv_alpha + 127) / 255) as u8;
+    }
+}
+
+fn blend_channel(base: u8, src: u8, mode: &str) -> u8 {
+    match mode {
+        BLEND_MODE_ADD => base.saturating_add(src),
+        BLEND_MODE_DARKEST => base.min(src),
+        BLEND_MODE_LIGHTEST => base.max(src),
+        BLEND_MODE_DIFFERENCE => base.abs_diff(src),
+        BLEND_MODE_EXCLUSION => {
+            let base = base as u32;
+            let src = src as u32;
+            (base + src - (2 * base * src + 127) / 255).min(255) as u8
+        }
+        BLEND_MODE_MULTIPLY => ((base as u32 * src as u32 + 127) / 255) as u8,
+        BLEND_MODE_SCREEN => {
+            let inv = (255 - base as u32) * (255 - src as u32);
+            (255 - (inv + 127) / 255) as u8
+        }
+        _ => src,
+    }
+}
+
+fn fill_rgba_buffer(pixels: &mut [u8], color: &[u8; 4]) {
+    if pixels.is_empty() {
+        return;
+    }
+    let first_len = pixels.len().min(4);
+    pixels[..first_len].copy_from_slice(&color[..first_len]);
+    let mut filled = first_len;
+    while filled < pixels.len() {
+        let copy_len = filled.min(pixels.len() - filled);
+        pixels.copy_within(0..copy_len, filled);
+        filled += copy_len;
+    }
+}
+
+fn rgba_to_present_pixel(rgba: &[u8]) -> u32 {
+    ((rgba[3] as u32) << 24) | ((rgba[0] as u32) << 16) | ((rgba[1] as u32) << 8) | rgba[2] as u32
+}
+
+fn gpu_color(color: Rgba) -> gpu::GpuColor {
+    gpu::GpuColor {
+        r: color.r,
+        g: color.g,
+        b: color.b,
+        a: color.a,
+    }
+}
+
+fn push_triangle(
+    vertices: &mut Vec<([f32; 2], gpu::GpuColor)>,
+    a: Point,
+    b: Point,
+    c: Point,
+    color: Rgba,
+) {
+    let color = gpu_color(color);
+    vertices.push((point_to_gpu(a), color));
+    vertices.push((point_to_gpu(b), color));
+    vertices.push((point_to_gpu(c), color));
+}
+
+fn point_to_gpu(point: Point) -> [f32; 2] {
+    [point.0 as f32, point.1 as f32]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn health_check_reports_canvas_backend() {
+        assert_eq!(health_check(), "rust-canvas");
+        assert_eq!(native_window_available(), runtime_native_window_available());
+    }
+
+    #[test]
+    fn canvas_tracks_logical_and_physical_dimensions() {
+        let canvas = Canvas::new(10, 8, 2.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+
+        assert_eq!(canvas.dimensions(), (10, 8, 20, 16, 2.0));
+        assert_eq!(canvas.pixels.len(), 20 * 16 * 4);
+    }
+
+    #[test]
+    fn canvas_rejects_invalid_dimensions_and_density() {
+        assert!(Canvas::new(0, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).is_err());
+        assert!(Canvas::new(10, 8, 0.0, SUPPORTED_MODE, SUPPORTED_RENDERER).is_err());
+    }
+
+    #[test]
+    fn background_clear_and_pixel_update_round_trip() {
+        let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        canvas.background((10, 20, 30, 255));
+        assert_eq!(canvas.load_pixels(), vec![10, 20, 30, 255, 10, 20, 30, 255]);
+
+        canvas
+            .update_pixels(vec![255, 0, 0, 255, 0, 0, 255, 255])
+            .unwrap();
+        assert_eq!(canvas.load_pixels(), vec![255, 0, 0, 255, 0, 0, 255, 255]);
+
+        canvas.clear();
+        assert_eq!(canvas.load_pixels(), vec![0; 8]);
+    }
+
+    #[test]
+    fn performance_counters_track_and_reset_runtime_paths() {
+        let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        canvas
+            .update_pixels(vec![255, 0, 0, 255, 0, 0, 255, 255])
+            .unwrap();
+        let _pixels = canvas.load_pixels();
+
+        assert!(canvas.performance_counters.pixel_uploads >= 1);
+        assert!(canvas.performance_counters.pixel_readbacks >= 1);
+
+        canvas.reset_performance_counters();
+        assert_eq!(canvas.performance_counters.pixel_uploads, 0);
+        assert_eq!(canvas.performance_counters.pixel_readbacks, 0);
+    }
+
+    #[test]
+    fn cached_images_are_bounded() {
+        let mut canvas = Canvas::new(1, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        for key in 0..(IMAGE_CACHE_LIMIT as u64 + 3) {
+            canvas.evict_image_cache_if_needed(key);
+            canvas.image_cache.insert(
+                key,
+                CachedImage {
+                    version: 0,
+                    width: 1,
+                    height: 1,
+                    pixels: vec![key as u8, 0, 0, 255],
+                },
+            );
+        }
+
+        assert!(canvas.image_cache.len() <= IMAGE_CACHE_LIMIT);
+    }
+
+    #[test]
+    fn cached_text_entries_are_bounded_and_report_evictions() {
+        let mut canvas = Canvas::new(1, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        for index in 0..(TEXT_CACHE_LIMIT + 3) {
+            canvas.evict_text_cache_if_needed();
+            let texture_key = 1_000 + index as u64;
+            let cache_key = format!("text-{index}");
+            canvas.texture_cache_versions.insert(texture_key, 0);
+            canvas.text_cache_order.push_back(cache_key.clone());
+            canvas.text_cache.insert(
+                cache_key,
+                CachedText {
+                    texture_key,
+                    image: CachedImage {
+                        version: 0,
+                        width: 1,
+                        height: 1,
+                        pixels: vec![255, 255, 255, 255],
+                    },
+                    bbox_left: 0,
+                    bbox_top: 0,
+                    ascent: 1.0,
+                },
+            );
+        }
+
+        assert_eq!(canvas.text_cache.len(), TEXT_CACHE_LIMIT);
+        assert_eq!(canvas.text_cache_order.len(), TEXT_CACHE_LIMIT);
+        assert_eq!(canvas.performance_counters.text_cache_evictions, 3);
+        assert!(!canvas.texture_cache_versions.contains_key(&1_000));
+    }
+
+    #[test]
+    fn gpu_status_reports_available_or_clear_error() {
+        let canvas = Canvas::new(4, 4, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+
+        if canvas.gpu_available() {
+            assert_eq!(canvas.gpu_status(), "available");
+        } else {
+            assert_ne!(canvas.gpu_status(), "available");
+        }
+    }
+
+    #[test]
+    fn gpu_path_renders_background_and_triangle_when_available() {
+        let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        if !canvas.gpu_available() {
+            return;
+        }
+
+        canvas.begin_frame();
+        canvas.background((255, 255, 255, 255));
+        canvas
+            .draw_gpu_polygon(
+                &[(1.0, 1.0), (6.0, 1.0), (1.0, 6.0)],
+                &Style {
+                    fill: Some(Rgba {
+                        r: 255,
+                        g: 0,
+                        b: 0,
+                        a: 255,
+                    }),
+                    stroke: None,
+                    stroke_weight: 1.0,
+                    blend_mode: BLEND_MODE_BLEND.to_string(),
+                    erasing: false,
+                    image_sampling: "linear".to_string(),
+                    text_font_path: None,
+                    text_font_name: "default".to_string(),
+                    text_size: 12.0,
+                    text_align_x: "left".to_string(),
+                    text_align_y: "baseline".to_string(),
+                    text_leading: 14.0,
+                },
+                true,
+                1.0,
+            )
+            .unwrap();
+        canvas.end_frame();
+
+        let pixels = canvas.load_pixels();
+        assert!(pixels.chunks_exact(4).any(|rgba| rgba == [255, 0, 0, 255]));
+        assert!(pixels
+            .chunks_exact(4)
+            .any(|rgba| rgba == [255, 255, 255, 255]));
+    }
+
+    #[test]
+    fn gpu_overlay_after_cpu_upload_does_not_replay_previous_clear() {
+        let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        if !canvas.gpu_available() {
+            return;
+        }
+
+        canvas.begin_frame();
+        canvas.background((255, 255, 255, 255));
+        canvas.render_gpu_frame(true);
+
+        let preserved_pixel_offset = (7 * canvas.physical_width + 7) * 4;
+        canvas.pixels[preserved_pixel_offset..preserved_pixel_offset + 4]
+            .copy_from_slice(&[255, 0, 0, 255]);
+        canvas.upload_cpu_pixels().unwrap();
+        canvas
+            .draw_gpu_polygon(
+                &[(1.0, 1.0), (3.0, 1.0), (1.0, 3.0)],
+                &Style {
+                    fill: Some(Rgba {
+                        r: 0,
+                        g: 0,
+                        b: 255,
+                        a: 255,
+                    }),
+                    stroke: None,
+                    stroke_weight: 1.0,
+                    blend_mode: BLEND_MODE_BLEND.to_string(),
+                    erasing: false,
+                    image_sampling: "linear".to_string(),
+                    text_font_path: None,
+                    text_font_name: "default".to_string(),
+                    text_size: 12.0,
+                    text_align_x: "left".to_string(),
+                    text_align_y: "baseline".to_string(),
+                    text_leading: 14.0,
+                },
+                true,
+                1.0,
+            )
+            .unwrap();
+        canvas.end_frame();
+
+        let pixels = canvas.load_pixels();
+        assert_eq!(
+            &pixels[preserved_pixel_offset..preserved_pixel_offset + 4],
+            &[255, 0, 0, 255]
+        );
+        assert!(pixels.chunks_exact(4).any(|rgba| rgba == [0, 0, 255, 255]));
+    }
+
+    #[test]
+    fn interactive_runtime_primitives_track_open_and_close_state() {
+        let mut canvas = Canvas::new(10, 8, 2.0, INTERACTIVE_MODE, SUPPORTED_RENDERER).unwrap();
+
+        assert_eq!(canvas.display_density(), 2.0);
+        assert!(!canvas.should_close());
+        assert!(canvas.poll_events().unwrap().is_empty());
+        assert_eq!(
+            canvas.native_window_available(),
+            runtime_native_window_available()
+        );
+
+        canvas.close();
+        assert!(canvas.should_close());
+    }
+}

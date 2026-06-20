@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bump p5-py package versions in one place.
+"""Bump Gummy Snake package versions in one place.
 
 Updates the root Python package version, Rust crate versions, and the editable
 package version recorded in uv.lock. Use an exact semantic version or one of
@@ -17,15 +17,15 @@ from pathlib import Path
 
 PROJECT_FILES = (
     Path("pyproject.toml"),
-    Path("crates/p5_canvas/Cargo.toml"),
-    Path("crates/p5_accel/Cargo.toml"),
+    Path("crates/gummy_canvas/Cargo.toml"),
+    Path("crates/gummy_accel/Cargo.toml"),
 )
 UV_LOCK = Path("uv.lock")
 VERSION_PARTS = {"major", "minor", "patch"}
 VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 VERSION_LINE_RE = re.compile(r'(?m)^(version\s*=\s*")([^"\n]+)(")')
 UV_PACKAGE_RE = re.compile(
-    r'(?ms)^(\[\[package\]\]\s*\nname\s*=\s*"p5py-vibe"\s*\nversion\s*=\s*")([^"\n]+)(")'
+    r'(?ms)^(\[\[package\]\]\s*\nname\s*=\s*"gummy-snake"\s*\nversion\s*=\s*")([^"\n]+)(")'
 )
 
 
@@ -39,7 +39,7 @@ class VersionFile:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Bump p5-py versions across pyproject.toml, Rust crates, and uv.lock. "
+            "Bump Gummy Snake versions across pyproject.toml, Rust crates, and uv.lock. "
             "TARGET may be an exact X.Y.Z version or one of: major, minor, patch."
         )
     )
@@ -175,7 +175,7 @@ def _read_uv_lock_version(root: Path) -> VersionFile:
     text = path.read_text(encoding="utf-8")
     match = UV_PACKAGE_RE.search(text)
     if match is None:
-        raise RuntimeError("Could not find p5py-vibe package version in uv.lock")
+        raise RuntimeError("Could not find gummy-snake package version in uv.lock")
     return VersionFile(UV_LOCK, match.group(2), match.group(2))
 
 
@@ -184,7 +184,7 @@ def _write_uv_lock_version(root: Path, version: str) -> None:
     text = path.read_text(encoding="utf-8")
     updated, count = UV_PACKAGE_RE.subn(rf"\g<1>{version}\g<3>", text, count=1)
     if count != 1:
-        raise RuntimeError("Could not update p5py-vibe package version in uv.lock")
+        raise RuntimeError("Could not update gummy-snake package version in uv.lock")
     path.write_text(updated, encoding="utf-8")
 
 

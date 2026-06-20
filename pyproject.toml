@@ -3,14 +3,14 @@ requires = ["maturin>=1.9.4,<2"]
 build-backend = "maturin"
 
 [project]
-name = "p5py_vibe"
+name = "gummy-snake"
 version = "0.4.0"
-description = "A Pythonic creative coding package inspired by p5.js."
+description = "A playful Python toolkit for creative coding and small games."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "LGPL-2.1-only"
 license-files = ["license.txt", "LICENSE*"]
-keywords = ["creative-coding", "graphics", "p5", "p5js", "python"]
+keywords = ["creative-coding", "games", "graphics", "python", "sketches"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -39,8 +39,8 @@ release = [
 ]
 
 [tool.maturin]
-manifest-path = "crates/p5_canvas/Cargo.toml"
-module-name = "p5.rust._canvas"
+manifest-path = "crates/gummy_canvas/Cargo.toml"
+module-name = "gummysnake.rust._canvas"
 python-source = "src"
 bindings = "pyo3"
 features = ["extension-module"]

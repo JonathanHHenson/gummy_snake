@@ -3,53 +3,53 @@
 Install the package from PyPI:
 
 ```sh
-pip install p5py-vibe
+pip install gummy-snake
 ```
 
-Then import it as `p5`:
+Then import it as `gummysnake` and use the short `gs` alias:
 
 ```python
-import p5
+import gummysnake as gs
 ```
 
 Optional media helpers are available through the `media` extra:
 
 ```sh
-pip install "p5py-vibe[media]"
+pip install "gummy-snake[media]"
 ```
 
 ## Check Your Install
 
-Save this as `hello_p5.py`:
+Save this as `hello_gummy.py`:
 
 ```python
-import p5
+import gummysnake as gs
 
 
 def setup() -> None:
-    p5.create_canvas(200, 200)
+    gs.create_canvas(200, 200)
 
 
 def draw() -> None:
-    p5.background(240)
-    p5.fill(30, 120, 220)
-    p5.circle(100, 100, 80)
+    gs.background(240)
+    gs.fill(30, 120, 220)
+    gs.circle(100, 100, 80)
 
 
-p5.run(setup=setup, draw=draw)
+gs.run(setup=setup, draw=draw)
 ```
 
 Run it:
 
 ```sh
-python hello_p5.py
+python hello_gummy.py
 ```
 
 If your environment does not support a native window, run a bounded headless
 render:
 
 ```sh
-python hello_p5.py --headless --frames 1
+python hello_gummy.py --headless --frames 1
 ```
 
 ## Local Repository Setup
@@ -58,7 +58,6 @@ If you are working from this repository, use `uv`:
 
 ```sh
 uv sync --dev
-uvx maturin develop --manifest-path crates/p5_canvas/Cargo.toml --module-name p5.rust._canvas --python-source src --features extension-module
+uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 ```
-

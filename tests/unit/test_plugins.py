@@ -2,10 +2,10 @@ from typing import Any, cast
 
 import pytest
 
-import p5
-from p5.events.input_state import KeyboardEvent, MouseEvent
-from p5.plugins import Plugin, clear_plugins, install_plugin, list_plugins, uninstall_plugin
-from p5.sketch import Sketch
+import gummysnake as gs
+from gummysnake.events.input_state import KeyboardEvent, MouseEvent
+from gummysnake.plugins import Plugin, clear_plugins, install_plugin, list_plugins, uninstall_plugin
+from gummysnake.sketch import Sketch
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +22,7 @@ class HookSketch(Sketch):
 
     def preload(self) -> None:
         self.events.append("preload")
-        assert cast(Any, p5).mark_frame("preload") == 0
+        assert cast(Any, gs).mark_frame("preload") == 0
 
     def setup(self) -> None:
         self.events.append("setup")
@@ -35,7 +35,7 @@ class HookSketch(Sketch):
         self.no_stroke()
         self.fill(255, 0, 0)
         self.circle(8, 6, 6)
-        assert cast(Any, p5).mark_frame(f"draw:{self.frame_count}") == self.frame_count
+        assert cast(Any, gs).mark_frame(f"draw:{self.frame_count}") == self.frame_count
 
 
 class RecorderPlugin(Plugin):
@@ -130,7 +130,7 @@ def test_plugin_hooks_api_extension_and_cleanup():
     ]
 
     uninstall_plugin("recorder")
-    assert not hasattr(p5, "mark_frame")
+    assert not hasattr(gs, "mark_frame")
     assert events[-1] == "uninstall"
 
 

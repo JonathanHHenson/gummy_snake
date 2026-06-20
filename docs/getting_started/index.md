@@ -1,7 +1,7 @@
 # Getting Started
 
-p5py is a Python creative-coding package. You write normal Python functions,
-call drawing commands such as `circle()` and `background()`, and let p5py run the
+Gummy Snake is a Python creative-coding package. You write normal Python functions,
+call drawing commands such as `circle()` and `background()`, and let Gummy Snake run the
 sketch lifecycle.
 
 Start here:
@@ -14,18 +14,18 @@ Start here:
 ## Tiny Example
 
 ```python
-import p5
+import gummysnake as gs
 
 
 def setup() -> None:
-    p5.create_canvas(320, 240)
+    gs.create_canvas(320, 240)
 
 
 def draw() -> None:
-    p5.background(250)
-    p5.circle(160, 120, 80)
+    gs.background(250)
+    gs.circle(160, 120, 80)
 
 
-p5.run(setup=setup, draw=draw)
+gs.run(setup=setup, draw=draw)
 ```
 

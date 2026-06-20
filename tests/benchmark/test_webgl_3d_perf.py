@@ -33,7 +33,7 @@ CHILD_CODE = textwrap.dedent(
     import time
     from pathlib import Path
 
-    import p5
+    import gummysnake as gs
 
     variant = sys.argv[1]
     frames = int(sys.argv[2])
@@ -43,7 +43,7 @@ CHILD_CODE = textwrap.dedent(
 
 
     def _texture():
-        image = p5.create_image(8, 8)
+        image = gs.create_image(8, 8)
         pixels = bytearray()
         for y in range(8):
             for x in range(8):
@@ -57,57 +57,57 @@ CHILD_CODE = textwrap.dedent(
 
     def setup() -> None:
         global start, texture, model
-        p5.create_canvas(320, 240, p5.WEBGL)
-        p5.frame_rate(10_000)
-        p5.no_stroke()
-        p5.camera(0, -35, 360, 0, 0, 0, 0, 1, 0)
-        p5.perspective(math.pi / 3, 320 / 240, 0.1, 2000)
+        gs.create_canvas(320, 240, gs.WEBGL)
+        gs.frame_rate(10_000)
+        gs.no_stroke()
+        gs.camera(0, -35, 360, 0, 0, 0, 0, 1, 0)
+        gs.perspective(math.pi / 3, 320 / 240, 0.1, 2000)
         texture = _texture()
-        model = p5.load_model(Path("examples/assets/teapot.obj"), normalize=True)
+        model = gs.load_model(Path("examples/assets/teapot.obj"), normalize=True)
         start = time.perf_counter()
 
 
     def draw() -> None:
-        p5.background(8, 10, 18)
-        p5.ambient_light(50)
-        p5.directional_light(255, 245, 230, -0.4, -0.7, -1.0)
+        gs.background(8, 10, 18)
+        gs.ambient_light(50)
+        gs.directional_light(255, 245, 230, -0.4, -0.7, -1.0)
         if variant == "box":
-            p5.ambient_material(80, 170, 255)
-            p5.rotate(p5.frame_count() * 0.03)
-            p5.box(96)
+            gs.ambient_material(80, 170, 255)
+            gs.rotate(gs.frame_count() * 0.03)
+            gs.box(96)
         elif variant == "sphere":
-            p5.normal_material()
-            p5.rotate(p5.frame_count() * 0.025)
-            p5.sphere(82, 28, 18)
+            gs.normal_material()
+            gs.rotate(gs.frame_count() * 0.025)
+            gs.sphere(82, 28, 18)
         elif variant == "textured_plane":
-            p5.texture(texture)
-            p5.rotate(p5.frame_count() * 0.018)
-            p5.plane(150, 150)
+            gs.texture(texture)
+            gs.rotate(gs.frame_count() * 0.018)
+            gs.plane(150, 150)
         elif variant == "imported_model":
-            p5.specular_material(220, 170, 255)
-            p5.shininess(10)
-            p5.scale(72)
-            p5.rotate(p5.frame_count() * 0.02)
-            p5.model(model)
+            gs.specular_material(220, 170, 255)
+            gs.shininess(10)
+            gs.scale(72)
+            gs.rotate(gs.frame_count() * 0.02)
+            gs.model(model)
         elif variant == "repeated_primitives":
             for index in range(12):
-                with p5.pushed():
-                    p5.translate(-130 + index % 4 * 86, -54 + index // 4 * 62)
-                    p5.rotate(index * 0.4 + p5.frame_count() * 0.02)
+                with gs.pushed():
+                    gs.translate(-130 + index % 4 * 86, -54 + index // 4 * 62)
+                    gs.rotate(index * 0.4 + gs.frame_count() * 0.02)
                     if index % 3 == 0:
-                        p5.ambient_material(240, 120, 90)
-                        p5.box(38)
+                        gs.ambient_material(240, 120, 90)
+                        gs.box(38)
                     elif index % 3 == 1:
-                        p5.normal_material()
-                        p5.sphere(22, 16, 10)
+                        gs.normal_material()
+                        gs.sphere(22, 16, 10)
                     else:
-                        p5.texture(texture)
-                        p5.plane(46, 46)
+                        gs.texture(texture)
+                        gs.plane(46, 46)
         else:
             raise ValueError(f"unknown benchmark variant: {variant}")
 
 
-    p5.run(setup=setup, draw=draw, headless=True, max_frames=frames)
+    gs.run(setup=setup, draw=draw, headless=True, max_frames=frames)
     elapsed = time.perf_counter() - start
     print(
         json.dumps(

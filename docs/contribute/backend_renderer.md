@@ -24,7 +24,7 @@ flowchart LR
 
 ## CanvasBackend
 
-`CanvasBackend` is the adapter for runtime concerns. It does not decide p5 API
+`CanvasBackend` is the adapter for runtime concerns. It does not decide Gummy Snake API
 naming policy and should not contain drawing semantics such as how `rect_mode()`
 changes a rectangle.
 
@@ -46,7 +46,7 @@ unit tests with fake canvas modules/events.
 ## CanvasRenderer
 
 `CanvasRenderer` is the adapter for drawing concerns. It should receive already
-validated p5-level decisions from `SketchContext` and translate them into Rust
+validated Gummy Snake-level decisions from `SketchContext` and translate them into Rust
 canvas calls.
 
 It is responsible for:
@@ -64,17 +64,17 @@ It is responsible for:
 Renderer methods should not know about global-mode dispatch, plugin hooks, or
 the sketch lifecycle.
 
-## p5.rust.canvas
+## gummysnake.rust.canvas
 
-`p5.rust.canvas` is the Python wrapper around the optional import mechanics and
+`gummysnake.rust.canvas` is the Python wrapper around the optional import mechanics and
 required runtime capability checks. The PyO3 module is required for current
 runtime behavior, but imports can still fail in development environments.
 
 This layer should:
 
-- import `p5.rust._canvas`
+- import `gummysnake.rust._canvas`
 - expose a small health-check and capability-check surface
-- raise clear p5 exceptions when the extension is missing
+- raise clear Gummy Snake exceptions when the extension is missing
 - include rebuild guidance in capability errors
 
 Do not leak raw extension import errors to sketch authors when a package-level
@@ -88,10 +88,10 @@ Use these examples when deciding where code belongs:
 | --- | --- |
 | Add a new public drawing function | `global_mode.py`, `__init__.py`, `SketchContext`, and maybe `CanvasRenderer`/Rust |
 | Change how `rect_mode(CENTER)` computes coordinates | `SketchContext` or geometry helpers |
-| Add a new Rust primitive call payload | `CanvasRenderer` and `crates/p5_canvas` |
-| Improve missing extension error text | `p5.rust.canvas` |
+| Add a new Rust primitive call payload | `CanvasRenderer` and `crates/gummy_canvas` |
+| Improve missing extension error text | `gummysnake.rust.canvas` |
 | Poll a new native input event | `CanvasBackend` and Rust event support |
-| Add a new pixel export format | `CanvasRenderer` and `crates/p5_canvas` |
+| Add a new pixel export format | `CanvasRenderer` and `crates/gummy_canvas` |
 | Change frame scheduling | `CanvasBackend` and lifecycle tests |
 
 ## Data Flow For A Draw Call
@@ -101,7 +101,7 @@ sequenceDiagram
     participant C as SketchContext
     participant S as SketchState
     participant R as CanvasRenderer
-    participant X as p5_canvas
+    participant X as gummy_canvas
 
     C->>S: read style, transform, color mode
     C->>C: validate and normalize arguments
@@ -110,6 +110,5 @@ sequenceDiagram
     X-->>R: success or renderer error
 ```
 
-The context owns p5 behavior. The renderer owns translation. Rust owns actual
+The context owns Gummy Snake behavior. The renderer owns translation. Rust owns actual
 rendering.
-

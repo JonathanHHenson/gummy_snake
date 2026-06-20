@@ -1,16 +1,16 @@
 import pytest
 
-import p5
-from p5.core.color import Color
-from p5.exceptions import ArgumentValidationError
+import gummysnake as gs
+from gummysnake.core.color import Color
+from gummysnake.exceptions import ArgumentValidationError
 
 
 def test_pixels_round_trip_and_pixel_array_include_physical_density():
     def setup():
-        p5.create_canvas(2, 1, pixel_density=2)
-        p5.background(0, 0, 0, 255)
+        gs.create_canvas(2, 1, pixel_density=2)
+        gs.background(0, 0, 0, 255)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
 
     pixels = context.load_pixels()
     assert len(pixels) == 4 * 2 * 1 * 2 * 2
@@ -23,9 +23,9 @@ def test_pixels_round_trip_and_pixel_array_include_physical_density():
 
 def test_update_pixels_accepts_bytes_buffer():
     def setup():
-        p5.create_canvas(2, 1)
+        gs.create_canvas(2, 1)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
 
     context.update_pixels(bytes([255, 0, 0, 255, 0, 0, 255, 255]))
 
@@ -34,44 +34,44 @@ def test_update_pixels_accepts_bytes_buffer():
 
 def test_load_pixel_bytes_and_update_pixels_accept_memoryview():
     def setup():
-        p5.create_canvas(2, 1)
+        gs.create_canvas(2, 1)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
     payload = bytes([10, 20, 30, 255, 40, 50, 60, 255])
 
     context.update_pixels(memoryview(payload))
 
     assert context.load_pixel_bytes() == payload
-    assert p5.run(setup=setup, headless=True, max_frames=0).load_pixel_bytes() == bytes(8)
+    assert gs.run(setup=setup, headless=True, max_frames=0).load_pixel_bytes() == bytes(8)
 
 
 def test_canvas_get_set_copy_and_filter_helpers():
     def setup():
-        p5.create_canvas(3, 2)
-        p5.background(0, 0, 0, 255)
-        p5.set(1, 0, p5.Color(10, 20, 30, 255))
-        assert p5.get(1, 0) == p5.Color(10, 20, 30, 255)
-        region = p5.get(1, 0, 1, 1)
-        assert isinstance(region, p5.Image)
-        p5.copy(1, 0, 1, 1, 2, 1, 1, 1)
-        assert p5.get(2, 1) == p5.Color(10, 20, 30, 255)
-        p5.filter(p5.INVERT)
+        gs.create_canvas(3, 2)
+        gs.background(0, 0, 0, 255)
+        gs.set(1, 0, gs.Color(10, 20, 30, 255))
+        assert gs.get(1, 0) == gs.Color(10, 20, 30, 255)
+        region = gs.get(1, 0, 1, 1)
+        assert isinstance(region, gs.Image)
+        gs.copy(1, 0, 1, 1, 2, 1, 1, 1)
+        assert gs.get(2, 1) == gs.Color(10, 20, 30, 255)
+        gs.filter(gs.INVERT)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
-    assert context.get(2, 1) == p5.Color(245, 235, 225, 255)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
+    assert context.get(2, 1) == gs.Color(245, 235, 225, 255)
 
 
 def test_canvas_region_apis_use_physical_hidpi_regions():
     def setup():
-        p5.create_canvas(2, 2, pixel_density=2)
-        p5.background(0, 0, 0, 255)
-        p5.set(1, 1, p5.Color(12, 34, 56, 255))
+        gs.create_canvas(2, 2, pixel_density=2)
+        gs.background(0, 0, 0, 255)
+        gs.set(1, 1, gs.Color(12, 34, 56, 255))
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
 
-    assert context.get(1, 1) == p5.Color(12, 34, 56, 255)
+    assert context.get(1, 1) == gs.Color(12, 34, 56, 255)
     region = context.get(1, 1, 1, 1)
-    assert isinstance(region, p5.Image)
+    assert isinstance(region, gs.Image)
     assert (region.width, region.height) == (2, 2)
     assert region.to_rgba_bytes() == bytes(
         [12, 34, 56, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]
@@ -80,29 +80,29 @@ def test_canvas_region_apis_use_physical_hidpi_regions():
 
 def test_gpu_queued_text_preserves_pixels_from_update_pixels():
     def setup():
-        p5.create_canvas(8, 8)
-        p5.text_size(8)
+        gs.create_canvas(8, 8)
+        gs.text_size(8)
 
     def draw():
-        p5.update_pixels(bytes([10, 20, 30, 255] * 64))
-        p5.fill(255)
-        p5.text("x", 1, 7)
+        gs.update_pixels(bytes([10, 20, 30, 255] * 64))
+        gs.fill(255)
+        gs.text("x", 1, 7)
 
-    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     assert context.load_pixels()[0:4] == [10, 20, 30, 255]
 
 
 def test_save_canvas_adds_default_extension_and_validates_overwrite(tmp_path):
     def setup():
-        p5.create_canvas(3, 2)
-        p5.background(10, 20, 30)
+        gs.create_canvas(3, 2)
+        gs.background(10, 20, 30)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
     output = context.save_canvas(tmp_path / "canvas")
 
     assert output.suffix == ".png"
-    image = p5.load_image(output)
+    image = gs.load_image(output)
     assert (image.width, image.height) == (3, 2)
     pixel = image.get(0, 0)
     assert isinstance(pixel, Color)
@@ -114,19 +114,19 @@ def test_save_canvas_adds_default_extension_and_validates_overwrite(tmp_path):
 
 def test_blend_mode_multiply_and_erase_affect_subsequent_drawing():
     def setup():
-        p5.create_canvas(4, 1)
-        p5.no_stroke()
-        p5.background(100, 100, 100, 255)
-        p5.blend_mode(p5.MULTIPLY)
-        p5.fill(128, 255, 255, 255)
-        p5.rect(0, 0, 1, 1)
-        p5.blend_mode(p5.BLEND)
-        p5.erase()
-        p5.fill(255, 255, 255, 255)
-        p5.rect(3, 0, 1, 1)
-        p5.no_erase()
+        gs.create_canvas(4, 1)
+        gs.no_stroke()
+        gs.background(100, 100, 100, 255)
+        gs.blend_mode(gs.MULTIPLY)
+        gs.fill(128, 255, 255, 255)
+        gs.rect(0, 0, 1, 1)
+        gs.blend_mode(gs.BLEND)
+        gs.erase()
+        gs.fill(255, 255, 255, 255)
+        gs.rect(3, 0, 1, 1)
+        gs.no_erase()
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
     pixels = context.load_pixels()
 
     assert pixels[0:4] == [50, 100, 100, 255]
@@ -135,31 +135,31 @@ def test_blend_mode_multiply_and_erase_affect_subsequent_drawing():
 
 def test_blend_region_can_copy_canvas_region_with_add_mode():
     def setup():
-        p5.create_canvas(4, 1)
-        p5.no_stroke()
-        p5.background(10, 20, 30, 255)
-        p5.fill(10, 0, 0, 255)
-        p5.rect(0, 0, 1, 1)
-        p5.blend(0, 0, 1, 1, 3, 0, 1, 1, p5.ADD)
+        gs.create_canvas(4, 1)
+        gs.no_stroke()
+        gs.background(10, 20, 30, 255)
+        gs.fill(10, 0, 0, 255)
+        gs.rect(0, 0, 1, 1)
+        gs.blend(0, 0, 1, 1, 3, 0, 1, 1, gs.ADD)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
     pixels = context.load_pixels()
 
     assert pixels[12:16] == [20, 20, 30, 255]
 
 
 def test_blend_region_scales_destination_for_physical_density():
-    source = p5.create_image(2, 2)
+    source = gs.create_image(2, 2)
     for y in range(2):
         for x in range(2):
             source.set(x, y, (255, 0, 0, 255))
 
     def setup():
-        p5.create_canvas(4, 4, pixel_density=2)
-        p5.background(0, 0, 0, 255)
-        p5.blend(source, 0, 0, 2, 2, 1, 1, 1, 1, p5.BLEND)
+        gs.create_canvas(4, 4, pixel_density=2)
+        gs.background(0, 0, 0, 255)
+        gs.blend(source, 0, 0, 2, 2, 1, 1, 1, 1, gs.BLEND)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
     pixels = context.load_pixels()
 
     def pixel_at(x: int, y: int) -> list[int]:

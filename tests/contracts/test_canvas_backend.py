@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from p5.backends import create_backend, registry
-from p5.backends.canvas import CanvasBackend
-from p5.exceptions import BackendCapabilityError
-from p5.rust import canvas as canvas_bridge
-from p5.sketch import Sketch
+from gummysnake.backends import create_backend, registry
+from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.exceptions import BackendCapabilityError
+from gummysnake.rust import canvas as canvas_bridge
+from gummysnake.sketch import Sketch
 
 
 def test_sketch_defaults_to_canvas_runtime() -> None:

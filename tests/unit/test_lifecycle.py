@@ -1,7 +1,7 @@
 import pytest
 
-from p5 import Sketch
-from p5.events.input_state import KeyboardEvent
+from gummysnake import Sketch
+from gummysnake.events.input_state import KeyboardEvent
 
 
 class CounterSketch(Sketch):

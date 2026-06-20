@@ -14,7 +14,7 @@ jobs:
         with:
           python-version-file: .python-version
       - run: uv sync --dev
-      - run: uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
+      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
       - run: uv run ruff check .
       - run: uv run mypy src
       - run: uv run python scripts/bump_version.py --check
@@ -31,8 +31,8 @@ jobs:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
       - run: uv sync --dev
-      - run: uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
-      - run: uv run pytest --cov=p5 --cov-report=term-missing --cov-report=xml
+      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
+      - run: uv run pytest --cov=gummysnake --cov-report=term-missing --cov-report=xml
       - name: Add coverage summary
         run: |
           {
@@ -66,9 +66,9 @@ jobs:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
       - run: uv sync --dev
-      - run: uvx maturin build --release --manifest-path crates/p5_accel/Cargo.toml
-      - run: cargo test --manifest-path crates/p5_canvas/Cargo.toml
-      - run: uvx maturin build --release --manifest-path crates/p5_canvas/Cargo.toml
+      - run: uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml
+      - run: cargo test --manifest-path crates/gummy_canvas/Cargo.toml
+      - run: uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml
 
   canvas-extension-python:
     runs-on: ubuntu-latest
@@ -80,5 +80,5 @@ jobs:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
       - run: uv sync --dev
-      - run: uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
+      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
       - run: uv run pytest tests/unit/test_rust_canvas.py tests/contracts/test_canvas_backend.py

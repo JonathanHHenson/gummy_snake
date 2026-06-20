@@ -1,11 +1,11 @@
 import pytest
 
-import p5
-from p5 import ArgumentValidationError, UnsupportedFeatureError
+import gummysnake as gs
+from gummysnake import ArgumentValidationError, UnsupportedFeatureError
 
 
 def test_image_pixel_helpers_round_trip_and_track_version() -> None:
-    image = p5.create_image(2, 1)
+    image = gs.create_image(2, 1)
     assert image.load_pixels() == [0, 0, 0, 0, 0, 0, 0, 0]
     assert image.pixel_density() == 1.0
     assert isinstance(image.cache_key, int)
@@ -14,14 +14,14 @@ def test_image_pixel_helpers_round_trip_and_track_version() -> None:
     image.update_pixels(bytes([255, 0, 0, 255, 0, 0, 255, 255]))
 
     assert image.pixels == [255, 0, 0, 255, 0, 0, 255, 255]
-    assert image.get(0, 0) == p5.Color(255, 0, 0, 255)
+    assert image.get(0, 0) == gs.Color(255, 0, 0, 255)
     assert image.version == initial_version + 1
     assert image.rust_image is None
 
 
 def test_image_cache_keys_are_stable_and_unique() -> None:
-    first = p5.create_image(1, 1)
-    second = p5.create_image(1, 1)
+    first = gs.create_image(1, 1)
+    second = gs.create_image(1, 1)
     key = first.cache_key
 
     first.update_pixels(memoryview(bytes([1, 2, 3, 4])))
@@ -32,7 +32,7 @@ def test_image_cache_keys_are_stable_and_unique() -> None:
 
 
 def test_image_update_pixels_validates_buffer_length() -> None:
-    image = p5.create_image(2, 1)
+    image = gs.create_image(2, 1)
 
     with pytest.raises(ArgumentValidationError, match="must contain 8 bytes"):
         image.update_pixels([1, 2, 3])
@@ -41,14 +41,14 @@ def test_image_update_pixels_validates_buffer_length() -> None:
 
 
 def test_image_region_copy_validates_empty_regions() -> None:
-    image = p5.create_image(2, 2)
+    image = gs.create_image(2, 2)
 
     with pytest.raises(ArgumentValidationError, match="region dimensions"):
         image.get(0, 0, 0, 1)
 
 
 def test_image_local_operations_delegate_to_rust_and_preserve_semantics() -> None:
-    image = p5.Image(
+    image = gs.Image(
         2,
         2,
         bytes(
@@ -74,7 +74,7 @@ def test_image_local_operations_delegate_to_rust_and_preserve_semantics() -> Non
     )
 
     cropped = image.get(-1, 0, 2, 2)
-    assert isinstance(cropped, p5.Image)
+    assert isinstance(cropped, gs.Image)
     assert cropped.to_rgba_bytes() == bytes(
         [
             0,
@@ -101,24 +101,24 @@ def test_image_local_operations_delegate_to_rust_and_preserve_semantics() -> Non
     assert resized.to_rgba_bytes() == bytes([10, 20, 30, 255])
 
     filtered = image.copy()
-    filtered.filter(p5.INVERT)
+    filtered.filter(gs.INVERT)
     assert filtered.to_rgba_bytes()[:8] == bytes([245, 235, 225, 255, 155, 255, 255, 128])
 
-    mask = p5.Image(2, 2, bytes([255, 255, 255, 255, 0, 0, 0, 255] * 2))
+    mask = gs.Image(2, 2, bytes([255, 255, 255, 255, 0, 0, 0, 255] * 2))
     masked = image.copy()
     masked.mask(mask)
     assert masked.to_rgba_bytes()[3::4] == bytes([255, 0, 255, 0])
 
-    target = p5.Image(1, 1, bytes([0, 0, 0, 255]))
-    target.set(0, 0, p5.Image(1, 1, bytes([100, 0, 0, 128])))
+    target = gs.Image(1, 1, bytes([0, 0, 0, 255]))
+    target.set(0, 0, gs.Image(1, 1, bytes([100, 0, 0, 128])))
     assert target.to_rgba_bytes() == bytes([50, 0, 0, 255])
 
 
 def test_image_deferred_methods_raise_package_specific_errors() -> None:
-    image = p5.create_image(1, 1)
+    image = gs.create_image(1, 1)
 
     with pytest.raises(UnsupportedFeatureError, match="Image.blend"):
-        image.blend(0, 0, 1, 1, 0, 0, 1, 1, p5.BLEND)
+        image.blend(0, 0, 1, 1, 0, 0, 1, 1, gs.BLEND)
     with pytest.raises(UnsupportedFeatureError, match="pixel_density"):
         image.pixel_density(2)
     with pytest.raises(UnsupportedFeatureError, match="Animated image"):

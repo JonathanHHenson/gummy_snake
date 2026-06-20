@@ -1,1 +1,1 @@
-"""Runnable p5-py example sketches."""
+"""Runnable Gummy Snake example sketches."""

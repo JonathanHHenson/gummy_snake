@@ -1,47 +1,47 @@
 import math
 from pathlib import Path
 
-import p5
-from p5.rust.canvas import is_canvas_available
+import gummysnake as gs
+from gummysnake.rust.canvas import is_canvas_available
 
 
 def test_webgl_box_renders_non_empty_headless_canvas():
     def setup():
-        p5.create_canvas(96, 96, p5.WEBGL)
-        p5.background(12, 16, 28)
-        p5.no_stroke()
-        p5.camera(0, 0, 180, 0, 0, 0, 0, 1, 0)
-        p5.ambient_material(120, 200, 255)
+        gs.create_canvas(96, 96, gs.WEBGL)
+        gs.background(12, 16, 28)
+        gs.no_stroke()
+        gs.camera(0, 0, 180, 0, 0, 0, 0, 1, 0)
+        gs.ambient_material(120, 200, 255)
 
     def draw():
-        p5.ambient_light(40)
-        p5.directional_light(255, 255, 255, -0.4, -0.7, -1.0)
-        p5.box(70)
+        gs.ambient_light(40)
+        gs.directional_light(255, 255, 255, -0.4, -0.7, -1.0)
+        gs.box(70)
 
-    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     pixels = context.load_pixels()
     assert any(value > 0 for value in pixels)
 
 
 def test_webgl_textured_plane_renders_expected_quadrant_colors():
-    texture = p5.create_image(2, 2)
-    texture.set(0, 0, p5.Color(255, 0, 0, 255))
-    texture.set(1, 0, p5.Color(0, 255, 0, 255))
-    texture.set(0, 1, p5.Color(0, 0, 255, 255))
-    texture.set(1, 1, p5.Color(255, 255, 0, 255))
+    texture = gs.create_image(2, 2)
+    texture.set(0, 0, gs.Color(255, 0, 0, 255))
+    texture.set(1, 0, gs.Color(0, 255, 0, 255))
+    texture.set(0, 1, gs.Color(0, 0, 255, 255))
+    texture.set(1, 1, gs.Color(255, 255, 0, 255))
 
     def setup():
-        p5.create_canvas(64, 64, p5.WEBGL)
-        p5.background(0)
-        p5.no_stroke()
-        p5.ortho(64, 64, 0.1, 1000)
-        p5.texture(texture)
+        gs.create_canvas(64, 64, gs.WEBGL)
+        gs.background(0)
+        gs.no_stroke()
+        gs.ortho(64, 64, 0.1, 1000)
+        gs.texture(texture)
 
     def draw():
-        p5.plane(48, 48)
+        gs.plane(48, 48)
 
-    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     pixels = context.load_pixels()
 
@@ -61,47 +61,47 @@ def test_webgl_textured_plane_renders_expected_quadrant_colors():
 
 
 def test_webgl_obj_model_renders_from_example_asset():
-    teapot = p5.load_model(Path("examples/assets/teapot.obj"), normalize=True)
+    teapot = gs.load_model(Path("examples/assets/teapot.obj"), normalize=True)
 
     def setup():
-        p5.create_canvas(128, 128, p5.WEBGL)
-        p5.background(8, 10, 18)
-        p5.stroke(24, 28, 44)
-        p5.camera(0, 0, 4, 0, 0, 0, 0, 1, 0)
-        p5.perspective(math.pi / 3, 1.0, 0.1, 100)
-        p5.specular_material(220, 170, 255)
-        p5.shininess(8)
+        gs.create_canvas(128, 128, gs.WEBGL)
+        gs.background(8, 10, 18)
+        gs.stroke(24, 28, 44)
+        gs.camera(0, 0, 4, 0, 0, 0, 0, 1, 0)
+        gs.perspective(math.pi / 3, 1.0, 0.1, 100)
+        gs.specular_material(220, 170, 255)
+        gs.shininess(8)
 
     def draw():
-        p5.ambient_light(50)
-        p5.directional_light(255, 220, 210, -0.3, -0.7, -1.0)
-        p5.model(teapot)
+        gs.ambient_light(50)
+        gs.directional_light(255, 220, 210, -0.3, -0.7, -1.0)
+        gs.model(teapot)
 
-    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     pixels = context.load_pixels()
     assert any(value > 0 for value in pixels)
 
 
 def test_webgl_obj_model_transform_is_applied_before_projection():
-    teapot = p5.load_model(Path("examples/assets/teapot.obj"), normalize=True)
+    teapot = gs.load_model(Path("examples/assets/teapot.obj"), normalize=True)
 
     def setup():
-        p5.create_canvas(128, 128, p5.WEBGL)
-        p5.background(0)
-        p5.no_stroke()
-        p5.camera(0, -60, 470, 0, 20, 0, 0, 1, 0)
-        p5.perspective(math.pi / 3, 1.0, 0.1, 4000)
-        p5.specular_material(190, 160, 240)
+        gs.create_canvas(128, 128, gs.WEBGL)
+        gs.background(0)
+        gs.no_stroke()
+        gs.camera(0, -60, 470, 0, 20, 0, 0, 1, 0)
+        gs.perspective(math.pi / 3, 1.0, 0.1, 4000)
+        gs.specular_material(190, 160, 240)
 
     def draw():
-        p5.ambient_light(45)
-        p5.directional_light(255, 244, 230, -0.45, -0.7, -1.0)
-        p5.translate(0, -30)
-        p5.scale(70)
-        p5.model(teapot)
+        gs.ambient_light(45)
+        gs.directional_light(255, 244, 230, -0.45, -0.7, -1.0)
+        gs.translate(0, -30)
+        gs.scale(70)
+        gs.model(teapot)
 
-    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     pixels = context.load_pixels()
     occupied = []
@@ -121,18 +121,18 @@ def test_canvas_webgl_box_renders_non_empty_canvas():
         return
 
     def setup():
-        p5.create_canvas(96, 96, p5.WEBGL)
-        p5.background(12, 16, 28)
-        p5.no_stroke()
-        p5.camera(0, 0, 180, 0, 0, 0, 0, 1, 0)
-        p5.ambient_material(120, 200, 255)
+        gs.create_canvas(96, 96, gs.WEBGL)
+        gs.background(12, 16, 28)
+        gs.no_stroke()
+        gs.camera(0, 0, 180, 0, 0, 0, 0, 1, 0)
+        gs.ambient_material(120, 200, 255)
 
     def draw():
-        p5.ambient_light(40)
-        p5.directional_light(255, 255, 255, -0.4, -0.7, -1.0)
-        p5.box(70)
+        gs.ambient_light(40)
+        gs.directional_light(255, 255, 255, -0.4, -0.7, -1.0)
+        gs.box(70)
 
-    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     pixels = context.load_pixels()
     assert any(value > 0 for value in pixels)
@@ -142,24 +142,24 @@ def test_canvas_webgl_shader_binding_and_uniforms_are_accepted():
     if not is_canvas_available():
         return
 
-    program = p5.create_shader(
+    program = gs.create_shader(
         "void main() { gl_Position = gl_Vertex; }",
         "void main() { gl_FragColor = vec4(1.0); }",
     )
 
     def setup():
-        p5.create_canvas(96, 96, p5.WEBGL)
-        p5.background(0)
-        p5.no_stroke()
-        p5.camera(0, 0, 180, 0, 0, 0, 0, 1, 0)
-        p5.shader(program)
+        gs.create_canvas(96, 96, gs.WEBGL)
+        gs.background(0)
+        gs.no_stroke()
+        gs.camera(0, 0, 180, 0, 0, 0, 0, 1, 0)
+        gs.shader(program)
         program.set_uniform("u_time", 1.25)
 
     def draw():
-        p5.ambient_material(255, 180, 80)
-        p5.box(60)
+        gs.ambient_material(255, 180, 80)
+        gs.box(60)
 
-    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     assert context._shader3d is program
     assert program.uniforms["u_time"] == 1.25

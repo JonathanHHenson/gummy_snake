@@ -20,19 +20,19 @@ def load_bump_version_module() -> ModuleType:
 
 
 def write_fake_repo(root: Path, *, py_version: str = "0.2.2", crate_version: str = "0.2.2") -> None:
-    (root / "crates" / "p5_canvas").mkdir(parents=True)
-    (root / "crates" / "p5_accel").mkdir(parents=True)
+    (root / "crates" / "gummy_canvas").mkdir(parents=True)
+    (root / "crates" / "gummy_accel").mkdir(parents=True)
     (root / "pyproject.toml").write_text(
-        f'[project]\nname = "p5py_vibe"\nversion = "{py_version}"\n',
+        f'[project]\nname = "gummy-snake"\nversion = "{py_version}"\n',
         encoding="utf-8",
     )
-    for crate in ("p5_canvas", "p5_accel"):
+    for crate in ("gummy_canvas", "gummy_accel"):
         (root / "crates" / crate / "Cargo.toml").write_text(
             f'[package]\nname = "{crate}"\nversion = "{crate_version}"\n',
             encoding="utf-8",
         )
     (root / "uv.lock").write_text(
-        f'[[package]]\nname = "p5py-vibe"\nversion = "{py_version}"\n'
+        f'[[package]]\nname = "gummy-snake"\nversion = "{py_version}"\n'
         'source = { editable = "." }\n',
         encoding="utf-8",
     )
@@ -41,8 +41,8 @@ def write_fake_repo(root: Path, *, py_version: str = "0.2.2", crate_version: str
 def read_texts(root: Path) -> tuple[str, str, str, str]:
     return (
         (root / "pyproject.toml").read_text(encoding="utf-8"),
-        (root / "crates" / "p5_canvas" / "Cargo.toml").read_text(encoding="utf-8"),
-        (root / "crates" / "p5_accel" / "Cargo.toml").read_text(encoding="utf-8"),
+        (root / "crates" / "gummy_canvas" / "Cargo.toml").read_text(encoding="utf-8"),
+        (root / "crates" / "gummy_accel" / "Cargo.toml").read_text(encoding="utf-8"),
         (root / "uv.lock").read_text(encoding="utf-8"),
     )
 

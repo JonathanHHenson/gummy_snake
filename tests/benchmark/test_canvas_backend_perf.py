@@ -39,8 +39,8 @@ CHILD_CODE = textwrap.dedent(
     import sys
     import time
 
-    import p5
-    from p5.rust.canvas import is_canvas_available
+    import gummysnake as gs
+    from gummysnake.rust.canvas import is_canvas_available
 
     variant = sys.argv[1]
     frames = int(sys.argv[2])
@@ -67,7 +67,7 @@ CHILD_CODE = textwrap.dedent(
                 pixels[offset + 1] = (seed * 67 + y * 7) % 256
                 pixels[offset + 2] = 160 + (x + y + seed) % 80
                 pixels[offset + 3] = 255
-        return p5.Image(width, height, bytes(pixels))
+        return gs.Image(width, height, bytes(pixels))
 
 
     def _reset_asteroids():
@@ -90,225 +90,225 @@ CHILD_CODE = textwrap.dedent(
 
 
     def _draw_starfield(count):
-        p5.no_stroke()
+        gs.no_stroke()
         for index in range(count):
-            x = (index * 97 + p5.frame_count() * (index % 4 + 1)) % 720
+            x = (index * 97 + gs.frame_count() * (index % 4 + 1)) % 720
             y = (index * 53 + index * index) % 480
             alpha = 110 + (index % 4) * 35
-            p5.fill(190, 220, 255, alpha)
-            p5.circle(x, y, 1 + index % 3)
+            gs.fill(190, 220, 255, alpha)
+            gs.circle(x, y, 1 + index % 3)
 
 
     def _draw_primitives(count):
         for index in range(count):
             x = 90 + (index * 83) % 520
             y = 80 + (index * 59) % 280
-            with p5.pushed():
-                p5.translate(x, y)
-                p5.rotate(index * 0.18 + p5.frame_count() * 0.01)
-                p5.no_fill()
-                p5.stroke(180, 190, 210)
-                p5.stroke_weight(2.5)
-                p5.ellipse(-18, -14, 52, 64)
-                p5.stroke(170, 225, 255, 255)
-                p5.fill(36, 116, 220, 245)
-                p5.triangle(0, -24, -20, 20, 0, 6)
-                p5.triangle(0, -24, 0, 6, 20, 20)
+            with gs.pushed():
+                gs.translate(x, y)
+                gs.rotate(index * 0.18 + gs.frame_count() * 0.01)
+                gs.no_fill()
+                gs.stroke(180, 190, 210)
+                gs.stroke_weight(2.5)
+                gs.ellipse(-18, -14, 52, 64)
+                gs.stroke(170, 225, 255, 255)
+                gs.fill(36, 116, 220, 245)
+                gs.triangle(0, -24, -20, 20, 0, 6)
+                gs.triangle(0, -24, 0, 6, 20, 20)
 
 
     def _draw_laser_field(count):
-        p5.no_fill()
-        p5.stroke(100, 200, 255, 240)
-        p5.stroke_weight(3)
+        gs.no_fill()
+        gs.stroke(100, 200, 255, 240)
+        gs.stroke_weight(3)
         for index in range(count):
             sx = 80 + (index * 41) % 560
             sy = 60 + (index * 67) % 360
-            with p5.pushed():
-                p5.translate(sx, sy)
-                p5.rotate(math.pi / 4 + index * 0.1)
-                p5.line(0, -18, 0, 18)
+            with gs.pushed():
+                gs.translate(sx, sy)
+                gs.rotate(math.pi / 4 + index * 0.1)
+                gs.line(0, -18, 0, 18)
 
 
     def _draw_image_field(*, mutate):
         global churn_pixels
-        p5.image_mode(p5.CENTER)
+        gs.image_mode(gs.CENTER)
         for index in range(96):
             image = sprites[index % len(sprites)]
             if mutate and index == 0:
                 image.update_pixels(churn_pixels)
-            x = 34 + (index * 61 + p5.frame_count() * 3) % 660
+            x = 34 + (index * 61 + gs.frame_count() * 3) % 660
             y = 34 + (index * 43 + index * index) % 410
             size = 20 + index % 5 * 5
-            with p5.pushed():
-                p5.translate(x, y)
-                p5.rotate(index * 0.13 + p5.frame_count() * 0.012)
-                p5.image(image, 0, 0, size, size)
+            with gs.pushed():
+                gs.translate(x, y)
+                gs.rotate(index * 0.13 + gs.frame_count() * 0.012)
+                gs.image(image, 0, 0, size, size)
 
 
     def _draw_mixed_text_pixels():
-        p5.background(11, 18, 28)
+        gs.background(11, 18, 28)
         _draw_starfield(24)
         _draw_primitives(8)
         _draw_image_field(mutate=False)
-        pixels = p5.load_pixels()
+        pixels = gs.load_pixels()
         for offset in range(0, min(len(pixels), 1024), 16):
             pixels[offset] = (pixels[offset] + 3) % 256
             pixels[offset + 1] = (pixels[offset + 1] + 7) % 256
-        p5.update_pixels(pixels)
-        p5.fill(240)
-        p5.no_stroke()
-        p5.text_size(16)
+        gs.update_pixels(pixels)
+        gs.fill(240)
+        gs.no_stroke()
+        gs.text_size(16)
         for index in range(18):
-            p5.text_width(f"score {index} frame {p5.frame_count()}")
-            p5.text(f"score {index * 125}", 28, 36 + index * 22)
+            gs.text_width(f"score {index} frame {gs.frame_count()}")
+            gs.text(f"score {index * 125}", 28, 36 + index * 22)
 
 
     def _draw_blend_modes():
-        modes = [p5.BLEND, p5.ADD, p5.MULTIPLY, p5.SCREEN, p5.DIFFERENCE, p5.EXCLUSION]
-        p5.no_stroke()
+        modes = [gs.BLEND, gs.ADD, gs.MULTIPLY, gs.SCREEN, gs.DIFFERENCE, gs.EXCLUSION]
+        gs.no_stroke()
         for index in range(72):
-            p5.blend_mode(modes[index % len(modes)])
-            p5.fill(50 + index % 120, 120 + index % 80, 220, 180)
-            x = 30 + (index * 53 + p5.frame_count() * 2) % 660
+            gs.blend_mode(modes[index % len(modes)])
+            gs.fill(50 + index % 120, 120 + index % 80, 220, 180)
+            x = 30 + (index * 53 + gs.frame_count() * 2) % 660
             y = 30 + (index * 47 + index * index) % 420
-            p5.circle(x, y, 28 + index % 4 * 6)
-        p5.blend_mode(p5.BLEND)
+            gs.circle(x, y, 28 + index % 4 * 6)
+        gs.blend_mode(gs.BLEND)
 
 
     def _draw_erasing():
-        p5.no_stroke()
-        p5.fill(80, 150, 240, 230)
+        gs.no_stroke()
+        gs.fill(80, 150, 240, 230)
         for index in range(80):
             x = 28 + (index * 41) % 670
             y = 32 + (index * 67) % 410
-            p5.circle(x, y, 30)
-        p5.erase()
-        p5.fill(255)
+            gs.circle(x, y, 30)
+        gs.erase()
+        gs.fill(255)
         for index in range(34):
-            x = 30 + (index * 71 + p5.frame_count() * 3) % 660
+            x = 30 + (index * 71 + gs.frame_count() * 3) % 660
             y = 30 + (index * 43) % 410
-            p5.rect(x, y, 26, 18)
-        p5.no_erase()
+            gs.rect(x, y, 26, 18)
+        gs.no_erase()
 
 
     def _draw_transformed_images():
-        p5.image_mode(p5.CENTER)
+        gs.image_mode(gs.CENTER)
         for index in range(96):
             image = sprites[index % len(sprites)]
-            x = 34 + (index * 61 + p5.frame_count() * 3) % 660
+            x = 34 + (index * 61 + gs.frame_count() * 3) % 660
             y = 34 + (index * 43 + index * index) % 410
-            with p5.pushed():
-                p5.translate(x, y)
-                p5.rotate(index * 0.17 + p5.frame_count() * 0.014)
-                p5.scale(0.7 + (index % 5) * 0.18)
-                p5.image(image, 0, 0, 34, 34)
+            with gs.pushed():
+                gs.translate(x, y)
+                gs.rotate(index * 0.17 + gs.frame_count() * 0.014)
+                gs.scale(0.7 + (index % 5) * 0.18)
+                gs.image(image, 0, 0, 34, 34)
 
 
     def _draw_text_only():
-        p5.fill(235)
-        p5.no_stroke()
-        p5.text_size(15)
+        gs.fill(235)
+        gs.no_stroke()
+        gs.text_size(15)
         for index in range(80):
-            p5.text_width(f"label {index % 12}")
-            p5.text(f"label {index}", 24 + (index % 5) * 136, 28 + (index // 5) * 27)
+            gs.text_width(f"label {index % 12}")
+            gs.text(f"label {index}", 24 + (index % 5) * 136, 28 + (index // 5) * 27)
 
 
     def _draw_pixel_readback_upload():
         _draw_starfield(24)
-        pixels = p5.load_pixel_bytes()
-        p5.update_pixels(memoryview(pixels))
+        pixels = gs.load_pixel_bytes()
+        gs.update_pixels(memoryview(pixels))
 
 
     def _draw_asteroids_scene():
-        p5.image_mode(p5.CENTER)
-        p5.background(7, 10, 22)
+        gs.image_mode(gs.CENTER)
+        gs.background(7, 10, 22)
         _draw_starfield(96)
         for shot in shots:
             shot[0] = (shot[0] + shot[2]) % 720
             shot[1] = (shot[1] + shot[3]) % 480
-            p5.stroke(120, 220, 255)
-            p5.stroke_weight(3)
-            p5.line(shot[0], shot[1], shot[0] - shot[2] * 2.2, shot[1] - shot[3] * 2.2)
+            gs.stroke(120, 220, 255)
+            gs.stroke_weight(3)
+            gs.line(shot[0], shot[1], shot[0] - shot[2] * 2.2, shot[1] - shot[3] * 2.2)
         for asteroid in asteroids:
             asteroid[0] = (asteroid[0] + asteroid[2]) % 720
             asteroid[1] = (asteroid[1] + asteroid[3]) % 480
             asteroid[5] += 0.025
-            with p5.pushed():
-                p5.translate(asteroid[0], asteroid[1])
-                p5.rotate(asteroid[5])
-                p5.image(
+            with gs.pushed():
+                gs.translate(asteroid[0], asteroid[1])
+                gs.rotate(asteroid[5])
+                gs.image(
                     sprites[int(asteroid[4]) % len(sprites)],
                     0,
                     0,
                     asteroid[4] * 2,
                     asteroid[4] * 2,
                 )
-                p5.no_fill()
-                p5.stroke(190, 200, 220, 170)
-                p5.stroke_weight(2)
-                p5.circle(0, 0, asteroid[4] * 2.2)
-        with p5.pushed():
-            p5.translate(360, 240)
-            p5.rotate(-math.pi / 2 + math.sin(p5.frame_count() * 0.04) * 0.7)
-            p5.image(sprites[0], 0, 0, 88, 64)
-            p5.stroke(90, 180, 255)
-            p5.line(0, 0, 56, 0)
-        p5.fill(245)
-        p5.no_stroke()
-        p5.text_size(18)
-        p5.text(f"wave 4   shots {len(shots)}   rocks {len(asteroids)}", 24, 34)
+                gs.no_fill()
+                gs.stroke(190, 200, 220, 170)
+                gs.stroke_weight(2)
+                gs.circle(0, 0, asteroid[4] * 2.2)
+        with gs.pushed():
+            gs.translate(360, 240)
+            gs.rotate(-math.pi / 2 + math.sin(gs.frame_count() * 0.04) * 0.7)
+            gs.image(sprites[0], 0, 0, 88, 64)
+            gs.stroke(90, 180, 255)
+            gs.line(0, 0, 56, 0)
+        gs.fill(245)
+        gs.no_stroke()
+        gs.text_size(18)
+        gs.text(f"wave 4   shots {len(shots)}   rocks {len(asteroids)}", 24, 34)
 
 
     def _draw_webgl_3d():
-        p5.background(10, 14, 28)
-        p5.ambient_light(45)
-        p5.directional_light(255, 244, 230, -0.45, -0.7, -1.0)
-        p5.point_light(100, 180, 255, 160, -130, 220)
+        gs.background(10, 14, 28)
+        gs.ambient_light(45)
+        gs.directional_light(255, 244, 230, -0.45, -0.7, -1.0)
+        gs.point_light(100, 180, 255, 160, -130, 220)
 
-        with p5.pushed():
-            p5.translate(-185, 0)
-            p5.rotate(p5.frame_count() * 0.035)
-            p5.specular_material(240, 150, 90)
-            p5.shininess(18)
-            p5.box(120)
+        with gs.pushed():
+            gs.translate(-185, 0)
+            gs.rotate(gs.frame_count() * 0.035)
+            gs.specular_material(240, 150, 90)
+            gs.shininess(18)
+            gs.box(120)
 
-        with p5.pushed():
-            p5.translate(25, 8)
-            p5.normal_material()
-            p5.sphere(78, 28, 18)
+        with gs.pushed():
+            gs.translate(25, 8)
+            gs.normal_material()
+            gs.sphere(78, 28, 18)
 
-        with p5.pushed():
-            p5.translate(225, 24)
-            p5.texture(sprites[0])
-            p5.rotate(-0.35)
-            p5.plane(135, 135)
+        with gs.pushed():
+            gs.translate(225, 24)
+            gs.texture(sprites[0])
+            gs.rotate(-0.35)
+            gs.plane(135, 135)
 
-        with p5.pushed():
-            p5.translate(0, 155)
-            p5.ambient_material(44, 62, 92)
-            p5.plane(650, 160)
+        with gs.pushed():
+            gs.translate(0, 155)
+            gs.ambient_material(44, 62, 92)
+            gs.plane(650, 160)
 
 
     def setup() -> None:
         global start
         global sprites, churn_pixels
-        renderer = p5.WEBGL if variant == "webgl_3d" else p5.P2D
-        p5.create_canvas(720, 480, renderer)
-        p5.frame_rate(10_000)
+        renderer = gs.WEBGL if variant == "webgl_3d" else gs.P2D
+        gs.create_canvas(720, 480, renderer)
+        gs.frame_rate(10_000)
         if variant == "webgl_3d":
-            p5.no_stroke()
-            p5.camera(0, -60, 470, 0, 20, 0, 0, 1, 0)
-            p5.perspective(math.pi / 3, 720 / 480, 0.1, 4000)
+            gs.no_stroke()
+            gs.camera(0, -60, 470, 0, 20, 0, 0, 1, 0)
+            gs.perspective(math.pi / 3, 720 / 480, 0.1, 4000)
         sprites = [_sprite(48, 48, seed) for seed in range(5)]
         churn_pixels = _sprite(48, 48, 99).to_rgba_bytes()
         if variant == "cached_images_nearest":
-            p5.no_smooth()
+            gs.no_smooth()
         _reset_asteroids()
         start = time.perf_counter()
 
 
     def draw() -> None:
-        p5.background(8, 13, 32)
+        gs.background(8, 13, 32)
         if variant == "dense_primitives":
             _draw_starfield(72)
             _draw_primitives(28)
@@ -347,7 +347,7 @@ CHILD_CODE = textwrap.dedent(
         if not is_canvas_available():
             print(json.dumps({"skipped": True, "reason": "canvas extension unavailable"}))
             return
-        p5.run(setup=setup, draw=draw, headless=True, max_frames=frames)
+        gs.run(setup=setup, draw=draw, headless=True, max_frames=frames)
         elapsed = time.perf_counter() - start
         print(
             json.dumps(

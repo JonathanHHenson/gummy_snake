@@ -5,19 +5,19 @@ from typing import cast
 
 import pytest
 
-from p5 import Image
-from p5 import constants as c
-from p5.assets.image import P5Image
-from p5.backends.canvas import CanvasBackend
-from p5.backends.canvas_renderer import CanvasRenderer
-from p5.context import SketchContext
-from p5.core.color import Color
-from p5.core.state import StyleState
-from p5.core.transform import Matrix2D
-from p5.exceptions import ArgumentValidationError, BackendCapabilityError
-from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
-from p5.rust import canvas as canvas_bridge
-from p5.rust.canvas import (
+from gummysnake import Image
+from gummysnake import constants as c
+from gummysnake.assets.image import CanvasImage
+from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.backends.canvas_renderer import CanvasRenderer
+from gummysnake.context import SketchContext
+from gummysnake.core.color import Color
+from gummysnake.core.state import StyleState
+from gummysnake.core.transform import Matrix2D
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
+from gummysnake.rust import canvas as canvas_bridge
+from gummysnake.rust.canvas import (
     EXPECTED_CANVAS_ABI_VERSION,
     canvas_abi_version,
     canvas_gpu_available,
@@ -28,7 +28,7 @@ from p5.rust.canvas import (
     is_canvas_available,
     require_canvas_extension,
 )
-from p5.sketch import Sketch
+from gummysnake.sketch import Sketch
 
 
 class FakeCanvas:
@@ -411,7 +411,7 @@ def test_canvas_wrapper_raises_capability_error_when_extension_missing(
     monkeypatch.setattr(canvas_bridge, "_canvas", None)
     monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", ImportError("missing _canvas"))
 
-    with pytest.raises(BackendCapabilityError, match="p5.rust._canvas"):
+    with pytest.raises(BackendCapabilityError, match="gummysnake.rust._canvas"):
         require_canvas_extension()
 
 
@@ -790,7 +790,7 @@ def test_canvas_renderer_prefers_rust_managed_image_until_mutation() -> None:
     renderer.resize(4, 2)
     style = StyleState(fill_color=None, stroke_color=None)
     transform = Matrix2D.identity()
-    image = Image.from_rust_image(P5Image(FakeRustImage()))
+    image = Image.from_rust_image(CanvasImage(FakeRustImage()))
 
     renderer.draw_image(image, 0, 0, 2, 1, style, transform)
     image.set(0, 0, (0, 0, 255, 255))
@@ -992,7 +992,7 @@ def test_canvas_backend_unbounded_interactive_respects_no_loop_from_draw(
 
     canvas.poll_events = poll_events
     sketch._draw_frame = draw_frame  # type: ignore[method-assign]
-    monkeypatch.setattr("p5.backends.canvas.time.sleep", lambda _delay: None)
+    monkeypatch.setattr("gummysnake.backends.canvas.time.sleep", lambda _delay: None)
 
     backend._run_interactive(sketch)
 

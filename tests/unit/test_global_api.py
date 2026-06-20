@@ -2,11 +2,11 @@ from typing import Any, cast
 
 import pytest
 
-import p5
-from p5.api.current import require_context
-from p5.core.vector import Vector
-from p5.events.input_state import KeyboardEvent, MouseEvent
-from p5.exceptions import ArgumentValidationError
+import gummysnake as gs
+from gummysnake.api.current import require_context
+from gummysnake.core.vector import Vector
+from gummysnake.events.input_state import KeyboardEvent, MouseEvent
+from gummysnake.exceptions import ArgumentValidationError
 
 _GLOBAL_CALLBACK_EVENTS = []
 
@@ -19,16 +19,16 @@ def test_global_mode_explicit_callbacks():
     frames = []
 
     def setup():
-        p5.create_canvas(16, 12)
-        p5.background(0)
+        gs.create_canvas(16, 12)
+        gs.background(0)
 
     def draw():
-        frames.append(p5.frame_count())
-        p5.fill(255, 0, 0)
-        p5.no_stroke()
-        p5.circle(8, 6, 6)
+        frames.append(gs.frame_count())
+        gs.fill(255, 0, 0)
+        gs.no_stroke()
+        gs.circle(8, 6, 6)
 
-    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=2)
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=2)
 
     assert frames == [0, 1]
     assert context.width == 16
@@ -40,12 +40,12 @@ def test_global_mode_explicit_event_callbacks():
     events = []
 
     def setup():
-        p5.create_canvas(16, 12)
+        gs.create_canvas(16, 12)
 
     def on_key(event):
         events.append(("key_pressed", event.key, event.key_code))
 
-    context = p5.run(
+    context = gs.run(
         setup=setup,
         key_pressed=on_key,
         headless=True,
@@ -59,12 +59,12 @@ def test_global_mode_explicit_event_callbacks():
 
 def test_global_mode_event_callbacks_have_active_context():
     def setup():
-        p5.create_canvas(16, 12)
+        gs.create_canvas(16, 12)
 
     def on_key(_event):
-        p5.no_loop()
+        gs.no_loop()
 
-    context = p5.run(
+    context = gs.run(
         setup=setup,
         key_pressed=on_key,
         headless=True,
@@ -82,9 +82,9 @@ def test_global_mode_module_event_callback_discovery():
     _GLOBAL_CALLBACK_EVENTS.clear()
 
     def setup():
-        p5.create_canvas(16, 12)
+        gs.create_canvas(16, 12)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
 
     context.dispatch_mouse_event(MouseEvent(x=5, y=7, button="left", type="mouse_pressed"))
 
@@ -92,38 +92,38 @@ def test_global_mode_module_event_callback_discovery():
 
 
 def test_camel_case_aliases_are_not_exported():
-    assert not hasattr(p5, "createCanvas")
-    assert not hasattr(p5, "noStroke")
-    assert not hasattr(p5, "imageSampling")
+    assert not hasattr(gs, "createCanvas")
+    assert not hasattr(gs, "noStroke")
+    assert not hasattr(gs, "imageSampling")
 
 
 def test_image_sampling_api():
     def setup():
-        p5.create_canvas(4, 4)
-        assert p5.image_sampling() == p5.LINEAR
-        p5.no_smooth()
-        assert p5.image_sampling() == p5.NEAREST
-        p5.smooth()
-        assert p5.image_sampling() == p5.LINEAR
-        p5.image_sampling(p5.NEAREST)
-        assert p5.image_sampling() == p5.NEAREST
-        p5.smooth()
+        gs.create_canvas(4, 4)
+        assert gs.image_sampling() == gs.LINEAR
+        gs.no_smooth()
+        assert gs.image_sampling() == gs.NEAREST
+        gs.smooth()
+        assert gs.image_sampling() == gs.LINEAR
+        gs.image_sampling(gs.NEAREST)
+        assert gs.image_sampling() == gs.NEAREST
+        gs.smooth()
         with pytest.raises(ArgumentValidationError):
-            p5.image_sampling(cast(Any, "bogus"))
+            gs.image_sampling(cast(Any, "bogus"))
 
-    p5.run(setup=setup, draw=lambda: None, headless=True, max_frames=0)
+    gs.run(setup=setup, draw=lambda: None, headless=True, max_frames=0)
 
 
 def test_fast_draw_scope_composes_with_style_and_transform_contexts():
     def setup():
-        p5.create_canvas(16, 16)
-        p5.background(0, 0, 0, 255)
-        p5.no_stroke()
-        with p5.style(fill=(255, 0, 0, 255)), p5.transform(translate=(4, 0)):
-            draw = p5.fast()
+        gs.create_canvas(16, 16)
+        gs.background(0, 0, 0, 255)
+        gs.no_stroke()
+        with gs.style(fill=(255, 0, 0, 255)), gs.transform(translate=(4, 0)):
+            draw = gs.fast()
             draw.rect(0, 0, 4, 4)
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
     pixels = context.load_pixels()
 
     def pixel_at(x: int, y: int) -> list[int]:
@@ -135,7 +135,7 @@ def test_fast_draw_scope_composes_with_style_and_transform_contexts():
 
 
 def test_fast_draw_scope_is_available_on_object_oriented_sketches():
-    class FastSketch(p5.Sketch):
+    class FastSketch(gs.Sketch):
         def setup(self):
             self.create_canvas(8, 8)
 
@@ -152,20 +152,20 @@ def test_fast_draw_scope_is_available_on_object_oriented_sketches():
 
 
 def test_performance_diagnostics_are_opt_in_and_use_public_terms():
-    image = p5.create_image(1, 1)
+    image = gs.create_image(1, 1)
     image.update_pixels(bytes([255, 0, 0, 255]))
 
     def setup():
-        p5.create_canvas(2, 1)
-        p5.image(image, 0, 0)
-        assert p5.performance_diagnostics()["counters"] == {}
-        p5.enable_performance_diagnostics()
-        p5.image(image, 0, 0)
-        p5.image(image, 1, 0)
-        p5.load_pixels()
-        p5.update_pixels(bytes([0, 0, 0, 255, 255, 0, 0, 255]))
+        gs.create_canvas(2, 1)
+        gs.image(image, 0, 0)
+        assert gs.performance_diagnostics()["counters"] == {}
+        gs.enable_performance_diagnostics()
+        gs.image(image, 0, 0)
+        gs.image(image, 1, 0)
+        gs.load_pixels()
+        gs.update_pixels(bytes([0, 0, 0, 255, 255, 0, 0, 255]))
 
-    context = p5.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
     diagnostics = context.performance_diagnostics()
     counters = cast(dict[str, int], diagnostics["counters"])
     messages = "\n".join(cast(list[str], diagnostics["messages"]))
@@ -184,16 +184,16 @@ def test_global_mode_async_callbacks_are_awaited():
 
     async def setup():
         events.append("setup")
-        p5.create_canvas(8, 8)
+        gs.create_canvas(8, 8)
 
     async def draw():
-        events.append(f"draw:{p5.frame_count()}")
-        p5.no_loop()
+        events.append(f"draw:{gs.frame_count()}")
+        gs.no_loop()
 
     async def on_key(event):
         events.append(("key", event.key))
 
-    context = p5.run(
+    context = gs.run(
         setup=setup, draw=draw, key_pressed=cast(Any, on_key), headless=True, max_frames=3
     )
     context.dispatch_keyboard_event(KeyboardEvent(key="x", key_code=88, type="key_pressed"))
@@ -216,26 +216,26 @@ def test_async_data_loaders(tmp_path, loader_name, path, expected):
     json_path.write_text('{"answer": 42}', encoding="utf-8")
 
     async def setup():
-        p5.create_canvas(1, 1)
-        loaded = await getattr(p5, loader_name)(tmp_path / path)
+        gs.create_canvas(1, 1)
+        loaded = await getattr(gs, loader_name)(tmp_path / path)
         assert loaded == expected
 
-    p5.run(setup=setup, headless=True, max_frames=0)
+    gs.run(setup=setup, headless=True, max_frames=0)
 
 
 def test_decorator_sketch_builder_runs_callbacks_and_events():
-    app = p5.sketch()
+    app = gs.sketch()
     events = []
 
     @app.setup
     def configure():
-        p5.create_canvas(12, 9)
-        events.append(("setup", p5.current.width, p5.current.height))
+        gs.create_canvas(12, 9)
+        events.append(("setup", gs.current.width, gs.current.height))
 
     @app.draw
     def render():
-        events.append(("draw", p5.current.frame_count))
-        p5.no_loop()
+        events.append(("draw", gs.current.frame_count))
+        gs.no_loop()
 
     @app.mouse_pressed
     def handle_mouse(event):
@@ -248,18 +248,18 @@ def test_decorator_sketch_builder_runs_callbacks_and_events():
 
 
 def test_decorator_event_names_accept_enums_and_strings():
-    app = p5.sketch()
+    app = gs.sketch()
     events = []
 
     @app.setup
     def configure():
-        p5.create_canvas(8, 8)
+        gs.create_canvas(8, 8)
 
-    @app.on(p5.CallbackEventName.KEY_PRESSED)
+    @app.on(gs.CallbackEventName.KEY_PRESSED)
     def handle_key(event):
         events.append(("key", event.key))
 
-    @app.on(p5.MOUSE_PRESSED)
+    @app.on(gs.MOUSE_PRESSED)
     def handle_mouse(event):
         events.append(("mouse", event.position.tuple()))
 
@@ -274,21 +274,21 @@ def test_facades_expose_current_input_state():
     seen = []
 
     def setup():
-        p5.create_canvas(10, 10)
+        gs.create_canvas(10, 10)
 
     def on_key(_event):
         seen.append(
             (
-                p5.current.width,
-                p5.mouse.position,
-                p5.mouse.moved_x,
-                p5.keyboard.key,
-                p5.keyboard.code,
-                p5.keyboard.is_down("a"),
+                gs.current.width,
+                gs.mouse.position,
+                gs.mouse.moved_x,
+                gs.keyboard.key,
+                gs.keyboard.code,
+                gs.keyboard.is_down("a"),
             )
         )
 
-    context = p5.run(setup=setup, key_pressed=on_key, headless=True, max_frames=0)
+    context = gs.run(setup=setup, key_pressed=on_key, headless=True, max_frames=0)
     context.dispatch_mouse_event(MouseEvent(x=4, y=5, dx=2, dy=3, type="mouse_moved"))
     context.dispatch_keyboard_event(KeyboardEvent(key="a", key_code=65, type="key_pressed"))
 
@@ -299,9 +299,9 @@ def test_style_and_transform_context_managers_restore_state():
     seen = []
 
     def setup():
-        p5.create_canvas(10, 10)
+        gs.create_canvas(10, 10)
         original_fill = require_context().state.style.fill_color
-        with p5.style(fill=(255, 0, 0), stroke=None, stroke_weight=5):
+        with gs.style(fill=(255, 0, 0), stroke=None, stroke_weight=5):
             style = require_context().state.style
             assert style.fill_color is not None
             seen.append((style.fill_color.to_tuple(), style.stroke_color, style.stroke_weight))
@@ -309,12 +309,12 @@ def test_style_and_transform_context_managers_restore_state():
         seen.append((restored.fill_color, restored.stroke_color, restored.stroke_weight))
 
         original_matrix = require_context().state.transform.matrix
-        with p5.transform(translate=Vector(2, 3), scale=2):
+        with gs.transform(translate=Vector(2, 3), scale=2):
             assert require_context().state.transform.matrix != original_matrix
         assert require_context().state.transform.matrix == original_matrix
         assert restored.fill_color == original_fill
 
-    p5.run(setup=setup, headless=True, max_frames=0)
+    gs.run(setup=setup, headless=True, max_frames=0)
 
     assert seen[0] == ((255, 0, 0, 255), None, 5)
     assert seen[1][2] == 1
@@ -322,15 +322,15 @@ def test_style_and_transform_context_managers_restore_state():
 
 def test_vector_like_drawing_arguments():
     def setup():
-        p5.create_canvas(20, 20)
+        gs.create_canvas(20, 20)
 
     def draw():
-        p5.point(Vector(1, 2))
-        p5.line(Vector(0, 0), Vector(4, 4))
-        p5.triangle(Vector(0, 0), Vector(4, 0), Vector(2, 3))
-        p5.quad(Vector(0, 0), Vector(4, 0), Vector(4, 4), Vector(0, 4))
-        p5.no_loop()
+        gs.point(Vector(1, 2))
+        gs.line(Vector(0, 0), Vector(4, 4))
+        gs.triangle(Vector(0, 0), Vector(4, 0), Vector(2, 3))
+        gs.quad(Vector(0, 0), Vector(4, 0), Vector(4, 4), Vector(0, 4))
+        gs.no_loop()
 
-    context = p5.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
     assert context.frame_count == 1

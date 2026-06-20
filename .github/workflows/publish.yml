@@ -38,7 +38,7 @@ jobs:
         run: uv sync --dev
 
       - name: Install canvas extension
-        run: uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml
+        run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
 
       - name: Lint
         run: uv run ruff check .
@@ -161,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/p5py-vibe
+      url: https://test.pypi.org/p/gummy-snake
     permissions:
       id-token: write
     steps:
@@ -185,7 +185,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/p5py-vibe
+      url: https://pypi.org/p/gummy-snake
     permissions:
       id-token: write
     steps:

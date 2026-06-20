@@ -1,8 +1,8 @@
 import wave
 from pathlib import Path
 
-import p5
-from p5.assets import sound as sound_module
+import gummysnake as gs
+from gummysnake.assets import sound as sound_module
 
 
 class _FakePlayer:
@@ -50,7 +50,7 @@ def test_load_sound_and_create_audio_use_backend_neutral_player(monkeypatch, tmp
     _FakePlayer.instances.clear()
     monkeypatch.setattr(sound_module, "_NativeAudioPlayer", _FakePlayer)
 
-    clip = p5.load_sound(sound_path)
+    clip = gs.load_sound(sound_path)
     clip.volume(0.4)
     clip.rate(1.5)
     clip.pan(-0.25)
@@ -73,5 +73,5 @@ def test_load_sound_and_create_audio_use_backend_neutral_player(monkeypatch, tmp
     assert player.delete_calls == 1
     assert clip._player is None
 
-    created = p5.create_audio(sound_path)
+    created = gs.create_audio(sound_path)
     assert isinstance(created, sound_module.Sound)

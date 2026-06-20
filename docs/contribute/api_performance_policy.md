@@ -12,7 +12,7 @@ transforms, cached image drawing, text measurement with stable style, vector
 math, random/noise helpers, and context managers such as `style()`,
 `transform()`, and `pushed()`.
 
-Compatibility APIs preserve familiar p5 behavior even when they allocate or
+Compatibility APIs preserve familiar Gummy Snake behavior even when they allocate or
 convert data. This includes global-mode dispatch, vector-like argument
 normalization, `load_pixels()` returning `list[int]`, `pixels()`, `pixel_array()`,
 and p5.js compatibility stubs. Document a faster Pythonic alternative when one
@@ -30,22 +30,22 @@ canvas, and benchmark-only utilities.
 
 ## Hot-Loop Guidance
 
-`p5.fast()` and `Sketch.fast()` return a frame-local facade for dense 2D loops.
-It keeps public p5 style and transform state but skips repeated global-mode
+`gs.fast()` and `Sketch.fast()` return a frame-local facade for dense 2D loops.
+It keeps public Gummy Snake style and transform state but skips repeated global-mode
 context lookup and flexible argument normalization for the hottest drawing
 calls. Create it inside the scope whose style/transform state should apply:
 
 ```python
 def draw():
-    p5.background(245)
-    draw_fast = p5.fast()
-    with p5.style(stroke=(20, 80, 160, 180)):
+    gs.background(245)
+    draw_fast = gs.fast()
+    with gs.style(stroke=(20, 80, 160, 180)):
         for x, y, dx, dy in vectors:
             draw_fast.line(x, y, x + dx, y + dy)
 ```
 
 Use normal global-mode calls in simple sketches and setup code. Use local
-bindings or `p5.fast()` in loops that issue hundreds or thousands of primitive,
+bindings or `gs.fast()` in loops that issue hundreds or thousands of primitive,
 image, or text-measurement calls per frame.
 
 ## Pixels And Images
@@ -62,9 +62,9 @@ mutations should be treated as texture upload work.
 Performance diagnostics are opt-in:
 
 ```python
-p5.enable_performance_diagnostics()
+gs.enable_performance_diagnostics()
 # draw or inspect
-report = p5.performance_diagnostics()
+report = gs.performance_diagnostics()
 ```
 
 Counters use public terms:

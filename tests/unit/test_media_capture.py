@@ -2,10 +2,10 @@ from pathlib import Path
 
 import pytest
 
-import p5
-from p5 import BackendCapabilityError, UnsupportedFeatureError
-from p5.assets import media as media_module
-from p5.assets.image import create_image
+import gummysnake as gs
+from gummysnake import BackendCapabilityError, UnsupportedFeatureError
+from gummysnake.assets import media as media_module
+from gummysnake.assets.image import create_image
 
 
 class _FakeVideoCapture:
@@ -82,7 +82,7 @@ def test_create_video_wraps_optional_opencv_capture(monkeypatch, tmp_path: Path)
     monkeypatch.setattr(media_module, "_load_cv2_module", lambda: fake_cv2)
     monkeypatch.setattr(media_module, "_frame_to_image", lambda _frame: create_image(2, 3))
 
-    clip = p5.create_video(video_path)
+    clip = gs.create_video(video_path)
     assert clip.width == 320
     assert clip.height == 240
     assert clip.fps == 10.0
@@ -120,7 +120,7 @@ def test_create_capture_wraps_camera_with_explicit_lifecycle(monkeypatch):
     monkeypatch.setattr(media_module, "_load_cv2_module", lambda: fake_cv2)
     monkeypatch.setattr(media_module, "_frame_to_image", lambda _frame: create_image(4, 5))
 
-    camera = p5.create_capture("video", device=2, width=640, height=480)
+    camera = gs.create_capture("video", device=2, width=640, height=480)
     frame = camera.read()
 
     assert frame is not None
@@ -141,7 +141,7 @@ def test_create_capture_wraps_camera_with_explicit_lifecycle(monkeypatch):
 
 def test_create_capture_audio_input_remains_explicitly_deferred():
     with pytest.raises(UnsupportedFeatureError, match="microphone input is still deferred"):
-        p5.create_capture("audio")
+        gs.create_capture("audio")
 
 
 def test_media_apis_fail_predictably_without_optional_dependency(monkeypatch, tmp_path: Path):
@@ -154,9 +154,9 @@ def test_media_apis_fail_predictably_without_optional_dependency(monkeypatch, tm
     monkeypatch.setattr(media_module, "_load_cv2_module", missing_cv2)
 
     with pytest.raises(BackendCapabilityError, match="optional media extra"):
-        p5.create_video(video_path)
+        gs.create_video(video_path)
     with pytest.raises(BackendCapabilityError, match="optional media extra"):
-        p5.create_capture("video")
+        gs.create_capture("video")
 
 
 @pytest.mark.parametrize(

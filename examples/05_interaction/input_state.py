@@ -7,49 +7,49 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import p5
+import gummysnake as gs
 from examples.common import example_parser, save_once
 
 OUTPUT = Path("examples/output/05_interaction/input_state.png")
 ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
 
 
-@p5.setup
+@gs.setup
 def setup() -> None:
-    p5.create_canvas(620, 360)
-    p5.frame_rate(60)
+    gs.create_canvas(620, 360)
+    gs.frame_rate(60)
 
 
-@p5.draw
+@gs.draw
 def draw() -> None:
-    p5.background(238, 241, 236)
-    position = p5.mouse.position
+    gs.background(238, 241, 236)
+    position = gs.mouse.position
     x = position.x or 310
     y = position.y or 180
 
-    p5.no_stroke()
-    p5.fill(34, 118, 210, 210 if p5.mouse.is_pressed else 130)
-    p5.circle(x, y, 54)
-    p5.stroke(32, 36, 44)
-    p5.line(p5.mouse.previous_position, position)
+    gs.no_stroke()
+    gs.fill(34, 118, 210, 210 if gs.mouse.is_pressed else 130)
+    gs.circle(x, y, 54)
+    gs.stroke(32, 36, 44)
+    gs.line(gs.mouse.previous_position, position)
 
-    p5.no_stroke()
-    p5.fill(30, 34, 44)
-    p5.text_size(15)
+    gs.no_stroke()
+    gs.fill(30, 34, 44)
+    gs.text_size(15)
     rows = [
-        f"mouse: ({p5.mouse.x:.1f}, {p5.mouse.y:.1f})",
-        f"previous: ({p5.mouse.previous_x:.1f}, {p5.mouse.previous_y:.1f})",
-        f"moved: ({p5.mouse.moved_x:.1f}, {p5.mouse.moved_y:.1f})",
-        f"mouse pressed: {p5.mouse.is_pressed}  button: {p5.mouse.button}",
-        f"key pressed: {p5.keyboard.is_pressed}  key: {p5.keyboard.key}  code: {p5.keyboard.code}",
-        f"left arrow down: {p5.keyboard.is_down(p5.LEFT_ARROW)}",
-        f"touch count: {len(p5.touches())}",
+        f"mouse: ({gs.mouse.x:.1f}, {gs.mouse.y:.1f})",
+        f"previous: ({gs.mouse.previous_x:.1f}, {gs.mouse.previous_y:.1f})",
+        f"moved: ({gs.mouse.moved_x:.1f}, {gs.mouse.moved_y:.1f})",
+        f"mouse pressed: {gs.mouse.is_pressed}  button: {gs.mouse.button}",
+        f"key pressed: {gs.keyboard.is_pressed}  key: {gs.keyboard.key}  code: {gs.keyboard.code}",
+        f"left arrow down: {gs.keyboard.is_down(gs.LEFT_ARROW)}",
+        f"touch count: {len(gs.touches())}",
     ]
     for i, row in enumerate(rows):
-        p5.text(row, 28, 38 + i * 28)
+        gs.text(row, 28, 38 + i * 28)
 
-    save_once(ARGS, p5.current.frame_count, p5.save_canvas)
+    save_once(ARGS, gs.current.frame_count, gs.save_canvas)
 
 
 if __name__ == "__main__":
-    p5.run(headless=ARGS.headless, max_frames=ARGS.frames)
+    gs.run(headless=ARGS.headless, max_frames=ARGS.frames)
