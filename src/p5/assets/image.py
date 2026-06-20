@@ -232,63 +232,58 @@ class Image:
             raise ArgumentValidationError(
                 "Image.resize() dimensions must be positive or one zero for aspect ratio."
             )
-        resized = bytearray(target_width * target_height * 4)
-        for y in range(target_height):
-            sy = min(self.height - 1, int(y * self.height / target_height))
-            for x in range(target_width):
-                sx = min(self.width - 1, int(x * self.width / target_width))
-                src = self._offset(sx, sy)
-                dst = (y * target_width + x) * 4
-                resized[dst : dst + 4] = self._pixels[src : src + 4]
+        source_width = self.width
+        source_height = self.height
+        source_pixels = self.to_rgba_bytes()
+        self._pixels = bytearray(
+            _canvas_module().image_resize_rgba(
+                source_width,
+                source_height,
+                source_pixels,
+                target_width,
+                target_height,
+            )
+        )
         self._width = target_width
         self._height = target_height
-        self._pixels = resized
         self._rust_image = None
         self._version += 1
 
     def mask(self, mask_image: Image) -> None:
-        for y in range(self.height):
-            for x in range(self.width):
-                mx = min(mask_image.width - 1, int(x * mask_image.width / self.width))
-                my = min(mask_image.height - 1, int(y * mask_image.height / self.height))
-                mask = mask_image._pixel(mx, my)
-                alpha = round(sum(mask[:3]) / 3 * (mask[3] / 255))
-                offset = self._offset(x, y)
-                self._pixels[offset + 3] = round(self._pixels[offset + 3] * alpha / 255)
+        self._pixels = bytearray(
+            _canvas_module().image_mask_rgba(
+                self.width,
+                self.height,
+                self.to_rgba_bytes(),
+                mask_image.width,
+                mask_image.height,
+                mask_image.to_rgba_bytes(),
+            )
+        )
         self._rust_image = None
         self._version += 1
 
     def filter(self, mode: c.ImageFilter, value: float | None = None) -> None:
         normalized = mode.value
-        if normalized == c.GRAY:
-            for offset in range(0, len(self._pixels), 4):
-                gray = round(
-                    self._pixels[offset] * 0.299
-                    + self._pixels[offset + 1] * 0.587
-                    + self._pixels[offset + 2] * 0.114
-                )
-                self._pixels[offset : offset + 3] = bytes((gray, gray, gray))
-        elif normalized == c.INVERT:
-            for offset in range(0, len(self._pixels), 4):
-                self._pixels[offset] = 255 - self._pixels[offset]
-                self._pixels[offset + 1] = 255 - self._pixels[offset + 1]
-                self._pixels[offset + 2] = 255 - self._pixels[offset + 2]
-        elif normalized == c.THRESHOLD:
-            threshold = int(round((0.5 if value is None else value) * 255))
-            for offset in range(0, len(self._pixels), 4):
-                gray = round(
-                    self._pixels[offset] * 0.299
-                    + self._pixels[offset + 1] * 0.587
-                    + self._pixels[offset + 2] * 0.114
-                )
-                bw = 255 if gray >= threshold else 0
-                self._pixels[offset : offset + 3] = bytes((bw, bw, bw))
-        elif normalized in {c.BLUR, c.POSTERIZE, c.ERODE, c.DILATE}:
-            # The canvas runtime owns high quality image filters; keep these as
-            # accepted no-ops for scripts that prepare images before drawing.
-            pass
-        else:
+        if normalized not in {
+            c.GRAY,
+            c.INVERT,
+            c.THRESHOLD,
+            c.BLUR,
+            c.POSTERIZE,
+            c.ERODE,
+            c.DILATE,
+        }:
             raise ArgumentValidationError(f"Unsupported image filter {mode!r}.")
+        self._pixels = bytearray(
+            _canvas_module().image_filter_rgba(
+                self.width,
+                self.height,
+                self.to_rgba_bytes(),
+                normalized,
+                value,
+            )
+        )
         self._rust_image = None
         self._version += 1
 
@@ -347,31 +342,30 @@ class Image:
         target_height = max(0, sh)
         if target_width == 0 or target_height == 0:
             raise ArgumentValidationError("Image region dimensions must be positive.")
-        cropped = bytearray(target_width * target_height * 4)
-        copy_x0 = max(0, sx)
-        copy_y0 = max(0, sy)
-        copy_x1 = min(self.width, sx + target_width)
-        copy_y1 = min(self.height, sy + target_height)
-        if copy_x0 >= copy_x1 or copy_y0 >= copy_y1:
-            return Image(target_width, target_height, cropped)
-        row_bytes = (copy_x1 - copy_x0) * 4
-        for src_y in range(copy_y0, copy_y1):
-            dst_y = src_y - sy
-            src = (src_y * self.width + copy_x0) * 4
-            dst = (dst_y * target_width + (copy_x0 - sx)) * 4
-            cropped[dst : dst + row_bytes] = self._pixels[src : src + row_bytes]
+        cropped = _canvas_module().image_crop_rgba(
+            self.width,
+            self.height,
+            self.to_rgba_bytes(),
+            sx,
+            sy,
+            target_width,
+            target_height,
+        )
         return Image(target_width, target_height, cropped)
 
     def _alpha_composite(self, source: Image, dx: int, dy: int) -> None:
-        for y in range(source.height):
-            ty = dy + y
-            if ty < 0 or ty >= self.height:
-                continue
-            for x in range(source.width):
-                tx = dx + x
-                if tx < 0 or tx >= self.width:
-                    continue
-                self._put_pixel(tx, ty, _alpha_over(self._pixel(tx, ty), source._pixel(x, y)))
+        self._pixels = bytearray(
+            _canvas_module().image_alpha_composite_rgba(
+                self.width,
+                self.height,
+                self.to_rgba_bytes(),
+                source.width,
+                source.height,
+                source.to_rgba_bytes(),
+                dx,
+                dy,
+            )
+        )
 
     def _offset(self, x: int, y: int) -> int:
         if not (0 <= x < self.width and 0 <= y < self.height):
@@ -394,25 +388,10 @@ class Image:
         return start, max(0, stop - start)
 
 
-def _alpha_over(
-    destination: tuple[int, int, int, int],
-    source: tuple[int, int, int, int],
-) -> tuple[int, int, int, int]:
-    source_alpha = source[3] / 255.0
-    if source_alpha <= 0.0:
-        return destination
-    destination_alpha = destination[3] / 255.0
-    output_alpha = source_alpha + destination_alpha * (1.0 - source_alpha)
-    if output_alpha <= 0.0:
-        return (0, 0, 0, 0)
-    rgb = []
-    for index in range(3):
-        value = (
-            source[index] * source_alpha
-            + destination[index] * destination_alpha * (1.0 - source_alpha)
-        ) / output_alpha
-        rgb.append(int(round(value)))
-    return cast(tuple[int, int, int, int], (*rgb, int(round(output_alpha * 255.0))))
+def _canvas_module() -> Any:
+    from p5.rust.canvas import require_canvas_extension
+
+    return require_canvas_extension()
 
 
 def load_image(path: str | Path) -> Image:

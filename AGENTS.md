@@ -23,7 +23,9 @@ user sketch
   -> crates/p5_canvas Rust runtime and renderer
 ```
 
-`p5.rust._canvas` owns drawing, presentation, image asset loading/saving, text, pixels, export, and native window/input support when built with those capabilities.
+`p5.rust._canvas` owns drawing, presentation, image asset loading/saving,
+image-local byte operations, media frame conversion, text, pixels, export, and
+native window/input support when built with those capabilities.
 Current `WEBGL` support is a Python software-projected path presented through
 the canvas runtime, not native accelerated 3D. Backend capabilities distinguish
 `software_three_d`, `native_three_d`, `shaders`, and `native_shaders`; do not
@@ -219,6 +221,14 @@ Loaded images may keep a Rust-managed asset attached to the public `Image`
 object until pixel mutation. Use stable `Image.cache_key` values for Python
 image caches, never `id(image)`, and preserve bounded Rust image/texture cache
 lifecycle behavior.
+
+Image-local resize, mask, filter, crop/copy, and alpha compositing should keep
+delegating bulk RGBA byte work to `p5_canvas`. Canvas `get(x, y)`,
+`get(x, y, w, h)`, `set(...)`, and full-canvas `filter(...)` should use Rust
+region/filter operations where practical instead of reconstructing a full
+Python `Image`. Optional media helpers may depend on the `media` extra, but
+grayscale/BGR/BGRA frame-to-RGBA conversion is a Rust canvas kernel once a
+contiguous decoded frame buffer exists.
 
 ### Keep Compatibility Explicit
 

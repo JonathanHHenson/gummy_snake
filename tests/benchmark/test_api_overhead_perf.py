@@ -60,7 +60,24 @@ class NoopRenderer:
     def load_pixels(self) -> list[int]:
         return [0] * (self.physical_width * self.physical_height * 4)
 
+    def load_pixel_bytes(self) -> bytes:
+        return bytes(self.physical_width * self.physical_height * 4)
+
+    def load_pixel_region(self, x: int, y: int, width: int, height: int) -> bytes:
+        return bytes(width * height * 4)
+
     def update_pixels(self, pixels: Sequence[int]) -> None: ...
+    def update_pixel_region(
+        self,
+        pixels: Sequence[int],
+        width: int,
+        height: int,
+        x: int,
+        y: int,
+        *,
+        alpha_composite: bool = True,
+    ) -> None: ...
+    def filter_pixels(self, mode, value=None) -> None: ...
     def blend_region(self, source_image, source, destination, mode) -> None: ...
     def save(self, path: str) -> None: ...
 

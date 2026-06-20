@@ -47,6 +47,42 @@ class _CanvasModule(Protocol):
 
     def gpu_available(self) -> bool: ...
 
+    def image_resize_rgba(
+        self, width: int, height: int, pixels: bytes, target_width: int, target_height: int
+    ) -> bytes: ...
+
+    def image_crop_rgba(
+        self, width: int, height: int, pixels: bytes, sx: int, sy: int, sw: int, sh: int
+    ) -> bytes: ...
+
+    def image_alpha_composite_rgba(
+        self,
+        width: int,
+        height: int,
+        pixels: bytes,
+        source_width: int,
+        source_height: int,
+        source_pixels: bytes,
+        dx: int,
+        dy: int,
+    ) -> bytes: ...
+
+    def image_mask_rgba(
+        self,
+        width: int,
+        height: int,
+        pixels: bytes,
+        mask_width: int,
+        mask_height: int,
+        mask_pixels: bytes,
+    ) -> bytes: ...
+
+    def image_filter_rgba(
+        self, width: int, height: int, pixels: bytes, mode: str, value: float | None = None
+    ) -> bytes: ...
+
+    def media_frame_to_rgba(self, width: int, height: int, channels: int, pixels: bytes) -> bytes: ...
+
 
 _loaded_canvas: ModuleType | None
 _CANVAS_IMPORT_ERROR: ImportError | None

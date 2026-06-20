@@ -76,9 +76,10 @@ paths so Python dispatch overhead can be compared separately from renderer
 work. The `fast()` cases should remain below equivalent global-mode dispatch
 for dense-loop operations.
 
-The image pipeline benchmarks measure image-local operations such as region
-copy, resize, mask, filter, get, and set, plus list-based and bytes-based pixel
-workflows. Use them when changing `Image`, `P5Image`, `load_image()`,
+The image pipeline benchmarks measure Rust-backed image-local operations such
+as region copy, resize, mask, filter, get, and set, plus list-based,
+bytes-based, and region-based pixel workflows. Use them when changing `Image`,
+`P5Image`, `load_image()`, media frame conversion, `get()`, `set()`,
 `load_pixels()`, `load_pixel_bytes()`, `update_pixels()`, or image cache
 behavior.
 

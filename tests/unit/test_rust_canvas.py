@@ -86,6 +86,48 @@ class FakeCanvas:
     def gpu_available(self) -> bool:
         return True
 
+    def image_resize_rgba(
+        self, width: int, height: int, pixels: bytes, target_width: int, target_height: int
+    ) -> bytes:
+        return bytes(pixels[:4] * (target_width * target_height))
+
+    def image_crop_rgba(
+        self, width: int, height: int, pixels: bytes, sx: int, sy: int, sw: int, sh: int
+    ) -> bytes:
+        return bytes(sw * sh * 4)
+
+    def image_alpha_composite_rgba(
+        self,
+        width: int,
+        height: int,
+        pixels: bytes,
+        source_width: int,
+        source_height: int,
+        source_pixels: bytes,
+        dx: int,
+        dy: int,
+    ) -> bytes:
+        return pixels
+
+    def image_mask_rgba(
+        self,
+        width: int,
+        height: int,
+        pixels: bytes,
+        mask_width: int,
+        mask_height: int,
+        mask_pixels: bytes,
+    ) -> bytes:
+        return pixels
+
+    def image_filter_rgba(
+        self, width: int, height: int, pixels: bytes, mode: str, value: float | None = None
+    ) -> bytes:
+        return pixels
+
+    def media_frame_to_rgba(self, width: int, height: int, channels: int, pixels: bytes) -> bytes:
+        return bytes(width * height * 4)
+
     def gpu_status(self) -> str:
         return "available"
 
@@ -187,11 +229,41 @@ class FakeCanvas:
     def load_pixel_bytes(self) -> bytes:
         return self.pixels
 
+    def load_pixel_region(self, x: int, y: int, width: int, height: int) -> bytes:
+        self.calls.append(("load_pixel_region", x, y, width, height))
+        region = bytearray(width * height * 4)
+        for out_y in range(height):
+            sy = y + out_y
+            if sy < 0 or sy >= self.physical_height:
+                continue
+            for out_x in range(width):
+                sx = x + out_x
+                if sx < 0 or sx >= self.physical_width:
+                    continue
+                src = (sy * self.physical_width + sx) * 4
+                dst = (out_y * width + out_x) * 4
+                region[dst : dst + 4] = self.pixels[src : src + 4]
+        return bytes(region)
+
     def update_pixels(self, pixels: bytes) -> None:
         expected = self.physical_width * self.physical_height * 4
         if len(pixels) != expected:
             raise ValueError(f"Pixel buffer length must be {expected}, got {len(pixels)}.")
         self.pixels = pixels
+
+    def update_pixel_region(
+        self,
+        pixels: bytes,
+        width: int,
+        height: int,
+        x: int,
+        y: int,
+        alpha_composite: bool = True,
+    ) -> None:
+        self.calls.append(("update_pixel_region", pixels, width, height, x, y, alpha_composite))
+
+    def filter_pixels(self, mode: str, value: float | None = None) -> None:
+        self.calls.append(("filter_pixels", mode, value))
 
     def blend_region(self, *args: object) -> None:
         self.calls.append(("blend_region", *args))

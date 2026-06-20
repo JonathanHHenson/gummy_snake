@@ -64,6 +64,8 @@ def test_pixel_buffer_workflow_benchmarks() -> None:
     cases = {
         "load_pixels_list": context.load_pixels,
         "load_pixel_bytes": context.load_pixel_bytes,
+        "get_pixel_region": lambda: context.get(4, 4, 16, 16),
+        "set_pixel_region": lambda: context.set(8, 8, p5.Color(1, 2, 3, 255)),
         "update_pixels_bytes": lambda: context.update_pixels(payload),
         "update_pixels_memoryview": lambda: context.update_pixels(memoryview(payload)),
     }

@@ -1430,19 +1430,25 @@ class SketchContext:
     def get(
         self, x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None
     ):
-        image = self._canvas_image()
         if x is None and y is None:
-            return image
+            return self._canvas_image()
         if x is None or y is None:
             raise ArgumentValidationError("get() requires both x and y.")
         density = self.state.canvas.pixel_density
         px = int(round(x * density))
         py = int(round(y * density))
         if w is None and h is None:
-            return image.get(px, py)
+            self._record_performance_diagnostic("pixel_readback")
+            pixel = self.renderer.load_pixel_region(px, py, 1, 1)
+            return Color(*pixel[:4])
         if w is None or h is None:
             raise ArgumentValidationError("get() requires both width and height for regions.")
-        return image.get(px, py, int(round(w * density)), int(round(h * density)))
+        pw = int(round(w * density))
+        ph = int(round(h * density))
+        if pw <= 0 or ph <= 0:
+            raise ArgumentValidationError("Image region dimensions must be positive.")
+        self._record_performance_diagnostic("pixel_readback")
+        return Image(pw, ph, self.renderer.load_pixel_region(px, py, pw, ph))
 
     def set(
         self,
@@ -1450,11 +1456,34 @@ class SketchContext:
         y: int,
         value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
     ) -> None:
-        image = self._canvas_image()
         density = self.state.canvas.pixel_density
-        image.set(int(round(x * density)), int(round(y * density)), value)
-        self.pixels = list(image.to_rgba_bytes())
-        self.update_pixels(self.pixels)
+        px = int(round(x * density))
+        py = int(round(y * density))
+        self._record_performance_diagnostic("pixel_upload")
+        if isinstance(value, Image):
+            self.renderer.update_pixel_region(
+                value.to_rgba_bytes(),
+                value.width,
+                value.height,
+                px,
+                py,
+                alpha_composite=True,
+            )
+            self.pixels = []
+            return
+        rgba = value.to_tuple() if isinstance(value, Color) else tuple(value)
+        if len(rgba) == 3:
+            rgba = (*rgba, 255)
+        payload = bytes(max(0, min(255, int(component))) for component in rgba)
+        self.renderer.update_pixel_region(
+            payload,
+            1,
+            1,
+            px,
+            py,
+            alpha_composite=False,
+        )
+        self.pixels = []
 
     def copy(self, *args: object):
         if len(args) == 0:
@@ -1483,10 +1512,10 @@ class SketchContext:
         raise ArgumentValidationError("copy() accepts 0, 4, 8, or image plus 8 numeric arguments.")
 
     def filter(self, mode: c.ImageFilter, value: float | None = None) -> None:
-        image = self._canvas_image()
-        image.filter(mode, value)
-        self.pixels = list(image.to_rgba_bytes())
-        self.update_pixels(self.pixels)
+        self._record_performance_diagnostic("cpu_compositing_fallback")
+        self._record_performance_diagnostic("pixel_upload")
+        self.renderer.filter_pixels(mode, value)
+        self.pixels = []
 
     def _canvas_image(self) -> Image:
         self._record_performance_diagnostic("cpu_compositing_fallback")

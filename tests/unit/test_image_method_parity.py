@@ -47,6 +47,73 @@ def test_image_region_copy_validates_empty_regions() -> None:
         image.get(0, 0, 0, 1)
 
 
+def test_image_local_operations_delegate_to_rust_and_preserve_semantics() -> None:
+    image = p5.Image(
+        2,
+        2,
+        bytes(
+            [
+                10,
+                20,
+                30,
+                255,
+                100,
+                0,
+                0,
+                128,
+                0,
+                90,
+                0,
+                255,
+                0,
+                0,
+                200,
+                64,
+            ]
+        ),
+    )
+
+    cropped = image.get(-1, 0, 2, 2)
+    assert isinstance(cropped, p5.Image)
+    assert cropped.to_rgba_bytes() == bytes(
+        [
+            0,
+            0,
+            0,
+            0,
+            10,
+            20,
+            30,
+            255,
+            0,
+            0,
+            0,
+            0,
+            0,
+            90,
+            0,
+            255,
+        ]
+    )
+
+    resized = image.copy()
+    resized.resize(1, 1)
+    assert resized.to_rgba_bytes() == bytes([10, 20, 30, 255])
+
+    filtered = image.copy()
+    filtered.filter(p5.INVERT)
+    assert filtered.to_rgba_bytes()[:8] == bytes([245, 235, 225, 255, 155, 255, 255, 128])
+
+    mask = p5.Image(2, 2, bytes([255, 255, 255, 255, 0, 0, 0, 255] * 2))
+    masked = image.copy()
+    masked.mask(mask)
+    assert masked.to_rgba_bytes()[3::4] == bytes([255, 0, 255, 0])
+
+    target = p5.Image(1, 1, bytes([0, 0, 0, 255]))
+    target.set(0, 0, p5.Image(1, 1, bytes([100, 0, 0, 128])))
+    assert target.to_rgba_bytes() == bytes([50, 0, 0, 255])
+
+
 def test_image_deferred_methods_raise_package_specific_errors() -> None:
     image = p5.create_image(1, 1)
 

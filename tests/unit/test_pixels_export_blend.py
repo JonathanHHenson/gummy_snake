@@ -61,6 +61,23 @@ def test_canvas_get_set_copy_and_filter_helpers():
     assert context.get(2, 1) == p5.Color(245, 235, 225, 255)
 
 
+def test_canvas_region_apis_use_physical_hidpi_regions():
+    def setup():
+        p5.create_canvas(2, 2, pixel_density=2)
+        p5.background(0, 0, 0, 255)
+        p5.set(1, 1, p5.Color(12, 34, 56, 255))
+
+    context = p5.run(setup=setup, headless=True, max_frames=0)
+
+    assert context.get(1, 1) == p5.Color(12, 34, 56, 255)
+    region = context.get(1, 1, 1, 1)
+    assert isinstance(region, p5.Image)
+    assert (region.width, region.height) == (2, 2)
+    assert region.to_rgba_bytes() == bytes(
+        [12, 34, 56, 255, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255]
+    )
+
+
 def test_gpu_queued_text_preserves_pixels_from_update_pixels():
     def setup():
         p5.create_canvas(8, 8)

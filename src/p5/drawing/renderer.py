@@ -145,7 +145,22 @@ class Renderer(Protocol):
 
     def load_pixel_bytes(self) -> bytes: ...
 
+    def load_pixel_region(self, x: int, y: int, width: int, height: int) -> bytes: ...
+
     def update_pixels(self, pixels: Sequence[int] | Buffer) -> None: ...
+
+    def update_pixel_region(
+        self,
+        pixels: Sequence[int] | Buffer,
+        width: int,
+        height: int,
+        x: int,
+        y: int,
+        *,
+        alpha_composite: bool = True,
+    ) -> None: ...
+
+    def filter_pixels(self, mode: c.ImageFilter, value: float | None = None) -> None: ...
 
     def blend_region(
         self,

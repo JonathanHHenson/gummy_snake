@@ -144,7 +144,24 @@ class Fake3DRenderer:
     def load_pixels(self) -> list[int]:
         return [0] * (self.physical_width * self.physical_height * 4)
 
+    def load_pixel_bytes(self) -> bytes:
+        return bytes(self.physical_width * self.physical_height * 4)
+
+    def load_pixel_region(self, x, y, width, height) -> bytes:
+        return bytes(width * height * 4)
+
     def update_pixels(self, pixels) -> None: ...
+    def update_pixel_region(
+        self,
+        pixels,
+        width,
+        height,
+        x,
+        y,
+        *,
+        alpha_composite=True,
+    ) -> None: ...
+    def filter_pixels(self, mode, value=None) -> None: ...
     def blend_region(self, source_image, source, destination, mode) -> None: ...
     def save(self, path) -> None: ...
     def set_camera(self, camera) -> None:

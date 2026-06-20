@@ -347,33 +347,34 @@ def _frame_to_image(frame: Any) -> Image:
     height = int(shape[0])
     width = int(shape[1])
     if len(shape) == 2:
-        pixels = bytearray(width * height * 4)
-        for y in range(height):
-            for x in range(width):
-                gray = int(frame[y, x])
-                offset = (y * width + x) * 4
-                pixels[offset : offset + 4] = bytes((gray, gray, gray, 255))
-        return Image(width, height, pixels)
+        return Image(width, height, _convert_frame_bytes(frame, width, height, 1))
     if len(shape) != 3:
         raise BackendCapabilityError("Decoded media frames must be grayscale, BGR, or BGRA arrays.")
 
     channels = int(shape[2])
-    pixels = bytearray(width * height * 4)
     if channels == 3:
-        for y in range(height):
-            for x in range(width):
-                b, g, r = (int(value) for value in frame[y, x])
-                offset = (y * width + x) * 4
-                pixels[offset : offset + 4] = bytes((r, g, b, 255))
-        return Image(width, height, pixels)
+        return Image(width, height, _convert_frame_bytes(frame, width, height, channels))
     if channels == 4:
-        for y in range(height):
-            for x in range(width):
-                b, g, r, a = (int(value) for value in frame[y, x])
-                offset = (y * width + x) * 4
-                pixels[offset : offset + 4] = bytes((r, g, b, a))
-        return Image(width, height, pixels)
+        return Image(width, height, _convert_frame_bytes(frame, width, height, channels))
     raise BackendCapabilityError("Decoded media frames must have 1, 3, or 4 channels.")
+
+
+def _convert_frame_bytes(frame: Any, width: int, height: int, channels: int) -> bytes:
+    tobytes = getattr(frame, "tobytes", None)
+    if not callable(tobytes):
+        raise BackendCapabilityError(
+            "Decoded media frames must expose contiguous bytes for Rust conversion."
+        )
+    from p5.rust.canvas import require_canvas_extension
+
+    try:
+        return bytes(
+            require_canvas_extension().media_frame_to_rgba(width, height, channels, tobytes())
+        )
+    except ValueError as exc:
+        raise BackendCapabilityError(
+            "Decoded media frames could not be converted to RGBA."
+        ) from exc
 
 
 __all__ = [

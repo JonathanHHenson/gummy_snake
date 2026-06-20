@@ -559,6 +559,20 @@ class CanvasRenderer:
             return bytes(self._call("pixel byte readback", callback))
         return bytes(self._call("pixel readback", self._require_canvas().load_pixels))
 
+    def load_pixel_region(self, x: int, y: int, width: int, height: int) -> bytes:
+        self._flush_line_batch()
+        self._count("pixel_readbacks")
+        return bytes(
+            self._call(
+                "pixel region readback",
+                self._require_canvas().load_pixel_region,
+                int(x),
+                int(y),
+                int(width),
+                int(height),
+            )
+        )
+
     def update_pixels(self, pixels: Sequence[int] | Buffer) -> None:
         self._flush_line_batch()
         try:
@@ -569,6 +583,41 @@ class CanvasRenderer:
             ) from exc
         self._count("pixel_uploads")
         self._call("pixel upload", self._require_canvas().update_pixels, payload)
+
+    def update_pixel_region(
+        self,
+        pixels: Sequence[int] | Buffer,
+        width: int,
+        height: int,
+        x: int,
+        y: int,
+        *,
+        alpha_composite: bool = True,
+    ) -> None:
+        self._flush_line_batch()
+        try:
+            payload = bytes(pixels)
+        except ValueError as exc:
+            raise ArgumentValidationError(
+                "Pixel values must be integers between 0 and 255."
+            ) from exc
+        self._count("pixel_uploads")
+        self._call(
+            "pixel region upload",
+            self._require_canvas().update_pixel_region,
+            payload,
+            int(width),
+            int(height),
+            int(x),
+            int(y),
+            alpha_composite,
+        )
+
+    def filter_pixels(self, mode: c.ImageFilter, value: float | None = None) -> None:
+        self._flush_line_batch()
+        self._count("cpu_fallbacks")
+        self._count("pixel_uploads")
+        self._call("pixel filter", self._require_canvas().filter_pixels, mode.value, value)
 
     def blend_region(
         self,

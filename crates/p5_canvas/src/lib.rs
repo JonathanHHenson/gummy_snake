@@ -1303,6 +1303,37 @@ impl Canvas {
         PyBytes::new_bound(py, &self.pixels)
     }
 
+    fn load_pixel_region<'py>(
+        &mut self,
+        py: Python<'py>,
+        x: i64,
+        y: i64,
+        width: i64,
+        height: i64,
+    ) -> PyResult<Bound<'py, PyBytes>> {
+        if width <= 0 || height <= 0 {
+            return Err(PyValueError::new_err(
+                "Pixel region dimensions must be positive.",
+            ));
+        }
+        self.performance_counters.pixel_readbacks += 1;
+        if self.offscreen_dirty && self.pixels_stale {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
+        let region = crop_rgba_with_padding(
+            &self.pixels,
+            self.physical_width,
+            self.physical_height,
+            x,
+            y,
+            width as usize,
+            height as usize,
+        );
+        Ok(PyBytes::new_bound(py, &region))
+    }
+
     fn update_pixels(&mut self, pixels: Vec<u8>) -> PyResult<()> {
         self.performance_counters.pixel_uploads += 1;
         let expected = self.physical_width * self.physical_height * 4;
@@ -1321,6 +1352,58 @@ impl Canvas {
         self.offscreen_dirty = false;
         self.pixels_stale = false;
         self.texture_stale = true;
+        Ok(())
+    }
+
+    #[pyo3(signature = (pixels, width, height, x, y, alpha_composite = true))]
+    fn update_pixel_region(
+        &mut self,
+        pixels: Vec<u8>,
+        width: usize,
+        height: usize,
+        x: i64,
+        y: i64,
+        alpha_composite: bool,
+    ) -> PyResult<()> {
+        validate_rgba_buffer(pixels.len(), width, height)?;
+        self.performance_counters.pixel_uploads += 1;
+        self.prepare_cpu_composite();
+        if alpha_composite {
+            alpha_composite_rgba_region(
+                &mut self.pixels,
+                self.physical_width,
+                self.physical_height,
+                &pixels,
+                width,
+                height,
+                x,
+                y,
+            );
+        } else {
+            replace_rgba_region(
+                &mut self.pixels,
+                self.physical_width,
+                self.physical_height,
+                &pixels,
+                width,
+                height,
+                x,
+                y,
+            );
+        }
+        self.sync_present_pixels_from_rgba();
+        self.upload_cpu_pixels()?;
+        Ok(())
+    }
+
+    #[pyo3(signature = (mode, value=None))]
+    fn filter_pixels(&mut self, mode: &str, value: Option<f64>) -> PyResult<()> {
+        self.performance_counters.cpu_fallbacks += 1;
+        self.performance_counters.pixel_uploads += 1;
+        self.prepare_cpu_composite();
+        filter_rgba(&mut self.pixels, mode, value)?;
+        self.sync_present_pixels_from_rgba();
+        self.upload_cpu_pixels()?;
         Ok(())
     }
 
@@ -2023,12 +2106,147 @@ fn gpu_available() -> bool {
     gpu::GpuRenderer::is_available()
 }
 
+#[pyfunction]
+fn image_resize_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    target_width: usize,
+    target_height: usize,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    if target_width == 0 || target_height == 0 {
+        return Err(PyValueError::new_err(
+            "Image.resize() dimensions must be positive.",
+        ));
+    }
+    let resized = resize_rgba_nearest(&pixels, width, height, target_width, target_height);
+    Ok(PyBytes::new_bound(py, &resized))
+}
+
+#[pyfunction]
+fn image_crop_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    sx: i64,
+    sy: i64,
+    sw: i64,
+    sh: i64,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    if sw <= 0 || sh <= 0 {
+        return Err(PyValueError::new_err(
+            "Image region dimensions must be positive.",
+        ));
+    }
+    let cropped = crop_rgba_with_padding(&pixels, width, height, sx, sy, sw as usize, sh as usize);
+    Ok(PyBytes::new_bound(py, &cropped))
+}
+
+#[pyfunction]
+fn image_alpha_composite_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    source_width: usize,
+    source_height: usize,
+    source_pixels: Vec<u8>,
+    dx: i64,
+    dy: i64,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    validate_rgba_buffer(source_pixels.len(), source_width, source_height)?;
+    let mut composited = pixels;
+    alpha_composite_rgba_region(
+        &mut composited,
+        width,
+        height,
+        &source_pixels,
+        source_width,
+        source_height,
+        dx,
+        dy,
+    );
+    Ok(PyBytes::new_bound(py, &composited))
+}
+
+#[pyfunction]
+fn image_mask_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    mask_width: usize,
+    mask_height: usize,
+    mask_pixels: Vec<u8>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    validate_rgba_buffer(mask_pixels.len(), mask_width, mask_height)?;
+    let mut masked = pixels;
+    apply_rgba_mask(
+        &mut masked,
+        width,
+        height,
+        &mask_pixels,
+        mask_width,
+        mask_height,
+    );
+    Ok(PyBytes::new_bound(py, &masked))
+}
+
+#[pyfunction(signature = (width, height, pixels, mode, value=None))]
+fn image_filter_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    pixels: Vec<u8>,
+    mode: &str,
+    value: Option<f64>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    validate_rgba_buffer(pixels.len(), width, height)?;
+    let mut filtered = pixels;
+    filter_rgba(&mut filtered, mode, value)?;
+    Ok(PyBytes::new_bound(py, &filtered))
+}
+
+#[pyfunction]
+fn media_frame_to_rgba<'py>(
+    py: Python<'py>,
+    width: usize,
+    height: usize,
+    channels: usize,
+    pixels: Vec<u8>,
+) -> PyResult<Bound<'py, PyBytes>> {
+    let expected = width
+        .checked_mul(height)
+        .and_then(|pixel_count| pixel_count.checked_mul(channels))
+        .ok_or_else(|| PyValueError::new_err("Media frame dimensions are too large."))?;
+    if pixels.len() != expected {
+        return Err(PyValueError::new_err(format!(
+            "Media frame buffer length must be {expected}, got {}.",
+            pixels.len()
+        )));
+    }
+    let rgba = convert_media_frame_to_rgba(width, height, channels, &pixels)?;
+    Ok(PyBytes::new_bound(py, &rgba))
+}
+
 #[pymodule]
 fn _canvas(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(health_check, m)?)?;
     m.add_function(wrap_pyfunction!(canvas_abi_version, m)?)?;
     m.add_function(wrap_pyfunction!(native_window_available, m)?)?;
     m.add_function(wrap_pyfunction!(gpu_available, m)?)?;
+    m.add_function(wrap_pyfunction!(image_resize_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(image_crop_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(image_alpha_composite_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(image_mask_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(image_filter_rgba, m)?)?;
+    m.add_function(wrap_pyfunction!(media_frame_to_rgba, m)?)?;
     m.add("CANVAS_ABI_VERSION", CANVAS_ABI_VERSION)?;
     m.add_class::<Canvas>()?;
     m.add_class::<CanvasImage>()?;
@@ -2385,6 +2603,229 @@ fn validate_rgba_buffer(length: usize, width: usize, height: usize) -> PyResult<
             "RGBA buffer length must be {expected}, got {length}."
         )))
     }
+}
+
+fn resize_rgba_nearest(
+    pixels: &[u8],
+    width: usize,
+    height: usize,
+    target_width: usize,
+    target_height: usize,
+) -> Vec<u8> {
+    let mut resized = vec![0_u8; target_width * target_height * 4];
+    for y in 0..target_height {
+        let sy = (y * height / target_height).min(height - 1);
+        for x in 0..target_width {
+            let sx = (x * width / target_width).min(width - 1);
+            let src = (sy * width + sx) * 4;
+            let dst = (y * target_width + x) * 4;
+            resized[dst..dst + 4].copy_from_slice(&pixels[src..src + 4]);
+        }
+    }
+    resized
+}
+
+fn crop_rgba_with_padding(
+    pixels: &[u8],
+    width: usize,
+    height: usize,
+    sx: i64,
+    sy: i64,
+    sw: usize,
+    sh: usize,
+) -> Vec<u8> {
+    let mut cropped = vec![0_u8; sw * sh * 4];
+    let copy_x0 = sx.max(0).min(width as i64) as usize;
+    let copy_y0 = sy.max(0).min(height as i64) as usize;
+    let copy_x1 = (sx + sw as i64).max(0).min(width as i64) as usize;
+    let copy_y1 = (sy + sh as i64).max(0).min(height as i64) as usize;
+    if copy_x0 >= copy_x1 || copy_y0 >= copy_y1 {
+        return cropped;
+    }
+    let row_bytes = (copy_x1 - copy_x0) * 4;
+    for src_y in copy_y0..copy_y1 {
+        let dst_y = (src_y as i64 - sy) as usize;
+        let src = (src_y * width + copy_x0) * 4;
+        let dst = (dst_y * sw + (copy_x0 as i64 - sx) as usize) * 4;
+        cropped[dst..dst + row_bytes].copy_from_slice(&pixels[src..src + row_bytes]);
+    }
+    cropped
+}
+
+#[allow(clippy::too_many_arguments)]
+fn alpha_composite_rgba_region(
+    dst: &mut [u8],
+    dst_width: usize,
+    dst_height: usize,
+    src: &[u8],
+    src_width: usize,
+    src_height: usize,
+    dx: i64,
+    dy: i64,
+) {
+    let dst_x0 = dx.max(0).min(dst_width as i64) as usize;
+    let dst_y0 = dy.max(0).min(dst_height as i64) as usize;
+    let dst_x1 = (dx + src_width as i64).max(0).min(dst_width as i64) as usize;
+    let dst_y1 = (dy + src_height as i64).max(0).min(dst_height as i64) as usize;
+    if dst_x0 >= dst_x1 || dst_y0 >= dst_y1 {
+        return;
+    }
+    for ty in dst_y0..dst_y1 {
+        let src_y = (ty as i64 - dy) as usize;
+        for tx in dst_x0..dst_x1 {
+            let src_x = (tx as i64 - dx) as usize;
+            let dst_offset = (ty * dst_width + tx) * 4;
+            let src_offset = (src_y * src_width + src_x) * 4;
+            alpha_composite_pixel(
+                &mut dst[dst_offset..dst_offset + 4],
+                &src[src_offset..src_offset + 4],
+            );
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn replace_rgba_region(
+    dst: &mut [u8],
+    dst_width: usize,
+    dst_height: usize,
+    src: &[u8],
+    src_width: usize,
+    src_height: usize,
+    dx: i64,
+    dy: i64,
+) {
+    let dst_x0 = dx.max(0).min(dst_width as i64) as usize;
+    let dst_y0 = dy.max(0).min(dst_height as i64) as usize;
+    let dst_x1 = (dx + src_width as i64).max(0).min(dst_width as i64) as usize;
+    let dst_y1 = (dy + src_height as i64).max(0).min(dst_height as i64) as usize;
+    if dst_x0 >= dst_x1 || dst_y0 >= dst_y1 {
+        return;
+    }
+    let row_pixels = dst_x1 - dst_x0;
+    let row_bytes = row_pixels * 4;
+    for ty in dst_y0..dst_y1 {
+        let src_y = (ty as i64 - dy) as usize;
+        let src_x = (dst_x0 as i64 - dx) as usize;
+        let src_offset = (src_y * src_width + src_x) * 4;
+        let dst_offset = (ty * dst_width + dst_x0) * 4;
+        dst[dst_offset..dst_offset + row_bytes]
+            .copy_from_slice(&src[src_offset..src_offset + row_bytes]);
+    }
+}
+
+fn apply_rgba_mask(
+    pixels: &mut [u8],
+    width: usize,
+    height: usize,
+    mask_pixels: &[u8],
+    mask_width: usize,
+    mask_height: usize,
+) {
+    for y in 0..height {
+        let my = (y * mask_height / height).min(mask_height - 1);
+        for x in 0..width {
+            let mx = (x * mask_width / width).min(mask_width - 1);
+            let mask_offset = (my * mask_width + mx) * 4;
+            let mask_alpha = ((mask_pixels[mask_offset] as u32
+                + mask_pixels[mask_offset + 1] as u32
+                + mask_pixels[mask_offset + 2] as u32)
+                * mask_pixels[mask_offset + 3] as u32
+                + 382)
+                / 765;
+            let offset = (y * width + x) * 4 + 3;
+            pixels[offset] = ((pixels[offset] as u32 * mask_alpha + 127) / 255) as u8;
+        }
+    }
+}
+
+fn filter_rgba(pixels: &mut [u8], mode: &str, value: Option<f64>) -> PyResult<()> {
+    match mode {
+        "gray" => {
+            for pixel in pixels.chunks_exact_mut(4) {
+                let gray = luma(pixel);
+                pixel[0] = gray;
+                pixel[1] = gray;
+                pixel[2] = gray;
+            }
+        }
+        "invert" => {
+            for pixel in pixels.chunks_exact_mut(4) {
+                pixel[0] = 255 - pixel[0];
+                pixel[1] = 255 - pixel[1];
+                pixel[2] = 255 - pixel[2];
+            }
+        }
+        "threshold" => {
+            let threshold = ((value.unwrap_or(0.5) * 255.0).round()).clamp(0.0, 255.0) as u8;
+            for pixel in pixels.chunks_exact_mut(4) {
+                let bw = if luma(pixel) >= threshold { 255 } else { 0 };
+                pixel[0] = bw;
+                pixel[1] = bw;
+                pixel[2] = bw;
+            }
+        }
+        "blur" | "posterize" | "erode" | "dilate" => {}
+        _ => {
+            return Err(PyValueError::new_err(format!(
+                "Unsupported image filter {mode:?}."
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn luma(pixel: &[u8]) -> u8 {
+    (pixel[0] as f64 * 0.299 + pixel[1] as f64 * 0.587 + pixel[2] as f64 * 0.114).round() as u8
+}
+
+fn convert_media_frame_to_rgba(
+    width: usize,
+    height: usize,
+    channels: usize,
+    pixels: &[u8],
+) -> PyResult<Vec<u8>> {
+    if !matches!(channels, 1 | 3 | 4) {
+        return Err(PyValueError::new_err(
+            "Decoded media frames must have 1, 3, or 4 channels.",
+        ));
+    }
+    let mut rgba = vec![0_u8; width * height * 4];
+    match channels {
+        1 => {
+            for index in 0..(width * height) {
+                let gray = pixels[index];
+                let offset = index * 4;
+                rgba[offset..offset + 4].copy_from_slice(&[gray, gray, gray, 255]);
+            }
+        }
+        3 => {
+            for index in 0..(width * height) {
+                let src = index * 3;
+                let dst = index * 4;
+                rgba[dst..dst + 4].copy_from_slice(&[
+                    pixels[src + 2],
+                    pixels[src + 1],
+                    pixels[src],
+                    255,
+                ]);
+            }
+        }
+        4 => {
+            for index in 0..(width * height) {
+                let src = index * 4;
+                let dst = index * 4;
+                rgba[dst..dst + 4].copy_from_slice(&[
+                    pixels[src + 2],
+                    pixels[src + 1],
+                    pixels[src],
+                    pixels[src + 3],
+                ]);
+            }
+        }
+        _ => unreachable!(),
+    }
+    Ok(rgba)
 }
 
 fn scale_rect(rect: (i64, i64, i64, i64), pixel_density: f64) -> (i64, i64, i64, i64) {

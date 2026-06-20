@@ -60,6 +60,15 @@ class _FakeCV2:
         return self._captures.pop(0)
 
 
+class _FakeFrame:
+    def __init__(self, shape: tuple[int, ...], payload: bytes) -> None:
+        self.shape = shape
+        self._payload = payload
+
+    def tobytes(self) -> bytes:
+        return self._payload
+
+
 def test_create_video_wraps_optional_opencv_capture(monkeypatch, tmp_path: Path):
     video_path = tmp_path / "clip.mp4"
     video_path.write_bytes(b"fake")
@@ -148,3 +157,19 @@ def test_media_apis_fail_predictably_without_optional_dependency(monkeypatch, tm
         p5.create_video(video_path)
     with pytest.raises(BackendCapabilityError, match="optional media extra"):
         p5.create_capture("video")
+
+
+@pytest.mark.parametrize(
+    ("shape", "payload", "expected"),
+    [
+        ((1, 2), bytes([7, 9]), bytes([7, 7, 7, 255, 9, 9, 9, 255])),
+        ((1, 1, 3), bytes([1, 2, 3]), bytes([3, 2, 1, 255])),
+        ((1, 1, 4), bytes([1, 2, 3, 4]), bytes([3, 2, 1, 4])),
+    ],
+)
+def test_media_frame_conversion_uses_rust_rgba_kernel(
+    shape: tuple[int, ...], payload: bytes, expected: bytes
+) -> None:
+    image = media_module._frame_to_image(_FakeFrame(shape, payload))
+
+    assert image.to_rgba_bytes() == expected

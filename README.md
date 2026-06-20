@@ -93,9 +93,14 @@ async def preload() -> None:
 
 Loaded images keep their Rust-managed asset until you mutate pixels, so normal
 `load_image(); image(...)` sprite drawing can stay on the fast renderer path.
+Image-local resize, mask, filter, crop/copy, and alpha compositing delegate
+bulk byte work to the Rust canvas extension while keeping the Python `Image`
+API and version semantics.
 For pixel effects, `load_pixels()` keeps the compatibility list API and
 `load_pixel_bytes()` provides a bytes readback path; `update_pixels()` accepts
 lists and buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.
+Small canvas `get()` and `set()` region operations use Rust region calls where
+possible instead of reconstructing the full canvas as a Python image.
 For dense drawing loops, `p5.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel

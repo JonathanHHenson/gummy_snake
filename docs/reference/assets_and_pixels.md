@@ -20,7 +20,10 @@ Rust-managed asset internally until the first pixel mutation. Drawing an
 untouched loaded image can therefore stay on the renderer's fast sprite path.
 Calling `set()`, `update_pixels()`, `resize()`, `mask()`, or `filter()` makes
 the image mutable Python pixel data and future draws upload the changed version
-through the bounded image cache.
+through the bounded image cache. Bulk image-local work such as resize, mask,
+filter, crop/copy, and alpha compositing is delegated to the Rust canvas
+extension so the public Python API does not run nested per-pixel loops for
+normal image sizes.
 
 `smooth()` and `image_sampling(LINEAR)` request linear sampling.
 `no_smooth()` and `image_sampling(NEAREST)` request nearest-neighbor sampling.
@@ -65,6 +68,9 @@ report = p5.performance_diagnostics()
 The report contains counters and short public-language messages for readback,
 pixel list conversion, pixel upload, texture upload/cache hits, and CPU
 compositing fallback helpers such as canvas `get()`, `set()`, and `filter()`.
+Small canvas `get(x, y)`, `get(x, y, w, h)`, and `set(...)` operations route
+through Rust region APIs and avoid reconstructing a full Python `Image` where
+possible. Full-canvas `load_pixels()` remains a full physical-buffer readback.
 
 Renderer/runtime counters are available separately:
 
@@ -112,6 +118,9 @@ timings.
 - `create_video_async(...)`
 
 Some media helpers require installing the `media` extra.
+Decoded grayscale, BGR, and BGRA frames are converted to p5 RGBA image buffers
+by the Rust canvas extension once the optional media dependency supplies a
+contiguous frame buffer.
 
 3D asset helpers also include awaitable variants:
 

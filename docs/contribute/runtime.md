@@ -148,6 +148,21 @@ The Rust canvas image and texture caches are bounded. If cache limits are
 changed, keep the lifecycle explicit and preserve tests that draw many transient
 images.
 
+Image-local bulk operations are also canvas-owned. `Image.resize()`,
+`Image.mask()`, supported `Image.filter(...)` modes, crop/copy helpers, and
+image alpha compositing delegate their byte work to `p5_canvas` while Python
+keeps public API validation, mutation versioning, and cache-key ownership.
+
+Optional media capture/video helpers remain gated by the `media` extra, but
+decoded grayscale, BGR, and BGRA frame conversion to RGBA is routed through
+`p5_canvas` once the media dependency supplies a contiguous frame buffer.
+
+Optional `p5_accel` Python fallbacks, such as procedural noise and byte-wise
+blend reference kernels, preserve correctness for environments without the
+acceleration extension. Treat those Python kernels as reference implementations,
+not performance paths for dense animation workloads. Benchmarks should report
+whether the Rust acceleration extension handled the measured workload.
+
 ## Text And Font Cache Ownership
 
 Rust owns rendered text line caching because it owns font loading, glyph
@@ -171,6 +186,18 @@ should increase misses and eventually evictions without unbounded cache growth.
 is the lower-copy readback path for effects that can work with bytes, and
 `update_pixels()` accepts buffer-like inputs such as `bytes`, `bytearray`, and
 `memoryview`.
+
+Canvas region APIs use narrower Rust calls where possible:
+
+- `get(x, y)` reads one physical pixel region and returns `Color`.
+- `get(x, y, w, h)` reads only the requested physical region into an `Image`.
+- `set(x, y, color)` writes one physical pixel region.
+- `set(x, y, image)` uploads and alpha-composites the image region in Rust.
+- `filter(...)` applies supported full-canvas filters in Rust without a Python
+  `Image` reconstruction.
+
+Full-canvas `get()` and explicit `load_pixels()` still read the full physical
+buffer by design.
 
 ## WEBGL Runtime Status
 
