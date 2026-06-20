@@ -86,7 +86,7 @@ async def preload() -> None:
 - Text, font measurement, and accessibility descriptions.
 - Interactive sketches with mouse, keyboard, and touch state when native window
   support is available.
-- WEBGL-style 3D sketches with primitives, lights, materials, models, textures,
+- Software 3D sketches with primitives, lights, materials, models, textures,
   and shader objects on the current Rust-backed software 3D path.
 - Small games and visual toys using the examples as starting points.
 
@@ -95,7 +95,7 @@ Loaded images keep their Rust-managed asset until you mutate pixels, so normal
 Image-local resize, mask, filter, crop/copy, and alpha compositing delegate
 bulk byte work to the Rust canvas extension while keeping the Python `Image`
 API and version semantics.
-For pixel effects, `load_pixels()` keeps the compatibility list API and
+For pixel effects, `load_pixels()` returns a list-based pixel buffer and
 `load_pixel_bytes()` provides a bytes readback path; `update_pixels()` accepts
 lists and buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.
 Small canvas `get()` and `set()` region operations use Rust region calls where

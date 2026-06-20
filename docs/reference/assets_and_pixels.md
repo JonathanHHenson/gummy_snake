@@ -51,7 +51,7 @@ tile = img[x0:x1, y0:y1]
 Pixel buffers are physical RGBA buffers. When `pixel_density()` is greater than
 `1`, the physical pixel size is larger than the logical canvas size.
 
-`load_pixels()` returns a compatibility `list[int]`. Use `load_pixel_bytes()`
+`load_pixels()` returns a `list[int]`. Use `load_pixel_bytes()`
 for performance-sensitive readback when a bytes-like RGBA buffer is enough.
 `update_pixels()` accepts the list returned by `load_pixels()` and efficient
 buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.

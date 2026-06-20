@@ -54,5 +54,5 @@ gs.create_canvas(640, 480, renderer=gs.WEBGL)
 - `reset_shader()`
 - `normal_shader()`
 
-3D support is evolving. Unsupported shader or WEBGL compatibility APIs raise
-explicit Gummy Snake exceptions.
+3D support is evolving. Unsupported shader or advanced 3D APIs raise explicit
+Gummy Snake exceptions.

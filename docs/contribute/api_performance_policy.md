@@ -18,7 +18,7 @@ normalization, `load_pixels()` returning `list[int]`, `pixels()`, and
 `pixel_array()`. Document a faster Pythonic alternative when one exists.
 
 Advanced APIs are supported but may have backend-dependent costs. This includes
-blend modes, text shaping/metrics, image sampling modes, WEBGL-style 3D,
+blend modes, text shaping/metrics, image sampling modes, software 3D,
 shader objects, and model/image asset loading. Keep capability errors explicit
 and avoid promising native acceleration unless the backend reports it.
 
@@ -83,5 +83,5 @@ details in user-facing messages.
 
 When adding an API, classify it in this document's terms before documenting it.
 If the API is likely to be used in `draw()`, include an allocation and dispatch
-budget in tests or benchmarks. If it is compatibility-oriented or diagnostic,
+budget in tests or benchmarks. If it is convenience-oriented or diagnostic,
 make the cost explicit in reference docs and provide the fast-default route.

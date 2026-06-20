@@ -124,7 +124,7 @@ src/gummysnake/testing/      package test resources and helpers
 Other important directories:
 
 ```text
-tests/unit/          focused API, state, compatibility, assets, events, Rust wrapper tests
+tests/unit/          focused API, state, assets, events, Rust wrapper tests
 tests/contracts/     backend and renderer contract behavior
 tests/golden/        deterministic render comparisons
 tests/integration/   end-to-end sketch/rendering behavior
@@ -164,11 +164,11 @@ Prefer Pythonic convenience APIs in user-facing examples and docs when they impr
 - Python protocols: vector operators, event vector properties, and image indexing where appropriate
 - dense-loop fast path: `gs.fast()` / `Sketch.fast()` for hot drawing loops where repeated global-mode dispatch would dominate
 
-Keep the older function-passing and direct state-function APIs working for compatibility, but do not make them the only documented path for new Python-first examples.
+Keep the older function-passing and direct state-function APIs working for older Gummy Snake examples, but do not make them the only documented path for new Python-first examples.
 
 `gs.fast()` is a public frame-local facade, not a Rust escape hatch. It should preserve the current public style/transform state and compose with `style()`, `transform()`, and `pushed()` while reducing context lookup and flexible argument-normalization overhead for dense 2D primitive/image/text loops.
 
-Async-compatible lifecycle callbacks are supported. `preload`, `setup`, `draw`, event callbacks, and plugin hooks may be `async def`. Async asset helpers such as `load_image_async`, `load_json_async`, `load_model_async`, and `load_sound_async` are awaitable compatibility wrappers over the current canvas-owned runtime. Do not move Rust canvas-owned objects or active `SketchContext` state to arbitrary worker threads when extending async behavior; the canvas runtime is not generally thread-sendable.
+Async-compatible lifecycle callbacks are supported. `preload`, `setup`, `draw`, event callbacks, and plugin hooks may be `async def`. Async asset helpers such as `load_image_async`, `load_json_async`, `load_model_async`, and `load_sound_async` are awaitable wrappers over the current canvas-owned runtime. Do not move Rust canvas-owned objects or active `SketchContext` state to arbitrary worker threads when extending async behavior; the canvas runtime is not generally thread-sendable.
 
 Public closed-set values should be modeled as enums, not untyped constants. Keep Gummy Snake-style uppercase public names such as `CENTER`, `WEBGL`, and `BLEND` as enum members exported from `src/gummysnake/constants.py`, and expose the enum classes for type annotations. Prefer `StrEnum` for string-valued drawing/API modes and `IntEnum` only where numeric semantics are part of the public API, such as keyboard key codes.
 

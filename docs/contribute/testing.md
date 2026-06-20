@@ -67,7 +67,7 @@ canvas packaging. The current scenarios cover sparse and dense primitive
 drawing, cached image drawing with default linear and nearest sampling,
 per-frame image upload churn, blend modes, erasing, transformed images, text,
 pixel readback/upload, mixed text/pixel readback work, a deterministic game-style
-scene, and a WEBGL-style 3D prototype scene.
+scene, and a software 3D prototype scene.
 
 The API overhead microbenchmarks use a no-op renderer/backend and do not require
 the canvas extension. They report nanoseconds per call for global-mode,

@@ -27,7 +27,7 @@ gs.run()
 
 The decorators register callbacks on the current sketch module. You can also
 use `app = gs.sketch()` when you want a local sketch object, or pass callbacks
-explicitly to `gs.run(...)` for compatibility with older examples.
+explicitly to `gs.run(...)` for older Gummy Snake examples.
 
 ## Animate It
 

@@ -1,6 +1,6 @@
 # Native 3D Renderer Plan
 
-The current `WEBGL` renderer mode is a software-projected compatibility path.
+The current `WEBGL` renderer mode is a software-projected 3D path.
 Python owns camera, projection, material, light, shader-description state, mesh
 generation, face sorting, shading, and rasterization. The Rust `gummy_canvas`
 runtime presents the resulting 2D canvas output, but it does not yet own a
@@ -43,7 +43,7 @@ Native 3D should move these responsibilities into `gummy_canvas`:
    allocation while native upload work is developed.
 3. Add Rust-side mesh resource APIs behind internal renderer methods.
 4. Route built-in primitives through native mesh upload/draw when
-   `native_three_d=True`, leaving software fallback available until parity is
+   `native_three_d=True`, leaving software fallback available until behavior is
    tested.
 5. Add golden or integration tests for depth, culling, projection, materials,
    texture coordinates, and model loading before switching capability defaults.

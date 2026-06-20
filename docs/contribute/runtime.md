@@ -182,7 +182,7 @@ Renderer diagnostics expose `text_cache_hits`, `text_cache_misses`,
 `text_cache_evictions`, and `text_measurements`. Dynamic counters or labels
 should increase misses and eventually evictions without unbounded cache growth.
 
-`load_pixels()` remains the list-based compatibility API. `load_pixel_bytes()`
+`load_pixels()` remains the list-based pixel API. `load_pixel_bytes()`
 is the lower-copy readback path for effects that can work with bytes, and
 `update_pixels()` accepts buffer-like inputs such as `bytes`, `bytearray`, and
 `memoryview`.

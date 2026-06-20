@@ -1,3 +1,4 @@
+import math
 import runpy
 from pathlib import Path
 
@@ -26,6 +27,45 @@ def test_math_helpers_and_angle_mode():
     gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
 
+def test_pythonic_math_helpers_and_removed_legacy_easy_names():
+    assert gs.sq(3) == 9
+    assert gs.fract(1.25) == 0.25
+    assert sorted(gs.shuffle([1, 2, 3])) == [1, 2, 3]
+
+    legacy_easy_python_names = {
+        "abs_",
+        "ceil",
+        "floor",
+        "sqrt",
+        "pow_",
+        "round_",
+        "exp",
+        "log",
+        "boolean",
+        "byte",
+        "char",
+        "float_",
+        "hex_",
+        "int_",
+        "str_",
+        "unchar",
+        "unhex",
+        "nf",
+        "nfc",
+        "nfp",
+        "nfs",
+        "split_tokens",
+        "day",
+        "month",
+        "year",
+        "hour",
+        "minute",
+        "second",
+    }
+    assert legacy_easy_python_names.isdisjoint(gs.__all__)
+    assert not any(hasattr(gs, name) for name in legacy_easy_python_names)
+
+
 def test_vector_instance_and_static_helpers():
     vector = gs.create_vector(3, 4)
     assert vector.mag() == 5
@@ -52,6 +92,23 @@ def test_vector_instance_and_static_helpers():
     assert gs.Vector(3, 4) @ gs.Vector(2, 0) == 6
     assert round(gs.Vector(1.234, 5.678), 1).tuple() == (1.2, 5.7, 0.0)
     assert (10 - gs.Vector(1, 2, 3)).tuple() == (9.0, 8.0, 7.0)
+
+
+def test_vector_indexing_and_additional_operations():
+    vector = gs.Vector(1, 2, 3)
+    assert vector[0] == 1
+    vector[1] = 4
+    assert vector == gs.Vector(1, 4, 3)
+    assert vector.set_value("x", 2).get_value("x") == 2
+    assert vector.to_string() == "[2, 4, 3]"
+    angle = gs.Vector(1, 0).angle_between((0, 1))
+    assert math.isclose(angle, math.pi / 2) or math.isclose(angle, 90)
+    assert (gs.Vector(5, 5, 5) % 2) == gs.Vector(1, 1, 1)
+    assert gs.Vector(1e-13, 2, 0).clamp_to_zero() == gs.Vector(0, 2, 0)
+    assert gs.Vector(1, -1, 0).reflect((0, 1, 0)) == gs.Vector(1, 1, 0)
+    assert gs.Vector.slerp((1, 0, 0), (0, 1, 0), 0.5).mag() == pytest.approx(1)
+    assert gs.Vector.random_2d().mag() == pytest.approx(1)
+    assert gs.Vector.random_3d().mag() == pytest.approx(1)
 
 
 def test_spline_helpers_draw_and_measure():

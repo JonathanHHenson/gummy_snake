@@ -1,4 +1,4 @@
-"""Software-projected 3D helpers used by the first WEBGL-style milestone."""
+"""Software-projected 3D helpers used by the first 3D renderer milestone."""
 
 from __future__ import annotations
 

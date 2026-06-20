@@ -12,7 +12,7 @@ Documentation should match current behavior, not planned behavior.
 
 Update docs when changing:
 
-- public APIs or compatibility behavior
+- public APIs or user-visible behavior
 - canvas runtime behavior
 - pixels, images, text, export, or HiDPI behavior
 - backend or renderer contracts

@@ -82,7 +82,7 @@ def test_orbit_control_applies_mouse_wheel_zoom():
     assert _camera_radius(context) < initial_radius
 
 
-def test_shader_object_parity_helpers_copy_and_modify():
+def test_shader_object_helpers_copy_and_modify():
     shader = Shader3D(
         vertex_source="#version 300 es\nin vec3 position;\nvoid main() {}",
         fragment_source="uniform vec4 color;\nvoid main() {}",

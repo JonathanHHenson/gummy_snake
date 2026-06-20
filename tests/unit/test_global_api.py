@@ -97,6 +97,44 @@ def test_camel_case_aliases_are_not_exported():
     assert not hasattr(gs, "imageSampling")
 
 
+def test_environment_helpers():
+    def setup():
+        gs.create_canvas(10, 12)
+        gs.frame_rate(24)
+
+    def draw():
+        assert gs.get_target_frame_rate() == 24
+        assert gs.window_width() == 10
+        assert gs.window_height() == 12
+        assert gs.display_width() >= 10
+        assert gs.display_height() >= 12
+        assert gs.focused() is True
+        gs.cursor()
+        gs.no_cursor()
+
+    gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
+
+
+def test_accessibility_helpers_store_native_metadata():
+    def setup():
+        gs.create_canvas(10, 10)
+        assert gs.describe("A test canvas") == {
+            "label": "canvas",
+            "description": "A test canvas",
+        }
+        assert gs.describe_element("circle", "A small circle") == {
+            "label": "circle",
+            "description": "A small circle",
+        }
+
+    context = gs.run(setup=setup, headless=True, max_frames=0)
+    assert context.text_output() == [
+        {"label": "canvas", "description": "A test canvas"},
+        {"label": "circle", "description": "A small circle"},
+    ]
+    assert context.grid_output() == context.text_output()
+
+
 def test_image_sampling_api():
     def setup():
         gs.create_canvas(4, 4)
