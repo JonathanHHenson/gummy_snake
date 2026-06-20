@@ -5,6 +5,7 @@ These docs are for contributors who want to understand how p5py is built.
 - [Architecture](architecture.md)
 - [Backend and renderer boundaries](backend_renderer.md)
 - [Runtime model](runtime.md)
+- [Native 3D renderer plan](native_3d_plan.md)
 - [Testing and CI](testing.md)
 - [Documentation workflow](documentation.md)
 
@@ -35,7 +36,9 @@ anything in `src/p5/backends/`, `src/p5/rust/`, or `crates/p5_canvas/`. Most
 runtime regressions come from putting a behavior in the wrong layer.
 
 Read [Runtime model](runtime.md) before touching lifecycle, frame scheduling,
-interactive mode, headless mode, input dispatch, or HiDPI behavior.
+interactive mode, headless mode, input dispatch, HiDPI behavior, or current
+software WEBGL behavior. Read [Native 3D renderer plan](native_3d_plan.md)
+before moving WEBGL drawing into `p5_canvas`.
 
 Read [Testing and CI](testing.md) before adding tests or changing workflows.
 

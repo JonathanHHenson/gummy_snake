@@ -51,3 +51,32 @@ p5.triangle(a, b, c)
 - `erase(alpha=255, detail_alpha=255)`
 - `no_erase()`
 - `filter(kind, value=None)`
+
+## WEBGL-Style 3D
+
+- `create_canvas(width, height, WEBGL)`
+- `camera(...)`
+- `perspective(...)`
+- `ortho(...)`
+- `ambient_light(...)`
+- `directional_light(...)`
+- `point_light(...)`
+- `ambient_material(...)`
+- `specular_material(...)`
+- `normal_material()`
+- `texture(image)`
+- `plane(...)`
+- `box(...)`
+- `sphere(...)`
+- `ellipsoid(...)`
+- `cylinder(...)`
+- `cone(...)`
+- `torus(...)`
+- `load_model(path, normalize=False)`
+- `model(shape)`
+
+Current WEBGL support is a deterministic software-projected path. It is useful
+for small sketches, tests, examples, model loading, materials, lights, texture
+coordinates, and API compatibility work, but it is not yet native accelerated
+3D rendering. Backend capabilities distinguish `software_three_d` from
+`native_three_d`; the canvas backend currently reports software 3D support.

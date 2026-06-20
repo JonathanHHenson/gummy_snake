@@ -88,7 +88,7 @@ async def preload() -> None:
 - Interactive sketches with mouse, keyboard, and touch state when native window
   support is available.
 - WEBGL-style 3D sketches with primitives, lights, materials, models, textures,
-  and shaders.
+  and shader objects on the current software-projected 3D path.
 - Small games and visual toys using the examples as starting points.
 
 Loaded images keep their Rust-managed asset until you mutate pixels, so normal
@@ -134,6 +134,8 @@ Performance benchmarks are opt-in:
 ```sh
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
 Canvas benchmark scenarios are expected to average at least 120 FPS. Failures

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import cast
 
@@ -46,6 +47,36 @@ class ShadedFace:
     texture: P5Image | None = None
 
 
+_MESH_CACHE_SIZE = 256
+
+
+def clear_primitive_model_cache() -> None:
+    """Clear generated primitive model caches used by the software 3D path."""
+
+    plane_model.cache_clear()
+    box_model.cache_clear()
+    sphere_model.cache_clear()
+    ellipsoid_model.cache_clear()
+    cylinder_model.cache_clear()
+    cone_model.cache_clear()
+    torus_model.cache_clear()
+
+
+def primitive_model_cache_info() -> dict[str, object]:
+    """Return cache statistics for generated software 3D primitive models."""
+
+    return {
+        "plane": plane_model.cache_info(),
+        "box": box_model.cache_info(),
+        "sphere": sphere_model.cache_info(),
+        "ellipsoid": ellipsoid_model.cache_info(),
+        "cylinder": cylinder_model.cache_info(),
+        "cone": cone_model.cache_info(),
+        "torus": torus_model.cache_info(),
+    }
+
+
+@lru_cache(maxsize=_MESH_CACHE_SIZE)
 def plane_model(width: float, height: float | None = None) -> Model3D:
     plane_height = width if height is None else height
     if width <= 0 or plane_height <= 0:
@@ -65,6 +96,7 @@ def plane_model(width: float, height: float | None = None) -> Model3D:
     return Model3D(meshes=(mesh,))
 
 
+@lru_cache(maxsize=_MESH_CACHE_SIZE)
 def box_model(width: float, height: float | None = None, depth: float | None = None) -> Model3D:
     box_height = width if height is None else height
     box_depth = width if depth is None else depth
@@ -114,6 +146,7 @@ def box_model(width: float, height: float | None = None, depth: float | None = N
     return Model3D(meshes=(mesh,))
 
 
+@lru_cache(maxsize=_MESH_CACHE_SIZE)
 def sphere_model(radius: float, detail_x: int = 24, detail_y: int = 16) -> Model3D:
     if radius <= 0:
         raise ArgumentValidationError("sphere() radius must be positive.")
@@ -157,6 +190,7 @@ def sphere_model(radius: float, detail_x: int = 24, detail_y: int = 16) -> Model
     )
 
 
+@lru_cache(maxsize=_MESH_CACHE_SIZE)
 def ellipsoid_model(
     radius_x: float,
     radius_y: float | None = None,
@@ -174,6 +208,7 @@ def ellipsoid_model(
     return Model3D(meshes=(Mesh3D(vertices=vertices, faces=mesh.faces, texcoords=mesh.texcoords),))
 
 
+@lru_cache(maxsize=_MESH_CACHE_SIZE)
 def cylinder_model(
     radius: float,
     height: float,
@@ -229,6 +264,7 @@ def cylinder_model(
     )
 
 
+@lru_cache(maxsize=_MESH_CACHE_SIZE)
 def cone_model(
     radius: float,
     height: float,
@@ -283,6 +319,7 @@ def cone_model(
     )
 
 
+@lru_cache(maxsize=_MESH_CACHE_SIZE)
 def torus_model(
     radius: float,
     tube_radius: float | None = None,

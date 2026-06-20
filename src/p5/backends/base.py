@@ -29,7 +29,10 @@ class BackendCapabilities:
     transforms: bool = True
     blend_modes: frozenset[c.BlendMode] = field(default_factory=frozenset)
     three_d: bool = False
+    software_three_d: bool = False
+    native_three_d: bool = False
     shaders: bool = False
+    native_shaders: bool = False
     sound: bool = False
 
 

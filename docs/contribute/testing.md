@@ -49,6 +49,7 @@ explicitly requested:
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
 The canvas backend benchmarks require the `p5.rust._canvas` extension and run in
@@ -75,6 +76,12 @@ copy, resize, mask, filter, get, and set, plus list-based and bytes-based pixel
 workflows. Use them when changing `Image`, `P5Image`, `load_image()`,
 `load_pixels()`, `load_pixel_bytes()`, `update_pixels()`, or image cache
 behavior.
+
+The WEBGL 3D benchmarks exercise the current software-projected 3D path for
+box, sphere, textured plane, imported model, and repeated primitive scenes.
+They are frame-style benchmarks and keep the same 120 FPS target; failures are
+expected optimization signals until native 3D or additional software
+optimizations land.
 
 Checked-in baseline snapshots live in `tests/benchmark/baselines/` as TOML.
 Each baseline records the command, machine/configuration, commit, canvas size,

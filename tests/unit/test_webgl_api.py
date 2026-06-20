@@ -30,6 +30,16 @@ def make_context() -> SketchContext:
     return context
 
 
+def test_canvas_backend_reports_software_webgl_separately_from_native_acceleration():
+    backend = CanvasBackend(headless=True)
+
+    assert backend.capabilities.three_d is True
+    assert backend.capabilities.software_three_d is True
+    assert backend.capabilities.native_three_d is False
+    assert backend.capabilities.shaders is True
+    assert backend.capabilities.native_shaders is False
+
+
 def _camera_radius(context: SketchContext) -> float:
     offset_x = context._camera3d.eye.x - context._camera3d.target.x
     offset_y = context._camera3d.eye.y - context._camera3d.target.y

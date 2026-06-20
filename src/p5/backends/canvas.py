@@ -115,7 +115,10 @@ class CanvasBackend:
             }
         ),
         three_d=True,
+        software_three_d=True,
+        native_three_d=False,
         shaders=True,
+        native_shaders=False,
         sound=True,
     )
 

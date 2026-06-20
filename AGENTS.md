@@ -24,6 +24,10 @@ user sketch
 ```
 
 `p5.rust._canvas` owns drawing, presentation, image asset loading/saving, text, pixels, export, and native window/input support when built with those capabilities.
+Current `WEBGL` support is a Python software-projected path presented through
+the canvas runtime, not native accelerated 3D. Backend capabilities distinguish
+`software_three_d`, `native_three_d`, `shaders`, and `native_shaders`; do not
+imply native 3D or native shader support from `three_d=True`.
 
 Important consequences:
 
@@ -285,6 +289,7 @@ Benchmark tests are opt-in:
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
 Canvas benchmark scenarios must average at least 120 FPS. Treat failures below

@@ -150,6 +150,23 @@ is the lower-copy readback path for effects that can work with bytes, and
 `update_pixels()` accepts buffer-like inputs such as `bytes`, `bytearray`, and
 `memoryview`.
 
+## WEBGL Runtime Status
+
+`create_canvas(..., WEBGL)` currently uses Python software projection and 2D
+canvas drawing. It is deterministic and covered by headless tests, but it is not
+native accelerated 3D. Backend capabilities therefore distinguish:
+
+- `three_d`: WEBGL mode is accepted.
+- `software_three_d`: the Python software 3D path is available.
+- `native_three_d`: the native runtime owns 3D geometry and depth rendering.
+- `shaders`: shader-style Python API objects are accepted.
+- `native_shaders`: user shader programs are handled by the native renderer.
+
+The canvas backend currently reports `three_d=True`, `software_three_d=True`,
+`native_three_d=False`, `shaders=True`, and `native_shaders=False`. See
+[`native_3d_plan.md`](native_3d_plan.md) before moving 3D drawing into Rust/GPU
+code.
+
 ## Canvas Creation And Synchronization
 
 Canvas creation is a cross-layer operation:
@@ -174,5 +191,7 @@ can disagree.
 - Unsupported renderer names should raise `ArgumentValidationError`.
 - Requesting `WEBGL` on a backend without 3D support should raise
   `BackendCapabilityError`.
+- Native 3D and native shader support should not be implied by software WEBGL
+  capability flags.
 - Pixel operations should report capability problems explicitly instead of
   failing with unrelated buffer errors.
