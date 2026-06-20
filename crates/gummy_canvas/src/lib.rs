@@ -1,10 +1,18 @@
 mod gpu;
+mod image_ops;
+mod performance;
 mod runtime;
 
 use ab_glyph::{point, Font, FontArc, GlyphId, PxScale, ScaleFont};
+use image_ops::{
+    alpha_composite_pixel, alpha_composite_rgba_region, apply_rgba_mask,
+    convert_media_frame_to_rgba, crop_rgba_with_padding, filter_rgba, replace_rgba_region,
+    resize_rgba_nearest, validate_rgba_buffer,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyList};
+use performance::PerformanceCounters;
 use runtime::{
     native_window_available as runtime_native_window_available, InteractiveRuntime, RuntimeEvent,
 };
@@ -84,49 +92,6 @@ struct CachedText {
     bbox_left: i32,
     bbox_top: i32,
     ascent: f64,
-}
-
-#[derive(Clone, Debug, Default)]
-struct PerformanceCounters {
-    gpu_draws: u64,
-    cpu_fallbacks: u64,
-    pixel_readbacks: u64,
-    pixel_uploads: u64,
-    image_cache_hits: u64,
-    image_cache_misses: u64,
-    texture_cache_hits: u64,
-    texture_uploads: u64,
-    text_cache_hits: u64,
-    text_cache_misses: u64,
-    text_cache_evictions: u64,
-    text_measurements: u64,
-    bridge_calls: u64,
-    frames_presented: u64,
-    gpu_frames_rendered: u64,
-    event_polls: u64,
-}
-
-impl PerformanceCounters {
-    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new_bound(py);
-        dict.set_item("gpu_draws", self.gpu_draws)?;
-        dict.set_item("cpu_fallbacks", self.cpu_fallbacks)?;
-        dict.set_item("pixel_readbacks", self.pixel_readbacks)?;
-        dict.set_item("pixel_uploads", self.pixel_uploads)?;
-        dict.set_item("image_cache_hits", self.image_cache_hits)?;
-        dict.set_item("image_cache_misses", self.image_cache_misses)?;
-        dict.set_item("texture_cache_hits", self.texture_cache_hits)?;
-        dict.set_item("texture_uploads", self.texture_uploads)?;
-        dict.set_item("text_cache_hits", self.text_cache_hits)?;
-        dict.set_item("text_cache_misses", self.text_cache_misses)?;
-        dict.set_item("text_cache_evictions", self.text_cache_evictions)?;
-        dict.set_item("text_measurements", self.text_measurements)?;
-        dict.set_item("bridge_calls", self.bridge_calls)?;
-        dict.set_item("frames_presented", self.frames_presented)?;
-        dict.set_item("gpu_frames_rendered", self.gpu_frames_rendered)?;
-        dict.set_item("event_polls", self.event_polls)?;
-        Ok(dict)
-    }
 }
 
 #[pyclass(name = "CanvasImage", unsendable)]
@@ -2723,243 +2688,6 @@ fn stroke_width(stroke_weight: f64, pixel_density: f64) -> f64 {
     (stroke_weight * pixel_density).round().max(1.0)
 }
 
-fn validate_rgba_buffer(length: usize, width: usize, height: usize) -> PyResult<()> {
-    let expected = width
-        .checked_mul(height)
-        .and_then(|pixels| pixels.checked_mul(4))
-        .ok_or_else(|| PyValueError::new_err("Image dimensions are too large."))?;
-    if length == expected {
-        Ok(())
-    } else {
-        Err(PyValueError::new_err(format!(
-            "RGBA buffer length must be {expected}, got {length}."
-        )))
-    }
-}
-
-fn resize_rgba_nearest(
-    pixels: &[u8],
-    width: usize,
-    height: usize,
-    target_width: usize,
-    target_height: usize,
-) -> Vec<u8> {
-    let mut resized = vec![0_u8; target_width * target_height * 4];
-    for y in 0..target_height {
-        let sy = (y * height / target_height).min(height - 1);
-        for x in 0..target_width {
-            let sx = (x * width / target_width).min(width - 1);
-            let src = (sy * width + sx) * 4;
-            let dst = (y * target_width + x) * 4;
-            resized[dst..dst + 4].copy_from_slice(&pixels[src..src + 4]);
-        }
-    }
-    resized
-}
-
-fn crop_rgba_with_padding(
-    pixels: &[u8],
-    width: usize,
-    height: usize,
-    sx: i64,
-    sy: i64,
-    sw: usize,
-    sh: usize,
-) -> Vec<u8> {
-    let mut cropped = vec![0_u8; sw * sh * 4];
-    let copy_x0 = sx.max(0).min(width as i64) as usize;
-    let copy_y0 = sy.max(0).min(height as i64) as usize;
-    let copy_x1 = (sx + sw as i64).max(0).min(width as i64) as usize;
-    let copy_y1 = (sy + sh as i64).max(0).min(height as i64) as usize;
-    if copy_x0 >= copy_x1 || copy_y0 >= copy_y1 {
-        return cropped;
-    }
-    let row_bytes = (copy_x1 - copy_x0) * 4;
-    for src_y in copy_y0..copy_y1 {
-        let dst_y = (src_y as i64 - sy) as usize;
-        let src = (src_y * width + copy_x0) * 4;
-        let dst = (dst_y * sw + (copy_x0 as i64 - sx) as usize) * 4;
-        cropped[dst..dst + row_bytes].copy_from_slice(&pixels[src..src + row_bytes]);
-    }
-    cropped
-}
-
-#[allow(clippy::too_many_arguments)]
-fn alpha_composite_rgba_region(
-    dst: &mut [u8],
-    dst_width: usize,
-    dst_height: usize,
-    src: &[u8],
-    src_width: usize,
-    src_height: usize,
-    dx: i64,
-    dy: i64,
-) {
-    let dst_x0 = dx.max(0).min(dst_width as i64) as usize;
-    let dst_y0 = dy.max(0).min(dst_height as i64) as usize;
-    let dst_x1 = (dx + src_width as i64).max(0).min(dst_width as i64) as usize;
-    let dst_y1 = (dy + src_height as i64).max(0).min(dst_height as i64) as usize;
-    if dst_x0 >= dst_x1 || dst_y0 >= dst_y1 {
-        return;
-    }
-    for ty in dst_y0..dst_y1 {
-        let src_y = (ty as i64 - dy) as usize;
-        for tx in dst_x0..dst_x1 {
-            let src_x = (tx as i64 - dx) as usize;
-            let dst_offset = (ty * dst_width + tx) * 4;
-            let src_offset = (src_y * src_width + src_x) * 4;
-            alpha_composite_pixel(
-                &mut dst[dst_offset..dst_offset + 4],
-                &src[src_offset..src_offset + 4],
-            );
-        }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn replace_rgba_region(
-    dst: &mut [u8],
-    dst_width: usize,
-    dst_height: usize,
-    src: &[u8],
-    src_width: usize,
-    src_height: usize,
-    dx: i64,
-    dy: i64,
-) {
-    let dst_x0 = dx.max(0).min(dst_width as i64) as usize;
-    let dst_y0 = dy.max(0).min(dst_height as i64) as usize;
-    let dst_x1 = (dx + src_width as i64).max(0).min(dst_width as i64) as usize;
-    let dst_y1 = (dy + src_height as i64).max(0).min(dst_height as i64) as usize;
-    if dst_x0 >= dst_x1 || dst_y0 >= dst_y1 {
-        return;
-    }
-    let row_pixels = dst_x1 - dst_x0;
-    let row_bytes = row_pixels * 4;
-    for ty in dst_y0..dst_y1 {
-        let src_y = (ty as i64 - dy) as usize;
-        let src_x = (dst_x0 as i64 - dx) as usize;
-        let src_offset = (src_y * src_width + src_x) * 4;
-        let dst_offset = (ty * dst_width + dst_x0) * 4;
-        dst[dst_offset..dst_offset + row_bytes]
-            .copy_from_slice(&src[src_offset..src_offset + row_bytes]);
-    }
-}
-
-fn apply_rgba_mask(
-    pixels: &mut [u8],
-    width: usize,
-    height: usize,
-    mask_pixels: &[u8],
-    mask_width: usize,
-    mask_height: usize,
-) {
-    for y in 0..height {
-        let my = (y * mask_height / height).min(mask_height - 1);
-        for x in 0..width {
-            let mx = (x * mask_width / width).min(mask_width - 1);
-            let mask_offset = (my * mask_width + mx) * 4;
-            let mask_alpha = ((mask_pixels[mask_offset] as u32
-                + mask_pixels[mask_offset + 1] as u32
-                + mask_pixels[mask_offset + 2] as u32)
-                * mask_pixels[mask_offset + 3] as u32
-                + 382)
-                / 765;
-            let offset = (y * width + x) * 4 + 3;
-            pixels[offset] = ((pixels[offset] as u32 * mask_alpha + 127) / 255) as u8;
-        }
-    }
-}
-
-fn filter_rgba(pixels: &mut [u8], mode: &str, value: Option<f64>) -> PyResult<()> {
-    match mode {
-        "gray" => {
-            for pixel in pixels.chunks_exact_mut(4) {
-                let gray = luma(pixel);
-                pixel[0] = gray;
-                pixel[1] = gray;
-                pixel[2] = gray;
-            }
-        }
-        "invert" => {
-            for pixel in pixels.chunks_exact_mut(4) {
-                pixel[0] = 255 - pixel[0];
-                pixel[1] = 255 - pixel[1];
-                pixel[2] = 255 - pixel[2];
-            }
-        }
-        "threshold" => {
-            let threshold = ((value.unwrap_or(0.5) * 255.0).round()).clamp(0.0, 255.0) as u8;
-            for pixel in pixels.chunks_exact_mut(4) {
-                let bw = if luma(pixel) >= threshold { 255 } else { 0 };
-                pixel[0] = bw;
-                pixel[1] = bw;
-                pixel[2] = bw;
-            }
-        }
-        "blur" | "posterize" | "erode" | "dilate" => {}
-        _ => {
-            return Err(PyValueError::new_err(format!(
-                "Unsupported image filter {mode:?}."
-            )));
-        }
-    }
-    Ok(())
-}
-
-fn luma(pixel: &[u8]) -> u8 {
-    (pixel[0] as f64 * 0.299 + pixel[1] as f64 * 0.587 + pixel[2] as f64 * 0.114).round() as u8
-}
-
-fn convert_media_frame_to_rgba(
-    width: usize,
-    height: usize,
-    channels: usize,
-    pixels: &[u8],
-) -> PyResult<Vec<u8>> {
-    if !matches!(channels, 1 | 3 | 4) {
-        return Err(PyValueError::new_err(
-            "Decoded media frames must have 1, 3, or 4 channels.",
-        ));
-    }
-    let mut rgba = vec![0_u8; width * height * 4];
-    match channels {
-        1 => {
-            for index in 0..(width * height) {
-                let gray = pixels[index];
-                let offset = index * 4;
-                rgba[offset..offset + 4].copy_from_slice(&[gray, gray, gray, 255]);
-            }
-        }
-        3 => {
-            for index in 0..(width * height) {
-                let src = index * 3;
-                let dst = index * 4;
-                rgba[dst..dst + 4].copy_from_slice(&[
-                    pixels[src + 2],
-                    pixels[src + 1],
-                    pixels[src],
-                    255,
-                ]);
-            }
-        }
-        4 => {
-            for index in 0..(width * height) {
-                let src = index * 4;
-                let dst = index * 4;
-                rgba[dst..dst + 4].copy_from_slice(&[
-                    pixels[src + 2],
-                    pixels[src + 1],
-                    pixels[src],
-                    pixels[src + 3],
-                ]);
-            }
-        }
-        _ => unreachable!(),
-    }
-    Ok(rgba)
-}
-
 #[derive(Clone, Copy, Debug)]
 struct Vec3d {
     x: f64,
@@ -4622,30 +4350,6 @@ fn distance_to_segment_squared(point: Point, p1: Point, p2: Point) -> f64 {
     let dx = point.0 - projection.0;
     let dy = point.1 - projection.1;
     dx * dx + dy * dy
-}
-
-fn alpha_composite_pixel(dst: &mut [u8], src: &[u8]) {
-    let src_alpha = src[3] as u32;
-    if src_alpha == 255 {
-        dst.copy_from_slice(src);
-        return;
-    }
-    let dst_alpha = dst[3] as u32;
-    if src_alpha == 0 {
-        return;
-    }
-    let inv_src_alpha = 255 - src_alpha;
-    let out_alpha = src_alpha + (dst_alpha * inv_src_alpha + 127) / 255;
-    if out_alpha == 0 {
-        dst.copy_from_slice(&[0, 0, 0, 0]);
-        return;
-    }
-    for channel in 0..3 {
-        let src_premul = src[channel] as u32 * src_alpha;
-        let dst_premul = dst[channel] as u32 * dst_alpha * inv_src_alpha / 255;
-        dst[channel] = ((src_premul + dst_premul + out_alpha / 2) / out_alpha) as u8;
-    }
-    dst[3] = out_alpha as u8;
 }
 
 fn blend_pixel(dst: &mut [u8], src: &[u8], mode: &str) {

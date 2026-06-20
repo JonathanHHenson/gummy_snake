@@ -421,32 +421,26 @@ class CanvasRenderer:
     ) -> None:
         self._flush_line_batch()
         if isinstance(image, CanvasImage):
-            self._count("gpu_draws")
-            self._call(
-                "image drawing",
-                self._require_canvas().draw_canvas_image,
+            self._draw_rust_image(
                 image._rust_image,
                 dx,
                 dy,
                 dw,
                 dh,
-                self._style_payload(style),
-                self._matrix_payload(transform),
+                style,
+                transform,
                 source,
             )
             return
         if image.rust_image is not None:
-            self._count("gpu_draws")
-            self._call(
-                "image drawing",
-                self._require_canvas().draw_canvas_image,
+            self._draw_rust_image(
                 image.rust_image._rust_image,
                 dx,
                 dy,
                 dw,
                 dh,
-                self._style_payload(style),
-                self._matrix_payload(transform),
+                style,
+                transform,
                 source,
             )
             return
@@ -704,6 +698,31 @@ class CanvasRenderer:
         self._image_cache_versions.move_to_end(image_key)
         while len(self._image_cache_versions) > _IMAGE_VERSION_CACHE_LIMIT:
             self._image_cache_versions.popitem(last=False)
+
+    def _draw_rust_image(
+        self,
+        rust_image: object,
+        dx: float,
+        dy: float,
+        dw: float,
+        dh: float,
+        style: StyleState,
+        transform: Matrix2D,
+        source: tuple[int, int, int, int] | None,
+    ) -> None:
+        self._count("gpu_draws")
+        self._call(
+            "image drawing",
+            self._require_canvas().draw_canvas_image,
+            rust_image,
+            dx,
+            dy,
+            dw,
+            dh,
+            self._style_payload(style),
+            self._matrix_payload(transform),
+            source,
+        )
 
     def _canvas_type(self) -> type[Any]:
         canvas_type = getattr(self._canvas_module, "Canvas", None)

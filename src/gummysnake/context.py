@@ -8,6 +8,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake import constants as c
+from gummysnake._context_helpers import (
+    blend_args,
+    copy_ints,
+    image_draw_args,
+    rgba_bytes,
+)
 from gummysnake.api.current import activate_context
 from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.assets.text import Font
@@ -1189,47 +1195,23 @@ class SketchContext:
     def _draw_image_fast(
         self, image: Image | CanvasImage, x: float, y: float, *args: float
     ) -> None:
-        if not isinstance(image, Image | CanvasImage):
-            raise ArgumentValidationError(
-                "image() requires a Gummy Snake Image or CanvasImage object."
-            )
-        w: float
-        h: float
-        source: tuple[int, int, int, int] | None
-        if len(args) == 0:
-            w = float(image.width)
-            h = float(image.height)
-            source = None
-        elif len(args) == 2:
-            w = float(args[0])
-            h = float(args[1])
-            source = None
-        elif len(args) == 6:
-            w = float(args[0])
-            h = float(args[1])
-            sx = float(args[2])
-            sy = float(args[3])
-            sw = float(args[4])
-            sh = float(args[5])
-            source = (int(sx), int(sy), int(sw), int(sh))
-        else:
-            raise ArgumentValidationError(
-                "image() accepts image, x, y; image, x, y, w, h; "
-                "or image, x, y, w, h, sx, sy, sw, sh."
-            )
-        dx, dy, dw, dh = resolve_rect(
-            self.state.style.image_mode, float(x), float(y), float(w), float(h)
+        draw_args = image_draw_args(
+            image,
+            x,
+            y,
+            args,
+            image_mode=self.state.style.image_mode,
         )
         self._record_image_diagnostics(image)
         self.renderer.draw_image(
             image,
-            dx,
-            dy,
-            dw,
-            dh,
+            draw_args.dx,
+            draw_args.dy,
+            draw_args.dw,
+            draw_args.dh,
             self.state.style,
             self.state.transform.matrix,
-            source=source,
+            source=draw_args.source,
         )
 
     def _record_image_diagnostics(self, image: Image | CanvasImage) -> None:
@@ -1477,10 +1459,7 @@ class SketchContext:
             )
             self.pixels = []
             return
-        rgba = value.to_tuple() if isinstance(value, Color) else tuple(value)
-        if len(rgba) == 3:
-            rgba = (*rgba, 255)
-        payload = bytes(max(0, min(255, int(component))) for component in rgba)
+        payload = rgba_bytes(value)
         self.renderer.update_pixel_region(
             payload,
             1,
@@ -1500,15 +1479,15 @@ class SketchContext:
                     "copy(image, sx, sy, sw, sh, dx, dy, dw, dh) requires nine arguments."
                 )
             source = args[0]
-            sx, sy, sw, sh, dx, dy, dw, dh = (int(cast(Any, value)) for value in args[1:])
+            sx, sy, sw, sh, dx, dy, dw, dh = copy_ints(args[1:])
             patch = source.copy(sx, sy, sw, sh, 0, 0, dw, dh)
             self.set(dx, dy, patch)
             return None
         if len(args) == 4:
-            sx, sy, sw, sh = (int(cast(Any, value)) for value in args)
+            sx, sy, sw, sh = copy_ints(args)
             return self.get(sx, sy, sw, sh)
         if len(args) == 8:
-            sx, sy, sw, sh, dx, dy, dw, dh = (int(cast(Any, value)) for value in args)
+            sx, sy, sw, sh, dx, dy, dw, dh = copy_ints(args)
             patch = self.get(sx, sy, sw, sh)
             if not isinstance(patch, Image):
                 raise ArgumentValidationError("copy() source region must produce an Image.")
@@ -1575,28 +1554,16 @@ class SketchContext:
         self._mark_style_changed()
 
     def blend(self, *args: object) -> None:
-        if len(args) == 9:
-            source_image = None
-            sx, sy, sw, sh, dx, dy, dw, dh, mode = args
-        elif len(args) == 10 and isinstance(args[0], Image):
-            source_image = args[0]
-            sx, sy, sw, sh, dx, dy, dw, dh, mode = args[1:]
-        else:
-            raise ArgumentValidationError(
-                "blend() accepts sx, sy, sw, sh, dx, dy, dw, dh, mode or "
-                "image, sx, sy, sw, sh, dx, dy, dw, dh, mode."
-            )
-        if not isinstance(mode, c.BlendMode):
-            raise ArgumentValidationError("blend() mode must be a BlendMode enum value.")
-        if mode not in self.backend.capabilities.blend_modes:
-            raise ArgumentValidationError(
-                f"Unsupported blend mode {mode!r} for backend {self.backend.name!r}."
-            )
+        parsed = blend_args(
+            args,
+            self.backend.capabilities.blend_modes,
+            backend_name=self.backend.name,
+        )
         self.renderer.blend_region(
-            source_image,
-            (_coerce_int(sx), _coerce_int(sy), _coerce_int(sw), _coerce_int(sh)),
-            (_coerce_int(dx), _coerce_int(dy), _coerce_int(dw), _coerce_int(dh)),
-            mode,
+            parsed.source_image,
+            parsed.source_rect,
+            parsed.dest_rect,
+            parsed.mode,
         )
 
     def erase(self) -> None:
@@ -1792,11 +1759,3 @@ class SketchContext:
     def _angle(self, value: float) -> float:
         mode = getattr(self, "angle_mode_value", c.RADIANS)
         return math.radians(value) if mode == c.DEGREES else float(value)
-
-
-def _coerce_int(value: object) -> int:
-    if isinstance(value, str | int | float):
-        return int(value)
-    raise ArgumentValidationError(
-        f"Expected an integer-compatible value, got {type(value).__name__}."
-    )

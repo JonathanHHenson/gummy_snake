@@ -11,6 +11,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake import constants as c
+from gummysnake.backends import _canvas_events as canvas_events
 from gummysnake.backends.base import BackendCapabilities
 from gummysnake.backends.canvas_renderer import CanvasRenderer
 from gummysnake.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
@@ -26,60 +27,7 @@ if TYPE_CHECKING:
     from gummysnake.sketch import Sketch
 
 
-_MOUSE_EVENT_TYPES = {
-    "mouse_moved",
-    "mouse_dragged",
-    "mouse_pressed",
-    "mouse_released",
-    "mouse_clicked",
-    "mouse_double_clicked",
-    "mouse_wheel",
-}
-
-_KEYBOARD_EVENT_TYPES = {"key_pressed", "key_released", "key_typed"}
-_TOUCH_EVENT_TYPES = {"touch_started", "touch_moved", "touch_ended", "touch_cancelled"}
 _TEXTURE_LIMIT_RE = re.compile(r"GPU texture limit of (\d+)")
-
-_SPECIAL_KEY_CODES = {
-    "backspace": c.BACKSPACE,
-    "tab": c.TAB,
-    "enter": c.ENTER,
-    "return": c.RETURN,
-    "escape": c.ESCAPE,
-    "esc": c.ESCAPE,
-    "shift": c.SHIFT,
-    "control": c.CONTROL,
-    "ctrl": c.CONTROL,
-    "alt": c.ALT,
-    "option": c.OPTION,
-    "arrowup": c.UP_ARROW,
-    "up": c.UP_ARROW,
-    "up_arrow": c.UP_ARROW,
-    "arrowdown": c.DOWN_ARROW,
-    "down": c.DOWN_ARROW,
-    "down_arrow": c.DOWN_ARROW,
-    "arrowleft": c.LEFT_ARROW,
-    "left": c.LEFT_ARROW,
-    "left_arrow": c.LEFT_ARROW,
-    "arrowright": c.RIGHT_ARROW,
-    "right": c.RIGHT_ARROW,
-    "right_arrow": c.RIGHT_ARROW,
-}
-
-_MOUSE_BUTTONS = {
-    "left": c.LEFT_BUTTON,
-    "primary": c.LEFT_BUTTON,
-    "1": c.LEFT_BUTTON,
-    1: c.LEFT_BUTTON,
-    "center": c.CENTER_BUTTON,
-    "middle": c.CENTER_BUTTON,
-    "2": c.CENTER_BUTTON,
-    2: c.CENTER_BUTTON,
-    "right": c.RIGHT_BUTTON,
-    "secondary": c.RIGHT_BUTTON,
-    "3": c.RIGHT_BUTTON,
-    3: c.RIGHT_BUTTON,
-}
 
 
 def _pacing_float(value: object) -> float:
@@ -452,15 +400,15 @@ class CanvasBackend:
 
     def _dispatch_canvas_event(self, sketch: Sketch, payload: object) -> None:
         context = self._sketch_context(sketch)
-        event_payload = self._event_mapping(payload)
+        event_payload = canvas_events.event_mapping(payload)
         event_type = str(event_payload.get("type", ""))
-        if event_type in _MOUSE_EVENT_TYPES:
+        if event_type in canvas_events.MOUSE_EVENT_TYPES:
             context.dispatch_mouse_event(self._mouse_event(event_payload))
             return
-        if event_type in _KEYBOARD_EVENT_TYPES:
+        if event_type in canvas_events.KEYBOARD_EVENT_TYPES:
             context.dispatch_keyboard_event(self._keyboard_event(event_payload))
             return
-        if event_type in _TOUCH_EVENT_TYPES:
+        if event_type in canvas_events.TOUCH_EVENT_TYPES:
             context.dispatch_touch_event(self._touch_event(event_payload, context))
             return
         if event_type == "resized":
@@ -473,21 +421,11 @@ class CanvasBackend:
             return
         raise BackendCapabilityError(f"Unsupported canvas runtime event type {event_type!r}.")
 
-    def _event_mapping(self, payload: object) -> Mapping[str, object]:
-        if isinstance(payload, Mapping):
-            return cast(Mapping[str, object], payload)
-        as_dict = getattr(payload, "as_dict", None)
-        if callable(as_dict):
-            value = as_dict()
-            if isinstance(value, Mapping):
-                return cast(Mapping[str, object], value)
-        raise BackendCapabilityError("Canvas runtime events must be mappings or expose as_dict().")
-
     def _mouse_event(self, payload: Mapping[str, object]) -> MouseEvent:
-        x = self._float_payload(payload, "x", default=0.0)
-        y = self._float_payload(payload, "y", default=0.0)
-        dx = self._float_payload(payload, "dx", default=0.0)
-        dy = self._float_payload(payload, "dy", default=0.0)
+        x = canvas_events.float_payload(payload, "x", default=0.0)
+        y = canvas_events.float_payload(payload, "y", default=0.0)
+        dx = canvas_events.float_payload(payload, "dx", default=0.0)
+        dy = canvas_events.float_payload(payload, "dy", default=0.0)
         if str(payload.get("coordinates", "physical")) != "logical":
             x, y = self._logical_pointer_position(x, y)
             dx, dy = self._logical_pointer_delta(dx, dy)
@@ -496,10 +434,10 @@ class CanvasBackend:
             y=y,
             dx=dx,
             dy=dy,
-            button=self._normalize_mouse_button(payload.get("button")),
-            scroll_x=self._float_payload(payload, "scroll_x", default=0.0),
-            scroll_y=self._float_payload(payload, "scroll_y", default=0.0),
-            modifiers=self._optional_int(payload.get("modifiers")),
+            button=canvas_events.normalize_mouse_button(payload.get("button")),
+            scroll_x=canvas_events.float_payload(payload, "scroll_x", default=0.0),
+            scroll_y=canvas_events.float_payload(payload, "scroll_y", default=0.0),
+            modifiers=canvas_events.optional_int(payload.get("modifiers")),
             type=str(payload["type"]),
         )
 
@@ -511,15 +449,15 @@ class CanvasBackend:
         raw_key_code = payload.get("key_code", payload.get("code", key))
         return KeyboardEvent(
             key=key_value,
-            key_code=self._normalize_key_code(raw_key_code, key_value),
-            modifiers=self._optional_int(payload.get("modifiers")),
+            key_code=canvas_events.normalize_key_code(raw_key_code, key_value),
+            modifiers=canvas_events.optional_int(payload.get("modifiers")),
             type=str(payload["type"]),
         )
 
     def _touch_event(self, payload: Mapping[str, object], context: Any) -> TouchEvent:
-        touch_id = self._int_payload(payload, "id")
-        x = self._float_payload(payload, "x", default=0.0)
-        y = self._float_payload(payload, "y", default=0.0)
+        touch_id = canvas_events.int_payload(payload, "id")
+        x = canvas_events.float_payload(payload, "x", default=0.0)
+        y = canvas_events.float_payload(payload, "y", default=0.0)
         if str(payload.get("coordinates", "physical")) != "logical":
             x, y = self._logical_pointer_position(x, y)
         previous = {touch.id: touch for touch in context.state.input.touches}
@@ -530,9 +468,9 @@ class CanvasBackend:
             y=y,
             previous_x=getattr(previous_touch, "x", None),
             previous_y=getattr(previous_touch, "y", None),
-            pressure=self._optional_float(payload.get("pressure")),
+            pressure=canvas_events.optional_float(payload.get("pressure")),
             phase=str(payload.get("phase", payload["type"])),
-            timestamp=self._optional_float(payload.get("timestamp")),
+            timestamp=canvas_events.optional_float(payload.get("timestamp")),
             device=None if payload.get("device") is None else str(payload["device"]),
         )
         touches = [touch for touch in context.state.input.touches if touch.id != touch_id]
@@ -545,9 +483,9 @@ class CanvasBackend:
         )
 
     def _handle_resize_event(self, payload: Mapping[str, object]) -> None:
-        width = self._int_payload(payload, "width")
-        height = self._int_payload(payload, "height")
-        pixel_density = self._float_payload(
+        width = canvas_events.int_payload(payload, "width")
+        height = canvas_events.int_payload(payload, "height")
+        pixel_density = canvas_events.float_payload(
             payload,
             "pixel_density",
             default=self.renderer.pixel_density,
@@ -587,33 +525,6 @@ class CanvasBackend:
         density = self.renderer.pixel_density
         return float(dx) / density, float(dy) / density
 
-    def _normalize_mouse_button(self, button: object) -> str | None:
-        if button is None:
-            return None
-        normalized = _MOUSE_BUTTONS.get(button)
-        if normalized is not None:
-            return normalized
-        return _MOUSE_BUTTONS.get(str(button).lower(), str(button))
-
-    def _normalize_key_code(self, key_code: object, key: str | None = None) -> int | None:
-        if key_code is None:
-            if key is not None and len(key) == 1:
-                return ord(key)
-            return None
-        if isinstance(key_code, int):
-            return key_code
-        if isinstance(key_code, float):
-            return int(key_code)
-        text = str(key_code)
-        special = _SPECIAL_KEY_CODES.get(text.lower())
-        if special is not None:
-            return special
-        if len(text) == 1:
-            return ord(text)
-        if key is not None and len(key) == 1:
-            return ord(key)
-        return None
-
     def _next_frame_delay(self, now: float, interval: float) -> float:
         self._advance_next_frame_time(now, interval)
         return max(0.0, self._next_frame_time - now)
@@ -634,29 +545,3 @@ class CanvasBackend:
         if sketch.context is None:
             raise BackendCapabilityError("Canvas runtime requires an active SketchContext.")
         return sketch.context
-
-    def _float_payload(
-        self,
-        payload: Mapping[str, object],
-        key: str,
-        *,
-        default: float | None = None,
-    ) -> float:
-        value: Any = payload.get(key, default)
-        if value is None:
-            raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
-        return float(value)
-
-    def _int_payload(self, payload: Mapping[str, object], key: str) -> int:
-        value: Any = payload.get(key)
-        if value is None:
-            raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
-        return int(value)
-
-    def _optional_int(self, value: object) -> int | None:
-        raw_value: Any = value
-        return None if raw_value is None else int(raw_value)
-
-    def _optional_float(self, value: object) -> float | None:
-        raw_value: Any = value
-        return None if raw_value is None else float(raw_value)
