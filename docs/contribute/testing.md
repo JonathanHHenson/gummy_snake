@@ -48,6 +48,7 @@ explicitly requested:
 ```sh
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
 ```
 
 The canvas backend benchmarks require the `p5.rust._canvas` extension and run in
@@ -60,14 +61,20 @@ loosen the benchmark.
 Use the suite when changing renderer hot paths, image upload/cache behavior,
 pixel readback/update behavior, text measurement, frame scheduling, or native
 canvas packaging. The current scenarios cover sparse and dense primitive
-drawing, cached image drawing, per-frame image upload churn, mixed text/pixel
-readback work, a deterministic game-style scene, and a WEBGL-style 3D prototype
-scene.
+drawing, cached image drawing with default linear and nearest sampling,
+per-frame image upload churn, mixed text/pixel readback work, a deterministic
+game-style scene, and a WEBGL-style 3D prototype scene.
 
 The API overhead microbenchmarks use a no-op renderer/backend and do not require
 the canvas extension. They report nanoseconds per call for global-mode,
 object-oriented sketch, context-direct, and renderer-direct paths so Python
 dispatch overhead can be compared separately from renderer work.
+
+The image pipeline benchmarks measure image-local operations such as region
+copy, resize, mask, filter, get, and set, plus list-based and bytes-based pixel
+workflows. Use them when changing `Image`, `P5Image`, `load_image()`,
+`load_pixels()`, `load_pixel_bytes()`, `update_pixels()`, or image cache
+behavior.
 
 Checked-in baseline snapshots live in `tests/benchmark/baselines/` as TOML.
 Each baseline records the command, machine/configuration, commit, canvas size,

@@ -170,13 +170,15 @@ pub enum DrawCommand {
     Image {
         key: u64,
         vertices: [([f32; 2], [f32; 2]); 6],
+        linear: bool,
     },
 }
 
 struct TextureAsset {
     _texture: wgpu::Texture,
     _view: wgpu::TextureView,
-    bind_group: wgpu::BindGroup,
+    nearest_bind_group: wgpu::BindGroup,
+    linear_bind_group: wgpu::BindGroup,
 }
 
 pub struct GpuRenderer {
@@ -193,6 +195,7 @@ pub struct GpuRenderer {
     texture_bind_group_layout: wgpu::BindGroupLayout,
     texture_surface_pipeline: Option<(wgpu::TextureFormat, wgpu::RenderPipeline)>,
     texture_sampler: wgpu::Sampler,
+    linear_texture_sampler: wgpu::Sampler,
     viewport_buffer: wgpu::Buffer,
     viewport_bind_group: wgpu::BindGroup,
     clear_color: GpuColor,
@@ -281,12 +284,22 @@ impl GpuRenderer {
         let present_texture_bind_group_layout = texture_bind_group_layout(&device);
         let image_bind_group_layout = texture_bind_group_layout(&device);
         let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("p5_canvas offscreen texture sampler"),
+            label: Some("p5_canvas nearest texture sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..wgpu::SamplerDescriptor::default()
+        });
+        let linear_texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("p5_canvas linear texture sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..wgpu::SamplerDescriptor::default()
         });
@@ -323,6 +336,7 @@ impl GpuRenderer {
             texture_bind_group_layout: present_texture_bind_group_layout,
             texture_surface_pipeline: None,
             texture_sampler,
+            linear_texture_sampler,
             viewport_buffer,
             viewport_bind_group,
             clear_color: GpuColor {
@@ -433,8 +447,8 @@ impl GpuRenderer {
             size,
         );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("p5_canvas image texture bind group"),
+        let nearest_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("p5_canvas nearest image texture bind group"),
             layout: &self.image_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -447,20 +461,39 @@ impl GpuRenderer {
                 },
             ],
         });
+        let linear_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("p5_canvas linear image texture bind group"),
+            layout: &self.image_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.linear_texture_sampler),
+                },
+            ],
+        });
         self.textures.insert(
             key,
             TextureAsset {
                 _texture: texture,
                 _view: view,
-                bind_group,
+                nearest_bind_group,
+                linear_bind_group,
             },
         );
         Ok(())
     }
 
-    pub fn draw_image(&mut self, key: u64, vertices: [([f32; 2], [f32; 2]); 6]) {
+    pub fn draw_image(&mut self, key: u64, vertices: [([f32; 2], [f32; 2]); 6], linear: bool) {
         if self.textures.contains_key(&key) {
-            self.commands.push(DrawCommand::Image { key, vertices });
+            self.commands.push(DrawCommand::Image {
+                key,
+                vertices,
+                linear,
+            });
         }
     }
 
@@ -704,7 +737,11 @@ impl GpuRenderer {
                         color: color.as_float(),
                     }));
                 }
-                DrawCommand::Image { key, vertices } => {
+                DrawCommand::Image {
+                    key,
+                    vertices,
+                    linear,
+                } => {
                     if skip_until_last_clear {
                         continue;
                     }
@@ -746,7 +783,12 @@ impl GpuRenderer {
                         .write_buffer(&buffer, 0, bytemuck::cast_slice(&image_vertices));
                     pass.set_pipeline(&self.image_pipeline);
                     pass.set_bind_group(0, &self.viewport_bind_group, &[]);
-                    pass.set_bind_group(1, &texture.bind_group, &[]);
+                    let bind_group = if *linear {
+                        &texture.linear_bind_group
+                    } else {
+                        &texture.nearest_bind_group
+                    };
+                    pass.set_bind_group(1, bind_group, &[]);
                     pass.set_vertex_buffer(0, buffer.slice(..));
                     pass.draw(0..image_vertices.len() as u32, 0..1);
                 }

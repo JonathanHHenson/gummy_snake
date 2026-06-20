@@ -202,8 +202,14 @@ p5py distinguishes logical canvas dimensions from physical backing-buffer dimens
 - `pixel_density()` controls physical backing scale.
 - `display_density()` reports native display scale when available.
 - `load_pixels()` and `update_pixels()` operate on physical top-left-oriented RGBA buffers.
+- `load_pixel_bytes()` is the lower-copy readback path for pixel workflows that do not need a list.
 
 Do not regress Retina/HiDPI behavior when changing runtime, renderer, pixels, export, images, or input coordinate handling. See `docs/contribute/runtime.md`.
+
+Loaded images may keep a Rust-managed asset attached to the public `Image`
+object until pixel mutation. Use stable `Image.cache_key` values for Python
+image caches, never `id(image)`, and preserve bounded Rust image/texture cache
+lifecycle behavior.
 
 ### Keep Compatibility Explicit
 
@@ -278,6 +284,7 @@ Benchmark tests are opt-in:
 ```sh
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
 ```
 
 Canvas benchmark scenarios must average at least 120 FPS. Treat failures below

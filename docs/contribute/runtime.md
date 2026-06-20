@@ -128,6 +128,28 @@ p5py separates logical and physical size:
 Do not collapse logical and physical dimensions when touching renderer, export,
 pixels, image, or input coordinate code.
 
+## Image And Pixel Ownership
+
+`load_image()` keeps a Rust-managed image asset attached to the public `Image`
+object until the user asks for mutable pixel behavior. Drawing that untouched
+image should use `Canvas.draw_canvas_image()` so repeated sprite draws can reuse
+the Rust texture/cache path without another Python byte upload.
+
+`create_image()` and any mutated `Image` use Python-owned RGBA bytes. Each image
+has a stable `cache_key` allocated on the `Image` instance; renderer caches must
+use that key rather than `id(image)` so Python object-id reuse cannot draw stale
+pixels. Image mutations increment `version`, detach any Rust-managed asset, and
+force the next draw to upload the changed pixels under the same stable key.
+
+The Rust canvas image and texture caches are bounded. If cache limits are
+changed, keep the lifecycle explicit and preserve tests that draw many transient
+images.
+
+`load_pixels()` remains the list-based compatibility API. `load_pixel_bytes()`
+is the lower-copy readback path for effects that can work with bytes, and
+`update_pixels()` accepts buffer-like inputs such as `bytes`, `bytearray`, and
+`memoryview`.
+
 ## Canvas Creation And Synchronization
 
 Canvas creation is a cross-layer operation:

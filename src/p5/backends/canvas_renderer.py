@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Callable, Hashable, Sequence
+from collections.abc import Buffer, Callable, Hashable, Sequence
 from pathlib import Path
 from typing import Any, cast
 
@@ -17,6 +17,7 @@ from p5.exceptions import ArgumentValidationError, BackendCapabilityError
 _TEXT_METRIC_CACHE_LIMIT = 256
 _STYLE_PAYLOAD_CACHE_LIMIT = 256
 _MATRIX_PAYLOAD_CACHE_LIMIT = 256
+_IMAGE_VERSION_CACHE_LIMIT = 1024
 _TextMetricKey = tuple[str, str | None, tuple[tuple[str, Hashable], ...]]
 _MatrixPayload = tuple[float, float, float, float, float, float]
 
@@ -75,7 +76,7 @@ class CanvasRenderer:
         self.physical_width = 0
         self.physical_height = 0
         self.pixel_density = 1.0
-        self._image_cache_versions: dict[int, int] = {}
+        self._image_cache_versions: OrderedDict[int, int] = OrderedDict()
         self._text_metric_cache: OrderedDict[_TextMetricKey, float] = OrderedDict()
         self._style_payload_cache: dict[int, tuple[int, dict[str, object]]] = {}
         self._matrix_payload_cache: dict[int, tuple[Matrix2D, _MatrixPayload]] = {}
@@ -379,7 +380,21 @@ class CanvasRenderer:
                 source,
             )
             return
-        image_key = id(image)
+        if image.rust_image is not None:
+            self._call(
+                "image drawing",
+                self._require_canvas().draw_canvas_image,
+                image.rust_image._rust_image,
+                dx,
+                dy,
+                dw,
+                dh,
+                self._style_payload(style),
+                self._matrix_payload(transform),
+                source,
+            )
+            return
+        image_key = image.cache_key
         cached_version = self._image_cache_versions.get(image_key) if cache else None
         image_pixels = None if cached_version == image.version else image.to_rgba_bytes()
         callback = getattr(self._require_canvas(), "draw_cached_image", None)
@@ -400,7 +415,7 @@ class CanvasRenderer:
                 self._matrix_payload(transform),
                 source,
             )
-            self._image_cache_versions[image_key] = image.version
+            self._remember_image_cache_version(image_key, image.version)
             return
         self._call(
             "image drawing",
@@ -471,7 +486,14 @@ class CanvasRenderer:
         pixels = self._call("pixel readback", self._require_canvas().load_pixels)
         return list(pixels)
 
-    def update_pixels(self, pixels: Sequence[int]) -> None:
+    def load_pixel_bytes(self) -> bytes:
+        self._flush_line_batch()
+        callback = getattr(self._require_canvas(), "load_pixel_bytes", None)
+        if callable(callback):
+            return bytes(self._call("pixel byte readback", callback))
+        return bytes(self._call("pixel readback", self._require_canvas().load_pixels))
+
+    def update_pixels(self, pixels: Sequence[int] | Buffer) -> None:
         self._flush_line_batch()
         try:
             payload = bytes(pixels)
@@ -554,6 +576,12 @@ class CanvasRenderer:
             return
         for x1, y1, x2, y2 in lines:
             self._call("line drawing", canvas.line, x1, y1, x2, y2, style, matrix)
+
+    def _remember_image_cache_version(self, image_key: int, version: int) -> None:
+        self._image_cache_versions[image_key] = version
+        self._image_cache_versions.move_to_end(image_key)
+        while len(self._image_cache_versions) > _IMAGE_VERSION_CACHE_LIMIT:
+            self._image_cache_versions.popitem(last=False)
 
     def _canvas_type(self) -> type[Any]:
         canvas_type = getattr(self._canvas_module, "Canvas", None)

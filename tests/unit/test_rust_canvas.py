@@ -7,6 +7,7 @@ import pytest
 
 from p5 import Image
 from p5 import constants as c
+from p5.assets.image import P5Image
 from p5.backends.canvas import CanvasBackend
 from p5.backends.canvas_renderer import CanvasRenderer
 from p5.context import SketchContext
@@ -150,6 +151,9 @@ class FakeCanvas:
     def draw_image(self, *args: object) -> None:
         self.calls.append(("draw_image", *args))
 
+    def draw_cached_image(self, *args: object) -> None:
+        self.calls.append(("draw_cached_image", *args))
+
     def draw_canvas_image(self, *args: object) -> None:
         self.calls.append(("draw_canvas_image", *args))
 
@@ -172,6 +176,9 @@ class FakeCanvas:
         return float(text_size) * 0.2
 
     def load_pixels(self) -> bytes:
+        return self.pixels
+
+    def load_pixel_bytes(self) -> bytes:
         return self.pixels
 
     def update_pixels(self, pixels: bytes) -> None:
@@ -199,6 +206,18 @@ class FakeCanvasModule:
 
     def gpu_available(self) -> bool:
         return True
+
+
+class FakeRustImage:
+    width = 2
+    height = 1
+    version = 0
+
+    def save(self, path: str) -> None:
+        Path(path).write_bytes(b"fake-image")
+
+    def to_rgba_bytes(self) -> bytes:
+        return bytes([255, 0, 0, 255, 0, 0, 255, 255])
 
 
 class FakeSketch:
@@ -524,6 +543,7 @@ def test_canvas_renderer_pixels_and_save_round_trip(tmp_path: Path) -> None:
 
     renderer.update_pixels([255, 0, 0, 255, 0, 0, 255, 255])
     assert renderer.load_pixels() == [255, 0, 0, 255, 0, 0, 255, 255]
+    assert renderer.load_pixel_bytes() == bytes([255, 0, 0, 255, 0, 0, 255, 255])
 
     output = tmp_path / "canvas.png"
     renderer.save(output)
@@ -543,9 +563,11 @@ def test_canvas_renderer_bridges_images_and_blend_regions() -> None:
 
     canvas = renderer._canvas
     assert canvas is not None
-    assert canvas.calls[-3][0] == "draw_image"
-    assert canvas.calls[-3][1] == image.to_rgba_bytes()
-    assert canvas.calls[-3][2:4] == (2, 1)
+    assert canvas.calls[-3][0] == "draw_cached_image"
+    assert canvas.calls[-3][1] == image.cache_key
+    assert canvas.calls[-3][2] == image.version
+    assert canvas.calls[-3][3] == image.to_rgba_bytes()
+    assert canvas.calls[-3][4:6] == (2, 1)
     assert canvas.calls[-3][-1] == (0, 0, 1, 1)
     assert canvas.calls[-2] == (
         "blend_region",
@@ -565,6 +587,45 @@ def test_canvas_renderer_bridges_images_and_blend_regions() -> None:
         (1, 1, 1, 1),
         c.BLEND,
     )
+
+
+def test_canvas_renderer_uses_stable_image_cache_keys_and_versions() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(4, 2)
+    style = StyleState(fill_color=None, stroke_color=None)
+    transform = Matrix2D.identity()
+    first = Image(1, 1, bytes([255, 0, 0, 255]))
+    second = Image(1, 1, bytes([0, 255, 0, 255]))
+
+    renderer.draw_image(first, 0, 0, 1, 1, style, transform)
+    renderer.draw_image(second, 1, 0, 1, 1, style, transform)
+    first.update_pixels(bytes([0, 0, 255, 255]))
+    renderer.draw_image(first, 2, 0, 1, 1, style, transform)
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    draw_calls = [call for call in canvas.calls if call[0] == "draw_cached_image"]
+    assert draw_calls[0][1] != draw_calls[1][1]
+    assert draw_calls[0][1] == first.cache_key
+    assert draw_calls[2][1] == first.cache_key
+    assert draw_calls[2][2] == first.version
+    assert draw_calls[2][3] == first.to_rgba_bytes()
+
+
+def test_canvas_renderer_prefers_rust_managed_image_until_mutation() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(4, 2)
+    style = StyleState(fill_color=None, stroke_color=None)
+    transform = Matrix2D.identity()
+    image = Image.from_rust_image(P5Image(FakeRustImage()))
+
+    renderer.draw_image(image, 0, 0, 2, 1, style, transform)
+    image.set(0, 0, (0, 0, 255, 255))
+    renderer.draw_image(image, 0, 1, 2, 1, style, transform)
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    assert [call[0] for call in canvas.calls][-2:] == ["draw_canvas_image", "draw_cached_image"]
 
 
 def test_canvas_renderer_maps_rust_value_errors() -> None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Buffer, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -143,7 +143,9 @@ class Renderer(Protocol):
 
     def load_pixels(self) -> list[int]: ...
 
-    def update_pixels(self, pixels: Sequence[int]) -> None: ...
+    def load_pixel_bytes(self) -> bytes: ...
+
+    def update_pixels(self, pixels: Sequence[int] | Buffer) -> None: ...
 
     def blend_region(
         self,

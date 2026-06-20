@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Buffer, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -1199,9 +1199,14 @@ class SketchContext:
         self.pixels = pixels
         return pixels
 
-    def update_pixels(self, pixels: Sequence[int] | None = None) -> None:
+    def load_pixel_bytes(self) -> bytes:
+        pixels = self.renderer.load_pixel_bytes()
+        self.pixels = list(pixels)
+        return pixels
+
+    def update_pixels(self, pixels: Sequence[int] | Buffer | None = None) -> None:
         if pixels is not None:
-            self.pixels = pixels
+            self.pixels = pixels if isinstance(pixels, Sequence) else bytes(pixels)
         if not self.pixels:
             self.load_pixels()
         self.renderer.update_pixels(self.pixels)

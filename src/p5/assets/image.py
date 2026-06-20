@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Buffer
 from dataclasses import dataclass
+from itertools import count
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, Protocol, Self, cast
 
 from p5 import constants as c
 from p5.assets._paths import resolve_asset_path
 from p5.core.color import Color
 from p5.exceptions import ArgumentValidationError, UnsupportedFeatureError
+
+_IMAGE_CACHE_KEYS = count(1)
 
 
 class _RustP5Image(Protocol):
@@ -37,6 +41,8 @@ class Image:
     _height: int
     _pixels: bytearray
     _version: int
+    _cache_key: int
+    _rust_image: P5Image | None
 
     def __init__(
         self,
@@ -78,6 +84,14 @@ class Image:
         self._height = image_height
         self._pixels = bytearray(payload)
         self._version = 0
+        self._cache_key = next(_IMAGE_CACHE_KEYS)
+        self._rust_image = width if isinstance(width, P5Image) else None
+
+    @classmethod
+    def from_rust_image(cls, image: P5Image) -> Self:
+        loaded = cls(image.width, image.height, image.to_rgba_bytes())
+        loaded._rust_image = image
+        return loaded
 
     @property
     def width(self) -> int:
@@ -90,6 +104,14 @@ class Image:
     @property
     def version(self) -> int:
         return self._version
+
+    @property
+    def cache_key(self) -> int:
+        return self._cache_key
+
+    @property
+    def rust_image(self) -> P5Image | None:
+        return self._rust_image
 
     def to_rgba_bytes(self) -> bytes:
         return bytes(self._pixels)
@@ -129,7 +151,7 @@ class Image:
         return self.pixels
 
     def update_pixels(
-        self, pixels: bytes | bytearray | list[int] | tuple[int, ...] | None = None
+        self, pixels: Buffer | list[int] | tuple[int, ...] | None = None
     ) -> None:
         if pixels is not None:
             try:
@@ -144,6 +166,7 @@ class Image:
                     f"Image pixel buffer must contain {expected} bytes, got {len(payload)}."
                 )
             self._pixels = bytearray(payload)
+        self._rust_image = None
         self._version += 1
 
     def pixel_density(self, value: float | None = None) -> float:
@@ -188,12 +211,14 @@ class Image:
     ) -> None:
         if isinstance(value, Image):
             self._alpha_composite(value, int(x), int(y))
+            self._rust_image = None
             self._version += 1
             return
         rgba = value.to_tuple() if isinstance(value, Color) else tuple(value)
         if len(rgba) == 3:
             rgba = (*rgba, 255)
         self._put_pixel(int(x), int(y), cast(tuple[int, int, int, int], rgba))
+        self._rust_image = None
         self._version += 1
 
     def resize(self, width: int, height: int) -> None:
@@ -218,6 +243,7 @@ class Image:
         self._width = target_width
         self._height = target_height
         self._pixels = resized
+        self._rust_image = None
         self._version += 1
 
     def mask(self, mask_image: Image) -> None:
@@ -229,6 +255,7 @@ class Image:
                 alpha = round(sum(mask[:3]) / 3 * (mask[3] / 255))
                 offset = self._offset(x, y)
                 self._pixels[offset + 3] = round(self._pixels[offset + 3] * alpha / 255)
+        self._rust_image = None
         self._version += 1
 
     def filter(self, mode: c.ImageFilter, value: float | None = None) -> None:
@@ -262,6 +289,7 @@ class Image:
             pass
         else:
             raise ArgumentValidationError(f"Unsupported image filter {mode!r}.")
+        self._rust_image = None
         self._version += 1
 
     def blend(self, *args: object) -> None:
@@ -315,14 +343,24 @@ class Image:
         P5Image.from_rgba_bytes(self.width, self.height, self.to_rgba_bytes()).save(path)
 
     def _crop(self, sx: int, sy: int, sw: int, sh: int) -> Image:
-        cropped = bytearray(max(0, sw) * max(0, sh) * 4)
-        for y in range(max(0, sh)):
-            for x in range(max(0, sw)):
-                if 0 <= sx + x < self.width and 0 <= sy + y < self.height:
-                    src = self._offset(sx + x, sy + y)
-                    dst = (y * sw + x) * 4
-                    cropped[dst : dst + 4] = self._pixels[src : src + 4]
-        return Image(sw, sh, cropped)
+        target_width = max(0, sw)
+        target_height = max(0, sh)
+        if target_width == 0 or target_height == 0:
+            raise ArgumentValidationError("Image region dimensions must be positive.")
+        cropped = bytearray(target_width * target_height * 4)
+        copy_x0 = max(0, sx)
+        copy_y0 = max(0, sy)
+        copy_x1 = min(self.width, sx + target_width)
+        copy_y1 = min(self.height, sy + target_height)
+        if copy_x0 >= copy_x1 or copy_y0 >= copy_y1:
+            return Image(target_width, target_height, cropped)
+        row_bytes = (copy_x1 - copy_x0) * 4
+        for src_y in range(copy_y0, copy_y1):
+            dst_y = src_y - sy
+            src = (src_y * self.width + copy_x0) * 4
+            dst = (dst_y * target_width + (copy_x0 - sx)) * 4
+            cropped[dst : dst + row_bytes] = self._pixels[src : src + row_bytes]
+        return Image(target_width, target_height, cropped)
 
     def _alpha_composite(self, source: Image, dx: int, dy: int) -> None:
         for y in range(source.height):
@@ -385,7 +423,7 @@ def load_image(path: str | Path) -> Image:
         rust_image = P5Image.from_file(image_path)
     except Exception as exc:
         raise ArgumentValidationError(f"Could not load image {image_path!s}.") from exc
-    return Image(rust_image.width, rust_image.height, rust_image.to_rgba_bytes())
+    return Image.from_rust_image(rust_image)
 
 
 async def load_image_async(path: str | Path) -> Image:

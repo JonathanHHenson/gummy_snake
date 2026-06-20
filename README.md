@@ -91,6 +91,12 @@ async def preload() -> None:
   and shaders.
 - Small games and visual toys using the examples as starting points.
 
+Loaded images keep their Rust-managed asset until you mutate pixels, so normal
+`load_image(); image(...)` sprite drawing can stay on the fast renderer path.
+For pixel effects, `load_pixels()` keeps the compatibility list API and
+`load_pixel_bytes()` provides a bytes readback path; `update_pixels()` accepts
+lists and buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.
+
 ## Learn More
 
 - [Getting started](docs/getting_started/index.md)

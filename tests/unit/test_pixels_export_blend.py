@@ -32,6 +32,19 @@ def test_update_pixels_accepts_bytes_buffer():
     assert context.load_pixels() == [255, 0, 0, 255, 0, 0, 255, 255]
 
 
+def test_load_pixel_bytes_and_update_pixels_accept_memoryview():
+    def setup():
+        p5.create_canvas(2, 1)
+
+    context = p5.run(setup=setup, headless=True, max_frames=0)
+    payload = bytes([10, 20, 30, 255, 40, 50, 60, 255])
+
+    context.update_pixels(memoryview(payload))
+
+    assert context.load_pixel_bytes() == payload
+    assert p5.run(setup=setup, headless=True, max_frames=0).load_pixel_bytes() == bytes(8)
+
+
 def test_canvas_get_set_copy_and_filter_helpers():
     def setup():
         p5.create_canvas(3, 2)

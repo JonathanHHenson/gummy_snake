@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable, Sequence
+from collections.abc import Buffer, Callable, Sequence
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, cast
@@ -890,6 +890,10 @@ def load_pixels() -> list[int]:
     return require_context().load_pixels()
 
 
+def load_pixel_bytes() -> bytes:
+    return require_context().load_pixel_bytes()
+
+
 def pixels() -> Sequence[int]:
     context = require_context()
     return context.pixels or context.load_pixels()
@@ -899,7 +903,7 @@ def pixel_array():
     return require_context().pixel_array()
 
 
-def update_pixels(pixels: Sequence[int] | None = None) -> None:
+def update_pixels(pixels: Sequence[int] | Buffer | None = None) -> None:
     require_context().update_pixels(pixels)
 
 
@@ -1085,6 +1089,7 @@ __all__ = [
     "load_json_async",
     "save_json",
     "load_pixels",
+    "load_pixel_bytes",
     "update_pixels",
     "pixels",
     "pixel_array",
@@ -1144,6 +1149,7 @@ __all__ = [
     "shuffle",
     "split_tokens",
     "load_pixels",
+    "load_pixel_bytes",
     "pixels",
     "pixel_array",
     "update_pixels",

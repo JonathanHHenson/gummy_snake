@@ -18,6 +18,7 @@ VARIANTS = (
     "dense_primitives",
     "sparse_primitives",
     "cached_images",
+    "cached_images_nearest",
     "image_upload_churn",
     "mixed_text_pixels",
     "asteroids_scene",
@@ -239,6 +240,8 @@ CHILD_CODE = textwrap.dedent(
             p5.perspective(math.pi / 3, 720 / 480, 0.1, 4000)
         sprites = [_sprite(48, 48, seed) for seed in range(5)]
         churn_pixels = _sprite(48, 48, 99).to_rgba_bytes()
+        if variant == "cached_images_nearest":
+            p5.no_smooth()
         _reset_asteroids()
         start = time.perf_counter()
 
@@ -254,6 +257,8 @@ CHILD_CODE = textwrap.dedent(
             _draw_primitives(6)
             _draw_laser_field(4)
         elif variant == "cached_images":
+            _draw_image_field(mutate=False)
+        elif variant == "cached_images_nearest":
             _draw_image_field(mutate=False)
         elif variant == "image_upload_churn":
             _draw_image_field(mutate=True)
@@ -364,18 +369,22 @@ def test_canvas_dense_scene_regression_ratio() -> None:
     sparse = _run_variant("sparse_primitives")
     dense = _run_variant("dense_primitives")
     cached_images = _run_variant("cached_images")
+    nearest_images = _run_variant("cached_images_nearest")
     churn_images = _run_variant("image_upload_churn")
     asteroids = _run_variant("asteroids_scene")
 
     dense_ratio = dense.mean_fps / sparse.mean_fps
     image_ratio = churn_images.mean_fps / cached_images.mean_fps
+    sampling_ratio = nearest_images.mean_fps / cached_images.mean_fps
     print(
         f"benchmark ratios: dense/sparse={dense_ratio:.3f} "
         f"image_upload_churn/cached={image_ratio:.3f} "
+        f"cached_nearest/cached_linear={sampling_ratio:.3f} "
         f"asteroids_scene_fps={asteroids.mean_fps:.2f}"
     )
 
     assert sparse.mean_fps >= dense.mean_fps
     assert cached_images.mean_fps >= MIN_MEAN_FPS
+    assert nearest_images.mean_fps >= MIN_MEAN_FPS
     assert churn_images.mean_fps >= MIN_MEAN_FPS
     assert asteroids.mean_fps >= MIN_MEAN_FPS

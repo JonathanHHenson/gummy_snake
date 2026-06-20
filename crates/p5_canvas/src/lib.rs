@@ -24,6 +24,8 @@ const BLEND_MODE_EXCLUSION: &str = "exclusion";
 const BLEND_MODE_MULTIPLY: &str = "multiply";
 const BLEND_MODE_REPLACE: &str = "replace";
 const BLEND_MODE_SCREEN: &str = "screen";
+const IMAGE_CACHE_LIMIT: usize = 1024;
+const TEXTURE_CACHE_LIMIT: usize = 1024;
 static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -945,6 +947,7 @@ impl Canvas {
                 )
             })?;
             validate_rgba_buffer(pixels.len(), image_width, image_height)?;
+            self.evict_image_cache_if_needed(image_key);
             self.image_cache.insert(
                 image_key,
                 CachedImage {
@@ -1220,6 +1223,15 @@ impl Canvas {
         self.pixels.clone()
     }
 
+    fn load_pixel_bytes<'py>(&mut self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        if self.offscreen_dirty && self.pixels_stale {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
+        PyBytes::new_bound(py, &self.pixels)
+    }
+
     fn update_pixels(&mut self, pixels: Vec<u8>) -> PyResult<()> {
         let expected = self.physical_width * self.physical_height * 4;
         if pixels.len() != expected {
@@ -1400,12 +1412,12 @@ impl Canvas {
     ) -> PyResult<bool> {
         let style = self.cached_style(style)?;
         if !self.can_queue_gpu_primitives(&style)
-            || style.image_sampling != "nearest"
             || dw <= 0.0
             || dh <= 0.0
         {
             return Ok(false);
         }
+        let linear_sampling = style.image_sampling != "nearest";
         let source = source.unwrap_or((0, 0, image_width as i64, image_height as i64));
         let Some((sx, sy, sw, sh)) = clipped_source_rect(source, image_width, image_height) else {
             return Ok(true);
@@ -1421,8 +1433,11 @@ impl Canvas {
             matrix_transform_point(image_to_canvas, sw as f64, sh as f64),
             matrix_transform_point(image_to_canvas, 0.0, sh as f64),
         ];
+        let texture_version = self.texture_cache_versions.get(&image_key).copied();
+        if texture_version != Some(image_version) {
+            self.evict_texture_cache_if_needed(image_key);
+        }
         if let Some(gpu) = self.gpu.as_mut() {
-            let texture_version = self.texture_cache_versions.get(&image_key).copied();
             if texture_version != Some(image_version) {
                 gpu.upload_texture(image_key, image_width, image_height, image_pixels)
                     .map_err(|err| {
@@ -1446,7 +1461,7 @@ impl Canvas {
             let Some(gpu) = self.gpu.as_mut() else {
                 return Ok(false);
             };
-            gpu.draw_image(image_key, vertices);
+            gpu.draw_image(image_key, vertices, linear_sampling);
             self.render_dirty = true;
             self.offscreen_dirty = true;
             self.pixels_stale = true;
@@ -1462,6 +1477,29 @@ impl Canvas {
             (a * x + c * y + e) * self.pixel_density,
             (b * x + d * y + f) * self.pixel_density,
         )
+    }
+
+    fn evict_image_cache_if_needed(&mut self, incoming_key: u64) {
+        if self.image_cache.contains_key(&incoming_key)
+            || self.image_cache.len() < IMAGE_CACHE_LIMIT
+        {
+            return;
+        }
+        if let Some(evicted_key) = self.image_cache.keys().next().copied() {
+            self.image_cache.remove(&evicted_key);
+            self.texture_cache_versions.remove(&evicted_key);
+        }
+    }
+
+    fn evict_texture_cache_if_needed(&mut self, incoming_key: u64) {
+        if self.texture_cache_versions.contains_key(&incoming_key)
+            || self.texture_cache_versions.len() < TEXTURE_CACHE_LIMIT
+        {
+            return;
+        }
+        if let Some(evicted_key) = self.texture_cache_versions.keys().next().copied() {
+            self.texture_cache_versions.remove(&evicted_key);
+        }
     }
 
     fn cached_style(&mut self, style: &Bound<'_, PyAny>) -> PyResult<Style> {
@@ -3055,6 +3093,25 @@ mod tests {
 
         canvas.clear();
         assert_eq!(canvas.load_pixels(), vec![0; 8]);
+    }
+
+    #[test]
+    fn cached_images_are_bounded() {
+        let mut canvas = Canvas::new(1, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        for key in 0..(IMAGE_CACHE_LIMIT as u64 + 3) {
+            canvas.evict_image_cache_if_needed(key);
+            canvas.image_cache.insert(
+                key,
+                CachedImage {
+                    version: 0,
+                    width: 1,
+                    height: 1,
+                    pixels: vec![key as u8, 0, 0, 255],
+                },
+            );
+        }
+
+        assert!(canvas.image_cache.len() <= IMAGE_CACHE_LIMIT);
     }
 
     #[test]
