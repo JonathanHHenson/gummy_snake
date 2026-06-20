@@ -110,7 +110,7 @@ src/gummysnake/
 Important areas:
 
 ```text
-src/gummysnake/api/          global-mode API, current context access, compatibility stubs
+src/gummysnake/api/          global-mode API, current context access, public API helpers
 src/gummysnake/assets/       image, text/font, data, model, shader, sound/media helpers
 src/gummysnake/backends/     canvas backend adapter, renderer adapter, backend construction
 src/gummysnake/core/         color, geometry, math, random/noise, state, transforms, vectors
@@ -230,7 +230,7 @@ Python `Image`. Optional media helpers may depend on the `media` extra, but
 grayscale/BGR/BGRA frame-to-RGBA conversion is a Rust canvas kernel once a
 contiguous decoded frame buffer exists.
 
-### Keep Compatibility Explicit
+### Keep Unsupported Browser APIs Out Of The Public API
 
 The project is Python-first, not a direct JavaScript port.
 
@@ -242,7 +242,9 @@ Excluded APIs include:
 - `Table`
 - `TableRow`
 
-Unsupported or excluded public compatibility stubs should raise clear package-specific errors, normally `UnsupportedFeatureError` or `BackendCapabilityError`, rather than failing indirectly.
+Do not add public compatibility stubs for browser-only or p5.js-specific APIs.
+Implement native Gummy Snake features with Pythonic names, or leave the name
+absent from public exports until the feature exists.
 
 ## Dependencies
 
@@ -342,7 +344,7 @@ Good placement:
 
 ## Documentation Expectations
 
-Update docs when changing architecture, public APIs, runtime behavior, rendering behavior, backend/canvas behavior, packaging, or compatibility status.
+Update docs when changing architecture, public APIs, runtime behavior, rendering behavior, backend/canvas behavior, or packaging.
 
 Relevant docs include:
 
@@ -356,7 +358,6 @@ docs/reference/drawing.md
 docs/reference/assets_and_pixels.md
 docs/reference/input_and_events.md
 docs/reference/constants_and_enums.md
-docs/reference/compatibility.md
 docs/contribute/index.md
 docs/contribute/architecture.md
 docs/contribute/backend_renderer.md

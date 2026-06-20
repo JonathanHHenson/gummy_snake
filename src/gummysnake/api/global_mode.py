@@ -5,7 +5,6 @@ from __future__ import annotations
 import inspect
 from collections.abc import Buffer, Callable, Sequence
 from contextlib import contextmanager
-from datetime import datetime
 from typing import Any, cast
 
 from gummysnake import constants as c
@@ -25,50 +24,26 @@ from gummysnake.assets.data import (
 from gummysnake.assets.image import create_image, load_image, load_image_async
 from gummysnake.assets.text import load_font, load_font_async
 from gummysnake.core import geometry as _geometry
-from gummysnake.core.data import (
-    boolean,
-    byte,
-    char,
-    float_,
-    hex_,
-    int_,
-    nf,
-    nfc,
-    nfp,
-    nfs,
-    shuffle,
-    split_tokens,
-    str_,
-    unchar,
-    unhex,
-)
+from gummysnake.core.data import shuffle
 from gummysnake.core.math import (
-    abs_,
     acos,
     asin,
     atan,
     atan2,
-    ceil,
     constrain,
     cos,
     degrees,
     dist,
-    exp,
-    floor,
     fract,
     lerp,
-    log,
     mag,
     map_value,
     max_value,
     min_value,
     norm,
-    pow_,
     radians,
-    round_,
     sin,
     sq,
-    sqrt,
     tan,
 )
 from gummysnake.core.random import (
@@ -723,30 +698,6 @@ def get_target_frame_rate() -> float:
     return require_context().frame_rate()
 
 
-def day() -> int:
-    return datetime.now().day
-
-
-def month() -> int:
-    return datetime.now().month
-
-
-def year() -> int:
-    return datetime.now().year
-
-
-def hour() -> int:
-    return datetime.now().hour
-
-
-def minute() -> int:
-    return datetime.now().minute
-
-
-def second() -> int:
-    return datetime.now().second
-
-
 def window_width() -> int:
     return require_context().width
 
@@ -1074,12 +1025,6 @@ __all__ = [
     "redraw",
     "is_looping",
     "get_target_frame_rate",
-    "day",
-    "month",
-    "year",
-    "hour",
-    "minute",
-    "second",
     "window_width",
     "window_height",
     "display_width",
@@ -1167,14 +1112,6 @@ __all__ = [
     "acos",
     "atan",
     "atan2",
-    "abs_",
-    "ceil",
-    "exp",
-    "floor",
-    "log",
-    "pow_",
-    "round_",
-    "sqrt",
     "sq",
     "fract",
     "min_value",
@@ -1185,21 +1122,7 @@ __all__ = [
     "noise",
     "noise_seed",
     "noise_detail",
-    "boolean",
-    "byte",
-    "char",
-    "float_",
-    "hex_",
-    "int_",
-    "str_",
-    "unchar",
-    "unhex",
-    "nf",
-    "nfc",
-    "nfp",
-    "nfs",
     "shuffle",
-    "split_tokens",
     "load_pixels",
     "load_pixel_bytes",
     "pixels",

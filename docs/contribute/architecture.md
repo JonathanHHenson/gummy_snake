@@ -202,7 +202,7 @@ Use these rules of thumb:
 
 ## Source Map
 
-- `src/gummysnake/api/`: global-mode APIs and compatibility stubs.
+- `src/gummysnake/api/`: global-mode APIs and Pythonic public API helpers.
 - `src/gummysnake/sketch.py`: sketch lifecycle and callback dispatch.
 - `src/gummysnake/context.py`: mutable sketch state and high-level drawing behavior.
 - `src/gummysnake/backends/`: runtime and renderer adapters.
@@ -213,8 +213,8 @@ Use these rules of thumb:
 ## Public API Rule
 
 Canonical public functions use `snake_case`. Do not add camelCase aliases for
-p5.js names. Unsupported browser-only APIs should raise explicit Gummy Snake exceptions,
-usually `UnsupportedFeatureError` or `BackendCapabilityError`.
+p5.js names. Do not add browser-only API shims; implement native Gummy Snake
+features or leave the name absent from public exports until the feature exists.
 
 ## Common Invariants
 

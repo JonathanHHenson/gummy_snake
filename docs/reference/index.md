@@ -16,7 +16,6 @@ Reference topics:
 - [Math, random, and vectors](math_random_vectors.md)
 - [3D and shaders](three_d.md)
 - [Constants and enums](constants_and_enums.md)
-- [Compatibility and unsupported APIs](compatibility.md)
 
 Function names use Python `snake_case`. p5.js-style camelCase names are not
 public APIs.

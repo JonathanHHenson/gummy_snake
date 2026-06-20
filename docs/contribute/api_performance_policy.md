@@ -12,11 +12,10 @@ transforms, cached image drawing, text measurement with stable style, vector
 math, random/noise helpers, and context managers such as `style()`,
 `transform()`, and `pushed()`.
 
-Compatibility APIs preserve familiar Gummy Snake behavior even when they allocate or
+Convenience APIs preserve familiar Gummy Snake behavior even when they allocate or
 convert data. This includes global-mode dispatch, vector-like argument
-normalization, `load_pixels()` returning `list[int]`, `pixels()`, `pixel_array()`,
-and p5.js compatibility stubs. Document a faster Pythonic alternative when one
-exists.
+normalization, `load_pixels()` returning `list[int]`, `pixels()`, and
+`pixel_array()`. Document a faster Pythonic alternative when one exists.
 
 Advanced APIs are supported but may have backend-dependent costs. This includes
 blend modes, text shaping/metrics, image sampling modes, WEBGL-style 3D,

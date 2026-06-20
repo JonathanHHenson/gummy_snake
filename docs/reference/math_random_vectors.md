@@ -13,7 +13,9 @@
 - `degrees(radians)`
 - `sin(angle)`, `cos(angle)`, `tan(angle)`
 - `asin(value)`, `acos(value)`, `atan(value)`, `atan2(y, x)`
-- `sqrt(value)`, `sq(value)`, `fract(value)`
+- `sq(value)`, `fract(value)`
+
+Use Python built-ins and the standard `math` module for simple numeric operations such as `abs`, `round`, `ceil`, `floor`, `sqrt`, `pow`, `exp`, and `log`.
 
 ## Random and Noise
 
@@ -41,13 +43,4 @@ rounded = round(position, 2)
 
 ## Formatting and Conversion
 
-- `boolean(value)`
-- `byte(value)`
-- `char(value)`
-- `float_(value)`
-- `int_(value)`
-- `str_(value)`
-- `hex_(value)`
-- `unhex(value)`
-- `nf(...)`, `nfc(...)`, `nfp(...)`, `nfs(...)`
-- `split_tokens(value, delimiters=None)`
+Use Python-native formatting and conversion APIs such as `bool`, `int`, `float`, `str`, `chr`, `ord`, `hex`, f-strings, `format`, `str.split`, and `re.split`.

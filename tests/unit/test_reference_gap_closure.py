@@ -7,7 +7,6 @@ import re
 import pytest
 
 import gummysnake as gs
-from gummysnake import UnsupportedFeatureError
 
 _SNAKE_CASE_RE = re.compile(r"^[a-z_][a-z0-9_]*$|^[A-Z][A-Za-z0-9_]*$")
 
@@ -41,27 +40,42 @@ def test_color_gap_helpers_and_immutable_mutators():
 
 
 def test_math_data_and_vector_gap_helpers():
-    assert gs.abs_(-2) == 2
-    assert gs.ceil(1.2) == 2
-    assert gs.floor(1.8) == 1
-    assert gs.sqrt(9) == 3
-    assert gs.pow_(2, 3) == 8
-    assert gs.round_(1.234, 2) == 1.23
-    assert gs.boolean("false") is False
-    assert gs.byte(257) == 1
-    assert gs.char(65) == "A"
-    assert gs.float_("1.5") == 1.5
-    assert gs.hex_(15, 2) == "0F"
-    assert gs.int_("10") == 10
-    assert gs.str_(10) == "10"
-    assert gs.unchar("A") == 65
-    assert gs.unhex("0F") == 15
-    assert gs.nf(7, 3) == "007"
-    assert gs.nfc(1234.5, 1) == "1,234.5"
-    assert gs.nfp(7, 2) == "+07"
-    assert gs.nfs(7, 2) == " 07"
-    assert gs.split_tokens("a, b c") == ["a", "b", "c"]
+    assert gs.sq(3) == 9
+    assert gs.fract(1.25) == 0.25
     assert sorted(gs.shuffle([1, 2, 3])) == [1, 2, 3]
+
+    legacy_easy_python_names = {
+        "abs_",
+        "ceil",
+        "floor",
+        "sqrt",
+        "pow_",
+        "round_",
+        "exp",
+        "log",
+        "boolean",
+        "byte",
+        "char",
+        "float_",
+        "hex_",
+        "int_",
+        "str_",
+        "unchar",
+        "unhex",
+        "nf",
+        "nfc",
+        "nfp",
+        "nfs",
+        "split_tokens",
+        "day",
+        "month",
+        "year",
+        "hour",
+        "minute",
+        "second",
+    }
+    assert legacy_easy_python_names.isdisjoint(gs.__all__)
+    assert not any(hasattr(gs, name) for name in legacy_easy_python_names)
 
     vector = gs.Vector(1, 2, 3)
     assert vector[0] == 1
@@ -79,7 +93,7 @@ def test_math_data_and_vector_gap_helpers():
     assert gs.Vector.random_3d().mag() == pytest.approx(1)
 
 
-def test_environment_helpers_and_explicit_browser_sensor_exclusions():
+def test_environment_helpers():
     def setup():
         gs.create_canvas(10, 12)
         gs.frame_rate(24)
@@ -96,49 +110,67 @@ def test_environment_helpers_and_explicit_browser_sensor_exclusions():
 
     gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
-    for helper in (gs.get_url, gs.get_url_path, gs.get_url_params, gs.local_storage):
-        with pytest.raises(UnsupportedFeatureError):
-            helper()
 
-    for helper in (gs.acceleration_x, gs.rotation_z, gs.orientation_y, gs.device_moved):
-        with pytest.raises(UnsupportedFeatureError):
-            helper()
+def test_removed_compatibility_exports_are_absent():
+    removed_names = {
+        "COMPATIBILITY_MATRIX",
+        "CompatibilityStatus",
+        "unsupported_feature",
+        "create_div",
+        "create_button",
+        "select",
+        "select_all",
+        "remove_elements",
+        "create_input",
+        "create_slider",
+        "create_checkbox",
+        "create_select",
+        "create_radio",
+        "create_color_picker",
+        "create_file_input",
+        "load_xml",
+        "load_table",
+        "table_row",
+        "create_blob",
+        "save_blob",
+        "load_blob",
+        "get_url",
+        "get_url_path",
+        "get_url_params",
+        "local_storage",
+        "acceleration_x",
+        "rotation_z",
+        "orientation_y",
+        "device_moved",
+        "create_graphics",
+        "create_framebuffer",
+        "no_canvas",
+        "frustum",
+        "set_camera",
+        "roll",
+        "screen_to_world",
+        "world_to_screen",
+        "debug_mode",
+        "no_debug_mode",
+        "lights",
+        "no_lights",
+        "spot_light",
+        "image_light",
+        "panorama",
+        "light_falloff",
+        "specular_color",
+        "emissive_material",
+        "metalness",
+        "texture_mode",
+        "texture_wrap",
+        "webgpu_context",
+        "create_compute_shader",
+        "create_audio_in",
+    }
 
-
-def test_offscreen_graphics_and_no_canvas_are_explicitly_deferred():
-    for helper in (gs.create_graphics, gs.create_framebuffer):
-        with pytest.raises(UnsupportedFeatureError, match="offscreen_graphics_framebuffer_design"):
-            helper(16, 16)
-
-    with pytest.raises(UnsupportedFeatureError, match="gummy_canvas surface"):
-        gs.no_canvas()
-
-
-def test_advanced_3d_gap_apis_are_explicitly_deferred():
-    deferred_helpers = (
-        gs.frustum,
-        gs.set_camera,
-        gs.roll,
-        gs.screen_to_world,
-        gs.world_to_screen,
-        gs.debug_mode,
-        gs.no_debug_mode,
-        gs.lights,
-        gs.no_lights,
-        gs.spot_light,
-        gs.image_light,
-        gs.panorama,
-        gs.light_falloff,
-        gs.specular_color,
-        gs.emissive_material,
-        gs.metalness,
-        gs.texture_mode,
-        gs.texture_wrap,
-    )
-
-    for helper in deferred_helpers:
-        with pytest.raises(UnsupportedFeatureError, match="advanced WEBGL-style API"):
-            helper()
+    for name in removed_names:
+        assert not hasattr(gs, name), name
+        assert name not in gs.__all__
 
 
 def test_accessibility_helpers_store_native_metadata():
