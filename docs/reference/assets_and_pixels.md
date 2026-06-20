@@ -66,6 +66,22 @@ The report contains counters and short public-language messages for readback,
 pixel list conversion, pixel upload, texture upload/cache hits, and CPU
 compositing fallback helpers such as canvas `get()`, `set()`, and `filter()`.
 
+Renderer/runtime counters are available separately:
+
+```python
+p5.reset_renderer_performance_counters()
+# draw representative frames
+report = p5.renderer_performance_counters()
+```
+
+Text-heavy sketches can inspect `text_cache_hits`, `text_cache_misses`,
+`text_cache_evictions`, and `text_measurements` in that report to spot dynamic
+text churn.
+
+For native interactive timing, enable frame pacing diagnostics and inspect
+`frame_pacing_diagnostics()` for draw, present, frame-interval, and input-poll
+timings.
+
 ## Export
 
 - `save_canvas(path=None)`

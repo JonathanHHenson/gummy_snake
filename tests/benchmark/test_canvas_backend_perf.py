@@ -20,6 +20,11 @@ VARIANTS = (
     "cached_images",
     "cached_images_nearest",
     "image_upload_churn",
+    "blend_modes",
+    "erasing",
+    "transformed_images",
+    "text_only",
+    "pixel_readback_upload",
     "mixed_text_pixels",
     "asteroids_scene",
     "webgl_3d",
@@ -158,6 +163,62 @@ CHILD_CODE = textwrap.dedent(
             p5.text(f"score {index * 125}", 28, 36 + index * 22)
 
 
+    def _draw_blend_modes():
+        modes = [p5.BLEND, p5.ADD, p5.MULTIPLY, p5.SCREEN, p5.DIFFERENCE, p5.EXCLUSION]
+        p5.no_stroke()
+        for index in range(72):
+            p5.blend_mode(modes[index % len(modes)])
+            p5.fill(50 + index % 120, 120 + index % 80, 220, 180)
+            x = 30 + (index * 53 + p5.frame_count() * 2) % 660
+            y = 30 + (index * 47 + index * index) % 420
+            p5.circle(x, y, 28 + index % 4 * 6)
+        p5.blend_mode(p5.BLEND)
+
+
+    def _draw_erasing():
+        p5.no_stroke()
+        p5.fill(80, 150, 240, 230)
+        for index in range(80):
+            x = 28 + (index * 41) % 670
+            y = 32 + (index * 67) % 410
+            p5.circle(x, y, 30)
+        p5.erase()
+        p5.fill(255)
+        for index in range(34):
+            x = 30 + (index * 71 + p5.frame_count() * 3) % 660
+            y = 30 + (index * 43) % 410
+            p5.rect(x, y, 26, 18)
+        p5.no_erase()
+
+
+    def _draw_transformed_images():
+        p5.image_mode(p5.CENTER)
+        for index in range(96):
+            image = sprites[index % len(sprites)]
+            x = 34 + (index * 61 + p5.frame_count() * 3) % 660
+            y = 34 + (index * 43 + index * index) % 410
+            with p5.pushed():
+                p5.translate(x, y)
+                p5.rotate(index * 0.17 + p5.frame_count() * 0.014)
+                p5.scale(0.7 + (index % 5) * 0.18)
+                p5.image(image, 0, 0, 34, 34)
+
+
+    def _draw_text_only():
+        p5.fill(235)
+        p5.no_stroke()
+        p5.text_size(15)
+        for index in range(80):
+            p5.text_width(f"label {index % 12}")
+            p5.text(f"label {index}", 24 + (index % 5) * 136, 28 + (index // 5) * 27)
+
+
+    def _draw_pixel_readback_upload():
+        _draw_starfield(24)
+        pixels = p5.load_pixel_bytes()
+        p5.update_pixels(memoryview(pixels))
+
+
     def _draw_asteroids_scene():
         p5.image_mode(p5.CENTER)
         p5.background(7, 10, 22)
@@ -262,6 +323,16 @@ CHILD_CODE = textwrap.dedent(
             _draw_image_field(mutate=False)
         elif variant == "image_upload_churn":
             _draw_image_field(mutate=True)
+        elif variant == "blend_modes":
+            _draw_blend_modes()
+        elif variant == "erasing":
+            _draw_erasing()
+        elif variant == "transformed_images":
+            _draw_transformed_images()
+        elif variant == "text_only":
+            _draw_text_only()
+        elif variant == "pixel_readback_upload":
+            _draw_pixel_readback_upload()
         elif variant == "mixed_text_pixels":
             _draw_mixed_text_pixels()
         elif variant == "asteroids_scene":

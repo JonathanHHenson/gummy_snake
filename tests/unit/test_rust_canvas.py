@@ -18,7 +18,10 @@ from p5.exceptions import ArgumentValidationError, BackendCapabilityError
 from p5.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from p5.rust import canvas as canvas_bridge
 from p5.rust.canvas import (
+    EXPECTED_CANVAS_ABI_VERSION,
+    canvas_abi_version,
     canvas_gpu_available,
+    canvas_gpu_status,
     canvas_health_check,
     canvas_import_error,
     canvas_native_window_available,
@@ -85,6 +88,9 @@ class FakeCanvas:
 
     def gpu_status(self) -> str:
         return "available"
+
+    def native_window_available(self) -> bool:
+        return True
 
     def open_window(self) -> None:
         self.mode = "interactive"
@@ -196,7 +202,11 @@ class FakeCanvas:
 
 
 class FakeCanvasModule:
+    CANVAS_ABI_VERSION = EXPECTED_CANVAS_ABI_VERSION
     Canvas = FakeCanvas
+
+    def canvas_abi_version(self) -> int:
+        return EXPECTED_CANVAS_ABI_VERSION
 
     def health_check(self) -> str:
         return "fake-canvas"
@@ -206,6 +216,39 @@ class FakeCanvasModule:
 
     def gpu_available(self) -> bool:
         return True
+
+
+class FakeCanvasModuleWithoutNativeWindow(FakeCanvasModule):
+    class Canvas(FakeCanvas):
+        def native_window_available(self) -> bool:
+            return False
+
+    def native_window_available(self) -> bool:
+        return False
+
+
+class FakeCanvasModuleWithoutGpu(FakeCanvasModule):
+    def gpu_available(self) -> bool:
+        return False
+
+
+class FakeCanvasModuleWithHealthFailure(FakeCanvasModule):
+    def health_check(self) -> str:
+        raise RuntimeError("boom")
+
+
+class FakeCanvasModuleWithoutAbi(FakeCanvasModule):
+    CANVAS_ABI_VERSION = None
+
+    def canvas_abi_version(self) -> object:
+        return None
+
+
+class FakeCanvasModuleWithBadAbi(FakeCanvasModule):
+    CANVAS_ABI_VERSION = EXPECTED_CANVAS_ABI_VERSION + 1
+
+    def canvas_abi_version(self) -> int:
+        return EXPECTED_CANVAS_ABI_VERSION + 1
 
 
 class FakeRustImage:
@@ -267,8 +310,10 @@ def make_canvas_context(monkeypatch: pytest.MonkeyPatch) -> tuple[EventSketch, C
 
 def test_canvas_health_check_reports_unavailable_or_extension() -> None:
     assert canvas_health_check() in {"unavailable", "rust-canvas"}
+    assert canvas_abi_version() in {None, EXPECTED_CANVAS_ABI_VERSION}
     assert canvas_native_window_available() in {True, False}
     assert canvas_gpu_available() in {True, False}
+    assert canvas_gpu_status()
     assert is_canvas_available() in {True, False}
     assert canvas_import_error() is None or isinstance(canvas_import_error(), ImportError)
 
@@ -280,8 +325,10 @@ def test_canvas_wrapper_uses_loaded_extension(monkeypatch: pytest.MonkeyPatch) -
 
     assert is_canvas_available()
     assert canvas_health_check() == "fake-canvas"
+    assert canvas_abi_version() == EXPECTED_CANVAS_ABI_VERSION
     assert canvas_native_window_available() is True
     assert canvas_gpu_available() is True
+    assert canvas_gpu_status() == "available"
     assert require_canvas_extension() is fake
 
 
@@ -293,6 +340,36 @@ def test_canvas_wrapper_raises_capability_error_when_extension_missing(
 
     with pytest.raises(BackendCapabilityError, match="p5.rust._canvas"):
         require_canvas_extension()
+
+
+@pytest.mark.parametrize(
+    ("module", "message"),
+    [
+        (FakeCanvasModuleWithoutAbi(), "expected canvas ABI"),
+        (FakeCanvasModuleWithBadAbi(), "expected canvas ABI"),
+        (FakeCanvasModuleWithHealthFailure(), "failed its health check"),
+    ],
+)
+def test_canvas_wrapper_rejects_incompatible_or_unhealthy_extensions(
+    monkeypatch: pytest.MonkeyPatch,
+    module: object,
+    message: str,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", module)
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+
+    with pytest.raises(BackendCapabilityError, match=message):
+        require_canvas_extension()
+
+
+def test_canvas_gpu_status_explains_cpu_continuation_when_gpu_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModuleWithoutGpu())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+
+    assert canvas_gpu_available() is False
+    assert "headless rendering can continue" in canvas_gpu_status()
 
 
 def test_canvas_backend_reports_implemented_capabilities() -> None:
@@ -341,6 +418,29 @@ def test_canvas_backend_enables_input_capabilities_when_native_runtime_is_availa
     assert backend.capabilities.mouse is True
     assert backend.capabilities.keyboard is True
     assert backend.capabilities.touch is True
+
+
+def test_canvas_backend_rejects_interactive_without_native_window_support(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModuleWithoutNativeWindow())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+
+    backend = CanvasBackend(headless=False)
+    backend.create_canvas(10, 10)
+
+    with pytest.raises(BackendCapabilityError, match="native window support"):
+        backend.run(FakeSketch())  # type: ignore[arg-type]
+
+
+def test_canvas_backend_gpu_status_uses_runtime_canvas_diagnostic(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModuleWithoutGpu())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+
+    backend = CanvasBackend()
+    assert "headless rendering can continue" in backend.gpu_status()
 
 
 def test_canvas_backend_runs_headless_frames_and_accepts_webgl(
@@ -675,6 +775,46 @@ def test_canvas_renderer_caches_text_metrics_by_style() -> None:
     assert [call[0] for call in canvas.calls].count("text_width") == 2
 
 
+def test_canvas_renderer_performance_counters_cover_representative_paths() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(4, 2)
+    style = StyleState(fill_color=Color(255, 255, 255, 255), stroke_color=Color(0, 0, 0, 255))
+    image = Image(1, 1, bytes([255, 0, 0, 255]))
+    transform = Matrix2D.identity()
+
+    renderer.background(Color(0, 0, 0, 255))
+    renderer.line(0, 0, 3, 1, style, transform)
+    renderer.end_frame()
+    renderer.draw_image(image, 0, 0, 1, 1, style, transform)
+    renderer.draw_image(image, 1, 0, 1, 1, style, transform)
+    renderer.text_width("cached", style)
+    renderer.text_width("cached", style)
+    renderer.load_pixels()
+    renderer.update_pixels(bytes([0, 0, 0, 255] * 8))
+    renderer.blend_region(None, (0, 0, 1, 1), (1, 0, 1, 1), c.BLEND)
+
+    counters = cast(dict[str, int], renderer.performance_counters())
+
+    assert counters["gpu_draws"] >= 4
+    assert counters["image_cache_misses"] == 1
+    assert counters["image_cache_hits"] == 1
+    assert counters["texture_uploads"] == 1
+    assert counters["texture_cache_hits"] == 1
+    assert counters["text_cache_misses"] == 1
+    assert counters["text_cache_hits"] == 1
+    assert counters["text_cache_evictions"] == 0
+    assert counters["pixel_readbacks"] >= 1
+    assert counters["pixel_uploads"] >= 2
+    assert counters["cpu_fallbacks"] >= 1
+    assert counters["bridge_calls"] > 0
+
+    renderer.reset_performance_counters()
+    reset = renderer.performance_counters()
+    assert reset["gpu_draws"] == 0
+    assert reset["bridge_calls"] == 0
+    assert reset["text_cache_evictions"] == 0
+
+
 def test_canvas_backend_headless_run_defaults_to_requested_frame_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -694,6 +834,30 @@ def test_canvas_backend_headless_run_defaults_to_requested_frame_count(
     assert sketch.frames == 4
     canvas = backend.renderer.runtime_canvas()
     assert ("present",) in canvas.calls
+
+
+def test_canvas_backend_frame_pacing_diagnostics_are_opt_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    assert sketch.context is not None
+    sketch.context.enable_frame_pacing_diagnostics()
+
+    backend.run(sketch, max_frames=2)
+
+    report = cast(dict[str, bool | float | int | None], sketch.context.frame_pacing_diagnostics())
+    assert report["enabled"] is True
+    assert report["frames"] == 2
+    assert report["last_draw_duration_ms"] is not None
+    assert report["last_present_duration_ms"] is not None
+    assert report["mean_draw_duration_ms"] is not None
+    assert report["mean_present_duration_ms"] is not None
+    assert report["mean_draw_duration_ms"] >= 0.0
+    assert report["mean_present_duration_ms"] >= 0.0
+
+    sketch.context.reset_frame_pacing_diagnostics()
+    reset = cast(dict[str, bool | float | int | None], sketch.context.frame_pacing_diagnostics())
+    assert reset["frames"] == 0
 
 
 def test_canvas_backend_opens_interactive_window_and_reports_display_density(
@@ -738,6 +902,7 @@ def test_canvas_backend_unbounded_interactive_respects_no_loop_from_draw(
 ) -> None:
     sketch, backend = make_canvas_context(monkeypatch)
     assert sketch.context is not None
+    context = sketch.context
     canvas = backend.renderer.runtime_canvas()
     polls = 0
 
@@ -749,8 +914,8 @@ def test_canvas_backend_unbounded_interactive_respects_no_loop_from_draw(
         return []
 
     def draw_frame() -> None:
-        sketch.context.state.timing.frame_count += 1
-        sketch.context.no_loop()
+        context.state.timing.frame_count += 1
+        context.no_loop()
 
     canvas.poll_events = poll_events  # type: ignore[method-assign]
     sketch._draw_frame = draw_frame  # type: ignore[method-assign]

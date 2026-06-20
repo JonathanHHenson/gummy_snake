@@ -330,7 +330,39 @@ class SketchContext:
             "enabled": self._performance_diagnostics_enabled,
             "counters": dict(self._performance_diagnostic_counts),
             "messages": list(self._performance_diagnostic_messages),
+            "renderer": self.renderer_performance_counters(),
         }
+
+    def renderer_performance_counters(self) -> dict[str, object]:
+        callback = getattr(self.renderer, "performance_counters", None)
+        if callable(callback):
+            counters = callback()
+            if isinstance(counters, dict):
+                return counters
+        return {}
+
+    def reset_renderer_performance_counters(self) -> None:
+        callback = getattr(self.renderer, "reset_performance_counters", None)
+        if callable(callback):
+            callback()
+
+    def enable_frame_pacing_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
+        callback = getattr(self.backend, "enable_frame_pacing_diagnostics", None)
+        if callable(callback):
+            callback(enabled, reset=reset)
+
+    def frame_pacing_diagnostics(self) -> dict[str, object]:
+        callback = getattr(self.backend, "frame_pacing_diagnostics", None)
+        if callable(callback):
+            report = callback()
+            if isinstance(report, dict):
+                return report
+        return {}
+
+    def reset_frame_pacing_diagnostics(self) -> None:
+        callback = getattr(self.backend, "reset_frame_pacing_diagnostics", None)
+        if callable(callback):
+            callback()
 
     def _record_performance_diagnostic(self, name: str) -> None:
         if not self._performance_diagnostics_enabled:

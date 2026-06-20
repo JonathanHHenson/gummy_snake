@@ -129,6 +129,21 @@ class Sketch:
     def performance_diagnostics(self) -> dict[str, object]:
         return self._ctx.performance_diagnostics()
 
+    def renderer_performance_counters(self) -> dict[str, object]:
+        return self._ctx.renderer_performance_counters()
+
+    def reset_renderer_performance_counters(self) -> None:
+        self._ctx.reset_renderer_performance_counters()
+
+    def enable_frame_pacing_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
+        self._ctx.enable_frame_pacing_diagnostics(enabled, reset=reset)
+
+    def frame_pacing_diagnostics(self) -> dict[str, object]:
+        return self._ctx.frame_pacing_diagnostics()
+
+    def reset_frame_pacing_diagnostics(self) -> None:
+        self._ctx.reset_frame_pacing_diagnostics()
+
     def background(self, *args: object) -> None:
         self._ctx.background(*args)
 

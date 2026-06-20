@@ -29,6 +29,7 @@ Use focused checks while developing, then broaden before handing off:
 | Backend scheduling or capability behavior | `tests/contracts/` plus relevant unit tests |
 | Renderer or pixel behavior | contract or integration test plus a headless smoke example |
 | Rust canvas runtime behavior | `cargo test --manifest-path crates/p5_canvas/Cargo.toml` plus Python wrapper tests |
+| Long-running resource lifecycle behavior | `uv run pytest tests/stress --run-stress -q -s` |
 | Documentation only | link/path review; no full test suite required unless commands changed |
 | CI workflow changes | local command equivalence where practical |
 
@@ -39,6 +40,7 @@ Use focused checks while developing, then broaden before handing off:
 - `tests/golden/`: deterministic render comparisons.
 - `tests/integration/`: end-to-end sketch behavior.
 - `tests/benchmark/`: opt-in performance tests.
+- `tests/stress/`: opt-in long-running resource lifecycle tests.
 
 ## Performance Benchmarks
 
@@ -63,8 +65,9 @@ Use the suite when changing renderer hot paths, image upload/cache behavior,
 pixel readback/update behavior, text measurement, frame scheduling, or native
 canvas packaging. The current scenarios cover sparse and dense primitive
 drawing, cached image drawing with default linear and nearest sampling,
-per-frame image upload churn, mixed text/pixel readback work, a deterministic
-game-style scene, and a WEBGL-style 3D prototype scene.
+per-frame image upload churn, blend modes, erasing, transformed images, text,
+pixel readback/upload, mixed text/pixel readback work, a deterministic game-style
+scene, and a WEBGL-style 3D prototype scene.
 
 The API overhead microbenchmarks use a no-op renderer/backend and do not require
 the canvas extension. They report nanoseconds per call for global-mode,
@@ -99,6 +102,22 @@ Do not edit baseline numbers upward to satisfy the target. Keep captured values
 as measured and let benchmark assertions fail until the implementation reaches
 the required floor.
 
+## Resource Stress Tests
+
+Long-running lifecycle checks live under `tests/stress/` and are skipped unless
+explicitly requested:
+
+```sh
+uv run pytest tests/stress --run-stress -q -s
+```
+
+Run these before releases and when changing canvas resize, shutdown, image
+texture caching, text/font caching, pixel readback/upload, or CPU/GPU fallback
+boundaries. The current scenarios churn transient images, dynamic text, repeated
+pixel readback/upload, repeated resize, repeated close/recreate, and CPU
+fallback paths. They assert cache/counter behavior and basic state consistency;
+they are not FPS benchmarks.
+
 ## Test Style
 
 Prefer deterministic tests:
@@ -111,6 +130,7 @@ Prefer deterministic tests:
 - Use contract tests when multiple backend/renderer implementations would be
   expected to satisfy the same promise.
 - Keep benchmark tests behind the explicit benchmark marker.
+- Keep slow lifecycle churn behind the explicit stress marker.
 
 Avoid tests that require manual native windows unless the behavior cannot be
 reasonably covered headlessly.

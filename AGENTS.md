@@ -36,6 +36,8 @@ Important consequences:
 - `headless=True` or `--headless` requests offscreen/bounded canvas behavior for tests, CI, and export.
 - `headless=False` or `--interactive` requests native interactive canvas behavior where the installed extension supports it.
 - Missing extension or missing native-window support should raise clear `p5` capability errors with rebuild guidance.
+- `p5.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
+- GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
 
 The Python public API must not expose Rust internals or depend on a concrete renderer in user-facing functions.
 
@@ -301,6 +303,15 @@ snapshots live in `tests/benchmark/baselines/`; keep captured baseline values as
 measured and record whether they meet the 120 FPS floor.
 API overhead benchmarks should compare global-mode, object-oriented sketch,
 context-direct, `fast()`, and renderer-direct dispatch paths.
+Renderer/runtime diagnostics should expose counters through public Python APIs
+such as `renderer_performance_counters()` rather than leaking unstable Rust
+details. Keep fallback-boundary benchmark scenes and
+`docs/contribute/runtime_diagnostics.md` aligned when renderer paths change.
+Resource lifecycle stress tests are opt-in:
+
+```sh
+uv run pytest tests/stress --run-stress -q -s
+```
 
 Check Zed diagnostics when practical.
 
@@ -317,6 +328,7 @@ Good placement:
 - stable representative output: `tests/golden/`
 - user-visible end-to-end flows: `tests/integration/`
 - performance-sensitive checks: `tests/benchmark/` with explicit opt-in markers
+- long-running resource lifecycle checks: `tests/stress/` with explicit opt-in markers
 
 ## Documentation Expectations
 
@@ -339,6 +351,8 @@ docs/contribute/index.md
 docs/contribute/architecture.md
 docs/contribute/backend_renderer.md
 docs/contribute/runtime.md
+docs/contribute/runtime_diagnostics.md
+docs/contribute/build_capabilities.md
 docs/contribute/testing.md
 docs/contribute/documentation.md
 ```

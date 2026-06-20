@@ -84,6 +84,9 @@ as quickly and deterministically as possible.
   installed extension supports it.
 - Missing canvas extension or missing native-window support should fail with a
   clear capability error and rebuild guidance.
+- A stale or partial canvas extension should fail during
+  `require_canvas_extension()` if its health check or `CANVAS_ABI_VERSION`
+  marker does not match the Python package.
 
 ```mermaid
 flowchart TD
@@ -145,6 +148,25 @@ The Rust canvas image and texture caches are bounded. If cache limits are
 changed, keep the lifecycle explicit and preserve tests that draw many transient
 images.
 
+## Text And Font Cache Ownership
+
+Rust owns rendered text line caching because it owns font loading, glyph
+rasterization, and the texture keys used for GPU text presentation. The rendered
+text cache is bounded by entry count and evicts least-recently used entries
+before inserting new dynamic text. Eviction also drops the corresponding texture
+version bookkeeping so stale texture keys are not reused after a text cache
+entry is removed.
+
+The font cache is intentionally process-local to each canvas instance and keyed
+by font path. It is bounded by the number of distinct font files a sketch uses;
+normal dynamic text changes should not add font entries. If future font-family
+resolution starts discovering many paths automatically, add an explicit bound
+there too.
+
+Renderer diagnostics expose `text_cache_hits`, `text_cache_misses`,
+`text_cache_evictions`, and `text_measurements`. Dynamic counters or labels
+should increase misses and eventually evictions without unbounded cache growth.
+
 `load_pixels()` remains the list-based compatibility API. `load_pixel_bytes()`
 is the lower-copy readback path for effects that can work with bytes, and
 `update_pixels()` accepts buffer-like inputs such as `bytes`, `bytearray`, and
@@ -186,8 +208,13 @@ can disagree.
 ## Failure Modes To Preserve
 
 - Missing `p5.rust._canvas` should raise a clear backend capability error.
+- Incompatible `p5.rust._canvas` ABI markers should raise a clear backend
+  capability error before backend construction proceeds.
 - Requesting interactive mode without native-window support should raise a clear
   capability error.
+- GPU unavailable diagnostics should explain that headless CPU-backed rendering
+  can continue while native presentation or GPU acceleration may be unavailable
+  or slower.
 - Unsupported renderer names should raise `ArgumentValidationError`.
 - Requesting `WEBGL` on a backend without 3D support should raise
   `BackendCapabilityError`.

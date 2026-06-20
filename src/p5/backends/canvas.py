@@ -15,7 +15,12 @@ from p5.backends.base import BackendCapabilities
 from p5.backends.canvas_renderer import CanvasRenderer
 from p5.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from p5.exceptions import ArgumentValidationError, BackendCapabilityError
-from p5.rust.canvas import canvas_health_check, require_canvas_extension
+from p5.rust.canvas import (
+    P5_CANVAS_BUILD_COMMAND,
+    canvas_gpu_status,
+    canvas_health_check,
+    require_canvas_extension,
+)
 
 if TYPE_CHECKING:
     from p5.sketch import Sketch
@@ -75,6 +80,14 @@ _MOUSE_BUTTONS = {
     "3": c.RIGHT_BUTTON,
     3: c.RIGHT_BUTTON,
 }
+
+
+def _pacing_float(value: object) -> float:
+    return float(value) if isinstance(value, int | float) else 0.0
+
+
+def _pacing_int(value: object) -> int:
+    return int(value) if isinstance(value, int | float) else 0
 
 
 class CanvasBackend:
@@ -140,11 +153,31 @@ class CanvasBackend:
         self._next_frame_time = 0.0
         self._debug = os.environ.get("P5_CANVAS_DEBUG") == "1"
         self._last_idle_debug_frame: int | None = None
+        self._frame_pacing_enabled = os.environ.get("P5_CANVAS_PACING_DEBUG") == "1"
+        self._frame_pacing: dict[str, float | int | bool | None] = {}
+        self._last_present_time: float | None = None
+        self.reset_frame_pacing_diagnostics()
 
     def health_check(self) -> str:
         """Return the underlying Rust canvas extension health check."""
 
         return canvas_health_check()
+
+    def gpu_status(self) -> str:
+        """Return an actionable GPU availability diagnostic for this canvas runtime."""
+
+        canvas = self.renderer._canvas
+        runtime_status = getattr(canvas, "gpu_status", None) if canvas is not None else None
+        if callable(runtime_status):
+            status = str(runtime_status())
+            if status == "available":
+                return status
+            return (
+                f"{status}; headless rendering can continue through CPU-backed canvas paths, "
+                "but native interactive presentation and GPU-accelerated drawing may be "
+                "disabled or slower."
+            )
+        return canvas_gpu_status()
 
     def _native_window_available(self) -> bool:
         native_window_available = getattr(self._canvas_module, "native_window_available", None)
@@ -181,6 +214,64 @@ class CanvasBackend:
 
     def display_density(self) -> float:
         return self.renderer.display_density()
+
+    def enable_frame_pacing_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
+        self._frame_pacing_enabled = bool(enabled)
+        if reset:
+            self.reset_frame_pacing_diagnostics()
+
+    def reset_frame_pacing_diagnostics(self) -> None:
+        enabled = self._frame_pacing_enabled
+        self._frame_pacing = {
+            "enabled": enabled,
+            "frames": 0,
+            "event_polls": 0,
+            "draw_duration_ms_total": 0.0,
+            "present_duration_ms_total": 0.0,
+            "event_poll_duration_ms_total": 0.0,
+            "frame_interval_ms_total": 0.0,
+            "max_draw_duration_ms": 0.0,
+            "max_present_duration_ms": 0.0,
+            "max_event_poll_duration_ms": 0.0,
+            "max_frame_interval_ms": 0.0,
+            "last_draw_duration_ms": None,
+            "last_present_duration_ms": None,
+            "last_event_poll_duration_ms": None,
+            "last_frame_interval_ms": None,
+        }
+        self._last_present_time = None
+
+    def frame_pacing_diagnostics(self) -> dict[str, float | int | bool | None]:
+        report = dict(self._frame_pacing)
+        frames = _pacing_int(report.get("frames"))
+        event_polls = _pacing_int(report.get("event_polls"))
+        report["mean_draw_duration_ms"] = (
+            _pacing_float(report.get("draw_duration_ms_total")) / frames if frames else 0.0
+        )
+        report["mean_present_duration_ms"] = (
+            _pacing_float(report.get("present_duration_ms_total")) / frames if frames else 0.0
+        )
+        report["mean_frame_interval_ms"] = (
+            _pacing_float(report.get("frame_interval_ms_total")) / max(1, frames - 1)
+            if frames > 1
+            else 0.0
+        )
+        report["mean_event_poll_duration_ms"] = (
+            _pacing_float(report.get("event_poll_duration_ms_total")) / event_polls
+            if event_polls
+            else 0.0
+        )
+        return report
+
+    def _record_pacing_duration(self, kind: str, duration_ms: float) -> None:
+        if not self._frame_pacing_enabled:
+            return
+        total_key = f"{kind}_duration_ms_total"
+        max_key = f"max_{kind}_duration_ms"
+        last_key = f"last_{kind}_duration_ms"
+        self._frame_pacing[total_key] = _pacing_float(self._frame_pacing[total_key]) + duration_ms
+        self._frame_pacing[max_key] = max(_pacing_float(self._frame_pacing[max_key]), duration_ms)
+        self._frame_pacing[last_key] = duration_ms
 
     def run(self, sketch: Sketch, *, max_frames: int | None = None) -> None:
         """Run the sketch.
@@ -286,12 +377,34 @@ class CanvasBackend:
     def _draw_and_present(self, sketch: Sketch) -> bool:
         context = getattr(sketch, "context", None)
         before_frame_count = context.state.timing.frame_count if context is not None else None
+        draw_start = time.perf_counter()
         sketch._draw_frame()
+        draw_duration_ms = (time.perf_counter() - draw_start) * 1000.0
         after_frame_count = context.state.timing.frame_count if context is not None else None
         if before_frame_count is None or after_frame_count != before_frame_count:
+            present_start = time.perf_counter()
             self.present()
+            present_end = time.perf_counter()
+            self._record_pacing_duration("draw", draw_duration_ms)
+            self._record_pacing_duration("present", (present_end - present_start) * 1000.0)
+            self._record_present_interval(present_end)
             return True
         return False
+
+    def _record_present_interval(self, now: float) -> None:
+        if not self._frame_pacing_enabled:
+            return
+        self._frame_pacing["frames"] = _pacing_int(self._frame_pacing["frames"]) + 1
+        if self._last_present_time is not None:
+            interval_ms = (now - self._last_present_time) * 1000.0
+            self._frame_pacing["frame_interval_ms_total"] = (
+                _pacing_float(self._frame_pacing["frame_interval_ms_total"]) + interval_ms
+            )
+            self._frame_pacing["max_frame_interval_ms"] = max(
+                _pacing_float(self._frame_pacing["max_frame_interval_ms"]), interval_ms
+            )
+            self._frame_pacing["last_frame_interval_ms"] = interval_ms
+        self._last_present_time = now
 
     def _open_interactive_window(self, canvas: object) -> None:
         native_window_available = getattr(canvas, "native_window_available", None)
@@ -299,8 +412,8 @@ class CanvasBackend:
             raise BackendCapabilityError(
                 "The installed p5.rust._canvas extension exposes the runtime bridge but was built "
                 "without native window/event-loop support. Run with a bounded frame count for "
-                "headless canvas rendering or rebuild p5_canvas after enabling native runtime "
-                "support."
+                "headless canvas rendering, or rebuild/reinstall the canvas runtime with native "
+                f"window support using `{P5_CANVAS_BUILD_COMMAND}`."
             )
         open_window = getattr(canvas, "open_window", None)
         if callable(open_window):
@@ -309,8 +422,8 @@ class CanvasBackend:
             return
         raise BackendCapabilityError(
             "The installed p5.rust._canvas extension does not expose native interactive window "
-            "primitives yet. Rebuild the current p5_canvas crate or run with a bounded "
-            "frame count for headless canvas rendering."
+            "primitives. Run with a bounded frame count for headless canvas rendering, or "
+            f"rebuild the current p5_canvas crate with `{P5_CANVAS_BUILD_COMMAND}`."
         )
 
     def _should_close(self, canvas: object) -> bool:
@@ -324,7 +437,12 @@ class CanvasBackend:
         poll_events = getattr(canvas, "poll_events", None)
         if not callable(poll_events):
             return
+        poll_start = time.perf_counter()
         events = poll_events()
+        poll_duration_ms = (time.perf_counter() - poll_start) * 1000.0
+        if self._frame_pacing_enabled:
+            self._frame_pacing["event_polls"] = _pacing_int(self._frame_pacing["event_polls"]) + 1
+            self._record_pacing_duration("event_poll", poll_duration_ms)
         if not isinstance(events, Iterable):
             raise BackendCapabilityError("Canvas poll_events() must return an iterable.")
         for payload in cast(Iterable[object], events):

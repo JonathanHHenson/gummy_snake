@@ -16,6 +16,7 @@ from p5.exceptions import BackendCapabilityError
 P5_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml"
 )
+EXPECTED_CANVAS_ABI_VERSION = 1
 
 
 class _RustP5Image(Protocol):
@@ -39,6 +40,8 @@ class _CanvasModule(Protocol):
     P5Image: type[_RustP5Image]
 
     def health_check(self) -> str: ...
+
+    def canvas_abi_version(self) -> int: ...
 
     def native_window_available(self) -> bool: ...
 
@@ -76,7 +79,28 @@ def canvas_health_check() -> str:
 
     if _canvas is None:
         return "unavailable"
-    return str(_canvas.health_check())
+    try:
+        return str(_canvas.health_check())
+    except Exception as exc:
+        return f"unhealthy: {exc}"
+
+
+def canvas_abi_version() -> int | None:
+    """Return the loaded canvas extension ABI marker when available."""
+
+    if _canvas is None:
+        return None
+    marker = getattr(_canvas, "canvas_abi_version", None)
+    try:
+        value = marker() if callable(marker) else getattr(_canvas, "CANVAS_ABI_VERSION", None)
+    except Exception:
+        return None
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def canvas_native_window_available() -> bool:
@@ -97,10 +121,29 @@ def canvas_gpu_available() -> bool:
     return bool(gpu_available()) if callable(gpu_available) else False
 
 
+def canvas_gpu_status() -> str:
+    """Return an actionable GPU availability diagnostic for the loaded extension."""
+
+    if _canvas is None:
+        return "unavailable: p5.rust._canvas is not installed"
+    try:
+        available = canvas_gpu_available()
+    except Exception as exc:
+        return f"unavailable: GPU capability probe failed: {exc}"
+    if available:
+        return "available"
+    return (
+        "unavailable: headless rendering can continue through CPU-backed canvas paths, "
+        "but native interactive presentation and GPU-accelerated drawing may be disabled "
+        "or slower on this machine/build."
+    )
+
+
 def require_canvas_extension() -> _CanvasModule:
     """Return the loaded canvas extension or raise a backend capability error."""
 
     if _canvas is not None:
+        _validate_canvas_module(_canvas)
         return _canvas
 
     detail = f" Import failed: {_CANVAS_IMPORT_ERROR}" if _CANVAS_IMPORT_ERROR else ""
@@ -112,10 +155,44 @@ def require_canvas_extension() -> _CanvasModule:
     )
 
 
+def _validate_canvas_module(module: _CanvasModule) -> None:
+    marker = canvas_abi_version()
+    if marker != EXPECTED_CANVAS_ABI_VERSION:
+        found = "missing" if marker is None else str(marker)
+        raise BackendCapabilityError(
+            "The installed p5.rust._canvas extension is incompatible with this p5py build "
+            f"(expected canvas ABI {EXPECTED_CANVAS_ABI_VERSION}, found {found}). "
+            f"Rebuild it with `{P5_CANVAS_BUILD_COMMAND}` or reinstall p5py_vibe so the "
+            "Python package and Rust canvas runtime come from the same build."
+        )
+
+    health_check = getattr(module, "health_check", None)
+    if not callable(health_check):
+        raise BackendCapabilityError(
+            "The installed p5.rust._canvas extension is missing health_check(). "
+            f"Rebuild it with `{P5_CANVAS_BUILD_COMMAND}`."
+        )
+    try:
+        health = str(health_check())
+    except Exception as exc:
+        raise BackendCapabilityError(
+            "The installed p5.rust._canvas extension failed its health check. "
+            f"Rebuild it with `{P5_CANVAS_BUILD_COMMAND}`. Health check error: {exc}"
+        ) from exc
+    if not health or health == "unavailable":
+        raise BackendCapabilityError(
+            "The installed p5.rust._canvas extension reported an unhealthy runtime "
+            f"state ({health!r}). Rebuild it with `{P5_CANVAS_BUILD_COMMAND}`."
+        )
+
+
 __all__ = [
     "P5_CANVAS_BUILD_COMMAND",
+    "EXPECTED_CANVAS_ABI_VERSION",
+    "canvas_abi_version",
     "canvas_health_check",
     "canvas_gpu_available",
+    "canvas_gpu_status",
     "canvas_native_window_available",
     "canvas_import_error",
     "is_canvas_available",

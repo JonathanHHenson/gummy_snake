@@ -5,6 +5,8 @@ These docs are for contributors who want to understand how p5py is built.
 - [Architecture](architecture.md)
 - [Backend and renderer boundaries](backend_renderer.md)
 - [Runtime model](runtime.md)
+- [Runtime diagnostics](runtime_diagnostics.md)
+- [Build capabilities](build_capabilities.md)
 - [API performance policy](api_performance_policy.md)
 - [Native 3D renderer plan](native_3d_plan.md)
 - [Testing and CI](testing.md)
@@ -40,6 +42,13 @@ Read [Runtime model](runtime.md) before touching lifecycle, frame scheduling,
 interactive mode, headless mode, input dispatch, HiDPI behavior, or current
 software WEBGL behavior. Read [Native 3D renderer plan](native_3d_plan.md)
 before moving WEBGL drawing into `p5_canvas`.
+
+Read [Runtime diagnostics](runtime_diagnostics.md) when changing renderer
+counters, fallback boundaries, benchmark scenes, or interactive frame pacing.
+
+Read [Build capabilities](build_capabilities.md) when changing packaging,
+extension import checks, cargo features, optional extras, or runtime capability
+probes.
 
 Read [API performance policy](api_performance_policy.md) before adding public
 APIs, changing pixel/image behavior, or documenting performance-sensitive

@@ -8,7 +8,7 @@ use pyo3::types::{PyAny, PyBytes, PyDict};
 use runtime::{
     native_window_available as runtime_native_window_available, InteractiveRuntime, RuntimeEvent,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::f64::consts::PI;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -26,6 +26,8 @@ const BLEND_MODE_REPLACE: &str = "replace";
 const BLEND_MODE_SCREEN: &str = "screen";
 const IMAGE_CACHE_LIMIT: usize = 1024;
 const TEXTURE_CACHE_LIMIT: usize = 1024;
+const TEXT_CACHE_LIMIT: usize = 512;
+const CANVAS_ABI_VERSION: u32 = 1;
 static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,6 +84,49 @@ struct CachedText {
     bbox_left: i32,
     bbox_top: i32,
     ascent: f64,
+}
+
+#[derive(Clone, Debug, Default)]
+struct PerformanceCounters {
+    gpu_draws: u64,
+    cpu_fallbacks: u64,
+    pixel_readbacks: u64,
+    pixel_uploads: u64,
+    image_cache_hits: u64,
+    image_cache_misses: u64,
+    texture_cache_hits: u64,
+    texture_uploads: u64,
+    text_cache_hits: u64,
+    text_cache_misses: u64,
+    text_cache_evictions: u64,
+    text_measurements: u64,
+    bridge_calls: u64,
+    frames_presented: u64,
+    gpu_frames_rendered: u64,
+    event_polls: u64,
+}
+
+impl PerformanceCounters {
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new_bound(py);
+        dict.set_item("gpu_draws", self.gpu_draws)?;
+        dict.set_item("cpu_fallbacks", self.cpu_fallbacks)?;
+        dict.set_item("pixel_readbacks", self.pixel_readbacks)?;
+        dict.set_item("pixel_uploads", self.pixel_uploads)?;
+        dict.set_item("image_cache_hits", self.image_cache_hits)?;
+        dict.set_item("image_cache_misses", self.image_cache_misses)?;
+        dict.set_item("texture_cache_hits", self.texture_cache_hits)?;
+        dict.set_item("texture_uploads", self.texture_uploads)?;
+        dict.set_item("text_cache_hits", self.text_cache_hits)?;
+        dict.set_item("text_cache_misses", self.text_cache_misses)?;
+        dict.set_item("text_cache_evictions", self.text_cache_evictions)?;
+        dict.set_item("text_measurements", self.text_measurements)?;
+        dict.set_item("bridge_calls", self.bridge_calls)?;
+        dict.set_item("frames_presented", self.frames_presented)?;
+        dict.set_item("gpu_frames_rendered", self.gpu_frames_rendered)?;
+        dict.set_item("event_polls", self.event_polls)?;
+        Ok(dict)
+    }
 }
 
 #[pyclass(name = "P5Image", unsendable)]
@@ -239,6 +284,7 @@ struct Canvas {
     present_pixels: Vec<u32>,
     image_cache: HashMap<u64, CachedImage>,
     text_cache: HashMap<String, CachedText>,
+    text_cache_order: VecDeque<String>,
     font_cache: HashMap<String, FontArc>,
     next_text_key: u64,
     texture_cache_versions: HashMap<u64, u64>,
@@ -251,6 +297,7 @@ struct Canvas {
     texture_stale: bool,
     cached_style_key: Option<usize>,
     cached_style: Option<Style>,
+    performance_counters: PerformanceCounters,
 }
 
 #[pymethods]
@@ -283,6 +330,7 @@ impl Canvas {
             present_pixels: vec![0; physical_width * physical_height],
             image_cache: HashMap::new(),
             text_cache: HashMap::new(),
+            text_cache_order: VecDeque::new(),
             font_cache: HashMap::new(),
             next_text_key: 1_u64 << 62,
             texture_cache_versions: HashMap::new(),
@@ -295,6 +343,7 @@ impl Canvas {
             texture_stale: false,
             cached_style_key: None,
             cached_style: None,
+            performance_counters: PerformanceCounters::default(),
         })
     }
 
@@ -326,6 +375,8 @@ impl Canvas {
         self.texture_stale = false;
         self.cached_style_key = None;
         self.cached_style = None;
+        self.text_cache.clear();
+        self.text_cache_order.clear();
         if let Some(runtime) = self.runtime.as_mut() {
             runtime
                 .request_resize(width, height, pixel_density)
@@ -370,6 +421,14 @@ impl Canvas {
             .unwrap_or_else(|| "available".to_string())
     }
 
+    fn performance_counters<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        self.performance_counters.to_dict(py)
+    }
+
+    fn reset_performance_counters(&mut self) {
+        self.performance_counters = PerformanceCounters::default();
+    }
+
     fn open_window(&mut self) -> PyResult<()> {
         self.mode = INTERACTIVE_MODE.to_string();
         self.window_open = true;
@@ -392,6 +451,7 @@ impl Canvas {
     }
 
     fn poll_events(&mut self) -> PyResult<Vec<Py<PyAny>>> {
+        self.performance_counters.event_polls += 1;
         let Some(runtime) = self.runtime.as_mut() else {
             return Ok(Vec::new());
         };
@@ -410,6 +470,7 @@ impl Canvas {
     }
 
     fn begin_frame(&mut self) {
+        self.performance_counters.bridge_calls += 1;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.begin_frame();
         }
@@ -425,6 +486,7 @@ impl Canvas {
     }
 
     fn present(&mut self) -> PyResult<()> {
+        self.performance_counters.bridge_calls += 1;
         if self.render_dirty && self.offscreen_dirty && self.runtime.is_none() {
             self.render_gpu_frame(false);
         } else if self.runtime.is_none() {
@@ -457,6 +519,7 @@ impl Canvas {
                     .map_err(|err| {
                         PyValueError::new_err(format!("Failed to present native GPU frame: {err}"))
                     })?;
+                self.performance_counters.frames_presented += 1;
                 self.render_dirty = false;
             }
             if runtime.should_close() {
@@ -941,6 +1004,7 @@ impl Canvas {
             })
             .unwrap_or(true);
         if needs_upload {
+            self.performance_counters.image_cache_misses += 1;
             let pixels = image_pixels.ok_or_else(|| {
                 PyValueError::new_err(
                     "Image pixels are required the first time an image/version is drawn.",
@@ -957,6 +1021,8 @@ impl Canvas {
                     pixels,
                 },
             );
+        } else {
+            self.performance_counters.image_cache_hits += 1;
         }
         if let Some(cached) = self.image_cache.get(&image_key).cloned() {
             if self.try_draw_gpu_image(image_key, &cached, dx, dy, dw, dh, style, matrix, source)? {
@@ -1106,6 +1172,7 @@ impl Canvas {
     }
 
     fn text_width(&mut self, value: &str, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+        self.performance_counters.text_measurements += 1;
         let parsed_style = self.cached_style(style)?;
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
@@ -1118,6 +1185,7 @@ impl Canvas {
     }
 
     fn text_ascent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+        self.performance_counters.text_measurements += 1;
         let parsed_style = self.cached_style(style)?;
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
@@ -1131,6 +1199,7 @@ impl Canvas {
     }
 
     fn text_descent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+        self.performance_counters.text_measurements += 1;
         let parsed_style = self.cached_style(style)?;
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
@@ -1215,6 +1284,7 @@ impl Canvas {
     }
 
     fn load_pixels(&mut self) -> Vec<u8> {
+        self.performance_counters.pixel_readbacks += 1;
         if self.offscreen_dirty && self.pixels_stale {
             self.render_gpu_frame(true);
         } else if self.pixels_stale {
@@ -1224,6 +1294,7 @@ impl Canvas {
     }
 
     fn load_pixel_bytes<'py>(&mut self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        self.performance_counters.pixel_readbacks += 1;
         if self.offscreen_dirty && self.pixels_stale {
             self.render_gpu_frame(true);
         } else if self.pixels_stale {
@@ -1233,6 +1304,7 @@ impl Canvas {
     }
 
     fn update_pixels(&mut self, pixels: Vec<u8>) -> PyResult<()> {
+        self.performance_counters.pixel_uploads += 1;
         let expected = self.physical_width * self.physical_height * 4;
         if pixels.len() != expected {
             return Err(PyValueError::new_err(format!(
@@ -1411,10 +1483,7 @@ impl Canvas {
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<bool> {
         let style = self.cached_style(style)?;
-        if !self.can_queue_gpu_primitives(&style)
-            || dw <= 0.0
-            || dh <= 0.0
-        {
+        if !self.can_queue_gpu_primitives(&style) || dw <= 0.0 || dh <= 0.0 {
             return Ok(false);
         }
         let linear_sampling = style.image_sampling != "nearest";
@@ -1435,7 +1504,10 @@ impl Canvas {
         ];
         let texture_version = self.texture_cache_versions.get(&image_key).copied();
         if texture_version != Some(image_version) {
+            self.performance_counters.texture_uploads += 1;
             self.evict_texture_cache_if_needed(image_key);
+        } else {
+            self.performance_counters.texture_cache_hits += 1;
         }
         if let Some(gpu) = self.gpu.as_mut() {
             if texture_version != Some(image_version) {
@@ -1462,6 +1534,7 @@ impl Canvas {
                 return Ok(false);
             };
             gpu.draw_image(image_key, vertices, linear_sampling);
+            self.performance_counters.gpu_draws += 1;
             self.render_dirty = true;
             self.offscreen_dirty = true;
             self.pixels_stale = true;
@@ -1595,8 +1668,12 @@ impl Canvas {
             font_key, font_size, fill.r, fill.g, fill.b, fill.a, line
         );
         if let Some(cached) = self.text_cache.get(&cache_key) {
-            return Ok(cached.clone());
+            let cached = cached.clone();
+            self.performance_counters.text_cache_hits += 1;
+            self.touch_text_cache_key(&cache_key);
+            return Ok(cached);
         }
+        self.performance_counters.text_cache_misses += 1;
 
         let font = self.load_text_font(style)?;
         let rendered = render_text_line(line, &font, font_size, fill);
@@ -1614,8 +1691,34 @@ impl Canvas {
             bbox_top: rendered.bbox_top,
             ascent: rendered.ascent,
         };
+        self.evict_text_cache_if_needed();
+        self.text_cache_order.push_back(cache_key.clone());
         self.text_cache.insert(cache_key, cached.clone());
         Ok(cached)
+    }
+
+    fn touch_text_cache_key(&mut self, cache_key: &str) {
+        if let Some(index) = self
+            .text_cache_order
+            .iter()
+            .position(|key| key == cache_key)
+        {
+            if let Some(key) = self.text_cache_order.remove(index) {
+                self.text_cache_order.push_back(key);
+            }
+        }
+    }
+
+    fn evict_text_cache_if_needed(&mut self) {
+        while self.text_cache.len() >= TEXT_CACHE_LIMIT {
+            let Some(evicted_key) = self.text_cache_order.pop_front() else {
+                break;
+            };
+            if let Some(evicted) = self.text_cache.remove(&evicted_key) {
+                self.texture_cache_versions.remove(&evicted.texture_key);
+                self.performance_counters.text_cache_evictions += 1;
+            }
+        }
     }
 
     fn load_text_font(&mut self, style: &Style) -> PyResult<FontArc> {
@@ -1645,6 +1748,7 @@ impl Canvas {
     }
 
     fn prepare_cpu_composite(&mut self) {
+        self.performance_counters.cpu_fallbacks += 1;
         if self.offscreen_dirty && self.pixels_stale {
             self.render_gpu_frame(true);
         } else if self.pixels_stale {
@@ -1653,6 +1757,7 @@ impl Canvas {
     }
 
     fn upload_cpu_pixels(&mut self) -> PyResult<()> {
+        self.performance_counters.pixel_uploads += 1;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.begin_frame();
         }
@@ -1668,6 +1773,7 @@ impl Canvas {
             return Ok(());
         }
         if let Some(gpu) = self.gpu.as_mut() {
+            self.performance_counters.pixel_uploads += 1;
             gpu.upload_pixels(&self.pixels)
                 .map_err(|err| PyValueError::new_err(format!("Failed to upload pixels: {err}")))?;
             if consume_mirrored_commands {
@@ -1696,6 +1802,7 @@ impl Canvas {
             return;
         };
         gpu.render();
+        self.performance_counters.gpu_frames_rendered += 1;
         gpu.begin_frame();
         self.render_dirty = false;
         self.offscreen_dirty = false;
@@ -1713,6 +1820,7 @@ impl Canvas {
         };
         match gpu.read_pixels() {
             Ok(pixels) => {
+                self.performance_counters.pixel_readbacks += 1;
                 self.pixels = pixels;
                 self.sync_present_pixels_from_rgba();
                 self.pixels_stale = false;
@@ -1886,6 +1994,7 @@ impl Canvas {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_triangles(vertices);
+            self.performance_counters.gpu_draws += 1;
             self.render_dirty = true;
             self.offscreen_dirty = true;
             self.pixels_stale = true;
@@ -1897,6 +2006,11 @@ impl Canvas {
 #[pyfunction]
 fn health_check() -> &'static str {
     "rust-canvas"
+}
+
+#[pyfunction]
+fn canvas_abi_version() -> u32 {
+    CANVAS_ABI_VERSION
 }
 
 #[pyfunction]
@@ -1912,8 +2026,10 @@ fn gpu_available() -> bool {
 #[pymodule]
 fn _canvas(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(health_check, m)?)?;
+    m.add_function(wrap_pyfunction!(canvas_abi_version, m)?)?;
     m.add_function(wrap_pyfunction!(native_window_available, m)?)?;
     m.add_function(wrap_pyfunction!(gpu_available, m)?)?;
+    m.add("CANVAS_ABI_VERSION", CANVAS_ABI_VERSION)?;
     m.add_class::<Canvas>()?;
     m.add_class::<CanvasImage>()?;
     Ok(())
@@ -3096,6 +3212,22 @@ mod tests {
     }
 
     #[test]
+    fn performance_counters_track_and_reset_runtime_paths() {
+        let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        canvas
+            .update_pixels(vec![255, 0, 0, 255, 0, 0, 255, 255])
+            .unwrap();
+        let _pixels = canvas.load_pixels();
+
+        assert!(canvas.performance_counters.pixel_uploads >= 1);
+        assert!(canvas.performance_counters.pixel_readbacks >= 1);
+
+        canvas.reset_performance_counters();
+        assert_eq!(canvas.performance_counters.pixel_uploads, 0);
+        assert_eq!(canvas.performance_counters.pixel_readbacks, 0);
+    }
+
+    #[test]
     fn cached_images_are_bounded() {
         let mut canvas = Canvas::new(1, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
         for key in 0..(IMAGE_CACHE_LIMIT as u64 + 3) {
@@ -3112,6 +3244,38 @@ mod tests {
         }
 
         assert!(canvas.image_cache.len() <= IMAGE_CACHE_LIMIT);
+    }
+
+    #[test]
+    fn cached_text_entries_are_bounded_and_report_evictions() {
+        let mut canvas = Canvas::new(1, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+        for index in 0..(TEXT_CACHE_LIMIT + 3) {
+            canvas.evict_text_cache_if_needed();
+            let texture_key = 1_000 + index as u64;
+            let cache_key = format!("text-{index}");
+            canvas.texture_cache_versions.insert(texture_key, 0);
+            canvas.text_cache_order.push_back(cache_key.clone());
+            canvas.text_cache.insert(
+                cache_key,
+                CachedText {
+                    texture_key,
+                    image: CachedImage {
+                        version: 0,
+                        width: 1,
+                        height: 1,
+                        pixels: vec![255, 255, 255, 255],
+                    },
+                    bbox_left: 0,
+                    bbox_top: 0,
+                    ascent: 1.0,
+                },
+            );
+        }
+
+        assert_eq!(canvas.text_cache.len(), TEXT_CACHE_LIMIT);
+        assert_eq!(canvas.text_cache_order.len(), TEXT_CACHE_LIMIT);
+        assert_eq!(canvas.performance_counters.text_cache_evictions, 3);
+        assert!(!canvas.texture_cache_versions.contains_key(&1_000));
     }
 
     #[test]

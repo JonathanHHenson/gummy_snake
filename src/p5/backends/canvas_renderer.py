@@ -18,6 +18,24 @@ _TEXT_METRIC_CACHE_LIMIT = 256
 _STYLE_PAYLOAD_CACHE_LIMIT = 256
 _MATRIX_PAYLOAD_CACHE_LIMIT = 256
 _IMAGE_VERSION_CACHE_LIMIT = 1024
+_PERFORMANCE_COUNTER_KEYS = (
+    "gpu_draws",
+    "cpu_fallbacks",
+    "pixel_readbacks",
+    "pixel_uploads",
+    "image_cache_hits",
+    "image_cache_misses",
+    "texture_cache_hits",
+    "texture_uploads",
+    "text_cache_hits",
+    "text_cache_misses",
+    "text_cache_evictions",
+    "text_measurements",
+    "bridge_calls",
+    "frames_presented",
+    "gpu_frames_rendered",
+    "event_polls",
+)
 _TextMetricKey = tuple[str, str | None, tuple[tuple[str, Hashable], ...]]
 _MatrixPayload = tuple[float, float, float, float, float, float]
 
@@ -83,6 +101,7 @@ class CanvasRenderer:
         self._line_batch: list[tuple[float, float, float, float]] = []
         self._line_batch_style: dict[str, object] | None = None
         self._line_batch_matrix: _MatrixPayload | None = None
+        self._performance_counters: dict[str, int] = dict.fromkeys(_PERFORMANCE_COUNTER_KEYS, 0)
 
     def resize(
         self,
@@ -131,6 +150,32 @@ class CanvasRenderer:
             return 1.0
         return float(self._call("display-density reporting", self._canvas.display_density))
 
+    def performance_counters(self) -> dict[str, object]:
+        counters: dict[str, object] = dict(self._performance_counters)
+        canvas = self._canvas
+        callback = getattr(canvas, "performance_counters", None) if canvas is not None else None
+        if callable(callback):
+            native = callback()
+            if isinstance(native, dict):
+                counters["native"] = {
+                    str(key): int(value)
+                    for key, value in native.items()
+                    if isinstance(value, int | float)
+                }
+        return counters
+
+    def reset_performance_counters(self) -> None:
+        self._performance_counters = dict.fromkeys(_PERFORMANCE_COUNTER_KEYS, 0)
+        canvas = self._canvas
+        callback = (
+            getattr(canvas, "reset_performance_counters", None) if canvas is not None else None
+        )
+        if callable(callback):
+            callback()
+
+    def _count(self, name: str, amount: int = 1) -> None:
+        self._performance_counters[name] = int(self._performance_counters.get(name, 0)) + amount
+
     def begin_frame(self) -> None:
         self._require_canvas().begin_frame()
 
@@ -141,6 +186,7 @@ class CanvasRenderer:
     def present(self) -> None:
         self._flush_line_batch()
         self._require_canvas().present()
+        self._count("frames_presented")
 
     def close(self) -> None:
         self._flush_line_batch()
@@ -154,14 +200,17 @@ class CanvasRenderer:
 
     def background(self, color: Color) -> None:
         self._flush_line_batch()
+        self._count("gpu_draws")
         self._call("background drawing", self._require_canvas().background, color.to_tuple())
 
     def clear(self) -> None:
         self._flush_line_batch()
+        self._count("gpu_draws")
         self._call("canvas clearing", self._require_canvas().clear)
 
     def point(self, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
         self._flush_line_batch()
+        self._count("gpu_draws")
         self._call(
             "point drawing",
             self._require_canvas().point,
@@ -182,12 +231,9 @@ class CanvasRenderer:
     ) -> None:
         style_payload = self._style_payload(style)
         matrix_payload = self._matrix_payload(transform)
-        if (
-            self._line_batch
-            and (
-                self._line_batch_style is not style_payload
-                or self._line_batch_matrix is not matrix_payload
-            )
+        if self._line_batch and (
+            self._line_batch_style is not style_payload
+            or self._line_batch_matrix is not matrix_payload
         ):
             self._flush_line_batch()
         self._line_batch.append((x1, y1, x2, y2))
@@ -203,6 +249,7 @@ class CanvasRenderer:
         close: bool = True,
     ) -> None:
         self._flush_line_batch()
+        self._count("gpu_draws")
         self._call(
             "polygon drawing",
             self._require_canvas().polygon,
@@ -224,6 +271,7 @@ class CanvasRenderer:
         self._flush_line_batch()
         callback = getattr(self._require_canvas(), "rect", None)
         if callable(callback):
+            self._count("gpu_draws")
             self._call(
                 "rectangle drawing",
                 callback,
@@ -256,6 +304,7 @@ class CanvasRenderer:
         self._flush_line_batch()
         callback = getattr(self._require_canvas(), "triangle", None)
         if callable(callback):
+            self._count("gpu_draws")
             self._call(
                 "triangle drawing",
                 callback,
@@ -287,6 +336,7 @@ class CanvasRenderer:
         self._flush_line_batch()
         callback = getattr(self._require_canvas(), "quad", None)
         if callable(callback):
+            self._count("gpu_draws")
             self._call(
                 "quadrilateral drawing",
                 callback,
@@ -314,6 +364,7 @@ class CanvasRenderer:
         transform: Matrix2D,
     ) -> None:
         self._flush_line_batch()
+        self._count("gpu_draws")
         self._call(
             "ellipse drawing",
             self._require_canvas().ellipse,
@@ -338,6 +389,7 @@ class CanvasRenderer:
         transform: Matrix2D,
     ) -> None:
         self._flush_line_batch()
+        self._count("gpu_draws")
         self._call(
             "arc drawing",
             self._require_canvas().arc,
@@ -367,6 +419,7 @@ class CanvasRenderer:
     ) -> None:
         self._flush_line_batch()
         if isinstance(image, P5Image):
+            self._count("gpu_draws")
             self._call(
                 "image drawing",
                 self._require_canvas().draw_canvas_image,
@@ -381,6 +434,7 @@ class CanvasRenderer:
             )
             return
         if image.rust_image is not None:
+            self._count("gpu_draws")
             self._call(
                 "image drawing",
                 self._require_canvas().draw_canvas_image,
@@ -397,8 +451,15 @@ class CanvasRenderer:
         image_key = image.cache_key
         cached_version = self._image_cache_versions.get(image_key) if cache else None
         image_pixels = None if cached_version == image.version else image.to_rgba_bytes()
+        if image_pixels is None:
+            self._count("image_cache_hits")
+            self._count("texture_cache_hits")
+        else:
+            self._count("image_cache_misses")
+            self._count("texture_uploads")
         callback = getattr(self._require_canvas(), "draw_cached_image", None)
         if cache and callable(callback):
+            self._count("gpu_draws")
             self._call(
                 "image drawing",
                 callback,
@@ -417,6 +478,8 @@ class CanvasRenderer:
             )
             self._remember_image_cache_version(image_key, image.version)
             return
+        self._count("cpu_fallbacks")
+        self._count("pixel_uploads")
         self._call(
             "image drawing",
             self._require_canvas().draw_image,
@@ -443,6 +506,7 @@ class CanvasRenderer:
         self._flush_line_batch()
         if style.fill_color is None:
             return
+        self._count("gpu_draws")
         self._call(
             "text drawing",
             self._require_canvas().text,
@@ -483,11 +547,13 @@ class CanvasRenderer:
 
     def load_pixels(self) -> list[int]:
         self._flush_line_batch()
+        self._count("pixel_readbacks")
         pixels = self._call("pixel readback", self._require_canvas().load_pixels)
         return list(pixels)
 
     def load_pixel_bytes(self) -> bytes:
         self._flush_line_batch()
+        self._count("pixel_readbacks")
         callback = getattr(self._require_canvas(), "load_pixel_bytes", None)
         if callable(callback):
             return bytes(self._call("pixel byte readback", callback))
@@ -501,6 +567,7 @@ class CanvasRenderer:
             raise ArgumentValidationError(
                 "Pixel values must be integers between 0 and 255."
             ) from exc
+        self._count("pixel_uploads")
         self._call("pixel upload", self._require_canvas().update_pixels, payload)
 
     def blend_region(
@@ -511,6 +578,8 @@ class CanvasRenderer:
         mode: c.BlendMode,
     ) -> None:
         self._flush_line_batch()
+        self._count("cpu_fallbacks")
+        self._count("pixel_uploads")
         if isinstance(source_image, Image):
             self._call(
                 "region blending",
@@ -572,9 +641,11 @@ class CanvasRenderer:
         canvas = self._require_canvas()
         batch_lines = getattr(canvas, "batch_lines", None)
         if callable(batch_lines):
+            self._count("gpu_draws", len(lines))
             self._call("batched line drawing", batch_lines, lines, style, matrix)
             return
         for x1, y1, x2, y2 in lines:
+            self._count("gpu_draws")
             self._call("line drawing", canvas.line, x1, y1, x2, y2, style, matrix)
 
     def _remember_image_cache_version(self, image_key: int, version: int) -> None:
@@ -611,6 +682,7 @@ class CanvasRenderer:
         return self._canvas
 
     def _call(self, operation: str, callback: Callable[..., Any], *args: object) -> Any:
+        self._count("bridge_calls")
         try:
             return callback(*args)
         except ValueError as exc:
@@ -630,9 +702,13 @@ class CanvasRenderer:
         cached = self._text_metric_cache.get(key)
         if cached is not None:
             self._text_metric_cache.move_to_end(key)
+            self._count("text_cache_hits")
             return cached
+        self._count("text_cache_misses")
+        self._count("text_measurements")
         value = float(self._call(operation, callback, *args))
         self._text_metric_cache[key] = value
         if len(self._text_metric_cache) > _TEXT_METRIC_CACHE_LIMIT:
             self._text_metric_cache.popitem(last=False)
+            self._count("text_cache_evictions")
         return value

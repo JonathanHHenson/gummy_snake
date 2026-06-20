@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import pytest
 
 import p5
@@ -20,12 +22,12 @@ class HookSketch(Sketch):
 
     def preload(self) -> None:
         self.events.append("preload")
-        assert p5.mark_frame("preload") == 0
+        assert cast(Any, p5).mark_frame("preload") == 0
 
     def setup(self) -> None:
         self.events.append("setup")
         self.create_canvas(16, 12)
-        assert self.mark_frame("setup") == 0
+        assert cast(Any, self).mark_frame("setup") == 0
 
     def draw(self) -> None:
         self.events.append(f"draw:{self.frame_count}")
@@ -33,7 +35,7 @@ class HookSketch(Sketch):
         self.no_stroke()
         self.fill(255, 0, 0)
         self.circle(8, 6, 6)
-        assert p5.mark_frame(f"draw:{self.frame_count}") == self.frame_count
+        assert cast(Any, p5).mark_frame(f"draw:{self.frame_count}") == self.frame_count
 
 
 class RecorderPlugin(Plugin):

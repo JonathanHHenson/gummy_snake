@@ -335,6 +335,26 @@ def performance_diagnostics() -> dict[str, object]:
     return require_context().performance_diagnostics()
 
 
+def renderer_performance_counters() -> dict[str, object]:
+    return require_context().renderer_performance_counters()
+
+
+def reset_renderer_performance_counters() -> None:
+    require_context().reset_renderer_performance_counters()
+
+
+def enable_frame_pacing_diagnostics(enabled: bool = True, *, reset: bool = True) -> None:
+    require_context().enable_frame_pacing_diagnostics(enabled, reset=reset)
+
+
+def frame_pacing_diagnostics() -> dict[str, object]:
+    return require_context().frame_pacing_diagnostics()
+
+
+def reset_frame_pacing_diagnostics() -> None:
+    require_context().reset_frame_pacing_diagnostics()
+
+
 def background(*args: object) -> None:
     require_context().background(*args)
 
@@ -979,6 +999,11 @@ __all__ = [
     "enable_performance_diagnostics",
     "reset_performance_diagnostics",
     "performance_diagnostics",
+    "renderer_performance_counters",
+    "reset_renderer_performance_counters",
+    "enable_frame_pacing_diagnostics",
+    "frame_pacing_diagnostics",
+    "reset_frame_pacing_diagnostics",
     "background",
     "clear",
     "color",

@@ -45,7 +45,7 @@ def draw() -> None:
     p5.text(f"text_output entries: {len(p5.text_output())}", 44, 260)
     p5.text(f"grid_output entries: {len(p5.grid_output())}", 44, 285)
 
-    p5.text_align(p5.CENTER, p5.CENTER)
+    p5.text_align(p5.TextAlign.CENTER, p5.TextAlign.CENTER)
     p5.fill(238)
     p5.rect(485, 120, 170, 82)
     p5.fill(28, 32, 42)

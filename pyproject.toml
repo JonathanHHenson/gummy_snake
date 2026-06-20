@@ -50,6 +50,7 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 markers = [
     "benchmark: opt-in runtime performance benchmarks",
+    "stress: opt-in long-running resource lifecycle stress tests",
 ]
 
 [tool.mypy]

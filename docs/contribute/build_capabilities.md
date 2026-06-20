@@ -1,0 +1,44 @@
+# Build Capabilities
+
+Use this matrix when validating local builds, wheels, and release candidates.
+
+| Capability | Required? | Build surface | Runtime probe | Smoke command |
+| --- | --- | --- | --- | --- |
+| Canvas extension | Required | `crates/p5_canvas` PyO3 module `p5.rust._canvas` | `p5.rust.canvas.require_canvas_extension()` checks health and canvas ABI | `uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1` |
+| Headless canvas | Required | `p5_canvas` default headless mode | `CanvasBackend.capabilities.headless` | `uv run pytest tests/unit/test_rust_canvas.py` |
+| Native windows and input | Optional/platform-dependent | `p5_canvas` native runtime support | `p5.rust.canvas.canvas_native_window_available()` | `uv run python examples/01_getting_started/basic_shapes.py --interactive` |
+| GPU renderer | Optional/platform-dependent | `wgpu` path in `p5_canvas` | `p5.rust.canvas.canvas_gpu_status()` and `CanvasBackend.gpu_status()` | `uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks -q -s` |
+| Media helpers | Optional extra | Python package extra `media` | import/use media helpers | `uv sync --extra media --dev` plus media-specific examples |
+| Optional acceleration | Optional | `crates/p5_accel` PyO3 module `p5.rust._accelerated` | `p5.rust.is_acceleration_available()` | `uv run pytest tests/unit/test_rust_acceleration.py` |
+| Software WEBGL path | Required for accepted `WEBGL` mode | Python software projection plus canvas presentation | backend flags `three_d=True`, `software_three_d=True`, `native_three_d=False` | `uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks -q -s` |
+
+## Compatibility Marker
+
+`p5_canvas` exposes `CANVAS_ABI_VERSION` and `canvas_abi_version()`. Python
+validates this marker before returning the extension from
+`require_canvas_extension()`. Missing, malformed, or mismatched markers raise
+`BackendCapabilityError` with rebuild guidance, because they usually mean a
+stale local extension is being imported with a newer Python package.
+
+Use the release build command when rebuilding locally:
+
+```sh
+uvx maturin develop --release --manifest-path crates/p5_canvas/Cargo.toml --features extension-module
+```
+
+The older explicit `--module-name` / `--python-source` command is documented in
+some workflows for compatibility with previous maturin versions, but the crate
+metadata now carries that configuration.
+
+## Failure Diagnostics
+
+- Missing `p5.rust._canvas`: rebuild or reinstall the required canvas runtime.
+- ABI mismatch: rebuild the extension from the same checkout as the Python
+  package.
+- Health-check failure: rebuild the extension and inspect the original health
+  check exception.
+- Native window unavailable: bounded/headless rendering can still run; only
+  interactive windows and native input are unavailable.
+- GPU unavailable: headless CPU-backed rendering can continue, but native
+  interactive presentation and GPU-accelerated drawing may be disabled or
+  slower.

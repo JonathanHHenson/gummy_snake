@@ -11,6 +11,8 @@ import math
 from typing import Protocol, cast
 
 from p5.rust.canvas import (
+    canvas_abi_version,
+    canvas_gpu_status,
     canvas_health_check,
     canvas_import_error,
     is_canvas_available,
@@ -324,6 +326,8 @@ __all__ = [
     "animated_noise_rgba",
     "exclusion_blend_rgb",
     "exclusion_blend_rgb_python",
+    "canvas_abi_version",
+    "canvas_gpu_status",
     "canvas_health_check",
     "canvas_import_error",
     "health_check",

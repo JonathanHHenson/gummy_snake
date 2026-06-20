@@ -131,6 +131,8 @@ workflow, and release shape in more detail:
 - [Contributor guide](docs/contribute/index.md)
 - [Architecture](docs/contribute/architecture.md)
 - [Runtime model](docs/contribute/runtime.md)
+- [Runtime diagnostics](docs/contribute/runtime_diagnostics.md)
+- [Build capabilities](docs/contribute/build_capabilities.md)
 - [API performance policy](docs/contribute/api_performance_policy.md)
 - [Testing and CI](docs/contribute/testing.md)
 
@@ -146,6 +148,12 @@ uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 Canvas benchmark scenarios are expected to average at least 120 FPS. Failures
 below that floor are intentional optimization signals. Machine-specific baseline
 snapshots live in `tests/benchmark/baselines/`.
+
+Long-running resource lifecycle checks are also opt-in:
+
+```sh
+uv run pytest tests/stress --run-stress -q -s
+```
 
 ## Compatibility
 

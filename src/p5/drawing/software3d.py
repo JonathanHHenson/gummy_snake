@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from p5.assets.image import Image as P5Image
 from p5.drawing.renderer3d import (
@@ -53,26 +53,26 @@ _MESH_CACHE_SIZE = 256
 def clear_primitive_model_cache() -> None:
     """Clear generated primitive model caches used by the software 3D path."""
 
-    plane_model.cache_clear()
-    box_model.cache_clear()
-    sphere_model.cache_clear()
-    ellipsoid_model.cache_clear()
-    cylinder_model.cache_clear()
-    cone_model.cache_clear()
-    torus_model.cache_clear()
+    cast(Any, plane_model).cache_clear()
+    cast(Any, box_model).cache_clear()
+    cast(Any, sphere_model).cache_clear()
+    cast(Any, ellipsoid_model).cache_clear()
+    cast(Any, cylinder_model).cache_clear()
+    cast(Any, cone_model).cache_clear()
+    cast(Any, torus_model).cache_clear()
 
 
-def primitive_model_cache_info() -> dict[str, object]:
+def primitive_model_cache_info() -> dict[str, Any]:
     """Return cache statistics for generated software 3D primitive models."""
 
     return {
-        "plane": plane_model.cache_info(),
-        "box": box_model.cache_info(),
-        "sphere": sphere_model.cache_info(),
-        "ellipsoid": ellipsoid_model.cache_info(),
-        "cylinder": cylinder_model.cache_info(),
-        "cone": cone_model.cache_info(),
-        "torus": torus_model.cache_info(),
+        "plane": cast(Any, plane_model).cache_info(),
+        "box": cast(Any, box_model).cache_info(),
+        "sphere": cast(Any, sphere_model).cache_info(),
+        "ellipsoid": cast(Any, ellipsoid_model).cache_info(),
+        "cylinder": cast(Any, cylinder_model).cache_info(),
+        "cone": cast(Any, cone_model).cache_info(),
+        "torus": cast(Any, torus_model).cache_info(),
     }
 
 

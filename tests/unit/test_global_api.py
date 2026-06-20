@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 import pytest
 
 import p5
@@ -107,7 +109,7 @@ def test_image_sampling_api():
         assert p5.image_sampling() == p5.NEAREST
         p5.smooth()
         with pytest.raises(ArgumentValidationError):
-            p5.image_sampling("bogus")
+            p5.image_sampling(cast(Any, "bogus"))
 
     p5.run(setup=setup, draw=lambda: None, headless=True, max_frames=0)
 
@@ -165,8 +167,8 @@ def test_performance_diagnostics_are_opt_in_and_use_public_terms():
 
     context = p5.run(setup=setup, headless=True, max_frames=0)
     diagnostics = context.performance_diagnostics()
-    counters = diagnostics["counters"]
-    messages = "\n".join(diagnostics["messages"])
+    counters = cast(dict[str, int], diagnostics["counters"])
+    messages = "\n".join(cast(list[str], diagnostics["messages"]))
 
     assert diagnostics["enabled"] is True
     assert counters["texture_upload"] == 1
@@ -191,7 +193,9 @@ def test_global_mode_async_callbacks_are_awaited():
     async def on_key(event):
         events.append(("key", event.key))
 
-    context = p5.run(setup=setup, draw=draw, key_pressed=on_key, headless=True, max_frames=3)
+    context = p5.run(
+        setup=setup, draw=draw, key_pressed=cast(Any, on_key), headless=True, max_frames=3
+    )
     context.dispatch_keyboard_event(KeyboardEvent(key="x", key_code=88, type="key_pressed"))
 
     assert events == ["setup", "draw:0", ("key", "x")]
@@ -299,6 +303,7 @@ def test_style_and_transform_context_managers_restore_state():
         original_fill = require_context().state.style.fill_color
         with p5.style(fill=(255, 0, 0), stroke=None, stroke_weight=5):
             style = require_context().state.style
+            assert style.fill_color is not None
             seen.append((style.fill_color.to_tuple(), style.stroke_color, style.stroke_weight))
         restored = require_context().state.style
         seen.append((restored.fill_color, restored.stroke_color, restored.stroke_weight))
