@@ -1,5 +1,9 @@
+use std::time::Duration;
+
 use crate::runtime::style::*;
 use crate::*;
+
+const LIVE_RESIZE_PRESENT_COOLDOWN: Duration = Duration::from_millis(80);
 
 impl Canvas {
     pub(crate) fn new_impl(
@@ -54,6 +58,14 @@ impl Canvas {
     ) -> PyResult<()> {
         validate_renderer(renderer)?;
         let (physical_width, physical_height) = physical_dimensions(width, height, pixel_density)?;
+        let unchanged = width == self.width
+            && height == self.height
+            && physical_width == self.physical_width
+            && physical_height == self.physical_height
+            && (pixel_density - self.pixel_density).abs() <= f64::EPSILON;
+        if unchanged {
+            return Ok(());
+        }
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.resize(physical_width, physical_height)
                 .map_err(PyValueError::new_err)?;
@@ -82,6 +94,47 @@ impl Canvas {
                     PyValueError::new_err(format!("Failed to resize native canvas window: {err}"))
                 })?;
         }
+        Ok(())
+    }
+
+    pub(crate) fn resize_canvas_impl(
+        &mut self,
+        width: i64,
+        height: i64,
+        pixel_density: f64,
+        renderer: &str,
+    ) -> PyResult<()> {
+        validate_renderer(renderer)?;
+        let (physical_width, physical_height) = physical_dimensions(width, height, pixel_density)?;
+        let unchanged = width == self.width
+            && height == self.height
+            && physical_width == self.physical_width
+            && physical_height == self.physical_height
+            && (pixel_density - self.pixel_density).abs() <= f64::EPSILON;
+        if unchanged {
+            return Ok(());
+        }
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.resize(physical_width, physical_height)
+                .map_err(PyValueError::new_err)?;
+            gpu.clear_transparent();
+            gpu.render();
+        }
+        self.width = width;
+        self.height = height;
+        self.pixel_density = pixel_density;
+        self.physical_width = physical_width;
+        self.physical_height = physical_height;
+        self.pixels = vec![0; physical_width * physical_height * 4];
+        self.present_pixels = vec![0; physical_width * physical_height];
+        self.render_dirty = false;
+        self.offscreen_dirty = false;
+        self.pixels_stale = false;
+        self.texture_stale = false;
+        self.cached_style_key = None;
+        self.cached_style = None;
+        self.text_cache.clear();
+        self.text_cache_order.clear();
         Ok(())
     }
 
@@ -151,6 +204,42 @@ impl Canvas {
                 .unwrap_or(false)
     }
 
+    pub(crate) fn pump_native_events_impl(&mut self) -> PyResult<bool> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return Ok(self.closed);
+        };
+        runtime.pump_events().map_err(|err| {
+            PyValueError::new_err(format!("Failed to pump native canvas events: {err}"))
+        })?;
+
+        let should_close = runtime.should_close();
+        let (logical_width, logical_height) = runtime.logical_size();
+        let pixel_density = runtime.display_density();
+
+        if should_close {
+            self.closed = true;
+            return Ok(true);
+        }
+
+        if runtime.resize_recently(LIVE_RESIZE_PRESENT_COOLDOWN) {
+            return Ok(self.closed);
+        }
+
+        if logical_width != self.width
+            || logical_height != self.height
+            || (pixel_density - self.pixel_density).abs() > f64::EPSILON
+        {
+            self.resize_canvas_impl(
+                logical_width,
+                logical_height,
+                pixel_density,
+                SUPPORTED_RENDERER,
+            )?;
+        }
+
+        Ok(self.closed)
+    }
+
     pub(crate) fn poll_events_impl(&mut self) -> PyResult<Vec<Py<PyAny>>> {
         self.performance_counters.event_polls += 1;
         let Some(runtime) = self.runtime.as_mut() else {
@@ -192,6 +281,20 @@ impl Canvas {
             self.render_gpu_frame(false);
         } else if self.runtime.is_none() {
             self.render_dirty = false;
+        }
+        if let Some(runtime) = self.runtime.as_mut() {
+            runtime.pump_events().map_err(|err| {
+                PyValueError::new_err(format!(
+                    "Failed to pump native canvas events before present: {err}"
+                ))
+            })?;
+            if runtime.should_close() {
+                self.closed = true;
+                return Ok(());
+            }
+            if runtime.resize_recently(LIVE_RESIZE_PRESENT_COOLDOWN) {
+                return Ok(());
+            }
         }
         if self.runtime.is_some() && self.render_dirty {
             self.upload_stale_texture(false)?;

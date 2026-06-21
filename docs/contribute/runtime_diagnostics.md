@@ -21,8 +21,8 @@ The stable top-level counters are:
 | `cpu_fallbacks` | Operations that require CPU compositing or CPU pixel work. |
 | `pixel_readbacks` | Canvas pixel reads into Python or CPU memory. |
 | `pixel_uploads` | Full pixel or texture uploads back to the canvas. |
-| `image_cache_hits` / `image_cache_misses` | Python image cache reuse or upload. |
-| `texture_cache_hits` / `texture_uploads` | Native texture reuse or upload. |
+| `image_cache_hits` / `image_cache_misses` | Legacy Python image byte-cache reuse or upload; Rust-backed `Image` draws normally bypass this path. |
+| `texture_cache_hits` / `texture_uploads` | Native texture reuse or upload, including canvas-managed image handles. |
 | `text_cache_hits` / `text_cache_misses` | Text metric or glyph cache reuse. |
 | `text_cache_evictions` | Bounded text or text-metric cache entries evicted during dynamic text churn. |
 | `text_measurements` | Native text measurement calls. |

@@ -20,6 +20,15 @@ impl Canvas {
     ) -> PyResult<()> {
         self.resize_impl(width, height, pixel_density, renderer)
     }
+    pub(crate) fn resize_canvas(
+        &mut self,
+        width: i64,
+        height: i64,
+        pixel_density: f64,
+        renderer: &str,
+    ) -> PyResult<()> {
+        self.resize_canvas_impl(width, height, pixel_density, renderer)
+    }
     pub(crate) fn dimensions(&self) -> (i64, i64, usize, usize, f64) {
         self.dimensions_impl()
     }
@@ -52,6 +61,9 @@ impl Canvas {
     }
     pub(crate) fn poll_events(&mut self) -> PyResult<Vec<Py<PyAny>>> {
         self.poll_events_impl()
+    }
+    pub(crate) fn pump_native_events(&mut self) -> PyResult<bool> {
+        self.pump_native_events_impl()
     }
     pub(crate) fn begin_frame(&mut self) {
         self.begin_frame_impl()
@@ -301,6 +313,14 @@ impl Canvas {
     }
     pub(crate) fn update_pixels(&mut self, pixels: Vec<u8>) -> PyResult<()> {
         self.update_pixels_impl(pixels)
+    }
+    pub(crate) fn set_pixel_rgba(
+        &mut self,
+        x: i64,
+        y: i64,
+        rgba: (u8, u8, u8, u8),
+    ) -> PyResult<()> {
+        self.set_pixel_rgba_impl(x, y, rgba)
     }
     #[pyo3(signature = (pixels, width, height, x, y, alpha_composite = true))]
     pub(crate) fn update_pixel_region(

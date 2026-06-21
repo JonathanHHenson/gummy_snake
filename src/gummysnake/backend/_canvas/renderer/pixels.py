@@ -57,6 +57,30 @@ class CanvasRendererPixelsMixin:
             "pixel upload", _renderer(self)._require_canvas().update_pixels, payload
         )
 
+    def set_pixel_rgba(self, x: int, y: int, rgba: tuple[int, int, int, int]) -> None:
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._count("pixel_uploads")
+        callback = getattr(_renderer(self)._require_canvas(), "set_pixel_rgba", None)
+        if callable(callback):
+            _renderer(self)._call(
+                "pixel write",
+                callback,
+                int(x),
+                int(y),
+                tuple(max(0, min(255, int(channel))) for channel in rgba),
+            )
+            return
+        _renderer(self)._call(
+            "pixel region upload",
+            _renderer(self)._require_canvas().update_pixel_region,
+            bytes(max(0, min(255, int(channel))) for channel in rgba),
+            1,
+            1,
+            int(x),
+            int(y),
+            False,
+        )
+
     def update_pixel_region(
         self,
         pixels: Sequence[int] | Buffer,

@@ -139,16 +139,15 @@ extraction, and future asset processing should stay in `gummy_canvas` whenever
 practical. Python wrappers should expose friendly, Pythonic APIs while avoiding
 large Python object graphs until user code explicitly asks for them.
 
-`load_image()` keeps a Rust-managed image asset attached to the public `Image`
-object until the user asks for mutable pixel behavior. Drawing that untouched
-image should use `Canvas.draw_canvas_image()` so repeated sprite draws can reuse
-the Rust texture/cache path without another Python byte upload.
+`load_image()`, `create_image()`, and mutated `Image` instances keep their RGBA
+storage in a Rust-managed `CanvasImage` handle. Drawing an image should use
+`Canvas.draw_canvas_image()` so repeated sprite draws stay on the canvas-owned
+image/texture path without a Python byte upload.
 
-`create_image()` and any mutated `Image` use Python-owned RGBA bytes. Each image
-has a stable `cache_key` allocated on the `Image` instance; renderer caches must
-use that key rather than `id(image)` so Python object-id reuse cannot draw stale
-pixels. Image mutations increment `version`, detach any Rust-managed asset, and
-force the next draw to upload the changed pixels under the same stable key.
+Each image has a stable Rust `cache_key` and mutation `version`. Renderer caches
+must use that key rather than `id(image)` so Python object-id reuse cannot draw
+stale pixels. Image mutations increment `version` on the Rust handle while
+preserving the same cache key.
 
 The Rust canvas image and texture caches are bounded. If cache limits are
 changed, keep the lifecycle explicit and preserve tests that draw many transient
@@ -156,8 +155,8 @@ images.
 
 Image-local bulk operations are also canvas-owned. `Image.resize()`,
 `Image.mask()`, supported `Image.filter(...)` modes, crop/copy helpers, and
-image alpha compositing delegate their byte work to `gummy_canvas` while Python
-keeps public API validation, mutation versioning, and cache-key ownership.
+image alpha compositing mutate or create Rust `CanvasImage` handles while Python
+keeps public API validation and friendly return types.
 
 Optional media capture/video helpers remain gated by the `media` extra, but
 decoded grayscale, BGR, and BGRA frame conversion to RGBA is routed through

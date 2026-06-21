@@ -31,6 +31,14 @@ class FakeCanvas:
         self.pixels = bytes([0] * self.physical_width * self.physical_height * 4)
 
     def resize(self, width: int, height: int, pixel_density: float, renderer: str) -> None:
+        self._resize_storage(width, height, pixel_density, renderer)
+        self.calls.append(("resize", width, height, pixel_density, renderer))
+
+    def resize_canvas(self, width: int, height: int, pixel_density: float, renderer: str) -> None:
+        self._resize_storage(width, height, pixel_density, renderer)
+        self.calls.append(("resize_canvas", width, height, pixel_density, renderer))
+
+    def _resize_storage(self, width: int, height: int, pixel_density: float, renderer: str) -> None:
         if width <= 0 or height <= 0:
             raise ValueError("Canvas width and height must be positive.")
         if pixel_density <= 0:
@@ -42,7 +50,6 @@ class FakeCanvas:
         self.physical_width = round(width * pixel_density)
         self.physical_height = round(height * pixel_density)
         self.pixels = bytes([0] * self.physical_width * self.physical_height * 4)
-        self.calls.append(("resize", width, height, pixel_density, renderer))
 
     def dimensions(self) -> tuple[int, int, int, int, float]:
         return (
@@ -120,6 +127,9 @@ class FakeCanvas:
         events = self.events
         self.events = []
         return events
+
+    def pump_native_events(self) -> bool:
+        return self.closed
 
     def begin_frame(self) -> None:
         self.calls.append(("begin_frame",))
@@ -224,6 +234,14 @@ class FakeCanvas:
             raise ValueError(f"Pixel buffer length must be {expected}, got {len(pixels)}.")
         self.pixels = pixels
 
+    def set_pixel_rgba(self, x: int, y: int, rgba: tuple[int, int, int, int]) -> None:
+        self.calls.append(("set_pixel_rgba", x, y, rgba))
+        if x < 0 or y < 0 or x >= self.physical_width or y >= self.physical_height:
+            return
+        offset = (y * self.physical_width + x) * 4
+        pixel_bytes = bytes(rgba)
+        self.pixels = self.pixels[:offset] + pixel_bytes + self.pixels[offset + 4 :]
+
     def update_pixel_region(
         self,
         pixels: bytes,
@@ -244,4 +262,3 @@ class FakeCanvas:
     def save(self, path: str) -> None:
         self.calls.append(("save", path))
         Path(path).write_bytes(b"fake-png")
-

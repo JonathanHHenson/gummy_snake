@@ -132,12 +132,12 @@ class CanvasBackendEventsMixin:
             default=_backend(self).renderer.pixel_density,
         )
         try:
-            _backend(self).renderer.resize(width, height, pixel_density)
+            _backend(self).renderer.resize_canvas(width, height, pixel_density)
         except ArgumentValidationError as exc:
             capped_density = self._resize_event_fallback_density(width, height, pixel_density, exc)
             if capped_density is None:
                 raise
-            _backend(self).renderer.resize(width, height, capped_density)
+            _backend(self).renderer.resize_canvas(width, height, capped_density)
 
     def _resize_event_fallback_density(
         self,

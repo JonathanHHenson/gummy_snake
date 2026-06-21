@@ -29,6 +29,43 @@ def test_canvas_renderer_allocates_and_mirrors_dimensions() -> None:
     assert renderer.runtime_canvas().gpu_status() == "available"
 
 
+def test_canvas_renderer_pump_native_events_syncs_resized_canvas_dimensions() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(10, 10)
+    canvas = renderer.runtime_canvas()
+
+    def pump_native_events() -> bool:
+        canvas.resize_canvas(20, 12, 1.5, c.P2D)
+        return False
+
+    canvas.pump_native_events = pump_native_events
+    renderer._last_native_event_pump = 0.0
+
+    renderer.background(Color(1, 2, 3, 255))
+
+    assert renderer.width == 20
+    assert renderer.height == 12
+    assert renderer.physical_width == 30
+    assert renderer.physical_height == 18
+    assert renderer.pixel_density == 1.5
+
+
+def test_canvas_renderer_present_pumps_native_events_and_skips_closed_window() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(10, 10)
+    canvas = renderer.runtime_canvas()
+
+    def pump_native_events() -> bool:
+        canvas.closed = True
+        return True
+
+    canvas.pump_native_events = pump_native_events
+
+    renderer.present()
+
+    assert ("present",) not in canvas.calls
+
+
 def test_canvas_renderer_converts_style_color_and_transform_payloads() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(8, 8)
@@ -168,6 +205,52 @@ def test_canvas_context_triangle_and_quad_use_direct_shape_bridge(
     assert quad_call[1:9] == (7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0)
     assert triangle_call[-2] is quad_call[-2]
     assert triangle_call[-1] is quad_call[-1]
+
+
+def test_canvas_renderer_set_pixel_rgba_uses_fast_bridge() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(3, 2)
+
+    renderer.set_pixel_rgba(1, 0, (300, 20, -1, 255))
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    assert canvas.calls[-1] == ("set_pixel_rgba", 1, 0, (255, 20, 0, 255))
+    assert renderer.load_pixel_region(1, 0, 1, 1) == bytes([255, 20, 0, 255])
+
+
+def test_canvas_renderer_set_pixel_rgba_falls_back_to_region_upload() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(3, 2)
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    canvas.set_pixel_rgba = None
+
+    renderer.set_pixel_rgba(1, 0, (10, 20, 30, 255))
+    assert canvas.calls[-1] == (
+        "update_pixel_region",
+        bytes([10, 20, 30, 255]),
+        1,
+        1,
+        1,
+        0,
+        False,
+    )
+
+
+def test_canvas_context_set_color_uses_renderer_fast_pixel_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    context = cast(SketchContext, sketch.context)
+    context.create_canvas(3, 2, pixel_density=1)
+
+    context.set(2, 1, (1, 2, 3, 4))
+
+    canvas = backend.renderer._canvas
+    assert canvas is not None
+    assert canvas.calls[-1] == ("set_pixel_rgba", 2, 1, (1, 2, 3, 4))
 
 
 def test_canvas_renderer_maps_rust_value_errors() -> None:

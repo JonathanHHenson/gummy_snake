@@ -55,7 +55,7 @@ const BLEND_MODE_SCREEN: &str = "screen";
 const IMAGE_CACHE_LIMIT: usize = 1024;
 const TEXTURE_CACHE_LIMIT: usize = 1024;
 const TEXT_CACHE_LIMIT: usize = 512;
-const CANVAS_ABI_VERSION: u32 = 3;
+const CANVAS_ABI_VERSION: u32 = 7;
 static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
 
 #[pyclass(name = "Matrix2D", frozen, unsendable)]
@@ -262,6 +262,113 @@ impl CanvasImage {
         self.version
     }
 
+    #[getter]
+    fn key(&self) -> u64 {
+        self.key
+    }
+
+    fn get_pixel(&self, x: usize, y: usize) -> PyResult<(u8, u8, u8, u8)> {
+        let offset = self.pixel_offset(x, y)?;
+        Ok((
+            self.pixels[offset],
+            self.pixels[offset + 1],
+            self.pixels[offset + 2],
+            self.pixels[offset + 3],
+        ))
+    }
+
+    fn set_pixel(&mut self, x: usize, y: usize, r: u8, g: u8, b: u8, a: u8) -> PyResult<()> {
+        let offset = self.pixel_offset(x, y)?;
+        self.pixels[offset..offset + 4].copy_from_slice(&[r, g, b, a]);
+        self.bump_version();
+        Ok(())
+    }
+
+    fn replace_rgba_bytes(&mut self, pixels: Vec<u8>) -> PyResult<()> {
+        validate_rgba_buffer(pixels.len(), self.width, self.height)?;
+        self.pixels = pixels;
+        self.bump_version();
+        Ok(())
+    }
+
+    fn copy(&self) -> Self {
+        Self::from_pixels(self.width, self.height, self.pixels.clone())
+    }
+
+    fn crop(&self, sx: i64, sy: i64, sw: i64, sh: i64) -> PyResult<Self> {
+        if sw <= 0 || sh <= 0 {
+            return Err(PyValueError::new_err(
+                "Image region dimensions must be positive.",
+            ));
+        }
+        Ok(Self::from_pixels(
+            sw as usize,
+            sh as usize,
+            crop_rgba_with_padding(
+                &self.pixels,
+                self.width,
+                self.height,
+                sx,
+                sy,
+                sw as usize,
+                sh as usize,
+            ),
+        ))
+    }
+
+    fn resize(&mut self, target_width: usize, target_height: usize) -> PyResult<()> {
+        if target_width == 0 || target_height == 0 {
+            return Err(PyValueError::new_err(
+                "Image.resize() dimensions must be positive.",
+            ));
+        }
+        self.pixels = resize_rgba_nearest(
+            &self.pixels,
+            self.width,
+            self.height,
+            target_width,
+            target_height,
+        );
+        self.width = target_width;
+        self.height = target_height;
+        self.bump_version();
+        Ok(())
+    }
+
+    fn mask(&mut self, mask: PyRef<'_, CanvasImage>) -> PyResult<()> {
+        apply_rgba_mask(
+            &mut self.pixels,
+            self.width,
+            self.height,
+            &mask.pixels,
+            mask.width,
+            mask.height,
+        );
+        self.bump_version();
+        Ok(())
+    }
+
+    #[pyo3(signature = (mode, value=None))]
+    fn filter(&mut self, mode: &str, value: Option<f64>) -> PyResult<()> {
+        filter_rgba(&mut self.pixels, mode, value)?;
+        self.bump_version();
+        Ok(())
+    }
+
+    fn alpha_composite(&mut self, source: PyRef<'_, CanvasImage>, dx: i64, dy: i64) {
+        alpha_composite_rgba_region(
+            &mut self.pixels,
+            self.width,
+            self.height,
+            &source.pixels,
+            source.width,
+            source.height,
+            dx,
+            dy,
+        );
+        self.bump_version();
+    }
+
     fn save(&self, path: &str) -> PyResult<()> {
         image::save_buffer_with_format(
             path,
@@ -288,6 +395,19 @@ impl CanvasImage {
             height,
             pixels,
         }
+    }
+
+    fn pixel_offset(&self, x: usize, y: usize) -> PyResult<usize> {
+        if x >= self.width || y >= self.height {
+            return Err(PyValueError::new_err(
+                "Pixel coordinates are outside the image bounds.",
+            ));
+        }
+        Ok((y * self.width + x) * 4)
+    }
+
+    fn bump_version(&mut self) {
+        self.version = self.version.wrapping_add(1);
     }
 }
 

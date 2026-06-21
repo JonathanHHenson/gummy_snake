@@ -26,6 +26,24 @@ def test_canvas_backend_opens_interactive_window_and_reports_display_density(
     assert canvas.closed is True
 
 
+def test_canvas_backend_interactive_cleans_up_when_interrupted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    canvas = backend.renderer.runtime_canvas()
+
+    def interrupt(_sketch: object) -> None:
+        raise KeyboardInterrupt
+
+    backend._dispatch_pending_events = interrupt  # type: ignore[method-assign]
+
+    with pytest.raises(KeyboardInterrupt):
+        backend._run_interactive(sketch)
+
+    assert canvas.closed is True
+    assert ("close",) in canvas.calls
+
+
 def test_canvas_backend_interactive_max_frames_stops_after_requested_frame(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -77,6 +95,32 @@ def test_canvas_backend_unbounded_interactive_respects_no_loop_from_draw(
 
     assert sketch.context.frame_count == 1
     assert polls >= 5
+
+
+def test_canvas_backend_interactive_close_during_draw_aborts_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    assert sketch.context is not None
+    context = sketch.context
+    canvas = backend.renderer.runtime_canvas()
+
+    def pump_native_events() -> bool:
+        canvas.closed = True
+        return True
+
+    def draw() -> None:
+        context.rect(1, 2, 3, 4)
+        context.state.timing.frame_count += 1
+
+    canvas.pump_native_events = pump_native_events
+    sketch.draw = draw  # type: ignore[method-assign]
+
+    backend._run_interactive(sketch)
+
+    assert sketch._running is False
+    assert context.frame_count == 0
+    assert ("rect", 1.0, 2.0, 3.0, 4.0) not in canvas.calls
 
 
 def test_canvas_backend_unbounded_context_run_uses_interactive_runtime(
@@ -207,6 +251,8 @@ def test_canvas_backend_handles_resize_events(monkeypatch: pytest.MonkeyPatch) -
     assert backend.renderer.height == 80
     assert backend.renderer.physical_width == 180
     assert backend.renderer.physical_height == 120
+    assert ("resize_canvas", 120, 80, 1.5, c.P2D) in backend.renderer.runtime_canvas().calls
+    assert ("resize", 120, 80, 1.5, c.P2D) not in backend.renderer.runtime_canvas().calls
     assert sketch.context is not None
     assert sketch.context.width == 120
     assert sketch.context.height == 80
@@ -216,7 +262,9 @@ def test_canvas_backend_caps_oversized_interactive_resize_density(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class LimitedTextureCanvas(FakeCanvas):
-        def resize(self, width: int, height: int, pixel_density: float, renderer: str) -> None:
+        def resize_canvas(
+            self, width: int, height: int, pixel_density: float, renderer: str
+        ) -> None:
             physical_width = round(width * pixel_density)
             if physical_width > 2048:
                 raise ValueError(
@@ -224,7 +272,7 @@ def test_canvas_backend_caps_oversized_interactive_resize_density(
                     f"{physical_width} exceeds the GPU texture limit of 2048. "
                     "Reduce create_canvas() width or pixel_density()."
                 )
-            super().resize(width, height, pixel_density, renderer)
+            super().resize_canvas(width, height, pixel_density, renderer)
 
     class LimitedTextureCanvasModule(FakeCanvasModule):
         Canvas = LimitedTextureCanvas
@@ -250,4 +298,3 @@ def test_canvas_backend_caps_oversized_interactive_resize_density(
     assert context.width == 1200
     assert context.height == 800
     assert context.pixel_density() < 2
-

@@ -17,6 +17,10 @@ class BackendCapabilityError(UnsupportedFeatureError):
     """Raised when the active backend cannot perform a requested operation."""
 
 
+class CanvasClosedError(GummySnakeError):
+    """Internal signal raised when the native canvas is closed mid-frame."""
+
+
 class ArgumentValidationError(GummySnakeError, TypeError):
     """Raised when a Gummy Snake-style overloaded API receives invalid arguments."""
 

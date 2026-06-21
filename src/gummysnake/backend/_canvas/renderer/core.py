@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Callable, Hashable
+from time import perf_counter
 from typing import Any, cast
 
 from gummysnake import constants as c
@@ -11,12 +12,13 @@ from gummysnake.backend._canvas.renderer._protocols import CanvasRendererHost
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
-from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError, CanvasClosedError
 
 _TEXT_METRIC_CACHE_LIMIT = 256
 _STYLE_PAYLOAD_CACHE_LIMIT = 256
 _MATRIX_PAYLOAD_CACHE_LIMIT = 256
 _IMAGE_VERSION_CACHE_LIMIT = 1024
+_NATIVE_EVENT_PUMP_INTERVAL_SECONDS = 1.0 / 60.0
 _PERFORMANCE_COUNTER_KEYS = (
     "gpu_draws",
     "cpu_fallbacks",
@@ -81,7 +83,6 @@ def text_metric_key(kind: str, style: StyleState, value: str | None = None) -> T
 
 
 class CanvasRendererCore:
-
     def __init__(self, canvas_module: object | None = None) -> None:
         self._canvas_module = canvas_module
         self._canvas: Any | None = None
@@ -98,6 +99,8 @@ class CanvasRendererCore:
         self._line_batch_style: dict[str, object] | None = None
         self._line_batch_matrix: MatrixPayload | None = None
         self._performance_counters: dict[str, int] = dict.fromkeys(_PERFORMANCE_COUNTER_KEYS, 0)
+        self._last_native_event_pump = 0.0
+        self._abort_frame_on_native_close = False
 
     def resize(
         self, width: int, height: int, pixel_density: float = 1.0, *, mode: str = "headless"
@@ -109,6 +112,18 @@ class CanvasRendererCore:
                 self._canvas = canvas_type(width, height, pixel_density, mode, c.P2D)
             else:
                 self._canvas.resize(width, height, pixel_density, c.P2D)
+            self._sync_dimensions()
+        except ValueError as exc:
+            raise ArgumentValidationError(str(exc)) from exc
+
+    def resize_canvas(self, width: int, height: int, pixel_density: float = 1.0) -> None:
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        try:
+            resize_canvas = getattr(self._require_canvas(), "resize_canvas", None)
+            if callable(resize_canvas):
+                resize_canvas(width, height, pixel_density, c.P2D)
+            else:
+                self._require_canvas().resize(width, height, pixel_density, c.P2D)
             self._sync_dimensions()
         except ValueError as exc:
             raise ArgumentValidationError(str(exc)) from exc
@@ -168,18 +183,25 @@ class CanvasRendererCore:
         self._performance_counters[name] = int(self._performance_counters.get(name, 0)) + amount
 
     def begin_frame(self) -> None:
+        self._abort_frame_on_native_close = True
         self._require_canvas().begin_frame()
 
     def end_frame(self) -> None:
-        cast(CanvasRendererHost, self)._flush_line_batch()
-        self._require_canvas().end_frame()
+        try:
+            cast(CanvasRendererHost, self)._flush_line_batch()
+            self._require_canvas().end_frame()
+        finally:
+            self._abort_frame_on_native_close = False
 
     def present(self) -> None:
         cast(CanvasRendererHost, self)._flush_line_batch()
+        if self._pump_native_events_if_due(force=True) or self._should_close():
+            return
         self._require_canvas().present()
         self._count("frames_presented")
 
     def close(self) -> None:
+        self._abort_frame_on_native_close = False
         cast(CanvasRendererHost, self)._flush_line_batch()
         if self._canvas is not None:
             self._canvas.close()
@@ -219,6 +241,7 @@ class CanvasRendererCore:
     def _call(self, operation: str, callback: Callable[..., Any], *args: object) -> Any:
         self._count("bridge_calls")
         try:
+            self._pump_native_events_if_due()
             return callback(*args)
         except ValueError as exc:
             raise ArgumentValidationError(str(exc)) from exc
@@ -226,6 +249,29 @@ class CanvasRendererCore:
             raise BackendCapabilityError(
                 f"The 'canvas' backend failed during {operation}: {exc}"
             ) from exc
+
+    def _pump_native_events_if_due(self, *, force: bool = False) -> bool:
+        if self._canvas is None:
+            return False
+        now = perf_counter()
+        if not force and now - self._last_native_event_pump < _NATIVE_EVENT_PUMP_INTERVAL_SECONDS:
+            return False
+        self._last_native_event_pump = now
+        pump_native_events = getattr(self._canvas, "pump_native_events", None)
+        if not callable(pump_native_events):
+            return False
+        closed = bool(pump_native_events())
+        if not closed:
+            self._sync_dimensions()
+        if closed and self._abort_frame_on_native_close:
+            raise CanvasClosedError("Native canvas window was closed.")
+        return closed
+
+    def _should_close(self) -> bool:
+        should_close = (
+            getattr(self._canvas, "should_close", None) if self._canvas is not None else None
+        )
+        return bool(should_close()) if callable(should_close) else False
 
     def _cached_text_metric(
         self,

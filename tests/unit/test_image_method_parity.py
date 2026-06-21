@@ -16,7 +16,7 @@ def test_image_pixel_helpers_round_trip_and_track_version() -> None:
     assert image.pixels == [255, 0, 0, 255, 0, 0, 255, 255]
     assert image.get(0, 0) == gs.Color(255, 0, 0, 255)
     assert image.version == initial_version + 1
-    assert image.rust_image is None
+    assert isinstance(image.rust_image, gs.CanvasImage)
 
 
 def test_image_cache_keys_are_stable_and_unique() -> None:

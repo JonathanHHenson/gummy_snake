@@ -46,15 +46,147 @@ class FakeRustMatrix2D:
 
 
 class FakeRustImage:
-    width = 2
-    height = 1
-    version = 0
+    _next_key = 1
+
+    def __init__(self, width: int = 2, height: int = 1, pixels: bytes | None = None) -> None:
+        self.width = width
+        self.height = height
+        self.version = 0
+        self.key = FakeRustImage._next_key
+        FakeRustImage._next_key += 1
+        self._pixels = bytearray(pixels or bytes([255, 0, 0, 255, 0, 0, 255, 255]))
+
+    @staticmethod
+    def from_file(path: str) -> FakeRustImage:
+        return FakeRustImage()
+
+    @staticmethod
+    def from_rgba_bytes(width: int, height: int, pixels: bytes) -> FakeRustImage:
+        return FakeRustImage(width, height, pixels)
+
+    def _offset(self, x: int, y: int) -> int:
+        if not (0 <= x < self.width and 0 <= y < self.height):
+            raise ValueError("Pixel coordinates are outside the image bounds.")
+        return (y * self.width + x) * 4
+
+    def _changed(self) -> None:
+        self.version += 1
+
+    def get_pixel(self, x: int, y: int) -> tuple[int, int, int, int]:
+        offset = self._offset(x, y)
+        return tuple(self._pixels[offset : offset + 4])  # type: ignore[return-value]
+
+    def set_pixel(self, x: int, y: int, r: int, g: int, b: int, a: int) -> None:
+        offset = self._offset(x, y)
+        self._pixels[offset : offset + 4] = bytes([r, g, b, a])
+        self._changed()
+
+    def replace_rgba_bytes(self, pixels: bytes) -> None:
+        if len(pixels) != self.width * self.height * 4:
+            raise ValueError("RGBA buffer length mismatch")
+        self._pixels = bytearray(pixels)
+        self._changed()
+
+    def copy(self) -> FakeRustImage:
+        return FakeRustImage(self.width, self.height, bytes(self._pixels))
+
+    def crop(self, sx: int, sy: int, sw: int, sh: int) -> FakeRustImage:
+        cropped = bytearray(sw * sh * 4)
+        for y in range(sh):
+            src_y = sy + y
+            if not 0 <= src_y < self.height:
+                continue
+            for x in range(sw):
+                src_x = sx + x
+                if not 0 <= src_x < self.width:
+                    continue
+                src = self._offset(src_x, src_y)
+                dst = (y * sw + x) * 4
+                cropped[dst : dst + 4] = self._pixels[src : src + 4]
+        return FakeRustImage(sw, sh, bytes(cropped))
+
+    def resize(self, width: int, height: int) -> None:
+        resized = bytearray(width * height * 4)
+        for y in range(height):
+            sy = min(y * self.height // height, self.height - 1)
+            for x in range(width):
+                sx = min(x * self.width // width, self.width - 1)
+                src = self._offset(sx, sy)
+                dst = (y * width + x) * 4
+                resized[dst : dst + 4] = self._pixels[src : src + 4]
+        self.width = width
+        self.height = height
+        self._pixels = resized
+        self._changed()
+
+    def mask(self, mask: FakeRustImage) -> None:
+        for y in range(self.height):
+            my = min(y * mask.height // self.height, mask.height - 1)
+            for x in range(self.width):
+                mx = min(x * mask.width // self.width, mask.width - 1)
+                mask_offset = mask._offset(mx, my)
+                mask_alpha = (
+                    (
+                        mask._pixels[mask_offset]
+                        + mask._pixels[mask_offset + 1]
+                        + mask._pixels[mask_offset + 2]
+                    )
+                    * mask._pixels[mask_offset + 3]
+                    + 382
+                ) // 765
+                offset = self._offset(x, y) + 3
+                self._pixels[offset] = (self._pixels[offset] * mask_alpha + 127) // 255
+        self._changed()
+
+    def filter(self, mode: str, value: float | None) -> None:
+        if mode == "invert":
+            for offset in range(0, len(self._pixels), 4):
+                self._pixels[offset] = 255 - self._pixels[offset]
+                self._pixels[offset + 1] = 255 - self._pixels[offset + 1]
+                self._pixels[offset + 2] = 255 - self._pixels[offset + 2]
+        elif mode == "gray":
+            for offset in range(0, len(self._pixels), 4):
+                gray = round(
+                    0.2126 * self._pixels[offset]
+                    + 0.7152 * self._pixels[offset + 1]
+                    + 0.0722 * self._pixels[offset + 2]
+                )
+                self._pixels[offset : offset + 3] = bytes([gray, gray, gray])
+        self._changed()
+
+    def alpha_composite(self, source: FakeRustImage, dx: int, dy: int) -> None:
+        for sy in range(source.height):
+            ty = dy + sy
+            if not 0 <= ty < self.height:
+                continue
+            for sx in range(source.width):
+                tx = dx + sx
+                if not 0 <= tx < self.width:
+                    continue
+                src = source._pixels[source._offset(sx, sy) : source._offset(sx, sy) + 4]
+                dst_offset = self._offset(tx, ty)
+                dst = self._pixels[dst_offset : dst_offset + 4]
+                alpha = src[3]
+                inv = 255 - alpha
+                out_alpha = alpha + (dst[3] * inv + 127) // 255
+                if out_alpha == 0:
+                    self._pixels[dst_offset : dst_offset + 4] = bytes([0, 0, 0, 0])
+                else:
+                    self._pixels[dst_offset : dst_offset + 4] = bytes(
+                        [
+                            (src[i] * alpha + dst[i] * dst[3] * inv // 255 + out_alpha // 2)
+                            // out_alpha
+                            for i in range(3)
+                        ]
+                        + [out_alpha]
+                    )
+        self._changed()
 
     def save(self, path: str) -> None:
         Path(path).write_bytes(b"fake-image")
 
     def to_rgba_bytes(self) -> bytes:
-        return bytes([255, 0, 0, 255, 0, 0, 255, 255])
+        return bytes(self._pixels)
 
 
 class FakeRustModel3D:

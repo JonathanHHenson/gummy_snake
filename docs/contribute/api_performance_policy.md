@@ -52,9 +52,9 @@ image, or text-measurement calls per frame.
 Prefer renderer-native drawing over full-canvas pixel workflows. Use
 `load_pixel_bytes()` for readback when a bytes-like RGBA buffer is sufficient.
 Use `update_pixels()` with `bytes`, `bytearray`, or `memoryview` for uploads.
-Keep loaded images immutable where possible so the Rust-managed asset and image
-cache remain useful. Mutating image pixels is supported, but repeated per-frame
-mutations should be treated as texture upload work.
+Images are backed by Rust-managed `CanvasImage` handles. Mutating image pixels
+is supported and keeps storage in Rust, but repeated per-frame mutations should
+still be treated as texture-update work.
 
 ## Diagnostics
 

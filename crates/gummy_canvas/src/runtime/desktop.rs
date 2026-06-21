@@ -8,6 +8,8 @@ use winit::window::Window;
 use crate::runtime::app::RuntimeApp;
 use crate::runtime::event::RuntimeEvent;
 
+const LIVE_RESIZE_EVENT_COOLDOWN: Duration = Duration::from_millis(80);
+
 pub struct InteractiveRuntime {
     event_loop: EventLoop<()>,
     app: RuntimeApp,
@@ -35,12 +37,19 @@ impl InteractiveRuntime {
         self.app.pixel_density.max(1.0)
     }
 
+    pub fn logical_size(&self) -> (i64, i64) {
+        (self.app.logical_width, self.app.logical_height)
+    }
+
     pub fn should_close(&self) -> bool {
         self.app.closed
     }
 
     pub fn poll_events(&mut self) -> Result<Vec<RuntimeEvent>, String> {
         self.pump_events()?;
+        if self.resize_recently(LIVE_RESIZE_EVENT_COOLDOWN) {
+            return Ok(self.app.drain_events_except_resize());
+        }
         Ok(self.app.drain_events())
     }
 
@@ -71,7 +80,14 @@ impl InteractiveRuntime {
         )
     }
 
-    fn pump_events(&mut self) -> Result<(), String> {
+    pub fn resize_recently(&self, within: Duration) -> bool {
+        self.app
+            .last_resize_at
+            .map(|instant| instant.elapsed() <= within)
+            .unwrap_or(false)
+    }
+
+    pub(crate) fn pump_events(&mut self) -> Result<(), String> {
         match self
             .event_loop
             .pump_app_events(Some(Duration::ZERO), &mut self.app)

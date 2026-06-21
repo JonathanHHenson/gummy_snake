@@ -15,15 +15,14 @@ Images are loaded by the Rust canvas runtime. There is no Pillow fallback.
 Async loader variants are awaitable and useful from `async def preload()` or
 `async def setup()` callbacks.
 
-`load_image()` returns the normal Python `Image` type, but the object keeps its
-Rust-managed asset internally until the first pixel mutation. Drawing an
-untouched loaded image can therefore stay on the renderer's fast sprite path.
-Calling `set()`, `update_pixels()`, `resize()`, `mask()`, or `filter()` makes
-the image mutable Python pixel data and future draws upload the changed version
-through the bounded image cache. Bulk image-local work such as resize, mask,
-filter, crop/copy, and alpha compositing is delegated to the Rust canvas
-runtime so the public Python API does not run nested per-pixel loops for
-normal image sizes.
+`load_image()` and `create_image()` return the normal Python `Image` type, but
+RGBA storage is backed by a Rust-managed `CanvasImage` handle. Drawing images
+uses the renderer's canvas-owned sprite path, and mutations such as `set()`,
+`update_pixels()`, `resize()`, `mask()`, or `filter()` update the Rust image
+handle instead of switching to Python-owned pixel storage. Bulk image-local work
+such as resize, mask, filter, crop/copy, and alpha compositing is handled by the
+Rust canvas runtime so the public Python API does not run nested per-pixel loops
+for normal image sizes.
 
 `smooth()` and `image_sampling(LINEAR)` request linear sampling.
 `no_smooth()` and `image_sampling(NEAREST)` request nearest-neighbor sampling.

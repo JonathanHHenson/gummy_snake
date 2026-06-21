@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::runtime::event::RuntimeEvent;
 
 pub struct InteractiveRuntime;
@@ -13,6 +15,10 @@ impl InteractiveRuntime {
 
     pub fn display_density(&self) -> f64 {
         1.0
+    }
+
+    pub fn logical_size(&self) -> (i64, i64) {
+        (1, 1)
     }
 
     pub fn should_close(&self) -> bool {
@@ -39,6 +45,10 @@ impl InteractiveRuntime {
         _pixel_density: f64,
     ) -> Result<(), String> {
         Ok(())
+    }
+
+    pub fn resize_recently(&self, _within: Duration) -> bool {
+        false
     }
 
     pub fn close(&mut self) {}

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.backend._canvas.backend._protocols import CanvasBackendHost
-from gummysnake.exceptions import BackendCapabilityError
+from gummysnake.exceptions import BackendCapabilityError, CanvasClosedError
 
 if TYPE_CHECKING:
     from gummysnake.sketch import Sketch
@@ -53,16 +53,18 @@ class CanvasBackendRuntimeMixin:
         interval = 1.0 / max(1.0, context.state.timing.target_frame_rate)
         _backend(self)._next_frame_time = _backend(self)._perf_counter()
 
-        while _backend(self)._running and not self._should_close(canvas):
-            was_looping = context.state.looping
-            _backend(self)._dispatch_pending_events(sketch)
-            self._wake_for_pending_draw(context, was_looping=was_looping)
-            if max_frames is not None:
-                if self._bounded_interactive_tick(sketch, context, max_frames):
-                    break
-                continue
-            self._interactive_tick(sketch, context, interval)
-        self.stop()
+        try:
+            while _backend(self)._running and not self._should_close(canvas):
+                was_looping = context.state.looping
+                _backend(self)._dispatch_pending_events(sketch)
+                self._wake_for_pending_draw(context, was_looping=was_looping)
+                if max_frames is not None:
+                    if self._bounded_interactive_tick(sketch, context, max_frames):
+                        break
+                    continue
+                self._interactive_tick(sketch, context, interval)
+        finally:
+            self.stop()
 
     def _bounded_interactive_tick(self, sketch: Sketch, context: Any, max_frames: int) -> bool:
         drew_frame = self._draw_and_present(sketch)
@@ -129,7 +131,12 @@ class CanvasBackendRuntimeMixin:
         context = getattr(sketch, "context", None)
         before_frame_count = context.state.timing.frame_count if context is not None else None
         draw_start = _backend(self)._perf_counter()
-        sketch._draw_frame()
+        try:
+            sketch._draw_frame()
+        except CanvasClosedError:
+            _backend(self)._running = False
+            sketch._running = False
+            return False
         draw_duration_ms = (_backend(self)._perf_counter() - draw_start) * 1000.0
         after_frame_count = context.state.timing.frame_count if context is not None else None
         if before_frame_count is None or after_frame_count != before_frame_count:

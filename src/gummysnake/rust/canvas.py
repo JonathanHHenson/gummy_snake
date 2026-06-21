@@ -16,19 +16,38 @@ from gummysnake.exceptions import BackendCapabilityError
 GUMMY_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml"
 )
-EXPECTED_CANVAS_ABI_VERSION = 3
+EXPECTED_CANVAS_ABI_VERSION = 7
 
 
 class _RustCanvasImage(Protocol):
     width: int
     height: int
     version: int
+    key: int
 
     @staticmethod
     def from_file(path: str) -> _RustCanvasImage: ...
 
     @staticmethod
     def from_rgba_bytes(width: int, height: int, pixels: bytes) -> _RustCanvasImage: ...
+
+    def get_pixel(self, x: int, y: int) -> tuple[int, int, int, int]: ...
+
+    def set_pixel(self, x: int, y: int, r: int, g: int, b: int, a: int) -> None: ...
+
+    def replace_rgba_bytes(self, pixels: bytes) -> None: ...
+
+    def copy(self) -> _RustCanvasImage: ...
+
+    def crop(self, sx: int, sy: int, sw: int, sh: int) -> _RustCanvasImage: ...
+
+    def resize(self, width: int, height: int) -> None: ...
+
+    def mask(self, mask: _RustCanvasImage) -> None: ...
+
+    def filter(self, mode: str, value: float | None = None) -> None: ...
+
+    def alpha_composite(self, source: _RustCanvasImage, dx: int, dy: int) -> None: ...
 
     def save(self, path: str) -> None: ...
 

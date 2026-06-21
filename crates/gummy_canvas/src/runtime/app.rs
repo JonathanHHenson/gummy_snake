@@ -31,6 +31,7 @@ pub(super) struct RuntimeApp {
     pub(super) active_touches: Vec<u64>,
     pub(super) closed: bool,
     pub(super) has_close_event: bool,
+    pub(super) last_resize_at: Option<Instant>,
 }
 
 impl RuntimeApp {
@@ -51,11 +52,26 @@ impl RuntimeApp {
             active_touches: Vec::new(),
             closed: false,
             has_close_event: false,
+            last_resize_at: None,
         }
     }
 
     pub(super) fn drain_events(&mut self) -> Vec<RuntimeEvent> {
         std::mem::take(&mut self.events)
+    }
+
+    pub(super) fn drain_events_except_resize(&mut self) -> Vec<RuntimeEvent> {
+        let mut drained = Vec::new();
+        let mut retained = Vec::new();
+        for event in self.events.drain(..) {
+            if event.event_type == "resized" {
+                retained.push(event);
+            } else {
+                drained.push(event);
+            }
+        }
+        self.events = retained;
+        drained
     }
 
     pub(super) fn request_resize(
@@ -90,18 +106,24 @@ impl RuntimeApp {
         }
         self.physical_width = size.width;
         self.physical_height = size.height;
+        self.last_resize_at = Some(Instant::now());
         if let Some(window) = self.window.as_ref() {
             self.pixel_density = window.scale_factor().max(1.0);
             let logical_size = size.to_logical::<f64>(self.pixel_density);
             self.logical_width = logical_size.width.round().max(1.0) as i64;
             self.logical_height = logical_size.height.round().max(1.0) as i64;
         }
+        self.push_resize_event();
+        Ok(())
+    }
+
+    fn push_resize_event(&mut self) {
+        self.events.retain(|event| event.event_type != "resized");
         self.events.push(RuntimeEvent::resized(
             self.logical_width,
             self.logical_height,
             self.pixel_density,
         ));
-        Ok(())
     }
 
     pub(super) fn push_cursor_event(&mut self, position: PhysicalPosition<f64>) {

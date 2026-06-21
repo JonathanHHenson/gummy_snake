@@ -100,14 +100,18 @@ class PixelContextMixin:
             self.pixels = []
             return
         payload = rgba_bytes(value)
-        self.renderer.update_pixel_region(
-            payload,
-            1,
-            1,
-            px,
-            py,
-            alpha_composite=False,
-        )
+        set_pixel_rgba = getattr(self.renderer, "set_pixel_rgba", None)
+        if callable(set_pixel_rgba):
+            set_pixel_rgba(px, py, (payload[0], payload[1], payload[2], payload[3]))
+        else:
+            self.renderer.update_pixel_region(
+                payload,
+                1,
+                1,
+                px,
+                py,
+                alpha_composite=False,
+            )
         self.pixels = []
 
     @overload

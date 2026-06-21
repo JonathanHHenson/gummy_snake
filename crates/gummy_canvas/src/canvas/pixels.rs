@@ -143,6 +143,34 @@ impl Canvas {
         Ok(())
     }
 
+    pub(crate) fn set_pixel_rgba_impl(
+        &mut self,
+        x: i64,
+        y: i64,
+        rgba: (u8, u8, u8, u8),
+    ) -> PyResult<()> {
+        if let Some(runtime) = self.runtime.as_mut() {
+            let _ = runtime.pump_events();
+            if runtime.should_close() {
+                self.closed = true;
+            }
+        }
+        if x < 0 || y < 0 || x >= self.physical_width as i64 || y >= self.physical_height as i64 {
+            return Ok(());
+        }
+        self.prepare_cpu_composite();
+        let pixel_index = y as usize * self.physical_width + x as usize;
+        let offset = pixel_index * 4;
+        let color = [rgba.0, rgba.1, rgba.2, rgba.3];
+        self.pixels[offset..offset + 4].copy_from_slice(&color);
+        self.present_pixels[pixel_index] = rgba_to_present_pixel(&color);
+        self.render_dirty = true;
+        self.offscreen_dirty = false;
+        self.pixels_stale = false;
+        self.texture_stale = true;
+        Ok(())
+    }
+
     pub(crate) fn update_pixel_region_impl(
         &mut self,
         pixels: Vec<u8>,

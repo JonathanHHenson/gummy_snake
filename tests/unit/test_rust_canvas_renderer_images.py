@@ -43,11 +43,8 @@ def test_canvas_renderer_bridges_images_and_blend_regions() -> None:
 
     canvas = renderer._canvas
     assert canvas is not None
-    assert canvas.calls[-3][0] == "draw_cached_image"
-    assert canvas.calls[-3][1] == image.cache_key
-    assert canvas.calls[-3][2] == image.version
-    assert canvas.calls[-3][3] == image.to_rgba_bytes()
-    assert canvas.calls[-3][4:6] == (2, 1)
+    assert canvas.calls[-3][0] == "draw_canvas_image"
+    assert canvas.calls[-3][1] is image.rust_image._rust_image
     assert canvas.calls[-3][-1] == (0, 0, 1, 1)
     assert canvas.calls[-2] == (
         "blend_region",
@@ -84,15 +81,14 @@ def test_canvas_renderer_uses_stable_image_cache_keys_and_versions() -> None:
 
     canvas = renderer._canvas
     assert canvas is not None
-    draw_calls = [call for call in canvas.calls if call[0] == "draw_cached_image"]
-    assert draw_calls[0][1] != draw_calls[1][1]
-    assert draw_calls[0][1] == first.cache_key
-    assert draw_calls[2][1] == first.cache_key
-    assert draw_calls[2][2] == first.version
-    assert draw_calls[2][3] == first.to_rgba_bytes()
+    draw_calls = [call for call in canvas.calls if call[0] == "draw_canvas_image"]
+    assert draw_calls[0][1] is first.rust_image._rust_image
+    assert draw_calls[1][1] is second.rust_image._rust_image
+    assert draw_calls[2][1] is first.rust_image._rust_image
+    assert first.cache_key != second.cache_key
 
 
-def test_canvas_renderer_prefers_rust_managed_image_until_mutation() -> None:
+def test_canvas_renderer_uses_rust_managed_image_after_mutation() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(4, 2)
     style = StyleState(fill_color=None, stroke_color=None)
@@ -105,8 +101,7 @@ def test_canvas_renderer_prefers_rust_managed_image_until_mutation() -> None:
 
     canvas = renderer._canvas
     assert canvas is not None
-    assert [call[0] for call in canvas.calls][-2:] == ["draw_canvas_image", "draw_cached_image"]
-
+    assert [call[0] for call in canvas.calls][-2:] == ["draw_canvas_image", "draw_canvas_image"]
 
 
 def test_canvas_renderer_performance_counters_cover_representative_paths() -> None:
@@ -130,10 +125,10 @@ def test_canvas_renderer_performance_counters_cover_representative_paths() -> No
     counters = cast(dict[str, int], renderer.performance_counters())
 
     assert counters["gpu_draws"] >= 4
-    assert counters["image_cache_misses"] == 1
-    assert counters["image_cache_hits"] == 1
-    assert counters["texture_uploads"] == 1
-    assert counters["texture_cache_hits"] == 1
+    assert counters["image_cache_misses"] == 0
+    assert counters["image_cache_hits"] == 0
+    assert counters["texture_uploads"] == 0
+    assert counters["texture_cache_hits"] == 0
     assert counters["text_cache_misses"] == 1
     assert counters["text_cache_hits"] == 1
     assert counters["text_cache_evictions"] == 0
@@ -147,4 +142,3 @@ def test_canvas_renderer_performance_counters_cover_representative_paths() -> No
     assert reset["gpu_draws"] == 0
     assert reset["bridge_calls"] == 0
     assert reset["text_cache_evictions"] == 0
-

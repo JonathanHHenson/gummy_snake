@@ -4,86 +4,77 @@ from __future__ import annotations
 
 from collections.abc import Buffer
 from dataclasses import dataclass
-from itertools import count
 from pathlib import Path
 from typing import Self, cast, overload
 
 from gummysnake import constants as c
-from gummysnake.assets.image import ops
 from gummysnake.assets.image.canvas import CanvasImage
 from gummysnake.assets.image.deferred import ImageDeferredMixin
 from gummysnake.assets.image.source import ImageSource, coerce_image_source
 from gummysnake.core.color import Color
 from gummysnake.exceptions import ArgumentValidationError, UnsupportedFeatureError
 
-_IMAGE_CACHE_KEYS = count(1)
-
 
 @dataclass(slots=True)
 class Image(ImageDeferredMixin):
-    """Mutable RGBA image used by Gummy Snake asset APIs."""
+    """Mutable RGBA image used by Gummy Snake asset APIs.
 
-    _width: int
-    _height: int
-    _pixels: bytearray
-    _version: int
-    _cache_key: int
-    _rust_image: CanvasImage | None
+    The public Image API remains Pythonic, while pixel storage and bulk image
+    operations are owned by the Rust canvas runtime through CanvasImage.
+    """
+
+    _rust_image: CanvasImage
 
     def __init__(
         self,
-        width: int | ImageSource,
+        width: int | ImageSource | CanvasImage,
         height: int | None = None,
         pixels: bytes | bytearray | None = None,
     ) -> None:
+        if isinstance(width, CanvasImage):
+            self._rust_image = width
+            return
         image_width, image_height, payload = coerce_image_source(width, height, pixels)
         expected = image_width * image_height * 4
         if len(payload) != expected:
             raise ArgumentValidationError(
                 f"Image pixel buffer must contain {expected} bytes, got {len(payload)}."
             )
-        self._width = image_width
-        self._height = image_height
-        self._pixels = bytearray(payload)
-        self._version = 0
-        self._cache_key = next(_IMAGE_CACHE_KEYS)
-        self._rust_image = width if isinstance(width, CanvasImage) else None
+        self._rust_image = CanvasImage.from_rgba_bytes(image_width, image_height, payload)
 
     @classmethod
     def from_rust_image(cls, image: CanvasImage) -> Self:
-        loaded = cls(image.width, image.height, image.to_rgba_bytes())
-        loaded._rust_image = image
-        return loaded
+        return cls(image)
 
     @property
     def width(self) -> int:
-        return self._width
+        return self._rust_image.width
 
     @property
     def height(self) -> int:
-        return self._height
+        return self._rust_image.height
 
     @property
     def version(self) -> int:
-        return self._version
+        return self._rust_image.version
 
     @property
     def cache_key(self) -> int:
-        return self._cache_key
+        return self._rust_image.cache_key
 
     @property
-    def rust_image(self) -> CanvasImage | None:
+    def rust_image(self) -> CanvasImage:
         return self._rust_image
 
     def to_rgba_bytes(self) -> bytes:
-        return bytes(self._pixels)
+        return self._rust_image.to_rgba_bytes()
 
     def tobytes(self) -> bytes:
         return self.to_rgba_bytes()
 
     @property
     def pixels(self) -> list[int]:
-        return list(self._pixels)
+        return list(self.to_rgba_bytes())
 
     @overload
     def __getitem__(self, key: tuple[int, int]) -> Color: ...
@@ -119,20 +110,20 @@ class Image(ImageDeferredMixin):
         return self.pixels
 
     def update_pixels(self, pixels: Buffer | list[int] | tuple[int, ...] | None = None) -> None:
-        if pixels is not None:
-            try:
-                payload = bytes(pixels)
-            except ValueError as exc:
-                raise ArgumentValidationError(
-                    "Image pixel values must be integers between 0 and 255."
-                ) from exc
-            expected = self.width * self.height * 4
-            if len(payload) != expected:
-                raise ArgumentValidationError(
-                    f"Image pixel buffer must contain {expected} bytes, got {len(payload)}."
-                )
-            self._pixels = bytearray(payload)
-        self._changed()
+        if pixels is None:
+            return
+        try:
+            payload = bytes(pixels)
+        except ValueError as exc:
+            raise ArgumentValidationError(
+                "Image pixel values must be integers between 0 and 255."
+            ) from exc
+        expected = self.width * self.height * 4
+        if len(payload) != expected:
+            raise ArgumentValidationError(
+                f"Image pixel buffer must contain {expected} bytes, got {len(payload)}."
+            )
+        self._rust_image.replace_rgba_bytes(payload)
 
     def pixel_density(self, value: float | None = None) -> float:
         if value is None or value == 1:
@@ -144,7 +135,7 @@ class Image(ImageDeferredMixin):
 
     def copy(self, *args: int) -> Image:
         if not args:
-            return Image(self.width, self.height, self.to_rgba_bytes())
+            return Image(self._rust_image.copy())
         if len(args) == 4:
             return self._crop(*(int(value) for value in args))
         if len(args) == 8:
@@ -183,14 +174,12 @@ class Image(ImageDeferredMixin):
         value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
     ) -> None:
         if isinstance(value, Image):
-            self._alpha_composite(value, int(x), int(y))
-            self._changed()
+            self._rust_image.alpha_composite(value._rust_image, int(x), int(y))
             return
         rgba = value.to_tuple() if isinstance(value, Color) else tuple(value)
         if len(rgba) == 3:
             rgba = (*rgba, 255)
         self._put_pixel(int(x), int(y), cast(tuple[int, int, int, int], rgba))
-        self._changed()
 
     def resize(self, width: int, height: int) -> None:
         target_width = self.width if width == 0 else int(width)
@@ -203,50 +192,35 @@ class Image(ImageDeferredMixin):
             raise ArgumentValidationError(
                 "Image.resize() dimensions must be positive or one zero for aspect ratio."
             )
-        self._pixels = ops.resize_rgba(
-            self.width,
-            self.height,
-            self.to_rgba_bytes(),
-            target_width,
-            target_height,
-        )
-        self._width = target_width
-        self._height = target_height
-        self._changed()
+        self._rust_image.resize(target_width, target_height)
 
     def mask(self, mask_image: Image) -> None:
-        self._pixels = ops.mask_rgba(
-            self.width,
-            self.height,
-            self.to_rgba_bytes(),
-            mask_image.width,
-            mask_image.height,
-            mask_image.to_rgba_bytes(),
-        )
-        self._changed()
+        self._rust_image.mask(mask_image._rust_image)
 
     def filter(self, mode: c.ImageFilter, value: float | None = None) -> None:
-        self._pixels = ops.filter_rgba(self.width, self.height, self.to_rgba_bytes(), mode, value)
-        self._changed()
+        normalized = mode.value
+        if normalized not in {
+            c.GRAY,
+            c.INVERT,
+            c.THRESHOLD,
+            c.BLUR,
+            c.POSTERIZE,
+            c.ERODE,
+            c.DILATE,
+        }:
+            raise ArgumentValidationError(f"Unsupported image filter {mode!r}.")
+        self._rust_image.filter(normalized, value)
 
     def save(self, path: str | Path) -> None:
-        CanvasImage.from_rgba_bytes(self.width, self.height, self.to_rgba_bytes()).save(path)
+        self._rust_image.save(path)
 
     def _crop(self, sx: int, sy: int, sw: int, sh: int) -> Image:
-        cropped = ops.crop_rgba(self.width, self.height, self.to_rgba_bytes(), sx, sy, sw, sh)
-        return Image(max(0, sw), max(0, sh), cropped)
+        if sw <= 0 or sh <= 0:
+            raise ArgumentValidationError("Image region dimensions must be positive.")
+        return Image(self._rust_image.crop(sx, sy, sw, sh))
 
     def _alpha_composite(self, source: Image, dx: int, dy: int) -> None:
-        self._pixels = ops.alpha_composite_rgba(
-            self.width,
-            self.height,
-            self.to_rgba_bytes(),
-            source.width,
-            source.height,
-            source.to_rgba_bytes(),
-            dx,
-            dy,
-        )
+        self._rust_image.alpha_composite(source._rust_image, dx, dy)
 
     def _offset(self, x: int, y: int) -> int:
         if not (0 <= x < self.width and 0 <= y < self.height):
@@ -254,16 +228,13 @@ class Image(ImageDeferredMixin):
         return (y * self.width + x) * 4
 
     def _pixel(self, x: int, y: int) -> tuple[int, int, int, int]:
-        offset = self._offset(x, y)
-        return cast(tuple[int, int, int, int], tuple(self._pixels[offset : offset + 4]))
+        self._offset(x, y)
+        return self._rust_image.get_pixel(x, y)
 
     def _put_pixel(self, x: int, y: int, rgba: tuple[int, int, int, int]) -> None:
-        offset = self._offset(x, y)
-        self._pixels[offset : offset + 4] = bytes(max(0, min(255, int(value))) for value in rgba)
-
-    def _changed(self) -> None:
-        self._rust_image = None
-        self._version += 1
+        self._offset(x, y)
+        clamped = tuple(max(0, min(255, int(value))) for value in rgba)
+        self._rust_image.set_pixel(x, y, cast(tuple[int, int, int, int], clamped))
 
     @staticmethod
     def _slice_region(value: slice, size: int) -> tuple[int, int]:
