@@ -1,13 +1,22 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Shared helpers for vector modules."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any, cast
+from typing import Any, Protocol, TypeGuard, cast
 
 Number = int | float
 _VECTOR_TYPE: type[Any] | None = None
+
+
+class _VectorLike(Protocol):
+    x: float
+    y: float
+    z: float
+
+
+def _is_registered_vector(value: object) -> TypeGuard[_VectorLike]:
+    return _VECTOR_TYPE is not None and isinstance(value, _VECTOR_TYPE)
 
 
 class _DualMethod:
@@ -37,7 +46,7 @@ def _components(
     y: Number | None = None,
     z: Number | None = None,
 ) -> tuple[float, float, float]:
-    if _VECTOR_TYPE is not None and isinstance(value, _VECTOR_TYPE):
+    if _is_registered_vector(value):
         return value.x, value.y, value.z
     if y is not None or z is not None:
         scalar = cast(Number, value)
@@ -51,3 +60,6 @@ def _components(
         return float(items[0]), float(items[1]), float(items[2])
     msg = "Vector operands must be a scalar, Vector, or 2/3-item iterable."
     raise TypeError(msg)
+
+
+__all__ = ["Number", "make_vector", "register_vector_type", "_DualMethod", "_components"]

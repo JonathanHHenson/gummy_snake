@@ -1,11 +1,11 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Canvas lifecycle, diagnostics, and timing methods for SketchContext."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from gummysnake import constants as c
+from gummysnake._context._protocols import SketchContextHost
 from gummysnake._fast_draw import FastDrawScope
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
@@ -92,7 +92,7 @@ class CanvasContextMixin:
         self.renderer = self.backend.renderer
         self.state.canvas.renderer = renderer
         if renderer == c.WEBGL:
-            self._reset_3d_state()
+            cast(SketchContextHost, self)._reset_3d_state()
         self._sync_canvas_state()
         self.state.canvas.created = True
 
@@ -125,7 +125,7 @@ class CanvasContextMixin:
         return self.backend.display_density()
 
     def fast(self) -> FastDrawScope:
-        return FastDrawScope(self)
+        return FastDrawScope(cast(Any, self))
 
     def enable_performance_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
         self._performance_diagnostics_enabled = bool(enabled)

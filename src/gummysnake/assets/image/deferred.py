@@ -6,13 +6,13 @@ from gummysnake.exceptions import UnsupportedFeatureError
 
 
 class ImageDeferredMixin:
-    def blend(self, *args: object) -> None:
+    def blend(self, *_args: object) -> None:
         raise UnsupportedFeatureError(
             "Image.blend() is deferred. Use canvas-level blend(...) for Rust-backed region "
             "blending until image-local blend modes are implemented."
         )
 
-    def delay(self, *args: object) -> None:
+    def delay(self, *_args: object) -> None:
         raise UnsupportedFeatureError(
             "Animated image frame delay controls are deferred because Gummy Snake currently loads "
             "images as single RGBA frames through the Rust canvas runtime."

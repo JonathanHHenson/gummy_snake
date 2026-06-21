@@ -1,4 +1,3 @@
-# pyright: reportConstantRedefinition=false
 """Required Rust canvas runtime bridge.
 
 Gummy Snake uses :mod:`gummysnake.rust._canvas` for canvas-backed drawing.
@@ -98,7 +97,7 @@ class _CanvasModule(Protocol):
         self, width: int, height: int, channels: int, pixels: bytes
     ) -> bytes: ...
 
-    def parse_obj_model(self, text: str, source: str, normalize: bool) -> dict[str, Any]: ...
+    def parse_obj_model_handle(self, text: str, source: str, normalize: bool) -> Any: ...
 
     def project_shade_faces(
         self,
@@ -257,14 +256,26 @@ def _validate_canvas_runtime(module: _CanvasModule) -> None:
         )
 
     required_classes = ("Canvas", "CanvasImage", "CanvasModel3D", "CanvasMesh3D", "CanvasSound")
-    missing = [
+    missing_classes = [
         name for name in required_classes if not isinstance(getattr(module, name, None), type)
     ]
-    if missing:
-        missing_names = ", ".join(missing)
+    if missing_classes:
+        missing_names = ", ".join(missing_classes)
         raise BackendCapabilityError(
             "The installed gummysnake.rust._canvas runtime is missing required runtime "
             f"asset/canvas classes ({missing_names}). Rebuild it with "
+            f"`{GUMMY_CANVAS_BUILD_COMMAND}`."
+        )
+
+    required_functions = ("parse_obj_model_handle",)
+    missing_functions = [
+        name for name in required_functions if not callable(getattr(module, name, None))
+    ]
+    if missing_functions:
+        missing_names = ", ".join(missing_functions)
+        raise BackendCapabilityError(
+            "The installed gummysnake.rust._canvas runtime is missing required runtime "
+            f"asset functions ({missing_names}). Rebuild it with "
             f"`{GUMMY_CANVAS_BUILD_COMMAND}`."
         )
 

@@ -1,4 +1,3 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Core canvas renderer state, caches, and bridge helpers."""
 
 from __future__ import annotations
@@ -8,6 +7,7 @@ from collections.abc import Callable, Hashable
 from typing import Any, cast
 
 from gummysnake import constants as c
+from gummysnake.backend._canvas.renderer._protocols import CanvasRendererHost
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
@@ -81,6 +81,7 @@ def text_metric_key(kind: str, style: StyleState, value: str | None = None) -> T
 
 
 class CanvasRendererCore:
+
     def __init__(self, canvas_module: object | None = None) -> None:
         self._canvas_module = canvas_module
         self._canvas: Any | None = None
@@ -101,7 +102,7 @@ class CanvasRendererCore:
     def resize(
         self, width: int, height: int, pixel_density: float = 1.0, *, mode: str = "headless"
     ) -> None:
-        self._flush_line_batch()
+        cast(CanvasRendererHost, self)._flush_line_batch()
         canvas_type = self._canvas_type()
         try:
             if self._canvas is None:
@@ -170,16 +171,16 @@ class CanvasRendererCore:
         self._require_canvas().begin_frame()
 
     def end_frame(self) -> None:
-        self._flush_line_batch()
+        cast(CanvasRendererHost, self)._flush_line_batch()
         self._require_canvas().end_frame()
 
     def present(self) -> None:
-        self._flush_line_batch()
+        cast(CanvasRendererHost, self)._flush_line_batch()
         self._require_canvas().present()
         self._count("frames_presented")
 
     def close(self) -> None:
-        self._flush_line_batch()
+        cast(CanvasRendererHost, self)._flush_line_batch()
         if self._canvas is not None:
             self._canvas.close()
 

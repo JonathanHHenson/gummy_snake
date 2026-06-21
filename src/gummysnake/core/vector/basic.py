@@ -1,10 +1,10 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Basic vector protocol and mutation helpers."""
 
 from __future__ import annotations
 
 import math
 from collections.abc import Iterable
+from typing import Any, cast
 
 from gummysnake.core.vector.common import Number, _components
 
@@ -67,7 +67,8 @@ class VectorBasicMixin:
         )
 
     def copy(self):
-        return type(self)(self.x, self.y, self.z)
+        vector_type = cast("type[Any]", type(self))
+        return vector_type(self.x, self.y, self.z)
 
     def set(
         self,
@@ -124,11 +125,11 @@ class VectorBasicMixin:
     def normalize(self):
         magnitude = self.mag()
         if magnitude != 0:
-            self.div(magnitude)
+            cast(Any, self).div(magnitude)
         return self
 
     def set_mag(self, length: Number):
-        return self.normalize().mult(length)
+        return cast(Any, self.normalize()).mult(length)
 
     def limit(self, maximum: Number):
         max_value = float(maximum)
@@ -147,20 +148,27 @@ class VectorBasicMixin:
 
     def __rsub__(self, other: object | Iterable[Number] | Number):
         if isinstance(other, int | float):
-            return type(self)(other, other, other).sub(self)
-        return type(self)(other).sub(self)
+            vector_type = cast("type[Any]", type(self))
+            return cast(Any, vector_type(other, other, other)).sub(self)
+        vector_type = cast("type[Any]", type(self))
+        return cast(Any, vector_type(other)).sub(self)
 
     def __round__(self, ndigits: int | None = None):
         if ndigits is None:
-            return type(self)(round(self.x), round(self.y), round(self.z))
-        return type(self)(
+            vector_type = cast("type[Any]", type(self))
+            return vector_type(round(self.x), round(self.y), round(self.z))
+        vector_type = cast("type[Any]", type(self))
+        return vector_type(
             round(self.x, ndigits),
             round(self.y, ndigits),
             round(self.z, ndigits),
         )
 
     def rem(self, other: object | Iterable[Number] | Number):
-        self.x, self.y, self.z = (self % other).tuple()
+        ox, oy, oz = _components(other)
+        self.x %= ox
+        self.y %= oy
+        self.z %= oz
         return self
 
     def normalized(self):

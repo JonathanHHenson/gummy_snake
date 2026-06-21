@@ -1,10 +1,10 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Image drawing methods for SketchContext."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
+from gummysnake._context._protocols import SketchContextHost
 from gummysnake._context.helpers import image_draw_args
 from gummysnake.assets.image import CanvasImage, Image
 
@@ -39,7 +39,7 @@ class ImageContextMixin:
             return
         cached_version = self._performance_diagnostic_image_versions.get(image.cache_key)
         if cached_version == image.version:
-            self._record_performance_diagnostic("texture_cache_hit")
+            cast(SketchContextHost, self)._record_performance_diagnostic("texture_cache_hit")
         else:
-            self._record_performance_diagnostic("texture_upload")
+            cast(SketchContextHost, self)._record_performance_diagnostic("texture_upload")
             self._performance_diagnostic_image_versions[image.cache_key] = image.version

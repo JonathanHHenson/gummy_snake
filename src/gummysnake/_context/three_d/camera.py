@@ -1,11 +1,11 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """3D camera and projection methods for SketchContext."""
 
 from __future__ import annotations
 
 import math
-from typing import Any
+from typing import Any, cast
 
+from gummysnake._context.three_d._protocols import ThreeDContextHost
 from gummysnake.drawing.renderer3d import (
     Camera3D,
     OrthographicProjection,
@@ -13,6 +13,10 @@ from gummysnake.drawing.renderer3d import (
     Vec3,
 )
 from gummysnake.exceptions import ArgumentValidationError
+
+
+def _three_d(self: object) -> ThreeDContextHost:
+    return cast(ThreeDContextHost, self)
 
 
 class ThreeDCameraMixin:
@@ -36,13 +40,13 @@ class ThreeDCameraMixin:
         return self.camera(*args)
 
     def camera(self, *args: object) -> Camera3D:
-        self._require_webgl_mode("camera")
+        _three_d(self)._require_webgl_mode("camera")
         if len(args) == 0:
             camera = Camera3D()
         elif len(args) == 1 and isinstance(args[0], Camera3D):
             camera = args[0]
         elif len(args) == 9 and all(isinstance(value, int | float) for value in args):
-            numeric_args = self._numeric_values(args)
+            numeric_args = _three_d(self)._numeric_values(args)
             camera = Camera3D(
                 eye=Vec3(numeric_args[0], numeric_args[1], numeric_args[2]),
                 target=Vec3(numeric_args[3], numeric_args[4], numeric_args[5]),
@@ -56,13 +60,15 @@ class ThreeDCameraMixin:
         return camera
 
     def perspective(self, *args: object) -> PerspectiveProjection:
-        self._require_webgl_mode("perspective")
+        _three_d(self)._require_webgl_mode("perspective")
         if len(args) > 4 or not all(isinstance(value, int | float) for value in args):
             raise ArgumentValidationError(
                 "perspective() accepts fov, aspect, near, and far numeric values."
             )
-        numeric_args = self._numeric_values(args)
-        fov_y = 60.0 if len(numeric_args) == 0 else math.degrees(self._angle(numeric_args[0]))
+        numeric_args = _three_d(self)._numeric_values(args)
+        fov_y = (
+            60.0 if len(numeric_args) == 0 else math.degrees(_three_d(self)._angle(numeric_args[0]))
+        )
         aspect = None if len(numeric_args) < 2 else numeric_args[1]
         near = 0.1 if len(numeric_args) < 3 else numeric_args[2]
         far = 10_000.0 if len(numeric_args) < 4 else numeric_args[3]
@@ -71,12 +77,12 @@ class ThreeDCameraMixin:
         return projection
 
     def ortho(self, *args: object) -> OrthographicProjection:
-        self._require_webgl_mode("ortho")
+        _three_d(self)._require_webgl_mode("ortho")
         if len(args) not in {0, 2, 4} or not all(isinstance(value, int | float) for value in args):
             raise ArgumentValidationError(
                 "ortho() accepts no arguments, width/height, or width/height/near/far."
             )
-        numeric_args = self._numeric_values(args)
+        numeric_args = _three_d(self)._numeric_values(args)
         ortho_width = float(self.width) if len(numeric_args) == 0 else numeric_args[0]
         ortho_height = float(self.height) if len(numeric_args) == 0 else numeric_args[1]
         near = 0.1 if len(numeric_args) < 4 else numeric_args[2]
@@ -88,12 +94,12 @@ class ThreeDCameraMixin:
         return projection
 
     def orbit_control(self, *args: object) -> Camera3D:
-        self._require_webgl_mode("orbit_control")
+        _three_d(self)._require_webgl_mode("orbit_control")
         if len(args) > 3 or not all(isinstance(value, int | float) for value in args):
             raise ArgumentValidationError(
                 "orbit_control() accepts up to three numeric sensitivity values."
             )
-        numeric_args = self._numeric_values(args)
+        numeric_args = _three_d(self)._numeric_values(args)
         sensitivity_x = 1.0 if len(numeric_args) == 0 else numeric_args[0]
         sensitivity_y = sensitivity_x if len(numeric_args) < 2 else numeric_args[1]
         sensitivity_z = 1.0 if len(numeric_args) < 3 else numeric_args[2]

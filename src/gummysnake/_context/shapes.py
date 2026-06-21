@@ -1,11 +1,11 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """2D primitive and curve drawing methods for SketchContext."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from gummysnake import constants as c
+from gummysnake._context._protocols import SketchContextHost
 from gummysnake.core.geometry import (
     flatten_cubic,
     flatten_quadratic,
@@ -102,8 +102,8 @@ class ShapeContextMixin:
             ey,
             ew,
             eh,
-            self._angle(start),
-            self._angle(stop),
+            cast(SketchContextHost, self)._angle(start),
+            cast(SketchContextHost, self)._angle(stop),
             mode,
             self.state.style,
             self.state.transform.matrix,
@@ -161,7 +161,7 @@ class ShapeContextMixin:
         p3 = (float(coords[6]), float(coords[7]))
         previous_fill = self.state.style.fill_color
         self.state.style.fill_color = None
-        self._mark_style_changed()
+        cast(SketchContextHost, self)._mark_style_changed()
         self.renderer.polygon(
             [p1, *flatten_spline(p0, p1, p2, p3, tightness=self._spline_tightness)],
             self.state.style,
@@ -169,7 +169,7 @@ class ShapeContextMixin:
             close=False,
         )
         self.state.style.fill_color = previous_fill
-        self._mark_style_changed()
+        cast(SketchContextHost, self)._mark_style_changed()
 
     def spline_point(self, a: float, b: float, cc: float, d: float, t: float) -> float:
         return geometry_spline_point(
@@ -215,7 +215,7 @@ class ShapeContextMixin:
         p3 = (float(coords[6]), float(coords[7]))
         previous_fill = self.state.style.fill_color
         self.state.style.fill_color = None
-        self._mark_style_changed()
+        cast(SketchContextHost, self)._mark_style_changed()
         self.renderer.polygon(
             [p0, *flatten_cubic(p0, p1, p2, p3)],
             self.state.style,
@@ -223,4 +223,4 @@ class ShapeContextMixin:
             close=False,
         )
         self.state.style.fill_color = previous_fill
-        self._mark_style_changed()
+        cast(SketchContextHost, self)._mark_style_changed()

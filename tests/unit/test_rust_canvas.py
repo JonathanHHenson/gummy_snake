@@ -71,6 +71,19 @@ def test_canvas_wrapper_rejects_runtime_missing_asset_classes(
         require_canvas_runtime()
 
 
+def test_canvas_wrapper_rejects_runtime_missing_asset_functions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MissingAssetFunctions(FakeCanvasModule):
+        parse_obj_model_handle = None
+
+    monkeypatch.setattr(canvas_bridge, "_canvas", MissingAssetFunctions())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+
+    with pytest.raises(BackendCapabilityError, match="parse_obj_model_handle"):
+        require_canvas_runtime()
+
+
 @pytest.mark.parametrize(
     ("module", "message"),
     [

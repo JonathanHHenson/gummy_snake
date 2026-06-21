@@ -1,4 +1,3 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Runtime event translation for the Rust canvas backend."""
 
 from __future__ import annotations
@@ -9,6 +8,7 @@ from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.backend._canvas import events as canvas_events
+from gummysnake.backend._canvas.backend._protocols import CanvasBackendHost
 from gummysnake.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
@@ -19,26 +19,30 @@ if TYPE_CHECKING:
 _TEXTURE_LIMIT_RE = re.compile(r"GPU texture limit of (\d+)")
 
 
+def _backend(self: object) -> CanvasBackendHost:
+    return cast(CanvasBackendHost, self)
+
+
 class CanvasBackendEventsMixin:
     def _dispatch_pending_events(self, sketch: Sketch) -> None:
-        canvas = self.renderer.runtime_canvas()
+        canvas = _backend(self).renderer.runtime_canvas()
         poll_events = getattr(canvas, "poll_events", None)
         if not callable(poll_events):
             return
-        poll_start = self._perf_counter()
+        poll_start = _backend(self)._perf_counter()
         events = poll_events()
-        poll_duration_ms = (self._perf_counter() - poll_start) * 1000.0
-        if self._frame_pacing_enabled:
-            self._frame_pacing["event_polls"] = self._pacing_int(self._frame_pacing["event_polls"])
-            self._frame_pacing["event_polls"] += 1
-            self._record_pacing_duration("event_poll", poll_duration_ms)
+        poll_duration_ms = (_backend(self)._perf_counter() - poll_start) * 1000.0
+        if _backend(self)._frame_pacing_enabled:
+            frame_pacing = _backend(self)._frame_pacing
+            frame_pacing["event_polls"] = self._pacing_int(frame_pacing["event_polls"]) + 1
+            _backend(self)._record_pacing_duration("event_poll", poll_duration_ms)
         if not isinstance(events, Iterable):
             raise BackendCapabilityError("Canvas poll_events() must return an iterable.")
         for payload in cast(Iterable[object], events):
             self._dispatch_canvas_event(sketch, payload)
 
     def _dispatch_canvas_event(self, sketch: Sketch, payload: object) -> None:
-        context = self._sketch_context(sketch)
+        context = _backend(self)._sketch_context(sketch)
         event_payload = canvas_events.event_mapping(payload)
         event_type = str(event_payload.get("type", ""))
         if event_type in canvas_events.MOUSE_EVENT_TYPES:
@@ -56,7 +60,7 @@ class CanvasBackendEventsMixin:
             return
         if event_type in {"close", "closed"}:
             sketch.stop()
-            self.stop()
+            _backend(self).stop()
             return
         raise BackendCapabilityError(f"Unsupported canvas runtime event type {event_type!r}.")
 
@@ -125,15 +129,15 @@ class CanvasBackendEventsMixin:
         pixel_density = canvas_events.float_payload(
             payload,
             "pixel_density",
-            default=self.renderer.pixel_density,
+            default=_backend(self).renderer.pixel_density,
         )
         try:
-            self.renderer.resize(width, height, pixel_density)
+            _backend(self).renderer.resize(width, height, pixel_density)
         except ArgumentValidationError as exc:
             capped_density = self._resize_event_fallback_density(width, height, pixel_density, exc)
             if capped_density is None:
                 raise
-            self.renderer.resize(width, height, capped_density)
+            _backend(self).renderer.resize(width, height, capped_density)
 
     def _resize_event_fallback_density(
         self,
@@ -155,11 +159,11 @@ class CanvasBackendEventsMixin:
         return capped_density
 
     def _logical_pointer_position(self, x: float, y: float) -> tuple[float, float]:
-        density = self.renderer.pixel_density
+        density = _backend(self).renderer.pixel_density
         return float(x) / density, float(y) / density
 
     def _logical_pointer_delta(self, dx: float, dy: float) -> tuple[float, float]:
-        density = self.renderer.pixel_density
+        density = _backend(self).renderer.pixel_density
         return float(dx) / density, float(dy) / density
 
     def _open_interactive_window(self, canvas: object) -> None:
@@ -175,7 +179,7 @@ class CanvasBackendEventsMixin:
         open_window = getattr(canvas, "open_window", None)
         if callable(open_window):
             open_window()
-            self.renderer._sync_dimensions()
+            _backend(self).renderer._sync_dimensions()
             return
         raise BackendCapabilityError(
             "The installed gummysnake.rust._canvas runtime does not expose native "

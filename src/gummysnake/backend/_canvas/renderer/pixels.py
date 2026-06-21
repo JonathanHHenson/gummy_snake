@@ -1,38 +1,47 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Pixel and export operations for the Rust canvas renderer."""
 
 from __future__ import annotations
 
 from collections.abc import Buffer, Sequence
 from pathlib import Path
+from typing import cast
 
 from gummysnake import constants as c
 from gummysnake.assets.image import Image
+from gummysnake.backend._canvas.renderer._protocols import CanvasRendererHost
 from gummysnake.exceptions import ArgumentValidationError
+
+
+def _renderer(self: object) -> CanvasRendererHost:
+    return cast(CanvasRendererHost, self)
 
 
 class CanvasRendererPixelsMixin:
     def load_pixels(self) -> list[int]:
-        self._flush_line_batch()
-        self._count("pixel_readbacks")
-        pixels = self._call("pixel readback", self._require_canvas().load_pixels)
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._count("pixel_readbacks")
+        pixels = _renderer(self)._call(
+            "pixel readback", _renderer(self)._require_canvas().load_pixels
+        )
         return list(pixels)
 
     def load_pixel_bytes(self) -> bytes:
-        self._flush_line_batch()
-        self._count("pixel_readbacks")
-        callback = getattr(self._require_canvas(), "load_pixel_bytes", None)
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._count("pixel_readbacks")
+        callback = getattr(_renderer(self)._require_canvas(), "load_pixel_bytes", None)
         if callable(callback):
-            return bytes(self._call("pixel byte readback", callback))
-        return bytes(self._call("pixel readback", self._require_canvas().load_pixels))
+            return bytes(_renderer(self)._call("pixel byte readback", callback))
+        return bytes(
+            _renderer(self)._call("pixel readback", _renderer(self)._require_canvas().load_pixels)
+        )
 
     def load_pixel_region(self, x: int, y: int, width: int, height: int) -> bytes:
-        self._flush_line_batch()
-        self._count("pixel_readbacks")
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._count("pixel_readbacks")
         return bytes(
-            self._call(
+            _renderer(self)._call(
                 "pixel region readback",
-                self._require_canvas().load_pixel_region,
+                _renderer(self)._require_canvas().load_pixel_region,
                 int(x),
                 int(y),
                 int(width),
@@ -41,10 +50,12 @@ class CanvasRendererPixelsMixin:
         )
 
     def update_pixels(self, pixels: Sequence[int] | Buffer) -> None:
-        self._flush_line_batch()
+        _renderer(self)._flush_line_batch()
         payload = self._pixel_payload(pixels)
-        self._count("pixel_uploads")
-        self._call("pixel upload", self._require_canvas().update_pixels, payload)
+        _renderer(self)._count("pixel_uploads")
+        _renderer(self)._call(
+            "pixel upload", _renderer(self)._require_canvas().update_pixels, payload
+        )
 
     def update_pixel_region(
         self,
@@ -56,12 +67,12 @@ class CanvasRendererPixelsMixin:
         *,
         alpha_composite: bool = True,
     ) -> None:
-        self._flush_line_batch()
+        _renderer(self)._flush_line_batch()
         payload = self._pixel_payload(pixels)
-        self._count("pixel_uploads")
-        self._call(
+        _renderer(self)._count("pixel_uploads")
+        _renderer(self)._call(
             "pixel region upload",
-            self._require_canvas().update_pixel_region,
+            _renderer(self)._require_canvas().update_pixel_region,
             payload,
             int(width),
             int(height),
@@ -71,10 +82,12 @@ class CanvasRendererPixelsMixin:
         )
 
     def filter_pixels(self, mode: c.ImageFilter, value: float | None = None) -> None:
-        self._flush_line_batch()
-        self._count("cpu_fallbacks")
-        self._count("pixel_uploads")
-        self._call("pixel filter", self._require_canvas().filter_pixels, mode.value, value)
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._count("cpu_fallbacks")
+        _renderer(self)._count("pixel_uploads")
+        _renderer(self)._call(
+            "pixel filter", _renderer(self)._require_canvas().filter_pixels, mode.value, value
+        )
 
     def blend_region(
         self,
@@ -83,9 +96,9 @@ class CanvasRendererPixelsMixin:
         destination: tuple[int, int, int, int],
         mode: c.BlendMode,
     ) -> None:
-        self._flush_line_batch()
-        self._count("cpu_fallbacks")
-        self._count("pixel_uploads")
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._count("cpu_fallbacks")
+        _renderer(self)._count("pixel_uploads")
         if isinstance(source_image, Image):
             self._blend_image(
                 source_image.to_rgba_bytes(),
@@ -107,11 +120,20 @@ class CanvasRendererPixelsMixin:
         tobytes = getattr(source_image, "tobytes", None)
         if not isinstance(width, int) or not isinstance(height, int) or not callable(tobytes):
             raise ArgumentValidationError("blend_region() source image must expose RGBA pixels.")
-        self._blend_image(tobytes(), width, height, source, destination, mode)
+        raw_payload = tobytes()
+        if isinstance(raw_payload, bytes):
+            payload = raw_payload
+        elif isinstance(raw_payload, bytearray):
+            payload = bytes(raw_payload)
+        elif isinstance(raw_payload, memoryview):
+            payload = raw_payload.tobytes()
+        else:
+            raise ArgumentValidationError("blend_region() source image must expose RGBA bytes.")
+        self._blend_image(payload, width, height, source, destination, mode)
 
     def save(self, path: str | Path) -> None:
-        self._flush_line_batch()
-        self._call("canvas export", self._require_canvas().save, str(path))
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._call("canvas export", _renderer(self)._require_canvas().save, str(path))
 
     @staticmethod
     def _pixel_payload(pixels: Sequence[int] | Buffer) -> bytes:
@@ -131,9 +153,9 @@ class CanvasRendererPixelsMixin:
         destination: tuple[int, int, int, int],
         mode: c.BlendMode,
     ) -> None:
-        self._call(
+        _renderer(self)._call(
             "region blending",
-            self._require_canvas().blend_region,
+            _renderer(self)._require_canvas().blend_region,
             pixels,
             width,
             height,

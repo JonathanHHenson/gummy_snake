@@ -1,10 +1,10 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """3D model rendering method for SketchContext."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
+from gummysnake._context.three_d._protocols import ThreeDContextHost
 from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.renderer3d import (
     Camera3D,
@@ -22,6 +22,10 @@ from gummysnake.drawing.software3d import (
     shade_model_faces,
 )
 from gummysnake.exceptions import ArgumentValidationError
+
+
+def _three_d(self: object) -> ThreeDContextHost:
+    return cast(ThreeDContextHost, self)
 
 
 class ThreeDModelMixin:
@@ -43,7 +47,7 @@ class ThreeDModelMixin:
         raise NotImplementedError
 
     def model(self, shape: object) -> None:
-        self._require_webgl_mode("model")
+        _three_d(self)._require_webgl_mode("model")
         if isinstance(shape, Mesh3D):
             model = Model3D(meshes=(shape,))
         elif isinstance(shape, Model3D):
@@ -53,7 +57,7 @@ class ThreeDModelMixin:
 
         native_renderer = self.renderer if getattr(self.renderer, "three_d", False) else None
         if native_renderer is not None:
-            material = self._effective_3d_material()
+            material = _three_d(self)._effective_3d_material()
             native_renderer.set_camera(self._camera3d)
             native_renderer.set_projection(self._projection3d)
             native_renderer.set_lights(tuple(self._lights3d))
@@ -70,7 +74,7 @@ class ThreeDModelMixin:
             self._projection3d,
             viewport_width=float(self.width),
             viewport_height=float(self.height),
-            base_material=self._effective_3d_material(),
+            base_material=_three_d(self)._effective_3d_material(),
             lights=tuple(self._lights3d),
             normal_material=self._normal_material3d,
             cache_identity=(

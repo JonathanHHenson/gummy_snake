@@ -1,4 +1,3 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Text and accessibility methods for SketchContext."""
 
 from __future__ import annotations
@@ -6,6 +5,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 from gummysnake import constants as c
+from gummysnake._context._protocols import SketchContextHost
 from gummysnake.assets.text import Font
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -28,7 +28,7 @@ class TextContextMixin:
             if size <= 0:
                 raise ArgumentValidationError("text_size() must be positive.")
             self.state.style.text_size = float(size)
-            self._mark_style_changed()
+            cast(SketchContextHost, self)._mark_style_changed()
         return self.state.style.text_size
 
     def text_font(self, font: Font | str | None = None) -> Font:
@@ -36,7 +36,7 @@ class TextContextMixin:
             if isinstance(font, str):
                 font = Font(name=font)
             self.state.style.text_font = font
-            self._mark_style_changed()
+            cast(SketchContextHost, self)._mark_style_changed()
         return self.state.style.text_font
 
     def text_style(self, style: c.TextStyle | None = None) -> c.TextStyle:
@@ -44,7 +44,7 @@ class TextContextMixin:
             if style not in {c.NORMAL, c.ITALIC, c.BOLD, c.BOLDITALIC}:
                 raise ArgumentValidationError(f"Unsupported text style {style!r}.")
             self.state.style.text_style = style
-            self._mark_style_changed()
+            cast(SketchContextHost, self)._mark_style_changed()
         return self.state.style.text_style
 
     def text_align(self, horizontal: c.TextAlign, vertical: c.TextAlign | None = None) -> None:
@@ -53,17 +53,17 @@ class TextContextMixin:
         if vertical is not None and vertical not in {c.TOP, c.CENTER, c.BOTTOM, c.BASELINE}:
             raise ArgumentValidationError(f"Unsupported vertical text alignment {vertical!r}.")
         self.state.style.text_align_x = horizontal
-        self._mark_style_changed()
+        cast(SketchContextHost, self)._mark_style_changed()
         if vertical is not None:
             self.state.style.text_align_y = vertical
-            self._mark_style_changed()
+            cast(SketchContextHost, self)._mark_style_changed()
 
     def text_leading(self, value: float | None = None) -> float:
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("text_leading() must be positive.")
             self.state.style.text_leading = float(value)
-            self._mark_style_changed()
+            cast(SketchContextHost, self)._mark_style_changed()
         return self.state.style.text_leading
 
     def text_width(self, value: object) -> float:
@@ -81,7 +81,7 @@ class TextContextMixin:
             self.text_font(font)
         value = self.text_ascent()
         self.state.style.text_font = previous
-        self._mark_style_changed()
+        cast(SketchContextHost, self)._mark_style_changed()
         return value
 
     def font_descent(self, font: Font | str | None = None) -> float:
@@ -90,7 +90,7 @@ class TextContextMixin:
             self.text_font(font)
         value = self.text_descent()
         self.state.style.text_font = previous
-        self._mark_style_changed()
+        cast(SketchContextHost, self)._mark_style_changed()
         return value
 
     def font_width(self, value: object, font: Font | str | None = None) -> float:
@@ -99,7 +99,7 @@ class TextContextMixin:
             self.text_font(font)
         width = self.text_width(value)
         self.state.style.text_font = previous
-        self._mark_style_changed()
+        cast(SketchContextHost, self)._mark_style_changed()
         return width
 
     def text_bounds(self, value: object, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
@@ -116,7 +116,7 @@ class TextContextMixin:
             self.text_font(font)
         bounds = self.text_bounds(value, x, y)
         self.state.style.text_font = previous
-        self._mark_style_changed()
+        cast(SketchContextHost, self)._mark_style_changed()
         return bounds
 
     def text_direction(self, value: str | None = None) -> str:
@@ -140,7 +140,7 @@ class TextContextMixin:
             self._text_weight = int(value)
             if self._text_weight >= 600 and self.state.style.text_style == c.NORMAL:
                 self.state.style.text_style = c.BOLD
-                self._mark_style_changed()
+                cast(SketchContextHost, self)._mark_style_changed()
         return self._text_weight
 
     def text_property(self, name: str, value: object | None = None) -> object:

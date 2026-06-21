@@ -173,6 +173,7 @@ class PluginRegistry:
 
     def _bind_api_to_sketch(self, sketch: Sketch, name: str) -> None:
         def method(bound_sketch: Sketch, *args: Any, **kwargs: Any) -> Any:
+            _ = bound_sketch
             return self.call_api(name, *args, **kwargs)
 
         setattr(sketch, name, MethodType(method, sketch))

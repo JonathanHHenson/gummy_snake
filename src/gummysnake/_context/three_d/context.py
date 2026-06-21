@@ -46,7 +46,7 @@ class ThreeDContextMixin(
     _frame_scroll_x: float
     _frame_scroll_y: float
 
-    def color(self, *args: object) -> Color:
+    def color(self, *_args: object) -> Color:
         raise NotImplementedError
 
     def _require_webgl_mode(self, api_name: str) -> None:

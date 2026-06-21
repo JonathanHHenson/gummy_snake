@@ -56,6 +56,9 @@ class FakeCanvasModule:
     def gpu_available(self) -> bool:
         return True
 
+    def parse_obj_model_handle(self, text: str, source: str, normalize: bool) -> FakeRustModel3D:
+        return FakeRustModel3D()
+
 
 class FakeCanvasModuleWithoutNativeWindow(FakeCanvasModule):
     class Canvas(FakeCanvas):

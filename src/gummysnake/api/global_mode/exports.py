@@ -1,9 +1,6 @@
 """Public names exported by gummysnake.api.global_mode."""
-# pyright: reportUnsupportedDunderAll=false
 
-# ruff: noqa: F822
-
-__all__ = [
+GLOBAL_MODE_EXPORTS = [
     "run",
     "sketch",
     "preload",

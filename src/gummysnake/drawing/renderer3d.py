@@ -598,4 +598,6 @@ __all__ = [
     "ShaderUniformValue",
     "Texture3D",
     "Vec3",
+    "_mesh_rust_handle",
+    "_model_rust_handle",
 ]

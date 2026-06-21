@@ -2,29 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 
-import numpy as np
-
 from gummysnake.assets._paths import resolve_asset_path
-from gummysnake.drawing.renderer3d import Mesh3D, Model3D, Vec3
+from gummysnake.drawing.renderer3d import Model3D
 from gummysnake.exceptions import ArgumentValidationError
-
-type VertexRef = tuple[int, int | None, int | None]
-
-
-@dataclass(slots=True)
-class _ObjParseState:
-    positions: list[Vec3]
-    texcoords: list[tuple[float, float]]
-    normals: list[Vec3]
-    vertices: list[Vec3]
-    vertex_texcoords: list[tuple[float, float] | None]
-    vertex_normals: list[Vec3 | None]
-    faces: list[tuple[int, ...]]
-    vertex_map: dict[VertexRef, int]
 
 
 def load_model(
@@ -76,194 +59,15 @@ def _read_text_asset(path: str | Path, *, package: str | None) -> tuple[str, Pat
         ) from exc
 
 
-def _parse_obj(text: str, *, source: Path) -> Model3D:
-    state = _ObjParseState(
-        positions=[],
-        texcoords=[],
-        normals=[],
-        vertices=[],
-        vertex_texcoords=[],
-        vertex_normals=[],
-        faces=[],
-        vertex_map={},
-    )
-
-    for line_number, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.split("#", 1)[0].strip()
-        if not line:
-            continue
-        keyword, *values = line.split()
-        if keyword == "v":
-            if len(values) < 3:
-                raise ArgumentValidationError(
-                    f"OBJ vertex on line {line_number} in {source!s} requires x y z."
-                )
-            state.positions.append(Vec3(float(values[0]), float(values[1]), float(values[2])))
-            continue
-        if keyword == "vt":
-            if len(values) < 2:
-                raise ArgumentValidationError(
-                    f"OBJ texcoord on line {line_number} in {source!s} requires u v."
-                )
-            state.texcoords.append((float(values[0]), float(values[1])))
-            continue
-        if keyword == "vn":
-            if len(values) < 3:
-                raise ArgumentValidationError(
-                    f"OBJ normal on line {line_number} in {source!s} requires x y z."
-                )
-            state.normals.append(Vec3(float(values[0]), float(values[1]), float(values[2])))
-            continue
-        if keyword == "f":
-            if len(values) < 3:
-                raise ArgumentValidationError(
-                    f"OBJ face on line {line_number} in {source!s} requires at least 3 vertices."
-                )
-            face = tuple(
-                _resolve_face_vertex(token, state, line_number, source) for token in values
-            )
-            state.faces.append(face)
-            continue
-        if keyword in {"o", "g", "s", "mtllib", "usemtl"}:
-            continue
-
-    if not state.vertices or not state.faces:
-        raise ArgumentValidationError(f"OBJ model {source!s} contained no drawable faces.")
-
-    texcoords: tuple[tuple[float, float], ...] = ()
-    if state.vertex_texcoords and all(value is not None for value in state.vertex_texcoords):
-        texcoords = tuple(value for value in state.vertex_texcoords if value is not None)
-
-    normals: tuple[Vec3, ...] = ()
-    if state.vertex_normals and all(value is not None for value in state.vertex_normals):
-        normals = tuple(value for value in state.vertex_normals if value is not None)
-
-    mesh = Mesh3D(
-        vertices=tuple(state.vertices),
-        faces=tuple(state.faces),
-        normals=normals,
-        texcoords=texcoords,
-    )
-    return Model3D(meshes=(mesh,), source=source)
-
-
 def _parse_obj_rust(text: str, *, source: Path, normalize: bool) -> Model3D:
     from gummysnake.rust.canvas import require_canvas_runtime
 
     runtime = require_canvas_runtime()
-    parse_handle = getattr(runtime, "parse_obj_model_handle", None)
-    if callable(parse_handle):
-        try:
-            handle = parse_handle(text, str(source), normalize)
-        except ValueError as exc:
-            raise ArgumentValidationError(str(exc)) from exc
-        return Model3D(meshes=None, source=source, rust_handle=handle)
-
     try:
-        payload = runtime.parse_obj_model(text, str(source), normalize)
+        handle = runtime.parse_obj_model_handle(text, str(source), normalize)
     except ValueError as exc:
         raise ArgumentValidationError(str(exc)) from exc
-
-    vertices = tuple(Vec3(float(x), float(y), float(z)) for x, y, z in payload["vertices"])
-    faces = tuple(tuple(int(index) for index in face) for face in payload["faces"])
-    texcoords = tuple((float(u), float(v)) for u, v in payload.get("texcoords", ()))
-    normals = tuple(Vec3(float(x), float(y), float(z)) for x, y, z in payload.get("normals", ()))
-    mesh = Mesh3D(vertices=vertices, faces=faces, normals=normals, texcoords=texcoords)
-    return Model3D(meshes=(mesh,), source=source)
-
-
-def _resolve_face_vertex(token: str, state: _ObjParseState, line_number: int, source: Path) -> int:
-    ref = _parse_vertex_ref(token, state, line_number, source)
-    existing = state.vertex_map.get(ref)
-    if existing is not None:
-        return existing
-
-    position_index, texcoord_index, normal_index = ref
-    state.vertices.append(state.positions[position_index])
-    state.vertex_texcoords.append(
-        None if texcoord_index is None else state.texcoords[texcoord_index]
-    )
-    state.vertex_normals.append(None if normal_index is None else state.normals[normal_index])
-    index = len(state.vertices) - 1
-    state.vertex_map[ref] = index
-    return index
-
-
-def _parse_vertex_ref(
-    token: str,
-    state: _ObjParseState,
-    line_number: int,
-    source: Path,
-) -> VertexRef:
-    parts = token.split("/")
-    if not parts or parts[0] == "":
-        raise ArgumentValidationError(
-            f"OBJ face vertex {token!r} on line {line_number} in {source!s} is invalid."
-        )
-    position_index = _resolve_index(parts[0], len(state.positions), "position", line_number, source)
-    texcoord_index = None
-    normal_index = None
-    if len(parts) >= 2 and parts[1] != "":
-        texcoord_index = _resolve_index(
-            parts[1], len(state.texcoords), "texcoord", line_number, source
-        )
-    if len(parts) >= 3 and parts[2] != "":
-        normal_index = _resolve_index(parts[2], len(state.normals), "normal", line_number, source)
-    return position_index, texcoord_index, normal_index
-
-
-def _resolve_index(
-    raw_index: str,
-    length: int,
-    kind: str,
-    line_number: int,
-    source: Path,
-) -> int:
-    if length == 0:
-        raise ArgumentValidationError(
-            f"OBJ references a {kind} before any {kind}s were defined "
-            f"on line {line_number} in {source!s}."
-        )
-    try:
-        index = int(raw_index)
-    except ValueError as exc:
-        raise ArgumentValidationError(
-            f"OBJ {kind} index {raw_index!r} on line {line_number} in {source!s} is invalid."
-        ) from exc
-    resolved = index - 1 if index > 0 else length + index
-    if not 0 <= resolved < length:
-        raise ArgumentValidationError(
-            f"OBJ {kind} index {raw_index!r} on line {line_number} in {source!s} is out of range."
-        )
-    return resolved
-
-
-def _normalize_model(model: Model3D) -> Model3D:
-    vertex_arrays = [mesh.vertex_array() for mesh in model.meshes if len(mesh.vertex_array())]
-    if not vertex_arrays:
-        return model
-    all_vertices = np.concatenate(vertex_arrays, axis=0)
-    minimums = all_vertices.min(axis=0)
-    maximums = all_vertices.max(axis=0)
-    span = float(np.max(maximums - minimums))
-    if span <= 0:
-        return model
-    center = (minimums + maximums) / 2.0
-    scale = 2.0 / span
-    meshes = []
-    for mesh in model.meshes:
-        normalized_vertices = (mesh.vertex_array() - center) * scale
-        meshes.append(
-            Mesh3D.from_arrays(
-                normalized_vertices,
-                face_indices=mesh.face_index_array(),
-                face_offsets=mesh.face_offset_array(),
-                normals=mesh.normal_array(),
-                texcoords=mesh.texcoord_array(),
-                material=mesh.material,
-            )
-        )
-    return Model3D(meshes=tuple(meshes), source=model.source)
+    return Model3D(meshes=None, source=source, rust_handle=handle)
 
 
 __all__ = ["load_model", "load_model_async"]

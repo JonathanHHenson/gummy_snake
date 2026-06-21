@@ -1,10 +1,11 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """3D primitive factory methods for SketchContext."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
+from gummysnake._context.three_d._protocols import ThreeDContextHost
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D
 from gummysnake.drawing.software3d import (
     box_model,
@@ -20,12 +21,16 @@ from gummysnake.drawing.software3d import save_stl as save_stl_model
 from gummysnake.exceptions import ArgumentValidationError
 
 
+def _three_d(self: object) -> ThreeDContextHost:
+    return cast(ThreeDContextHost, self)
+
+
 class ThreeDPrimitivesMixin:
     def plane(self, width: float, height: float | None = None) -> None:
-        self.model(plane_model(float(width), None if height is None else float(height)))
+        _three_d(self).model(plane_model(float(width), None if height is None else float(height)))
 
     def box(self, width: float, height: float | None = None, depth: float | None = None) -> None:
-        self.model(
+        _three_d(self).model(
             box_model(
                 float(width),
                 None if height is None else float(height),
@@ -34,7 +39,7 @@ class ThreeDPrimitivesMixin:
         )
 
     def sphere(self, radius: float, detail_x: int = 24, detail_y: int = 16) -> None:
-        self.model(sphere_model(float(radius), int(detail_x), int(detail_y)))
+        _three_d(self).model(sphere_model(float(radius), int(detail_x), int(detail_y)))
 
     def ellipsoid(
         self,
@@ -44,7 +49,7 @@ class ThreeDPrimitivesMixin:
         detail_x: int = 24,
         detail_y: int = 16,
     ) -> None:
-        self.model(
+        _three_d(self).model(
             ellipsoid_model(
                 float(radius_x),
                 None if radius_y is None else float(radius_y),
@@ -64,7 +69,7 @@ class ThreeDPrimitivesMixin:
         bottom_cap: bool = True,
         top_cap: bool = True,
     ) -> None:
-        self.model(
+        _three_d(self).model(
             cylinder_model(
                 float(radius),
                 float(height),
@@ -84,7 +89,9 @@ class ThreeDPrimitivesMixin:
         *,
         cap: bool = True,
     ) -> None:
-        self.model(cone_model(float(radius), float(height), int(detail_x), int(detail_y), cap=cap))
+        _three_d(self).model(
+            cone_model(float(radius), float(height), int(detail_x), int(detail_y), cap=cap)
+        )
 
     def torus(
         self,
@@ -93,7 +100,7 @@ class ThreeDPrimitivesMixin:
         detail_x: int = 24,
         detail_y: int = 12,
     ) -> None:
-        self.model(
+        _three_d(self).model(
             torus_model(
                 float(radius),
                 None if tube_radius is None else float(tube_radius),

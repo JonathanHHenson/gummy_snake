@@ -1,4 +1,3 @@
-# ruff: noqa: I001,F401
 """Gummy Snake public API."""
 
 from gummysnake.api.advanced import (
