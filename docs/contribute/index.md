@@ -35,8 +35,9 @@ Start with [Architecture](architecture.md) if you are new to the project. It
 explains the main Python objects and how a public API call reaches the renderer.
 
 Read [Backend and renderer boundaries](backend_renderer.md) before changing
-anything in `src/gummysnake/backends/`, `src/gummysnake/rust/`, or `crates/gummy_canvas/`. Most
-runtime regressions come from putting a behavior in the wrong layer.
+anything in `src/gummysnake/backends/`, `src/gummysnake/backends/_canvas/`,
+`src/gummysnake/rust/`, or `crates/gummy_canvas/`. Most runtime regressions come
+from putting a behavior in the wrong layer.
 
 Read [Runtime model](runtime.md) before touching lifecycle, frame scheduling,
 interactive mode, headless mode, input dispatch, HiDPI behavior, or current
@@ -55,6 +56,16 @@ APIs, changing pixel/image behavior, or documenting performance-sensitive
 drawing patterns.
 
 Read [Testing and CI](testing.md) before adding tests or changing workflows.
+
+## Refactored Source Layout
+
+- `src/gummysnake/api/`: public entry points, split global-mode modules, current context, and facades.
+- `src/gummysnake/_context/`: `SketchContext` behavior mixins grouped by API area.
+- `src/gummysnake/sketch/`: lifecycle runtime, decorator builder, and object-mode facade.
+- `src/gummysnake/constants/`: enum-backed public constants and aliases.
+- `src/gummysnake/backends/canvas.py` and `canvas_renderer.py`: public facade classes.
+- `src/gummysnake/backends/_canvas/`: internal canvas backend and renderer mixins.
+- `src/gummysnake/rust/`: Python wrappers around PyO3 extensions and Rust-backed kernels.
 
 ## Local Commands
 

@@ -129,11 +129,18 @@ The canvas runtime is a required PyO3 extension:
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
 ```
 
+The refactored Python package is split by responsibility: public API modules in
+`src/gummysnake/api/`, `SketchContext` mixins in `src/gummysnake/_context/`,
+lifecycle code in `src/gummysnake/sketch/`, enum-backed constants in
+`src/gummysnake/constants/`, and thin canvas backend/renderer facades over the
+implementation modules in `src/gummysnake/backends/_canvas/`.
+
 The contributor documentation explains the architecture, lifecycle, testing
 workflow, and release shape in more detail:
 
 - [Contributor guide](docs/contribute/index.md)
 - [Architecture](docs/contribute/architecture.md)
+- [Backend and renderer boundaries](docs/contribute/backend_renderer.md)
 - [Runtime model](docs/contribute/runtime.md)
 - [Runtime diagnostics](docs/contribute/runtime_diagnostics.md)
 - [Build capabilities](docs/contribute/build_capabilities.md)

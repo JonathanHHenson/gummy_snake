@@ -110,14 +110,18 @@ src/gummysnake/
 Important areas:
 
 ```text
-src/gummysnake/api/          global-mode API, current context access, public API helpers
-src/gummysnake/assets/       image, text/font, data, model, shader, sound/media helpers
-src/gummysnake/backends/     canvas backend adapter, renderer adapter, backend construction
-src/gummysnake/core/         color, geometry, math, random/noise, state, transforms, vectors
-src/gummysnake/drawing/      renderer protocols plus 3D/software prototype helpers
+src/gummysnake/api/          public API entry points, global-mode modules, current context/facade helpers
+src/gummysnake/_context/     SketchContext method mixins grouped by canvas, input, pixels, shapes, style, text, transforms, and 3D
+src/gummysnake/assets/       image package, text/font, data, model, shader, sound, and optional media helpers
+src/gummysnake/backends/     backend contracts, registry, canvas facade modules, and split canvas backend/renderer internals
+src/gummysnake/constants/    enum-backed public constants and compatibility aliases
+src/gummysnake/core/         color, geometry, math, random/noise, state, transforms, data helpers, vectors
+src/gummysnake/drawing/      renderer protocols plus software 3D prototype helpers
 src/gummysnake/events/       normalized mouse, keyboard, and touch input state
+src/gummysnake/pixels/       public pixel buffer helpers and exports
 src/gummysnake/plugins/      plugin interfaces and registry
-src/gummysnake/rust/         Python wrappers around PyO3 extensions
+src/gummysnake/rust/         Python wrappers around PyO3 extensions and Rust-backed kernels
+src/gummysnake/sketch/       sketch lifecycle runtime, decorator builder, and object-mode facade
 src/gummysnake/testing/      package test resources and helpers
 ```
 
@@ -170,7 +174,7 @@ Keep the older function-passing and direct state-function APIs working for older
 
 Async-compatible lifecycle callbacks are supported. `preload`, `setup`, `draw`, event callbacks, and plugin hooks may be `async def`. Async asset helpers such as `load_image_async`, `load_json_async`, `load_model_async`, and `load_sound_async` are awaitable wrappers over the current canvas-owned runtime. Do not move Rust canvas-owned objects or active `SketchContext` state to arbitrary worker threads when extending async behavior; the canvas runtime is not generally thread-sendable.
 
-Public closed-set values should be modeled as enums, not untyped constants. Keep Gummy Snake-style uppercase public names such as `CENTER`, `WEBGL`, and `BLEND` as enum members exported from `src/gummysnake/constants.py`, and expose the enum classes for type annotations. Prefer `StrEnum` for string-valued drawing/API modes and `IntEnum` only where numeric semantics are part of the public API, such as keyboard key codes.
+Public closed-set values should be modeled as enums, not untyped constants. Keep Gummy Snake-style uppercase public names such as `CENTER`, `WEBGL`, and `BLEND` as enum members exported from the `src/gummysnake/constants/` package, and expose the enum classes for type annotations. Prefer `StrEnum` for string-valued drawing/API modes and `IntEnum` only where numeric semantics are part of the public API, such as keyboard key codes.
 
 When adding or changing enum-backed public values:
 
@@ -200,9 +204,10 @@ Renderers own drawing concerns: canvas dimensions, primitives, transforms, image
 
 For the current implementation this means:
 
-- `CanvasBackend` stays a thin adapter around lifecycle/runtime/event concerns.
+- `src/gummysnake/backends/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backends/_canvas/backend/`.
+- `src/gummysnake/backends/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins in `src/gummysnake/backends/_canvas/renderer/`.
 - `CanvasRenderer` translates Python state into bridge payloads and mirrors canvas dimensions.
-- `gummysnake.rust.canvas` handles optional import, health checks, and clear capability failures.
+- `gummysnake.rust.canvas` handles optional import, health checks, ABI validation, and clear capability failures.
 - `crates/gummy_canvas` owns the native runtime and rendering implementation.
 
 ### Preserve HiDPI Semantics
@@ -364,6 +369,8 @@ docs/contribute/backend_renderer.md
 docs/contribute/runtime.md
 docs/contribute/runtime_diagnostics.md
 docs/contribute/build_capabilities.md
+docs/contribute/api_performance_policy.md
+docs/contribute/native_3d_plan.md
 docs/contribute/testing.md
 docs/contribute/documentation.md
 ```
