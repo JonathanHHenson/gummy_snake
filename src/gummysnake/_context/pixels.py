@@ -32,10 +32,7 @@ class PixelContextMixin:
 
     def load_pixel_bytes(self) -> bytes:
         self._record_performance_diagnostic("pixel_readback")
-        self._record_performance_diagnostic("pixel_list_conversion")
-        pixels = self.renderer.load_pixel_bytes()
-        self.pixels = list(pixels)
-        return pixels
+        return self.renderer.load_pixel_bytes()
 
     def update_pixels(self, pixels: Sequence[int] | Buffer | None = None) -> None:
         self._record_performance_diagnostic("pixel_upload")

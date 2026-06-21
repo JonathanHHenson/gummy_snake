@@ -48,8 +48,11 @@ the top-level keys in tests and docs.
 | Rotated/scaled images | GPU texture path when cached; CPU fallback when unsupported | First texture upload, then draw cost | Reuse images; avoid changing pixels while transforming. |
 | Text drawing and metrics | Native text/cache path | First glyph/metric use is expensive | Reuse text strings/styles where practical. |
 | `load_pixels()` / `pixels()` | Readback plus list conversion | Synchronizes canvas data and allocates Python list | Use `load_pixel_bytes()` for bytes workflows. |
+| `load_pixel_bytes()` | Byte readback | Synchronizes canvas data but does not populate `context.pixels` | Keep data as `bytes`/`memoryview` and pass it back to bulk APIs when possible. |
 | `update_pixels()` | Full pixel upload | Sends entire physical RGBA buffer | Use bytes-like inputs and avoid per-frame full-canvas uploads. |
 | `get()`, `set()`, canvas `filter()` | CPU compositing fallback | Canvas-to-image copy plus upload | Prefer renderer-native drawing or image-local work. |
+| Software `WEBGL` model drawing | Rust projection/shading/rasterization with Python state payloads | Transforms are applied while building bridge payloads; unsupported paths should fail with canvas capability errors | Reuse primitive/model objects so caches avoid repeated topology allocation. |
+| `save_obj()` / `save_stl()` | Streaming text writer | Writes incrementally instead of assembling unbounded `list[str]` payloads | Use direct export helpers for large generated meshes. |
 
 ## Frame Pacing
 

@@ -41,7 +41,9 @@ def test_load_pixel_bytes_and_update_pixels_accept_memoryview():
 
     context.update_pixels(memoryview(payload))
 
+    context.pixels = []
     assert context.load_pixel_bytes() == payload
+    assert context.pixels == []
     assert gs.run(setup=setup, headless=True, max_frames=0).load_pixel_bytes() == bytes(8)
 
 

@@ -20,7 +20,6 @@ from gummysnake.drawing.software3d import (
     ShadedFace,
     rasterize_faces_image_region,
     shade_model_faces,
-    transform_model,
 )
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -66,7 +65,7 @@ class ThreeDModelMixin:
 
         model_transform = self.state.transform.matrix
         faces = shade_model_faces(
-            transform_model(model, model_transform),
+            model,
             self._camera3d,
             self._projection3d,
             viewport_width=float(self.width),
@@ -83,6 +82,7 @@ class ThreeDModelMixin:
                 model_transform.e,
                 model_transform.f,
             ),
+            model_transform=model_transform,
         )
         screen_transform = Matrix2D.identity()
         draw_fill = (

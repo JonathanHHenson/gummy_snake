@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.renderer3d import (
     Camera3D,
     Light3D,
@@ -26,17 +27,40 @@ def rust_project_shade_faces(
     lights: tuple[Light3D, ...],
     normal_material: bool,
     cull_backfaces: bool,
+    model_transform: Matrix2D | None = None,
 ) -> list[dict[str, Any]]:
     from gummysnake.rust.canvas import require_canvas_extension
 
-    meshes = [
-        {
-            "vertices": [(vertex.x, vertex.y, vertex.z) for vertex in mesh.vertices],
-            "faces": [list(face) for face in mesh.faces],
-            "texcoords": list(mesh.texcoords),
-        }
-        for mesh in model.meshes
-    ]
+    meshes = []
+    if model_transform is not None and model_transform != Matrix2D.identity():
+        import math
+
+        matrix = model_transform
+        z_scale = (math.hypot(matrix.a, matrix.b) + math.hypot(matrix.c, matrix.d)) / 2.0
+        for mesh in model.meshes:
+            meshes.append(
+                {
+                    "vertices": [
+                        (
+                            matrix.a * vertex.x + matrix.c * vertex.y + matrix.e,
+                            matrix.b * vertex.x + matrix.d * vertex.y - matrix.f,
+                            vertex.z * z_scale,
+                        )
+                        for vertex in mesh.vertices
+                    ],
+                    "faces": [list(face) for face in mesh.faces],
+                    "texcoords": list(mesh.texcoords),
+                }
+            )
+    else:
+        meshes = [
+            {
+                "vertices": [(vertex.x, vertex.y, vertex.z) for vertex in mesh.vertices],
+                "faces": [list(face) for face in mesh.faces],
+                "texcoords": list(mesh.texcoords),
+            }
+            for mesh in model.meshes
+        ]
     camera_payload = {
         "eye": (camera.eye.x, camera.eye.y, camera.eye.z),
         "target": (camera.target.x, camera.target.y, camera.target.z),

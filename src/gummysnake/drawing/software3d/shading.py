@@ -6,6 +6,7 @@ from collections import OrderedDict
 from typing import Any, cast
 
 from gummysnake.assets.image import Image as CanvasImage
+from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.renderer3d import (
     Camera3D,
     Light3D,
@@ -37,6 +38,7 @@ def shade_model_faces(
     normal_material: bool = False,
     cull_backfaces: bool = True,
     cache_identity: object | None = None,
+    model_transform: Matrix2D | None = None,
 ) -> list[ShadedFace]:
     texture = texture_image(base_material)
     cache_key = shade_cache_key(
@@ -65,6 +67,7 @@ def shade_model_faces(
             lights=lights,
             normal_material=normal_material,
             cull_backfaces=cull_backfaces,
+            model_transform=model_transform,
         )
         _shaded_face_cache[cache_key] = payload
         if len(_shaded_face_cache) > _SHADED_FACE_CACHE_SIZE:
