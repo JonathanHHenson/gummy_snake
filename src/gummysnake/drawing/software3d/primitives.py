@@ -6,8 +6,6 @@ import math
 from functools import lru_cache
 from typing import Any, Protocol, cast
 
-import numpy as np
-
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D, Vec3
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -183,14 +181,21 @@ def ellipsoid_model(
     if radius_x <= 0 or ry <= 0 or rz <= 0:
         raise ArgumentValidationError("ellipsoid() radius values must be positive.")
     mesh = sphere_model(1.0, detail_x, detail_y).meshes[0]
-    vertices = mesh.vertex_array() * np.array((radius_x, ry, rz), dtype=np.float64)
+    vertices = tuple(
+        (vertex.x * radius_x, vertex.y * ry, vertex.z * rz) for vertex in mesh.vertices
+    )
+    face_offsets = [0]
+    face_indices: list[int] = []
+    for face in mesh.faces:
+        face_indices.extend(face)
+        face_offsets.append(len(face_indices))
     return Model3D(
         meshes=(
             Mesh3D.from_arrays(
                 vertices,
-                face_indices=mesh.face_index_array(),
-                face_offsets=mesh.face_offset_array(),
-                texcoords=mesh.texcoord_array(),
+                face_indices=face_indices,
+                face_offsets=face_offsets,
+                texcoords=mesh.texcoords,
             ),
         )
     )

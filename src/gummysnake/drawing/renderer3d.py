@@ -1,8 +1,8 @@
 """Backend-agnostic 3D renderer protocol and value objects.
 
-This module intentionally defines contracts only. Concrete 3D support will live in a
+This module intentionally defines contracts only. Concrete 3D support lives in a
 backend-specific renderer, while public APIs can depend on these Python-native data
-structures without importing OpenGL, Pyglet, or any other rendering package.
+structures without importing OpenGL, Pyglet, NumPy, or any other rendering package.
 """
 
 from __future__ import annotations
@@ -11,14 +11,13 @@ from collections.abc import Iterable, MutableMapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Protocol
-
-import numpy as np
+from typing import Any, Literal, Protocol, cast
 
 from gummysnake.drawing.renderer import Renderer
 
 type RGBA = tuple[float, float, float, float]
 type Matrix4 = tuple[tuple[float, ...], ...]
+type FloatRows = tuple[tuple[float, ...], ...]
 
 
 class LightKind(StrEnum):
@@ -37,7 +36,8 @@ class Vec3:
     y: float
     z: float
 
-    def __array__(self, dtype: Any = None, copy: bool | None = None) -> np.ndarray:
+    def __array__(self, dtype: Any = None, copy: bool | None = None) -> Any:
+        np = _require_numpy("Vec3.__array__()")
         array = np.array((self.x, self.y, self.z), dtype=np.float64)
         if dtype is not None:
             return array.astype(dtype, copy=False if copy is None else copy)
@@ -45,12 +45,14 @@ class Vec3:
             return array
         return array.copy() if copy else array
 
-    def to_array(self, *, copy: bool = True) -> np.ndarray:
+    def to_array(self, *, copy: bool = True) -> Any:
+        np = _require_numpy("Vec3.to_array()")
         array = np.array((self.x, self.y, self.z), dtype=np.float64)
         return array.copy() if copy else array
 
     @classmethod
     def from_array(cls, value: Any) -> Vec3:
+        np = _require_numpy("Vec3.from_array()")
         array = np.asarray(value, dtype=np.float64)
         if array.shape != (3,):
             raise ValueError("Vec3 arrays must have shape (3,).")
@@ -87,7 +89,6 @@ class OrthographicProjection:
 
 
 type Projection3D = PerspectiveProjection | OrthographicProjection
-
 
 type ShaderUniformValue = (
     bool | int | float | Vec3 | Texture3D | tuple[float, ...] | tuple[tuple[float, ...], ...]
@@ -128,10 +129,11 @@ class Material3D:
 class Mesh3D:
     """Indexed mesh data in logical model coordinates.
 
-    Numeric mesh buffers are stored as immutable NumPy arrays. Friendly tuple
-    views remain available for sketch/user code and existing API compatibility.
-    Faces are stored as compact offset/index arrays so mixed triangle/quad meshes
-    do not require object-dtype NumPy arrays.
+    Canonical mesh data is stored by the Rust canvas runtime when available. The
+    Python fallback uses immutable tuples so NumPy is not required for normal
+    imports, primitive generation, projection, or export. NumPy array views remain
+    available through the ``*_array()`` methods when the optional dependency is
+    installed.
     """
 
     __slots__ = (
@@ -150,14 +152,14 @@ class Mesh3D:
 
     def __init__(
         self,
-        vertices: Sequence[Vec3 | Sequence[float]] | np.ndarray = (),
-        faces: Sequence[Sequence[int]] | np.ndarray = (),
-        normals: Sequence[Vec3 | Sequence[float]] | np.ndarray = (),
-        texcoords: Sequence[Sequence[float]] | np.ndarray = (),
+        vertices: Sequence[Vec3 | Sequence[float]] | Any = (),
+        faces: Sequence[Sequence[int]] | Any = (),
+        normals: Sequence[Vec3 | Sequence[float]] | Any = (),
+        texcoords: Sequence[Sequence[float]] | Any = (),
         material: Material3D | None = None,
         *,
-        face_indices: Sequence[int] | np.ndarray | None = None,
-        face_offsets: Sequence[int] | np.ndarray | None = None,
+        face_indices: Sequence[int] | Any | None = None,
+        face_offsets: Sequence[int] | Any | None = None,
         rust_handle: Any | None = None,
     ) -> None:
         self.material = material
@@ -166,40 +168,43 @@ class Mesh3D:
         self._faces_cache: tuple[tuple[int, ...], ...] | None = None
         self._normals_cache: tuple[Vec3, ...] | None = None
         self._texcoords_cache: tuple[tuple[float, float], ...] | None = None
-        self._vertices: np.ndarray | None = None
-        self._face_indices: np.ndarray | None = None
-        self._face_offsets: np.ndarray | None = None
-        self._normals: np.ndarray | None = None
-        self._texcoords: np.ndarray | None = None
+        self._vertices: tuple[tuple[float, float, float], ...] | None = None
+        self._face_indices: tuple[int, ...] | None = None
+        self._face_offsets: tuple[int, ...] | None = None
+        self._normals: tuple[tuple[float, float, float], ...] | None = None
+        self._texcoords: tuple[tuple[float, float], ...] | None = None
         if rust_handle is not None:
             return
 
-        vertices_array = _readonly_array(_coerce_float_array(vertices, columns=3, name="vertices"))
+        vertices_rows = _coerce_float_rows(vertices, columns=3, name="vertices")
+        vertices_array: tuple[tuple[float, float, float], ...] = tuple(
+            (row[0], row[1], row[2]) for row in vertices_rows
+        )
         if face_indices is not None or face_offsets is not None:
             if face_indices is None or face_offsets is None:
                 raise ValueError("face_indices and face_offsets must be provided together.")
-            indices = np.asarray(face_indices, dtype=np.int64)
-            offsets = np.asarray(face_offsets, dtype=np.int64)
-            _validate_face_buffers(indices, offsets, len(vertices_array))
-            face_indices_array = _readonly_array(indices)
-            face_offsets_array = _readonly_array(offsets)
+            face_indices_tuple = _coerce_int_tuple(face_indices)
+            face_offsets_tuple = _coerce_int_tuple(face_offsets)
+            _validate_face_buffers(face_indices_tuple, face_offsets_tuple, len(vertices_array))
         else:
-            indices, offsets = _pack_faces(faces, len(vertices_array))
-            face_indices_array = _readonly_array(indices)
-            face_offsets_array = _readonly_array(offsets)
-        normals_array = _readonly_array(_coerce_float_array(normals, columns=3, name="normals"))
-        texcoords_array = _readonly_array(
-            _coerce_float_array(texcoords, columns=2, name="texcoords")
+            face_indices_tuple, face_offsets_tuple = _pack_faces(faces, len(vertices_array))
+        normal_rows = _coerce_float_rows(normals, columns=3, name="normals")
+        texcoord_rows = _coerce_float_rows(texcoords, columns=2, name="texcoords")
+        normals_array: tuple[tuple[float, float, float], ...] = tuple(
+            (row[0], row[1], row[2]) for row in normal_rows
+        )
+        texcoords_array: tuple[tuple[float, float], ...] = tuple(
+            (row[0], row[1]) for row in texcoord_rows
         )
         rust_mesh_handle = _create_rust_mesh_handle(
-            vertices_array, face_indices_array, face_offsets_array, normals_array, texcoords_array
+            vertices_array, face_indices_tuple, face_offsets_tuple, normals_array, texcoords_array
         )
         if rust_mesh_handle is not None:
             self._rust_handle = rust_mesh_handle
             return
         self._vertices = vertices_array
-        self._face_indices = face_indices_array
-        self._face_offsets = face_offsets_array
+        self._face_indices = face_indices_tuple
+        self._face_offsets = face_offsets_tuple
         self._normals = normals_array
         self._texcoords = texcoords_array
 
@@ -208,7 +213,7 @@ class Mesh3D:
         cls,
         vertices: Any,
         *,
-        faces: Sequence[Sequence[int]] | np.ndarray = (),
+        faces: Sequence[Sequence[int]] | Any = (),
         normals: Any = (),
         texcoords: Any = (),
         face_indices: Any | None = None,
@@ -233,35 +238,34 @@ class Mesh3D:
         if self._vertices is not None:
             return
         if self._rust_handle is None:
-            self._vertices = _readonly_array(np.empty((0, 3), dtype=np.float64))
-            self._face_indices = _readonly_array(np.empty((0,), dtype=np.int64))
-            self._face_offsets = _readonly_array(np.array([0], dtype=np.int64))
-            self._normals = _readonly_array(np.empty((0, 3), dtype=np.float64))
-            self._texcoords = _readonly_array(np.empty((0, 2), dtype=np.float64))
+            self._vertices = ()
+            self._face_indices = ()
+            self._face_offsets = (0,)
+            self._normals = ()
+            self._texcoords = ()
             return
         payload = self._rust_handle.to_mesh_payload()
-        vertices = _readonly_array(
-            _coerce_float_array(payload["vertices"], columns=3, name="vertices")
+        vertices_rows = _coerce_float_rows(payload["vertices"], columns=3, name="vertices")
+        vertices: tuple[tuple[float, float, float], ...] = tuple(
+            (row[0], row[1], row[2]) for row in vertices_rows
         )
         indices, offsets = _pack_faces(payload["faces"], len(vertices))
+        normal_rows = _coerce_float_rows(payload.get("normals", ()), columns=3, name="normals")
+        texcoord_rows = _coerce_float_rows(
+            payload.get("texcoords", ()), columns=2, name="texcoords"
+        )
         self._vertices = vertices
-        self._face_indices = _readonly_array(indices)
-        self._face_offsets = _readonly_array(offsets)
-        self._normals = _readonly_array(
-            _coerce_float_array(payload.get("normals", ()), columns=3, name="normals")
-        )
-        self._texcoords = _readonly_array(
-            _coerce_float_array(payload.get("texcoords", ()), columns=2, name="texcoords")
-        )
+        self._face_indices = indices
+        self._face_offsets = offsets
+        self._normals = tuple((row[0], row[1], row[2]) for row in normal_rows)
+        self._texcoords = tuple((row[0], row[1]) for row in texcoord_rows)
 
     @property
     def vertices(self) -> tuple[Vec3, ...]:
         self._ensure_arrays()
         assert self._vertices is not None
         if self._vertices_cache is None:
-            self._vertices_cache = tuple(
-                Vec3(float(x), float(y), float(z)) for x, y, z in self._vertices
-            )
+            self._vertices_cache = tuple(Vec3(x, y, z) for x, y, z in self._vertices)
         return self._vertices_cache
 
     @property
@@ -272,7 +276,7 @@ class Mesh3D:
         if self._faces_cache is None:
             faces = []
             for start, stop in zip(self._face_offsets[:-1], self._face_offsets[1:], strict=True):
-                faces.append(tuple(int(index) for index in self._face_indices[start:stop]))
+                faces.append(tuple(self._face_indices[start:stop]))
             self._faces_cache = tuple(faces)
         return self._faces_cache
 
@@ -281,9 +285,7 @@ class Mesh3D:
         self._ensure_arrays()
         assert self._normals is not None
         if self._normals_cache is None:
-            self._normals_cache = tuple(
-                Vec3(float(x), float(y), float(z)) for x, y, z in self._normals
-            )
+            self._normals_cache = tuple(Vec3(x, y, z) for x, y, z in self._normals)
         return self._normals_cache
 
     @property
@@ -291,33 +293,33 @@ class Mesh3D:
         self._ensure_arrays()
         assert self._texcoords is not None
         if self._texcoords_cache is None:
-            self._texcoords_cache = tuple((float(u), float(v)) for u, v in self._texcoords)
+            self._texcoords_cache = self._texcoords
         return self._texcoords_cache
 
-    def vertex_array(self, *, copy: bool = False) -> np.ndarray:
+    def vertex_array(self, *, copy: bool = False) -> Any:
         self._ensure_arrays()
         assert self._vertices is not None
-        return self._vertices.copy() if copy else self._vertices
+        return _readonly_numpy_array(self._vertices, dtype="float64", copy=copy)
 
-    def normal_array(self, *, copy: bool = False) -> np.ndarray:
+    def normal_array(self, *, copy: bool = False) -> Any:
         self._ensure_arrays()
         assert self._normals is not None
-        return self._normals.copy() if copy else self._normals
+        return _readonly_numpy_array(self._normals, dtype="float64", copy=copy)
 
-    def texcoord_array(self, *, copy: bool = False) -> np.ndarray:
+    def texcoord_array(self, *, copy: bool = False) -> Any:
         self._ensure_arrays()
         assert self._texcoords is not None
-        return self._texcoords.copy() if copy else self._texcoords
+        return _readonly_numpy_array(self._texcoords, dtype="float64", copy=copy)
 
-    def face_index_array(self, *, copy: bool = False) -> np.ndarray:
+    def face_index_array(self, *, copy: bool = False) -> Any:
         self._ensure_arrays()
         assert self._face_indices is not None
-        return self._face_indices.copy() if copy else self._face_indices
+        return _readonly_numpy_array(self._face_indices, dtype="int64", copy=copy)
 
-    def face_offset_array(self, *, copy: bool = False) -> np.ndarray:
+    def face_offset_array(self, *, copy: bool = False) -> Any:
         self._ensure_arrays()
         assert self._face_offsets is not None
-        return self._face_offsets.copy() if copy else self._face_offsets
+        return _readonly_numpy_array(self._face_offsets, dtype="int64", copy=copy)
 
     def to_python(self) -> dict[str, object]:
         return {
@@ -341,32 +343,50 @@ class Mesh3D:
         )
 
 
-def _readonly_array(array: np.ndarray) -> np.ndarray:
-    readonly = np.ascontiguousarray(array)
-    readonly.setflags(write=False)
-    return readonly
+def _require_numpy(feature: str) -> Any:
+    try:
+        import numpy as np
+    except ImportError as exc:
+        raise ImportError(
+            f"{feature} requires the optional numpy dependency. "
+            "Install gummy-snake with the `numpy` extra."
+        ) from exc
+    return np
 
 
-def _coerce_float_array(value: Any, *, columns: int, name: str) -> np.ndarray:
-    if isinstance(value, np.ndarray):
-        array = np.asarray(value, dtype=np.float64)
-    else:
-        rows = list(value)
-        if not rows:
-            return np.empty((0, columns), dtype=np.float64)
-        array = np.asarray(
-            [_row_to_tuple(row, columns=columns, name=name) for row in rows], dtype=np.float64
-        )
-    if array.size == 0:
-        return np.empty((0, columns), dtype=np.float64)
-    if array.ndim != 2 or array.shape[1] != columns:
-        raise ValueError(f"Mesh3D {name} arrays must have shape (n, {columns}).")
-    return array
+def _readonly_numpy_array(value: Any, *, dtype: str, copy: bool) -> Any:
+    np = _require_numpy("Mesh3D ndarray export")
+    array = np.ascontiguousarray(value, dtype=getattr(np, dtype))
+    if not copy:
+        array.setflags(write=False)
+        return array
+    return array.copy()
+
+
+def _coerce_float_rows(value: Any, *, columns: int, name: str) -> FloatRows:
+    rows = _rows_from_array_like(value)
+    if rows is None:
+        rows = tuple(value)
+    if not rows:
+        return ()
+    return tuple(_row_to_tuple(row, columns=columns, name=name) for row in rows)
+
+
+def _rows_from_array_like(value: Any) -> tuple[Any, ...] | None:
+    shape = getattr(value, "shape", None)
+    if shape is None:
+        return None
+    if len(shape) == 1:
+        return tuple(value.tolist() if hasattr(value, "tolist") else value)
+    if len(shape) == 2:
+        rows = value.tolist() if hasattr(value, "tolist") else value
+        return tuple(rows)
+    raise ValueError("Array-like mesh inputs must be one- or two-dimensional.")
 
 
 def _row_to_tuple(row: Any, *, columns: int, name: str) -> tuple[float, ...]:
     if columns == 3 and isinstance(row, Vec3):
-        return (row.x, row.y, row.z)
+        return (float(row.x), float(row.y), float(row.z))
     try:
         values = tuple(float(component) for component in row)
     except TypeError as exc:
@@ -376,13 +396,17 @@ def _row_to_tuple(row: Any, *, columns: int, name: str) -> tuple[float, ...]:
     return values
 
 
+def _coerce_int_tuple(value: Any) -> tuple[int, ...]:
+    if hasattr(value, "tolist"):
+        value = value.tolist()
+    return tuple(int(item) for item in value)
+
+
 def _pack_faces(
-    faces: Sequence[Sequence[int]] | np.ndarray, vertex_count: int
-) -> tuple[np.ndarray, np.ndarray]:
-    if isinstance(faces, np.ndarray) and faces.ndim == 2:
-        face_rows: Iterable[Any] = faces.tolist()
-    else:
-        face_rows = faces
+    faces: Sequence[Sequence[int]] | Any, vertex_count: int
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    tolist = getattr(faces, "tolist", None)
+    face_rows = cast(Iterable[Any], tolist() if callable(tolist) else faces)
     indices: list[int] = []
     offsets = [0]
     for face in face_rows:
@@ -391,10 +415,10 @@ def _pack_faces(
             raise ValueError("Mesh3D face indices must reference existing vertices.")
         indices.extend(packed)
         offsets.append(len(indices))
-    return np.asarray(indices, dtype=np.int64), np.asarray(offsets, dtype=np.int64)
+    return tuple(indices), tuple(offsets)
 
 
-def _faces_from_buffers(indices: np.ndarray, offsets: np.ndarray) -> list[tuple[int, ...]]:
+def _faces_from_buffers(indices: Sequence[int], offsets: Sequence[int]) -> list[tuple[int, ...]]:
     return [
         tuple(int(index) for index in indices[start:stop])
         for start, stop in zip(offsets[:-1], offsets[1:], strict=True)
@@ -402,11 +426,11 @@ def _faces_from_buffers(indices: np.ndarray, offsets: np.ndarray) -> list[tuple[
 
 
 def _create_rust_mesh_handle(
-    vertices: np.ndarray,
-    face_indices: np.ndarray,
-    face_offsets: np.ndarray,
-    normals: np.ndarray,
-    texcoords: np.ndarray,
+    vertices: Sequence[Sequence[float]],
+    face_indices: Sequence[int],
+    face_offsets: Sequence[int],
+    normals: Sequence[Sequence[float]],
+    texcoords: Sequence[Sequence[float]],
 ) -> Any | None:
     try:
         from gummysnake.rust.canvas import is_canvas_runtime_available, require_canvas_runtime
@@ -426,14 +450,14 @@ def _create_rust_mesh_handle(
     )
 
 
-def _validate_face_buffers(indices: np.ndarray, offsets: np.ndarray, vertex_count: int) -> None:
-    if indices.ndim != 1 or offsets.ndim != 1:
-        raise ValueError("Mesh3D face index and offset arrays must be one-dimensional.")
+def _validate_face_buffers(
+    indices: Sequence[int], offsets: Sequence[int], vertex_count: int
+) -> None:
     if len(offsets) == 0 or offsets[0] != 0 or offsets[-1] != len(indices):
         raise ValueError("Mesh3D face offsets must start at 0 and end at len(face_indices).")
-    if np.any(offsets[1:] < offsets[:-1]):
+    if any(stop < start for start, stop in zip(offsets[:-1], offsets[1:], strict=True)):
         raise ValueError("Mesh3D face offsets must be sorted.")
-    if len(indices) and (np.any(indices < 0) or np.any(indices >= vertex_count)):
+    if any(index < 0 or index >= vertex_count for index in indices):
         raise ValueError("Mesh3D face indices must reference existing vertices.")
 
 

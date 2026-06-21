@@ -143,18 +143,19 @@ wheels = [
 name = "gummy-snake"
 version = "0.4.0"
 source = { editable = "." }
-dependencies = [
-    { name = "numpy" },
-]
 
 [package.optional-dependencies]
 media = [
     { name = "opencv-python-headless" },
 ]
+numpy = [
+    { name = "numpy" },
+]
 
 [package.dev-dependencies]
 dev = [
     { name = "mypy" },
+    { name = "numpy" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -165,14 +166,15 @@ release = [
 
 [package.metadata]
 requires-dist = [
-    { name = "numpy", specifier = ">=2.4.6" },
+    { name = "numpy", marker = "extra == 'numpy'", specifier = ">=2.4.6" },
     { name = "opencv-python-headless", marker = "extra == 'media'", specifier = ">=4.13.0.92" },
 ]
-provides-extras = ["media"]
+provides-extras = ["numpy", "media"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "mypy", specifier = ">=1.18.2" },
+    { name = "numpy", specifier = ">=2.4.6" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ruff", specifier = ">=0.15.17" },

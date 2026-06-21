@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
-
 from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.renderer3d import (
     Camera3D,
@@ -19,8 +17,8 @@ from gummysnake.drawing.renderer3d import (
 from gummysnake.exceptions import ArgumentValidationError
 
 
-def _array_rows_as_tuples(array: np.ndarray) -> list[tuple[float, ...]]:
-    return [tuple(float(value) for value in row) for row in array]
+def _rows_as_tuples(rows: Any) -> list[tuple[float, ...]]:
+    return [tuple(float(value) for value in row) for row in rows]
 
 
 def rust_project_shade_faces(
@@ -124,9 +122,9 @@ def rust_project_shade_faces(
     else:
         source_meshes = [
             {
-                "vertices": _array_rows_as_tuples(mesh.vertex_array()),
+                "vertices": [(vertex.x, vertex.y, vertex.z) for vertex in mesh.vertices],
                 "faces": [list(face) for face in mesh.faces],
-                "texcoords": _array_rows_as_tuples(mesh.texcoord_array()),
+                "texcoords": list(mesh.texcoords),
             }
             for mesh in model.meshes
         ]
@@ -136,17 +134,15 @@ def rust_project_shade_faces(
 
         a, b, c, d, e, f = transform_payload
         z_scale = (math.hypot(a, b) + math.hypot(c, d)) / 2.0
-        linear = np.array(
-            ((a, b, 0.0), (c, d, 0.0), (0.0, 0.0, z_scale)),
-            dtype=np.float64,
-        )
-        offset = np.array((e, -f, 0.0), dtype=np.float64)
         meshes = []
         for mesh in source_meshes:
-            vertices = np.asarray(mesh["vertices"], dtype=np.float64) @ linear + offset
+            vertices = [
+                (a * x + c * y + e, b * x + d * y - f, z * z_scale)
+                for x, y, z in _rows_as_tuples(mesh["vertices"])
+            ]
             meshes.append(
                 {
-                    "vertices": _array_rows_as_tuples(vertices),
+                    "vertices": vertices,
                     "faces": mesh["faces"],
                     "texcoords": mesh["texcoords"],
                 }

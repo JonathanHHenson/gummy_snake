@@ -168,11 +168,13 @@ pattern for model assets where the installed canvas runtime supports it. The
 public `Model3D` wrapper may retain a Rust-owned `CanvasModel3D` handle for
 parsed or generated vertex/index data, while the Python `.meshes` view remains
 available and materializes lazily only when user code inspects geometry. `Mesh3D`
-itself may retain a Rust-owned `CanvasMesh3D` handle as canonical storage; its
-NumPy vertex, normal, texture-coordinate, and packed face-index arrays are lazy
-inspection/interchange views over that handle. Hot paths such as OBJ/STL export
-and software-3D projection should use Rust handles directly, or NumPy mesh arrays
-when no handle is present, instead of forcing repeated Python `Vec3` loops.
+itself may retain a Rust-owned `CanvasMesh3D` handle as canonical storage; the
+Python fallback uses immutable tuple buffers so NumPy is not required for normal
+runtime use. Optional NumPy vertex, normal, texture-coordinate, and packed
+face-index arrays are lazy inspection/interchange views over that storage. Hot
+paths such as OBJ/STL export and software-3D projection should use Rust handles
+directly, or Python tuple buffers when no handle is present, instead of forcing
+repeated Python `Vec3` loops.
 
 `load_sound()` keeps sound bytes and metadata in a Rust-owned `CanvasSound`
 handle attached to the public `Sound` wrapper. Python still owns the friendly

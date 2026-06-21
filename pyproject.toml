@@ -20,17 +20,19 @@ classifiers = [
     "Topic :: Artistic Software",
     "Topic :: Multimedia :: Graphics",
 ]
-dependencies = [
-    "numpy>=2.4.6",
-]
+dependencies = []
 
 [project.optional-dependencies]
+numpy = [
+    "numpy>=2.4.6",
+]
 media = [
     "opencv-python-headless>=4.13.0.92",
 ]
 
 [dependency-groups]
 dev = [
+    "numpy>=2.4.6",
     "mypy>=1.18.2",
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",

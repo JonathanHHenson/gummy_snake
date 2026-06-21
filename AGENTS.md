@@ -265,12 +265,12 @@ Prefer dependencies already present in `pyproject.toml` and the Rust crate manif
 
 Current Python project dependencies are intentionally minimal:
 
-- `numpy` is the only core Python runtime dependency and is used for vector,
-  mesh, and numeric buffer helpers
-- drawing, presentation, assets, pixels, export, and media frame conversion are
-  supplied by the packaged Rust canvas runtime
+- core installs should not require NumPy; ndarray interoperability uses the optional
+  `numpy` extra and dev/test environments install NumPy explicitly
+- drawing, presentation, assets, pixels, export, numeric mesh/model processing,
+  and media frame conversion are supplied by the packaged Rust canvas runtime
 - optional media support uses the `media` extra
-- dev tools include `pytest`, `pytest-cov`, `ruff`, and `mypy`
+- dev tools include `numpy`, `pytest`, `pytest-cov`, `ruff`, and `mypy`
 - release tooling uses `maturin`
 
 Add Python dependencies only when justified, and use `uv add` or `uv add --dev` so `pyproject.toml` and `uv.lock` stay in sync.

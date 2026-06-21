@@ -135,5 +135,6 @@ contiguous frame buffer.
 
 Wavefront OBJ parsing, normalization, primitive model generation, projection,
 and OBJ/STL export are handled by the Rust canvas runtime where possible.
-`Model3D` and `Mesh3D` keep Rust-managed handles as canonical storage and expose
-lazy Python/NumPy views for inspection and interchange.
+`Model3D` and `Mesh3D` keep Rust-managed handles as canonical storage, use
+immutable Python tuple buffers when materialized without a Rust handle, and expose
+optional lazy NumPy views for inspection and interchange.

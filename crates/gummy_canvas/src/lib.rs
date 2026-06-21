@@ -21,7 +21,7 @@ use images::{
 use performance::PerformanceCounters;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBytes, PyDict, PyList};
+use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
 use raster::{
     affine_bounds, axis_aligned_image_destination, blit_affine_region, blit_scaled_region,
     clipped_bounds, clipped_dest_rect, clipped_source_rect, draw_axis_aligned_ellipse,
@@ -55,8 +55,110 @@ const BLEND_MODE_SCREEN: &str = "screen";
 const IMAGE_CACHE_LIMIT: usize = 1024;
 const TEXTURE_CACHE_LIMIT: usize = 1024;
 const TEXT_CACHE_LIMIT: usize = 512;
-const CANVAS_ABI_VERSION: u32 = 2;
+const CANVAS_ABI_VERSION: u32 = 3;
 static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
+
+#[pyclass(name = "Matrix2D", frozen, unsendable)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Matrix2D {
+    #[pyo3(get)]
+    a: f64,
+    #[pyo3(get)]
+    b: f64,
+    #[pyo3(get)]
+    c: f64,
+    #[pyo3(get)]
+    d: f64,
+    #[pyo3(get)]
+    e: f64,
+    #[pyo3(get)]
+    f: f64,
+}
+
+#[pymethods]
+impl Matrix2D {
+    #[new]
+    #[pyo3(signature = (a=1.0, b=0.0, c=0.0, d=1.0, e=0.0, f=0.0))]
+    fn new(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> Self {
+        Self { a, b, c, d, e, f }
+    }
+
+    #[staticmethod]
+    fn identity() -> Self {
+        Self::new(1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+    }
+
+    #[staticmethod]
+    fn translation(x: f64, y: f64) -> Self {
+        Self::new(1.0, 0.0, 0.0, 1.0, x, y)
+    }
+
+    #[staticmethod]
+    fn rotation(angle: f64) -> Self {
+        let (sine, cosine) = angle.sin_cos();
+        Self::new(cosine, sine, -sine, cosine, 0.0, 0.0)
+    }
+
+    #[staticmethod]
+    #[pyo3(signature = (x, y=None))]
+    fn scaling(x: f64, y: Option<f64>) -> Self {
+        Self::new(x, 0.0, 0.0, y.unwrap_or(x), 0.0, 0.0)
+    }
+
+    #[staticmethod]
+    fn shear_x(angle: f64) -> Self {
+        Self::new(1.0, 0.0, angle.tan(), 1.0, 0.0, 0.0)
+    }
+
+    #[staticmethod]
+    fn shear_y(angle: f64) -> Self {
+        Self::new(1.0, angle.tan(), 0.0, 1.0, 0.0, 0.0)
+    }
+
+    fn multiply(&self, other: PyRef<'_, Self>) -> Self {
+        Self::new(
+            self.a * other.a + self.c * other.b,
+            self.b * other.a + self.d * other.b,
+            self.a * other.c + self.c * other.d,
+            self.b * other.c + self.d * other.d,
+            self.a * other.e + self.c * other.f + self.e,
+            self.b * other.e + self.d * other.f + self.f,
+        )
+    }
+
+    fn transform_point(&self, x: f64, y: f64) -> (f64, f64) {
+        (
+            self.a * x + self.c * y + self.e,
+            self.b * x + self.d * y + self.f,
+        )
+    }
+
+    fn inverse(&self) -> PyResult<Self> {
+        let determinant = self.a * self.d - self.b * self.c;
+        if determinant.abs() < 1e-12 {
+            return Err(PyValueError::new_err("Matrix is not invertible."));
+        }
+        Ok(Self::new(
+            self.d / determinant,
+            -self.b / determinant,
+            -self.c / determinant,
+            self.a / determinant,
+            (self.c * self.f - self.d * self.e) / determinant,
+            (self.b * self.e - self.a * self.f) / determinant,
+        ))
+    }
+
+    fn as_tuple<'py>(&self, py: Python<'py>) -> Bound<'py, PyTuple> {
+        PyTuple::new_bound(py, [self.a, self.b, self.c, self.d, self.e, self.f])
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Matrix2D(a={}, b={}, c={}, d={}, e={}, f={})",
+            self.a, self.b, self.c, self.d, self.e, self.f
+        )
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Rgba {

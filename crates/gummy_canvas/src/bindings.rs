@@ -343,6 +343,7 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(project_shade_model_handle, m)?)?;
     m.add_function(wrap_pyfunction!(rasterize_faces_rgba, m)?)?;
     m.add("CANVAS_ABI_VERSION", CANVAS_ABI_VERSION)?;
+    m.add_class::<Matrix2D>()?;
     m.add_class::<Canvas>()?;
     m.add_class::<CanvasImage>()?;
     m.add_class::<CanvasSound>()?;

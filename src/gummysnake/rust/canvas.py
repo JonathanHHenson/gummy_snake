@@ -16,7 +16,7 @@ from gummysnake.exceptions import BackendCapabilityError
 GUMMY_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml"
 )
-EXPECTED_CANVAS_ABI_VERSION = 2
+EXPECTED_CANVAS_ABI_VERSION = 3
 
 
 class _RustCanvasImage(Protocol):
@@ -47,6 +47,7 @@ class _RustCanvasSound(Protocol):
 
 
 class _CanvasModule(Protocol):
+    Matrix2D: type[Any]
     Canvas: type[Any]
     CanvasImage: type[_RustCanvasImage]
     CanvasSound: type[_RustCanvasSound]
@@ -255,7 +256,14 @@ def _validate_canvas_runtime(module: _CanvasModule) -> None:
             f"state ({health!r}). Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`."
         )
 
-    required_classes = ("Canvas", "CanvasImage", "CanvasModel3D", "CanvasMesh3D", "CanvasSound")
+    required_classes = (
+        "Matrix2D",
+        "Canvas",
+        "CanvasImage",
+        "CanvasModel3D",
+        "CanvasMesh3D",
+        "CanvasSound",
+    )
     missing_classes = [
         name for name in required_classes if not isinstance(getattr(module, name, None), type)
     ]
