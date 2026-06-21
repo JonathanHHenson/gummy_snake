@@ -7,7 +7,7 @@ from rust_canvas_context_helpers import make_canvas_context
 from rust_canvas_modules import FakeCanvasModule
 
 from gummysnake import constants as c
-from gummysnake.backends.canvas_renderer import CanvasRenderer
+from gummysnake.backend.canvas_renderer import CanvasRenderer
 from gummysnake.context import SketchContext
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState

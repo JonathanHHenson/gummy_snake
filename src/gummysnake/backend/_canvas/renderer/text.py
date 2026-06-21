@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from gummysnake.backends._canvas.renderer.core import text_metric_key
+from gummysnake.backend._canvas.renderer.core import text_metric_key
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
 

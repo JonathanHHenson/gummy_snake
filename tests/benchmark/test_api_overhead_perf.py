@@ -9,7 +9,7 @@ import pytest
 
 import gummysnake as gs
 from gummysnake.api.current import activate_context
-from gummysnake.backends.base import BackendCapabilities
+from gummysnake.backend.base import BackendCapabilities
 from gummysnake.context import SketchContext
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D

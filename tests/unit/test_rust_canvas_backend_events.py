@@ -6,7 +6,7 @@ from rust_canvas_fakes import FakeCanvas
 from rust_canvas_modules import FakeCanvasModule
 
 from gummysnake import constants as c
-from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from gummysnake.rust import canvas as canvas_bridge
@@ -71,7 +71,7 @@ def test_canvas_backend_unbounded_interactive_respects_no_loop_from_draw(
 
     canvas.poll_events = poll_events
     sketch._draw_frame = draw_frame  # type: ignore[method-assign]
-    monkeypatch.setattr("gummysnake.backends.canvas.time.sleep", lambda _delay: None)
+    monkeypatch.setattr("gummysnake.backend.canvas.time.sleep", lambda _delay: None)
 
     backend._run_interactive(sketch)
 

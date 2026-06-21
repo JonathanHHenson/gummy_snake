@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from gummysnake.backends import create_backend, registry
-from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.backend import create_backend, registry
+from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust import canvas as canvas_bridge
 from gummysnake.sketch import Sketch

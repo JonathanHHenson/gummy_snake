@@ -1,8 +1,8 @@
 import math
 
 import gummysnake as gs
-from gummysnake.backends.base import BackendCapabilities
-from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.backend.base import BackendCapabilities
+from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from gummysnake.sketch import Sketch

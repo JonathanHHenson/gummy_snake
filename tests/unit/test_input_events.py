@@ -1,6 +1,6 @@
 import pytest
 
-from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.core.vector import Vector
 from gummysnake.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint

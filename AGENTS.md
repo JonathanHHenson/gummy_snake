@@ -113,7 +113,7 @@ Important areas:
 src/gummysnake/api/          public API entry points, global-mode modules, current context/facade helpers
 src/gummysnake/_context/     SketchContext method mixins grouped by canvas, input, pixels, shapes, style, text, transforms, and 3D
 src/gummysnake/assets/       image package, text/font, data, model, shader, sound, and optional media helpers
-src/gummysnake/backends/     backend contracts, registry, canvas facade modules, and split canvas backend/renderer internals
+src/gummysnake/backend/     backend contracts, registry, canvas facade modules, and split canvas backend/renderer internals
 src/gummysnake/constants/    enum-backed public constants and compatibility aliases
 src/gummysnake/core/         color, geometry, math, random/noise, state, transforms, data helpers, vectors
 src/gummysnake/drawing/      renderer protocols plus software 3D prototype helpers
@@ -204,8 +204,8 @@ Renderers own drawing concerns: canvas dimensions, primitives, transforms, image
 
 For the current implementation this means:
 
-- `src/gummysnake/backends/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backends/_canvas/backend/`.
-- `src/gummysnake/backends/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins in `src/gummysnake/backends/_canvas/renderer/`.
+- `src/gummysnake/backend/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backend/_canvas/backend/`.
+- `src/gummysnake/backend/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins in `src/gummysnake/backend/_canvas/renderer/`.
 - `CanvasRenderer` translates Python state into bridge payloads and mirrors canvas dimensions.
 - `gummysnake.rust.canvas` handles optional import, health checks, ABI validation, and clear capability failures.
 - `crates/gummy_canvas` owns the native runtime and rendering implementation.

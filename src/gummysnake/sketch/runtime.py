@@ -7,7 +7,7 @@ from collections.abc import Callable
 from gummysnake import constants as c
 from gummysnake._async import call_maybe_async, call_maybe_async_with_optional_args
 from gummysnake.api.current import activate_context
-from gummysnake.backends.registry import create_backend
+from gummysnake.backend.registry import create_backend
 from gummysnake.context import SketchContext
 from gummysnake.plugins.base import LifecycleHookName
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY

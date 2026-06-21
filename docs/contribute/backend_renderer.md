@@ -25,8 +25,8 @@ flowchart LR
 ## CanvasBackend
 
 `CanvasBackend` is the adapter for runtime concerns. Its public composition root
-is `src/gummysnake/backends/canvas.py`; the refactored implementation lives in
-focused mixins under `src/gummysnake/backends/_canvas/backend/` for runtime,
+is `src/gummysnake/backend/canvas.py`; the refactored implementation lives in
+focused mixins under `src/gummysnake/backend/_canvas/backend/` for runtime,
 events, and frame pacing behavior. It does not decide Gummy Snake API naming
 policy and should not contain drawing semantics such as how `rect_mode()`
 changes a rectangle.
@@ -49,8 +49,8 @@ unit tests with fake canvas modules/events.
 ## CanvasRenderer
 
 `CanvasRenderer` is the adapter for drawing concerns. Its public composition root
-is `src/gummysnake/backends/canvas_renderer.py`; the refactored implementation
-lives in focused mixins under `src/gummysnake/backends/_canvas/renderer/` for
+is `src/gummysnake/backend/canvas_renderer.py`; the refactored implementation
+lives in focused mixins under `src/gummysnake/backend/_canvas/renderer/` for
 core state/caches, primitives, images, pixels, and text. It should receive
 already validated Gummy Snake-level decisions from `SketchContext` and translate
 them into Rust canvas calls.
@@ -94,11 +94,11 @@ Use these examples when deciding where code belongs:
 | --- | --- |
 | Add a new public drawing function | topic module under `src/gummysnake/api/global_mode/`, `src/gummysnake/__init__.py`, `SketchContext` or a `src/gummysnake/_context/` mixin, and maybe `CanvasRenderer`/Rust |
 | Change how `rect_mode(CENTER)` computes coordinates | `SketchContext` or geometry helpers |
-| Add a new Rust primitive call payload | `src/gummysnake/backends/_canvas/renderer/primitives.py` and `crates/gummy_canvas` |
+| Add a new Rust primitive call payload | `src/gummysnake/backend/_canvas/renderer/primitives.py` and `crates/gummy_canvas` |
 | Improve missing extension or ABI error text | `gummysnake.rust.canvas` |
-| Poll a new native input event | `src/gummysnake/backends/_canvas/backend/events.py` and Rust event support |
-| Add a new pixel export format | `src/gummysnake/backends/_canvas/renderer/pixels.py` and `crates/gummy_canvas` |
-| Change frame scheduling | `src/gummysnake/backends/_canvas/backend/pacing.py` or `runtime.py` and lifecycle tests |
+| Poll a new native input event | `src/gummysnake/backend/_canvas/backend/events.py` and Rust event support |
+| Add a new pixel export format | `src/gummysnake/backend/_canvas/renderer/pixels.py` and `crates/gummy_canvas` |
+| Change frame scheduling | `src/gummysnake/backend/_canvas/backend/pacing.py` or `runtime.py` and lifecycle tests |
 
 ## Data Flow For A Draw Call
 

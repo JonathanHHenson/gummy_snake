@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from rust_canvas_modules import FakeCanvasModule
 
-from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from gummysnake.rust import canvas as canvas_bridge

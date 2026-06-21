@@ -12,7 +12,7 @@ from webgl_helpers import (
 )
 
 import gummysnake as gs
-from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.drawing.renderer3d import Model3D, Shader3D
 from gummysnake.events.input_state import MouseEvent

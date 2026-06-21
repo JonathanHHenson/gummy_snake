@@ -7,11 +7,11 @@ import time
 from dataclasses import replace
 
 from gummysnake import constants as c
-from gummysnake.backends._canvas.backend.events import CanvasBackendEventsMixin
-from gummysnake.backends._canvas.backend.pacing import CanvasBackendPacingMixin
-from gummysnake.backends._canvas.backend.runtime import CanvasBackendRuntimeMixin
-from gummysnake.backends.base import BackendCapabilities
-from gummysnake.backends.canvas_renderer import CanvasRenderer
+from gummysnake.backend._canvas.backend.events import CanvasBackendEventsMixin
+from gummysnake.backend._canvas.backend.pacing import CanvasBackendPacingMixin
+from gummysnake.backend._canvas.backend.runtime import CanvasBackendRuntimeMixin
+from gummysnake.backend.base import BackendCapabilities
+from gummysnake.backend.canvas_renderer import CanvasRenderer
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust.canvas import canvas_gpu_status, canvas_health_check, require_canvas_extension
 

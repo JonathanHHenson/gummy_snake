@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from gummysnake.assets.image import Image
-from gummysnake.backends.canvas_renderer import CanvasRenderer, PerformanceCounters
+from gummysnake.backend.canvas_renderer import CanvasRenderer, PerformanceCounters
 from gummysnake.constants import BLEND, MULTIPLY
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState

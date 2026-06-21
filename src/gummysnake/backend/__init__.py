@@ -1,7 +1,7 @@
 """Canvas runtime APIs."""
 
-from gummysnake.backends.base import Backend, BackendCapabilities
-from gummysnake.backends.registry import (
+from gummysnake.backend.base import Backend, BackendCapabilities
+from gummysnake.backend.registry import (
     canvas_default_eligibility,
     create_backend,
 )

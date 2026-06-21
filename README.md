@@ -133,7 +133,7 @@ The refactored Python package is split by responsibility: public API modules in
 `src/gummysnake/api/`, `SketchContext` mixins in `src/gummysnake/_context/`,
 lifecycle code in `src/gummysnake/sketch/`, enum-backed constants in
 `src/gummysnake/constants/`, and thin canvas backend/renderer facades over the
-implementation modules in `src/gummysnake/backends/_canvas/`.
+implementation modules in `src/gummysnake/backend/_canvas/`.
 
 The contributor documentation explains the architecture, lifecycle, testing
 workflow, and release shape in more detail:

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import cast
 
-from gummysnake.backends.base import Backend
-from gummysnake.backends.canvas import CanvasBackend
+from gummysnake.backend.base import Backend
+from gummysnake.backend.canvas import CanvasBackend
 
 
 def canvas_default_eligibility() -> tuple[bool, str]:
