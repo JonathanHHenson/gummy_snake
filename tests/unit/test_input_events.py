@@ -59,6 +59,8 @@ def test_keyboard_state_key_is_down_and_typed_callback():
     assert context.key_is_down(65) is True
     assert KeyboardEvent(key="a", key_code=65).matches("a")
     assert KeyboardEvent(key="a", key_code=65).matches(65)
+    assert KeyboardEvent(key="Space").matches(" ")
+    assert KeyboardEvent(key=" ").matches("space")
 
     context.dispatch_keyboard_event(KeyboardEvent(key="a", key_code=65, type="key_released"))
     assert context.key_is_pressed is False

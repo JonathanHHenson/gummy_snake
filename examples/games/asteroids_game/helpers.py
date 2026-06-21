@@ -15,7 +15,7 @@ def key_down(value: str) -> bool:
 
 
 def key_matches(event: KeyboardEvent, value: str) -> bool:
-    return event.key == value or event.key_code in {ord(value.lower()), ord(value.upper())}
+    return event.matches(value)
 
 
 def wrap(value: float, maximum: float) -> float:

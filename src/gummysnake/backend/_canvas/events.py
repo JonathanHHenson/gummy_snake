@@ -22,6 +22,8 @@ KEYBOARD_EVENT_TYPES = {"key_pressed", "key_released", "key_typed"}
 TOUCH_EVENT_TYPES = {"touch_started", "touch_moved", "touch_ended", "touch_cancelled"}
 
 SPECIAL_KEY_CODES = {
+    "space": ord(" "),
+    "spacebar": ord(" "),
     "backspace": c.BACKSPACE,
     "tab": c.TAB,
     "enter": c.ENTER,

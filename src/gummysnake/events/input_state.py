@@ -8,6 +8,8 @@ from gummysnake import constants as c
 from gummysnake.core.vector import Vector
 from gummysnake.exceptions import BackendCapabilityError
 
+_SPACE_KEY_NAMES = {"space", "spacebar"}
+
 
 @dataclass(slots=True)
 class MouseEvent:
@@ -44,7 +46,13 @@ class KeyboardEvent:
     def matches(self, value: str | int) -> bool:
         if isinstance(value, int):
             return self.key_code == value
-        return self.key == value or (len(value) == 1 and self.key_code == ord(value))
+        if self.key == value:
+            return True
+        if len(value) == 1 and self.key_code == ord(value):
+            return True
+        if value == " " and self.key is not None and self.key.lower() in _SPACE_KEY_NAMES:
+            return True
+        return value.lower() in _SPACE_KEY_NAMES and self.key == " "
 
 
 @dataclass(slots=True)
