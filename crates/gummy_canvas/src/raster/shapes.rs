@@ -1,6 +1,5 @@
 use crate::{Rgba, Style};
 
-use crate::raster::queries::point_in_polygon;
 use crate::raster::transform::stroke_width;
 use crate::raster::types::{OverlayRegion, Point};
 
@@ -27,7 +26,7 @@ pub(crate) fn draw_polygon_overlay(
 
     if close && points.len() >= 3 {
         if let Some(fill) = style.fill {
-            fill_polygon(overlay, points, fill);
+            fill_even_odd_polygon(overlay, &[points], fill);
         }
     }
 
@@ -144,15 +143,80 @@ fn stroke_axis_aligned_ellipse(
     }
 }
 
-fn fill_polygon(overlay: &mut OverlayRegion<'_>, points: &[Point], color: Rgba) {
-    for y in overlay.min_y..overlay.max_y() {
-        for x in overlay.min_x..overlay.max_x() {
-            let sample = (x as f64 + 0.5, y as f64 + 0.5);
-            if point_in_polygon(sample, points) {
+pub(crate) fn fill_even_odd_polygon(
+    overlay: &mut OverlayRegion<'_>,
+    rings: &[&[Point]],
+    color: Rgba,
+) {
+    for_even_odd_spans(
+        (
+            overlay.min_x,
+            overlay.min_y,
+            overlay.max_x(),
+            overlay.max_y(),
+        ),
+        rings,
+        |y, start, end| {
+            for x in start..end {
                 overlay.set_pixel(x, y, color);
+            }
+        },
+    );
+}
+
+pub(crate) fn rasterize_even_odd_mask(
+    mask: &mut [bool],
+    width: usize,
+    bounds: (usize, usize, usize, usize),
+    rings: &[&[Point]],
+    parent: Option<&[bool]>,
+) {
+    for_even_odd_spans(bounds, rings, |y, start, end| {
+        for x in start..end {
+            let index = y * width + x;
+            if parent.is_none_or(|parent_mask| parent_mask[index]) {
+                mask[index] = true;
+            }
+        }
+    });
+}
+
+pub(crate) fn for_even_odd_spans(
+    bounds: (usize, usize, usize, usize),
+    rings: &[&[Point]],
+    mut span: impl FnMut(usize, usize, usize),
+) {
+    let mut intersections = Vec::new();
+    for y in bounds.1..bounds.3 {
+        collect_scanline_intersections(y as f64 + 0.5, rings, &mut intersections);
+        for pair in intersections.chunks_exact(2) {
+            let start = (pair[0] - 0.5).ceil().max(bounds.0 as f64) as usize;
+            let end = ((pair[1] - 0.5).floor() as isize + 1).max(0) as usize;
+            let end = end.min(bounds.2);
+            if start < end {
+                span(y, start, end);
             }
         }
     }
+}
+
+fn collect_scanline_intersections(y: f64, rings: &[&[Point]], intersections: &mut Vec<f64>) {
+    intersections.clear();
+    for points in rings {
+        if points.len() < 3 {
+            continue;
+        }
+        let mut previous = *points.last().expect("non-empty polygon ring");
+        for &current in *points {
+            if (current.1 > y) != (previous.1 > y) {
+                let x = (previous.0 - current.0) * (y - current.1) / (previous.1 - current.1)
+                    + current.0;
+                intersections.push(x);
+            }
+            previous = current;
+        }
+    }
+    intersections.sort_by(|a, b| a.total_cmp(b));
 }
 
 pub(crate) fn draw_polyline_stroke(

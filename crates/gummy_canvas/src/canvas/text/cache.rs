@@ -100,8 +100,8 @@ impl Canvas {
     }
 
     pub(crate) fn can_queue_gpu_primitives(&self, style: &Style) -> bool {
-        self.clip_masks.is_empty()
-            && self.gpu.is_some()
+        self.gpu.is_some()
+            && !self.cpu_compositing_active
             && !style.erasing
             && style.blend_mode == BLEND_MODE_BLEND
     }

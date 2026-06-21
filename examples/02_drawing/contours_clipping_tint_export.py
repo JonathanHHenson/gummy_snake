@@ -18,8 +18,8 @@ STAMP = gs.create_image(42, 42)
 
 
 def setup() -> None:
-    gs.create_canvas(760, 430)
-    gs.frame_rate(24)
+    gs.create_canvas(760, 430, pixel_density=1)
+    gs.frame_rate(120)
     for y in range(STAMP.height):
         for x in range(STAMP.width):
             dx = x - STAMP.width / 2

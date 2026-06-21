@@ -5,13 +5,45 @@ impl Canvas {
     pub(crate) fn background_impl(&mut self, rgba: (u8, u8, u8, u8)) {
         let color = Rgba::from_tuple(rgba).as_array();
         if !self.clip_masks.is_empty() {
+            if self.gpu.is_some() && !self.cpu_compositing_active {
+                let fill = Rgba::from_tuple(rgba);
+                let width = self.physical_width as f64;
+                let height = self.physical_height as f64;
+                let mut vertices = Vec::with_capacity(6);
+                push_triangle(
+                    &mut vertices,
+                    (0.0, 0.0),
+                    (width, 0.0),
+                    (width, height),
+                    fill,
+                );
+                push_triangle(
+                    &mut vertices,
+                    (0.0, 0.0),
+                    (width, height),
+                    (0.0, height),
+                    fill,
+                );
+                let _ = self.draw_gpu_triangles(vertices);
+                return;
+            }
             if self.render_dirty && self.offscreen_dirty {
                 self.render_gpu_frame(true);
             }
             let mask = self.clip_masks.last().expect("clip mask is active");
+            let (min_x, min_y, max_x, max_y) = self.clip_bounds.last().copied().unwrap_or((
+                0,
+                0,
+                self.physical_width,
+                self.physical_height,
+            ));
             let packed = rgba_to_present_pixel(&color);
-            for (index, visible) in mask.iter().copied().enumerate() {
-                if visible {
+            for y in min_y..max_y {
+                for x in min_x..max_x {
+                    let index = y * self.physical_width + x;
+                    if !mask[index] {
+                        continue;
+                    }
                     let offset = index * 4;
                     self.pixels[offset..offset + 4].copy_from_slice(&color);
                     self.present_pixels[index] = packed;
@@ -20,7 +52,7 @@ impl Canvas {
             return;
         }
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.set_clear_color(gpu_color(Rgba::from_tuple(rgba)));
+            gpu.set_clear_color(crate::raster::gpu_color(Rgba::from_tuple(rgba)));
             self.render_dirty = true;
             self.offscreen_dirty = true;
             self.pixels_stale = true;
@@ -28,6 +60,9 @@ impl Canvas {
             let packed = rgba_to_present_pixel(&color);
             fill_rgba_buffer(&mut self.pixels, &color);
             self.present_pixels.fill(packed);
+            self.render_dirty = false;
+            self.offscreen_dirty = false;
+            self.texture_stale = false;
         }
     }
 
@@ -37,8 +72,18 @@ impl Canvas {
                 self.render_gpu_frame(true);
             }
             let mask = self.clip_masks.last().expect("clip mask is active");
-            for (index, visible) in mask.iter().copied().enumerate() {
-                if visible {
+            let (min_x, min_y, max_x, max_y) = self.clip_bounds.last().copied().unwrap_or((
+                0,
+                0,
+                self.physical_width,
+                self.physical_height,
+            ));
+            for y in min_y..max_y {
+                for x in min_x..max_x {
+                    let index = y * self.physical_width + x;
+                    if !mask[index] {
+                        continue;
+                    }
                     let offset = index * 4;
                     self.pixels[offset..offset + 4].fill(0);
                     self.present_pixels[index] = 0;
@@ -54,6 +99,9 @@ impl Canvas {
         } else {
             self.pixels.fill(0);
             self.present_pixels.fill(0);
+            self.render_dirty = false;
+            self.offscreen_dirty = false;
+            self.texture_stale = false;
         }
     }
 
@@ -238,6 +286,26 @@ impl Canvas {
             self.physical_width,
             self.physical_height,
         );
+        if self.can_queue_gpu_primitives(&style) {
+            if close && transformed_outer.len() >= 3 {
+                if let Some(fill) = style.fill {
+                    let mut rings = Vec::with_capacity(1 + transformed_contours.len());
+                    rings.push(transformed_outer.as_slice());
+                    for contour in &transformed_contours {
+                        rings.push(contour.as_slice());
+                    }
+                    self.draw_gpu_even_odd_spans(bounds, &rings, fill)?;
+                }
+            }
+            if let Some(stroke) = style.stroke {
+                let width = stroke_width(style.stroke_weight, self.pixel_density);
+                self.draw_gpu_polyline(&transformed_outer, close, width, stroke)?;
+                for contour in &transformed_contours {
+                    self.draw_gpu_polyline(contour, true, width, stroke)?;
+                }
+            }
+            return Ok(());
+        }
         self.prepare_cpu_composite();
         let Some(mut overlay) = OverlayRegion::from_bounds(
             bounds,
@@ -252,18 +320,12 @@ impl Canvas {
         };
         if close && transformed_outer.len() >= 3 {
             if let Some(fill) = style.fill {
-                for y in overlay.min_y..overlay.max_y() {
-                    for x in overlay.min_x..overlay.max_x() {
-                        let sample = (x as f64 + 0.5, y as f64 + 0.5);
-                        let inside_outer = point_in_polygon(sample, &transformed_outer);
-                        let inside_hole = transformed_contours
-                            .iter()
-                            .any(|contour| contour.len() >= 3 && point_in_polygon(sample, contour));
-                        if inside_outer && !inside_hole {
-                            overlay.set_pixel(x, y, fill);
-                        }
-                    }
+                let mut rings = Vec::with_capacity(1 + transformed_contours.len());
+                rings.push(transformed_outer.as_slice());
+                for contour in &transformed_contours {
+                    rings.push(contour.as_slice());
                 }
+                fill_even_odd_polygon(&mut overlay, &rings, fill);
             }
         }
         if let Some(stroke) = style.stroke {
@@ -288,9 +350,6 @@ impl Canvas {
                 "begin_clip() requires at least three vertices.",
             ));
         }
-        if self.render_dirty && self.offscreen_dirty {
-            self.render_gpu_frame(true);
-        }
         let transformed_outer: Vec<Point> = outer
             .iter()
             .map(|(x, y)| self.transform_point(matrix, *x, *y))
@@ -305,22 +364,39 @@ impl Canvas {
             })
             .collect();
         let parent = self.clip_masks.last();
+        let parent_bounds = self.clip_bounds.last().copied();
         let mut mask = vec![false; self.physical_width * self.physical_height];
-        for y in 0..self.physical_height {
-            for x in 0..self.physical_width {
-                let index = y * self.physical_width + x;
-                if parent.is_some_and(|parent_mask| !parent_mask[index]) {
-                    continue;
-                }
-                let sample = (x as f64 + 0.5, y as f64 + 0.5);
-                let inside_outer = point_in_polygon(sample, &transformed_outer);
-                let inside_hole = transformed_contours
-                    .iter()
-                    .any(|contour| contour.len() >= 3 && point_in_polygon(sample, contour));
-                mask[index] = inside_outer && !inside_hole;
-            }
+        let mut bounds_points = transformed_outer.clone();
+        for contour in &transformed_contours {
+            bounds_points.extend(contour.iter().copied());
         }
+        let mut bounds = clipped_bounds(
+            &bounds_points,
+            0.0,
+            self.physical_width,
+            self.physical_height,
+        );
+        if let Some((p_min_x, p_min_y, p_max_x, p_max_y)) = parent_bounds {
+            bounds.0 = bounds.0.max(p_min_x);
+            bounds.1 = bounds.1.max(p_min_y);
+            bounds.2 = bounds.2.min(p_max_x);
+            bounds.3 = bounds.3.min(p_max_y);
+        }
+        let mut rings = Vec::with_capacity(1 + transformed_contours.len());
+        rings.push(transformed_outer.as_slice());
+        for contour in &transformed_contours {
+            rings.push(contour.as_slice());
+        }
+        rasterize_even_odd_mask(
+            &mut mask,
+            self.physical_width,
+            bounds,
+            &rings,
+            parent.map(Vec::as_slice),
+        );
         self.clip_masks.push(mask);
+        self.clip_bounds.push(bounds);
+        self.upload_current_clip_mask();
         Ok(())
     }
 
@@ -328,6 +404,8 @@ impl Canvas {
         self.clip_masks
             .pop()
             .ok_or_else(|| PyValueError::new_err("end_clip() called without an active clip."))?;
+        self.clip_bounds.pop();
+        self.upload_current_clip_mask();
         Ok(())
     }
 
@@ -342,6 +420,59 @@ impl Canvas {
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
         ensure_supported_style(&style)?;
+        let (a, b, c, d, e, f) = matrix;
+        if b.abs() <= f64::EPSILON && c.abs() <= f64::EPSILON {
+            let x0 = (a * x + e) * self.pixel_density;
+            let y0 = (d * y + f) * self.pixel_density;
+            let x1 = (a * (x + width) + e) * self.pixel_density;
+            let y1 = (d * (y + height) + f) * self.pixel_density;
+            let min_x = x0.min(x1);
+            let min_y = y0.min(y1);
+            let max_x = x0.max(x1);
+            let max_y = y0.max(y1);
+            let padding = if style.stroke.is_some() {
+                stroke_width(style.stroke_weight, self.pixel_density) / 2.0
+            } else {
+                0.0
+            };
+            let bounds = (
+                (min_x - padding).floor().max(0.0) as usize,
+                (min_y - padding).floor().max(0.0) as usize,
+                (max_x + padding)
+                    .ceil()
+                    .min(self.physical_width as f64)
+                    .max(0.0) as usize,
+                (max_y + padding)
+                    .ceil()
+                    .min(self.physical_height as f64)
+                    .max(0.0) as usize,
+            );
+            if !self.can_queue_gpu_primitives(&style) {
+                self.prepare_cpu_composite();
+                let Some(mut overlay) = OverlayRegion::from_bounds(
+                    bounds,
+                    self.physical_width,
+                    &mut self.pixels,
+                    &mut self.present_pixels,
+                    style.erasing,
+                    &style.blend_mode,
+                    self.clip_masks.last().map(Vec::as_slice),
+                ) else {
+                    return Ok(());
+                };
+                draw_axis_aligned_rect_overlay(
+                    &mut overlay,
+                    min_x,
+                    min_y,
+                    max_x,
+                    max_y,
+                    &style,
+                    self.pixel_density,
+                );
+                self.upload_cpu_pixels()?;
+                return Ok(());
+            }
+        }
         let points = [
             self.transform_point(matrix, x, y),
             self.transform_point(matrix, x + width, y),
@@ -394,5 +525,90 @@ impl Canvas {
             self.transform_point(matrix, x4, y4),
         ];
         self.draw_transformed_polygon(&points, &style, true)
+    }
+}
+
+impl Canvas {
+    fn upload_current_clip_mask(&mut self) {
+        let Some(gpu) = self.gpu.as_mut() else {
+            return;
+        };
+        let Some(mask) = self.clip_masks.last() else {
+            gpu.clear_clip_mask();
+            return;
+        };
+        let bounds = self.clip_bounds.last().copied().unwrap_or((
+            0,
+            0,
+            self.physical_width,
+            self.physical_height,
+        ));
+        let width = bounds.2.saturating_sub(bounds.0).max(1);
+        let height = bounds.3.saturating_sub(bounds.1).max(1);
+        let mut rgba = vec![0_u8; width * height * 4];
+        for y in bounds.1..bounds.3 {
+            let source_row = y * self.physical_width;
+            let dest_row = (y - bounds.1) * width;
+            for x in bounds.0..bounds.2 {
+                if mask[source_row + x] {
+                    let offset = (dest_row + x - bounds.0) * 4;
+                    rgba[offset..offset + 4].fill(255);
+                }
+            }
+        }
+        gpu.set_clip_mask(bounds.0, bounds.1, width, height, &rgba);
+    }
+}
+
+fn draw_axis_aligned_rect_overlay(
+    overlay: &mut OverlayRegion<'_>,
+    min_x: f64,
+    min_y: f64,
+    max_x: f64,
+    max_y: f64,
+    style: &Style,
+    pixel_density: f64,
+) {
+    if let Some(fill) = style.fill {
+        let start_x = min_x.floor().max(overlay.min_x as f64) as usize;
+        let start_y = min_y.floor().max(overlay.min_y as f64) as usize;
+        let end_x = max_x.ceil().min(overlay.max_x() as f64).max(0.0) as usize;
+        let end_y = max_y.ceil().min(overlay.max_y() as f64).max(0.0) as usize;
+        for y in start_y..end_y {
+            for x in start_x..end_x {
+                overlay.set_pixel(x, y, fill);
+            }
+        }
+    }
+    let Some(stroke) = style.stroke else {
+        return;
+    };
+    let half = (stroke_width(style.stroke_weight, pixel_density) / 2.0).max(0.5);
+    let outer_min_x = min_x - half;
+    let outer_min_y = min_y - half;
+    let outer_max_x = max_x + half;
+    let outer_max_y = max_y + half;
+    let inner_min_x = min_x + half;
+    let inner_min_y = min_y + half;
+    let inner_max_x = max_x - half;
+    let inner_max_y = max_y - half;
+    let start_x = outer_min_x.floor().max(overlay.min_x as f64) as usize;
+    let start_y = outer_min_y.floor().max(overlay.min_y as f64) as usize;
+    let end_x = outer_max_x.ceil().min(overlay.max_x() as f64).max(0.0) as usize;
+    let end_y = outer_max_y.ceil().min(overlay.max_y() as f64).max(0.0) as usize;
+    for y in start_y..end_y {
+        let sample_y = y as f64 + 0.5;
+        for x in start_x..end_x {
+            let sample_x = x as f64 + 0.5;
+            let inside_inner = inner_min_x < inner_max_x
+                && inner_min_y < inner_max_y
+                && sample_x >= inner_min_x
+                && sample_x < inner_max_x
+                && sample_y >= inner_min_y
+                && sample_y < inner_max_y;
+            if !inside_inner {
+                overlay.set_pixel(x, y, stroke);
+            }
+        }
     }
 }

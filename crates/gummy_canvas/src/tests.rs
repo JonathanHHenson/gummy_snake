@@ -194,6 +194,12 @@ fn gpu_primitives_after_image_commands_are_rendered() {
     canvas.begin_frame();
     canvas.background((0, 0, 0, 255));
     if let Some(gpu) = canvas.gpu.as_mut() {
+        let white = crate::gpu::GpuColor {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        };
         gpu.upload_texture(
             42,
             2,
@@ -206,12 +212,12 @@ fn gpu_primitives_after_image_commands_are_rendered() {
         gpu.draw_image(
             42,
             [
-                ([0.0, 0.0], [0.0, 0.0]),
-                ([2.0, 0.0], [1.0, 0.0]),
-                ([2.0, 2.0], [1.0, 1.0]),
-                ([0.0, 0.0], [0.0, 0.0]),
-                ([2.0, 2.0], [1.0, 1.0]),
-                ([0.0, 2.0], [0.0, 1.0]),
+                ([0.0, 0.0], [0.0, 0.0], white),
+                ([2.0, 0.0], [1.0, 0.0], white),
+                ([2.0, 2.0], [1.0, 1.0], white),
+                ([0.0, 0.0], [0.0, 0.0], white),
+                ([2.0, 2.0], [1.0, 1.0], white),
+                ([0.0, 2.0], [0.0, 1.0], white),
             ],
             true,
         );

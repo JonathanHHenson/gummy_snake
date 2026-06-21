@@ -150,12 +150,7 @@ impl Canvas {
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<bool> {
         let style = self.cached_style(style)?;
-        if style.image_tint.is_some()
-            || !self.clip_masks.is_empty()
-            || !self.can_queue_gpu_primitives(&style)
-            || dw <= 0.0
-            || dh <= 0.0
-        {
+        if !self.can_queue_gpu_primitives(&style) || dw <= 0.0 || dh <= 0.0 {
             return Ok(false);
         }
         let linear_sampling = style.image_sampling != "nearest";
@@ -193,13 +188,25 @@ impl Canvas {
             let v0 = sy as f32 / image_height as f32;
             let u1 = (sx + sw) as f32 / image_width as f32;
             let v1 = (sy + sh) as f32 / image_height as f32;
+            let tint = style.image_tint.unwrap_or(Rgba {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            });
+            let tint = crate::gpu::GpuColor {
+                r: tint.r,
+                g: tint.g,
+                b: tint.b,
+                a: tint.a,
+            };
             let vertices = [
-                (point_to_f32(corners[0]), [u0, v0]),
-                (point_to_f32(corners[1]), [u1, v0]),
-                (point_to_f32(corners[2]), [u1, v1]),
-                (point_to_f32(corners[0]), [u0, v0]),
-                (point_to_f32(corners[2]), [u1, v1]),
-                (point_to_f32(corners[3]), [u0, v1]),
+                (point_to_f32(corners[0]), [u0, v0], tint),
+                (point_to_f32(corners[1]), [u1, v0], tint),
+                (point_to_f32(corners[2]), [u1, v1], tint),
+                (point_to_f32(corners[0]), [u0, v0], tint),
+                (point_to_f32(corners[2]), [u1, v1], tint),
+                (point_to_f32(corners[3]), [u0, v1], tint),
             ];
             self.upload_stale_texture(false)?;
             let Some(gpu) = self.gpu.as_mut() else {

@@ -1,6 +1,91 @@
 use crate::gpu::types::*;
 
 impl GpuRenderer {
+    pub fn set_clip_mask(
+        &mut self,
+        x: usize,
+        y: usize,
+        width: usize,
+        height: usize,
+        mask_rgba: &[u8],
+    ) -> usize {
+        let width = width.max(1);
+        let height = height.max(1);
+        let size = wgpu::Extent3d {
+            width: width as u32,
+            height: height as u32,
+            depth_or_array_layers: 1,
+        };
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("gummy_canvas clip mask texture"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        self.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            mask_rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(width as u32 * 4),
+                rows_per_image: Some(height as u32),
+            },
+            size,
+        );
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let clip_uniform = ClipUniform {
+            rect: [x as f32, y as f32, width as f32, height as f32],
+            flags: [1.0, 0.0, 0.0, 0.0],
+        };
+        let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("gummy_canvas clip uniform"),
+            size: std::mem::size_of::<ClipUniform>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.queue
+            .write_buffer(&uniform_buffer, 0, bytemuck::bytes_of(&clip_uniform));
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("gummy_canvas clip mask bind group"),
+            layout: &self.clip_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: uniform_buffer.as_entire_binding(),
+                },
+            ],
+        });
+        self.clip_textures.push(ClipTextureAsset {
+            _texture: texture,
+            _view: view,
+            _uniform_buffer: uniform_buffer,
+            bind_group,
+        });
+        self.current_clip_id = self.clip_textures.len() - 1;
+        self.current_clip_id
+    }
+
+    pub fn clear_clip_mask(&mut self) {
+        self.current_clip_id = 0;
+    }
+
     pub fn upload_texture(
         &mut self,
         key: u64,
@@ -89,12 +174,18 @@ impl GpuRenderer {
         Ok(())
     }
 
-    pub fn draw_image(&mut self, key: u64, vertices: [([f32; 2], [f32; 2]); 6], linear: bool) {
+    pub fn draw_image(
+        &mut self,
+        key: u64,
+        vertices: [([f32; 2], [f32; 2], GpuColor); 6],
+        linear: bool,
+    ) {
         if self.textures.contains_key(&key) {
             self.commands.push(DrawCommand::Image {
                 key,
                 vertices,
                 linear,
+                clip_id: self.current_clip_id,
             });
         }
     }

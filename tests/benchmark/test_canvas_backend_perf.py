@@ -26,6 +26,7 @@ VARIANTS = (
     "text_only",
     "pixel_readback_upload",
     "mixed_text_pixels",
+    "contours_clipping_tint",
     "asteroids_scene",
     "webgl_3d",
 )

@@ -27,12 +27,13 @@ def main() -> None:
     require_canvas_runtime()
     gs.run(setup=setup, draw=draw, headless=True, max_frames=frames)
     elapsed = time.perf_counter() - start
+    canvas_size = [760, 430] if variant == "contours_clipping_tint" else [720, 480]
     print(
         json.dumps(
             {
                 "variant": variant,
                 "frames": frames,
-                "canvas_size": [720, 480],
+                "canvas_size": canvas_size,
                 "pixel_density": 1.0,
                 "backend_mode": "headless",
                 "gpu_available": None,

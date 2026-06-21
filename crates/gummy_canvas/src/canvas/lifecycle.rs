@@ -37,6 +37,7 @@ impl Canvas {
             next_text_key: 1_u64 << 62,
             texture_cache_versions: HashMap::new(),
             clip_masks: Vec::new(),
+            clip_bounds: Vec::new(),
             runtime: None,
             pointer_lock_mode: DEFAULT_POINTER_LOCK_MODE.to_string(),
             gpu,
@@ -45,6 +46,7 @@ impl Canvas {
             offscreen_dirty: false,
             pixels_stale: false,
             texture_stale: false,
+            cpu_compositing_active: false,
             cached_style_key: None,
             cached_style: None,
             performance_counters: PerformanceCounters::default(),
@@ -85,9 +87,11 @@ impl Canvas {
         self.offscreen_dirty = false;
         self.pixels_stale = false;
         self.texture_stale = false;
+        self.cpu_compositing_active = false;
         self.cached_style_key = None;
         self.cached_style = None;
         self.clip_masks.clear();
+        self.clip_bounds.clear();
         self.text_cache.clear();
         self.text_cache_order.clear();
         if let Some(runtime) = self.runtime.as_mut() {
@@ -134,9 +138,11 @@ impl Canvas {
         self.offscreen_dirty = false;
         self.pixels_stale = false;
         self.texture_stale = false;
+        self.cpu_compositing_active = false;
         self.cached_style_key = None;
         self.cached_style = None;
         self.clip_masks.clear();
+        self.clip_bounds.clear();
         self.text_cache.clear();
         self.text_cache_order.clear();
         Ok(())
@@ -223,7 +229,7 @@ impl Canvas {
 
         let should_close = runtime.should_close();
         let (logical_width, logical_height) = runtime.logical_size();
-        let pixel_density = runtime.display_density();
+        let pixel_density = self.pixel_density;
 
         if should_close {
             self.closed = true;
@@ -348,6 +354,7 @@ impl Canvas {
 
     pub(crate) fn begin_frame_impl(&mut self) {
         self.performance_counters.bridge_calls += 1;
+        self.cpu_compositing_active = false;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.begin_frame();
         }

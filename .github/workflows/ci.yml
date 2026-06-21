@@ -26,6 +26,7 @@ jobs:
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxss-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
@@ -56,6 +57,7 @@ jobs:
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxss-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
@@ -93,6 +95,7 @@ jobs:
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxss-dev \
             pkg-config
       - run: uv build
 
@@ -117,6 +120,7 @@ jobs:
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxss-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml
@@ -144,6 +148,7 @@ jobs:
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxss-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml

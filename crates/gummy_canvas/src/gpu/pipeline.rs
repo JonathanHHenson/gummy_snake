@@ -15,7 +15,7 @@ pub(super) fn viewport_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGro
         label: Some("gummy_canvas viewport bind group layout"),
         entries: &[wgpu::BindGroupLayoutEntry {
             binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
                 has_dynamic_offset: false,
@@ -50,9 +50,44 @@ pub(super) fn texture_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGrou
     })
 }
 
+pub(super) fn clip_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("gummy_canvas clip bind group layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    })
+}
+
 pub(super) fn create_pipeline(
     device: &wgpu::Device,
-    bind_group_layout: &wgpu::BindGroupLayout,
+    viewport_bind_group_layout: &wgpu::BindGroupLayout,
+    clip_bind_group_layout: &wgpu::BindGroupLayout,
     format: wgpu::TextureFormat,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -61,7 +96,7 @@ pub(super) fn create_pipeline(
     });
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("gummy_canvas primitive pipeline layout"),
-        bind_group_layouts: &[bind_group_layout],
+        bind_group_layouts: &[viewport_bind_group_layout, clip_bind_group_layout],
         push_constant_ranges: &[],
     });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -162,6 +197,7 @@ pub(super) fn create_image_pipeline(
     device: &wgpu::Device,
     viewport_bind_group_layout: &wgpu::BindGroupLayout,
     image_bind_group_layout: &wgpu::BindGroupLayout,
+    clip_bind_group_layout: &wgpu::BindGroupLayout,
     format: wgpu::TextureFormat,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -170,7 +206,11 @@ pub(super) fn create_image_pipeline(
     });
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("gummy_canvas image pipeline layout"),
-        bind_group_layouts: &[viewport_bind_group_layout, image_bind_group_layout],
+        bind_group_layouts: &[
+            viewport_bind_group_layout,
+            image_bind_group_layout,
+            clip_bind_group_layout,
+        ],
         push_constant_ranges: &[],
     });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -193,6 +233,11 @@ pub(super) fn create_image_pipeline(
                         format: wgpu::VertexFormat::Float32x2,
                         offset: std::mem::size_of::<[f32; 2]>() as u64,
                         shader_location: 1,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x4,
+                        offset: (std::mem::size_of::<[f32; 2]>() * 2) as u64,
+                        shader_location: 2,
                     },
                 ],
             }],
@@ -230,14 +275,7 @@ pub(super) fn surface_config(
     height: u32,
 ) -> Option<wgpu::SurfaceConfiguration> {
     let format = preferred_surface_format(&capabilities.formats)?;
-    let present_mode = [
-        wgpu::PresentMode::Immediate,
-        wgpu::PresentMode::Mailbox,
-        wgpu::PresentMode::Fifo,
-    ]
-    .into_iter()
-    .find(|mode| capabilities.present_modes.contains(mode))
-    .or_else(|| capabilities.present_modes.first().copied())?;
+    let present_mode = wgpu::PresentMode::AutoNoVsync;
     let alpha_mode = capabilities
         .alpha_modes
         .iter()

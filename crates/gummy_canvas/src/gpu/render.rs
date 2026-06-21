@@ -4,6 +4,8 @@ use crate::gpu::types::*;
 impl GpuRenderer {
     pub fn begin_frame(&mut self) {
         self.commands.clear();
+        self.clip_textures.truncate(1);
+        self.current_clip_id = 0;
     }
 
     pub fn set_clear_color(&mut self, color: GpuColor) {
@@ -22,7 +24,10 @@ impl GpuRenderer {
 
     pub fn draw_triangles(&mut self, vertices: Vec<([f32; 2], GpuColor)>) {
         if !vertices.is_empty() {
-            self.commands.push(DrawCommand::Triangles(vertices));
+            self.commands.push(DrawCommand::Triangles {
+                vertices,
+                clip_id: self.current_clip_id,
+            });
         }
     }
 
@@ -110,7 +115,7 @@ impl GpuRenderer {
             .rev()
             .find_map(|command| match command {
                 DrawCommand::Clear(color) => Some(*color),
-                DrawCommand::Triangles(_) => None,
+                DrawCommand::Triangles { .. } => None,
                 DrawCommand::Image { .. } => None,
             });
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -132,8 +137,10 @@ impl GpuRenderer {
         });
         pass.set_pipeline(pipeline);
         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+        pass.set_bind_group(1, &self.clip_textures[0].bind_group, &[]);
         let mut skip_until_last_clear = clear.is_some();
         let mut batched_vertices = Vec::new();
+        let mut batched_clip_id = 0usize;
         for command in &self.commands {
             match command {
                 DrawCommand::Clear(color) => {
@@ -141,10 +148,34 @@ impl GpuRenderer {
                         skip_until_last_clear = false;
                     }
                 }
-                DrawCommand::Triangles(vertices) => {
+                DrawCommand::Triangles { vertices, clip_id } => {
                     if skip_until_last_clear {
                         continue;
                     }
+                    if !batched_vertices.is_empty() && batched_clip_id != *clip_id {
+                        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                            label: Some("gummy_canvas primitive vertices"),
+                            size: (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
+                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                            mapped_at_creation: false,
+                        });
+                        self.queue.write_buffer(
+                            &buffer,
+                            0,
+                            bytemuck::cast_slice(&batched_vertices),
+                        );
+                        pass.set_pipeline(pipeline);
+                        pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                        pass.set_bind_group(
+                            1,
+                            &self.clip_textures[batched_clip_id].bind_group,
+                            &[],
+                        );
+                        pass.set_vertex_buffer(0, buffer.slice(..));
+                        pass.draw(0..batched_vertices.len() as u32, 0..1);
+                        batched_vertices.clear();
+                    }
+                    batched_clip_id = *clip_id;
                     batched_vertices.extend(vertices.iter().map(|(position, color)| Vertex {
                         position: *position,
                         color: color.as_float(),
@@ -154,6 +185,7 @@ impl GpuRenderer {
                     key,
                     vertices,
                     linear,
+                    clip_id,
                 } => {
                     if skip_until_last_clear {
                         continue;
@@ -172,6 +204,11 @@ impl GpuRenderer {
                         );
                         pass.set_pipeline(pipeline);
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                        pass.set_bind_group(
+                            1,
+                            &self.clip_textures[batched_clip_id].bind_group,
+                            &[],
+                        );
                         pass.set_vertex_buffer(0, buffer.slice(..));
                         pass.draw(0..batched_vertices.len() as u32, 0..1);
                         batched_vertices.clear();
@@ -181,9 +218,10 @@ impl GpuRenderer {
                     };
                     let image_vertices: Vec<ImageVertex> = vertices
                         .iter()
-                        .map(|(position, uv)| ImageVertex {
+                        .map(|(position, uv, tint)| ImageVertex {
                             position: *position,
                             uv: *uv,
+                            tint: tint.as_float(),
                         })
                         .collect();
                     let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -202,6 +240,7 @@ impl GpuRenderer {
                         &texture.nearest_bind_group
                     };
                     pass.set_bind_group(1, bind_group, &[]);
+                    pass.set_bind_group(2, &self.clip_textures[*clip_id].bind_group, &[]);
                     pass.set_vertex_buffer(0, buffer.slice(..));
                     pass.draw(0..image_vertices.len() as u32, 0..1);
                 }
@@ -218,6 +257,7 @@ impl GpuRenderer {
                 .write_buffer(&buffer, 0, bytemuck::cast_slice(&batched_vertices));
             pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+            pass.set_bind_group(1, &self.clip_textures[batched_clip_id].bind_group, &[]);
             pass.set_vertex_buffer(0, buffer.slice(..));
             pass.draw(0..batched_vertices.len() as u32, 0..1);
         }

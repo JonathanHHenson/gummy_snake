@@ -8,6 +8,8 @@ sprites = []
 churn_pixels = b""
 shots = []
 asteroids = []
+stamp = None
+
 
 def _sprite(width, height, seed):
     pixels = bytearray(width * height * 4)
@@ -247,10 +249,75 @@ def _draw_webgl_3d():
         gs.plane(650, 160)
 
 
+def _star(cx, cy, outer, inner, points):
+    for i in range(points * 2):
+        radius = outer if i % 2 == 0 else inner
+        angle = -math.pi / 2 + i * math.pi / points
+        gs.vertex(cx + math.cos(angle) * radius, cy + math.sin(angle) * radius)
+
+
+def _draw_contours_clipping_tint():
+    gs.background(250, 248, 242)
+
+    gs.no_stroke()
+    gs.fill(244, 188, 67)
+    gs.circle(150, 180, 82)
+    gs.fill(42, 87, 143)
+    with gs.shape(gs.CLOSE):
+        _star(150, 180, 112, 54, 7)
+        with gs.contour():
+            for i in range(28):
+                angle = -math.tau * i / 28
+                gs.vertex(150 + math.cos(angle) * 38, 180 + math.sin(angle) * 38)
+
+    with gs.clip_path():
+        for i in range(36):
+            angle = math.tau * i / 36
+            wave = 18 * math.sin(angle * 3 + gs.frame_count() * 0.08)
+            gs.vertex(
+                430 + math.cos(angle) * (142 + wave),
+                186 + math.sin(angle) * (96 + wave),
+            )
+    gs.background(238, 242, 232)
+    gs.no_stroke()
+    for row in range(8):
+        for col in range(11):
+            gs.fill(40 + col * 16, 104 + row * 10, 174, 210)
+            gs.rect(294 + col * 29, 82 + row * 29, 22, 22)
+    gs.end_clip()
+
+    gs.no_fill()
+    gs.stroke(32, 45, 63)
+    gs.stroke_weight(3)
+    with gs.shape(gs.CLOSE):
+        for i in range(36):
+            angle = math.tau * i / 36
+            gs.vertex(430 + math.cos(angle) * 142, 186 + math.sin(angle) * 96)
+
+    assert stamp is not None
+    gs.image_mode(gs.CENTER)
+    for i, color in enumerate([(227, 88, 75, 230), (45, 150, 112, 220), (247, 183, 60, 210)]):
+        gs.tint(*color)
+        gs.image(stamp, 610, 128 + i * 58, 62, 62)
+    gs.no_tint()
+    gs.image(stamp, 690, 186, 72, 72)
+    gs.image_mode(gs.CORNER)
+
+    gs.no_stroke()
+    gs.fill(30, 34, 44)
+    gs.text_size(16)
+    gs.text("contour hole", 92, 330)
+    gs.text("path clipping", 378, 330)
+    gs.text("image tint", 598, 330)
+
+
 def setup_scene(variant: str) -> None:
-    global sprites, churn_pixels
+    global sprites, churn_pixels, stamp
     renderer = gs.WEBGL if variant == "webgl_3d" else gs.P2D
-    gs.create_canvas(720, 480, renderer)
+    if variant == "contours_clipping_tint":
+        gs.create_canvas(760, 430, renderer)
+    else:
+        gs.create_canvas(720, 480, renderer)
     gs.frame_rate(10_000)
     if variant == "webgl_3d":
         gs.no_stroke()
@@ -258,6 +325,13 @@ def setup_scene(variant: str) -> None:
         gs.perspective(math.pi / 3, 720 / 480, 0.1, 4000)
     sprites = [_sprite(48, 48, seed) for seed in range(5)]
     churn_pixels = _sprite(48, 48, 99).to_rgba_bytes()
+    stamp = gs.create_image(42, 42)
+    for y in range(stamp.height):
+        for x in range(stamp.width):
+            dx = x - stamp.width / 2
+            dy = y - stamp.height / 2
+            alpha = max(0, min(255, int(255 - math.hypot(dx, dy) * 9)))
+            stamp.set(x, y, (255, 255, 255, alpha))
     if variant == "cached_images_nearest":
         gs.no_smooth()
     _reset_asteroids()
@@ -289,6 +363,8 @@ def draw_scene(variant: str) -> None:
         _draw_pixel_readback_upload()
     elif variant == "mixed_text_pixels":
         _draw_mixed_text_pixels()
+    elif variant == "contours_clipping_tint":
+        _draw_contours_clipping_tint()
     elif variant == "asteroids_scene":
         _draw_asteroids_scene()
     elif variant == "webgl_3d":

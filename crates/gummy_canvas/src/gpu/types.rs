@@ -15,6 +15,7 @@ pub(super) struct Vertex {
 pub(super) struct ImageVertex {
     pub(super) position: [f32; 2],
     pub(super) uv: [f32; 2],
+    pub(super) tint: [f32; 4],
 }
 
 #[repr(C)]
@@ -22,6 +23,13 @@ pub(super) struct ImageVertex {
 pub(super) struct ViewportUniform {
     pub(super) size: [f32; 2],
     pub(super) _padding: [f32; 2],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub(super) struct ClipUniform {
+    pub(super) rect: [f32; 4],
+    pub(super) flags: [f32; 4],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -46,11 +54,15 @@ impl GpuColor {
 #[derive(Clone, Debug)]
 pub enum DrawCommand {
     Clear(GpuColor),
-    Triangles(Vec<([f32; 2], GpuColor)>),
+    Triangles {
+        vertices: Vec<([f32; 2], GpuColor)>,
+        clip_id: usize,
+    },
     Image {
         key: u64,
-        vertices: [([f32; 2], [f32; 2]); 6],
+        vertices: [([f32; 2], [f32; 2], GpuColor); 6],
         linear: bool,
+        clip_id: usize,
     },
 }
 
@@ -59,6 +71,13 @@ pub(super) struct TextureAsset {
     pub(super) _view: wgpu::TextureView,
     pub(super) nearest_bind_group: wgpu::BindGroup,
     pub(super) linear_bind_group: wgpu::BindGroup,
+}
+
+pub(super) struct ClipTextureAsset {
+    pub(super) _texture: wgpu::Texture,
+    pub(super) _view: wgpu::TextureView,
+    pub(super) _uniform_buffer: wgpu::Buffer,
+    pub(super) bind_group: wgpu::BindGroup,
 }
 
 pub struct GpuRenderer {
@@ -72,12 +91,15 @@ pub struct GpuRenderer {
     pub(super) pipeline: wgpu::RenderPipeline,
     pub(super) image_pipeline: wgpu::RenderPipeline,
     pub(super) image_bind_group_layout: wgpu::BindGroupLayout,
+    pub(super) clip_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) texture_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) texture_surface_pipeline: Option<(wgpu::TextureFormat, wgpu::RenderPipeline)>,
     pub(super) texture_sampler: wgpu::Sampler,
     pub(super) linear_texture_sampler: wgpu::Sampler,
     pub(super) viewport_buffer: wgpu::Buffer,
     pub(super) viewport_bind_group: wgpu::BindGroup,
+    pub(super) clip_textures: Vec<ClipTextureAsset>,
+    pub(super) current_clip_id: usize,
     pub(super) clear_color: GpuColor,
     pub(super) commands: Vec<DrawCommand>,
     pub(super) textures: HashMap<u64, TextureAsset>,

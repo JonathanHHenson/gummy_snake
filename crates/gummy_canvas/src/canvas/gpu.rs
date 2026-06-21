@@ -8,13 +8,11 @@ impl Canvas {
         } else if self.pixels_stale {
             self.read_gpu_pixels();
         }
+        self.cpu_compositing_active = true;
     }
 
     pub(crate) fn upload_cpu_pixels(&mut self) -> PyResult<()> {
         self.performance_counters.pixel_uploads += 1;
-        if let Some(gpu) = self.gpu.as_mut() {
-            gpu.begin_frame();
-        }
         self.render_dirty = true;
         self.offscreen_dirty = false;
         self.pixels_stale = false;
@@ -144,6 +142,24 @@ impl Canvas {
             )?;
         }
         Ok(())
+    }
+
+    pub(crate) fn draw_gpu_even_odd_spans(
+        &mut self,
+        bounds: (usize, usize, usize, usize),
+        rings: &[&[Point]],
+        color: Rgba,
+    ) -> PyResult<()> {
+        let mut vertices = Vec::new();
+        for_even_odd_spans(bounds, rings, |y, start, end| {
+            let y0 = y as f64;
+            let y1 = y0 + 1.0;
+            let x0 = start as f64;
+            let x1 = end as f64;
+            push_triangle(&mut vertices, (x0, y0), (x1, y0), (x1, y1), color);
+            push_triangle(&mut vertices, (x0, y0), (x1, y1), (x0, y1), color);
+        });
+        self.draw_gpu_triangles(vertices)
     }
 
     pub(crate) fn draw_gpu_segment(

@@ -32,10 +32,11 @@ use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
 use raster::{
     affine_bounds, axis_aligned_image_destination, blit_affine_region, blit_scaled_region,
     clipped_bounds, clipped_dest_rect, clipped_source_rect, draw_axis_aligned_ellipse,
-    draw_polygon_overlay, draw_polyline_stroke, ellipse_bounds, fill_disc, fill_rgba_buffer,
-    gpu_color, image_to_canvas_matrix, matrix_determinant, matrix_inverse, matrix_transform_point,
-    point_in_polygon, point_to_f32, polygon_is_convex, push_triangle, rgba_to_present_pixel,
-    scale_rect, stroke_segment, stroke_width, Matrix, OverlayRegion, Point,
+    draw_polygon_overlay, draw_polyline_stroke, ellipse_bounds, fill_disc, fill_even_odd_polygon,
+    fill_rgba_buffer, for_even_odd_spans, image_to_canvas_matrix, matrix_determinant,
+    matrix_inverse, matrix_transform_point, point_to_f32, polygon_is_convex, push_triangle,
+    rasterize_even_odd_mask, rgba_to_present_pixel, scale_rect, stroke_segment, stroke_width,
+    Matrix, OverlayRegion, Point,
 };
 use runtime::{
     native_window_available as runtime_native_window_available, InteractiveRuntime,
@@ -554,6 +555,7 @@ struct Canvas {
     next_text_key: u64,
     texture_cache_versions: HashMap<u64, u64>,
     clip_masks: Vec<Vec<bool>>,
+    clip_bounds: Vec<(usize, usize, usize, usize)>,
     runtime: Option<InteractiveRuntime>,
     pointer_lock_mode: String,
     gpu: Option<gpu::GpuRenderer>,
@@ -562,6 +564,7 @@ struct Canvas {
     offscreen_dirty: bool,
     pixels_stale: bool,
     texture_stale: bool,
+    cpu_compositing_active: bool,
     cached_style_key: Option<usize>,
     cached_style: Option<Style>,
     performance_counters: PerformanceCounters,
