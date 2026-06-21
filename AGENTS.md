@@ -265,7 +265,10 @@ Prefer dependencies already present in `pyproject.toml` and the Rust crate manif
 
 Current Python project dependencies are intentionally minimal:
 
-- core runtime dependencies are supplied by the packaged Rust canvas runtime
+- `numpy` is the only core Python runtime dependency and is used for vector,
+  mesh, and numeric buffer helpers
+- drawing, presentation, assets, pixels, export, and media frame conversion are
+  supplied by the packaged Rust canvas runtime
 - optional media support uses the `media` extra
 - dev tools include `pytest`, `pytest-cov`, `ruff`, and `mypy`
 - release tooling uses `maturin`
@@ -319,6 +322,7 @@ Benchmark tests are opt-in:
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
@@ -326,6 +330,7 @@ Canvas benchmark scenarios must average at least 120 FPS. Treat failures below
 that floor as optimization work, not as flaky thresholds to loosen. Baseline
 snapshots live in `tests/benchmark/baselines/`; keep captured baseline values as
 measured and record whether they meet the 120 FPS floor.
+Model export benchmarks use a streaming memory budget rather than an FPS floor.
 API overhead benchmarks should compare global-mode, object-oriented sketch,
 context-direct, `fast()`, and renderer-direct dispatch paths.
 Renderer/runtime diagnostics should expose counters through public Python APIs

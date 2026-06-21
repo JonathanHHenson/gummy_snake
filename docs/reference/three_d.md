@@ -10,10 +10,8 @@ gs.create_canvas(640, 480, renderer=gs.WEBGL)
 
 - `create_camera(...)`
 - `camera(...)`
-- `set_camera(camera)`
 - `perspective(...)`
 - `ortho(...)`
-- `frustum(...)`
 - `orbit_control(...)`
 
 ## Lights and Materials
@@ -21,15 +19,10 @@ gs.create_canvas(640, 480, renderer=gs.WEBGL)
 - `ambient_light(...)`
 - `directional_light(...)`
 - `point_light(...)`
-- `spot_light(...)`
-- `lights()`
-- `no_lights()`
 - `normal_material()`
 - `ambient_material(...)`
 - `specular_material(...)`
-- `emissive_material(...)`
 - `shininess(value)`
-- `metalness(value)`
 - `texture(image)`
 
 ## Primitives and Models
@@ -52,7 +45,12 @@ gs.create_canvas(640, 480, renderer=gs.WEBGL)
 - `create_shader(vertex_source, fragment_source)`
 - `shader(shader_program)`
 - `reset_shader()`
-- `normal_shader()`
 
-3D support is evolving. Unsupported shader or advanced 3D APIs raise explicit
-Gummy Snake exceptions.
+Current `WEBGL` support is a Rust-backed software 3D path presented through the
+canvas runtime. It supports deterministic small-sketch rendering, primitive
+meshes, loaded OBJ models, lights, materials, textures, and shader objects for
+API compatibility. It does not imply native accelerated 3D or native shader
+execution; backend capabilities distinguish `software_three_d`,
+`native_three_d`, `shaders`, and `native_shaders`.
+
+Unsupported shader or advanced 3D APIs raise explicit Gummy Snake exceptions.

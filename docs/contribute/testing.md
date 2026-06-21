@@ -51,6 +51,7 @@ explicitly requested:
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
@@ -82,6 +83,10 @@ bytes-based, and region-based pixel workflows. Use them when changing `Image`,
 `CanvasImage`, `load_image()`, media frame conversion, `get()`, `set()`,
 `load_pixels()`, `load_pixel_bytes()`, `update_pixels()`, or image cache
 behavior.
+
+The model export benchmark compares streaming OBJ/STL export against the legacy
+list-building approach for large generated meshes. It asserts output sanity and
+a fixed peak-memory budget instead of an FPS floor.
 
 The WEBGL 3D benchmarks exercise the current Rust-backed software 3D path for
 box, sphere, textured plane, imported model, and repeated primitive scenes.
@@ -181,7 +186,7 @@ threshold only after the project has agreed on a baseline and exclusion policy.
 
 ## Backlog TOML
 
-If you edit backlog items, preserve the existing `priotity` key spelling and
+If you edit backlog items, preserve the existing `priority` key spelling and
 validate the files:
 
 ```sh

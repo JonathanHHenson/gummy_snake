@@ -159,11 +159,13 @@ Performance benchmarks are opt-in:
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
 Canvas benchmark scenarios are expected to average at least 120 FPS. Failures
-below that floor are intentional optimization signals. Machine-specific baseline
+below that floor are intentional optimization signals. Model export benchmarks
+use a memory budget for streaming OBJ/STL output. Machine-specific baseline
 snapshots live in `tests/benchmark/baselines/`.
 
 Long-running resource lifecycle checks are also opt-in:
