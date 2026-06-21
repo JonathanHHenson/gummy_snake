@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any, Protocol, TypeGuard, cast
+from typing import Any, Protocol, Self, TypeGuard, cast
 
 Number = int | float
 _VECTOR_TYPE: type[Any] | None = None
@@ -15,7 +15,23 @@ class _VectorLike(Protocol):
     z: float
 
 
-def _is_registered_vector(value: object) -> TypeGuard[_VectorLike]:
+class _VectorBasicOps(_VectorLike, Protocol):
+    def div(self, vector_or_value: Any, value: Number | None = None) -> Self: ...
+    def mult(self, vector_or_value: Any, value: Number | None = None) -> Self: ...
+    def sub(self, value: Any, other: Any = None, z: Number | None = None) -> Self: ...
+
+
+class _VectorFullOps(_VectorBasicOps, Protocol):
+    def mag(self) -> float: ...
+    def copy(self) -> Self: ...
+    def set(self, value: Any, y: Number | None = None, z: Number | None = None) -> Self: ...
+    def add(self, value: Any, other: Any = None, z: Number | None = None) -> Self: ...
+    def normalize(self) -> Self: ...
+    def dot(self, value: Any, other: Any = None, z: Number | None = None) -> float: ...
+    def lerp(self, value: Any, other: Any, amount: Number | None = None) -> Self: ...
+
+
+def _is_registered_vector(value: Any) -> TypeGuard[_VectorLike]:
     return _VECTOR_TYPE is not None and isinstance(value, _VECTOR_TYPE)
 
 

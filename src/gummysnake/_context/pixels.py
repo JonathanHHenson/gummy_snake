@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Buffer, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, overload
 
 from gummysnake import constants as c
 from gummysnake._context.helpers import blend_args, copy_ints, rgba_bytes
@@ -46,9 +46,18 @@ class PixelContextMixin:
             self.load_pixels()
         self.renderer.update_pixels(self.pixels)
 
+    @overload
+    def get(self) -> Image: ...
+
+    @overload
+    def get(self, x: int, y: int) -> Color: ...
+
+    @overload
+    def get(self, x: int, y: int, w: int, h: int) -> Image: ...
+
     def get(
         self, x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None
-    ):
+    ) -> Color | Image:
         if x is None and y is None:
             return self._canvas_image()
         if x is None or y is None:
@@ -101,7 +110,33 @@ class PixelContextMixin:
         )
         self.pixels = []
 
-    def copy(self, *args: object):
+    @overload
+    def copy(self) -> Image: ...
+
+    @overload
+    def copy(self, sx: int, sy: int, sw: int, sh: int, /) -> Image: ...
+
+    @overload
+    def copy(
+        self, sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /
+    ) -> None: ...
+
+    @overload
+    def copy(
+        self,
+        image: Image,
+        sx: int,
+        sy: int,
+        sw: int,
+        sh: int,
+        dx: int,
+        dy: int,
+        dw: int,
+        dh: int,
+        /,
+    ) -> None: ...
+
+    def copy(self, *args: Any) -> Image | None:
         if len(args) == 0:
             return self.get()
         if isinstance(args[0], Image):

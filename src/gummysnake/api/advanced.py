@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from gummysnake.api.current import require_context
+from gummysnake.assets.image import Image
 from gummysnake.assets.media import Capture, Video
 from gummysnake.assets.media import create_capture as _create_capture
 from gummysnake.assets.media import create_capture_async as _create_capture_async
@@ -18,25 +19,32 @@ from gummysnake.assets.shader import load_shader_async as _load_shader_async
 from gummysnake.assets.sound import Sound
 from gummysnake.assets.sound import load_sound as _load_sound
 from gummysnake.assets.sound import load_sound_async as _load_sound_async
+from gummysnake.drawing.renderer3d import (
+    Camera3D,
+    Model3D,
+    OrthographicProjection,
+    PerspectiveProjection,
+    Shader3D,
+)
 
 
-def create_camera(*args: object):
+def create_camera(*args: object) -> Camera3D:
     return require_context().create_camera(*args)
 
 
-def camera(*args: object):
+def camera(*args: object) -> Camera3D:
     return require_context().camera(*args)
 
 
-def perspective(*args: object):
+def perspective(*args: object) -> PerspectiveProjection:
     return require_context().perspective(*args)
 
 
-def ortho(*args: object):
+def ortho(*args: object) -> OrthographicProjection:
     return require_context().ortho(*args)
 
 
-def orbit_control(*args: object):
+def orbit_control(*args: object) -> Camera3D:
     return require_context().orbit_control(*args)
 
 
@@ -68,7 +76,7 @@ def shininess(value: float) -> None:
     require_context().shininess(value)
 
 
-def texture(image) -> None:
+def texture(image: Image) -> None:
     require_context().texture(image)
 
 
@@ -128,25 +136,25 @@ def torus(
     require_context().torus(radius, tube_radius, detail_x, detail_y)
 
 
-def create_model(mesh: object):
+def create_model(mesh: object) -> Model3D:
     return require_context().create_model(mesh)
 
 
-def save_obj(model_value, path: str | Path):
+def save_obj(model_value: Model3D, path: str | Path) -> Path:
     return require_context().save_obj(model_value, path)
 
 
-def save_stl(model_value, path: str | Path):
+def save_stl(model_value: Model3D, path: str | Path) -> Path:
     return require_context().save_stl(model_value, path)
 
 
-def load_model(path: str | Path, normalize: bool = False, *, package: str | None = None):
+def load_model(path: str | Path, normalize: bool = False, *, package: str | None = None) -> Model3D:
     return _load_model(path, normalize, package=package)
 
 
 async def load_model_async(
     path: str | Path, normalize: bool = False, *, package: str | None = None
-):
+) -> Model3D:
     return await _load_model_async(path, normalize, package=package)
 
 
@@ -154,19 +162,19 @@ def model(shape: object) -> None:
     require_context().model(shape)
 
 
-def load_shader(vertex_path: str | Path, fragment_path: str | Path):
+def load_shader(vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
     return _load_shader(vertex_path, fragment_path)
 
 
-async def load_shader_async(vertex_path: str | Path, fragment_path: str | Path):
+async def load_shader_async(vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
     return await _load_shader_async(vertex_path, fragment_path)
 
 
-def create_shader(vertex_source: str, fragment_source: str):
+def create_shader(vertex_source: str, fragment_source: str) -> Shader3D:
     return _create_shader(vertex_source, fragment_source)
 
 
-def shader(shader_program) -> None:
+def shader(shader_program: Shader3D) -> None:
     require_context().shader(shader_program)
 
 

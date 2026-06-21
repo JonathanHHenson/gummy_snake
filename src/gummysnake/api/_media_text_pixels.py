@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Buffer, Sequence
-from typing import Any, cast
+from pathlib import Path
+from typing import Any, cast, overload
 
 from gummysnake import constants as c
 from gummysnake.api.current import require_context
+from gummysnake.assets.image import Image
+from gummysnake.assets.text import Font
+from gummysnake.core.color import Color
 
 
 def _context_call(name: str, *args: object, **kwargs: object) -> Any:
@@ -25,8 +29,8 @@ def text_size(size: float | None = None) -> float:
     return cast(float, _context_call("text_size", size))
 
 
-def text_font(font: Any | None = None):
-    return _context_call("text_font", font)
+def text_font(font: Font | str | None = None) -> Font:
+    return cast(Font, _context_call("text_font", font))
 
 
 def text_style(style: c.TextStyle | None = None) -> c.TextStyle:
@@ -87,11 +91,11 @@ def text_weight(value: int | None = None) -> int:
     return cast(int, _context_call("text_weight", value))
 
 
-def text_property(name: str, value: object | None = None) -> object:
+def text_property(name: str, value: Any | None = None) -> object:
     return _context_call("text_property", name, value)
 
 
-def text_properties(**properties: object) -> dict[str, object]:
+def text_properties(**properties: Any) -> dict[str, object]:
     return cast(dict[str, object], _context_call("text_properties", **properties))
 
 
@@ -124,31 +128,63 @@ def pixels() -> Sequence[int]:
     return context.pixels or context.load_pixels()
 
 
-def pixel_array():
-    return _context_call("pixel_array")
+def pixel_array() -> list[list[tuple[int, int, int, int]]]:
+    return cast(list[list[tuple[int, int, int, int]]], _context_call("pixel_array"))
 
 
 def update_pixels(pixels: Sequence[int] | Buffer | None = None) -> None:
     _context_call("update_pixels", pixels)
 
 
-def get(x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None):
-    return _context_call("get", x, y, w, h)
+@overload
+def get() -> Image: ...
+
+
+@overload
+def get(x: int, y: int) -> Color: ...
+
+
+@overload
+def get(x: int, y: int, w: int, h: int) -> Image: ...
+
+
+def get(
+    x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None
+) -> Color | Image:
+    return cast(Color | Image, _context_call("get", x, y, w, h))
 
 
 def set(x: int, y: int, value: Any) -> None:
     _context_call("set", x, y, value)
 
 
-def copy(*args: object):
-    return _context_call("copy", *args)
+@overload
+def copy() -> Image: ...
+
+
+@overload
+def copy(sx: int, sy: int, sw: int, sh: int, /) -> Image: ...
+
+
+@overload
+def copy(sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /) -> None: ...
+
+
+@overload
+def copy(
+    image: Image, sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /
+) -> None: ...
+
+
+def copy(*args: Any) -> Image | None:
+    return cast(Image | None, _context_call("copy", *args))
 
 
 def filter(mode: c.ImageFilter, value: float | None = None) -> None:
     _context_call("filter", mode, value)
 
 
-def save_canvas(path: str, *, extension: str | None = None, overwrite: bool = True):
+def save_canvas(path: str | Path, *, extension: str | None = None, overwrite: bool = True) -> Path:
     return _context_call("save_canvas", path, extension=extension, overwrite=overwrite)
 
 

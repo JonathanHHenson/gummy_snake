@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Container, Sequence
-from typing import Any, NamedTuple, cast
+from typing import Any, NamedTuple
 
 from gummysnake import constants as c
 from gummysnake.assets.image import CanvasImage, Image
@@ -53,9 +53,7 @@ def image_draw_args(
     image_mode: c.ShapeMode,
 ) -> ImageDrawArgs:
     if not isinstance(image, Image | CanvasImage):
-        raise ArgumentValidationError(
-            "image() requires a Gummy Snake Image or CanvasImage object."
-        )
+        raise ArgumentValidationError("image() requires a Gummy Snake Image or CanvasImage object.")
     source: tuple[int, int, int, int] | None
     if len(args) == 0:
         width = float(image.width)
@@ -75,8 +73,7 @@ def image_draw_args(
         source = (int(sx), int(sy), int(sw), int(sh))
     else:
         raise ArgumentValidationError(
-            "image() accepts image, x, y; image, x, y, w, h; "
-            "or image, x, y, w, h, sx, sy, sw, sh."
+            "image() accepts image, x, y; image, x, y, w, h; or image, x, y, w, h, sx, sy, sw, sh."
         )
     dx, dy, dw, dh = resolve_rect(image_mode, float(x), float(y), width, height)
     return ImageDrawArgs(dx, dy, dw, dh, source)
@@ -113,5 +110,5 @@ def blend_args(
     )
 
 
-def copy_ints(values: tuple[object, ...]) -> tuple[int, ...]:
-    return tuple(int(cast(Any, value)) for value in values)
+def copy_ints(values: tuple[Any, ...]) -> tuple[int, ...]:
+    return tuple(int(value) for value in values)

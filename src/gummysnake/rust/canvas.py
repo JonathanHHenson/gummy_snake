@@ -161,13 +161,13 @@ def canvas_abi_version() -> int | None:
         return None
     marker = getattr(_canvas, "canvas_abi_version", None)
     try:
-        value = marker() if callable(marker) else getattr(_canvas, "CANVAS_ABI_VERSION", None)
+        value: Any = marker() if callable(marker) else getattr(_canvas, "CANVAS_ABI_VERSION", None)
     except Exception:
         return None
     if value is None:
         return None
     try:
-        return int(cast(Any, value))
+        return int(value)
     except (TypeError, ValueError):
         return None
 

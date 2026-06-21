@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from functools import lru_cache
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 import numpy as np
 
@@ -14,6 +14,11 @@ from gummysnake.exceptions import ArgumentValidationError
 from .types import UVCoord
 
 _MESH_CACHE_SIZE = 256
+
+
+class _CachedModelFactory(Protocol):
+    def cache_clear(self) -> None: ...
+    def cache_info(self) -> Any: ...
 
 
 def _rust_primitive_model(function_name: str, *args: object) -> Model3D | None:
@@ -41,18 +46,18 @@ def clear_primitive_model_cache() -> None:
         cone_model,
         torus_model,
     ):
-        cast(Any, fn).cache_clear()
+        cast(_CachedModelFactory, fn).cache_clear()
 
 
 def primitive_model_cache_info() -> dict[str, Any]:
     return {
-        "plane": cast(Any, plane_model).cache_info(),
-        "box": cast(Any, box_model).cache_info(),
-        "sphere": cast(Any, sphere_model).cache_info(),
-        "ellipsoid": cast(Any, ellipsoid_model).cache_info(),
-        "cylinder": cast(Any, cylinder_model).cache_info(),
-        "cone": cast(Any, cone_model).cache_info(),
-        "torus": cast(Any, torus_model).cache_info(),
+        "plane": cast(_CachedModelFactory, plane_model).cache_info(),
+        "box": cast(_CachedModelFactory, box_model).cache_info(),
+        "sphere": cast(_CachedModelFactory, sphere_model).cache_info(),
+        "ellipsoid": cast(_CachedModelFactory, ellipsoid_model).cache_info(),
+        "cylinder": cast(_CachedModelFactory, cylinder_model).cache_info(),
+        "cone": cast(_CachedModelFactory, cone_model).cache_info(),
+        "torus": cast(_CachedModelFactory, torus_model).cache_info(),
     }
 
 

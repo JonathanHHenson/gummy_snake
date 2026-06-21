@@ -14,6 +14,10 @@ class ImageSource(Protocol):
     def tobytes(self) -> bytes: ...
 
 
+class _ByteSourceCallback(Protocol):
+    def __call__(self) -> bytes | bytearray | memoryview: ...
+
+
 def coerce_image_source(
     width: int | ImageSource,
     height: int | None,
@@ -39,13 +43,13 @@ def coerce_image_source(
     convert: Any = getattr(width, "convert", None)
     source = convert("RGBA") if callable(convert) else width
     if callable(to_rgba_bytes):
-        payload = bytes(cast(Any, to_rgba_bytes)())
+        payload = bytes(cast(_ByteSourceCallback, to_rgba_bytes)())
     else:
         source_tobytes: Any = getattr(source, "tobytes", None)
         if callable(source_tobytes):
-            payload = bytes(cast(Any, source_tobytes)())
+            payload = bytes(cast(_ByteSourceCallback, source_tobytes)())
         elif callable(tobytes):
-            payload = bytes(cast(Any, tobytes)())
+            payload = bytes(cast(_ByteSourceCallback, tobytes)())
         else:
             raise ArgumentValidationError("Image source must expose RGBA bytes.")
     return image_width, image_height, payload

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from gummysnake.api.current import require_context
-from gummysnake.core.vector import create_vector
+from gummysnake.core.vector import Vector, create_vector
 
 
 class CurrentFacade:
@@ -70,11 +70,11 @@ class MouseFacade:
         return require_context().mouse_button
 
     @property
-    def position(self):
+    def position(self) -> Vector:
         return create_vector(self.x, self.y)
 
     @property
-    def previous_position(self):
+    def previous_position(self) -> Vector:
         return create_vector(self.previous_x, self.previous_y)
 
 

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import cast
 
 from gummysnake import constants as c
+from gummysnake.context import SketchContext
 from gummysnake.sketch import EVENT_CALLBACK_NAMES, FunctionSketch, SketchBuilder
 
 _DECORATED_SKETCHES: dict[str, SketchBuilder] = {}
@@ -72,7 +73,7 @@ def run(
     touch_cancelled: Callable[..., None] | None = None,
     headless: bool | None = None,
     max_frames: int | None = None,
-):
+) -> SketchContext:
     current_frame = inspect.currentframe()
     caller_frame = current_frame.f_back if current_frame is not None else None
     caller_globals = caller_frame.f_globals if caller_frame is not None else {}

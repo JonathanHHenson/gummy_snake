@@ -12,6 +12,10 @@ from gummysnake.assets._paths import resolve_asset_path
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
 
+class _ByteSourceCallback(Protocol):
+    def __call__(self) -> bytes | bytearray | memoryview: ...
+
+
 class _RustCanvasSound(Protocol):
     path: str
     duration: float | None
@@ -100,7 +104,7 @@ class Sound:
             return self._rust_sound.to_bytes()
         to_bytes = getattr(self._source, "to_bytes", None)
         if callable(to_bytes):
-            return bytes(cast(Any, to_bytes)())
+            return bytes(cast(_ByteSourceCallback, to_bytes)())
         raise BackendCapabilityError("Sound bytes are unavailable for this sound source.")
 
     def play(self) -> None:

@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Buffer, Sequence
+from collections.abc import Buffer, Iterator, Sequence
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 from gummysnake import constants as c
+from gummysnake._fast_draw import FastDrawScope
+from gummysnake.assets.image import Image
 from gummysnake.context import SketchContext
+from gummysnake.drawing.renderer3d import (
+    Camera3D,
+    OrthographicProjection,
+    PerspectiveProjection,
+    Shader3D,
+)
 
 
 class SketchFacadeMixin:
@@ -44,7 +53,7 @@ class SketchFacadeMixin:
     def display_density(self) -> float:
         return self._ctx.display_density()
 
-    def fast(self):
+    def fast(self) -> FastDrawScope:
         return self._ctx.fast()
 
     def enable_performance_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
@@ -119,19 +128,19 @@ class SketchFacadeMixin:
     def arc(self, *args: Any) -> None:
         self._ctx.arc(*args)
 
-    def create_camera(self, *args: object):
+    def create_camera(self, *args: object) -> Camera3D:
         return self._ctx.create_camera(*args)
 
-    def camera(self, *args: object):
+    def camera(self, *args: object) -> Camera3D:
         return self._ctx.camera(*args)
 
-    def perspective(self, *args: object):
+    def perspective(self, *args: object) -> PerspectiveProjection:
         return self._ctx.perspective(*args)
 
-    def ortho(self, *args: object):
+    def ortho(self, *args: object) -> OrthographicProjection:
         return self._ctx.ortho(*args)
 
-    def orbit_control(self, *args: object):
+    def orbit_control(self, *args: object) -> Camera3D:
         return self._ctx.orbit_control(*args)
 
     def ambient_light(self, *args: object) -> None:
@@ -155,7 +164,7 @@ class SketchFacadeMixin:
     def shininess(self, value: float) -> None:
         self._ctx.shininess(value)
 
-    def texture(self, image) -> None:
+    def texture(self, image: Image) -> None:
         self._ctx.texture(image)
 
     def plane(self, width: float, height: float | None = None) -> None:
@@ -170,13 +179,13 @@ class SketchFacadeMixin:
     def model(self, shape: object) -> None:
         self._ctx.model(shape)
 
-    def load_shader(self, vertex_path: str, fragment_path: str):
+    def load_shader(self, vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
         return self._ctx.load_shader(vertex_path, fragment_path)
 
-    def create_shader(self, vertex_source: str, fragment_source: str):
+    def create_shader(self, vertex_source: str, fragment_source: str) -> Shader3D:
         return self._ctx.create_shader(vertex_source, fragment_source)
 
-    def shader(self, shader_program) -> None:
+    def shader(self, shader_program: Shader3D) -> None:
         self._ctx.shader(shader_program)
 
     def reset_shader(self) -> None:
@@ -189,7 +198,7 @@ class SketchFacadeMixin:
         self._ctx.pop()
 
     @contextmanager
-    def pushed(self):
+    def pushed(self) -> Iterator[None]:
         self.push()
         try:
             yield
@@ -226,7 +235,7 @@ class SketchFacadeMixin:
     def update_pixels(self, pixels: Sequence[int] | Buffer | None = None) -> None:
         self._ctx.update_pixels(pixels)
 
-    def save_canvas(self, *args: Any, **kwargs: Any):
+    def save_canvas(self, *args: Any, **kwargs: Any) -> Path:
         return self._ctx.save_canvas(*args, **kwargs)
 
     def blend_mode(self, mode: c.BlendMode) -> None:

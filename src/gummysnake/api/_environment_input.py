@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from gummysnake.api.current import require_context
+from gummysnake.events.input_state import TouchPoint
 
 
 def frame_rate(value: float | None = None) -> float:
@@ -121,5 +122,5 @@ def key_is_down(key_code: int) -> bool:
     return require_context().key_is_down(key_code)
 
 
-def touches():
+def touches() -> list[TouchPoint]:
     return require_context().touches

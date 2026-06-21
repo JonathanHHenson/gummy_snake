@@ -143,16 +143,16 @@ class TextContextMixin:
                 cast(SketchContextHost, self)._mark_style_changed()
         return self._text_weight
 
-    def text_property(self, name: str, value: object | None = None) -> object:
+    def text_property(self, name: str, value: Any | None = None) -> object:
         if name == "direction":
             return self.text_direction(None if value is None else str(value))
         if name == "wrap":
             return self.text_wrap(None if value is None else str(value))
         if name == "weight":
-            return self.text_weight(None if value is None else int(cast(Any, value)))
+            return self.text_weight(None if value is None else int(value))
         raise ArgumentValidationError("Unsupported text property.")
 
-    def text_properties(self, **properties: object) -> dict[str, object]:
+    def text_properties(self, **properties: Any) -> dict[str, object]:
         for name, value in properties.items():
             self.text_property(name, value)
         return {

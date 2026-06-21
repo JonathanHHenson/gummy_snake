@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random as _random
 from collections.abc import Sequence
-from typing import cast
+from typing import cast, overload
 
 from gummysnake.rust import noise_3d as _noise_3d
 
@@ -20,7 +20,23 @@ def random_seed(seed: int | float | str | bytes | bytearray | None) -> None:
     _random_generator.seed(seed)
 
 
-def random(*args: object):
+@overload
+def random() -> float: ...
+
+
+@overload
+def random(maximum: Number, /) -> float: ...
+
+
+@overload
+def random[T](values: Sequence[T], /) -> T | None: ...
+
+
+@overload
+def random(low: Number, high: Number, /) -> float: ...
+
+
+def random(*args: object) -> float | object | None:
     if len(args) == 0:
         return _random_generator.random()
     if len(args) == 1:

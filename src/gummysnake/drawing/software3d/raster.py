@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterator
 from typing import cast
 
 from gummysnake.assets.image import Image as CanvasImage
@@ -89,7 +90,11 @@ def draw_textured_face(image: CanvasImage, face: ShadedFace) -> None:
         )
 
 
-def triangulated_face(points: tuple[ScreenPoint, ...], texcoords: tuple[UVCoord, ...]):
+def triangulated_face(
+    points: tuple[ScreenPoint, ...], texcoords: tuple[UVCoord, ...]
+) -> Iterator[
+    tuple[tuple[ScreenPoint, ScreenPoint, ScreenPoint], tuple[UVCoord, UVCoord, UVCoord]]
+]:
     for index in range(1, len(points) - 1):
         yield (
             (points[0], points[index], points[index + 1]),

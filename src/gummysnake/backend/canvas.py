@@ -1,4 +1,4 @@
-"""Experimental Rust-powered canvas backend."""
+"""Rust-powered canvas backend."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from gummysnake.backend._canvas.backend.runtime import CanvasBackendRuntimeMixin
 from gummysnake.backend.base import BackendCapabilities
 from gummysnake.backend.canvas_renderer import CanvasRenderer
 from gummysnake.exceptions import BackendCapabilityError
-from gummysnake.rust.canvas import canvas_gpu_status, canvas_health_check, require_canvas_runtime
+from gummysnake.rust import canvas as canvas_bridge
 
 
 class CanvasBackend(
@@ -66,7 +66,8 @@ class CanvasBackend(
     )
 
     def __init__(self, *, headless: bool | None = None) -> None:
-        self._canvas_module = require_canvas_runtime()
+        runtime_loader = vars(canvas_bridge)["require_canvas_runtime"]
+        self._canvas_module = runtime_loader()
         native_runtime = self._native_window_available()
         self.capabilities = replace(
             type(self).capabilities,
@@ -91,7 +92,7 @@ class CanvasBackend(
     def health_check(self) -> str:
         """Return the underlying Rust canvas runtime health check."""
 
-        return canvas_health_check()
+        return canvas_bridge.canvas_health_check()
 
     def gpu_status(self) -> str:
         """Return an actionable GPU availability diagnostic for this canvas runtime."""
@@ -107,7 +108,7 @@ class CanvasBackend(
                 "but native interactive presentation and GPU-accelerated drawing may be "
                 "disabled or slower."
             )
-        return canvas_gpu_status()
+        return canvas_bridge.canvas_gpu_status()
 
     def _native_window_available(self) -> bool:
         native_window_available = getattr(self._canvas_module, "native_window_available", None)

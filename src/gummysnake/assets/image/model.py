@@ -6,7 +6,7 @@ from collections.abc import Buffer
 from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
-from typing import Self, cast
+from typing import Self, cast, overload
 
 from gummysnake import constants as c
 from gummysnake.assets.image import ops
@@ -85,7 +85,13 @@ class Image(ImageDeferredMixin):
     def pixels(self) -> list[int]:
         return list(self._pixels)
 
-    def __getitem__(self, key: object):
+    @overload
+    def __getitem__(self, key: tuple[int, int]) -> Color: ...
+
+    @overload
+    def __getitem__(self, key: tuple[slice, slice]) -> Image: ...
+
+    def __getitem__(self, key: object) -> Color | Image:
         if not isinstance(key, tuple) or len(key) != 2:
             raise TypeError("Image indices must be (x, y) or (x_slice, y_slice).")
         x_key, y_key = key
@@ -148,9 +154,18 @@ class Image(ImageDeferredMixin):
             return cropped
         raise ArgumentValidationError("Image.copy() accepts 0, 4, or 8 integer arguments.")
 
+    @overload
+    def get(self) -> Image: ...
+
+    @overload
+    def get(self, x: int, y: int) -> Color: ...
+
+    @overload
+    def get(self, x: int, y: int, w: int, h: int) -> Image: ...
+
     def get(
         self, x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None
-    ):
+    ) -> Color | Image:
         if x is None and y is None:
             return self.copy()
         if x is None or y is None:

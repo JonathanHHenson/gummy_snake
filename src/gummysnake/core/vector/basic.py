@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
-from typing import Any, cast
+from collections.abc import Iterable, Iterator
+from typing import Any, Self, cast
 
-from gummysnake.core.vector.common import Number, _components
+from gummysnake.core.vector.common import Number, _components, _VectorBasicOps
 
 
 class VectorBasicMixin:
@@ -20,7 +20,7 @@ class VectorBasicMixin:
     def __str__(self) -> str:
         return self.to_string()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[float]:
         yield self.x
         yield self.y
         yield self.z
@@ -66,7 +66,7 @@ class VectorBasicMixin:
             and math.isclose(self.z, oz, abs_tol=abs_tol)
         )
 
-    def copy(self):
+    def copy(self) -> Self:
         vector_type = cast("type[Any]", type(self))
         return vector_type(self.x, self.y, self.z)
 
@@ -75,7 +75,7 @@ class VectorBasicMixin:
         value: object | Iterable[Number] | Number,
         y: Number | None = None,
         z: Number | None = None,
-    ):
+    ) -> Self:
         self.x, self.y, self.z = _components(value, y, z)
         return self
 
@@ -101,7 +101,7 @@ class VectorBasicMixin:
                     raise IndexError("Vector component name must be 'x', 'y', or 'z'.")
         return self[index]
 
-    def set_value(self, index: int | str, value: Number):
+    def set_value(self, index: int | str, value: Number) -> Self:
         if isinstance(index, str):
             match index:
                 case "x":
@@ -122,22 +122,22 @@ class VectorBasicMixin:
     def mag_sq(self) -> float:
         return self.x * self.x + self.y * self.y + self.z * self.z
 
-    def normalize(self):
+    def normalize(self) -> Self:
         magnitude = self.mag()
         if magnitude != 0:
-            cast(Any, self).div(magnitude)
+            cast(_VectorBasicOps, self).div(magnitude)
         return self
 
-    def set_mag(self, length: Number):
-        return cast(Any, self.normalize()).mult(length)
+    def set_mag(self, length: Number) -> Self:
+        return cast(Self, cast(_VectorBasicOps, self.normalize()).mult(length))
 
-    def limit(self, maximum: Number):
+    def limit(self, maximum: Number) -> Self:
         max_value = float(maximum)
         if self.mag_sq() > max_value * max_value:
             self.set_mag(max_value)
         return self
 
-    def clamp_to_zero(self, *, abs_tol: float = 1e-12):
+    def clamp_to_zero(self, *, abs_tol: float = 1e-12) -> Self:
         if abs(self.x) <= abs_tol:
             self.x = 0.0
         if abs(self.y) <= abs_tol:
@@ -146,14 +146,14 @@ class VectorBasicMixin:
             self.z = 0.0
         return self
 
-    def __rsub__(self, other: object | Iterable[Number] | Number):
+    def __rsub__(self, other: object | Iterable[Number] | Number) -> Self:
         if isinstance(other, int | float):
             vector_type = cast("type[Any]", type(self))
-            return cast(Any, vector_type(other, other, other)).sub(self)
+            return cast(Self, vector_type(other, other, other).sub(self))
         vector_type = cast("type[Any]", type(self))
-        return cast(Any, vector_type(other)).sub(self)
+        return cast(Self, vector_type(other).sub(self))
 
-    def __round__(self, ndigits: int | None = None):
+    def __round__(self, ndigits: int | None = None) -> Self:
         if ndigits is None:
             vector_type = cast("type[Any]", type(self))
             return vector_type(round(self.x), round(self.y), round(self.z))
@@ -164,12 +164,12 @@ class VectorBasicMixin:
             round(self.z, ndigits),
         )
 
-    def rem(self, other: object | Iterable[Number] | Number):
+    def rem(self, other: object | Iterable[Number] | Number) -> Self:
         ox, oy, oz = _components(other)
         self.x %= ox
         self.y %= oy
         self.z %= oz
         return self
 
-    def normalized(self):
+    def normalized(self) -> Self:
         return self.copy().normalize()

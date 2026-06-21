@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from gummysnake._context.canvas import CanvasContextMixin
 from gummysnake._context.images import ImageContextMixin
@@ -41,7 +41,7 @@ class SketchContext(
 ):
     """Mutable state and operations for one running sketch."""
 
-    def __init__(self, sketch, backend, *, plugins: PluginRegistry) -> None:
+    def __init__(self, sketch: Any, backend: Any, *, plugins: PluginRegistry) -> None:
         self.sketch = sketch
         self.backend = backend
         self.renderer = backend.renderer

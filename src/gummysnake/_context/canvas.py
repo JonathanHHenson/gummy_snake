@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake import constants as c
 from gummysnake._context._protocols import SketchContextHost
 from gummysnake._fast_draw import FastDrawScope
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+
+if TYPE_CHECKING:
+    from gummysnake.context import SketchContext
 
 _PERFORMANCE_DIAGNOSTIC_MESSAGE_LIMIT = 64
 
@@ -125,7 +128,7 @@ class CanvasContextMixin:
         return self.backend.display_density()
 
     def fast(self) -> FastDrawScope:
-        return FastDrawScope(cast(Any, self))
+        return FastDrawScope(cast("SketchContext", self))
 
     def enable_performance_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
         self._performance_diagnostics_enabled = bool(enabled)

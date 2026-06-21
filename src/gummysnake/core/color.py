@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import colorsys
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import cast
 
@@ -63,7 +63,7 @@ class Color:
     def to_tuple(self) -> tuple[int, int, int, int]:
         return self.r, self.g, self.b, self.a
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         return iter(self.to_tuple())
 
     def with_red(self, red: Number) -> Color:

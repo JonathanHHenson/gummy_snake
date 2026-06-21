@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from gummysnake import constants as c
+from gummysnake._fast_draw import FastDrawScope
 from gummysnake.api.current import require_context
+from gummysnake.core.color import Color
 
 
 def create_canvas(
@@ -34,7 +36,7 @@ def display_density() -> float:
     return require_context().display_density()
 
 
-def fast():
+def fast() -> FastDrawScope:
     return require_context().fast()
 
 
@@ -78,7 +80,7 @@ def clear() -> None:
     require_context().clear()
 
 
-def color(*args: object):
+def color(*args: object) -> Color:
     return require_context().color(*args)
 
 
@@ -86,7 +88,7 @@ def color_mode(*args: Any) -> None:
     require_context().color_mode(*args)
 
 
-def lerp_color(*args: Any):
+def lerp_color(*args: Any) -> Color:
     return require_context().lerp_color(*args)
 
 

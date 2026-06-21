@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from typing import cast
 
@@ -20,7 +20,7 @@ def pop() -> None:
 
 
 @contextmanager
-def pushed():
+def pushed() -> Iterator[None]:
     context = require_context()
     context.push()
     try:
@@ -41,7 +41,7 @@ def style(
     ellipse_mode: c.ShapeMode | None = None,
     image_mode: c.ShapeMode | None = None,
     blend_mode: c.BlendMode | None = None,
-):
+) -> Iterator[None]:
     context = require_context()
     context.push()
     try:
@@ -73,7 +73,9 @@ def style(
 
 
 @contextmanager
-def transform(*, translate: object = _UNSET, rotate: float | None = None, scale: object = _UNSET):
+def transform(
+    *, translate: object = _UNSET, rotate: float | None = None, scale: object = _UNSET
+) -> Iterator[None]:
     context = require_context()
     context.push()
     try:
