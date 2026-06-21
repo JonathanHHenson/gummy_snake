@@ -24,14 +24,14 @@ from gummysnake.rust.canvas import (
 )
 
 
-def test_canvas_health_check_reports_unavailable_or_runtime() -> None:
-    assert canvas_health_check() in {"unavailable", "rust-canvas"}
-    assert canvas_abi_version() in {None, EXPECTED_CANVAS_ABI_VERSION}
+def test_canvas_health_check_reports_required_runtime() -> None:
+    assert canvas_health_check() == "rust-canvas"
+    assert canvas_abi_version() == EXPECTED_CANVAS_ABI_VERSION
     assert canvas_native_window_available() in {True, False}
     assert canvas_gpu_available() in {True, False}
     assert canvas_gpu_status()
-    assert is_canvas_runtime_available() in {True, False}
-    assert canvas_import_error() is None or isinstance(canvas_import_error(), ImportError)
+    assert is_canvas_runtime_available() is True
+    assert canvas_import_error() is None
 
 
 def test_canvas_wrapper_uses_loaded_runtime(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -67,8 +67,27 @@ def test_matrix_uses_rust_runtime_when_available(monkeypatch):
         def multiply(self, other):
             return RustMatrix(self.a, self.b, self.c, self.d, self.e + other.e, self.f + other.f)
 
+        @staticmethod
+        def rotation(angle):
+            return RustMatrix()
+
+        @staticmethod
+        def scaling(x, y=None):
+            return RustMatrix(x, 0, 0, x if y is None else y, 0, 0)
+
+        @staticmethod
+        def shear_x(angle):
+            return RustMatrix()
+
+        @staticmethod
+        def shear_y(angle):
+            return RustMatrix()
+
         def transform_point(self, x, y):
             return (self.a * x + self.e, self.d * y + self.f)
+
+        def inverse(self):
+            return RustMatrix()
 
         def as_tuple(self):
             return (self.a, self.b, self.c, self.d, self.e, self.f)
@@ -76,7 +95,6 @@ def test_matrix_uses_rust_runtime_when_available(monkeypatch):
     class Runtime:
         Matrix2D = RustMatrix
 
-    monkeypatch.setattr("gummysnake.rust.canvas.is_canvas_runtime_available", lambda: True)
     monkeypatch.setattr("gummysnake.rust.canvas.require_canvas_runtime", lambda: Runtime())
 
     matrix = Matrix2D.identity().multiply(Matrix2D.translation(10, 5))

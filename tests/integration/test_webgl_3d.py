@@ -2,7 +2,6 @@ import math
 from pathlib import Path
 
 import gummysnake as gs
-from gummysnake.rust.canvas import is_canvas_runtime_available
 
 
 def test_webgl_box_renders_non_empty_headless_canvas():
@@ -117,9 +116,6 @@ def test_webgl_obj_model_transform_is_applied_before_projection():
 
 
 def test_canvas_webgl_box_renders_non_empty_canvas():
-    if not is_canvas_runtime_available():
-        return
-
     def setup():
         gs.create_canvas(96, 96, gs.WEBGL)
         gs.background(12, 16, 28)
@@ -139,9 +135,6 @@ def test_canvas_webgl_box_renders_non_empty_canvas():
 
 
 def test_canvas_webgl_shader_binding_and_uniforms_are_accepted():
-    if not is_canvas_runtime_available():
-        return
-
     program = gs.create_shader(
         "void main() { gl_Position = gl_Vertex; }",
         "void main() { gl_FragColor = vec4(1.0); }",

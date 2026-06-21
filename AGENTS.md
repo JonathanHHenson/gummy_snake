@@ -33,11 +33,13 @@ imply native 3D or native shader support from `three_d=True`.
 
 Important consequences:
 
-- There is no supported Pillow/Pyglet runtime fallback.
+- The `gummy_canvas` canvas runtime is mandatory for canvas-owned behavior.
+- There is no supported Pillow/Pyglet/Python renderer fallback.
 - Bounded/headless runs still use `gummy_canvas`; they do not switch to a Python image backend.
 - `headless=True` or `--headless` requests offscreen/bounded canvas behavior for tests, CI, and export.
 - `headless=False` or `--interactive` requests native interactive canvas behavior where the installed runtime supports it.
-- Missing canvas runtime or missing native-window support should raise clear Gummy Snake capability errors with rebuild guidance.
+- Missing canvas runtime should raise clear Gummy Snake capability errors with rebuild guidance; do not add alternate Python runtime paths.
+- Missing native-window support should raise clear Gummy Snake capability errors when interactive behavior is requested.
 - `gummysnake.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
 
@@ -445,5 +447,5 @@ uv run python -c "from pathlib import Path; import tomllib; [tomllib.load(p.open
 - Do not modify the sibling `p5.js` repository unless explicitly asked.
 - Do not commit changes unless explicitly asked.
 - Do not remove or overwrite generated/user files unless you are sure they are artifacts from your own validation commands.
-- Do not reintroduce Pillow/Pyglet fallback paths unless the user explicitly asks for a rollback or compatibility experiment.
+- Do not reintroduce Pillow/Pyglet/Python renderer fallback paths unless the user explicitly asks for a rollback or compatibility experiment.
 - Do not add browser, JavaScript, HTML, or DOM-based implementation paths.

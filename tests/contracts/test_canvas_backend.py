@@ -24,30 +24,21 @@ def test_canvas_runtime_requires_rust_runtime(monkeypatch: pytest.MonkeyPatch) -
         create_backend()
 
 
-def test_canvas_default_eligibility_reports_missing_runtime(
+def test_canvas_default_eligibility_requires_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(canvas_bridge, "_canvas", None)
     monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", ImportError("missing _canvas"))
 
-    eligible, reason = registry.canvas_default_eligibility()
-
-    assert eligible is False
-    assert "unavailable" in reason
+    with pytest.raises(BackendCapabilityError, match="requires the Rust canvas runtime"):
+        registry.canvas_default_eligibility()
 
 
 def test_canvas_default_eligibility_reports_available_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class ReadyCanvasModule:
-        def health_check(self) -> str:
-            return "rust-canvas"
-
-        def gpu_available(self) -> bool:
-            return True
-
-    monkeypatch.setattr(canvas_bridge, "_canvas", ReadyCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    monkeypatch.setattr(canvas_bridge, "require_canvas_runtime", lambda: object())
+    monkeypatch.setattr(canvas_bridge, "canvas_gpu_available", lambda: True)
 
     eligible, reason = registry.canvas_default_eligibility()
 

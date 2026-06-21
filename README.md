@@ -20,6 +20,10 @@ runtime.
 pip install gummy-snake
 ```
 
+Published wheels include the required Rust `gummy_canvas` canvas runtime. Source
+or editable installs must build that PyO3 module; there is no Python renderer
+fallback for canvas-owned behavior.
+
 Install optional media helpers when you need camera, video, or sound-related
 extras:
 
@@ -104,8 +108,8 @@ API and version semantics.
 For pixel effects, `load_pixels()` returns a list-based pixel buffer and
 `load_pixel_bytes()` provides a bytes readback path; `update_pixels()` accepts
 lists and buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.
-Small canvas `get()` and `set()` region operations use Rust region calls where
-possible instead of reconstructing the full canvas as a Python image.
+Small canvas `get()` and `set()` region operations use Rust region calls instead
+of reconstructing the full canvas as a Python image.
 For dense drawing loops, `gs.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel
@@ -129,7 +133,7 @@ uv run mypy src
 uv run pytest
 ```
 
-The canvas runtime is a required PyO3 module:
+The canvas runtime is a required PyO3 module for development/source installs:
 
 ```sh
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
@@ -178,5 +182,5 @@ uv run pytest tests/stress --run-stress -q -s
 
 Gummy Snake keeps the sketch lifecycle familiar, but it is not a browser port.
 It does not include DOM helpers, browser-only APIs, JavaScript aliases, or a
-Pillow/Pyglet fallback. Unsupported features raise explicit package errors so
-sketches fail clearly.
+Pillow/Pyglet/Python renderer fallback. Unsupported features raise explicit
+package errors so sketches fail clearly.

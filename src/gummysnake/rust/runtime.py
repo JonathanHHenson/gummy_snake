@@ -1,4 +1,4 @@
-"""Optional Rust acceleration hooks with Python fallbacks."""
+"""Rust bridge helpers for the required canvas runtime and optional acceleration."""
 
 from gummysnake.rust.acceleration import (
     accelerated as _accelerated,

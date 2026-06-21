@@ -72,11 +72,21 @@ def test_load_model_preserves_rust_handle_and_materializes_meshes_lazily(tmp_pat
     obj_path = tmp_path / "triangle.obj"
     obj_path.write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
 
+    class MeshHandle:
+        def __init__(self, owner):
+            self._owner = owner
+
+        def to_mesh_payload(self):
+            return self._owner.to_mesh_payload()
+
     class Handle:
         def __init__(self):
             self.materialized = 0
             self.saved_obj: str | None = None
             self.saved_stl: tuple[str, str] | None = None
+
+        def to_mesh_handle(self):
+            return MeshHandle(self)
 
         def to_mesh_payload(self):
             self.materialized += 1

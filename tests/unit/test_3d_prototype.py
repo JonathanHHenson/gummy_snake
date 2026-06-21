@@ -50,7 +50,6 @@ def test_mesh3d_prefers_rust_handle_for_canonical_storage(monkeypatch):
             captured["texcoords"] = texcoords
             return Handle()
 
-    monkeypatch.setattr("gummysnake.rust.canvas.is_canvas_runtime_available", lambda: True)
     monkeypatch.setattr("gummysnake.rust.canvas.require_canvas_runtime", lambda: Runtime())
 
     mesh = Mesh3D(
@@ -90,8 +89,7 @@ def test_model3d_materializes_meshes_as_rust_mesh_wrappers():
     assert mesh.faces == ((0, 1, 2),)
 
 
-def test_mesh3d_stores_numeric_data_as_readonly_numpy_arrays_with_friendly_views(monkeypatch):
-    monkeypatch.setattr("gummysnake.rust.canvas.is_canvas_runtime_available", lambda: False)
+def test_mesh3d_stores_numeric_data_as_readonly_numpy_arrays_with_friendly_views():
     mesh = Mesh3D.from_arrays(
         np.array(
             [
@@ -215,7 +213,36 @@ def test_generated_3d_primitives_and_exports_are_deterministic(tmp_path):
 def test_rust_project_shade_faces_applies_model_transform_in_payload(monkeypatch):
     captured: dict[str, object] = {}
 
+    class MeshHandle:
+        def __init__(self, vertices, faces, normals, texcoords):
+            self._payload = {
+                "vertices": vertices,
+                "faces": faces,
+                "normals": normals,
+                "texcoords": texcoords,
+            }
+
+        def to_mesh_payload(self):
+            return self._payload
+
+    class RustMatrix:
+        def __init__(self, a=1.0, b=0.0, c=0.0, d=1.0, e=0.0, f=0.0):
+            self.a = a
+            self.b = b
+            self.c = c
+            self.d = d
+            self.e = e
+            self.f = f
+
+        def as_tuple(self):
+            return (self.a, self.b, self.c, self.d, self.e, self.f)
+
     class Runtime:
+        Matrix2D = RustMatrix
+
+        def create_mesh3d_handle(self, vertices, faces, normals, texcoords):
+            return MeshHandle(vertices, faces, normals, texcoords)
+
         def project_shade_faces(self, meshes, *args):
             captured["meshes"] = meshes
             return []
@@ -261,7 +288,6 @@ def test_primitive_model_factory_wraps_rust_handle_without_materializing_meshes(
             captured["args"] = (width, height)
             return Handle()
 
-    monkeypatch.setattr("gummysnake.rust.canvas.is_canvas_runtime_available", lambda: True)
     monkeypatch.setattr("gummysnake.rust.canvas.require_canvas_runtime", lambda: Runtime())
 
     model = plane_model(20, 10)
@@ -277,7 +303,21 @@ def test_rust_project_shade_faces_uses_direct_model_handle_without_mesh_payload(
         def to_mesh_payload(self):
             raise AssertionError("direct handle projection should not materialize mesh payload")
 
+    class RustMatrix:
+        def __init__(self, a=1.0, b=0.0, c=0.0, d=1.0, e=0.0, f=0.0):
+            self.a = a
+            self.b = b
+            self.c = c
+            self.d = d
+            self.e = e
+            self.f = f
+
+        def as_tuple(self):
+            return (self.a, self.b, self.c, self.d, self.e, self.f)
+
     class Runtime:
+        Matrix2D = RustMatrix
+
         def project_shade_model_handle(self, handle, *args):
             captured["handle"] = handle
             captured["args"] = args

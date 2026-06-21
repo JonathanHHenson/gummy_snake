@@ -69,8 +69,8 @@ The report contains counters and short public-language messages for readback,
 pixel list conversion, pixel upload, texture upload/cache hits, and CPU
 compositing fallback helpers such as canvas `get()`, `set()`, and `filter()`.
 Small canvas `get(x, y)`, `get(x, y, w, h)`, and `set(...)` operations route
-through Rust region APIs and avoid reconstructing a full Python `Image` where
-possible. Full-canvas `load_pixels()` remains a full physical-buffer readback.
+through Rust region APIs and avoid reconstructing a full Python `Image` for
+region work. Full-canvas `load_pixels()` remains a full physical-buffer readback.
 
 Renderer/runtime counters are available separately:
 
@@ -134,7 +134,7 @@ contiguous frame buffer.
 - `load_shader_async(vertex_path, fragment_path)`
 
 Wavefront OBJ parsing, normalization, primitive model generation, projection,
-and OBJ/STL export are handled by the Rust canvas runtime where possible.
-`Model3D` and `Mesh3D` keep Rust-managed handles as canonical storage, use
-immutable Python tuple buffers when materialized without a Rust handle, and expose
-optional lazy NumPy views for inspection and interchange.
+and OBJ/STL export are handled by the Rust canvas runtime. `Model3D` and
+`Mesh3D` keep Rust-managed handles as canonical storage and expose immutable
+Python tuple buffers plus optional lazy NumPy views for inspection and
+interchange.

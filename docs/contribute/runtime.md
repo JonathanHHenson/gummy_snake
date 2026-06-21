@@ -164,17 +164,15 @@ decoded grayscale, BGR, and BGRA frame conversion to RGBA is routed through
 `gummy_canvas` once the media dependency supplies a contiguous frame buffer.
 
 `load_model()` and generated software-3D primitives follow the same ownership
-pattern for model assets where the installed canvas runtime supports it. The
-public `Model3D` wrapper may retain a Rust-owned `CanvasModel3D` handle for
-parsed or generated vertex/index data, while the Python `.meshes` view remains
-available and materializes lazily only when user code inspects geometry. `Mesh3D`
-itself may retain a Rust-owned `CanvasMesh3D` handle as canonical storage; the
-Python fallback uses immutable tuple buffers so NumPy is not required for normal
-runtime use. Optional NumPy vertex, normal, texture-coordinate, and packed
-face-index arrays are lazy inspection/interchange views over that storage. Hot
-paths such as OBJ/STL export and software-3D projection should use Rust handles
-directly, or Python tuple buffers when no handle is present, instead of forcing
-repeated Python `Vec3` loops.
+pattern for model assets. The public `Model3D` wrapper retains a Rust-owned
+`CanvasModel3D` handle for parsed or generated vertex/index data, while the
+Python `.meshes` view remains available and materializes lazily only when user
+code inspects geometry. `Mesh3D` retains a Rust-owned `CanvasMesh3D` handle as
+canonical storage; immutable tuple buffers are lazy inspection/interchange views,
+not a runtime fallback. Optional NumPy vertex, normal, texture-coordinate, and
+packed face-index arrays are also lazy inspection/interchange views over that
+storage. Hot paths such as OBJ/STL export and software-3D projection should use
+Rust handles directly instead of forcing repeated Python `Vec3` loops.
 
 `load_sound()` keeps sound bytes and metadata in a Rust-owned `CanvasSound`
 handle attached to the public `Sound` wrapper. Python still owns the friendly
@@ -219,7 +217,7 @@ is the lower-copy readback path for effects that can work with bytes, and
 `update_pixels()` accepts buffer-like inputs such as `bytes`, `bytearray`, and
 `memoryview`.
 
-Canvas region APIs use narrower Rust calls where possible:
+Canvas region APIs use narrow Rust calls:
 
 - `get(x, y)` reads one physical pixel region and returns `Color`.
 - `get(x, y, w, h)` reads only the requested physical region into an `Image`.
@@ -234,7 +232,7 @@ buffer by design.
 ## WEBGL Runtime Status
 
 `create_canvas(..., WEBGL)` currently uses Rust-backed software projection,
-lighting, sorting, OBJ parsing, and fallback rasterization presented through the
+lighting, sorting, OBJ parsing, and software rasterization presented through the
 2D canvas runtime. It is deterministic and covered by headless tests, but it is
 not native accelerated 3D. Backend capabilities therefore distinguish:
 

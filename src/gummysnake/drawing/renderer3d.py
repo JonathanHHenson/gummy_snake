@@ -129,11 +129,11 @@ class Material3D:
 class Mesh3D:
     """Indexed mesh data in logical model coordinates.
 
-    Canonical mesh data is stored by the Rust canvas runtime when available. The
-    Python fallback uses immutable tuples so NumPy is not required for normal
-    imports, primitive generation, projection, or export. NumPy array views remain
-    available through the ``*_array()`` methods when the optional dependency is
-    installed.
+    Canonical mesh data is stored by the required Rust canvas runtime. Immutable
+    tuple buffers are materialized lazily only for Python inspection/interchange,
+    so NumPy is not required for normal imports, primitive generation, projection,
+    or export. NumPy array views remain available through the ``*_array()`` methods
+    when the optional dependency is installed.
     """
 
     __slots__ = (
@@ -196,17 +196,9 @@ class Mesh3D:
         texcoords_array: tuple[tuple[float, float], ...] = tuple(
             (row[0], row[1]) for row in texcoord_rows
         )
-        rust_mesh_handle = _create_rust_mesh_handle(
+        self._rust_handle = _create_rust_mesh_handle(
             vertices_array, face_indices_tuple, face_offsets_tuple, normals_array, texcoords_array
         )
-        if rust_mesh_handle is not None:
-            self._rust_handle = rust_mesh_handle
-            return
-        self._vertices = vertices_array
-        self._face_indices = face_indices_tuple
-        self._face_offsets = face_offsets_tuple
-        self._normals = normals_array
-        self._texcoords = texcoords_array
 
     @classmethod
     def from_arrays(
@@ -238,12 +230,7 @@ class Mesh3D:
         if self._vertices is not None:
             return
         if self._rust_handle is None:
-            self._vertices = ()
-            self._face_indices = ()
-            self._face_offsets = (0,)
-            self._normals = ()
-            self._texcoords = ()
-            return
+            raise RuntimeError("Mesh3D has no Rust canvas mesh handle.")
         payload = self._rust_handle.to_mesh_payload()
         vertices_rows = _coerce_float_rows(payload["vertices"], columns=3, name="vertices")
         vertices: tuple[tuple[float, float, float], ...] = tuple(
@@ -431,17 +418,16 @@ def _create_rust_mesh_handle(
     face_offsets: Sequence[int],
     normals: Sequence[Sequence[float]],
     texcoords: Sequence[Sequence[float]],
-) -> Any | None:
-    try:
-        from gummysnake.rust.canvas import is_canvas_runtime_available, require_canvas_runtime
-    except Exception:
-        return None
-    if not is_canvas_runtime_available():
-        return None
+) -> Any:
+    from gummysnake.rust.canvas import require_canvas_runtime
+
     runtime = require_canvas_runtime()
     factory = getattr(runtime, "create_mesh3d_handle", None)
-    if factory is None:
-        return None
+    if not callable(factory):
+        raise RuntimeError(
+            "The installed canvas runtime does not provide create_mesh3d_handle(). "
+            "Rebuild gummy_canvas."
+        )
     return factory(
         [tuple(float(value) for value in row) for row in vertices],
         _faces_from_buffers(face_indices, face_offsets),
@@ -464,7 +450,7 @@ def _validate_face_buffers(
 class Model3D:
     """Loaded or generated model made of one or more meshes.
 
-    Models loaded by the canvas runtime may keep a Rust-owned model handle for hot
+    Models loaded by the canvas runtime keep a Rust-owned model handle for hot
     render/export paths. The public ``meshes`` view stays available and is
     materialized lazily when Python code inspects geometry.
     """

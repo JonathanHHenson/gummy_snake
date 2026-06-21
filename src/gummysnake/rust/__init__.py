@@ -1,4 +1,4 @@
-"""Optional Rust acceleration hooks with Python fallbacks."""
+"""Rust bridge helpers: required canvas runtime plus optional acceleration hooks."""
 
 from __future__ import annotations
 
