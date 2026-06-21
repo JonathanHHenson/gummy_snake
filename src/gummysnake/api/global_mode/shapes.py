@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Generator, Sequence
+from contextlib import contextmanager
 from typing import Any, Protocol, cast, overload
 
 from gummysnake import constants as c
@@ -133,8 +134,20 @@ def begin_shape(kind: c.ShapeKind | None = None) -> None:
     require_context().begin_shape(kind)
 
 
+@contextmanager
+def shape(mode: c.ArcMode = c.OPEN, *, kind: c.ShapeKind | None = None) -> Generator[None]:
+    with require_context().shape(mode, kind=kind):
+        yield
+
+
 def begin_contour() -> None:
     require_context().begin_contour()
+
+
+@contextmanager
+def contour() -> Generator[None]:
+    with require_context().contour():
+        yield
 
 
 def end_contour() -> None:
@@ -143,6 +156,12 @@ def end_contour() -> None:
 
 def begin_clip() -> None:
     require_context().begin_clip()
+
+
+@contextmanager
+def clip_path() -> Generator[None]:
+    with require_context().clip_path():
+        yield
 
 
 def clip() -> None:

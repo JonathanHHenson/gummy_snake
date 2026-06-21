@@ -43,7 +43,9 @@ for hot loops rather than as the only style for simple sketches.
 ## Paths and Curves
 
 - `begin_shape(kind=None)`
+- `shape(mode=OPEN, *, kind=None)`
 - `begin_contour()`
+- `contour()`
 - `vertex(x, y)`
 - `bezier_vertex(...)`
 - `quadratic_vertex(...)`
@@ -59,9 +61,27 @@ Contours must be declared inside an active freeform shape after the outer path
 has at least three vertices. Filled contours are treated as holes by the Rust
 canvas runtime; invalid nesting raises `ArgumentValidationError`.
 
+`shape()` and `contour()` are context-manager forms of the same path capture
+API. `shape()` calls `begin_shape()` on entry and `end_shape(mode)` on normal
+exit; `contour()` calls `begin_contour()` and `end_contour()`.
+
+```python
+with gs.shape(gs.CLOSE):
+    gs.vertex(20, 20)
+    gs.vertex(90, 20)
+    gs.vertex(90, 90)
+    gs.vertex(20, 90)
+    with gs.contour():
+        gs.vertex(44, 44)
+        gs.vertex(66, 44)
+        gs.vertex(66, 66)
+        gs.vertex(44, 66)
+```
+
 ## Clipping
 
 - `begin_clip()`
+- `clip_path()`
 - `clip()`
 - `end_clip()`
 
@@ -70,6 +90,20 @@ canvas runtime; invalid nesting raises `ArgumentValidationError`.
 until `end_clip()` or until a surrounding `push()`/`pop()` restores the previous
 clip stack. Older canvas runtimes that do not expose native clip operations raise
 `BackendCapabilityError` with rebuild guidance.
+
+`clip_path()` is the context-manager form for constructing and applying the clip
+path. It calls `begin_clip()` on entry and `clip()` on normal exit; the active
+clip still remains in force until `end_clip()`.
+
+```python
+with gs.clip_path():
+    gs.vertex(30, 30)
+    gs.vertex(140, 30)
+    gs.vertex(140, 100)
+    gs.vertex(30, 100)
+gs.image(texture, 0, 0)
+gs.end_clip()
+```
 
 ## Images and Regions
 

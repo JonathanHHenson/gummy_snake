@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any, cast
 
 from gummysnake import constants as c
@@ -126,6 +128,28 @@ class ShapeContextMixin:
         self.state.shape.contour_active = False
         self.state.shape.contour_vertices.clear()
         self.state.shape.kind = kind
+
+    def _reset_shape_capture(self) -> None:
+        self.state.shape.active = False
+        self.state.shape.vertices.clear()
+        self.state.shape.contours.clear()
+        self.state.shape.contour_active = False
+        self.state.shape.contour_vertices.clear()
+        self.state.shape.kind = None
+
+    @contextmanager
+    def shape(
+        self, mode: c.ArcMode = c.OPEN, *, kind: c.ShapeKind | None = None
+    ) -> Generator[None]:
+        self.begin_shape(kind)
+        completed = False
+        try:
+            yield
+            self.end_shape(mode)
+            completed = True
+        finally:
+            if not completed and self.state.shape.active:
+                self._reset_shape_capture()
 
     def vertex(self, x: float, y: float) -> None:
         if not self.state.shape.active:
@@ -254,10 +278,7 @@ class ShapeContextMixin:
                 self.state.transform.matrix,
                 close=mode == c.CLOSE,
             )
-        self.state.shape.active = False
-        self.state.shape.vertices.clear()
-        self.state.shape.contours.clear()
-        self.state.shape.kind = None
+        self._reset_shape_capture()
 
     def begin_contour(self) -> None:
         if not self.state.shape.active:
@@ -284,6 +305,19 @@ class ShapeContextMixin:
         self.state.shape.contour_vertices.clear()
         self.state.shape.contour_active = False
 
+    @contextmanager
+    def contour(self) -> Generator[None]:
+        self.begin_contour()
+        completed = False
+        try:
+            yield
+            self.end_contour()
+            completed = True
+        finally:
+            if not completed and self.state.shape.contour_active:
+                self.state.shape.contour_vertices.clear()
+                self.state.shape.contour_active = False
+
     def begin_clip(self) -> None:
         if self.state.shape.active:
             raise ArgumentValidationError("begin_clip() cannot be called inside begin_shape().")
@@ -299,13 +333,22 @@ class ShapeContextMixin:
             [list(contour) for contour in self.state.shape.contours],
             self.state.transform.matrix,
         )
-        self.state.shape.active = False
-        self.state.shape.vertices.clear()
-        self.state.shape.contours.clear()
-        self.state.shape.kind = None
+        self._reset_shape_capture()
 
     def end_clip(self) -> None:
         self.renderer.end_clip()
+
+    @contextmanager
+    def clip_path(self) -> Generator[None]:
+        self.begin_clip()
+        completed = False
+        try:
+            yield
+            self.clip()
+            completed = True
+        finally:
+            if not completed and self.state.shape.active:
+                self._reset_shape_capture()
 
     def bezier(
         self,

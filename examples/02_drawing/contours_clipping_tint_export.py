@@ -43,23 +43,20 @@ def draw_cutout_badge() -> None:
 
     gs.no_stroke()
     gs.fill(42, 87, 143)
-    gs.begin_shape()
-    star(150, 180, 112, 54, 7)
-    gs.begin_contour()
-    for i in range(28):
-        angle = -math.tau * i / 28
-        gs.vertex(150 + math.cos(angle) * 38, 180 + math.sin(angle) * 38)
-    gs.end_contour()
-    gs.end_shape(gs.CLOSE)
+    with gs.shape(gs.CLOSE):
+        star(150, 180, 112, 54, 7)
+        with gs.contour():
+            for i in range(28):
+                angle = -math.tau * i / 28
+                gs.vertex(150 + math.cos(angle) * 38, 180 + math.sin(angle) * 38)
 
 
 def draw_clipped_field() -> None:
-    gs.begin_clip()
-    for i in range(36):
-        angle = math.tau * i / 36
-        wave = 18 * math.sin(angle * 3 + gs.frame_count() * 0.08)
-        gs.vertex(430 + math.cos(angle) * (142 + wave), 186 + math.sin(angle) * (96 + wave))
-    gs.clip()
+    with gs.clip_path():
+        for i in range(36):
+            angle = math.tau * i / 36
+            wave = 18 * math.sin(angle * 3 + gs.frame_count() * 0.08)
+            gs.vertex(430 + math.cos(angle) * (142 + wave), 186 + math.sin(angle) * (96 + wave))
 
     gs.background(238, 242, 232)
     gs.no_stroke()
@@ -74,11 +71,10 @@ def draw_clipped_field() -> None:
     gs.no_fill()
     gs.stroke(32, 45, 63)
     gs.stroke_weight(3)
-    gs.begin_shape()
-    for i in range(36):
-        angle = math.tau * i / 36
-        gs.vertex(430 + math.cos(angle) * 142, 186 + math.sin(angle) * 96)
-    gs.end_shape(gs.CLOSE)
+    with gs.shape(gs.CLOSE):
+        for i in range(36):
+            angle = math.tau * i / 36
+            gs.vertex(430 + math.cos(angle) * 142, 186 + math.sin(angle) * 96)
 
 
 def draw_tinted_images() -> None:

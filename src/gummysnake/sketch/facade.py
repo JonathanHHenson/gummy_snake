@@ -198,6 +198,58 @@ class SketchFacadeMixin:
     ) -> None:
         self._ctx.arc(x, y, width, height, start, stop, mode)
 
+    def begin_shape(self, kind: c.ShapeKind | None = None) -> None:
+        self._ctx.begin_shape(kind)
+
+    @contextmanager
+    def shape(
+        self, mode: c.ArcMode = c.OPEN, *, kind: c.ShapeKind | None = None
+    ) -> Generator[None]:
+        with self._ctx.shape(mode, kind=kind):
+            yield
+
+    def begin_contour(self) -> None:
+        self._ctx.begin_contour()
+
+    @contextmanager
+    def contour(self) -> Generator[None]:
+        with self._ctx.contour():
+            yield
+
+    def end_contour(self) -> None:
+        self._ctx.end_contour()
+
+    def begin_clip(self) -> None:
+        self._ctx.begin_clip()
+
+    @contextmanager
+    def clip_path(self) -> Generator[None]:
+        with self._ctx.clip_path():
+            yield
+
+    def clip(self) -> None:
+        self._ctx.clip()
+
+    def end_clip(self) -> None:
+        self._ctx.end_clip()
+
+    def vertex(self, x: float, y: float) -> None:
+        self._ctx.vertex(x, y)
+
+    def bezier_vertex(
+        self, x2: float, y2: float, x3: float, y3: float, x4: float, y4: float
+    ) -> None:
+        self._ctx.bezier_vertex(x2, y2, x3, y3, x4, y4)
+
+    def quadratic_vertex(self, cx: float, cy: float, x3: float, y3: float) -> None:
+        self._ctx.quadratic_vertex(cx, cy, x3, y3)
+
+    def spline_vertex(self, x: float, y: float) -> None:
+        self._ctx.spline_vertex(x, y)
+
+    def end_shape(self, mode: c.ArcMode = c.OPEN) -> None:
+        self._ctx.end_shape(mode)
+
     @overload
     def create_camera(self) -> Camera3D: ...
 

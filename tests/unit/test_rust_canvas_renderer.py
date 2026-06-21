@@ -207,6 +207,92 @@ def test_canvas_context_triangle_and_quad_use_direct_shape_bridge(
     assert triangle_call[-1] is quad_call[-1]
 
 
+def test_canvas_context_shape_context_manager_draws_on_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    context = cast(SketchContext, sketch.context)
+
+    with context.shape(c.CLOSE):
+        context.vertex(1, 2)
+        context.vertex(8, 2)
+        context.vertex(8, 9)
+
+    canvas = backend.renderer._canvas
+    assert canvas is not None
+    call = canvas.calls[-1]
+    assert call[0] == "polygon"
+    assert call[1] == [(1.0, 2.0), (8.0, 2.0), (8.0, 9.0)]
+    assert call[4] is True
+    assert context.state.shape.active is False
+
+
+def test_canvas_context_contour_context_manager_adds_hole(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    context = cast(SketchContext, sketch.context)
+
+    with context.shape(c.CLOSE):
+        context.vertex(0, 0)
+        context.vertex(20, 0)
+        context.vertex(20, 20)
+        context.vertex(0, 20)
+        with context.contour():
+            context.vertex(6, 6)
+            context.vertex(14, 6)
+            context.vertex(14, 14)
+            context.vertex(6, 14)
+
+    canvas = backend.renderer._canvas
+    assert canvas is not None
+    call = canvas.calls[-1]
+    assert call[0] == "complex_polygon"
+    assert call[1] == [(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0)]
+    assert call[2] == [[(6.0, 6.0), (14.0, 6.0), (14.0, 14.0), (6.0, 14.0)]]
+    assert call[5] is True
+
+
+def test_canvas_context_clip_path_context_manager_applies_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    context = cast(SketchContext, sketch.context)
+
+    with context.clip_path():
+        context.vertex(0, 0)
+        context.vertex(10, 0)
+        context.vertex(10, 10)
+    context.rect(0, 0, 20, 20)
+    context.end_clip()
+
+    canvas = backend.renderer._canvas
+    assert canvas is not None
+    calls = canvas.calls
+    assert calls[-3][0] == "begin_clip"
+    assert calls[-3][1] == [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]
+    assert calls[-2][0] == "rect"
+    assert calls[-1] == ("end_clip",)
+
+
+def test_canvas_context_shape_context_manager_cleans_up_after_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, _backend = make_canvas_context(monkeypatch)
+    context = cast(SketchContext, sketch.context)
+
+    with pytest.raises(RuntimeError, match="boom"), context.shape(c.CLOSE):
+        context.vertex(1, 2)
+        raise RuntimeError("boom")
+
+    assert context.state.shape.active is False
+    context.begin_shape()
+    context.vertex(0, 0)
+    context.vertex(1, 0)
+    context.vertex(1, 1)
+    context.end_shape(c.CLOSE)
+
+
 def test_canvas_renderer_set_pixel_rgba_uses_fast_bridge() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(3, 2)
