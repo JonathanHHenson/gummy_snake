@@ -5,8 +5,8 @@ use winit::event_loop::EventLoop;
 use winit::platform::pump_events::{EventLoopExtPumpEvents, PumpStatus};
 use winit::window::Window;
 
-use super::app::RuntimeApp;
-use super::event::RuntimeEvent;
+use crate::runtime::app::RuntimeApp;
+use crate::runtime::event::RuntimeEvent;
 
 pub struct InteractiveRuntime {
     event_loop: EventLoop<()>,

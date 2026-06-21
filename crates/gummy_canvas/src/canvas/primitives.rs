@@ -1,5 +1,5 @@
-use super::*;
-use crate::runtime_style::*;
+use crate::runtime::style::*;
+use crate::*;
 
 impl Canvas {
     pub(crate) fn background_impl(&mut self, rgba: (u8, u8, u8, u8)) {
@@ -28,7 +28,13 @@ impl Canvas {
         }
     }
 
-    pub(crate) fn point_impl(&mut self, x: f64, y: f64, style: &Bound<'_, PyAny>, matrix: Matrix) -> PyResult<()> {
+    pub(crate) fn point_impl(
+        &mut self,
+        x: f64,
+        y: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         let style = self.cached_style(style)?;
         ensure_supported_style(&style)?;
         let color = match style.stroke.or(style.fill) {

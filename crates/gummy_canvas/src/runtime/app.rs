@@ -1,3 +1,5 @@
+mod handler;
+
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -6,8 +8,10 @@ use winit::event::{ElementState, MouseButton, TouchPhase};
 use winit::keyboard::ModifiersState;
 use winit::window::{Window, WindowId};
 
-use super::event::RuntimeEvent;
-use super::input::{modifiers_mask, normalize_mouse_button, touch_phase_name, touch_pressure};
+use crate::runtime::event::RuntimeEvent;
+use crate::runtime::input::{
+    modifiers_mask, normalize_mouse_button, touch_phase_name, touch_pressure,
+};
 
 const DOUBLE_CLICK_INTERVAL: Duration = Duration::from_millis(500);
 const DOUBLE_CLICK_DISTANCE: f64 = 6.0;

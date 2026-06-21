@@ -1,6 +1,6 @@
 use crate::Rgba;
 
-use super::blend::{blend_pixel, rgba_to_present_pixel};
+use crate::raster::blend::{blend_pixel, rgba_to_present_pixel};
 
 pub(crate) type Matrix = (f64, f64, f64, f64, f64, f64);
 

@@ -1,4 +1,4 @@
-use super::*;
+use crate::*;
 
 #[pyfunction]
 pub(crate) fn health_check() -> &'static str {

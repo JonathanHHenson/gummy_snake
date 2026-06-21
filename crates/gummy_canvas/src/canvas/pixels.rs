@@ -1,5 +1,5 @@
-use super::*;
-use crate::runtime_style::*;
+use crate::runtime::style::*;
+use crate::*;
 
 impl Canvas {
     pub(crate) fn blend_region_impl(

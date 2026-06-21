@@ -1,6 +1,6 @@
 mod blend;
 mod blit;
-mod gpu_bridge;
+mod gpu;
 mod queries;
 mod shapes;
 mod transform;
@@ -8,7 +8,7 @@ mod types;
 
 pub(crate) use blend::{fill_rgba_buffer, rgba_to_present_pixel};
 pub(crate) use blit::{blit_affine_region, blit_scaled_region};
-pub(crate) use gpu_bridge::{gpu_color, push_triangle};
+pub(crate) use gpu::{gpu_color, push_triangle};
 pub(crate) use queries::{clipped_bounds, ellipse_bounds, point_in_polygon, polygon_is_convex};
 pub(crate) use shapes::{
     draw_axis_aligned_ellipse, draw_polygon_overlay, draw_polyline_stroke, fill_disc,

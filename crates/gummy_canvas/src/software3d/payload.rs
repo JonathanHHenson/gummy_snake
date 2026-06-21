@@ -2,7 +2,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
-use super::types::{
+use crate::software3d::types::{
     CameraPayload, LightKindPayload, LightPayload, MaterialPayload, MeshPayload, ProjectionPayload,
     Vec3d,
 };

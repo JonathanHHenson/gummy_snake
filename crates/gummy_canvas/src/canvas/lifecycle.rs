@@ -1,5 +1,5 @@
-use super::*;
-use crate::runtime_style::*;
+use crate::runtime::style::*;
+use crate::*;
 
 impl Canvas {
     pub(crate) fn new_impl(
@@ -11,7 +11,7 @@ impl Canvas {
     ) -> PyResult<Self> {
         validate_mode_and_renderer(mode, renderer)?;
         let (physical_width, physical_height) = physical_dimensions(width, height, pixel_density)?;
-        let (gpu, gpu_error) = match gpu::GpuRenderer::new(physical_width, physical_height) {
+        let (gpu, gpu_error) = match crate::gpu::GpuRenderer::new(physical_width, physical_height) {
             Ok(renderer) => (Some(renderer), None),
             Err(err) => (None, Some(err)),
         };
@@ -119,7 +119,10 @@ impl Canvas {
             .unwrap_or_else(|| "available".to_string())
     }
 
-    pub(crate) fn performance_counters_impl<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+    pub(crate) fn performance_counters_impl<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyDict>> {
         self.performance_counters.to_dict(py)
     }
 

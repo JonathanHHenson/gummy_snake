@@ -1,9 +1,8 @@
 mod event;
+pub(crate) mod style;
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 mod app;
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-mod app_handler;
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 mod desktop;
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]

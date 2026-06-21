@@ -1,5 +1,6 @@
+mod canvas;
 mod gpu;
-mod image_ops;
+mod images;
 mod performance;
 mod raster;
 mod runtime;
@@ -7,23 +8,12 @@ mod software3d;
 mod text;
 
 mod bindings;
-mod canvas_cache_text;
-mod canvas_curves;
-mod canvas_gpu_paths;
-mod canvas_image_helpers;
-mod canvas_images;
-mod canvas_lifecycle;
-mod canvas_methods;
-mod canvas_pixels;
-mod canvas_primitives;
-mod canvas_text;
-mod runtime_style;
 #[cfg(test)]
 #[allow(unused_imports)]
 pub(crate) use bindings::{health_check, native_window_available};
 
 use ab_glyph::FontArc;
-use image_ops::{
+use images::{
     alpha_composite_rgba_region, apply_rgba_mask, convert_media_frame_to_rgba,
     crop_rgba_with_padding, filter_rgba, replace_rgba_region, resize_rgba_nearest,
     validate_rgba_buffer,
@@ -40,9 +30,7 @@ use raster::{
     point_to_f32, polygon_is_convex, push_triangle, rgba_to_present_pixel, scale_rect,
     stroke_segment, stroke_width, Matrix, OverlayRegion, Point,
 };
-use runtime::{
-    native_window_available as runtime_native_window_available, InteractiveRuntime, RuntimeEvent,
-};
+use runtime::{native_window_available as runtime_native_window_available, InteractiveRuntime};
 use std::collections::{HashMap, VecDeque};
 use std::f64::consts::PI;
 use std::sync::atomic::{AtomicU64, Ordering};

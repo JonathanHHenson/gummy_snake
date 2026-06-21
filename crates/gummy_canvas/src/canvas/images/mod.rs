@@ -1,4 +1,6 @@
-use super::*;
+use crate::*;
+
+mod helpers;
 
 impl Canvas {
     pub(crate) fn draw_image_impl(

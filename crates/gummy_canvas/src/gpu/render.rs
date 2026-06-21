@@ -1,5 +1,5 @@
-use super::pipeline::{align_to, to_wgpu_color};
-use super::types::*;
+use crate::gpu::pipeline::{align_to, to_wgpu_color};
+use crate::gpu::types::*;
 
 impl GpuRenderer {
     pub fn begin_frame(&mut self) {

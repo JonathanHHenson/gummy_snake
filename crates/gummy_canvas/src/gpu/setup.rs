@@ -3,10 +3,10 @@ use std::sync::Arc;
 
 use pollster::block_on;
 
-use super::pipeline::{
+use crate::gpu::pipeline::{
     create_image_pipeline, create_pipeline, texture_bind_group_layout, viewport_bind_group_layout,
 };
-use super::types::*;
+use crate::gpu::types::*;
 
 fn checked_texture_size(
     width: usize,

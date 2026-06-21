@@ -1,7 +1,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use super::types::{CameraPayload, Vec3d};
+use crate::software3d::types::{CameraPayload, Vec3d};
 
 pub(super) fn camera_space_3d(point: Vec3d, camera: &CameraPayload) -> PyResult<Vec3d> {
     let forward = normalize_3d(sub_3d(camera.target, camera.eye))?;

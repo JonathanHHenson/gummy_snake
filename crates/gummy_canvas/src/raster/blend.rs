@@ -1,4 +1,4 @@
-use crate::image_ops::alpha_composite_pixel;
+use crate::images::alpha_composite_pixel;
 use crate::{
     BLEND_MODE_ADD, BLEND_MODE_BLEND, BLEND_MODE_DARKEST, BLEND_MODE_DIFFERENCE,
     BLEND_MODE_EXCLUSION, BLEND_MODE_LIGHTEST, BLEND_MODE_MULTIPLY, BLEND_MODE_REPLACE,

@@ -1,5 +1,5 @@
-use super::*;
-use crate::runtime_style::*;
+use crate::runtime::style::parse_style;
+use crate::*;
 
 impl Canvas {
     pub(crate) fn evict_image_cache_if_needed(&mut self, incoming_key: u64) {
@@ -102,12 +102,22 @@ impl Canvas {
         self.gpu.is_some() && !style.erasing && style.blend_mode == BLEND_MODE_BLEND
     }
 
-    pub(crate) fn can_queue_gpu_polygon(&self, points: &[Point], style: &Style, close: bool) -> bool {
+    pub(crate) fn can_queue_gpu_polygon(
+        &self,
+        points: &[Point],
+        style: &Style,
+        close: bool,
+    ) -> bool {
         self.can_queue_gpu_primitives(style)
             && (!close || style.fill.is_none() || polygon_is_convex(points))
     }
 
-    pub(crate) fn cached_text_line(&mut self, line: &str, fill: Rgba, style: &Style) -> PyResult<CachedText> {
+    pub(crate) fn cached_text_line(
+        &mut self,
+        line: &str,
+        fill: Rgba,
+        style: &Style,
+    ) -> PyResult<CachedText> {
         let font_size = (style.text_size * self.pixel_density).round().max(1.0) as usize;
         let font_key = style
             .text_font_path

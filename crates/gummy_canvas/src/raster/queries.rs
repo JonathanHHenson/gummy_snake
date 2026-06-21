@@ -1,4 +1,4 @@
-use super::types::Point;
+use crate::raster::types::Point;
 
 pub(crate) fn ellipse_bounds(
     cx: f64,

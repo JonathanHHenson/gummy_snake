@@ -1,4 +1,4 @@
-use super::*;
+use crate::*;
 #[pymethods]
 impl Canvas {
     #[new]
@@ -35,7 +35,10 @@ impl Canvas {
     pub(crate) fn gpu_status(&self) -> String {
         self.gpu_status_impl()
     }
-    pub(crate) fn performance_counters<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+    pub(crate) fn performance_counters<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyDict>> {
         self.performance_counters_impl(py)
     }
     pub(crate) fn reset_performance_counters(&mut self) {
@@ -68,7 +71,13 @@ impl Canvas {
     pub(crate) fn clear(&mut self) {
         self.clear_impl()
     }
-    pub(crate) fn point(&mut self, x: f64, y: f64, style: &Bound<'_, PyAny>, matrix: Matrix) -> PyResult<()> {
+    pub(crate) fn point(
+        &mut self,
+        x: f64,
+        y: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         self.point_impl(x, y, style, matrix)
     }
     pub(crate) fn line(
@@ -178,7 +187,18 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
-        self.draw_image_impl(image_pixels, image_width, image_height, dx, dy, dw, dh, style, matrix, source)
+        self.draw_image_impl(
+            image_pixels,
+            image_width,
+            image_height,
+            dx,
+            dy,
+            dw,
+            dh,
+            style,
+            matrix,
+            source,
+        )
     }
     #[pyo3(signature = (image_key, image_version, image_pixels, image_width, image_height, dx, dy, dw, dh, style, matrix, source=None))]
     pub(crate) fn draw_cached_image(
@@ -196,7 +216,20 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
-        self.draw_cached_image_impl(image_key, image_version, image_pixels, image_width, image_height, dx, dy, dw, dh, style, matrix, source)
+        self.draw_cached_image_impl(
+            image_key,
+            image_version,
+            image_pixels,
+            image_width,
+            image_height,
+            dx,
+            dy,
+            dw,
+            dh,
+            style,
+            matrix,
+            source,
+        )
     }
     #[pyo3(signature = (image, dx, dy, dw, dh, style, matrix, source=None))]
     pub(crate) fn draw_canvas_image(
@@ -241,7 +274,14 @@ impl Canvas {
         destination: (i64, i64, i64, i64),
         mode: &str,
     ) -> PyResult<()> {
-        self.blend_region_impl(source_pixels, source_width, source_height, source, destination, mode)
+        self.blend_region_impl(
+            source_pixels,
+            source_width,
+            source_height,
+            source,
+            destination,
+            mode,
+        )
     }
     pub(crate) fn load_pixels(&mut self) -> Vec<u8> {
         self.load_pixels_impl()

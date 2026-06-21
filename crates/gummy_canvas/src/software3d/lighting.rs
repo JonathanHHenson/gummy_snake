@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 
-use super::math::{add_3d, dot_3d, normalize_3d, sub_3d};
-use super::types::{
+use crate::software3d::math::{add_3d, dot_3d, normalize_3d, sub_3d};
+use crate::software3d::types::{
     CameraPayload, LightKindPayload, LightPayload, MaterialPayload, ProjectedPayloadFace, Vec3d,
 };
 

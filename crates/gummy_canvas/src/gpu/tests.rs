@@ -1,4 +1,4 @@
-use super::pipeline::{preferred_surface_format, surface_config};
+use crate::gpu::pipeline::{preferred_surface_format, surface_config};
 
 #[test]
 fn preferred_surface_format_uses_rgba_unorm_when_available() {

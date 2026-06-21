@@ -1,8 +1,12 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use super::math::{camera_space_3d, dot_3d, face_center_3d, face_normal_3d, normalize_3d, sub_3d};
-use super::types::{CameraPayload, MeshPayload, ProjectedPayloadFace, ProjectionPayload, Vec3d};
+use crate::software3d::math::{
+    camera_space_3d, dot_3d, face_center_3d, face_normal_3d, normalize_3d, sub_3d,
+};
+use crate::software3d::types::{
+    CameraPayload, MeshPayload, ProjectedPayloadFace, ProjectionPayload, Vec3d,
+};
 
 pub(super) fn validate_projection_payload(projection: &ProjectionPayload) -> PyResult<()> {
     let (near, far) = match projection {

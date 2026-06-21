@@ -1,4 +1,4 @@
-use super::types::{Matrix, Point};
+use crate::raster::types::{Matrix, Point};
 
 pub(crate) fn stroke_width(stroke_weight: f64, pixel_density: f64) -> f64 {
     (stroke_weight * pixel_density).round().max(1.0)

@@ -1,4 +1,4 @@
-use super::*;
+use crate::*;
 
 impl Canvas {
     pub(crate) fn prepare_cpu_composite(&mut self) {
@@ -173,7 +173,13 @@ impl Canvas {
         self.draw_gpu_triangles(vertices)
     }
 
-    pub(crate) fn draw_gpu_disc(&mut self, cx: f64, cy: f64, radius: f64, color: Rgba) -> PyResult<()> {
+    pub(crate) fn draw_gpu_disc(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        radius: f64,
+        color: Rgba,
+    ) -> PyResult<()> {
         if radius <= 0.0 {
             return Ok(());
         }
@@ -244,7 +250,10 @@ impl Canvas {
         Ok(())
     }
 
-    pub(crate) fn draw_gpu_triangles(&mut self, vertices: Vec<([f32; 2], gpu::GpuColor)>) -> PyResult<()> {
+    pub(crate) fn draw_gpu_triangles(
+        &mut self,
+        vertices: Vec<([f32; 2], crate::gpu::GpuColor)>,
+    ) -> PyResult<()> {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_triangles(vertices);

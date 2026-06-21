@@ -1,4 +1,4 @@
-use crate::image_ops::{alpha_composite_pixel, validate_rgba_buffer};
+use crate::images::{alpha_composite_pixel, validate_rgba_buffer};
 use crate::raster::point_in_polygon;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

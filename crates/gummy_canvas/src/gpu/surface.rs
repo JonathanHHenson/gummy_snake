@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use winit::window::Window;
 
-use super::pipeline::{create_texture_pipeline, surface_config};
-use super::types::*;
+use crate::gpu::pipeline::{create_texture_pipeline, surface_config};
+use crate::gpu::types::*;
 
 impl GpuRenderer {
     pub fn present_texture_to_window(

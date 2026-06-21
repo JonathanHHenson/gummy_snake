@@ -1,6 +1,6 @@
 use crate::{gpu, Rgba};
 
-use super::types::Point;
+use crate::raster::types::Point;
 
 pub(crate) fn gpu_color(color: Rgba) -> gpu::GpuColor {
     gpu::GpuColor {

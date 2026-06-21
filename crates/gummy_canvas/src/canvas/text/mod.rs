@@ -1,5 +1,7 @@
-use super::*;
-use crate::runtime_style::*;
+use crate::runtime::style::*;
+use crate::*;
+
+mod cache;
 
 impl Canvas {
     pub(crate) fn text_impl(
@@ -83,7 +85,11 @@ impl Canvas {
         Ok(())
     }
 
-    pub(crate) fn text_width_impl(&mut self, value: &str, style: &Bound<'_, PyAny>) -> PyResult<f64> {
+    pub(crate) fn text_width_impl(
+        &mut self,
+        value: &str,
+        style: &Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
         self.performance_counters.text_measurements += 1;
         let parsed_style = self.cached_style(style)?;
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {

@@ -1,5 +1,5 @@
-use super::shaders::{IMAGE_SHADER, TEXTURE_SHADER, TRIANGLE_SHADER};
-use super::types::{GpuColor, ImageVertex, Vertex};
+use crate::gpu::shaders::{IMAGE_SHADER, TEXTURE_SHADER, TRIANGLE_SHADER};
+use crate::gpu::types::{GpuColor, ImageVertex, Vertex};
 
 pub(super) fn to_wgpu_color(color: GpuColor) -> wgpu::Color {
     wgpu::Color {

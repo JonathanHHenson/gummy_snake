@@ -1,7 +1,7 @@
 use crate::BLEND_MODE_BLEND;
 
-use super::blend::{blend_pixel, rgba_to_present_pixel};
-use super::types::Matrix;
+use crate::raster::blend::{blend_pixel, rgba_to_present_pixel};
+use crate::raster::types::Matrix;
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn blit_scaled_region(

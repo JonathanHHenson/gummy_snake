@@ -1,4 +1,4 @@
-use super::*;
+use crate::*;
 
 #[test]
 fn health_check_reports_canvas_backend() {

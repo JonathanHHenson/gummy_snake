@@ -4,7 +4,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-use super::types::{ObjModelData, Vec3d};
+use crate::software3d::types::{ObjModelData, Vec3d};
 
 pub(super) fn parse_obj_text(text: &str, source: &str) -> PyResult<ObjModelData> {
     let mut positions = Vec::new();

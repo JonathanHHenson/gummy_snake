@@ -1,4 +1,4 @@
-use super::event::RuntimeEvent;
+use crate::runtime::event::RuntimeEvent;
 
 pub struct InteractiveRuntime;
 

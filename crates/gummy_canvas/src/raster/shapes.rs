@@ -1,8 +1,8 @@
 use crate::{Rgba, Style};
 
-use super::queries::point_in_polygon;
-use super::transform::stroke_width;
-use super::types::{OverlayRegion, Point};
+use crate::raster::queries::point_in_polygon;
+use crate::raster::transform::stroke_width;
+use crate::raster::types::{OverlayRegion, Point};
 
 pub(crate) fn draw_polygon_overlay(
     overlay: &mut OverlayRegion<'_>,

@@ -6,9 +6,9 @@ use winit::event::{ElementState, Ime, MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 
-use super::app::RuntimeApp;
-use super::event::RuntimeEvent;
-use super::input::{modifiers_mask, normalize_code, normalize_key};
+use crate::runtime::app::RuntimeApp;
+use crate::runtime::event::RuntimeEvent;
+use crate::runtime::input::{modifiers_mask, normalize_code, normalize_key};
 
 const WINDOW_TITLE: &str = "Gummy Snake";
 
