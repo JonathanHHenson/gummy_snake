@@ -13,7 +13,7 @@ from gummysnake.backend._canvas.backend.runtime import CanvasBackendRuntimeMixin
 from gummysnake.backend.base import BackendCapabilities
 from gummysnake.backend.canvas_renderer import CanvasRenderer
 from gummysnake.exceptions import BackendCapabilityError
-from gummysnake.rust.canvas import canvas_gpu_status, canvas_health_check, require_canvas_extension
+from gummysnake.rust.canvas import canvas_gpu_status, canvas_health_check, require_canvas_runtime
 
 
 class CanvasBackend(
@@ -66,7 +66,7 @@ class CanvasBackend(
     )
 
     def __init__(self, *, headless: bool | None = None) -> None:
-        self._canvas_module = require_canvas_extension()
+        self._canvas_module = require_canvas_runtime()
         native_runtime = self._native_window_available()
         self.capabilities = replace(
             type(self).capabilities,
@@ -89,7 +89,7 @@ class CanvasBackend(
         self.reset_frame_pacing_diagnostics()
 
     def health_check(self) -> str:
-        """Return the underlying Rust canvas extension health check."""
+        """Return the underlying Rust canvas runtime health check."""
 
         return canvas_health_check()
 

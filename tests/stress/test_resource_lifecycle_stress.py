@@ -8,7 +8,7 @@ from gummysnake.constants import BLEND, MULTIPLY
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
-from gummysnake.rust.canvas import require_canvas_extension
+from gummysnake.rust.canvas import require_canvas_runtime
 
 pytestmark = pytest.mark.stress
 
@@ -20,7 +20,7 @@ def _counter_value(counters: PerformanceCounters, key: str) -> int:
 
 
 def _renderer() -> CanvasRenderer:
-    return CanvasRenderer(require_canvas_extension())
+    return CanvasRenderer(require_canvas_runtime())
 
 
 def test_canvas_churns_images_pixels_and_resizes_without_inconsistent_state() -> None:

@@ -1,6 +1,6 @@
 # Input and Events
 
-Interactive input is available when the installed canvas extension supports a
+Interactive input is available when the installed canvas runtime supports a
 native window.
 
 ## State Functions

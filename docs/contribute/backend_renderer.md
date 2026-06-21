@@ -62,7 +62,7 @@ It is responsible for:
 - tracking pixel density
 - converting `Color`, style, transform, image, text, and path data into bridge
   payloads
-- forwarding primitive drawing to the Rust extension
+- forwarding primitive drawing to the Rust canvas runtime
 - reading and updating physical RGBA pixel buffers
 - exporting the canvas
 - closing runtime canvas resources
@@ -72,7 +72,7 @@ the sketch lifecycle.
 
 ## gummysnake.rust.canvas
 
-`gummysnake.rust.canvas` is the Python wrapper around the optional import mechanics and
+`gummysnake.rust.canvas` is the Python wrapper around runtime import and
 required runtime capability checks. The PyO3 module is required for current
 runtime behavior, but imports can still fail in development environments.
 
@@ -80,10 +80,10 @@ This layer should:
 
 - import `gummysnake.rust._canvas`
 - expose a small health-check and capability-check surface
-- raise clear Gummy Snake exceptions when the extension is missing
+- raise clear Gummy Snake exceptions when the canvas runtime is missing
 - include rebuild guidance in capability errors
 
-Do not leak raw extension import errors to sketch authors when a package-level
+Do not leak raw runtime import errors to sketch authors when a package-level
 error would explain the problem better.
 
 ## Boundary Examples
@@ -95,7 +95,7 @@ Use these examples when deciding where code belongs:
 | Add a new public drawing function | topic module under `src/gummysnake/api/global_mode/`, `src/gummysnake/__init__.py`, `SketchContext` or a `src/gummysnake/_context/` mixin, and maybe `CanvasRenderer`/Rust |
 | Change how `rect_mode(CENTER)` computes coordinates | `SketchContext` or geometry helpers |
 | Add a new Rust primitive call payload | `src/gummysnake/backend/_canvas/renderer/primitives.py` and `crates/gummy_canvas` |
-| Improve missing extension or ABI error text | `gummysnake.rust.canvas` |
+| Improve missing runtime or ABI error text | `gummysnake.rust.canvas` |
 | Poll a new native input event | `src/gummysnake/backend/_canvas/backend/events.py` and Rust event support |
 | Add a new pixel export format | `src/gummysnake/backend/_canvas/renderer/pixels.py` and `crates/gummy_canvas` |
 | Change frame scheduling | `src/gummysnake/backend/_canvas/backend/pacing.py` or `runtime.py` and lifecycle tests |

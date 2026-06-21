@@ -34,12 +34,12 @@ def convert_frame_bytes(frame: Any, width: int, height: int, channels: int) -> b
         raise BackendCapabilityError(
             "Decoded media frames must expose contiguous bytes for Rust conversion."
         )
-    from gummysnake.rust.canvas import require_canvas_extension
+    from gummysnake.rust.canvas import require_canvas_runtime
 
     frame_bytes = bytes(cast(Callable[[], bytes], tobytes)())
     try:
         return bytes(
-            require_canvas_extension().media_frame_to_rgba(width, height, channels, frame_bytes)
+            require_canvas_runtime().media_frame_to_rgba(width, height, channels, frame_bytes)
         )
     except ValueError as exc:
         raise BackendCapabilityError(

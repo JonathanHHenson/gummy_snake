@@ -90,10 +90,16 @@ async def preload() -> None:
   and shader objects on the current Rust-backed software 3D path.
 - Small games and visual toys using the examples as starting points.
 
-Loaded images keep their Rust-managed asset until you mutate pixels, so normal
-`load_image(); image(...)` sprite drawing can stay on the fast renderer path.
+Loaded images, models/meshes, and sounds keep Rust-managed asset handles behind
+friendly Python wrappers. This is intentional for performance: bulk asset bytes,
+geometry arrays, parsing, export, and metadata extraction should stay in the
+Rust canvas runtime so sketches avoid repeated Python object materialization and
+per-element loops. Normal `load_image(); image(...)` sprite drawing can stay on
+the fast renderer path, model projection/export can use Rust-owned geometry
+without first creating Python `Vec3` objects, and loaded sounds keep their bytes
+and duration metadata in `CanvasSound` until user code asks for Python bytes.
 Image-local resize, mask, filter, crop/copy, and alpha compositing delegate
-bulk byte work to the Rust canvas extension while keeping the Python `Image`
+bulk byte work to the Rust canvas runtime while keeping the Python `Image`
 API and version semantics.
 For pixel effects, `load_pixels()` returns a list-based pixel buffer and
 `load_pixel_bytes()` provides a bytes readback path; `update_pixels()` accepts
@@ -123,10 +129,10 @@ uv run mypy src
 uv run pytest
 ```
 
-The canvas runtime is a required PyO3 extension:
+The canvas runtime is a required PyO3 module:
 
 ```sh
-uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
+uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 ```
 
 The refactored Python package is split by responsibility: public API modules in

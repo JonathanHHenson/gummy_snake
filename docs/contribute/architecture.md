@@ -16,7 +16,7 @@ flowchart LR
 
     subgraph Rust
         Wrapper[gummysnake.rust.canvas]
-        Extension[gummysnake.rust._canvas]
+        Runtime[gummysnake.rust._canvas]
         Canvas[gummy_canvas crate]
     end
 
@@ -25,7 +25,7 @@ flowchart LR
     Context --> State
     Context --> Backend
     Context --> Renderer
-    Backend --> Wrapper --> Extension --> Canvas
+    Backend --> Wrapper --> Runtime --> Canvas
     Renderer --> Wrapper
 ```
 
@@ -41,8 +41,8 @@ The runtime has a small set of objects that appear in most changes:
 | `SketchContext` | `src/gummysnake/context.py` plus `src/gummysnake/_context/` mixins | Runtime controller for one sketch. It validates high-level Gummy Snake operations, updates `SketchState`, calls plugins, and sends drawing work to the renderer. |
 | `SketchState` | `src/gummysnake/core/state.py` | Mutable data for one sketch: canvas dimensions, style, transforms, timing, input, shape-building state, and lifecycle flags. |
 | `CanvasBackend` | `src/gummysnake/backend/canvas.py` plus `src/gummysnake/backend/_canvas/backend/` mixins | Runtime adapter. It chooses headless vs interactive execution, opens native windows when supported, schedules frames, and dispatches input events. |
-| `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/_canvas/renderer/` mixins | Drawing adapter. It translates Python state and drawing requests into payloads understood by the Rust canvas extension. |
-| `gummysnake.rust.canvas` | `src/gummysnake/rust/canvas.py` | Import, ABI validation, health-check, and capability wrapper for the PyO3 extension. It turns missing native support into clear Gummy Snake errors. |
+| `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/_canvas/renderer/` mixins | Drawing adapter. It translates Python state and drawing requests into payloads understood by the Rust canvas runtime. |
+| `gummysnake.rust.canvas` | `src/gummysnake/rust/canvas.py` | Import, ABI validation, health-check, and capability wrapper for the PyO3 runtime module. It turns missing native support into clear Gummy Snake errors. |
 | `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime and renderer implementation. |
 
 ## Ownership Boundaries
@@ -59,7 +59,10 @@ Rust owns:
 
 - canvas allocation and drawing
 - presentation and export
-- image asset loading and saving
+- image asset loading, saving, and image-local byte processing
+- OBJ model parsing, primitive model generation, direct projection/export, and
+  Rust-owned 3D model/mesh asset data
+- sound asset bytes and metadata
 - text, pixels, and readback
 - native window and input events when compiled with those capabilities
 
@@ -218,7 +221,7 @@ Use these rules of thumb:
 - `src/gummysnake/events/`: normalized mouse, keyboard, and touch input state.
 - `src/gummysnake/pixels/`: public pixel buffer helper exports.
 - `src/gummysnake/plugins/`: plugin interfaces and registry.
-- `src/gummysnake/rust/`: Python wrappers around PyO3 extensions and Rust-backed kernels.
+- `src/gummysnake/rust/`: Python wrappers around PyO3 runtime modules and Rust-backed kernels.
 - `src/gummysnake/sketch/`: sketch lifecycle runtime, decorator builder, and object-mode facade.
 - `crates/gummy_canvas/`: required canvas runtime.
 - `crates/gummy_accel/`: optional acceleration extension.

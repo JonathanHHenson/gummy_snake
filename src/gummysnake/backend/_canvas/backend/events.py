@@ -166,7 +166,7 @@ class CanvasBackendEventsMixin:
         native_window_available = getattr(canvas, "native_window_available", None)
         if callable(native_window_available) and not bool(native_window_available()):
             raise BackendCapabilityError(
-                "The installed gummysnake.rust._canvas extension exposes the runtime bridge "
+                "The installed gummysnake.rust._canvas runtime exposes the runtime bridge "
                 "but was built without native window/event-loop support. Run with a bounded "
                 "frame count for headless canvas rendering, or rebuild/reinstall the canvas "
                 "runtime with native "
@@ -178,7 +178,7 @@ class CanvasBackendEventsMixin:
             self.renderer._sync_dimensions()
             return
         raise BackendCapabilityError(
-            "The installed gummysnake.rust._canvas extension does not expose native "
+            "The installed gummysnake.rust._canvas runtime does not expose native "
             "interactive window primitives. Run with a bounded frame count for headless "
             "canvas rendering, or "
             f"rebuild the current gummy_canvas crate with `{GUMMY_CANVAS_BUILD_COMMAND}`."

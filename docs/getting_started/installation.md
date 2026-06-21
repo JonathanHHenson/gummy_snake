@@ -58,6 +58,6 @@ If you are working from this repository, use `uv`:
 
 ```sh
 uv sync --dev
-uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
+uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 ```

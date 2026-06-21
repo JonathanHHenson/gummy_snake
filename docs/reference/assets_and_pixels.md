@@ -22,7 +22,7 @@ Calling `set()`, `update_pixels()`, `resize()`, `mask()`, or `filter()` makes
 the image mutable Python pixel data and future draws upload the changed version
 through the bounded image cache. Bulk image-local work such as resize, mask,
 filter, crop/copy, and alpha compositing is delegated to the Rust canvas
-extension so the public Python API does not run nested per-pixel loops for
+runtime so the public Python API does not run nested per-pixel loops for
 normal image sizes.
 
 `smooth()` and `image_sampling(LINEAR)` request linear sampling.
@@ -117,9 +117,15 @@ timings.
 - `create_video(...)`
 - `create_video_async(...)`
 
+`load_sound()` returns the public `Sound` wrapper with a Rust-managed
+`CanvasSound` handle attached. Sound bytes and duration metadata stay in the
+canvas runtime until code asks for Python bytes with `sound.to_bytes()`, while
+Python keeps the current friendly `play()`, `pause()`, `stop()`, `volume()`,
+`rate()`, and `pan()` controls.
+
 Some media helpers require installing the `media` extra.
 Decoded grayscale, BGR, and BGRA frames are converted to Gummy Snake RGBA image buffers
-by the Rust canvas extension once the optional media dependency supplies a
+by the Rust canvas runtime once the optional media dependency supplies a
 contiguous frame buffer.
 
 3D asset helpers also include awaitable variants:
@@ -127,6 +133,7 @@ contiguous frame buffer.
 - `load_model_async(path, normalize=False, package=None)`
 - `load_shader_async(vertex_path, fragment_path)`
 
-Wavefront OBJ parsing and normalization are handled by the Rust canvas
-extension and adapted back to the public Python `Model3D` / `Mesh3D` data
-classes.
+Wavefront OBJ parsing, normalization, primitive model generation, projection,
+and OBJ/STL export are handled by the Rust canvas runtime where possible.
+`Model3D` and `Mesh3D` keep Rust-managed handles as canonical storage and expose
+lazy Python/NumPy views for inspection and interchange.

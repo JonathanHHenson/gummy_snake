@@ -72,10 +72,10 @@ these values in both bounded and interactive runs when enabled.
 
 Use a desktop build with native window support.
 
-1. Build the current canvas extension:
+1. Build the current canvas runtime:
 
    ```sh
-   uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
+   uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
    ```
 
 2. Run an interactive sketch with pacing diagnostics enabled in setup:

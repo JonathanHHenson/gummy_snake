@@ -50,7 +50,7 @@ def rasterize_faces_image_region(
 def _rasterize_faces_image_at(
     faces: list[ShadedFace], *, width: int, height: int, offset_x: int, offset_y: int
 ) -> CanvasImage:
-    from gummysnake.rust.canvas import require_canvas_extension
+    from gummysnake.rust.canvas import require_canvas_runtime
 
     payload = []
     for face in faces:
@@ -74,7 +74,7 @@ def _rasterize_faces_image_at(
             }
         )
     try:
-        pixels = require_canvas_extension().rasterize_faces_rgba(width, height, payload)
+        pixels = require_canvas_runtime().rasterize_faces_rgba(width, height, payload)
     except ValueError as exc:
         raise ArgumentValidationError(str(exc)) from exc
     return CanvasImage(width, height, pixels)

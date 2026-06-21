@@ -19,43 +19,56 @@ from gummysnake.rust.canvas import (
     canvas_health_check,
     canvas_import_error,
     canvas_native_window_available,
-    is_canvas_available,
-    require_canvas_extension,
+    is_canvas_runtime_available,
+    require_canvas_runtime,
 )
 
 
-def test_canvas_health_check_reports_unavailable_or_extension() -> None:
+def test_canvas_health_check_reports_unavailable_or_runtime() -> None:
     assert canvas_health_check() in {"unavailable", "rust-canvas"}
     assert canvas_abi_version() in {None, EXPECTED_CANVAS_ABI_VERSION}
     assert canvas_native_window_available() in {True, False}
     assert canvas_gpu_available() in {True, False}
     assert canvas_gpu_status()
-    assert is_canvas_available() in {True, False}
+    assert is_canvas_runtime_available() in {True, False}
     assert canvas_import_error() is None or isinstance(canvas_import_error(), ImportError)
 
 
-def test_canvas_wrapper_uses_loaded_extension(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_canvas_wrapper_uses_loaded_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeCanvasModule()
     monkeypatch.setattr(canvas_bridge, "_canvas", fake)
     monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
 
-    assert is_canvas_available()
+    assert is_canvas_runtime_available()
     assert canvas_health_check() == "fake-canvas"
     assert canvas_abi_version() == EXPECTED_CANVAS_ABI_VERSION
     assert canvas_native_window_available() is True
     assert canvas_gpu_available() is True
     assert canvas_gpu_status() == "available"
-    assert require_canvas_extension() is fake
+    assert require_canvas_runtime() is fake
 
 
-def test_canvas_wrapper_raises_capability_error_when_extension_missing(
+def test_canvas_wrapper_raises_capability_error_when_runtime_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(canvas_bridge, "_canvas", None)
     monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", ImportError("missing _canvas"))
 
     with pytest.raises(BackendCapabilityError, match="gummysnake.rust._canvas"):
-        require_canvas_extension()
+        require_canvas_runtime()
+
+
+def test_canvas_wrapper_rejects_runtime_missing_asset_classes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class MissingAssetClasses(FakeCanvasModule):
+        CanvasSound = None
+
+    monkeypatch.setattr(canvas_bridge, "_canvas", MissingAssetClasses())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+
+    with pytest.raises(BackendCapabilityError, match="CanvasSound"):
+        require_canvas_runtime()
 
 
 @pytest.mark.parametrize(
@@ -66,7 +79,7 @@ def test_canvas_wrapper_raises_capability_error_when_extension_missing(
         (FakeCanvasModuleWithHealthFailure(), "failed its health check"),
     ],
 )
-def test_canvas_wrapper_rejects_incompatible_or_unhealthy_extensions(
+def test_canvas_wrapper_rejects_incompatible_or_unhealthy_runtimes(
     monkeypatch: pytest.MonkeyPatch,
     module: object,
     message: str,
@@ -75,7 +88,7 @@ def test_canvas_wrapper_rejects_incompatible_or_unhealthy_extensions(
     monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
 
     with pytest.raises(BackendCapabilityError, match=message):
-        require_canvas_extension()
+        require_canvas_runtime()
 
 
 def test_canvas_gpu_status_explains_cpu_continuation_when_gpu_unavailable(
@@ -86,5 +99,3 @@ def test_canvas_gpu_status_explains_cpu_continuation_when_gpu_unavailable(
 
     assert canvas_gpu_available() is False
     assert "headless rendering can continue" in canvas_gpu_status()
-
-

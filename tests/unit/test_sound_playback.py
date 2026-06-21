@@ -51,6 +51,11 @@ def test_load_sound_and_create_audio_use_backend_neutral_player(monkeypatch, tmp
     monkeypatch.setattr(sound_module, "_NativeAudioPlayer", _FakePlayer)
 
     clip = gs.load_sound(sound_path)
+
+    assert isinstance(clip._rust_sound, sound_module.CanvasSound)
+    assert clip.byte_len == sound_path.stat().st_size
+    assert clip.to_bytes() == sound_path.read_bytes()
+
     clip.volume(0.4)
     clip.rate(1.5)
     clip.pan(-0.25)

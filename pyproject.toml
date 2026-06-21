@@ -20,7 +20,9 @@ classifiers = [
     "Topic :: Artistic Software",
     "Topic :: Multimedia :: Graphics",
 ]
-dependencies = []
+dependencies = [
+    "numpy>=2.4.6",
+]
 
 [project.optional-dependencies]
 media = [

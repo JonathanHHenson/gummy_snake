@@ -54,7 +54,7 @@ uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
-The canvas backend benchmarks require the `gummysnake.rust._canvas` extension and run in
+The canvas backend benchmarks require the `gummysnake.rust._canvas` runtime module and run in
 bounded headless mode, so they do not open a native window. Each run reports
 frames per second plus the canvas size, pixel density, backend mode, Python
 version, and platform. Every canvas benchmark scenario must average at least
@@ -70,7 +70,7 @@ pixel readback/upload, mixed text/pixel readback work, a deterministic game-styl
 scene, and a software 3D prototype scene.
 
 The API overhead microbenchmarks use a no-op renderer/backend and do not require
-the canvas extension. They report nanoseconds per call for global-mode,
+the canvas runtime. They report nanoseconds per call for global-mode,
 object-oriented sketch, context-direct, `fast()` facade, and renderer-direct
 paths so Python dispatch overhead can be compared separately from renderer
 work. The `fast()` cases should remain below equivalent global-mode dispatch
@@ -144,7 +144,7 @@ flowchart LR
     Push --> Coverage[coverage]
     Push --> BuildPython[build-python]
     Push --> BuildRust[build-rust]
-    Push --> Canvas[canvas-extension-python]
+    Push --> Canvas[canvas-runtime-python]
 
     Quality --> Lint[ruff]
     Quality --> Types[mypy]
@@ -158,15 +158,15 @@ Coverage is reported in the job summary and uploaded as `coverage-xml`.
 ## What Each CI Job Proves
 
 - `quality`: verifies the main contributor path: install dev dependencies,
-  build the required canvas extension, lint, type check, version check, run the
+  build the required canvas runtime, lint, type check, version check, run the
   Python test suite, and smoke-test an example.
 - `coverage`: runs the Python test suite with coverage instrumentation and
   uploads `coverage.xml`.
 - `build-python`: verifies `uv build` can produce Python distributions.
 - `build-rust`: verifies optional acceleration and required canvas Rust builds,
   and runs canvas crate tests.
-- `canvas-extension-python`: focuses on Python tests that require the canvas
-  extension.
+- `canvas-runtime-python`: focuses on Python tests that require the canvas
+  runtime.
 
 If a job starts failing after a change, first identify which ownership boundary
 the job covers. For example, a failure only in `build-rust` is usually a crate

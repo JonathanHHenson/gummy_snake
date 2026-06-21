@@ -70,7 +70,7 @@ jobs:
       - run: cargo test --manifest-path crates/gummy_canvas/Cargo.toml
       - run: uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml
 
-  canvas-extension-python:
+  canvas-runtime-python:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,9 +1,9 @@
 # pyright: reportConstantRedefinition=false
-"""Optional Rust canvas runtime bridge.
+"""Required Rust canvas runtime bridge.
 
-The public package remains importable without the compiled extension. Running
-sketches requires :mod:`gummysnake.rust._canvas` and fails with a clear package-specific
-error when the extension is absent.
+Gummy Snake uses :mod:`gummysnake.rust._canvas` for canvas-backed drawing.
+This module imports and validates that runtime module and turns missing, stale,
+or capability-limited builds into package-specific errors.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from gummysnake.exceptions import BackendCapabilityError
 GUMMY_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml"
 )
-EXPECTED_CANVAS_ABI_VERSION = 1
+EXPECTED_CANVAS_ABI_VERSION = 2
 
 
 class _RustCanvasImage(Protocol):
@@ -36,9 +36,21 @@ class _RustCanvasImage(Protocol):
     def to_rgba_bytes(self) -> bytes: ...
 
 
+class _RustCanvasSound(Protocol):
+    path: str
+    duration: float | None
+    byte_len: int
+
+    @staticmethod
+    def from_file(path: str) -> _RustCanvasSound: ...
+
+    def to_bytes(self) -> bytes: ...
+
+
 class _CanvasModule(Protocol):
     Canvas: type[Any]
     CanvasImage: type[_RustCanvasImage]
+    CanvasSound: type[_RustCanvasSound]
 
     def health_check(self) -> str: ...
 
@@ -120,14 +132,14 @@ else:
 _canvas = cast(_CanvasModule | None, _loaded_canvas)
 
 
-def is_canvas_available() -> bool:
-    """Return whether the optional ``gummysnake.rust._canvas`` extension is importable."""
+def is_canvas_runtime_available() -> bool:
+    """Return whether the required ``gummysnake.rust._canvas`` runtime module is importable."""
 
     return _canvas is not None
 
 
 def canvas_import_error() -> ImportError | None:
-    """Return the import error that made the Rust canvas extension unavailable."""
+    """Return the import error that made the Rust canvas runtime unavailable."""
 
     return _CANVAS_IMPORT_ERROR
 
@@ -144,7 +156,7 @@ def canvas_health_check() -> str:
 
 
 def canvas_abi_version() -> int | None:
-    """Return the loaded canvas extension ABI marker when available."""
+    """Return the loaded canvas runtime ABI marker when available."""
 
     if _canvas is None:
         return None
@@ -162,7 +174,7 @@ def canvas_abi_version() -> int | None:
 
 
 def canvas_native_window_available() -> bool:
-    """Return whether the loaded canvas extension has native window support."""
+    """Return whether the loaded canvas runtime has native window support."""
 
     if _canvas is None:
         return False
@@ -171,7 +183,7 @@ def canvas_native_window_available() -> bool:
 
 
 def canvas_gpu_available() -> bool:
-    """Return whether the loaded canvas extension can initialize a GPU adapter."""
+    """Return whether the loaded canvas runtime can initialize a GPU adapter."""
 
     if _canvas is None:
         return False
@@ -180,10 +192,10 @@ def canvas_gpu_available() -> bool:
 
 
 def canvas_gpu_status() -> str:
-    """Return an actionable GPU availability diagnostic for the loaded extension."""
+    """Return an actionable GPU availability diagnostic for the loaded runtime."""
 
     if _canvas is None:
-        return "unavailable: gummysnake.rust._canvas is not installed"
+        return "unavailable: gummysnake.rust._canvas runtime is not installed"
     try:
         available = canvas_gpu_available()
     except Exception as exc:
@@ -197,28 +209,28 @@ def canvas_gpu_status() -> str:
     )
 
 
-def require_canvas_extension() -> _CanvasModule:
-    """Return the loaded canvas extension or raise a backend capability error."""
+def require_canvas_runtime() -> _CanvasModule:
+    """Return the loaded canvas runtime or raise a backend capability error."""
 
     if _canvas is not None:
-        _validate_canvas_module(_canvas)
+        _validate_canvas_runtime(_canvas)
         return _canvas
 
     detail = f" Import failed: {_CANVAS_IMPORT_ERROR}" if _CANVAS_IMPORT_ERROR else ""
     raise BackendCapabilityError(
-        "Gummy Snake requires the Rust canvas extension gummysnake.rust._canvas. "
+        "Gummy Snake requires the Rust canvas runtime gummysnake.rust._canvas. "
         f"Build it locally with `{GUMMY_CANVAS_BUILD_COMMAND}`; bounded runs use "
-        f"headless=True or max_frames, while interactive runs require a canvas extension "
+        f"headless=True or max_frames, while interactive runs require a canvas runtime "
         f"built with native window support.{detail}"
     )
 
 
-def _validate_canvas_module(module: _CanvasModule) -> None:
+def _validate_canvas_runtime(module: _CanvasModule) -> None:
     marker = canvas_abi_version()
     if marker != EXPECTED_CANVAS_ABI_VERSION:
         found = "missing" if marker is None else str(marker)
         raise BackendCapabilityError(
-            "The installed gummysnake.rust._canvas extension is incompatible with this "
+            "The installed gummysnake.rust._canvas runtime is incompatible with this "
             f"Gummy Snake build (expected canvas ABI {EXPECTED_CANVAS_ABI_VERSION}, "
             f"found {found}). "
             f"Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}` or reinstall gummy-snake so the "
@@ -228,20 +240,32 @@ def _validate_canvas_module(module: _CanvasModule) -> None:
     health_check = getattr(module, "health_check", None)
     if not callable(health_check):
         raise BackendCapabilityError(
-            "The installed gummysnake.rust._canvas extension is missing health_check(). "
+            "The installed gummysnake.rust._canvas runtime is missing health_check(). "
             f"Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`."
         )
     try:
         health = str(health_check())
     except Exception as exc:
         raise BackendCapabilityError(
-            "The installed gummysnake.rust._canvas extension failed its health check. "
+            "The installed gummysnake.rust._canvas runtime failed its health check. "
             f"Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`. Health check error: {exc}"
         ) from exc
     if not health or health == "unavailable":
         raise BackendCapabilityError(
-            "The installed gummysnake.rust._canvas extension reported an unhealthy runtime "
+            "The installed gummysnake.rust._canvas runtime reported an unhealthy runtime "
             f"state ({health!r}). Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`."
+        )
+
+    required_classes = ("Canvas", "CanvasImage", "CanvasModel3D", "CanvasMesh3D", "CanvasSound")
+    missing = [
+        name for name in required_classes if not isinstance(getattr(module, name, None), type)
+    ]
+    if missing:
+        missing_names = ", ".join(missing)
+        raise BackendCapabilityError(
+            "The installed gummysnake.rust._canvas runtime is missing required runtime "
+            f"asset/canvas classes ({missing_names}). Rebuild it with "
+            f"`{GUMMY_CANVAS_BUILD_COMMAND}`."
         )
 
 
@@ -254,6 +278,6 @@ __all__ = [
     "canvas_gpu_status",
     "canvas_native_window_available",
     "canvas_import_error",
-    "is_canvas_available",
-    "require_canvas_extension",
+    "is_canvas_runtime_available",
+    "require_canvas_runtime",
 ]

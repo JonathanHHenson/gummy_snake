@@ -24,15 +24,15 @@ class CanvasImage:
 
     @classmethod
     def from_file(cls, path: str | Path) -> CanvasImage:
-        from gummysnake.rust.canvas import require_canvas_extension
+        from gummysnake.rust.canvas import require_canvas_runtime
 
-        return cls(require_canvas_extension().CanvasImage.from_file(str(path)))
+        return cls(require_canvas_runtime().CanvasImage.from_file(str(path)))
 
     @classmethod
     def from_rgba_bytes(cls, width: int, height: int, pixels: bytes) -> CanvasImage:
-        from gummysnake.rust.canvas import require_canvas_extension
+        from gummysnake.rust.canvas import require_canvas_runtime
 
-        return cls(require_canvas_extension().CanvasImage.from_rgba_bytes(width, height, pixels))
+        return cls(require_canvas_runtime().CanvasImage.from_rgba_bytes(width, height, pixels))
 
     @property
     def width(self) -> int:

@@ -6,12 +6,29 @@ import math
 from functools import lru_cache
 from typing import Any, cast
 
+import numpy as np
+
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D, Vec3
 from gummysnake.exceptions import ArgumentValidationError
 
 from .types import UVCoord
 
 _MESH_CACHE_SIZE = 256
+
+
+def _rust_primitive_model(function_name: str, *args: object) -> Model3D | None:
+    from gummysnake.rust.canvas import is_canvas_runtime_available, require_canvas_runtime
+
+    if not is_canvas_runtime_available():
+        return None
+    runtime = require_canvas_runtime()
+    factory = getattr(runtime, function_name, None)
+    if factory is None:
+        return None
+    try:
+        return Model3D(meshes=None, rust_handle=factory(*args))
+    except ValueError as exc:
+        raise ArgumentValidationError(str(exc)) from exc
 
 
 def clear_primitive_model_cache() -> None:
@@ -42,6 +59,8 @@ def primitive_model_cache_info() -> dict[str, Any]:
 @lru_cache(maxsize=_MESH_CACHE_SIZE)
 def plane_model(width: float, height: float | None = None) -> Model3D:
     plane_height = width if height is None else height
+    if rust_model := _rust_primitive_model("create_plane_model_handle", width, height):
+        return rust_model
     if width <= 0 or plane_height <= 0:
         raise ArgumentValidationError("plane() dimensions must be positive.")
     hw, hh = width / 2.0, plane_height / 2.0
@@ -57,6 +76,8 @@ def plane_model(width: float, height: float | None = None) -> Model3D:
 def box_model(width: float, height: float | None = None, depth: float | None = None) -> Model3D:
     box_height = width if height is None else height
     box_depth = width if depth is None else depth
+    if rust_model := _rust_primitive_model("create_box_model_handle", width, height, depth):
+        return rust_model
     if width <= 0 or box_height <= 0 or box_depth <= 0:
         raise ArgumentValidationError("box() dimensions must be positive.")
     hw, hh, hd = width / 2.0, box_height / 2.0, box_depth / 2.0
@@ -101,6 +122,10 @@ def box_model(width: float, height: float | None = None, depth: float | None = N
 
 @lru_cache(maxsize=_MESH_CACHE_SIZE)
 def sphere_model(radius: float, detail_x: int = 24, detail_y: int = 16) -> Model3D:
+    if rust_model := _rust_primitive_model(
+        "create_sphere_model_handle", radius, detail_x, detail_y
+    ):
+        return rust_model
     if radius <= 0:
         raise ArgumentValidationError("sphere() radius must be positive.")
     if detail_x < 3 or detail_y < 2:
@@ -144,13 +169,26 @@ def ellipsoid_model(
     detail_x: int = 24,
     detail_y: int = 16,
 ) -> Model3D:
+    if rust_model := _rust_primitive_model(
+        "create_ellipsoid_model_handle", radius_x, radius_y, radius_z, detail_x, detail_y
+    ):
+        return rust_model
     ry = radius_x if radius_y is None else radius_y
     rz = radius_x if radius_z is None else radius_z
+    if radius_x <= 0 or ry <= 0 or rz <= 0:
+        raise ArgumentValidationError("ellipsoid() radius values must be positive.")
     mesh = sphere_model(1.0, detail_x, detail_y).meshes[0]
-    vertices = tuple(
-        Vec3(vertex.x * radius_x, vertex.y * ry, vertex.z * rz) for vertex in mesh.vertices
+    vertices = mesh.vertex_array() * np.array((radius_x, ry, rz), dtype=np.float64)
+    return Model3D(
+        meshes=(
+            Mesh3D.from_arrays(
+                vertices,
+                face_indices=mesh.face_index_array(),
+                face_offsets=mesh.face_offset_array(),
+                texcoords=mesh.texcoord_array(),
+            ),
+        )
     )
-    return Model3D(meshes=(Mesh3D(vertices=vertices, faces=mesh.faces, texcoords=mesh.texcoords),))
 
 
 @lru_cache(maxsize=_MESH_CACHE_SIZE)
@@ -163,6 +201,10 @@ def cylinder_model(
     bottom_cap: bool = True,
     top_cap: bool = True,
 ) -> Model3D:
+    if rust_model := _rust_primitive_model(
+        "create_cylinder_model_handle", radius, height, detail_x, detail_y, bottom_cap, top_cap
+    ):
+        return rust_model
     if radius <= 0 or height <= 0:
         raise ArgumentValidationError("cylinder() radius and height must be positive.")
     if detail_x < 3 or detail_y < 1:
@@ -212,6 +254,10 @@ def cylinder_model(
 def cone_model(
     radius: float, height: float, detail_x: int = 24, detail_y: int = 1, *, cap: bool = True
 ) -> Model3D:
+    if rust_model := _rust_primitive_model(
+        "create_cone_model_handle", radius, height, detail_x, detail_y, cap
+    ):
+        return rust_model
     if radius <= 0 or height <= 0:
         raise ArgumentValidationError("cone() radius and height must be positive.")
     if detail_x < 3 or detail_y < 1:
@@ -262,6 +308,10 @@ def cone_model(
 def torus_model(
     radius: float, tube_radius: float | None = None, detail_x: int = 24, detail_y: int = 12
 ) -> Model3D:
+    if rust_model := _rust_primitive_model(
+        "create_torus_model_handle", radius, tube_radius, detail_x, detail_y
+    ):
+        return rust_model
     tube = radius / 4.0 if tube_radius is None else tube_radius
     if radius <= 0 or tube <= 0:
         raise ArgumentValidationError("torus() radius values must be positive.")

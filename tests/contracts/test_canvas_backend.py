@@ -16,15 +16,15 @@ def test_sketch_defaults_to_canvas_runtime() -> None:
     assert isinstance(create_backend(), CanvasBackend)
 
 
-def test_canvas_runtime_requires_rust_extension(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_canvas_runtime_requires_rust_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(canvas_bridge, "_canvas", None)
     monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", ImportError("missing _canvas"))
 
-    with pytest.raises(BackendCapabilityError, match="requires the Rust canvas extension"):
+    with pytest.raises(BackendCapabilityError, match="requires the Rust canvas runtime"):
         create_backend()
 
 
-def test_canvas_default_eligibility_reports_missing_extension(
+def test_canvas_default_eligibility_reports_missing_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(canvas_bridge, "_canvas", None)

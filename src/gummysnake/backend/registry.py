@@ -13,7 +13,7 @@ def canvas_default_eligibility() -> tuple[bool, str]:
 
     from gummysnake.rust import canvas as canvas_bridge
 
-    if not bool(canvas_bridge.is_canvas_available()):
+    if not bool(canvas_bridge.is_canvas_runtime_available()):
         return False, "gummysnake.rust._canvas is unavailable"
     if not bool(canvas_bridge.canvas_gpu_available()):
         return False, "gummy_canvas did not report an available GPU adapter"

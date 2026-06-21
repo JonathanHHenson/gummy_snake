@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 
+import numpy as np
+
 from gummysnake.assets._paths import resolve_asset_path
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D, Vec3
 from gummysnake.exceptions import ArgumentValidationError
@@ -146,10 +148,19 @@ def _parse_obj(text: str, *, source: Path) -> Model3D:
 
 
 def _parse_obj_rust(text: str, *, source: Path, normalize: bool) -> Model3D:
-    from gummysnake.rust.canvas import require_canvas_extension
+    from gummysnake.rust.canvas import require_canvas_runtime
+
+    runtime = require_canvas_runtime()
+    parse_handle = getattr(runtime, "parse_obj_model_handle", None)
+    if callable(parse_handle):
+        try:
+            handle = parse_handle(text, str(source), normalize)
+        except ValueError as exc:
+            raise ArgumentValidationError(str(exc)) from exc
+        return Model3D(meshes=None, source=source, rust_handle=handle)
 
     try:
-        payload = require_canvas_extension().parse_obj_model(text, str(source), normalize)
+        payload = runtime.parse_obj_model(text, str(source), normalize)
     except ValueError as exc:
         raise ArgumentValidationError(str(exc)) from exc
 
@@ -228,36 +239,27 @@ def _resolve_index(
 
 
 def _normalize_model(model: Model3D) -> Model3D:
-    vertices = [vertex for mesh in model.meshes for vertex in mesh.vertices]
-    if not vertices:
+    vertex_arrays = [mesh.vertex_array() for mesh in model.meshes if len(mesh.vertex_array())]
+    if not vertex_arrays:
         return model
-    min_x = min(vertex.x for vertex in vertices)
-    max_x = max(vertex.x for vertex in vertices)
-    min_y = min(vertex.y for vertex in vertices)
-    max_y = max(vertex.y for vertex in vertices)
-    min_z = min(vertex.z for vertex in vertices)
-    max_z = max(vertex.z for vertex in vertices)
-    span = max(max_x - min_x, max_y - min_y, max_z - min_z)
+    all_vertices = np.concatenate(vertex_arrays, axis=0)
+    minimums = all_vertices.min(axis=0)
+    maximums = all_vertices.max(axis=0)
+    span = float(np.max(maximums - minimums))
     if span <= 0:
         return model
-    center = Vec3((min_x + max_x) / 2.0, (min_y + max_y) / 2.0, (min_z + max_z) / 2.0)
+    center = (minimums + maximums) / 2.0
     scale = 2.0 / span
     meshes = []
     for mesh in model.meshes:
-        normalized_vertices = tuple(
-            Vec3(
-                (vertex.x - center.x) * scale,
-                (vertex.y - center.y) * scale,
-                (vertex.z - center.z) * scale,
-            )
-            for vertex in mesh.vertices
-        )
+        normalized_vertices = (mesh.vertex_array() - center) * scale
         meshes.append(
-            Mesh3D(
-                vertices=normalized_vertices,
-                faces=mesh.faces,
-                normals=mesh.normals,
-                texcoords=mesh.texcoords,
+            Mesh3D.from_arrays(
+                normalized_vertices,
+                face_indices=mesh.face_index_array(),
+                face_offsets=mesh.face_offset_array(),
+                normals=mesh.normal_array(),
+                texcoords=mesh.texcoord_array(),
                 material=mesh.material,
             )
         )

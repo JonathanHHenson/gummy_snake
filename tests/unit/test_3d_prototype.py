@@ -1,3 +1,5 @@
+import numpy as np
+
 from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.prototype3d import cube_model, wireframe_segments
 from gummysnake.drawing.renderer3d import (
@@ -8,6 +10,8 @@ from gummysnake.drawing.renderer3d import (
     OrthographicProjection,
     PerspectiveProjection,
     Vec3,
+    _mesh_rust_handle,
+    _model_rust_handle,
 )
 from gummysnake.drawing.software3d import (
     box_model,
@@ -24,6 +28,100 @@ from gummysnake.drawing.software3d import (
     torus_model,
 )
 from gummysnake.drawing.software3d.rust_bridge import rust_project_shade_faces
+
+
+def test_mesh3d_prefers_rust_handle_for_canonical_storage(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class Handle:
+        def to_mesh_payload(self):
+            return {
+                "vertices": ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+                "faces": ((0, 1, 2),),
+                "normals": ((0.0, 0.0, 1.0), (0.0, 0.0, 1.0), (0.0, 0.0, 1.0)),
+                "texcoords": (),
+            }
+
+    class Runtime:
+        def create_mesh3d_handle(self, vertices, faces, normals, texcoords):
+            captured["vertices"] = vertices
+            captured["faces"] = faces
+            captured["normals"] = normals
+            captured["texcoords"] = texcoords
+            return Handle()
+
+    monkeypatch.setattr("gummysnake.rust.canvas.is_canvas_runtime_available", lambda: True)
+    monkeypatch.setattr("gummysnake.rust.canvas.require_canvas_runtime", lambda: Runtime())
+
+    mesh = Mesh3D(
+        vertices=(Vec3(0, 0, 0), Vec3(1, 0, 0), Vec3(0, 1, 0)),
+        faces=((0, 1, 2),),
+        normals=(Vec3(0, 0, 1), Vec3(0, 0, 1), Vec3(0, 0, 1)),
+    )
+
+    assert _mesh_rust_handle(mesh) is not None
+    assert captured["vertices"] == [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)]
+    assert captured["faces"] == [(0, 1, 2)]
+    assert captured["normals"] == [(0.0, 0.0, 1.0), (0.0, 0.0, 1.0), (0.0, 0.0, 1.0)]
+    assert mesh.vertex_array().shape == (3, 3)
+    assert mesh.vertices[1] == Vec3(1.0, 0.0, 0.0)
+    assert mesh.normals[0] == Vec3(0.0, 0.0, 1.0)
+
+
+def test_model3d_materializes_meshes_as_rust_mesh_wrappers():
+    class MeshHandle:
+        def to_mesh_payload(self):
+            return {
+                "vertices": ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+                "faces": ((0, 1, 2),),
+                "texcoords": (),
+            }
+
+    class ModelHandle:
+        def to_mesh_handle(self):
+            return MeshHandle()
+
+        def to_mesh_payload(self):
+            raise AssertionError("model payload should not be used when mesh handles are available")
+
+    mesh = Model3D(meshes=None, rust_handle=ModelHandle()).meshes[0]
+
+    assert _mesh_rust_handle(mesh) is not None
+    assert mesh.faces == ((0, 1, 2),)
+
+
+def test_mesh3d_stores_numeric_data_as_readonly_numpy_arrays_with_friendly_views(monkeypatch):
+    monkeypatch.setattr("gummysnake.rust.canvas.is_canvas_runtime_available", lambda: False)
+    mesh = Mesh3D.from_arrays(
+        np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ],
+            dtype=np.float64,
+        ),
+        faces=((0, 1, 2), (0, 2, 3, 1)),
+        texcoords=np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]),
+    )
+
+    vertices = mesh.vertex_array()
+    assert isinstance(vertices, np.ndarray)
+    assert vertices.shape == (4, 3)
+    assert vertices.flags.writeable is False
+    assert mesh.face_index_array().tolist() == [0, 1, 2, 0, 2, 3, 1]
+    assert mesh.face_offset_array().tolist() == [0, 3, 7]
+
+    assert mesh.vertices == (
+        Vec3(0.0, 0.0, 0.0),
+        Vec3(1.0, 0.0, 0.0),
+        Vec3(1.0, 1.0, 0.0),
+        Vec3(0.0, 1.0, 0.0),
+    )
+    assert mesh.faces == ((0, 1, 2), (0, 2, 3, 1))
+    assert mesh.texcoords == ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))
+    assert mesh.to_python()["vertices"] == mesh.vertices
 
 
 def test_cube_wireframe_projects_twelve_edges():
@@ -117,12 +215,12 @@ def test_generated_3d_primitives_and_exports_are_deterministic(tmp_path):
 def test_rust_project_shade_faces_applies_model_transform_in_payload(monkeypatch):
     captured: dict[str, object] = {}
 
-    class Extension:
+    class Runtime:
         def project_shade_faces(self, meshes, *args):
             captured["meshes"] = meshes
             return []
 
-    monkeypatch.setattr("gummysnake.rust.canvas.require_canvas_extension", lambda: Extension())
+    monkeypatch.setattr("gummysnake.rust.canvas.require_canvas_runtime", lambda: Runtime())
     model = Model3D(
         meshes=(
             Mesh3D(
@@ -148,6 +246,64 @@ def test_rust_project_shade_faces_applies_model_transform_in_payload(monkeypatch
     meshes = captured["meshes"]
     assert isinstance(meshes, list)
     assert meshes[0]["vertices"] == [(9, 2, 10.0)]
+
+
+def test_primitive_model_factory_wraps_rust_handle_without_materializing_meshes(monkeypatch):
+    clear_primitive_model_cache()
+    captured: dict[str, object] = {}
+
+    class Handle:
+        def to_mesh_payload(self):
+            raise AssertionError("mesh payload should be lazy")
+
+    class Runtime:
+        def create_plane_model_handle(self, width, height):
+            captured["args"] = (width, height)
+            return Handle()
+
+    monkeypatch.setattr("gummysnake.rust.canvas.is_canvas_runtime_available", lambda: True)
+    monkeypatch.setattr("gummysnake.rust.canvas.require_canvas_runtime", lambda: Runtime())
+
+    model = plane_model(20, 10)
+
+    assert captured["args"] == (20, 10)
+    assert _model_rust_handle(model) is not None
+
+
+def test_rust_project_shade_faces_uses_direct_model_handle_without_mesh_payload(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class Handle:
+        def to_mesh_payload(self):
+            raise AssertionError("direct handle projection should not materialize mesh payload")
+
+    class Runtime:
+        def project_shade_model_handle(self, handle, *args):
+            captured["handle"] = handle
+            captured["args"] = args
+            return []
+
+    monkeypatch.setattr("gummysnake.rust.canvas.require_canvas_runtime", lambda: Runtime())
+    handle = Handle()
+    model = Model3D(meshes=None, rust_handle=handle)
+
+    rust_project_shade_faces(
+        model,
+        Camera3D(eye=Vec3(0, 0, 300), target=Vec3(0, 0, 0)),
+        PerspectiveProjection(fov_y=60, near=1, far=1000),
+        viewport_width=100,
+        viewport_height=100,
+        base_material=Material3D(),
+        lights=(),
+        normal_material=False,
+        cull_backfaces=True,
+        model_transform=Matrix2D(2, 0, 0, 3, 5, 7),
+    )
+
+    assert captured["handle"] is handle
+    args = captured["args"]
+    assert isinstance(args, tuple)
+    assert args[-1] == (2, 0, 0, 3, 5, 7)
 
 
 def test_software_3d_primitive_models_are_cached_by_parameters():

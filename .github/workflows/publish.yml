@@ -37,7 +37,7 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --dev
 
-      - name: Install canvas extension
+      - name: Install canvas runtime
         run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
 
       - name: Lint
@@ -114,7 +114,7 @@ jobs:
         with:
           python-version-file: .python-version
 
-      - name: Build canvas extension wheel
+      - name: Build canvas runtime wheel
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}

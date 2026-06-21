@@ -8,7 +8,7 @@ import time
 from canvas_backend_perf_scenes import draw_scene, setup_scene
 
 import gummysnake as gs
-from gummysnake.rust.canvas import is_canvas_available
+from gummysnake.rust.canvas import is_canvas_runtime_available
 
 
 def main() -> None:
@@ -24,8 +24,8 @@ def main() -> None:
     def draw() -> None:
         draw_scene(variant)
 
-    if not is_canvas_available():
-        print(json.dumps({"skipped": True, "reason": "canvas extension unavailable"}))
+    if not is_canvas_runtime_available():
+        print(json.dumps({"skipped": True, "reason": "canvas runtime unavailable"}))
         return
     gs.run(setup=setup, draw=draw, headless=True, max_frames=frames)
     elapsed = time.perf_counter() - start

@@ -193,7 +193,7 @@ class CanvasRendererCore:
         if canvas_type is None:
             raise BackendCapabilityError(
                 "The experimental 'canvas' backend found gummysnake.rust._canvas, but the "
-                "extension does not expose Canvas. Rebuild gummy_canvas before running Gummy Snake."
+                "runtime does not expose Canvas. Rebuild gummy_canvas before running Gummy Snake."
             )
         return canvas_type
 

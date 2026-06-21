@@ -4,7 +4,7 @@ The runtime is canvas-first and bounded/headless runs still use `gummy_canvas`.
 There is no supported Pillow or Pyglet fallback.
 
 The runtime starts in Python, creates a Python context, and then uses the Rust
-canvas extension for canvas work. Rust can provide native window and input
+canvas runtime for canvas work. Rust can provide native window and input
 events, but Python still owns the sketch lifecycle.
 
 ```mermaid
@@ -81,11 +81,11 @@ as quickly and deterministically as possible.
 - `headless=True` or `--headless`: bounded offscreen canvas behavior for tests,
   CI, export, and repeatable scripts.
 - `headless=False` or `--interactive`: native interactive behavior when the
-  installed extension supports it.
-- Missing canvas extension or missing native-window support should fail with a
+  installed runtime supports it.
+- Missing canvas runtime or missing native-window support should fail with a
   clear capability error and rebuild guidance.
-- A stale or partial canvas extension should fail during
-  `require_canvas_extension()` if its health check or `CANVAS_ABI_VERSION`
+- A stale or partial canvas runtime should fail during
+  `require_canvas_runtime()` if its health check or `CANVAS_ABI_VERSION`
   marker does not match the Python package.
 
 ```mermaid
@@ -131,7 +131,13 @@ Gummy Snake separates logical and physical size:
 Do not collapse logical and physical dimensions when touching renderer, export,
 pixels, image, or input coordinate code.
 
-## Image And Pixel Ownership
+## Asset, Image, And Pixel Ownership
+
+Rust-managed assets are a performance boundary, not just an implementation
+detail. Bulk asset bytes, geometry arrays, parsing, export, projection, metadata
+extraction, and future asset processing should stay in `gummy_canvas` whenever
+practical. Python wrappers should expose friendly, Pythonic APIs while avoiding
+large Python object graphs until user code explicitly asks for them.
 
 `load_image()` keeps a Rust-managed image asset attached to the public `Image`
 object until the user asks for mutable pixel behavior. Drawing that untouched
@@ -156,6 +162,30 @@ keeps public API validation, mutation versioning, and cache-key ownership.
 Optional media capture/video helpers remain gated by the `media` extra, but
 decoded grayscale, BGR, and BGRA frame conversion to RGBA is routed through
 `gummy_canvas` once the media dependency supplies a contiguous frame buffer.
+
+`load_model()` and generated software-3D primitives follow the same ownership
+pattern for model assets where the installed canvas runtime supports it. The
+public `Model3D` wrapper may retain a Rust-owned `CanvasModel3D` handle for
+parsed or generated vertex/index data, while the Python `.meshes` view remains
+available and materializes lazily only when user code inspects geometry. `Mesh3D`
+itself may retain a Rust-owned `CanvasMesh3D` handle as canonical storage; its
+NumPy vertex, normal, texture-coordinate, and packed face-index arrays are lazy
+inspection/interchange views over that handle. Hot paths such as OBJ/STL export
+and software-3D projection should use Rust handles directly, or NumPy mesh arrays
+when no handle is present, instead of forcing repeated Python `Vec3` loops.
+
+`load_sound()` keeps sound bytes and metadata in a Rust-owned `CanvasSound`
+handle attached to the public `Sound` wrapper. Python still owns the friendly
+playback controls for now, but duration and byte access should flow through the
+Rust handle so future decoding, waveform analysis, resampling, and playback work
+can happen without first copying sound data into Python-owned structures.
+
+Remaining asset migration candidates are shader sources, font files/outline data,
+and large generic byte/data assets. Migrate them when a runtime-owned operation
+exists or is planned, such as shader validation/compilation, font outline/model
+generation, or binary asset processing. Plain JSON/string helpers can stay
+Python-owned until the runtime has a bulk operation that benefits from owning the
+bytes.
 
 Optional `gummy_accel` Python fallbacks, such as procedural noise and byte-wise
 blend reference kernels, preserve correctness for environments without the

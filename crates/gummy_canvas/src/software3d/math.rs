@@ -64,6 +64,24 @@ pub(super) fn cross_3d(a: Vec3d, b: Vec3d) -> Vec3d {
     }
 }
 
+pub(super) fn triangle_normal(a: Vec3d, b: Vec3d, c: Vec3d) -> Vec3d {
+    let normal = cross_3d(sub_3d(b, a), sub_3d(c, a));
+    let length = dot_3d(normal, normal).sqrt();
+    if length == 0.0 {
+        Vec3d {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }
+    } else {
+        Vec3d {
+            x: normal.x / length,
+            y: normal.y / length,
+            z: normal.z / length,
+        }
+    }
+}
+
 pub(super) fn normalize_3d(value: Vec3d) -> PyResult<Vec3d> {
     let length = dot_3d(value, value).sqrt();
     if length == 0.0 {

@@ -7,8 +7,8 @@ from gummysnake.rust.canvas import (
     canvas_gpu_status,
     canvas_health_check,
     canvas_import_error,
-    is_canvas_available,
-    require_canvas_extension,
+    is_canvas_runtime_available,
+    require_canvas_runtime,
 )
 from gummysnake.rust.noise import noise_3d_python
 from gummysnake.rust.runtime import (
@@ -32,8 +32,8 @@ __all__ = [
     "exclusion_blend_rgb_python",
     "health_check",
     "is_acceleration_available",
-    "is_canvas_available",
+    "is_canvas_runtime_available",
     "noise_3d",
     "noise_3d_python",
-    "require_canvas_extension",
+    "require_canvas_runtime",
 ]

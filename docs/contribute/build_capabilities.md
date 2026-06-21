@@ -4,7 +4,7 @@ Use this matrix when validating local builds, wheels, and release candidates.
 
 | Capability | Required? | Build surface | Runtime probe | Smoke command |
 | --- | --- | --- | --- | --- |
-| Canvas extension | Required | `crates/gummy_canvas` PyO3 module `gummysnake.rust._canvas` | `gummysnake.rust.canvas.require_canvas_extension()` checks health and canvas ABI | `uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1` |
+| Canvas runtime | Required | `crates/gummy_canvas` PyO3 module `gummysnake.rust._canvas` | `gummysnake.rust.canvas.require_canvas_runtime()` checks health and canvas ABI, including Rust-managed asset classes such as `CanvasImage`, `CanvasModel3D`, `CanvasMesh3D`, and `CanvasSound` | `uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1` |
 | Headless canvas | Required | `gummy_canvas` default headless mode | `CanvasBackend.capabilities.headless` | `uv run pytest tests/unit/test_rust_canvas.py` |
 | Native windows and input | Optional/platform-dependent | `gummy_canvas` native runtime support | `gummysnake.rust.canvas.canvas_native_window_available()` | `uv run python examples/01_getting_started/basic_shapes.py --interactive` |
 | GPU renderer | Optional/platform-dependent | `wgpu` path in `gummy_canvas` | `gummysnake.rust.canvas.canvas_gpu_status()` and `CanvasBackend.gpu_status()` | `uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks -q -s` |
@@ -15,10 +15,10 @@ Use this matrix when validating local builds, wheels, and release candidates.
 ## Compatibility Marker
 
 `gummy_canvas` exposes `CANVAS_ABI_VERSION` and `canvas_abi_version()`. Python
-validates this marker before returning the extension from
-`require_canvas_extension()`. Missing, malformed, or mismatched markers raise
+validates this marker before returning the runtime module from
+`require_canvas_runtime()`. Missing, malformed, or mismatched markers raise
 `BackendCapabilityError` with rebuild guidance, because they usually mean a
-stale local extension is being imported with a newer Python package.
+stale local runtime module is being imported with a newer Python package.
 
 Use the release build command when rebuilding locally:
 
@@ -33,9 +33,9 @@ metadata now carries that configuration.
 ## Failure Diagnostics
 
 - Missing `gummysnake.rust._canvas`: rebuild or reinstall the required canvas runtime.
-- ABI mismatch: rebuild the extension from the same checkout as the Python
+- ABI mismatch: rebuild the runtime module from the same checkout as the Python
   package.
-- Health-check failure: rebuild the extension and inspect the original health
+- Health-check failure: rebuild the runtime module and inspect the original health
   check exception.
 - Native window unavailable: bounded/headless rendering can still run; only
   interactive windows and native input are unavailable.

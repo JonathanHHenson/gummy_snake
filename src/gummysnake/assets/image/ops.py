@@ -9,9 +9,9 @@ from gummysnake.exceptions import ArgumentValidationError
 
 
 def canvas_module() -> Any:
-    from gummysnake.rust.canvas import require_canvas_extension
+    from gummysnake.rust.canvas import require_canvas_runtime
 
-    return require_canvas_extension()
+    return require_canvas_runtime()
 
 
 def resize_rgba(

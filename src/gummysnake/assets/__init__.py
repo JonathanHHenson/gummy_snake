@@ -12,6 +12,7 @@ from gummysnake.assets.data import (
 )
 from gummysnake.assets.image import CanvasImage, Image, create_image, load_image
 from gummysnake.assets.media import Capture, Video, create_capture, create_video
+from gummysnake.assets.sound import CanvasSound, Sound
 from gummysnake.assets.text import DEFAULT_FONT, Font, load_font
 
 __all__ = [
@@ -23,6 +24,8 @@ __all__ = [
     "Capture",
     "create_video",
     "create_capture",
+    "CanvasSound",
+    "Sound",
     "Font",
     "DEFAULT_FONT",
     "load_font",

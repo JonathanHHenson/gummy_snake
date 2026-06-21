@@ -5,12 +5,51 @@ from __future__ import annotations
 import shutil
 import signal
 import subprocess
-import wave
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, cast
 
 from gummysnake.assets._paths import resolve_asset_path
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+
+
+class _RustCanvasSound(Protocol):
+    path: str
+    duration: float | None
+    byte_len: int
+
+    @staticmethod
+    def from_file(path: str) -> _RustCanvasSound: ...
+
+    def to_bytes(self) -> bytes: ...
+
+
+class CanvasSound:
+    """Rust-managed sound asset bytes and metadata."""
+
+    def __init__(self, rust_sound: _RustCanvasSound) -> None:
+        self._rust_sound = rust_sound
+
+    @classmethod
+    def from_file(cls, path: str | Path) -> CanvasSound:
+        from gummysnake.rust.canvas import require_canvas_runtime
+
+        return cls(require_canvas_runtime().CanvasSound.from_file(str(path)))
+
+    @property
+    def path(self) -> Path:
+        return Path(self._rust_sound.path)
+
+    @property
+    def duration(self) -> float | None:
+        duration = self._rust_sound.duration
+        return None if duration is None else float(duration)
+
+    @property
+    def byte_len(self) -> int:
+        return int(self._rust_sound.byte_len)
+
+    def to_bytes(self) -> bytes:
+        return self._rust_sound.to_bytes()
 
 
 class Sound:
@@ -22,8 +61,16 @@ class Sound:
     remain usable for sketches and tests.
     """
 
-    def __init__(self, source: object, *, path: Path, player_factory: Any | None = None) -> None:
+    def __init__(
+        self,
+        source: object,
+        *,
+        path: Path,
+        rust_sound: CanvasSound | None = None,
+        player_factory: Any | None = None,
+    ) -> None:
         self._source = source
+        self._rust_sound = rust_sound
         self._path = path
         self._player_factory = player_factory or _NativeAudioPlayer
         self._player: Any | None = None
@@ -37,8 +84,24 @@ class Sound:
 
     @property
     def duration(self) -> float | None:
+        if self._rust_sound is not None:
+            return self._rust_sound.duration
         duration = getattr(self._source, "duration", None)
         return None if duration is None else float(duration)
+
+    @property
+    def byte_len(self) -> int | None:
+        if self._rust_sound is None:
+            return None
+        return self._rust_sound.byte_len
+
+    def to_bytes(self) -> bytes:
+        if self._rust_sound is not None:
+            return self._rust_sound.to_bytes()
+        to_bytes = getattr(self._source, "to_bytes", None)
+        if callable(to_bytes):
+            return bytes(cast(Any, to_bytes)())
+        raise BackendCapabilityError("Sound bytes are unavailable for this sound source.")
 
     def play(self) -> None:
         self.stop()
@@ -132,17 +195,15 @@ def load_sound(path: str | Path) -> Sound:
     sound_path = resolve_asset_path(path)
     if not sound_path.exists():
         raise ArgumentValidationError(f"Sound file does not exist: {sound_path!s}.")
-    source = _load_audio_source(sound_path)
-    return Sound(source, path=sound_path)
+    try:
+        rust_sound = CanvasSound.from_file(sound_path)
+    except Exception as exc:
+        raise ArgumentValidationError(f"Could not load sound {sound_path!s}.") from exc
+    return Sound(rust_sound, path=sound_path, rust_sound=rust_sound)
 
 
 async def load_sound_async(path: str | Path) -> Sound:
     return load_sound(path)
-
-
-class _AudioSource:
-    def __init__(self, *, duration: float | None) -> None:
-        self.duration = duration
 
 
 class _NativeAudioPlayer:
@@ -190,19 +251,6 @@ class _NativeAudioPlayer:
             process.kill()
 
 
-def _load_audio_source(path: Path) -> _AudioSource:
-    if path.suffix.lower() == ".wav":
-        try:
-            with wave.open(str(path), "rb") as wav:
-                frames = wav.getnframes()
-                rate = wav.getframerate()
-                duration = frames / rate if rate > 0 else None
-                return _AudioSource(duration=duration)
-        except wave.Error as exc:
-            raise ArgumentValidationError(f"Could not load sound {path!s}.") from exc
-    return _AudioSource(duration=None)
-
-
 def _platform_play_command(path: Path) -> list[str] | None:
     if player := shutil.which("afplay"):
         return [player, str(path)]
@@ -215,4 +263,4 @@ def _platform_play_command(path: Path) -> list[str] | None:
     return None
 
 
-__all__ = ["Sound", "load_sound", "load_sound_async"]
+__all__ = ["CanvasSound", "Sound", "load_sound", "load_sound_async"]

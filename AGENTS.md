@@ -19,7 +19,7 @@ user sketch
   -> Gummy Snake public API
   -> Sketch / SketchContext
   -> CanvasBackend + CanvasRenderer Python adapters
-  -> PyO3 extension gummysnake.rust._canvas
+  -> PyO3 runtime module gummysnake.rust._canvas
   -> crates/gummy_canvas Rust runtime and renderer
 ```
 
@@ -36,8 +36,8 @@ Important consequences:
 - There is no supported Pillow/Pyglet runtime fallback.
 - Bounded/headless runs still use `gummy_canvas`; they do not switch to a Python image backend.
 - `headless=True` or `--headless` requests offscreen/bounded canvas behavior for tests, CI, and export.
-- `headless=False` or `--interactive` requests native interactive canvas behavior where the installed extension supports it.
-- Missing extension or missing native-window support should raise clear Gummy Snake capability errors with rebuild guidance.
+- `headless=False` or `--interactive` requests native interactive canvas behavior where the installed runtime supports it.
+- Missing canvas runtime or missing native-window support should raise clear Gummy Snake capability errors with rebuild guidance.
 - `gummysnake.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
 
@@ -79,7 +79,7 @@ Rust code is part of the active runtime, not just a future optimization layer.
 Important crates:
 
 ```text
-crates/gummy_canvas/    required PyO3 canvas runtime extension: gummysnake.rust._canvas
+crates/gummy_canvas/    required PyO3 canvas runtime module: gummysnake.rust._canvas
 crates/gummy_accel/     optional acceleration extension: gummysnake.rust._accelerated
 ```
 
@@ -87,8 +87,8 @@ Common commands:
 
 ```sh
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
-uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
-uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml --module-name gummysnake.rust._canvas --python-source src --features extension-module
+uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
+uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 ```
 
 For `gummy_accel`:
@@ -97,7 +97,7 @@ For `gummy_accel`:
 uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --module-name gummysnake.rust._accelerated --python-source src --features extension-module
 ```
 
-Keep Rust acceleration optional only for features routed through `gummy_accel`. Features owned by `gummy_canvas` may require the canvas extension because it is the runtime.
+Keep Rust acceleration optional only for features routed through `gummy_accel`. Features owned by `gummy_canvas` may require the canvas runtime because it is mandatory.
 
 ## Source Layout
 
@@ -222,13 +222,21 @@ Gummy Snake distinguishes logical canvas dimensions from physical backing-buffer
 
 Do not regress Retina/HiDPI behavior when changing runtime, renderer, pixels, export, images, or input coordinate handling. See `docs/contribute/runtime.md`.
 
-Loaded images may keep a Rust-managed asset attached to the public `Image`
-object until pixel mutation. Use stable `Image.cache_key` values for Python
-image caches, never `id(image)`, and preserve bounded Rust image/texture cache
-lifecycle behavior.
+Loaded images, models/meshes, and sounds should keep Rust-managed asset handles
+attached to their public Python wrappers whenever practical. This is a core
+performance policy: bulk asset bytes, geometry arrays, parsing, export,
+projection, metadata extraction, and future asset processing should stay in
+`gummy_canvas` so sketches avoid repeated Python object materialization and
+per-element loops. Use stable `Image.cache_key` values for Python image caches,
+never `id(image)`, and preserve bounded Rust image/texture cache lifecycle
+behavior.
 
 Image-local resize, mask, filter, crop/copy, and alpha compositing should keep
-delegating bulk RGBA byte work to `gummy_canvas`. Canvas `get(x, y)`,
+delegating bulk RGBA byte work to `gummy_canvas`. Model projection/export should
+prefer `CanvasModel3D` / `CanvasMesh3D` handles over Python mesh materialization.
+Sound metadata and bytes should prefer `CanvasSound` handles while Python keeps
+friendly playback controls until audio playback itself moves into the runtime.
+Canvas `get(x, y)`,
 `get(x, y, w, h)`, `set(...)`, and full-canvas `filter(...)` should use Rust
 region/filter operations where practical instead of reconstructing a full
 Python `Image`. Optional media helpers may depend on the `media` extra, but
@@ -257,7 +265,7 @@ Prefer dependencies already present in `pyproject.toml` and the Rust crate manif
 
 Current Python project dependencies are intentionally minimal:
 
-- core runtime dependencies are supplied by the packaged Rust canvas extension
+- core runtime dependencies are supplied by the packaged Rust canvas runtime
 - optional media support uses the `media` extra
 - dev tools include `pytest`, `pytest-cov`, `ruff`, and `mypy`
 - release tooling uses `maturin`
