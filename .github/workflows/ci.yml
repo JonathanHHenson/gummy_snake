@@ -13,7 +13,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
-      - run: uv sync --dev
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxrandr-dev \
+            pkg-config
+      - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
       - run: uv run ruff check .
       - run: uv run mypy src
@@ -30,7 +44,20 @@ jobs:
         with:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
-      - run: uv sync --dev
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxrandr-dev \
+            pkg-config
+      - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
       - run: uv run pytest --cov=gummysnake --cov-report=term-missing --cov-report=xml
       - name: Add coverage summary
@@ -54,6 +81,19 @@ jobs:
         with:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxrandr-dev \
+            pkg-config
       - run: uv build
 
   build-rust:
@@ -65,7 +105,20 @@ jobs:
         with:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
-      - run: uv sync --dev
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxrandr-dev \
+            pkg-config
+      - run: uv sync --dev --no-install-project
       - run: uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml
       - run: cargo test --manifest-path crates/gummy_canvas/Cargo.toml
       - run: uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml
@@ -79,6 +132,19 @@ jobs:
         with:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
-      - run: uv sync --dev
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxrandr-dev \
+            pkg-config
+      - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
       - run: uv run pytest tests/unit/test_rust_canvas.py tests/contracts/test_canvas_backend.py
