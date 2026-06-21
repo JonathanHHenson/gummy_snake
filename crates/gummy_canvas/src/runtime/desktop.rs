@@ -13,6 +13,35 @@ const LIVE_RESIZE_EVENT_COOLDOWN: Duration = Duration::from_millis(80);
 const WINDOW_TITLE: &str = "Gummy Snake";
 const DOUBLE_CLICK_INTERVAL: Duration = Duration::from_millis(500);
 const DOUBLE_CLICK_DISTANCE: f64 = 6.0;
+pub const DEFAULT_POINTER_LOCK_MODE: &str = "clamped";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PointerLockMode {
+    Unclamped,
+    Clamped,
+    Fixed,
+}
+
+impl PointerLockMode {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "unclamped" => Ok(Self::Unclamped),
+            "clamped" => Ok(Self::Clamped),
+            "fixed" => Ok(Self::Fixed),
+            _ => Err(format!(
+                "Pointer lock mode must be 'unclamped', 'clamped', or 'fixed', got {value:?}."
+            )),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Unclamped => "unclamped",
+            Self::Clamped => "clamped",
+            Self::Fixed => "fixed",
+        }
+    }
+}
 
 pub struct InteractiveRuntime {
     _sdl: Sdl,
@@ -30,6 +59,10 @@ pub struct InteractiveRuntime {
     modifiers: Mod,
     pressed_button: Option<String>,
     last_click: Option<ClickState>,
+    pointer_locked: bool,
+    pointer_lock_mode: PointerLockMode,
+    mouse_inside_window: bool,
+    text_input_active: bool,
     closed: bool,
     has_close_event: bool,
     last_resize_at: Option<Instant>,
@@ -69,6 +102,10 @@ impl InteractiveRuntime {
             modifiers: Mod::NOMOD,
             pressed_button: None,
             last_click: None,
+            pointer_locked: false,
+            pointer_lock_mode: PointerLockMode::Clamped,
+            mouse_inside_window: false,
+            text_input_active: false,
             closed: false,
             has_close_event: false,
             last_resize_at: None,
@@ -129,7 +166,70 @@ impl InteractiveRuntime {
             self.has_close_event = true;
             self.events.push(RuntimeEvent::close());
         }
+        self.release_pointer_lock();
+        self.stop_text_input_internal();
         self.window = None;
+    }
+
+    pub fn request_pointer_lock(&mut self) -> Result<bool, String> {
+        let Some(window) = self.window.as_mut().and_then(Arc::get_mut) else {
+            return Err("Native canvas window is not available for pointer lock.".to_string());
+        };
+        if !window.set_mouse_grab(true) {
+            return Err("Failed to grab SDL3 native canvas mouse input.".to_string());
+        }
+        let mouse = self._sdl.mouse();
+        mouse.capture(true);
+        mouse.show_cursor(false);
+        mouse.set_relative_mouse_mode(window, true);
+        let _ = self.event_pump.relative_mouse_state();
+        self.pointer_locked = true;
+        self.cursor_position = Some(self.initial_locked_position());
+        Ok(true)
+    }
+
+    pub fn exit_pointer_lock(&mut self) -> Result<bool, String> {
+        self.release_pointer_lock();
+        Ok(true)
+    }
+
+    pub fn pointer_locked(&self) -> bool {
+        self.pointer_locked
+    }
+
+    pub fn set_pointer_lock_mode(&mut self, mode: &str) -> Result<(), String> {
+        self.pointer_lock_mode = PointerLockMode::parse(mode)?;
+        if self.pointer_locked {
+            self.cursor_position = Some(
+                self.apply_pointer_lock_mode(
+                    self.cursor_position
+                        .unwrap_or_else(|| self.center_position()),
+                ),
+            );
+        }
+        Ok(())
+    }
+
+    pub fn pointer_lock_mode(&self) -> &'static str {
+        self.pointer_lock_mode.as_str()
+    }
+
+    pub fn start_text_input(&mut self) -> Result<bool, String> {
+        let Some(window) = self.window.as_ref() else {
+            return Err("Native canvas window is not available for text input.".to_string());
+        };
+        self._video.text_input().start(window);
+        self.text_input_active = true;
+        Ok(true)
+    }
+
+    pub fn stop_text_input(&mut self) -> Result<bool, String> {
+        self.stop_text_input_internal();
+        Ok(true)
+    }
+
+    pub fn text_input_active(&self) -> bool {
+        self.text_input_active
     }
 
     pub fn window(&self) -> Option<Arc<Window>> {
@@ -178,12 +278,12 @@ impl InteractiveRuntime {
                 y,
                 ..
             } if window_id == self.window_id => {
-                self.push_mouse_button("mouse_pressed", mouse_btn, x, y);
+                let (event_x, event_y) = self.push_mouse_button("mouse_pressed", mouse_btn, x, y);
                 if clicks >= 2 {
                     self.events.push(RuntimeEvent::logical_mouse(
                         "mouse_double_clicked",
-                        x as f64,
-                        y as f64,
+                        event_x,
+                        event_y,
                         0.0,
                         0.0,
                         normalize_mouse_button(mouse_btn),
@@ -199,8 +299,8 @@ impl InteractiveRuntime {
                 ..
             } if window_id == self.window_id => {
                 let button = normalize_mouse_button(mouse_btn);
-                self.push_mouse_button("mouse_released", mouse_btn, x, y);
-                self.push_click_events(button, x as f64, y as f64);
+                let (event_x, event_y) = self.push_mouse_button("mouse_released", mouse_btn, x, y);
+                self.push_click_events(button, event_x, event_y);
             }
             Event::MouseWheel {
                 window_id,
@@ -238,7 +338,7 @@ impl InteractiveRuntime {
             }
             Event::TextInput {
                 window_id, text, ..
-            } if window_id == self.window_id && !text.is_empty() => {
+            } if window_id == self.window_id && self.text_input_active && !text.is_empty() => {
                 self.events.push(RuntimeEvent::key_typed(text));
             }
             Event::FingerDown {
@@ -281,7 +381,16 @@ impl InteractiveRuntime {
             WindowEvent::Resized(_, _)
             | WindowEvent::PixelSizeChanged(_, _)
             | WindowEvent::DisplayChanged(_) => self.handle_resize(),
-            WindowEvent::MouseLeave => self.cursor_position = None,
+            WindowEvent::FocusLost => {
+                self.release_pointer_lock();
+                self.set_mouse_inside_window(false);
+            }
+            WindowEvent::MouseEnter => self.set_mouse_inside_window(true),
+            WindowEvent::MouseLeave if !self.pointer_locked => {
+                self.cursor_position = None;
+                self.set_mouse_inside_window(false);
+            }
+            WindowEvent::MouseLeave => {}
             _ => {}
         }
     }
@@ -320,7 +429,39 @@ impl InteractiveRuntime {
             self.has_close_event = true;
             self.events.push(RuntimeEvent::close());
         }
+        self.release_pointer_lock();
+        self.stop_text_input_internal();
         self.window = None;
+    }
+
+    fn release_pointer_lock(&mut self) {
+        let Some(window) = self.window.as_mut().and_then(Arc::get_mut) else {
+            self.pointer_locked = false;
+            return;
+        };
+        let mouse = self._sdl.mouse();
+        if mouse.relative_mouse_mode(window) {
+            mouse.set_relative_mouse_mode(window, false);
+        }
+        mouse.capture(false);
+        mouse.show_cursor(true);
+        window.set_mouse_grab(false);
+        self.pointer_locked = false;
+    }
+
+    fn stop_text_input_internal(&mut self) {
+        if self.text_input_active {
+            if let Some(window) = self.window.as_ref() {
+                self._video.text_input().stop(window);
+            }
+        }
+        self.text_input_active = false;
+    }
+
+    fn set_mouse_inside_window(&mut self, inside_window: bool) {
+        self.mouse_inside_window = inside_window;
+        self.events
+            .push(RuntimeEvent::mouse_window_state(inside_window));
     }
 
     fn drain_events(&mut self) -> Vec<RuntimeEvent> {
@@ -342,7 +483,16 @@ impl InteractiveRuntime {
     }
 
     fn push_cursor_event(&mut self, x: f32, y: f32, xrel: f32, yrel: f32) {
-        self.cursor_position = Some((x as f64, y as f64));
+        self.mouse_inside_window = true;
+        let (event_x, event_y) = if self.pointer_locked {
+            let previous = self
+                .cursor_position
+                .unwrap_or_else(|| self.initial_locked_position());
+            self.apply_pointer_lock_mode((previous.0 + xrel as f64, previous.1 + yrel as f64))
+        } else {
+            (x as f64, y as f64)
+        };
+        self.cursor_position = Some((event_x, event_y));
         let event_type = if self.pressed_button.is_some() {
             "mouse_dragged"
         } else {
@@ -350,8 +500,8 @@ impl InteractiveRuntime {
         };
         self.events.push(RuntimeEvent::logical_mouse(
             event_type,
-            x as f64,
-            y as f64,
+            event_x,
+            event_y,
             xrel as f64,
             yrel as f64,
             self.pressed_button.clone(),
@@ -359,23 +509,32 @@ impl InteractiveRuntime {
         ));
     }
 
-    fn push_mouse_button(&mut self, event_type: &'static str, button: MouseButton, x: f32, y: f32) {
+    fn push_mouse_button(
+        &mut self,
+        event_type: &'static str,
+        button: MouseButton,
+        x: f32,
+        y: f32,
+    ) -> (f64, f64) {
+        self.mouse_inside_window = true;
+        let (event_x, event_y) = self.mouse_event_position(x, y);
         let button_name = normalize_mouse_button(button);
         if event_type == "mouse_pressed" {
             self.pressed_button = button_name.clone();
         } else if event_type == "mouse_released" {
             self.pressed_button = None;
         }
-        self.cursor_position = Some((x as f64, y as f64));
+        self.cursor_position = Some((event_x, event_y));
         self.events.push(RuntimeEvent::logical_mouse(
             event_type,
-            x as f64,
-            y as f64,
+            event_x,
+            event_y,
             0.0,
             0.0,
             button_name,
             modifiers_mask(self.modifiers),
         ));
+        (event_x, event_y)
     }
 
     fn push_mouse_wheel(
@@ -386,13 +545,15 @@ impl InteractiveRuntime {
         mouse_x: f32,
         mouse_y: f32,
     ) {
+        self.mouse_inside_window = true;
         let multiplier = match direction {
             MouseWheelDirection::Flipped => -1.0,
             _ => 1.0,
         };
+        let (event_x, event_y) = self.mouse_event_position(mouse_x, mouse_y);
         self.events.push(RuntimeEvent::logical_mouse_wheel(
-            mouse_x as f64,
-            mouse_y as f64,
+            event_x,
+            event_y,
             x as f64 * multiplier,
             y as f64 * multiplier,
             modifiers_mask(self.modifiers),
@@ -426,6 +587,50 @@ impl InteractiveRuntime {
             y,
             when: Instant::now(),
         });
+    }
+
+    fn mouse_event_position(&self, x: f32, y: f32) -> (f64, f64) {
+        if self.pointer_locked {
+            self.cursor_position
+                .unwrap_or_else(|| self.initial_locked_position())
+        } else {
+            (x as f64, y as f64)
+        }
+    }
+
+    fn initial_locked_position(&self) -> (f64, f64) {
+        match self.pointer_lock_mode {
+            PointerLockMode::Fixed => self.center_position(),
+            PointerLockMode::Clamped => self
+                .cursor_position
+                .map(|position| self.clamp_to_window(position))
+                .unwrap_or_else(|| self.center_position()),
+            PointerLockMode::Unclamped => self
+                .cursor_position
+                .unwrap_or_else(|| self.center_position()),
+        }
+    }
+
+    fn apply_pointer_lock_mode(&self, position: (f64, f64)) -> (f64, f64) {
+        match self.pointer_lock_mode {
+            PointerLockMode::Unclamped => position,
+            PointerLockMode::Clamped => self.clamp_to_window(position),
+            PointerLockMode::Fixed => self.center_position(),
+        }
+    }
+
+    fn clamp_to_window(&self, position: (f64, f64)) -> (f64, f64) {
+        (
+            position.0.clamp(0.0, self.logical_width as f64),
+            position.1.clamp(0.0, self.logical_height as f64),
+        )
+    }
+
+    fn center_position(&self) -> (f64, f64) {
+        (
+            self.logical_width as f64 / 2.0,
+            self.logical_height as f64 / 2.0,
+        )
     }
 
     fn is_double_click(&self, button: &Option<String>, x: f64, y: f64) -> bool {

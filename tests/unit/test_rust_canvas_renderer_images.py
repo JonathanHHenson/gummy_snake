@@ -66,6 +66,47 @@ def test_canvas_renderer_bridges_images_and_blend_regions() -> None:
     )
 
 
+def test_canvas_renderer_passes_image_tint_in_style_payload() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(4, 2)
+    image = Image(1, 1, bytes([255, 255, 255, 255]))
+    style = StyleState(fill_color=None, stroke_color=None)
+    style.image_tint = Color(128, 64, 255, 127)
+
+    renderer.draw_image(image, 0, 0, 1, 1, style, Matrix2D.identity())
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    call = canvas.calls[-1]
+    assert call[0] == "draw_canvas_image"
+    assert call[-3]["image_tint"] == (128, 64, 255, 127)
+
+
+def test_canvas_renderer_bridges_complex_polygon_and_clip_stack() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    style = StyleState(fill_color=Color(255, 255, 255, 255), stroke_color=None)
+    matrix = Matrix2D.identity()
+
+    renderer.complex_polygon(
+        [(0, 0), (7, 0), (7, 7), (0, 7)],
+        [[(2, 2), (5, 2), (5, 5), (2, 5)]],
+        style,
+        matrix,
+    )
+    renderer.begin_clip([(0, 0), (4, 0), (4, 4)], [], matrix)
+    assert renderer.clip_depth() == 1
+    renderer.restore_clip_depth(0)
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    assert [call[0] for call in canvas.calls[-3:]] == [
+        "complex_polygon",
+        "begin_clip",
+        "end_clip",
+    ]
+
+
 def test_canvas_renderer_uses_stable_image_cache_keys_and_versions() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(4, 2)

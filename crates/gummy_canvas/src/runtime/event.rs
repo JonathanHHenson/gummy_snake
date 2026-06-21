@@ -11,6 +11,7 @@ pub struct RuntimeEvent {
     pub scroll_x: Option<f64>,
     pub scroll_y: Option<f64>,
     pub modifiers: Option<u32>,
+    pub inside_window: Option<bool>,
     pub key: Option<String>,
     pub code: Option<String>,
     pub text: Option<String>,
@@ -37,6 +38,7 @@ impl RuntimeEvent {
             scroll_x: None,
             scroll_y: None,
             modifiers: None,
+            inside_window: None,
             key: None,
             code: None,
             text: None,
@@ -94,6 +96,7 @@ impl RuntimeEvent {
     ) -> Self {
         let mut event = Self::mouse(event_type, x, y, dx, dy, button, modifiers);
         event.coordinates = Some("logical");
+        event.inside_window = Some(true);
         event
     }
 
@@ -122,6 +125,13 @@ impl RuntimeEvent {
     ) -> Self {
         let mut event = Self::mouse_wheel(x, y, scroll_x, scroll_y, modifiers);
         event.coordinates = Some("logical");
+        event.inside_window = Some(true);
+        event
+    }
+
+    pub(super) fn mouse_window_state(inside_window: bool) -> Self {
+        let mut event = Self::new("mouse_window_state");
+        event.inside_window = Some(inside_window);
         event
     }
 

@@ -185,3 +185,26 @@ class StyleContextMixin:
     def no_smooth(self) -> None:
         self.state.style.image_sampling = c.NEAREST
         self._mark_style_changed()
+
+    @overload
+    def tint(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def tint(self, gray: Number, /) -> None: ...
+
+    @overload
+    def tint(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def tint(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def tint(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def tint(self, *args: Any) -> None:
+        self.state.style.image_tint = self._color_from_args(args)
+        self._mark_style_changed()
+
+    def no_tint(self) -> None:
+        self.state.style.image_tint = None
+        self._mark_style_changed()

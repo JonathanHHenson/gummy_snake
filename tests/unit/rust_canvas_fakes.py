@@ -28,6 +28,9 @@ class FakeCanvas:
         self.events: list[dict[str, object]] = []
         self.closed = False
         self.window_open = False
+        self.pointer_lock_active = False
+        self.pointer_lock_mode_value = "clamped"
+        self.text_input_active_value = False
         self.pixels = bytes([0] * self.physical_width * self.physical_height * 4)
 
     def resize(self, width: int, height: int, pixel_density: float, renderer: str) -> None:
@@ -131,6 +134,47 @@ class FakeCanvas:
     def pump_native_events(self) -> bool:
         return self.closed
 
+    def request_pointer_lock(self) -> bool:
+        if not self.window_open:
+            raise ValueError("Native canvas window is not available for pointer lock.")
+        self.pointer_lock_active = True
+        self.calls.append(("request_pointer_lock",))
+        return True
+
+    def exit_pointer_lock(self) -> bool:
+        self.pointer_lock_active = False
+        self.calls.append(("exit_pointer_lock",))
+        return True
+
+    def pointer_locked(self) -> bool:
+        return self.pointer_lock_active
+
+    def set_pointer_lock_mode(self, mode: str) -> None:
+        if mode not in {"unclamped", "clamped", "fixed"}:
+            raise ValueError(
+                "Pointer lock mode must be 'unclamped', 'clamped', or 'fixed'."
+            )
+        self.pointer_lock_mode_value = mode
+        self.calls.append(("set_pointer_lock_mode", mode))
+
+    def pointer_lock_mode(self) -> str:
+        return self.pointer_lock_mode_value
+
+    def start_text_input(self) -> bool:
+        if not self.window_open:
+            raise ValueError("Native canvas window is not available for text input.")
+        self.text_input_active_value = True
+        self.calls.append(("start_text_input",))
+        return True
+
+    def stop_text_input(self) -> bool:
+        self.text_input_active_value = False
+        self.calls.append(("stop_text_input",))
+        return True
+
+    def text_input_active(self) -> bool:
+        return self.text_input_active_value
+
     def begin_frame(self) -> None:
         self.calls.append(("begin_frame",))
 
@@ -142,6 +186,8 @@ class FakeCanvas:
 
     def close(self) -> None:
         self.closed = True
+        self.pointer_lock_active = False
+        self.text_input_active_value = False
         self.calls.append(("close",))
 
     def background(self, rgba: tuple[int, int, int, int]) -> None:
@@ -163,6 +209,15 @@ class FakeCanvas:
 
     def polygon(self, *args: object) -> None:
         self.calls.append(("polygon", *args))
+
+    def complex_polygon(self, *args: object) -> None:
+        self.calls.append(("complex_polygon", *args))
+
+    def begin_clip(self, *args: object) -> None:
+        self.calls.append(("begin_clip", *args))
+
+    def end_clip(self) -> None:
+        self.calls.append(("end_clip",))
 
     def rect(self, *args: object) -> None:
         self.calls.append(("rect", *args))

@@ -42,6 +42,7 @@ class CanvasBackend(
         mouse=False,
         keyboard=False,
         touch=False,
+        pointer_lock=False,
         paths=True,
         transforms=True,
         blend_modes=frozenset(
@@ -75,6 +76,7 @@ class CanvasBackend(
             mouse=native_runtime,
             keyboard=native_runtime,
             touch=native_runtime,
+            pointer_lock=native_runtime and self._pointer_lock_available(),
         )
         self.renderer = CanvasRenderer(self._canvas_module)
         self._headless = headless
@@ -87,6 +89,7 @@ class CanvasBackend(
         self._frame_pacing_enabled = os.environ.get("GUMMY_CANVAS_PACING_DEBUG") == "1"
         self._frame_pacing: dict[str, float | int | bool | None] = {}
         self._last_present_time: float | None = None
+        self._pointer_lock_mode = "clamped"
         self.reset_frame_pacing_diagnostics()
 
     def health_check(self) -> str:
@@ -116,6 +119,64 @@ class CanvasBackend(
             return bool(native_window_available())
         return False
 
+    def _pointer_lock_available(self) -> bool:
+        canvas_type = getattr(self._canvas_module, "Canvas", None)
+        if canvas_type is None:
+            return False
+        return hasattr(canvas_type, "request_pointer_lock") and hasattr(
+            canvas_type, "exit_pointer_lock"
+        )
+
+    def request_pointer_lock(self) -> bool:
+        callback = getattr(self.renderer.runtime_canvas(), "request_pointer_lock", None)
+        if callable(callback):
+            return bool(callback())
+        raise BackendCapabilityError(
+            "Pointer lock requires a native canvas runtime built with pointer-lock support. "
+            "Run interactively with a capable gummy_canvas build, or continue without pointer lock."
+        )
+
+    def exit_pointer_lock(self) -> bool:
+        callback = getattr(self.renderer.runtime_canvas(), "exit_pointer_lock", None)
+        if callable(callback):
+            return bool(callback())
+        raise BackendCapabilityError(
+            "Pointer lock requires a native canvas runtime built with pointer-lock support. "
+            "Run interactively with a capable gummy_canvas build, or continue without pointer lock."
+        )
+
+    def set_pointer_lock_mode(self, mode: str) -> str:
+        self._pointer_lock_mode = mode
+        canvas = self.renderer._canvas
+        callback = getattr(canvas, "set_pointer_lock_mode", None) if canvas is not None else None
+        if callable(callback):
+            callback(mode)
+        return mode
+
+    def pointer_lock_mode(self) -> str:
+        return self._pointer_lock_mode
+
+    def start_text_input(self) -> bool:
+        callback = getattr(self.renderer.runtime_canvas(), "start_text_input", None)
+        if callable(callback):
+            return bool(callback())
+        raise BackendCapabilityError(
+            "Text input requires a native canvas runtime built with keyboard input support."
+        )
+
+    def stop_text_input(self) -> bool:
+        callback = getattr(self.renderer.runtime_canvas(), "stop_text_input", None)
+        if callable(callback):
+            return bool(callback())
+        raise BackendCapabilityError(
+            "Text input requires a native canvas runtime built with keyboard input support."
+        )
+
+    def text_input_active(self) -> bool:
+        canvas = self.renderer._canvas
+        callback = getattr(canvas, "text_input_active", None) if canvas is not None else None
+        return bool(callback()) if callable(callback) else False
+
     def create_canvas(
         self,
         width: int,
@@ -127,6 +188,7 @@ class CanvasBackend(
         self._ensure_supported_renderer(renderer)
         density = self.renderer.pixel_density if pixel_density is None else pixel_density
         self.renderer.resize(width, height, density, mode="headless")
+        self.set_pointer_lock_mode(self._pointer_lock_mode)
 
     def resize_canvas(
         self,

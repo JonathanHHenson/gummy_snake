@@ -25,6 +25,7 @@ class BackendCapabilities:
     mouse: bool = False
     keyboard: bool = False
     touch: bool = False
+    pointer_lock: bool = False
     paths: bool = True
     transforms: bool = True
     blend_modes: frozenset[c.BlendMode] = field(default_factory=frozenset)

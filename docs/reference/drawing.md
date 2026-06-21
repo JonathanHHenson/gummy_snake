@@ -43,22 +43,45 @@ for hot loops rather than as the only style for simple sketches.
 ## Paths and Curves
 
 - `begin_shape(kind=None)`
+- `begin_contour()`
 - `vertex(x, y)`
 - `bezier_vertex(...)`
 - `quadratic_vertex(...)`
 - `spline_vertex(...)`
+- `end_contour()`
 - `end_shape(mode=None)`
 - `bezier_point(...)`
 - `bezier_tangent(...)`
 - `spline_point(...)`
 - `spline_tangent(...)`
 
+Contours must be declared inside an active freeform shape after the outer path
+has at least three vertices. Filled contours are treated as holes by the Rust
+canvas runtime; invalid nesting raises `ArgumentValidationError`.
+
+## Clipping
+
+- `begin_clip()`
+- `clip()`
+- `end_clip()`
+
+`begin_clip()` captures a path with the same `vertex()` and contour helpers as
+`begin_shape()`. `clip()` applies that path to subsequent renderer-owned drawing
+until `end_clip()` or until a surrounding `push()`/`pop()` restores the previous
+clip stack. Older canvas runtimes that do not expose native clip operations raise
+`BackendCapabilityError` with rebuild guidance.
+
 ## Images and Regions
 
 - `image(img, x, y, width=None, height=None, ...)`
+- `tint(*color)`
+- `no_tint()`
 - `copy(...)`
 - `get(...)`
 - `set(...)`
+
+`tint()` applies a color and alpha multiplier when drawing images. It does not
+mutate the source `Image`; bulk RGBA work stays inside the Rust canvas runtime.
 
 ## Compositing
 

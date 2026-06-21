@@ -88,11 +88,28 @@ def float_payload(
     return float(value)
 
 
-def int_payload(payload: Mapping[str, object], key: str) -> int:
-    value: Any = payload.get(key)
+def int_payload(
+    payload: Mapping[str, object],
+    key: str,
+    *,
+    default: int | None = None,
+) -> int:
+    value: Any = payload.get(key, default)
     if value is None:
         raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
     return int(value)
+
+
+def bool_payload(
+    payload: Mapping[str, object],
+    key: str,
+    *,
+    default: bool | None = None,
+) -> bool:
+    value: Any = payload.get(key, default)
+    if value is None:
+        raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
+    return bool_value(value)
 
 
 def optional_int(value: object) -> int | None:
@@ -103,6 +120,18 @@ def optional_int(value: object) -> int | None:
 def optional_float(value: object) -> float | None:
     raw_value: Any = value
     return None if raw_value is None else float(raw_value)
+
+
+def optional_bool(value: object) -> bool | None:
+    return None if value is None else bool_value(value)
+
+
+def bool_value(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
 
 
 def normalize_mouse_button(button: object) -> str | None:

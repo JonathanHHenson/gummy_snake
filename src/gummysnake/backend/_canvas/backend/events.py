@@ -48,6 +48,11 @@ class CanvasBackendEventsMixin:
         if event_type in canvas_events.MOUSE_EVENT_TYPES:
             context.dispatch_mouse_event(self._mouse_event(event_payload))
             return
+        if event_type == "mouse_window_state":
+            context.update_mouse_inside_window(
+                canvas_events.bool_payload(event_payload, "inside_window", default=False)
+            )
+            return
         if event_type in canvas_events.KEYBOARD_EVENT_TYPES:
             context.dispatch_keyboard_event(self._keyboard_event(event_payload))
             return
@@ -72,15 +77,25 @@ class CanvasBackendEventsMixin:
         if str(payload.get("coordinates", "physical")) != "logical":
             x, y = self._logical_pointer_position(x, y)
             dx, dy = self._logical_pointer_delta(dx, dy)
+        window_x = canvas_events.optional_float(payload.get("window_x"))
+        window_y = canvas_events.optional_float(payload.get("window_y"))
         return MouseEvent(
             x=x,
             y=y,
             dx=dx,
             dy=dy,
+            previous_x=canvas_events.optional_float(payload.get("previous_x")),
+            previous_y=canvas_events.optional_float(payload.get("previous_y")),
+            window_x=x if window_x is None else window_x,
+            window_y=y if window_y is None else window_y,
             button=canvas_events.normalize_mouse_button(payload.get("button")),
             scroll_x=canvas_events.float_payload(payload, "scroll_x", default=0.0),
             scroll_y=canvas_events.float_payload(payload, "scroll_y", default=0.0),
+            click_count=canvas_events.int_payload(payload, "click_count", default=2)
+            if payload.get("type") == "mouse_double_clicked"
+            else canvas_events.int_payload(payload, "click_count", default=0),
             modifiers=canvas_events.optional_int(payload.get("modifiers")),
+            inside_window=canvas_events.optional_bool(payload.get("inside_window")),
             type=str(payload["type"]),
         )
 
@@ -89,10 +104,15 @@ class CanvasBackendEventsMixin:
         text = payload.get("text")
         key_text = text if payload.get("type") == "key_typed" and text is not None else key
         key_value = None if key_text is None else str(key_text)
+        if key_value is not None and len(key_value) == 1:
+            key_value = key_value.lower()
         raw_key_code = payload.get("key_code", payload.get("code", key))
         return KeyboardEvent(
             key=key_value,
             key_code=canvas_events.normalize_key_code(raw_key_code, key_value),
+            code=None if payload.get("code") is None else str(payload["code"]),
+            text=None if text is None else str(text),
+            repeat=bool(payload.get("repeat", False)),
             modifiers=canvas_events.optional_int(payload.get("modifiers")),
             type=str(payload["type"]),
         )

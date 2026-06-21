@@ -52,6 +52,7 @@ def style_payload(style: StyleState) -> dict[str, object]:
         "fill": color_payload(style.fill_color),
         "stroke": color_payload(style.stroke_color),
         "stroke_weight": float(style.stroke_weight),
+        "image_tint": color_payload(style.image_tint),
         "blend_mode": style.blend_mode,
         "erasing": style.erasing,
         "image_sampling": style.image_sampling,
@@ -98,6 +99,7 @@ class CanvasRendererCore:
         self._line_batch: list[tuple[float, float, float, float]] = []
         self._line_batch_style: dict[str, object] | None = None
         self._line_batch_matrix: MatrixPayload | None = None
+        self._clip_depth = 0
         self._performance_counters: dict[str, int] = dict.fromkeys(_PERFORMANCE_COUNTER_KEYS, 0)
         self._last_native_event_pump = 0.0
         self._abort_frame_on_native_close = False
@@ -189,6 +191,7 @@ class CanvasRendererCore:
     def end_frame(self) -> None:
         try:
             cast(CanvasRendererHost, self)._flush_line_batch()
+            self.restore_clip_depth(0)
             self._require_canvas().end_frame()
         finally:
             self._abort_frame_on_native_close = False
@@ -241,7 +244,8 @@ class CanvasRendererCore:
     def _call[T](self, operation: str, callback: Callable[..., T], *args: object) -> T:
         self._count("bridge_calls")
         try:
-            self._pump_native_events_if_due()
+            if self._clip_depth == 0:
+                self._pump_native_events_if_due()
             return callback(*args)
         except ValueError as exc:
             raise ArgumentValidationError(str(exc)) from exc
@@ -272,6 +276,26 @@ class CanvasRendererCore:
             getattr(self._canvas, "should_close", None) if self._canvas is not None else None
         )
         return bool(should_close()) if callable(should_close) else False
+
+    def clip_depth(self) -> int:
+        return self._clip_depth
+
+    def restore_clip_depth(self, depth: int) -> None:
+        if depth < 0:
+            raise ArgumentValidationError("Clip depth cannot be negative.")
+        while self._clip_depth > depth:
+            cast(CanvasRendererHost, self).end_clip()
+        if self._clip_depth < depth:
+            raise ArgumentValidationError("Cannot restore a deeper clip stack than is active.")
+
+    def _require_canvas_method(self, name: str, operation: str) -> Callable[..., Any]:
+        callback = getattr(self._require_canvas(), name, None)
+        if callable(callback):
+            return callback
+        raise BackendCapabilityError(
+            f"The installed gummysnake.rust._canvas runtime does not expose {name}() for "
+            f"{operation}. Rebuild gummy_canvas before using this drawing feature."
+        )
 
     def _cached_text_metric(
         self,

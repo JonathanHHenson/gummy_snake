@@ -40,6 +40,7 @@ class StyleState:
     ellipse_mode: c.ShapeMode = c.CENTER
     image_mode: c.ShapeMode = c.CORNER
     image_sampling: c.ImageSampling = c.LINEAR
+    image_tint: Color | None = None
     blend_mode: c.BlendMode = c.BLEND
     erasing: bool = False
     text_font: Font = field(default_factory=lambda: DEFAULT_FONT)
@@ -71,6 +72,9 @@ class TransformState:
 class ShapeState:
     active: bool = False
     vertices: list[tuple[float, float]] = field(default_factory=list)
+    contours: list[list[tuple[float, float]]] = field(default_factory=list)
+    contour_active: bool = False
+    contour_vertices: list[tuple[float, float]] = field(default_factory=list)
     kind: c.ShapeKind | None = None
 
 
@@ -95,6 +99,7 @@ class TimingState:
 class StateStackEntry:
     style: StyleState
     matrix: Matrix2D
+    clip_depth: int
 
 
 @dataclass(slots=True)

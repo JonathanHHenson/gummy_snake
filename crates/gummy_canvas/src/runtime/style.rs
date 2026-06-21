@@ -38,6 +38,9 @@ pub(crate) fn runtime_event_to_pyobject(
     if let Some(modifiers) = event.modifiers {
         dict.set_item("modifiers", modifiers)?;
     }
+    if let Some(inside_window) = event.inside_window {
+        dict.set_item("inside_window", inside_window)?;
+    }
     if let Some(key) = event.key {
         if !key.is_empty() {
             dict.set_item("key", key)?;
@@ -121,6 +124,7 @@ pub(crate) fn parse_style(style: &Bound<'_, PyAny>) -> PyResult<Style> {
     let dict = style.downcast::<PyDict>()?;
     let fill = parse_optional_rgba(dict, "fill")?;
     let stroke = parse_optional_rgba(dict, "stroke")?;
+    let image_tint = parse_optional_rgba_if_present(dict, "image_tint")?;
     let stroke_weight = dict
         .get_item("stroke_weight")?
         .ok_or_else(|| PyValueError::new_err("Style payload missing 'stroke_weight'."))?
@@ -171,6 +175,7 @@ pub(crate) fn parse_style(style: &Bound<'_, PyAny>) -> PyResult<Style> {
         fill,
         stroke,
         stroke_weight,
+        image_tint,
         blend_mode,
         erasing,
         image_sampling,
@@ -181,6 +186,17 @@ pub(crate) fn parse_style(style: &Bound<'_, PyAny>) -> PyResult<Style> {
         text_align_y,
         text_leading,
     })
+}
+
+fn parse_optional_rgba_if_present(dict: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<Rgba>> {
+    let Some(value) = dict.get_item(key)? else {
+        return Ok(None);
+    };
+    if value.is_none() {
+        Ok(None)
+    } else {
+        Ok(Some(Rgba::from_tuple(value.extract::<(u8, u8, u8, u8)>()?)))
+    }
 }
 
 pub(crate) fn parse_optional_rgba(dict: &Bound<'_, PyDict>, key: &str) -> PyResult<Option<Rgba>> {

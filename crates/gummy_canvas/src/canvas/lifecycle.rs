@@ -36,7 +36,9 @@ impl Canvas {
             font_cache: HashMap::new(),
             next_text_key: 1_u64 << 62,
             texture_cache_versions: HashMap::new(),
+            clip_masks: Vec::new(),
             runtime: None,
+            pointer_lock_mode: DEFAULT_POINTER_LOCK_MODE.to_string(),
             gpu,
             gpu_error,
             render_dirty: false,
@@ -85,6 +87,7 @@ impl Canvas {
         self.texture_stale = false;
         self.cached_style_key = None;
         self.cached_style = None;
+        self.clip_masks.clear();
         self.text_cache.clear();
         self.text_cache_order.clear();
         if let Some(runtime) = self.runtime.as_mut() {
@@ -133,6 +136,7 @@ impl Canvas {
         self.texture_stale = false;
         self.cached_style_key = None;
         self.cached_style = None;
+        self.clip_masks.clear();
         self.text_cache.clear();
         self.text_cache_order.clear();
         Ok(())
@@ -192,6 +196,11 @@ impl Canvas {
                 PyValueError::new_err(format!("Failed to open native canvas window: {err}"))
             })?,
         );
+        if let Some(runtime) = self.runtime.as_mut() {
+            runtime
+                .set_pointer_lock_mode(&self.pointer_lock_mode)
+                .map_err(PyValueError::new_err)?;
+        }
         Ok(())
     }
 
@@ -238,6 +247,84 @@ impl Canvas {
         }
 
         Ok(self.closed)
+    }
+
+    pub(crate) fn request_pointer_lock_impl(&mut self) -> PyResult<bool> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return Err(PyValueError::new_err(
+                "Native canvas window is not available for pointer lock.",
+            ));
+        };
+        runtime.request_pointer_lock().map_err(|err| {
+            PyValueError::new_err(format!("Failed to request native pointer lock: {err}"))
+        })
+    }
+
+    pub(crate) fn exit_pointer_lock_impl(&mut self) -> PyResult<bool> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return Ok(false);
+        };
+        runtime.exit_pointer_lock().map_err(|err| {
+            PyValueError::new_err(format!("Failed to exit native pointer lock: {err}"))
+        })
+    }
+
+    pub(crate) fn pointer_locked_impl(&self) -> bool {
+        self.runtime
+            .as_ref()
+            .map(|runtime| runtime.pointer_locked())
+            .unwrap_or(false)
+    }
+
+    pub(crate) fn set_pointer_lock_mode_impl(&mut self, mode: &str) -> PyResult<()> {
+        let validated = if let Some(runtime) = self.runtime.as_mut() {
+            runtime
+                .set_pointer_lock_mode(mode)
+                .map_err(PyValueError::new_err)?;
+            runtime.pointer_lock_mode().to_string()
+        } else {
+            match mode {
+                "unclamped" | "clamped" | "fixed" => mode.to_string(),
+                _ => {
+                    return Err(PyValueError::new_err(format!(
+                        "Pointer lock mode must be 'unclamped', 'clamped', or 'fixed', got {mode:?}."
+                    )));
+                }
+            }
+        };
+        self.pointer_lock_mode = validated;
+        Ok(())
+    }
+
+    pub(crate) fn pointer_lock_mode_impl(&self) -> String {
+        self.pointer_lock_mode.clone()
+    }
+
+    pub(crate) fn start_text_input_impl(&mut self) -> PyResult<bool> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return Err(PyValueError::new_err(
+                "Native canvas window is not available for text input.",
+            ));
+        };
+        runtime.start_text_input().map_err(|err| {
+            PyValueError::new_err(format!("Failed to start native text input: {err}"))
+        })
+    }
+
+    pub(crate) fn stop_text_input_impl(&mut self) -> PyResult<bool> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return Ok(false);
+        };
+        runtime.stop_text_input().map_err(|err| {
+            PyValueError::new_err(format!("Failed to stop native text input: {err}"))
+        })
+    }
+
+    pub(crate) fn text_input_active_impl(&self) -> bool {
+        self.runtime
+            .as_ref()
+            .map(|runtime| runtime.text_input_active())
+            .unwrap_or(false)
     }
 
     pub(crate) fn poll_events_impl(&mut self) -> PyResult<Vec<Py<PyAny>>> {

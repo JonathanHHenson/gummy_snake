@@ -1,3 +1,10 @@
+#![allow(
+    clippy::arc_with_non_send_sync,
+    clippy::too_many_arguments,
+    clippy::useless_conversion,
+    clippy::useless_vec
+)]
+
 mod canvas;
 mod gpu;
 mod images;
@@ -27,10 +34,13 @@ use raster::{
     clipped_bounds, clipped_dest_rect, clipped_source_rect, draw_axis_aligned_ellipse,
     draw_polygon_overlay, draw_polyline_stroke, ellipse_bounds, fill_disc, fill_rgba_buffer,
     gpu_color, image_to_canvas_matrix, matrix_determinant, matrix_inverse, matrix_transform_point,
-    point_to_f32, polygon_is_convex, push_triangle, rgba_to_present_pixel, scale_rect,
-    stroke_segment, stroke_width, Matrix, OverlayRegion, Point,
+    point_in_polygon, point_to_f32, polygon_is_convex, push_triangle, rgba_to_present_pixel,
+    scale_rect, stroke_segment, stroke_width, Matrix, OverlayRegion, Point,
 };
-use runtime::{native_window_available as runtime_native_window_available, InteractiveRuntime};
+use runtime::{
+    native_window_available as runtime_native_window_available, InteractiveRuntime,
+    DEFAULT_POINTER_LOCK_MODE,
+};
 use std::collections::{HashMap, VecDeque};
 use std::f64::consts::PI;
 use std::fs;
@@ -188,6 +198,7 @@ struct Style {
     fill: Option<Rgba>,
     stroke: Option<Rgba>,
     stroke_weight: f64,
+    image_tint: Option<Rgba>,
     blend_mode: String,
     erasing: bool,
     image_sampling: String,
@@ -542,7 +553,9 @@ struct Canvas {
     font_cache: HashMap<String, FontArc>,
     next_text_key: u64,
     texture_cache_versions: HashMap<u64, u64>,
+    clip_masks: Vec<Vec<bool>>,
     runtime: Option<InteractiveRuntime>,
+    pointer_lock_mode: String,
     gpu: Option<gpu::GpuRenderer>,
     gpu_error: Option<String>,
     render_dirty: bool,

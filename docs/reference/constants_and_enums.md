@@ -20,6 +20,7 @@ The enum classes are also public for type annotations and introspection:
 | `ImageSampling` | `LINEAR`, `NEAREST` |
 | `ImageFilter` | `THRESHOLD`, `GRAY`, `INVERT`, `BLUR`, `POSTERIZE`, `ERODE`, `DILATE` |
 | `MouseButton` | `LEFT`, `CENTER`, `RIGHT` |
+| `PointerLockMode` | `CLAMPED`, `UNCLAMPED`, `FIXED` |
 | `KeyCode` | `BACKSPACE`, `TAB`, `ENTER`, `ESCAPE`, `SHIFT`, `CONTROL`, `ALT`, `UP_ARROW`, `DOWN_ARROW`, `LEFT_ARROW`, `RIGHT_ARROW` |
 | `TouchEventName` | `TOUCH_STARTED`, `TOUCH_MOVED`, `TOUCH_ENDED` |
 | `CallbackEventName` | `MOUSE_MOVED`, `MOUSE_DRAGGED`, `MOUSE_PRESSED`, `MOUSE_RELEASED`, `MOUSE_CLICKED`, `MOUSE_DOUBLE_CLICKED`, `MOUSE_WHEEL`, `KEY_PRESSED`, `KEY_RELEASED`, `KEY_TYPED`, `TOUCH_STARTED`, `TOUCH_MOVED`, `TOUCH_ENDED`, `TOUCH_CANCELLED` |

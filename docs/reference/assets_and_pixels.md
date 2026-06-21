@@ -10,6 +10,8 @@
 - `image_sampling(mode)`
 - `smooth()`
 - `no_smooth()`
+- `tint(*color)`
+- `no_tint()`
 
 Images are loaded by the Rust canvas runtime. There is no Pillow fallback.
 Async loader variants are awaitable and useful from `async def preload()` or
@@ -28,6 +30,10 @@ for normal image sizes.
 `no_smooth()` and `image_sampling(NEAREST)` request nearest-neighbor sampling.
 The renderer may choose the fastest supported path for the current sampling
 mode, transform, blend mode, and backend capabilities.
+
+`tint()` multiplies image RGB and alpha during drawing without changing the
+source image. `no_tint()` restores untinted drawing, and `push()`/`pop()` preserve
+the tint state like other style settings.
 
 Image objects also support Python indexing:
 
@@ -90,10 +96,18 @@ timings.
 ## Export
 
 - `save_canvas(path=None)`
+- `save_frames(path_pattern, count=1, duration=None, callback=None)`
+- `save_gif(path, count=1, duration=None)`
 - `save_bytes(data, path)`
 - `save_json(data, path)`
 - `save_strings(lines, path)`
 - `create_writer(path)`
+
+`save_frames()` writes a deterministic numbered sequence from the current canvas
+state. Patterns may use `{index}`, `{frame}`, or `{frame_count}` placeholders;
+without placeholders, files are named with a zero-padded suffix. `save_gif()`
+encodes captured frames as an animated GIF when the optional Pillow-backed media
+dependency is installed, otherwise it raises `BackendCapabilityError`.
 
 ## Data and Text Assets
 

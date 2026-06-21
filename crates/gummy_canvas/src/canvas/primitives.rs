@@ -4,6 +4,21 @@ use crate::*;
 impl Canvas {
     pub(crate) fn background_impl(&mut self, rgba: (u8, u8, u8, u8)) {
         let color = Rgba::from_tuple(rgba).as_array();
+        if !self.clip_masks.is_empty() {
+            if self.render_dirty && self.offscreen_dirty {
+                self.render_gpu_frame(true);
+            }
+            let mask = self.clip_masks.last().expect("clip mask is active");
+            let packed = rgba_to_present_pixel(&color);
+            for (index, visible) in mask.iter().copied().enumerate() {
+                if visible {
+                    let offset = index * 4;
+                    self.pixels[offset..offset + 4].copy_from_slice(&color);
+                    self.present_pixels[index] = packed;
+                }
+            }
+            return;
+        }
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.set_clear_color(gpu_color(Rgba::from_tuple(rgba)));
             self.render_dirty = true;
@@ -17,6 +32,20 @@ impl Canvas {
     }
 
     pub(crate) fn clear_impl(&mut self) {
+        if !self.clip_masks.is_empty() {
+            if self.render_dirty && self.offscreen_dirty {
+                self.render_gpu_frame(true);
+            }
+            let mask = self.clip_masks.last().expect("clip mask is active");
+            for (index, visible) in mask.iter().copied().enumerate() {
+                if visible {
+                    let offset = index * 4;
+                    self.pixels[offset..offset + 4].fill(0);
+                    self.present_pixels[index] = 0;
+                }
+            }
+            return;
+        }
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.clear_transparent();
             self.render_dirty = true;
@@ -61,6 +90,7 @@ impl Canvas {
             &mut self.present_pixels,
             style.erasing,
             &style.blend_mode,
+            self.clip_masks.last().map(Vec::as_slice),
         ) else {
             return Ok(());
         };
@@ -100,6 +130,7 @@ impl Canvas {
             &mut self.present_pixels,
             style.erasing,
             &style.blend_mode,
+            self.clip_masks.last().map(Vec::as_slice),
         ) else {
             return Ok(());
         };
@@ -137,6 +168,7 @@ impl Canvas {
                 &mut self.present_pixels,
                 style.erasing,
                 &style.blend_mode,
+                self.clip_masks.last().map(Vec::as_slice),
             ) else {
                 continue;
             };
@@ -163,6 +195,140 @@ impl Canvas {
             .map(|(x, y)| self.transform_point(matrix, *x, *y))
             .collect();
         self.draw_transformed_polygon(&transformed, &style, close)
+    }
+
+    pub(crate) fn complex_polygon_impl(
+        &mut self,
+        outer: Vec<(f64, f64)>,
+        contours: Vec<Vec<(f64, f64)>>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        close: bool,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        ensure_supported_style(&style)?;
+        if outer.is_empty() {
+            return Ok(());
+        }
+        let transformed_outer: Vec<Point> = outer
+            .iter()
+            .map(|(x, y)| self.transform_point(matrix, *x, *y))
+            .collect();
+        let transformed_contours: Vec<Vec<Point>> = contours
+            .iter()
+            .map(|contour| {
+                contour
+                    .iter()
+                    .map(|(x, y)| self.transform_point(matrix, *x, *y))
+                    .collect()
+            })
+            .collect();
+        let mut bounds_points = transformed_outer.clone();
+        for contour in &transformed_contours {
+            bounds_points.extend(contour.iter().copied());
+        }
+        let padding = if style.stroke.is_some() {
+            stroke_width(style.stroke_weight, self.pixel_density) / 2.0
+        } else {
+            0.0
+        };
+        let bounds = clipped_bounds(
+            &bounds_points,
+            padding,
+            self.physical_width,
+            self.physical_height,
+        );
+        self.prepare_cpu_composite();
+        let Some(mut overlay) = OverlayRegion::from_bounds(
+            bounds,
+            self.physical_width,
+            &mut self.pixels,
+            &mut self.present_pixels,
+            style.erasing,
+            &style.blend_mode,
+            self.clip_masks.last().map(Vec::as_slice),
+        ) else {
+            return Ok(());
+        };
+        if close && transformed_outer.len() >= 3 {
+            if let Some(fill) = style.fill {
+                for y in overlay.min_y..overlay.max_y() {
+                    for x in overlay.min_x..overlay.max_x() {
+                        let sample = (x as f64 + 0.5, y as f64 + 0.5);
+                        let inside_outer = point_in_polygon(sample, &transformed_outer);
+                        let inside_hole = transformed_contours
+                            .iter()
+                            .any(|contour| contour.len() >= 3 && point_in_polygon(sample, contour));
+                        if inside_outer && !inside_hole {
+                            overlay.set_pixel(x, y, fill);
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(stroke) = style.stroke {
+            let width = stroke_width(style.stroke_weight, self.pixel_density);
+            draw_polyline_stroke(&mut overlay, &transformed_outer, close, width, stroke);
+            for contour in &transformed_contours {
+                draw_polyline_stroke(&mut overlay, contour, true, width, stroke);
+            }
+        }
+        self.upload_cpu_pixels()?;
+        Ok(())
+    }
+
+    pub(crate) fn begin_clip_impl(
+        &mut self,
+        outer: Vec<(f64, f64)>,
+        contours: Vec<Vec<(f64, f64)>>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        if outer.len() < 3 {
+            return Err(PyValueError::new_err(
+                "begin_clip() requires at least three vertices.",
+            ));
+        }
+        if self.render_dirty && self.offscreen_dirty {
+            self.render_gpu_frame(true);
+        }
+        let transformed_outer: Vec<Point> = outer
+            .iter()
+            .map(|(x, y)| self.transform_point(matrix, *x, *y))
+            .collect();
+        let transformed_contours: Vec<Vec<Point>> = contours
+            .iter()
+            .map(|contour| {
+                contour
+                    .iter()
+                    .map(|(x, y)| self.transform_point(matrix, *x, *y))
+                    .collect()
+            })
+            .collect();
+        let parent = self.clip_masks.last();
+        let mut mask = vec![false; self.physical_width * self.physical_height];
+        for y in 0..self.physical_height {
+            for x in 0..self.physical_width {
+                let index = y * self.physical_width + x;
+                if parent.is_some_and(|parent_mask| !parent_mask[index]) {
+                    continue;
+                }
+                let sample = (x as f64 + 0.5, y as f64 + 0.5);
+                let inside_outer = point_in_polygon(sample, &transformed_outer);
+                let inside_hole = transformed_contours
+                    .iter()
+                    .any(|contour| contour.len() >= 3 && point_in_polygon(sample, contour));
+                mask[index] = inside_outer && !inside_hole;
+            }
+        }
+        self.clip_masks.push(mask);
+        Ok(())
+    }
+
+    pub(crate) fn end_clip_impl(&mut self) -> PyResult<()> {
+        self.clip_masks
+            .pop()
+            .ok_or_else(|| PyValueError::new_err("end_clip() called without an active clip."))?;
+        Ok(())
     }
 
     pub(crate) fn rect_impl(

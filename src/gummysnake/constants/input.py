@@ -13,6 +13,14 @@ class MouseButton(StrEnum):
     RIGHT = "right"
 
 
+class PointerLockMode(StrEnum):
+    """Pointer-lock coordinate handling modes."""
+
+    UNCLAMPED = "unclamped"
+    CLAMPED = "clamped"
+    FIXED = "fixed"
+
+
 class KeyCode(IntEnum):
     """Gummy Snake-style public keyboard key code values."""
 
@@ -56,4 +64,10 @@ class CallbackEventName(StrEnum):
     TOUCH_CANCELLED = "touch_cancelled"
 
 
-__all__ = ["CallbackEventName", "KeyCode", "MouseButton", "TouchEventName"]
+__all__ = [
+    "CallbackEventName",
+    "KeyCode",
+    "MouseButton",
+    "PointerLockMode",
+    "TouchEventName",
+]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from gummysnake import constants as c
 from gummysnake.api.current import require_context
 from gummysnake.core.vector import Vector, create_vector
 
@@ -66,6 +67,10 @@ class MouseFacade:
         return require_context().mouse_is_pressed
 
     @property
+    def is_inside_window(self) -> bool:
+        return require_context().mouse_inside_window
+
+    @property
     def button(self) -> str | None:
         return require_context().mouse_button
 
@@ -77,6 +82,28 @@ class MouseFacade:
     def previous_position(self) -> Vector:
         return create_vector(self.previous_x, self.previous_y)
 
+    @property
+    def wheel(self) -> Vector:
+        context = require_context()
+        return create_vector(context._frame_scroll_x, context._frame_scroll_y)
+
+    @property
+    def is_pointer_locked(self) -> bool:
+        return require_context().state.input.pointer_locked
+
+    @property
+    def pointer_lock_mode(self) -> c.PointerLockMode:
+        return require_context().pointer_lock_mode()
+
+    def set_pointer_lock_mode(self, mode: c.PointerLockMode | str) -> c.PointerLockMode:
+        return require_context().set_pointer_lock_mode(mode)
+
+    def request_pointer_lock(self) -> bool:
+        return require_context().request_pointer_lock()
+
+    def exit_pointer_lock(self) -> bool:
+        return require_context().exit_pointer_lock()
+
 
 class KeyboardFacade:
     @property
@@ -86,6 +113,18 @@ class KeyboardFacade:
     @property
     def code(self) -> int | None:
         return require_context().key_code
+
+    @property
+    def physical_code(self) -> str | None:
+        return require_context().code
+
+    @property
+    def text(self) -> str | None:
+        return require_context().typed_text
+
+    @property
+    def is_text_input_active(self) -> bool:
+        return require_context().is_text_input_active()
 
     @property
     def is_pressed(self) -> bool:
@@ -100,6 +139,12 @@ class KeyboardFacade:
                 ord(key_code.upper())
             )
         return require_context().key_is_down(key_code)
+
+    def start_text_input(self) -> bool:
+        return require_context().start_text_input()
+
+    def stop_text_input(self) -> bool:
+        return require_context().stop_text_input()
 
 
 current = CurrentFacade()

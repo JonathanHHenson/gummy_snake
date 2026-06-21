@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import cast
+
 import pytest
 
 import gummysnake as gs
@@ -112,6 +115,30 @@ def test_save_canvas_adds_default_extension_and_validates_overwrite(tmp_path):
 
     with pytest.raises(ArgumentValidationError, match="Refusing to overwrite"):
         context.save_canvas(output, overwrite=False)
+
+
+def test_save_frames_exports_numbered_sequence_and_callback(tmp_path):
+    callback_results = []
+
+    def setup():
+        gs.create_canvas(2, 1)
+        gs.background(10, 20, 30)
+
+    context = gs.run(setup=setup, headless=True, max_frames=0)
+    results = context.save_frames(
+        tmp_path / "frame",
+        count=2,
+        callback=callback_results.append,
+    )
+
+    assert [result["frame"] for result in results] == [0, 1]
+    paths = [cast(Path, result["path"]) for result in results]
+    assert [path.name for path in paths] == [
+        "frame_0000.png",
+        "frame_0001.png",
+    ]
+    assert all(path.exists() for path in paths)
+    assert callback_results == [results]
 
 
 def test_blend_mode_multiply_and_erase_affect_subsequent_drawing():

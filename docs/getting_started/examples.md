@@ -7,6 +7,7 @@ Useful starting points:
 - `examples/01_getting_started/basic_shapes.py`
 - `examples/01_getting_started/timing_and_animation.py`
 - `examples/02_drawing/shapes_curves.py`
+- `examples/02_drawing/contours_clipping_tint_export.py`
 - `examples/02_drawing/transforms_and_modes.py`
 - `examples/02_drawing/pixels_and_export.py`
 - `examples/03_assets/data_files.py`

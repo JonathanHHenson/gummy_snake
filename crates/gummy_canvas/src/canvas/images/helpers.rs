@@ -30,6 +30,13 @@ impl Canvas {
         if matrix_determinant(image_to_canvas).abs() <= f64::EPSILON {
             return Ok(());
         }
+        let tinted_pixels;
+        let source_pixels = if let Some(tint) = style.image_tint {
+            tinted_pixels = tint_rgba_pixels(image_pixels, tint);
+            tinted_pixels.as_slice()
+        } else {
+            image_pixels
+        };
         if let Some((dest_x, dest_y, dest_w, dest_h)) = axis_aligned_image_destination(
             image_to_canvas,
             sw,
@@ -42,7 +49,7 @@ impl Canvas {
                 &mut self.pixels,
                 &mut self.present_pixels,
                 self.physical_width,
-                image_pixels,
+                source_pixels,
                 image_width,
                 sx,
                 sy,
@@ -55,6 +62,7 @@ impl Canvas {
                 style.erasing,
                 &style.blend_mode,
                 &style.image_sampling,
+                self.clip_masks.last().map(Vec::as_slice),
             );
             self.upload_cpu_pixels()?;
             return Ok(());
@@ -76,7 +84,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             self.physical_width,
-            image_pixels,
+            source_pixels,
             image_width,
             sx,
             sy,
@@ -90,6 +98,7 @@ impl Canvas {
             style.erasing,
             &style.blend_mode,
             &style.image_sampling,
+            self.clip_masks.last().map(Vec::as_slice),
         );
         self.upload_cpu_pixels()?;
         Ok(())
@@ -141,7 +150,12 @@ impl Canvas {
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<bool> {
         let style = self.cached_style(style)?;
-        if !self.can_queue_gpu_primitives(&style) || dw <= 0.0 || dh <= 0.0 {
+        if style.image_tint.is_some()
+            || !self.clip_masks.is_empty()
+            || !self.can_queue_gpu_primitives(&style)
+            || dw <= 0.0
+            || dh <= 0.0
+        {
             return Ok(false);
         }
         let linear_sampling = style.image_sampling != "nearest";
@@ -209,4 +223,15 @@ impl Canvas {
             (b * x + d * y + f) * self.pixel_density,
         )
     }
+}
+
+fn tint_rgba_pixels(pixels: &[u8], tint: Rgba) -> Vec<u8> {
+    let mut tinted = pixels.to_vec();
+    for pixel in tinted.chunks_exact_mut(4) {
+        pixel[0] = ((u16::from(pixel[0]) * u16::from(tint.r)) / 255) as u8;
+        pixel[1] = ((u16::from(pixel[1]) * u16::from(tint.g)) / 255) as u8;
+        pixel[2] = ((u16::from(pixel[2]) * u16::from(tint.b)) / 255) as u8;
+        pixel[3] = ((u16::from(pixel[3]) * u16::from(tint.a)) / 255) as u8;
+    }
+    tinted
 }

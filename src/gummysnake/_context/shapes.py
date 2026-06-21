@@ -118,8 +118,13 @@ class ShapeContextMixin:
         )
 
     def begin_shape(self, kind: c.ShapeKind | None = None) -> None:
+        if self.state.shape.active:
+            raise ArgumentValidationError("begin_shape() cannot be nested.")
         self.state.shape.active = True
         self.state.shape.vertices.clear()
+        self.state.shape.contours.clear()
+        self.state.shape.contour_active = False
+        self.state.shape.contour_vertices.clear()
         self.state.shape.kind = kind
 
     def vertex(self, x: float, y: float) -> None:
@@ -127,28 +132,47 @@ class ShapeContextMixin:
             raise ArgumentValidationError(
                 "vertex() must be called between begin_shape() and end_shape()."
             )
-        self.state.shape.vertices.append((float(x), float(y)))
+        target = (
+            self.state.shape.contour_vertices
+            if self.state.shape.contour_active
+            else self.state.shape.vertices
+        )
+        target.append((float(x), float(y)))
 
     def bezier_vertex(
         self, x2: float, y2: float, x3: float, y3: float, x4: float, y4: float
     ) -> None:
-        if not self.state.shape.vertices:
+        vertices = (
+            self.state.shape.contour_vertices
+            if self.state.shape.contour_active
+            else self.state.shape.vertices
+        )
+        if not vertices:
             raise ArgumentValidationError("bezier_vertex() requires an initial vertex().")
-        p0 = self.state.shape.vertices[-1]
-        self.state.shape.vertices.extend(flatten_cubic(p0, (x2, y2), (x3, y3), (x4, y4)))
+        p0 = vertices[-1]
+        vertices.extend(flatten_cubic(p0, (x2, y2), (x3, y3), (x4, y4)))
 
     def quadratic_vertex(self, cx: float, cy: float, x3: float, y3: float) -> None:
-        if not self.state.shape.vertices:
+        vertices = (
+            self.state.shape.contour_vertices
+            if self.state.shape.contour_active
+            else self.state.shape.vertices
+        )
+        if not vertices:
             raise ArgumentValidationError("quadratic_vertex() requires an initial vertex().")
-        p0 = self.state.shape.vertices[-1]
-        self.state.shape.vertices.extend(flatten_quadratic(p0, (cx, cy), (x3, y3)))
+        p0 = vertices[-1]
+        vertices.extend(flatten_quadratic(p0, (cx, cy), (x3, y3)))
 
     def spline_vertex(self, x: float, y: float) -> None:
         if not self.state.shape.active:
             raise ArgumentValidationError(
                 "spline_vertex() must be called between begin_shape() and end_shape()."
             )
-        vertices = self.state.shape.vertices
+        vertices = (
+            self.state.shape.contour_vertices
+            if self.state.shape.contour_active
+            else self.state.shape.vertices
+        )
         point = (float(x), float(y))
         if not vertices:
             vertices.append(point)
@@ -212,15 +236,76 @@ class ShapeContextMixin:
     def end_shape(self, mode: c.ArcMode = c.OPEN) -> None:
         if not self.state.shape.active:
             raise ArgumentValidationError("end_shape() requires begin_shape().")
-        self.renderer.polygon(
+        if self.state.shape.contour_active:
+            raise ArgumentValidationError("end_shape() requires end_contour() first.")
+        contours = [list(contour) for contour in self.state.shape.contours]
+        if contours:
+            self.renderer.complex_polygon(
+                list(self.state.shape.vertices),
+                contours,
+                self.state.style,
+                self.state.transform.matrix,
+                close=mode == c.CLOSE,
+            )
+        else:
+            self.renderer.polygon(
+                list(self.state.shape.vertices),
+                self.state.style,
+                self.state.transform.matrix,
+                close=mode == c.CLOSE,
+            )
+        self.state.shape.active = False
+        self.state.shape.vertices.clear()
+        self.state.shape.contours.clear()
+        self.state.shape.kind = None
+
+    def begin_contour(self) -> None:
+        if not self.state.shape.active:
+            raise ArgumentValidationError("begin_contour() requires begin_shape().")
+        if self.state.shape.contour_active:
+            raise ArgumentValidationError("begin_contour() cannot be nested.")
+        if self.state.shape.kind is not None:
+            raise ArgumentValidationError(
+                "begin_contour() is supported only for freeform begin_shape() paths."
+            )
+        if len(self.state.shape.vertices) < 3:
+            raise ArgumentValidationError(
+                "begin_contour() requires at least three outer shape vertices first."
+            )
+        self.state.shape.contour_active = True
+        self.state.shape.contour_vertices.clear()
+
+    def end_contour(self) -> None:
+        if not self.state.shape.active or not self.state.shape.contour_active:
+            raise ArgumentValidationError("end_contour() requires begin_contour().")
+        if len(self.state.shape.contour_vertices) < 3:
+            raise ArgumentValidationError("end_contour() requires at least three vertices.")
+        self.state.shape.contours.append(list(self.state.shape.contour_vertices))
+        self.state.shape.contour_vertices.clear()
+        self.state.shape.contour_active = False
+
+    def begin_clip(self) -> None:
+        if self.state.shape.active:
+            raise ArgumentValidationError("begin_clip() cannot be called inside begin_shape().")
+        self.begin_shape()
+
+    def clip(self) -> None:
+        if not self.state.shape.active:
+            raise ArgumentValidationError("clip() requires begin_clip().")
+        if self.state.shape.contour_active:
+            raise ArgumentValidationError("clip() requires end_contour() first.")
+        self.renderer.begin_clip(
             list(self.state.shape.vertices),
-            self.state.style,
+            [list(contour) for contour in self.state.shape.contours],
             self.state.transform.matrix,
-            close=mode == c.CLOSE,
         )
         self.state.shape.active = False
         self.state.shape.vertices.clear()
+        self.state.shape.contours.clear()
         self.state.shape.kind = None
+
+    def end_clip(self) -> None:
+        self.renderer.end_clip()
 
     def bezier(
         self,

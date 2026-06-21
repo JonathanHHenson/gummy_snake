@@ -133,6 +133,26 @@ def begin_shape(kind: c.ShapeKind | None = None) -> None:
     require_context().begin_shape(kind)
 
 
+def begin_contour() -> None:
+    require_context().begin_contour()
+
+
+def end_contour() -> None:
+    require_context().end_contour()
+
+
+def begin_clip() -> None:
+    require_context().begin_clip()
+
+
+def clip() -> None:
+    require_context().clip()
+
+
+def end_clip() -> None:
+    require_context().end_clip()
+
+
 def vertex(x: float, y: float) -> None:
     require_context().vertex(x, y)
 

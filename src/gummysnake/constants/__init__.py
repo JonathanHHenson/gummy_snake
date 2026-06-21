@@ -14,6 +14,7 @@ from gummysnake.constants.aliases import (
     CENTER,
     CENTER_BUTTON,
     CHORD,
+    CLAMPED,
     CLOSE,
     CONTROL,
     CORNER,
@@ -27,6 +28,7 @@ from gummysnake.constants.aliases import (
     ERODE,
     ESCAPE,
     EXCLUSION,
+    FIXED,
     GRAY,
     HSB,
     HSL,
@@ -83,6 +85,7 @@ from gummysnake.constants.aliases import (
     TRIANGLE_FAN,
     TRIANGLE_STRIP,
     TRIANGLES,
+    UNCLAMPED,
     UP_ARROW,
     WEBGL,
 )
@@ -97,7 +100,13 @@ from gummysnake.constants.drawing import (
     TextAlign,
     TextStyle,
 )
-from gummysnake.constants.input import CallbackEventName, KeyCode, MouseButton, TouchEventName
+from gummysnake.constants.input import (
+    CallbackEventName,
+    KeyCode,
+    MouseButton,
+    PointerLockMode,
+    TouchEventName,
+)
 from gummysnake.constants.renderer import BlendMode, ImageFilter, ImageSampling, RendererMode
 
 __all__ = [
@@ -117,6 +126,7 @@ __all__ = [
     "CallbackEventName",
     "KeyCode",
     "MouseButton",
+    "PointerLockMode",
     "TouchEventName",
     "CORNER",
     "CORNERS",
@@ -175,6 +185,9 @@ __all__ = [
     "LEFT_BUTTON",
     "CENTER_BUTTON",
     "RIGHT_BUTTON",
+    "UNCLAMPED",
+    "CLAMPED",
+    "FIXED",
     "BACKSPACE",
     "TAB",
     "ENTER",

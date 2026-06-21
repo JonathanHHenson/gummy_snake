@@ -30,10 +30,13 @@ class CanvasRendererPixelsMixin:
         _renderer(self)._count("pixel_readbacks")
         callback = getattr(_renderer(self)._require_canvas(), "load_pixel_bytes", None)
         if callable(callback):
-            return bytes(_renderer(self)._call("pixel byte readback", callback))
-        return bytes(
+            pixels = _renderer(self)._call("pixel byte readback", callback)
+            return bytes(cast(Buffer | Sequence[int], pixels))
+        pixels = cast(
+            Buffer | Sequence[int],
             _renderer(self)._call("pixel readback", _renderer(self)._require_canvas().load_pixels)
         )
+        return bytes(pixels)
 
     def load_pixel_region(self, x: int, y: int, width: int, height: int) -> bytes:
         _renderer(self)._flush_line_batch()

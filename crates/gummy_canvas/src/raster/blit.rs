@@ -21,6 +21,7 @@ pub(crate) fn blit_scaled_region(
     erasing: bool,
     blend_mode: &str,
     sampling: &str,
+    clip_mask: Option<&[bool]>,
 ) {
     if sw == 0 || sh == 0 || dw == 0 || dh == 0 {
         return;
@@ -45,6 +46,9 @@ pub(crate) fn blit_scaled_region(
                 continue;
             }
             let dst_pixel_index = (dy + out_y) * dst_width + dx + out_x;
+            if clip_mask.is_some_and(|mask| !mask[dst_pixel_index]) {
+                continue;
+            }
             let dst_offset = dst_pixel_index * 4;
             let dst_pixel = &mut dst[dst_offset..dst_offset + 4];
             if erasing {
@@ -78,6 +82,7 @@ pub(crate) fn blit_affine_region(
     erasing: bool,
     blend_mode: &str,
     sampling: &str,
+    clip_mask: Option<&[bool]>,
 ) {
     if sw == 0 || sh == 0 || dw == 0 || dh == 0 {
         return;
@@ -105,6 +110,11 @@ pub(crate) fn blit_affine_region(
                 continue;
             }
             let dst_pixel_index = canvas_y * dst_width + canvas_x;
+            if clip_mask.is_some_and(|mask| !mask[dst_pixel_index]) {
+                local_x += a;
+                local_y += b;
+                continue;
+            }
             let dst_offset = dst_pixel_index * 4;
             let dst_pixel = &mut dst[dst_offset..dst_offset + 4];
             if erasing {

@@ -13,6 +13,7 @@ from gummysnake.exceptions import ArgumentValidationError
 
 
 class TransformContextMixin:
+    renderer: Any
     state: Any
     _material3d: Any
     _normal_material3d: bool
@@ -23,7 +24,11 @@ class TransformContextMixin:
 
     def push(self) -> None:
         self.state.stack.append(
-            StateStackEntry(self.state.style.copy(), self.state.transform.matrix)
+            StateStackEntry(
+                self.state.style.copy(),
+                self.state.transform.matrix,
+                self.renderer.clip_depth(),
+            )
         )
         self._material3d_style_stack.append((self._material3d, self._normal_material3d))
 
@@ -33,6 +38,7 @@ class TransformContextMixin:
         entry = self.state.stack.pop()
         self.state.style = entry.style
         self.state.transform.set_matrix(entry.matrix)
+        self.renderer.restore_clip_depth(entry.clip_depth)
         self._material3d, self._normal_material3d = self._material3d_style_stack.pop()
 
     def translate(self, x: float, y: float) -> None:

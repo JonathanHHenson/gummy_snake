@@ -65,6 +65,30 @@ impl Canvas {
     pub(crate) fn pump_native_events(&mut self) -> PyResult<bool> {
         self.pump_native_events_impl()
     }
+    pub(crate) fn request_pointer_lock(&mut self) -> PyResult<bool> {
+        self.request_pointer_lock_impl()
+    }
+    pub(crate) fn exit_pointer_lock(&mut self) -> PyResult<bool> {
+        self.exit_pointer_lock_impl()
+    }
+    pub(crate) fn pointer_locked(&self) -> bool {
+        self.pointer_locked_impl()
+    }
+    pub(crate) fn set_pointer_lock_mode(&mut self, mode: &str) -> PyResult<()> {
+        self.set_pointer_lock_mode_impl(mode)
+    }
+    pub(crate) fn pointer_lock_mode(&self) -> String {
+        self.pointer_lock_mode_impl()
+    }
+    pub(crate) fn start_text_input(&mut self) -> PyResult<bool> {
+        self.start_text_input_impl()
+    }
+    pub(crate) fn stop_text_input(&mut self) -> PyResult<bool> {
+        self.stop_text_input_impl()
+    }
+    pub(crate) fn text_input_active(&self) -> bool {
+        self.text_input_active_impl()
+    }
     pub(crate) fn begin_frame(&mut self) {
         self.begin_frame_impl()
     }
@@ -120,6 +144,28 @@ impl Canvas {
         close: bool,
     ) -> PyResult<()> {
         self.polygon_impl(points, style, matrix, close)
+    }
+    #[pyo3(signature = (outer, contours, style, matrix, close=true))]
+    pub(crate) fn complex_polygon(
+        &mut self,
+        outer: Vec<(f64, f64)>,
+        contours: Vec<Vec<(f64, f64)>>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        close: bool,
+    ) -> PyResult<()> {
+        self.complex_polygon_impl(outer, contours, style, matrix, close)
+    }
+    pub(crate) fn begin_clip(
+        &mut self,
+        outer: Vec<(f64, f64)>,
+        contours: Vec<Vec<(f64, f64)>>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        self.begin_clip_impl(outer, contours, matrix)
+    }
+    pub(crate) fn end_clip(&mut self) -> PyResult<()> {
+        self.end_clip_impl()
     }
     pub(crate) fn rect(
         &mut self,

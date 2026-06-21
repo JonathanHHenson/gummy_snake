@@ -67,6 +67,7 @@ impl Canvas {
             false,
             mode,
             "linear",
+            self.clip_masks.last().map(Vec::as_slice),
         );
         self.upload_cpu_pixels()?;
         Ok(())

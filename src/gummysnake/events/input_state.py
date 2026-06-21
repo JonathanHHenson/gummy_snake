@@ -18,9 +18,15 @@ class MouseEvent:
     button: str | None = None
     dx: float = 0.0
     dy: float = 0.0
+    previous_x: float | None = None
+    previous_y: float | None = None
+    window_x: float | None = None
+    window_y: float | None = None
     scroll_x: float = 0.0
     scroll_y: float = 0.0
+    click_count: int = 0
     modifiers: int | None = None
+    inside_window: bool | None = None
     type: str = "mouse"
 
     @property
@@ -32,6 +38,18 @@ class MouseEvent:
         return Vector(self.dx, self.dy)
 
     @property
+    def previous_position(self) -> Vector | None:
+        if self.previous_x is None or self.previous_y is None:
+            return None
+        return Vector(self.previous_x, self.previous_y)
+
+    @property
+    def window_position(self) -> Vector | None:
+        if self.window_x is None or self.window_y is None:
+            return None
+        return Vector(self.window_x, self.window_y)
+
+    @property
     def scroll(self) -> Vector:
         return Vector(self.scroll_x, self.scroll_y)
 
@@ -40,6 +58,9 @@ class MouseEvent:
 class KeyboardEvent:
     key: str | None = None
     key_code: int | None = None
+    code: str | None = None
+    text: str | None = None
+    repeat: bool = False
     modifiers: int | None = None
     type: str = "keyboard"
 
@@ -101,13 +122,20 @@ class InputState:
     moved_x: float = 0.0
     moved_y: float = 0.0
     mouse_is_pressed: bool = False
+    mouse_inside_window: bool = False
     mouse_button: str | None = None
     key: str | None = None
     key_code: int | None = None
+    code: str | None = None
+    text: str | None = None
+    text_input_active: bool = False
     key_is_pressed: bool = False
     pressed_keys: set[int] = field(default_factory=set)
+    pressed_codes: set[str] = field(default_factory=set)
     touches: list[TouchPoint] = field(default_factory=list)
     touch_supported: bool = False
+    pointer_locked: bool = False
+    pointer_lock_mode: c.PointerLockMode = c.CLAMPED
 
     def update_mouse(
         self, x: float, y: float, *, dx: float | None = None, dy: float | None = None
@@ -153,3 +181,6 @@ class InputState:
 
     def key_is_down(self, key_code: int) -> bool:
         return key_code in self.pressed_keys
+
+    def code_is_down(self, code: str) -> bool:
+        return code in self.pressed_codes

@@ -54,6 +54,29 @@ class Renderer(Protocol):
         close: bool = True,
     ) -> None: ...
 
+    def complex_polygon(
+        self,
+        outer: list[tuple[float, float]],
+        contours: list[list[tuple[float, float]]],
+        style: StyleState,
+        transform: Matrix2D,
+        *,
+        close: bool = True,
+    ) -> None: ...
+
+    def begin_clip(
+        self,
+        outer: list[tuple[float, float]],
+        contours: list[list[tuple[float, float]]],
+        transform: Matrix2D,
+    ) -> None: ...
+
+    def end_clip(self) -> None: ...
+
+    def clip_depth(self) -> int: ...
+
+    def restore_clip_depth(self, depth: int) -> None: ...
+
     def rect(
         self,
         x: float,

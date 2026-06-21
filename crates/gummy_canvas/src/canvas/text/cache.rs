@@ -62,6 +62,7 @@ impl Canvas {
             &mut self.present_pixels,
             style.erasing,
             &style.blend_mode,
+            self.clip_masks.last().map(Vec::as_slice),
         ) else {
             return Ok(());
         };
@@ -99,7 +100,10 @@ impl Canvas {
     }
 
     pub(crate) fn can_queue_gpu_primitives(&self, style: &Style) -> bool {
-        self.gpu.is_some() && !style.erasing && style.blend_mode == BLEND_MODE_BLEND
+        self.clip_masks.is_empty()
+            && self.gpu.is_some()
+            && !style.erasing
+            && style.blend_mode == BLEND_MODE_BLEND
     }
 
     pub(crate) fn can_queue_gpu_polygon(

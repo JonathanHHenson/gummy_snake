@@ -62,6 +62,7 @@ def test_canvas_backend_enables_input_capabilities_when_native_runtime_is_availa
     assert backend.capabilities.mouse is True
     assert backend.capabilities.keyboard is True
     assert backend.capabilities.touch is True
+    assert backend.capabilities.pointer_lock is True
 
 
 def test_canvas_backend_rejects_interactive_without_native_window_support(
@@ -107,6 +108,63 @@ def test_canvas_backend_runs_headless_frames_and_accepts_webgl(
 
     backend.create_canvas(10, 10, renderer=c.WEBGL)
     assert backend.renderer.width == 10
+
+
+def test_canvas_backend_delegates_pointer_lock_to_runtime_canvas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+
+    backend = CanvasBackend(headless=False)
+    backend.create_canvas(10, 10)
+    canvas = backend.renderer.runtime_canvas()
+    canvas.open_window()
+
+    assert backend.request_pointer_lock() is True
+    assert canvas.pointer_locked() is True
+    assert ("request_pointer_lock",) in canvas.calls
+
+    assert backend.exit_pointer_lock() is True
+    assert canvas.pointer_locked() is False
+    assert ("exit_pointer_lock",) in canvas.calls
+
+
+def test_canvas_backend_applies_pending_pointer_lock_mode_to_runtime_canvas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+
+    backend = CanvasBackend()
+    assert backend.pointer_lock_mode() == "clamped"
+    backend.set_pointer_lock_mode("fixed")
+    backend.create_canvas(10, 10)
+
+    canvas = backend.renderer.runtime_canvas()
+    assert canvas.pointer_lock_mode() == "fixed"
+    assert ("set_pointer_lock_mode", "fixed") in canvas.calls
+
+
+def test_canvas_backend_delegates_text_input_to_runtime_canvas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+
+    backend = CanvasBackend(headless=False)
+    backend.create_canvas(10, 10)
+    canvas = backend.renderer.runtime_canvas()
+    canvas.open_window()
+
+    assert backend.text_input_active() is False
+    assert backend.start_text_input() is True
+    assert backend.text_input_active() is True
+    assert ("start_text_input",) in canvas.calls
+
+    assert backend.stop_text_input() is True
+    assert backend.text_input_active() is False
+    assert ("stop_text_input",) in canvas.calls
 
 
 def test_canvas_backend_repeated_create_canvas_preserves_existing_pixel_density(

@@ -13,7 +13,13 @@ from gummysnake.constants.drawing import (
     TextAlign,
     TextStyle,
 )
-from gummysnake.constants.input import CallbackEventName, KeyCode, MouseButton, TouchEventName
+from gummysnake.constants.input import (
+    CallbackEventName,
+    KeyCode,
+    MouseButton,
+    PointerLockMode,
+    TouchEventName,
+)
 from gummysnake.constants.renderer import BlendMode, ImageFilter, ImageSampling, RendererMode
 
 CORNER = ShapeMode.CORNER
@@ -73,6 +79,9 @@ DILATE = ImageFilter.DILATE
 LEFT_BUTTON = MouseButton.LEFT
 CENTER_BUTTON = MouseButton.CENTER
 RIGHT_BUTTON = MouseButton.RIGHT
+UNCLAMPED = PointerLockMode.UNCLAMPED
+CLAMPED = PointerLockMode.CLAMPED
+FIXED = PointerLockMode.FIXED
 BACKSPACE = KeyCode.BACKSPACE
 TAB = KeyCode.TAB
 ENTER = KeyCode.ENTER
@@ -159,6 +168,9 @@ __all__ = [
     "LEFT_BUTTON",
     "CENTER_BUTTON",
     "RIGHT_BUTTON",
+    "UNCLAMPED",
+    "CLAMPED",
+    "FIXED",
     "BACKSPACE",
     "TAB",
     "ENTER",

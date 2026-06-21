@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Buffer, Sequence
+from collections.abc import Buffer, Callable, Sequence
+from importlib import import_module
 from pathlib import Path
-from typing import Any, overload
+from typing import Any, cast, overload
 
 from gummysnake import constants as c
 from gummysnake._context.helpers import blend_args, copy_ints, rgba_bytes
 from gummysnake.assets.image import Image
 from gummysnake.core.color import Color
-from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
 
 class PixelContextMixin:
@@ -213,6 +214,96 @@ class PixelContextMixin:
             raise ArgumentValidationError(f"Refusing to overwrite existing file: {output!s}.")
         output.parent.mkdir(parents=True, exist_ok=True)
         self.renderer.save(output)
+        return output
+
+    def save_frames(
+        self,
+        path_pattern: str | Path,
+        *,
+        extension: str = "png",
+        count: int = 1,
+        duration: float | None = None,
+        callback: Callable[[list[dict[str, object]]], object] | None = None,
+        overwrite: bool = True,
+    ) -> list[dict[str, object]]:
+        if count <= 0:
+            raise ArgumentValidationError("save_frames() count must be positive.")
+        suffix = extension if extension.startswith(".") else f".{extension}"
+        frame_duration = (
+            1.0 / self.state.timing.target_frame_rate
+            if duration is None
+            else float(duration) / count
+        )
+        pattern = str(path_pattern)
+        results: list[dict[str, object]] = []
+        for index in range(count):
+            if "{" in pattern:
+                output = Path(
+                    pattern.format(
+                        index=index,
+                        frame=index,
+                        frame_count=self.state.timing.frame_count,
+                    )
+                )
+            else:
+                stem = Path(pattern)
+                output = stem.with_name(f"{stem.stem}_{index:04d}{stem.suffix or suffix}")
+            if output.suffix == "":
+                output = output.with_suffix(suffix)
+            saved = self.save_canvas(output, overwrite=overwrite)
+            results.append(
+                {
+                    "path": saved,
+                    "frame": index,
+                    "frame_count": self.state.timing.frame_count,
+                    "duration": frame_duration,
+                }
+            )
+        if callback is not None:
+            callback(results)
+        return results
+
+    def save_gif(
+        self,
+        path: str | Path,
+        *,
+        count: int = 1,
+        duration: float | None = None,
+        overwrite: bool = True,
+    ) -> Path:
+        output = Path(path)
+        if output.suffix == "":
+            output = output.with_suffix(".gif")
+        if output.exists() and not overwrite:
+            raise ArgumentValidationError(f"Refusing to overwrite existing file: {output!s}.")
+        try:
+            pil_image = import_module("PIL.Image")
+        except ImportError as exc:
+            raise BackendCapabilityError(
+                "save_gif() requires the optional media/image dependency that provides Pillow. "
+                "Install Gummy Snake with the media extra before exporting animated GIFs."
+            ) from exc
+        if count <= 0:
+            raise ArgumentValidationError("save_gif() count must be positive.")
+        frame_duration_ms = int(
+            round(
+                1000.0 / self.state.timing.target_frame_rate
+                if duration is None
+                else float(duration) * 1000.0 / count
+            )
+        )
+        pixels = self.load_pixel_bytes()
+        size = (self.state.canvas.physical_width, self.state.canvas.physical_height)
+        frame = cast(Any, pil_image).frombytes("RGBA", size, pixels)
+        frames = [frame.copy() for _ in range(count)]
+        output.parent.mkdir(parents=True, exist_ok=True)
+        frames[0].save(
+            output,
+            save_all=True,
+            append_images=frames[1:],
+            duration=frame_duration_ms,
+            loop=0,
+        )
         return output
 
     def blend_mode(self, mode: c.BlendMode) -> None:

@@ -237,6 +237,25 @@ def test_canvas_backend_dispatches_sdl_logical_mouse_events_without_density_scal
     ]
 
 
+def test_canvas_backend_updates_mouse_inside_window_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    assert sketch.context is not None
+
+    backend._dispatch_canvas_event(
+        sketch,
+        {"type": "mouse_moved", "x": 10, "y": 12, "inside_window": True},
+    )
+    assert sketch.context.mouse_inside_window is True
+
+    backend._dispatch_canvas_event(
+        sketch,
+        {"type": "mouse_window_state", "inside_window": False},
+    )
+    assert sketch.context.mouse_inside_window is False
+
+
 def test_canvas_backend_dispatches_keyboard_events_and_pressed_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

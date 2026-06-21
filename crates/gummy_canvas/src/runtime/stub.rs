@@ -2,6 +2,8 @@ use std::time::Duration;
 
 use crate::runtime::event::RuntimeEvent;
 
+pub const DEFAULT_POINTER_LOCK_MODE: &str = "clamped";
+
 pub struct InteractiveRuntime;
 
 impl InteractiveRuntime {
@@ -45,6 +47,43 @@ impl InteractiveRuntime {
         _pixel_density: f64,
     ) -> Result<(), String> {
         Ok(())
+    }
+
+    pub fn request_pointer_lock(&mut self) -> Result<bool, String> {
+        Err("Pointer lock is unavailable without native canvas window support.".to_string())
+    }
+
+    pub fn exit_pointer_lock(&mut self) -> Result<bool, String> {
+        Ok(true)
+    }
+
+    pub fn pointer_locked(&self) -> bool {
+        false
+    }
+
+    pub fn set_pointer_lock_mode(&mut self, mode: &str) -> Result<(), String> {
+        match mode {
+            "unclamped" | "clamped" | "fixed" => Ok(()),
+            _ => Err(format!(
+                "Pointer lock mode must be 'unclamped', 'clamped', or 'fixed', got {mode:?}."
+            )),
+        }
+    }
+
+    pub fn pointer_lock_mode(&self) -> &'static str {
+        DEFAULT_POINTER_LOCK_MODE
+    }
+
+    pub fn start_text_input(&mut self) -> Result<bool, String> {
+        Err("Text input is unavailable without native canvas window support.".to_string())
+    }
+
+    pub fn stop_text_input(&mut self) -> Result<bool, String> {
+        Ok(false)
+    }
+
+    pub fn text_input_active(&self) -> bool {
+        false
     }
 
     pub fn resize_recently(&self, _within: Duration) -> bool {

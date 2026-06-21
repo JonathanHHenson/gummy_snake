@@ -59,6 +59,34 @@ def image(*args: Any) -> None:
     _context_call("image", *args)
 
 
+@overload
+def tint(value: Color | str, /) -> None: ...
+
+
+@overload
+def tint(gray: float, /) -> None: ...
+
+
+@overload
+def tint(gray: float, alpha: float, /) -> None: ...
+
+
+@overload
+def tint(v1: float, v2: float, v3: float, /) -> None: ...
+
+
+@overload
+def tint(v1: float, v2: float, v3: float, alpha: float, /) -> None: ...
+
+
+def tint(*args: Any) -> None:
+    _context_call("tint", *args)
+
+
+def no_tint() -> None:
+    _context_call("no_tint")
+
+
 def text(value: SupportsText, x: float, y: float) -> None:
     _context_call("text", value, x, y)
 
@@ -240,6 +268,42 @@ def filter(mode: c.ImageFilter, value: float | None = None) -> None:
 
 def save_canvas(path: str | Path, *, extension: str | None = None, overwrite: bool = True) -> Path:
     return _context_call("save_canvas", path, extension=extension, overwrite=overwrite)
+
+
+def save_frames(
+    path_pattern: str | Path,
+    *,
+    extension: str = "png",
+    count: int = 1,
+    duration: float | None = None,
+    callback: Any = None,
+    overwrite: bool = True,
+) -> list[dict[str, object]]:
+    return cast(
+        list[dict[str, object]],
+        _context_call(
+            "save_frames",
+            path_pattern,
+            extension=extension,
+            count=count,
+            duration=duration,
+            callback=callback,
+            overwrite=overwrite,
+        ),
+    )
+
+
+def save_gif(
+    path: str | Path,
+    *,
+    count: int = 1,
+    duration: float | None = None,
+    overwrite: bool = True,
+) -> Path:
+    return cast(
+        Path,
+        _context_call("save_gif", path, count=count, duration=duration, overwrite=overwrite),
+    )
 
 
 def blend_mode(mode: c.BlendMode) -> None:

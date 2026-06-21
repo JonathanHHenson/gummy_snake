@@ -10,7 +10,7 @@ mod stub;
 pub use event::RuntimeEvent;
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-pub use desktop::{native_window_available, InteractiveRuntime};
+pub use desktop::{native_window_available, InteractiveRuntime, DEFAULT_POINTER_LOCK_MODE};
 
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-pub use stub::{native_window_available, InteractiveRuntime};
+pub use stub::{native_window_available, InteractiveRuntime, DEFAULT_POINTER_LOCK_MODE};

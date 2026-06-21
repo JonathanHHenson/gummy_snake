@@ -79,6 +79,55 @@ class CanvasRendererPrimitivesMixin:
             close,
         )
 
+    def complex_polygon(
+        self,
+        outer: list[tuple[float, float]],
+        contours: list[list[tuple[float, float]]],
+        style: StyleState,
+        transform: Matrix2D,
+        *,
+        close: bool = True,
+    ) -> None:
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._count("gpu_draws")
+        _renderer(self)._call(
+            "complex polygon drawing",
+            _renderer(self)._require_canvas_method("complex_polygon", "contour drawing"),
+            outer,
+            contours,
+            _renderer(self)._style_payload(style),
+            _renderer(self)._matrix_payload(transform),
+            close,
+        )
+
+    def begin_clip(
+        self,
+        outer: list[tuple[float, float]],
+        contours: list[list[tuple[float, float]]],
+        transform: Matrix2D,
+    ) -> None:
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._call(
+            "clip creation",
+            _renderer(self)._require_canvas_method("begin_clip", "path clipping"),
+            outer,
+            contours,
+            _renderer(self)._matrix_payload(transform),
+        )
+        _renderer(self)._clip_depth += 1
+
+    def end_clip(self) -> None:
+        _renderer(self)._flush_line_batch()
+        if _renderer(self)._clip_depth <= 0:
+            from gummysnake.exceptions import ArgumentValidationError
+
+            raise ArgumentValidationError("end_clip() called without matching begin_clip().")
+        _renderer(self)._call(
+            "clip restoration",
+            _renderer(self)._require_canvas_method("end_clip", "path clipping"),
+        )
+        _renderer(self)._clip_depth -= 1
+
     def rect(
         self,
         x: float,
