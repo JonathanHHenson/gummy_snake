@@ -74,8 +74,11 @@ The draw loop checks Gummy Snake lifecycle flags before drawing:
 single frame as requested. After a frame is drawn, `redraw_requested` is cleared.
 
 Interactive runs schedule frames according to the target frame rate and poll
-SDL3 native events between frames. Headless bounded runs draw a fixed number of
-frames as quickly and deterministically as possible.
+SDL3 native events between frames. The Rust runtime also pumps native events
+around presentation and selected long-running canvas operations so close, resize,
+and input events can still be observed while Python drawing work is active.
+Headless bounded runs draw a fixed number of frames as quickly and
+deterministically as possible.
 
 ## Headless vs Interactive
 
@@ -103,7 +106,11 @@ flowchart TD
 When native input is available, the SDL3-backed Rust runtime emits window/input
 events. `CanvasBackend` polls those events, normalizes them into Python event
 dataclasses, updates `SketchContext.state.input`, and then dispatches optional
-user callbacks.
+user callbacks. SDL3 pointer, wheel, and touch coordinates are logical/window
+coordinates; Rust payloads must mark them with `coordinates = "logical"` so the
+Python backend does not divide them by pixel density again. One-character SDL3
+key names should be normalized to lowercase before crossing into Python so
+`KeyboardEvent.matches("l")` remains stable.
 
 ```mermaid
 sequenceDiagram
@@ -131,7 +138,10 @@ Gummy Snake separates logical and physical size:
   buffers.
 
 Do not collapse logical and physical dimensions when touching renderer, export,
-pixels, image, or input coordinate code.
+pixels, image, or input coordinate code. SDL3 resize events report logical
+window size plus display scale; after a native resize, keep `SketchState.canvas`,
+renderer dimensions, physical backing size, export size, and input coordinates in
+sync.
 
 ## Asset, Image, And Pixel Ownership
 
@@ -230,6 +240,17 @@ Canvas region APIs use narrow Rust calls:
 Full-canvas `get()` and explicit `load_pixels()` still read the full physical
 buffer by design.
 
+## GPU Command Ordering
+
+The 2D GPU renderer can mix primitive commands with image and text commands in a
+single frame. Text is rendered through the image/texture pipeline, while shapes
+such as `rect()` and `circle()` use the primitive pipeline. When changing command
+encoding, batching, or adding command families, flush any pending batch before
+switching pipelines and restore the expected pipeline and bind groups before
+continuing. In particular, primitives drawn after text/images must remain
+visible; `examples/05_interaction/lifecycle_controls.py` is a useful manual
+smoke test for that ordering.
+
 ## WEBGL Runtime Status
 
 `create_canvas(..., WEBGL)` currently uses Rust-backed software projection,
@@ -281,3 +302,6 @@ can disagree.
   capability flags.
 - Pixel operations should report capability problems explicitly instead of
   failing with unrelated buffer errors.
+- SDL3 logical input coordinates should not be density-scaled twice.
+- Mixed text/image and primitive GPU commands should preserve draw order and
+  pipeline state, including primitives drawn after text.

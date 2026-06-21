@@ -37,14 +37,17 @@ It is responsible for:
 - checking whether native interactive mode is available
 - creating and resizing the canvas through the renderer
 - choosing bounded headless execution or interactive execution
-- opening native windows when supported
+- opening SDL3-backed native windows when supported
 - scheduling frames at the requested frame rate
 - polling Rust-originated input events
-- normalizing mouse, keyboard, and touch events for `SketchContext`
+- normalizing SDL3 mouse, keyboard, and touch events for `SketchContext`
 - stopping and closing renderer resources
 
 Most changes to `CanvasBackend` should be covered by contract tests or focused
-unit tests with fake canvas modules/events.
+unit tests with fake canvas modules/events. SDL3 pointer/touch events are already
+logical window coordinates, so backend normalization must respect
+`coordinates = "logical"` payloads and avoid applying pixel-density scaling a
+second time.
 
 ## CanvasRenderer
 
@@ -68,7 +71,10 @@ It is responsible for:
 - closing runtime canvas resources
 
 Renderer methods should not know about global-mode dispatch, plugin hooks, or
-the sketch lifecycle.
+the sketch lifecycle. The Rust renderer may batch and reorder internally only
+where observable draw order is preserved. Mixed primitive and image/text GPU
+commands must flush batches and restore the correct pipeline/bind groups when
+switching command families.
 
 ## gummysnake.rust.canvas
 
@@ -96,9 +102,10 @@ Use these examples when deciding where code belongs:
 | Change how `rect_mode(CENTER)` computes coordinates | `SketchContext` or geometry helpers |
 | Add a new Rust primitive call payload | `src/gummysnake/backend/_canvas/renderer/primitives.py` and `crates/gummy_canvas` |
 | Improve missing runtime or ABI error text | `gummysnake.rust.canvas` |
-| Poll a new native input event | `src/gummysnake/backend/_canvas/backend/events.py` and Rust event support |
+| Poll a new native input event | `src/gummysnake/backend/_canvas/backend/events.py` and Rust SDL3 event support |
 | Add a new pixel export format | `src/gummysnake/backend/_canvas/renderer/pixels.py` and `crates/gummy_canvas` |
 | Change frame scheduling | `src/gummysnake/backend/_canvas/backend/pacing.py` or `runtime.py` and lifecycle tests |
+| Change GPU command batching or pipeline switching | `crates/gummy_canvas/src/gpu/` plus render-order regression tests |
 
 ## Data Flow For A Draw Call
 

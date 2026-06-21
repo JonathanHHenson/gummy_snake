@@ -12,6 +12,11 @@ Then import it as `gummysnake` and use the short `gs` alias:
 import gummysnake as gs
 ```
 
+Published wheels include the required Rust `gummy_canvas` runtime. That runtime
+owns canvas drawing, export, pixels, images, text, and native interactive windows
+when the platform build supports them. Desktop interactive builds use SDL3 for
+windowing and input.
+
 Optional media helpers are available through the `media` extra:
 
 ```sh
@@ -45,8 +50,8 @@ Run it:
 python hello_gummy.py
 ```
 
-If your environment does not support a native window, run a bounded headless
-render:
+If your environment does not support a native SDL3 window, run a bounded
+headless render:
 
 ```sh
 python hello_gummy.py --headless --frames 1
@@ -61,3 +66,7 @@ uv sync --dev
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 ```
+
+The `gummy_canvas` development build compiles SDL3 from source/static through the
+Rust dependency graph for native interactive support. A separate system SDL3
+installation is normally not required, but first builds can take longer.

@@ -11,8 +11,9 @@ to input, load sprites, play with pixels, and build visual toys without first
 building a full app.
 
 The public API is Python-first. Function names use `snake_case`, sketches are
-ordinary Python files, and the renderer is powered by the packaged Rust canvas
-runtime.
+ordinary Python files, and drawing, export, pixels, text, images, and native
+interactive windows are powered by the packaged Rust `gummy_canvas` runtime. On
+desktop builds, native windows and input use the SDL3-backed runtime.
 
 ## Install
 
@@ -22,7 +23,9 @@ pip install gummy-snake
 
 Published wheels include the required Rust `gummy_canvas` canvas runtime. Source
 or editable installs must build that PyO3 module; there is no Python renderer
-fallback for canvas-owned behavior.
+fallback for canvas-owned behavior. Local development builds compile SDL3 from
+source/static through Rust when native interactive support is enabled, so no
+separate system SDL3 install is normally required.
 
 Install optional media helpers when you need camera, video, or sound-related
 extras:
@@ -88,8 +91,8 @@ async def preload() -> None:
   `Sketch` subclasses.
 - Image and pixel experiments, including canvas export.
 - Text, font measurement, and accessibility descriptions.
-- Interactive sketches with mouse, keyboard, and touch state when native window
-  support is available.
+- Interactive sketches with SDL3-backed native windows, mouse, keyboard, and
+  touch state when native window support is available.
 - Software 3D sketches with primitives, lights, materials, models, textures,
   and shader objects on the current Rust-backed software 3D path.
 - Small games and visual toys using the examples as starting points.
@@ -143,7 +146,9 @@ The refactored Python package is split by responsibility: public API modules in
 `src/gummysnake/api/`, `SketchContext` mixins in `src/gummysnake/_context/`,
 lifecycle code in `src/gummysnake/sketch/`, enum-backed constants in
 `src/gummysnake/constants/`, and thin canvas backend/renderer facades over the
-implementation modules in `src/gummysnake/backend/_canvas/`.
+implementation modules in `src/gummysnake/backend/_canvas/`. The native desktop
+runtime itself lives in `crates/gummy_canvas` and uses SDL3 for windowing,
+resizing, and input event collection.
 
 The contributor documentation explains the architecture, lifecycle, testing
 workflow, and release shape in more detail:

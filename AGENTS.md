@@ -25,7 +25,10 @@ user sketch
 
 `gummysnake.rust._canvas` owns drawing, presentation, image asset loading/saving,
 image-local byte operations, media frame conversion, text, pixels, export, and
-native window/input support when built with those capabilities.
+native window/input support when built with those capabilities. The current
+native desktop window/input runtime is SDL3-backed inside `crates/gummy_canvas`; do
+not reintroduce winit/Tao window loops as the primary interactive path without an
+explicit user request and a new experiment plan.
 Current `WEBGL` support is a Rust-backed software 3D path presented through the
 canvas runtime, not native accelerated 3D. Backend capabilities distinguish
 `software_three_d`, `native_three_d`, `shaders`, and `native_shaders`; do not
@@ -40,8 +43,11 @@ Important consequences:
 - `headless=False` or `--interactive` requests native interactive canvas behavior where the installed runtime supports it.
 - Missing canvas runtime should raise clear Gummy Snake capability errors with rebuild guidance; do not add alternate Python runtime paths.
 - Missing native-window support should raise clear Gummy Snake capability errors when interactive behavior is requested.
+- SDL3 mouse, wheel, and touch coordinates are logical/window coordinates. Rust event payloads should mark them with `coordinates = "logical"` so Python does not divide them by pixel density a second time. Preserve HiDPI input behavior when touching event code.
+- Normalize one-character SDL3 key names to lowercase before exposing them to Python so `KeyboardEvent.matches("l")` and similar lifecycle controls remain stable.
 - `gummysnake.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
+- The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn after text/images must remain visible.
 
 The Python public API must not expose Rust internals or depend on a concrete renderer in user-facing functions.
 
@@ -210,7 +216,7 @@ For the current implementation this means:
 - `src/gummysnake/backend/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins in `src/gummysnake/backend/_canvas/renderer/`.
 - `CanvasRenderer` translates Python state into bridge payloads and mirrors canvas dimensions.
 - `gummysnake.rust.canvas` handles optional import, health checks, ABI validation, and clear capability failures.
-- `crates/gummy_canvas` owns the native runtime and rendering implementation.
+- `crates/gummy_canvas` owns the native SDL3 runtime and rendering implementation.
 
 ### Preserve HiDPI Semantics
 
@@ -219,6 +225,7 @@ Gummy Snake distinguishes logical canvas dimensions from physical backing-buffer
 - `width()` and `height()` report logical sketch dimensions.
 - `pixel_density()` controls physical backing scale.
 - `display_density()` reports native display scale when available.
+- SDL3 pointer/touch events arrive in logical/window coordinates and must remain logical at the Python boundary.
 - `load_pixels()` and `update_pixels()` operate on physical top-left-oriented RGBA buffers.
 - `load_pixel_bytes()` is the lower-copy readback path for pixel workflows that do not need a list.
 

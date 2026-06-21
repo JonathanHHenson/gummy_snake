@@ -39,14 +39,14 @@ the top-level keys in tests and docs.
 
 | Public operation or state | Typical path | Cost boundary | Preferred pattern |
 | --- | --- | --- | --- |
-| `background()`, `clear()`, basic primitives with `BLEND` | GPU-oriented draw | Low synchronization pressure | Keep normal style state for dense primitive loops. |
+| `background()`, `clear()`, basic primitives with `BLEND` | GPU-oriented draw | Low synchronization pressure | Keep normal style state for dense primitive loops; primitives must remain visible after text/image commands. |
 | Batched `line()` calls with same style/transform | Batched GPU-oriented draw | Low bridge overhead | Use `gs.fast()` or local method bindings in dense loops. |
 | Non-`BLEND` blend modes | CPU compositing fallback | May read/merge/upload pixel regions | Use sparingly in animation hot loops; isolate blended layers when possible. |
 | `erase()` / `no_erase()` drawing | CPU compositing fallback | Requires alpha-modifying pixel work | Prefer normal alpha drawing unless erasure semantics are required. |
 | Loaded images drawn unchanged | Cached texture path | First draw uploads, later draws reuse | Reuse `Image` objects and avoid per-frame mutation. |
 | Mutated images drawn each frame | Texture upload path | Uploads changed image data | Batch mutations or draw with primitives when possible. |
 | Rotated/scaled images | GPU texture path when cached; CPU fallback when unsupported | First texture upload, then draw cost | Reuse images; avoid changing pixels while transforming. |
-| Text drawing and metrics | Native text/cache path | First glyph/metric use is expensive | Reuse text strings/styles where practical. |
+| Text drawing and metrics | Native text/cache path using the image/texture pipeline | First glyph/metric use is expensive; mixed text then primitive drawing exercises GPU pipeline switching | Reuse text strings/styles where practical and validate primitives after text when changing renderer batching. |
 | `load_pixels()` / `pixels()` | Readback plus list conversion | Synchronizes canvas data and allocates Python list | Use `load_pixel_bytes()` for bytes workflows. |
 | `load_pixel_bytes()` | Byte readback | Synchronizes canvas data but does not populate `context.pixels` | Keep data as `bytes`/`memoryview` and pass it back to bulk APIs when possible. |
 | `update_pixels()` | Full pixel upload | Sends entire physical RGBA buffer | Use bytes-like inputs and avoid per-frame full-canvas uploads. |
@@ -86,13 +86,16 @@ Use a desktop build with native window support.
        gs.enable_frame_pacing_diagnostics()
    ```
 
-3. Exercise `loop()`, `no_loop()`, `redraw()`, resize the window if supported,
-   and move/press input devices for at least 30 seconds.
+3. Exercise `loop()`, `no_loop()`, `redraw()`, resize the SDL3 window if supported,
+   and move/press input devices for at least 30 seconds. Include a sketch that
+   draws text before primitives, such as `examples/05_interaction/lifecycle_controls.py`,
+   to validate mixed image/text and primitive GPU ordering.
 
 4. Inspect `frame_pacing_diagnostics()` after closing or through a debug print.
-   Check that input remains responsive, idle sketches do not busy-wait, and
-   frame intervals are close to the target frame rate except during intentional
-   resize or heavy rendering work.
+   Check that input remains responsive, close requests are observed, idle
+   sketches do not busy-wait, primitives drawn after text/images remain visible,
+   and frame intervals are close to the target frame rate except during
+   intentional resize or heavy rendering work.
 
 5. If frame intervals drift upward, compare renderer counters for readback,
    upload, CPU fallback, and text/image cache misses before changing scheduling
