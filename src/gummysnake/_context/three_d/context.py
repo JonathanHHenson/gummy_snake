@@ -1,0 +1,125 @@
+"""3D camera, lighting, material, shader, and model methods for SketchContext."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Any, cast
+
+from gummysnake import constants as c
+from gummysnake._context.three_d.camera import ThreeDCameraMixin
+from gummysnake._context.three_d.material import ThreeDMaterialMixin
+from gummysnake._context.three_d.model import ThreeDModelMixin
+from gummysnake._context.three_d.primitives import ThreeDPrimitivesMixin
+from gummysnake.core.color import Color
+from gummysnake.drawing.renderer3d import (
+    Camera3D,
+    Light3D,
+    Material3D,
+    OrthographicProjection,
+    PerspectiveProjection,
+    Shader3D,
+    Texture3D,
+)
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+
+_MATERIAL_UNSET = object()
+
+
+class ThreeDContextMixin(
+    ThreeDCameraMixin,
+    ThreeDMaterialMixin,
+    ThreeDPrimitivesMixin,
+    ThreeDModelMixin,
+):
+    """Composed 3D API surface mixed into SketchContext."""
+
+    state: Any
+    _camera3d: Camera3D
+    _projection3d: PerspectiveProjection | OrthographicProjection
+    _lights3d: list[Light3D]
+    _material3d: Material3D | None
+    _normal_material3d: bool
+    _material3d_style_stack: list[tuple[Material3D | None, bool]]
+    _shader3d: Shader3D | None
+    _frame_mouse_dx: float
+    _frame_mouse_dy: float
+    _frame_scroll_x: float
+    _frame_scroll_y: float
+
+    def color(self, *args: object) -> Color:
+        raise NotImplementedError
+
+    def _require_webgl_mode(self, api_name: str) -> None:
+        if self.state.canvas.renderer != c.WEBGL:
+            raise BackendCapabilityError(
+                f"{api_name}() requires create_canvas(..., renderer={c.WEBGL!r})."
+            )
+
+    def _reset_3d_state(self) -> None:
+        self._camera3d = Camera3D()
+        self._projection3d = PerspectiveProjection()
+        self._lights3d = []
+        self._material3d = None
+        self._normal_material3d = False
+        self._material3d_style_stack = []
+        self._frame_mouse_dx = 0.0
+        self._frame_mouse_dy = 0.0
+        self._frame_scroll_x = 0.0
+        self._frame_scroll_y = 0.0
+        self._shader3d = None
+
+    def _effective_3d_material(self) -> Material3D:
+        if self._material3d is not None:
+            return self._material3d
+        fill = self.state.style.fill_color or Color(255, 255, 255, 255)
+        return Material3D(base_color=self._color_to_rgba(fill))
+
+    def _replace_material(
+        self,
+        *,
+        base_color: tuple[float, float, float, float] | None = None,
+        specular_color: tuple[float, float, float, float] | None = None,
+        shininess: float | None = None,
+        texture: Texture3D | None | object = _MATERIAL_UNSET,
+    ) -> Material3D:
+        current = self._effective_3d_material()
+        return Material3D(
+            base_color=current.base_color if base_color is None else base_color,
+            emissive_color=current.emissive_color,
+            specular_color=current.specular_color if specular_color is None else specular_color,
+            shininess=current.shininess if shininess is None else shininess,
+            texture=current.texture
+            if texture is _MATERIAL_UNSET
+            else cast(Texture3D | None, texture),
+        )
+
+    def _split_color_args(
+        self,
+        args: Sequence[object],
+        *,
+        tail_count: int,
+    ) -> tuple[Color, tuple[float, ...]]:
+        for color_count in (4, 3, 2, 1):
+            if len(args) != color_count + tail_count:
+                continue
+            color = self.color(*args[:color_count])
+            tail = args[color_count:]
+            if all(isinstance(value, int | float) for value in tail):
+                return color, self._numeric_values(tail)
+        raise ArgumentValidationError(
+            "Light APIs require one to four color values followed by the expected coordinates."
+        )
+
+    def _numeric_values(self, values: Sequence[object]) -> tuple[float, ...]:
+        numeric: list[float] = []
+        for value in values:
+            if not isinstance(value, int | float):
+                raise ArgumentValidationError("Expected numeric values.")
+            numeric.append(float(value))
+        return tuple(numeric)
+
+    def _color_to_rgba(self, color: Color) -> tuple[float, float, float, float]:
+        return (color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0)
+
+    def _rgba_float_to_color(self, rgba: tuple[float, float, float, float]) -> Color:
+        return Color(*(int(round(max(0.0, min(1.0, channel)) * 255.0)) for channel in rgba))

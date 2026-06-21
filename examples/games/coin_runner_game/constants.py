@@ -1,0 +1,22 @@
+"""Constants for the Coin Runner example."""
+
+from pathlib import Path
+
+ASSETS = Path("examples/assets")
+OUTPUT = Path("examples/output/games/coin_runner.png")
+
+CANVAS_WIDTH = 760
+CANVAS_HEIGHT = 420
+GROUND_TOP = 340.0
+GROUND_Y = GROUND_TOP - 33.0
+RUNNER_X = 132.0
+RUNNER_WIDTH = 48.0
+RUNNER_HEIGHT = 66.0
+GRAVITY = 0.68
+JUMP_GRAVITY = 1.55
+JUMP_SPEED = -15.0
+JUMP_BUFFER_FRAMES = 7
+GROUNDED_GRACE_FRAMES = 5
+MAX_FALL_SPEED = 16.0
+START_SAFE_DISTANCE = 1200.0
+WORLD_LENGTH = 2800.0
