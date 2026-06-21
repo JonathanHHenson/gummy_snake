@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from typing import cast
+from typing import Any, cast
 
 from gummysnake import constants as c
 from gummysnake.api.current import require_context
@@ -32,8 +32,8 @@ def pushed() -> Iterator[None]:
 @contextmanager
 def style(
     *,
-    fill: object = _UNSET,
-    stroke: object = _UNSET,
+    fill: Any = _UNSET,
+    stroke: Any = _UNSET,
     stroke_weight: float | None = None,
     stroke_cap: c.StrokeCap | None = None,
     stroke_join: c.StrokeJoin | None = None,
@@ -48,11 +48,11 @@ def style(
         if fill is None:
             context.no_fill()
         elif fill is not _UNSET:
-            context.fill(*style_color_args(fill))
+            cast(Any, context).fill(*style_color_args(fill))
         if stroke is None:
             context.no_stroke()
         elif stroke is not _UNSET:
-            context.stroke(*style_color_args(stroke))
+            cast(Any, context).stroke(*style_color_args(stroke))
         if stroke_weight is not None:
             context.stroke_weight(stroke_weight)
         if stroke_cap is not None:
@@ -74,7 +74,7 @@ def style(
 
 @contextmanager
 def transform(
-    *, translate: object = _UNSET, rotate: float | None = None, scale: object = _UNSET
+    *, translate: Any = _UNSET, rotate: float | None = None, scale: Any = _UNSET
 ) -> Iterator[None]:
     context = require_context()
     context.push()
@@ -115,8 +115,8 @@ def shear_y(angle: float) -> None:
     require_context().shear_y(angle)
 
 
-def apply_matrix(*values: float) -> None:
-    require_context().apply_matrix(*values)
+def apply_matrix(a: float, b: float, c: float, d: float, e: float, f: float) -> None:
+    require_context().apply_matrix(a, b, c, d, e, f)
 
 
 def reset_matrix() -> None:

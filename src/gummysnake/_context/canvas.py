@@ -140,7 +140,7 @@ class CanvasContextMixin:
         self._performance_diagnostic_messages.clear()
         self._performance_diagnostic_image_versions.clear()
 
-    def performance_diagnostics(self) -> dict[str, object]:
+    def performance_diagnostics(self) -> dict[str, Any]:
         return {
             "enabled": self._performance_diagnostics_enabled,
             "counters": dict(self._performance_diagnostic_counts),
@@ -148,7 +148,7 @@ class CanvasContextMixin:
             "renderer": self.renderer_performance_counters(),
         }
 
-    def renderer_performance_counters(self) -> dict[str, object]:
+    def renderer_performance_counters(self) -> dict[str, Any]:
         callback = getattr(self.renderer, "performance_counters", None)
         if callable(callback):
             counters = callback()
@@ -166,7 +166,7 @@ class CanvasContextMixin:
         if callable(callback):
             callback(enabled, reset=reset)
 
-    def frame_pacing_diagnostics(self) -> dict[str, object]:
+    def frame_pacing_diagnostics(self) -> dict[str, Any]:
         callback = getattr(self.backend, "frame_pacing_diagnostics", None)
         if callable(callback):
             report = callback()

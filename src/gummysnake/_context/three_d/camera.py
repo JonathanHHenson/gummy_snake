@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, cast
+from typing import Any, cast, overload
 
 from gummysnake._context.three_d._protocols import ThreeDContextHost
 from gummysnake.drawing.renderer3d import (
@@ -14,8 +14,10 @@ from gummysnake.drawing.renderer3d import (
 )
 from gummysnake.exceptions import ArgumentValidationError
 
+Number = int | float
 
-def _three_d(self: object) -> ThreeDContextHost:
+
+def _three_d(self: Any) -> ThreeDContextHost:
     return cast(ThreeDContextHost, self)
 
 
@@ -36,10 +38,52 @@ class ThreeDCameraMixin:
     def height(self) -> int:
         raise NotImplementedError
 
-    def create_camera(self, *args: object) -> Camera3D:
+    @overload
+    def create_camera(self) -> Camera3D: ...
+
+    @overload
+    def create_camera(self, camera: Camera3D, /) -> Camera3D: ...
+
+    @overload
+    def create_camera(
+        self,
+        eye_x: Number,
+        eye_y: Number,
+        eye_z: Number,
+        center_x: Number,
+        center_y: Number,
+        center_z: Number,
+        up_x: Number,
+        up_y: Number,
+        up_z: Number,
+        /,
+    ) -> Camera3D: ...
+
+    def create_camera(self, *args: Any) -> Camera3D:
         return self.camera(*args)
 
-    def camera(self, *args: object) -> Camera3D:
+    @overload
+    def camera(self) -> Camera3D: ...
+
+    @overload
+    def camera(self, camera: Camera3D, /) -> Camera3D: ...
+
+    @overload
+    def camera(
+        self,
+        eye_x: Number,
+        eye_y: Number,
+        eye_z: Number,
+        center_x: Number,
+        center_y: Number,
+        center_z: Number,
+        up_x: Number,
+        up_y: Number,
+        up_z: Number,
+        /,
+    ) -> Camera3D: ...
+
+    def camera(self, *args: Any) -> Camera3D:
         _three_d(self)._require_webgl_mode("camera")
         if len(args) == 0:
             camera = Camera3D()
@@ -59,7 +103,26 @@ class ThreeDCameraMixin:
         self._camera3d = camera
         return camera
 
-    def perspective(self, *args: object) -> PerspectiveProjection:
+    @overload
+    def perspective(self) -> PerspectiveProjection: ...
+
+    @overload
+    def perspective(self, fov: Number, /) -> PerspectiveProjection: ...
+
+    @overload
+    def perspective(self, fov: Number, aspect: Number, /) -> PerspectiveProjection: ...
+
+    @overload
+    def perspective(
+        self, fov: Number, aspect: Number, near: Number, /
+    ) -> PerspectiveProjection: ...
+
+    @overload
+    def perspective(
+        self, fov: Number, aspect: Number, near: Number, far: Number, /
+    ) -> PerspectiveProjection: ...
+
+    def perspective(self, *args: Any) -> PerspectiveProjection:
         _three_d(self)._require_webgl_mode("perspective")
         if len(args) > 4 or not all(isinstance(value, int | float) for value in args):
             raise ArgumentValidationError(
@@ -76,7 +139,18 @@ class ThreeDCameraMixin:
         self._projection3d = projection
         return projection
 
-    def ortho(self, *args: object) -> OrthographicProjection:
+    @overload
+    def ortho(self) -> OrthographicProjection: ...
+
+    @overload
+    def ortho(self, width: Number, height: Number, /) -> OrthographicProjection: ...
+
+    @overload
+    def ortho(
+        self, width: Number, height: Number, near: Number, far: Number, /
+    ) -> OrthographicProjection: ...
+
+    def ortho(self, *args: Any) -> OrthographicProjection:
         _three_d(self)._require_webgl_mode("ortho")
         if len(args) not in {0, 2, 4} or not all(isinstance(value, int | float) for value in args):
             raise ArgumentValidationError(
@@ -93,7 +167,21 @@ class ThreeDCameraMixin:
         self._projection3d = projection
         return projection
 
-    def orbit_control(self, *args: object) -> Camera3D:
+    @overload
+    def orbit_control(self) -> Camera3D: ...
+
+    @overload
+    def orbit_control(self, sensitivity_x: Number, /) -> Camera3D: ...
+
+    @overload
+    def orbit_control(self, sensitivity_x: Number, sensitivity_y: Number, /) -> Camera3D: ...
+
+    @overload
+    def orbit_control(
+        self, sensitivity_x: Number, sensitivity_y: Number, sensitivity_z: Number, /
+    ) -> Camera3D: ...
+
+    def orbit_control(self, *args: Any) -> Camera3D:
         _three_d(self)._require_webgl_mode("orbit_control")
         if len(args) > 3 or not all(isinstance(value, int | float) for value in args):
             raise ArgumentValidationError(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from gummysnake._context.three_d._protocols import ThreeDContextHost
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D
@@ -21,7 +21,7 @@ from gummysnake.drawing.software3d import save_stl as save_stl_model
 from gummysnake.exceptions import ArgumentValidationError
 
 
-def _three_d(self: object) -> ThreeDContextHost:
+def _three_d(self: Any) -> ThreeDContextHost:
     return cast(ThreeDContextHost, self)
 
 
@@ -109,7 +109,7 @@ class ThreeDPrimitivesMixin:
             )
         )
 
-    def create_model(self, mesh: object) -> Model3D:
+    def create_model(self, mesh: Mesh3D | Model3D) -> Model3D:
         if isinstance(mesh, Model3D):
             return mesh
         if isinstance(mesh, Mesh3D):

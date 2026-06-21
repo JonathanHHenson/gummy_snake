@@ -133,6 +133,17 @@ class Image(ImageDeferredMixin):
             "deferred until the Rust canvas runtime exposes image-level density semantics."
         )
 
+    @overload
+    def copy(self) -> Image: ...
+
+    @overload
+    def copy(self, sx: int, sy: int, sw: int, sh: int, /) -> Image: ...
+
+    @overload
+    def copy(
+        self, sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /
+    ) -> Image: ...
+
     def copy(self, *args: int) -> Image:
         if not args:
             return Image(self._rust_image.copy())

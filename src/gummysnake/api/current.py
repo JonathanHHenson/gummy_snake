@@ -5,14 +5,16 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.exceptions import ContextError
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
 
-_ACTIVE_CONTEXT: ContextVar[object | None] = ContextVar("gummysnake_active_context", default=None)
+_ACTIVE_CONTEXT: ContextVar[Any | None] = ContextVar(
+    "gummysnake_active_context", default=None
+)
 
 
 def get_active_context() -> SketchContext | None:
@@ -30,7 +32,7 @@ def require_context() -> SketchContext:
 
 
 @contextmanager
-def activate_context(context: object) -> Iterator[None]:
+def activate_context(context: Any) -> Iterator[None]:
     token = _ACTIVE_CONTEXT.set(context)
     try:
         yield

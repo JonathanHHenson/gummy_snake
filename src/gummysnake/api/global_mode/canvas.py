@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast, overload
 
 from gummysnake import constants as c
 from gummysnake._fast_draw import FastDrawScope
 from gummysnake.api.current import require_context
 from gummysnake.core.color import Color
+
+Number = int | float
+ColorValue = Color | str
 
 
 def create_canvas(
@@ -48,11 +51,11 @@ def reset_performance_diagnostics() -> None:
     require_context().reset_performance_diagnostics()
 
 
-def performance_diagnostics() -> dict[str, object]:
+def performance_diagnostics() -> dict[str, Any]:
     return require_context().performance_diagnostics()
 
 
-def renderer_performance_counters() -> dict[str, object]:
+def renderer_performance_counters() -> dict[str, Any]:
     return require_context().renderer_performance_counters()
 
 
@@ -64,7 +67,7 @@ def enable_frame_pacing_diagnostics(enabled: bool = True, *, reset: bool = True)
     require_context().enable_frame_pacing_diagnostics(enabled, reset=reset)
 
 
-def frame_pacing_diagnostics() -> dict[str, object]:
+def frame_pacing_diagnostics() -> dict[str, Any]:
     return require_context().frame_pacing_diagnostics()
 
 
@@ -72,36 +75,122 @@ def reset_frame_pacing_diagnostics() -> None:
     require_context().reset_frame_pacing_diagnostics()
 
 
-def background(*args: object) -> None:
-    require_context().background(*args)
+@overload
+def background(value: ColorValue, /) -> None: ...
+
+
+@overload
+def background(gray: Number, /) -> None: ...
+
+
+@overload
+def background(gray: Number, alpha: Number, /) -> None: ...
+
+
+@overload
+def background(v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+
+@overload
+def background(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+
+def background(*args: Any) -> None:
+    cast(Any, require_context()).background(*args)
 
 
 def clear() -> None:
     require_context().clear()
 
 
-def color(*args: object) -> Color:
-    return require_context().color(*args)
+@overload
+def color(value: ColorValue, /) -> Color: ...
 
 
-def color_mode(*args: Any) -> None:
-    require_context().color_mode(*args)
+@overload
+def color(gray: Number, /) -> Color: ...
 
 
-def lerp_color(*args: Any) -> Color:
-    return require_context().lerp_color(*args)
+@overload
+def color(gray: Number, alpha: Number, /) -> Color: ...
 
 
-def fill(*args: object) -> None:
-    require_context().fill(*args)
+@overload
+def color(v1: Number, v2: Number, v3: Number, /) -> Color: ...
+
+
+@overload
+def color(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> Color: ...
+
+
+def color(*args: Any) -> Color:
+    return cast(Color, cast(Any, require_context()).color(*args))
+
+
+def color_mode(
+    mode: c.ColorMode,
+    max1: float | None = None,
+    max2: float | None = None,
+    max3: float | None = None,
+    max_alpha: float | None = None,
+) -> None:
+    require_context().color_mode(mode, max1, max2, max3, max_alpha)
+
+
+def lerp_color(start: Color, stop: Color, amount: float) -> Color:
+    return require_context().lerp_color(start, stop, amount)
+
+
+@overload
+def fill(value: ColorValue, /) -> None: ...
+
+
+@overload
+def fill(gray: Number, /) -> None: ...
+
+
+@overload
+def fill(gray: Number, alpha: Number, /) -> None: ...
+
+
+@overload
+def fill(v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+
+@overload
+def fill(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+
+def fill(*args: Any) -> None:
+    cast(Any, require_context()).fill(*args)
 
 
 def no_fill() -> None:
     require_context().no_fill()
 
 
-def stroke(*args: object) -> None:
-    require_context().stroke(*args)
+@overload
+def stroke(value: ColorValue, /) -> None: ...
+
+
+@overload
+def stroke(gray: Number, /) -> None: ...
+
+
+@overload
+def stroke(gray: Number, alpha: Number, /) -> None: ...
+
+
+@overload
+def stroke(v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+
+@overload
+def stroke(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+
+def stroke(*args: Any) -> None:
+    cast(Any, require_context()).stroke(*args)
 
 
 def no_stroke() -> None:

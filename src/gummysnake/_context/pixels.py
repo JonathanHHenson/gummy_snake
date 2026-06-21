@@ -223,7 +223,38 @@ class PixelContextMixin:
         self.state.style.blend_mode = mode
         self._mark_style_changed()
 
-    def blend(self, *args: object) -> None:
+    @overload
+    def blend(
+        self,
+        sx: int,
+        sy: int,
+        sw: int,
+        sh: int,
+        dx: int,
+        dy: int,
+        dw: int,
+        dh: int,
+        mode: c.BlendMode,
+        /,
+    ) -> None: ...
+
+    @overload
+    def blend(
+        self,
+        image: Image,
+        sx: int,
+        sy: int,
+        sw: int,
+        sh: int,
+        dx: int,
+        dy: int,
+        dw: int,
+        dh: int,
+        mode: c.BlendMode,
+        /,
+    ) -> None: ...
+
+    def blend(self, *args: Any) -> None:
         parsed = blend_args(
             args,
             self.backend.capabilities.blend_modes,

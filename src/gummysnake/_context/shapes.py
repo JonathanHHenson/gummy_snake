@@ -68,18 +68,26 @@ class ShapeContextMixin:
             self.state.transform.matrix,
         )
 
-    def quad(self, *coords: float) -> None:
-        if len(coords) != 8:
-            raise ArgumentValidationError("quad() requires eight coordinate values.")
+    def quad(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        x4: float,
+        y4: float,
+    ) -> None:
         self.renderer.quad(
-            float(coords[0]),
-            float(coords[1]),
-            float(coords[2]),
-            float(coords[3]),
-            float(coords[4]),
-            float(coords[5]),
-            float(coords[6]),
-            float(coords[7]),
+            float(x1),
+            float(y1),
+            float(x2),
+            float(y2),
+            float(x3),
+            float(y3),
+            float(x4),
+            float(y4),
             self.state.style,
             self.state.transform.matrix,
         )
@@ -152,13 +160,21 @@ class ShapeContextMixin:
         p1 = vertices[-1]
         vertices.extend(flatten_spline(p0, p1, point, point, tightness=self._spline_tightness))
 
-    def spline(self, *coords: float) -> None:
-        if len(coords) != 8:
-            raise ArgumentValidationError("spline() requires eight coordinate values.")
-        p0 = (float(coords[0]), float(coords[1]))
-        p1 = (float(coords[2]), float(coords[3]))
-        p2 = (float(coords[4]), float(coords[5]))
-        p3 = (float(coords[6]), float(coords[7]))
+    def spline(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        x4: float,
+        y4: float,
+    ) -> None:
+        p0 = (float(x1), float(y1))
+        p1 = (float(x2), float(y2))
+        p2 = (float(x3), float(y3))
+        p3 = (float(x4), float(y4))
         previous_fill = self.state.style.fill_color
         self.state.style.fill_color = None
         cast(SketchContextHost, self)._mark_style_changed()
@@ -206,13 +222,21 @@ class ShapeContextMixin:
         self.state.shape.vertices.clear()
         self.state.shape.kind = None
 
-    def bezier(self, *coords: float) -> None:
-        if len(coords) != 8:
-            raise ArgumentValidationError("bezier() requires eight coordinate values.")
-        p0 = (float(coords[0]), float(coords[1]))
-        p1 = (float(coords[2]), float(coords[3]))
-        p2 = (float(coords[4]), float(coords[5]))
-        p3 = (float(coords[6]), float(coords[7]))
+    def bezier(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        x4: float,
+        y4: float,
+    ) -> None:
+        p0 = (float(x1), float(y1))
+        p1 = (float(x2), float(y2))
+        p2 = (float(x3), float(y3))
+        p3 = (float(x4), float(y4))
         previous_fill = self.state.style.fill_color
         self.state.style.fill_color = None
         cast(SketchContextHost, self)._mark_style_changed()

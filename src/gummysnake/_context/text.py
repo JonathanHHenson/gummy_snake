@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from gummysnake import constants as c
 from gummysnake._context._protocols import SketchContextHost
 from gummysnake.assets.text import Font
 from gummysnake.exceptions import ArgumentValidationError
+
+
+class SupportsText(Protocol):
+    def __str__(self) -> str: ...
 
 
 class TextContextMixin:
@@ -18,7 +22,7 @@ class TextContextMixin:
     _text_weight: int
     _accessibility_descriptions: list[dict[str, str]]
 
-    def text(self, value: object, x: float, y: float) -> None:
+    def text(self, value: SupportsText, x: float, y: float) -> None:
         self.renderer.text(
             str(value), float(x), float(y), self.state.style, self.state.transform.matrix
         )
@@ -66,7 +70,7 @@ class TextContextMixin:
             cast(SketchContextHost, self)._mark_style_changed()
         return self.state.style.text_leading
 
-    def text_width(self, value: object) -> float:
+    def text_width(self, value: SupportsText) -> float:
         return self.renderer.text_width(str(value), self.state.style)
 
     def text_ascent(self) -> float:
@@ -93,7 +97,7 @@ class TextContextMixin:
         cast(SketchContextHost, self)._mark_style_changed()
         return value
 
-    def font_width(self, value: object, font: Font | str | None = None) -> float:
+    def font_width(self, value: SupportsText, font: Font | str | None = None) -> float:
         previous = self.state.style.text_font
         if font is not None:
             self.text_font(font)
@@ -102,14 +106,18 @@ class TextContextMixin:
         cast(SketchContextHost, self)._mark_style_changed()
         return width
 
-    def text_bounds(self, value: object, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
+    def text_bounds(self, value: SupportsText, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
         width = self.text_width(value)
         ascent = self.text_ascent()
         descent = self.text_descent()
         return {"x": float(x), "y": float(y) - ascent, "width": width, "height": ascent + descent}
 
     def font_bounds(
-        self, value: object, x: float = 0.0, y: float = 0.0, font: Font | str | None = None
+        self,
+        value: SupportsText,
+        x: float = 0.0,
+        y: float = 0.0,
+        font: Font | str | None = None,
     ) -> dict[str, float]:
         previous = self.state.style.text_font
         if font is not None:
@@ -143,7 +151,7 @@ class TextContextMixin:
                 cast(SketchContextHost, self)._mark_style_changed()
         return self._text_weight
 
-    def text_property(self, name: str, value: Any | None = None) -> object:
+    def text_property(self, name: str, value: Any | None = None) -> Any:
         if name == "direction":
             return self.text_direction(None if value is None else str(value))
         if name == "wrap":
@@ -152,7 +160,7 @@ class TextContextMixin:
             return self.text_weight(None if value is None else int(value))
         raise ArgumentValidationError("Unsupported text property.")
 
-    def text_properties(self, **properties: Any) -> dict[str, object]:
+    def text_properties(self, **properties: Any) -> dict[str, Any]:
         for name, value in properties.items():
             self.text_property(name, value)
         return {
@@ -164,12 +172,12 @@ class TextContextMixin:
             "leading": self.state.style.text_leading,
         }
 
-    def describe(self, description: object, *, label: str = "canvas") -> dict[str, str]:
+    def describe(self, description: SupportsText, *, label: str = "canvas") -> dict[str, str]:
         entry = {"label": str(label), "description": str(description)}
         self._accessibility_descriptions.append(entry)
         return entry
 
-    def describe_element(self, name: object, description: object) -> dict[str, str]:
+    def describe_element(self, name: SupportsText, description: SupportsText) -> dict[str, str]:
         return self.describe(description, label=str(name))
 
     def text_output(self) -> list[dict[str, str]]:

@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import cast
+from typing import Any, cast
 
 _UNSET = object()
 
 
-def style_color_args(value: object) -> tuple[object, ...]:
+def style_color_args(value: Any) -> tuple[Any, ...]:
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         return tuple(value)
     return (value,)
 
 
-def xy(value: object, y: float | None = None) -> tuple[float, float]:
+def xy(value: Any, y: float | None = None) -> tuple[float, float]:
     if y is not None:
         return float(cast(float, value)), float(y)
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):

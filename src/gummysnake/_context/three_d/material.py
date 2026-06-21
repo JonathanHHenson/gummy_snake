@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, overload
 
 from gummysnake._context.three_d._protocols import ThreeDContextHost
 from gummysnake.assets.image import Image
+from gummysnake.core.color import Color
 from gummysnake.drawing.renderer3d import (
     Light3D,
     LightKind,
@@ -22,8 +23,11 @@ from gummysnake.exceptions import (
     ShaderUniformError,
 )
 
+Number = int | float
+ColorValue = Color | str
 
-def _three_d(self: object) -> ThreeDContextHost:
+
+def _three_d(self: Any) -> ThreeDContextHost:
     return cast(ThreeDContextHost, self)
 
 
@@ -35,12 +39,56 @@ class ThreeDMaterialMixin:
     _normal_material3d: bool
     _shader3d: Shader3D | None
 
-    def ambient_light(self, *args: object) -> None:
+    @overload
+    def ambient_light(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def ambient_light(self, gray: Number, /) -> None: ...
+
+    @overload
+    def ambient_light(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def ambient_light(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def ambient_light(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def ambient_light(self, *args: Any) -> None:
         _three_d(self)._require_webgl_mode("ambient_light")
         color = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
         self._lights3d.append(Light3D(kind=LightKind.AMBIENT, color=color))
 
-    def directional_light(self, *args: object) -> None:
+    @overload
+    def directional_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None: ...
+
+    @overload
+    def directional_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None: ...
+
+    @overload
+    def directional_light(
+        self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
+    ) -> None: ...
+
+    @overload
+    def directional_light(
+        self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
+    ) -> None: ...
+
+    @overload
+    def directional_light(
+        self,
+        v1: Number,
+        v2: Number,
+        v3: Number,
+        alpha: Number,
+        x: Number,
+        y: Number,
+        z: Number,
+        /,
+    ) -> None: ...
+
+    def directional_light(self, *args: Any) -> None:
         _three_d(self)._require_webgl_mode("directional_light")
         color, tail = _three_d(self)._split_color_args(args, tail_count=3)
         self._lights3d.append(
@@ -51,7 +99,36 @@ class ThreeDMaterialMixin:
             )
         )
 
-    def point_light(self, *args: object) -> None:
+    @overload
+    def point_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None: ...
+
+    @overload
+    def point_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None: ...
+
+    @overload
+    def point_light(
+        self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
+    ) -> None: ...
+
+    @overload
+    def point_light(
+        self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
+    ) -> None: ...
+
+    @overload
+    def point_light(
+        self,
+        v1: Number,
+        v2: Number,
+        v3: Number,
+        alpha: Number,
+        x: Number,
+        y: Number,
+        z: Number,
+        /,
+    ) -> None: ...
+
+    def point_light(self, *args: Any) -> None:
         _three_d(self)._require_webgl_mode("point_light")
         color, tail = _three_d(self)._split_color_args(args, tail_count=3)
         self._lights3d.append(
@@ -67,14 +144,44 @@ class ThreeDMaterialMixin:
         self._material3d = None
         self._normal_material3d = True
 
-    def ambient_material(self, *args: object) -> None:
+    @overload
+    def ambient_material(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def ambient_material(self, gray: Number, /) -> None: ...
+
+    @overload
+    def ambient_material(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def ambient_material(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def ambient_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def ambient_material(self, *args: Any) -> None:
         _three_d(self)._require_webgl_mode("ambient_material")
         self._material3d = _three_d(self)._replace_material(
             base_color=_three_d(self)._color_to_rgba(_three_d(self).color(*args)), texture=None
         )
         self._normal_material3d = False
 
-    def specular_material(self, *args: object) -> None:
+    @overload
+    def specular_material(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def specular_material(self, gray: Number, /) -> None: ...
+
+    @overload
+    def specular_material(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def specular_material(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def specular_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def specular_material(self, *args: Any) -> None:
         _three_d(self)._require_webgl_mode("specular_material")
         color = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
         self._material3d = _three_d(self)._replace_material(
@@ -125,10 +232,10 @@ class ThreeDMaterialMixin:
         _three_d(self)._require_webgl_mode("reset_shader")
         self._shader3d = None
 
-    def set_shader_uniform(self, name: str, value: object) -> None:
+    def set_shader_uniform(self, name: str, value: ShaderUniformValue) -> None:
         _three_d(self)._require_webgl_mode("set_shader_uniform")
         if self._shader3d is None:
             raise ShaderUniformError(
                 f"Cannot set uniform {name!r} without an active shader. Call shader(...) first."
             )
-        self._shader3d.set_uniform(name, cast("ShaderUniformValue", value))
+        self._shader3d.set_uniform(name, value)

@@ -27,7 +27,7 @@ class BlendArgs(NamedTuple):
     mode: c.BlendMode
 
 
-def coerce_int(value: object) -> int:
+def coerce_int(value: Any) -> int:
     if isinstance(value, str | int | float):
         return int(value)
     raise ArgumentValidationError(
@@ -80,7 +80,7 @@ def image_draw_args(
 
 
 def blend_args(
-    args: tuple[object, ...],
+    args: tuple[Any, ...],
     supported_modes: Container[c.BlendMode],
     *,
     backend_name: str,

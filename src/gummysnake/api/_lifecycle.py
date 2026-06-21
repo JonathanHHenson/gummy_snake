@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 
 from gummysnake import constants as c
 from gummysnake.context import SketchContext
@@ -34,29 +34,29 @@ def _caller_module_name() -> str:
     return str(caller_globals.get("__name__", "__main__"))
 
 
-def preload(callback: Callable[[], object]) -> Callable[[], object]:
+def preload(callback: Callable[[], Any]) -> Callable[[], Any]:
     return _module_builder(_caller_module_name()).preload(callback)
 
 
-def setup(callback: Callable[[], object]) -> Callable[[], object]:
+def setup(callback: Callable[[], Any]) -> Callable[[], Any]:
     return _module_builder(_caller_module_name()).setup(callback)
 
 
-def draw(callback: Callable[[], object]) -> Callable[[], object]:
+def draw(callback: Callable[[], Any]) -> Callable[[], Any]:
     return _module_builder(_caller_module_name()).draw(callback)
 
 
 def on(
     event_name: str | c.CallbackEventName | c.TouchEventName,
-) -> Callable[[Callable[..., object]], Callable[..., object]]:
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     return _module_builder(_caller_module_name()).on(event_name)
 
 
 def run(
     *,
-    preload: Callable[[], object] | None = None,
-    setup: Callable[[], object] | None = None,
-    draw: Callable[[], object] | None = None,
+    preload: Callable[[], Any] | None = None,
+    setup: Callable[[], Any] | None = None,
+    draw: Callable[[], Any] | None = None,
     mouse_moved: Callable[..., None] | None = None,
     mouse_dragged: Callable[..., None] | None = None,
     mouse_pressed: Callable[..., None] | None = None,
@@ -94,7 +94,7 @@ def run(
         "touch_ended": touch_ended,
         "touch_cancelled": touch_cancelled,
     }
-    event_callbacks: dict[str, Callable[..., object]] = {}
+    event_callbacks: dict[str, Callable[..., Any]] = {}
     decorated_event_callbacks = decorated.event_callbacks if decorated is not None else {}
     for name in EVENT_CALLBACK_NAMES:
         callback = (

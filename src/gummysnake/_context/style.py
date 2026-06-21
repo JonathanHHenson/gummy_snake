@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, overload
 
 from gummysnake import constants as c
 from gummysnake.core.color import Color, lerp_color
 from gummysnake.exceptions import ArgumentValidationError
+
+Number = int | float
+ColorValue = Color | str
 
 
 class StyleContextMixin:
@@ -16,10 +19,28 @@ class StyleContextMixin:
     def _mark_style_changed(self) -> None:
         self.state.style.mark_changed()
 
-    def color(self, *args: object) -> Color:
+    def _color_from_args(self, args: tuple[Any, ...]) -> Color:
         return Color.from_args(
             args, mode=self.state.color_mode.mode, ranges=self.state.color_mode.ranges
         )
+
+    @overload
+    def color(self, value: ColorValue, /) -> Color: ...
+
+    @overload
+    def color(self, gray: Number, /) -> Color: ...
+
+    @overload
+    def color(self, gray: Number, alpha: Number, /) -> Color: ...
+
+    @overload
+    def color(self, v1: Number, v2: Number, v3: Number, /) -> Color: ...
+
+    @overload
+    def color(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> Color: ...
+
+    def color(self, *args: Any) -> Color:
+        return self._color_from_args(args)
 
     def color_mode(
         self,
@@ -46,22 +67,67 @@ class StyleContextMixin:
     def lerp_color(self, start: Color, stop: Color, amount: float) -> Color:
         return lerp_color(start, stop, amount)
 
-    def background(self, *args: object) -> None:
-        self.renderer.background(self.color(*args))
+    @overload
+    def background(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def background(self, gray: Number, /) -> None: ...
+
+    @overload
+    def background(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def background(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def background(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def background(self, *args: Any) -> None:
+        self.renderer.background(self._color_from_args(args))
 
     def clear(self) -> None:
         self.renderer.clear()
 
-    def fill(self, *args: object) -> None:
-        self.state.style.fill_color = self.color(*args)
+    @overload
+    def fill(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def fill(self, gray: Number, /) -> None: ...
+
+    @overload
+    def fill(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def fill(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def fill(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def fill(self, *args: Any) -> None:
+        self.state.style.fill_color = self._color_from_args(args)
         self._mark_style_changed()
 
     def no_fill(self) -> None:
         self.state.style.fill_color = None
         self._mark_style_changed()
 
-    def stroke(self, *args: object) -> None:
-        self.state.style.stroke_color = self.color(*args)
+    @overload
+    def stroke(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def stroke(self, gray: Number, /) -> None: ...
+
+    @overload
+    def stroke(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def stroke(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def stroke(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def stroke(self, *args: Any) -> None:
+        self.state.style.stroke_color = self._color_from_args(args)
         self._mark_style_changed()
 
     def no_stroke(self) -> None:

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, overload
 
 from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.core.geometry import resolve_ellipse, resolve_rect
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
+
+
+class SupportsText(Protocol):
+    def __str__(self) -> str: ...
 
 
 class FastDrawScope:
@@ -91,15 +95,38 @@ class FastDrawScope:
     def circle(self, x: float, y: float, diameter: float) -> None:
         self.ellipse(x, y, diameter, diameter)
 
+    @overload
+    def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None: ...
+
+    @overload
+    def image(
+        self, image: Image | CanvasImage, x: float, y: float, width: float, height: float, /
+    ) -> None: ...
+
+    @overload
+    def image(
+        self,
+        image: Image | CanvasImage,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        sx: float,
+        sy: float,
+        sw: float,
+        sh: float,
+        /,
+    ) -> None: ...
+
     def image(self, image: Image | CanvasImage, x: float, y: float, *args: float) -> None:
         self._context._draw_image_fast(image, x, y, *args)
 
-    def text(self, value: object, x: float, y: float) -> None:
+    def text(self, value: SupportsText, x: float, y: float) -> None:
         context = self._context
         context.renderer.text(
             str(value), float(x), float(y), context.state.style, context.state.transform.matrix
         )
 
-    def text_width(self, value: object) -> float:
+    def text_width(self, value: SupportsText) -> float:
         context = self._context
         return context.renderer.text_width(str(value), context.state.style)

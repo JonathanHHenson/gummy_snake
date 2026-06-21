@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, cast, overload
 
 from gummysnake._context._protocols import SketchContextHost
 from gummysnake._context.helpers import image_draw_args
@@ -14,6 +14,29 @@ class ImageContextMixin:
     state: Any
     _performance_diagnostics_enabled: bool
     _performance_diagnostic_image_versions: dict[int, int]
+
+    @overload
+    def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None: ...
+
+    @overload
+    def image(
+        self, image: Image | CanvasImage, x: float, y: float, width: float, height: float, /
+    ) -> None: ...
+
+    @overload
+    def image(
+        self,
+        image: Image | CanvasImage,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        sx: float,
+        sy: float,
+        sw: float,
+        sh: float,
+        /,
+    ) -> None: ...
 
     def image(self, image: Image | CanvasImage, x: float, y: float, *args: float) -> None:
         self._draw_image_fast(image, x, y, *args)

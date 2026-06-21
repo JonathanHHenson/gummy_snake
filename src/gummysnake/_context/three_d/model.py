@@ -24,7 +24,7 @@ from gummysnake.drawing.software3d import (
 from gummysnake.exceptions import ArgumentValidationError
 
 
-def _three_d(self: object) -> ThreeDContextHost:
+def _three_d(self: Any) -> ThreeDContextHost:
     return cast(ThreeDContextHost, self)
 
 
@@ -46,7 +46,7 @@ class ThreeDModelMixin:
     def height(self) -> int:
         raise NotImplementedError
 
-    def model(self, shape: object) -> None:
+    def model(self, shape: Mesh3D | Model3D) -> None:
         _three_d(self)._require_webgl_mode("model")
         if isinstance(shape, Mesh3D):
             model = Model3D(meshes=(shape,))

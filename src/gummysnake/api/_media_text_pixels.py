@@ -4,24 +4,53 @@ from __future__ import annotations
 
 from collections.abc import Buffer, Sequence
 from pathlib import Path
-from typing import Any, cast, overload
+from typing import Any, Protocol, cast, overload
 
 from gummysnake import constants as c
 from gummysnake.api.current import require_context
-from gummysnake.assets.image import Image
+from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.assets.text import Font
 from gummysnake.core.color import Color
 
 
-def _context_call(name: str, *args: object, **kwargs: object) -> Any:
+class SupportsText(Protocol):
+    def __str__(self) -> str: ...
+
+
+def _context_call(name: str, *args: Any, **kwargs: Any) -> Any:
     return getattr(require_context(), name)(*args, **kwargs)
+
+
+@overload
+def image(source: Image | CanvasImage, x: float, y: float, /) -> None: ...
+
+
+@overload
+def image(
+    source: Image | CanvasImage, x: float, y: float, width: float, height: float, /
+) -> None: ...
+
+
+@overload
+def image(
+    source: Image | CanvasImage,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    sx: float,
+    sy: float,
+    sw: float,
+    sh: float,
+    /,
+) -> None: ...
 
 
 def image(*args: Any) -> None:
     _context_call("image", *args)
 
 
-def text(value: object, x: float, y: float) -> None:
+def text(value: SupportsText, x: float, y: float) -> None:
     _context_call("text", value, x, y)
 
 
@@ -45,7 +74,7 @@ def text_leading(value: float | None = None) -> float:
     return cast(float, _context_call("text_leading", value))
 
 
-def text_width(value: object) -> float:
+def text_width(value: SupportsText) -> float:
     return cast(float, _context_call("text_width", value))
 
 
@@ -65,17 +94,17 @@ def font_descent(font: Any | None = None) -> float:
     return cast(float, _context_call("font_descent", font))
 
 
-def font_width(value: object, font: Any | None = None) -> float:
+def font_width(value: SupportsText, font: Font | str | None = None) -> float:
     return cast(float, _context_call("font_width", value, font))
 
 
 def font_bounds(
-    value: object, x: float = 0.0, y: float = 0.0, font: Any | None = None
+    value: SupportsText, x: float = 0.0, y: float = 0.0, font: Font | str | None = None
 ) -> dict[str, float]:
     return cast(dict[str, float], _context_call("font_bounds", value, x, y, font))
 
 
-def text_bounds(value: object, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
+def text_bounds(value: SupportsText, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
     return cast(dict[str, float], _context_call("text_bounds", value, x, y))
 
 
@@ -91,19 +120,19 @@ def text_weight(value: int | None = None) -> int:
     return cast(int, _context_call("text_weight", value))
 
 
-def text_property(name: str, value: Any | None = None) -> object:
+def text_property(name: str, value: Any | None = None) -> Any:
     return _context_call("text_property", name, value)
 
 
-def text_properties(**properties: Any) -> dict[str, object]:
-    return cast(dict[str, object], _context_call("text_properties", **properties))
+def text_properties(**properties: Any) -> dict[str, Any]:
+    return cast(dict[str, Any], _context_call("text_properties", **properties))
 
 
-def describe(description: object, *, label: str = "canvas") -> dict[str, str]:
+def describe(description: SupportsText, *, label: str = "canvas") -> dict[str, str]:
     return cast(dict[str, str], _context_call("describe", description, label=label))
 
 
-def describe_element(name: object, description: object) -> dict[str, str]:
+def describe_element(name: SupportsText, description: SupportsText) -> dict[str, str]:
     return cast(dict[str, str], _context_call("describe_element", name, description))
 
 
@@ -192,7 +221,38 @@ def blend_mode(mode: c.BlendMode) -> None:
     _context_call("blend_mode", mode)
 
 
-def blend(*args: object) -> None:
+@overload
+def blend(
+    sx: int,
+    sy: int,
+    sw: int,
+    sh: int,
+    dx: int,
+    dy: int,
+    dw: int,
+    dh: int,
+    mode: c.BlendMode,
+    /,
+) -> None: ...
+
+
+@overload
+def blend(
+    image: Image,
+    sx: int,
+    sy: int,
+    sw: int,
+    sh: int,
+    dx: int,
+    dy: int,
+    dw: int,
+    dh: int,
+    mode: c.BlendMode,
+    /,
+) -> None: ...
+
+
+def blend(*args: Any) -> None:
     _context_call("blend", *args)
 
 

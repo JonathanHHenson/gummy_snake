@@ -5,18 +5,24 @@ from __future__ import annotations
 from collections.abc import Buffer, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast, overload
 
 from gummysnake import constants as c
 from gummysnake._fast_draw import FastDrawScope
 from gummysnake.assets.image import Image
 from gummysnake.context import SketchContext
+from gummysnake.core.color import Color
 from gummysnake.drawing.renderer3d import (
     Camera3D,
+    Mesh3D,
+    Model3D,
     OrthographicProjection,
     PerspectiveProjection,
     Shader3D,
 )
+
+Number = int | float
+ColorValue = Color | str
 
 
 class SketchFacadeMixin:
@@ -62,10 +68,10 @@ class SketchFacadeMixin:
     def reset_performance_diagnostics(self) -> None:
         self._ctx.reset_performance_diagnostics()
 
-    def performance_diagnostics(self) -> dict[str, object]:
+    def performance_diagnostics(self) -> dict[str, Any]:
         return self._ctx.performance_diagnostics()
 
-    def renderer_performance_counters(self) -> dict[str, object]:
+    def renderer_performance_counters(self) -> dict[str, Any]:
         return self._ctx.renderer_performance_counters()
 
     def reset_renderer_performance_counters(self) -> None:
@@ -74,26 +80,71 @@ class SketchFacadeMixin:
     def enable_frame_pacing_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
         self._ctx.enable_frame_pacing_diagnostics(enabled, reset=reset)
 
-    def frame_pacing_diagnostics(self) -> dict[str, object]:
+    def frame_pacing_diagnostics(self) -> dict[str, Any]:
         return self._ctx.frame_pacing_diagnostics()
 
     def reset_frame_pacing_diagnostics(self) -> None:
         self._ctx.reset_frame_pacing_diagnostics()
 
-    def background(self, *args: object) -> None:
-        self._ctx.background(*args)
+    @overload
+    def background(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def background(self, gray: Number, /) -> None: ...
+
+    @overload
+    def background(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def background(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def background(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def background(self, *args: Any) -> None:
+        cast(Any, self._ctx).background(*args)
 
     def clear(self) -> None:
         self._ctx.clear()
 
-    def fill(self, *args: object) -> None:
-        self._ctx.fill(*args)
+    @overload
+    def fill(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def fill(self, gray: Number, /) -> None: ...
+
+    @overload
+    def fill(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def fill(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def fill(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def fill(self, *args: Any) -> None:
+        cast(Any, self._ctx).fill(*args)
 
     def no_fill(self) -> None:
         self._ctx.no_fill()
 
-    def stroke(self, *args: object) -> None:
-        self._ctx.stroke(*args)
+    @overload
+    def stroke(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def stroke(self, gray: Number, /) -> None: ...
+
+    @overload
+    def stroke(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def stroke(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def stroke(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def stroke(self, *args: Any) -> None:
+        cast(Any, self._ctx).stroke(*args)
 
     def no_stroke(self) -> None:
         self._ctx.no_stroke()
@@ -119,47 +170,255 @@ class SketchFacadeMixin:
     def circle(self, x: float, y: float, diameter: float) -> None:
         self._ctx.circle(x, y, diameter)
 
-    def triangle(self, *coords: float) -> None:
-        self._ctx.triangle(*coords)
+    def triangle(self, x1: float, y1: float, x2: float, y2: float, x3: float, y3: float) -> None:
+        self._ctx.triangle(x1, y1, x2, y2, x3, y3)
 
-    def quad(self, *coords: float) -> None:
-        self._ctx.quad(*coords)
+    def quad(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        x4: float,
+        y4: float,
+    ) -> None:
+        self._ctx.quad(x1, y1, x2, y2, x3, y3, x4, y4)
 
-    def arc(self, *args: Any) -> None:
-        self._ctx.arc(*args)
+    def arc(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        start: float,
+        stop: float,
+        mode: c.ArcMode = c.OPEN,
+    ) -> None:
+        self._ctx.arc(x, y, width, height, start, stop, mode)
 
-    def create_camera(self, *args: object) -> Camera3D:
+    @overload
+    def create_camera(self) -> Camera3D: ...
+
+    @overload
+    def create_camera(self, camera: Camera3D, /) -> Camera3D: ...
+
+    @overload
+    def create_camera(
+        self,
+        eye_x: Number,
+        eye_y: Number,
+        eye_z: Number,
+        center_x: Number,
+        center_y: Number,
+        center_z: Number,
+        up_x: Number,
+        up_y: Number,
+        up_z: Number,
+        /,
+    ) -> Camera3D: ...
+
+    def create_camera(self, *args: Any) -> Camera3D:
         return self._ctx.create_camera(*args)
 
-    def camera(self, *args: object) -> Camera3D:
+    @overload
+    def camera(self) -> Camera3D: ...
+
+    @overload
+    def camera(self, camera: Camera3D, /) -> Camera3D: ...
+
+    @overload
+    def camera(
+        self,
+        eye_x: Number,
+        eye_y: Number,
+        eye_z: Number,
+        center_x: Number,
+        center_y: Number,
+        center_z: Number,
+        up_x: Number,
+        up_y: Number,
+        up_z: Number,
+        /,
+    ) -> Camera3D: ...
+
+    def camera(self, *args: Any) -> Camera3D:
         return self._ctx.camera(*args)
 
-    def perspective(self, *args: object) -> PerspectiveProjection:
+    @overload
+    def perspective(self) -> PerspectiveProjection: ...
+
+    @overload
+    def perspective(self, fov: Number, /) -> PerspectiveProjection: ...
+
+    @overload
+    def perspective(self, fov: Number, aspect: Number, /) -> PerspectiveProjection: ...
+
+    @overload
+    def perspective(
+        self, fov: Number, aspect: Number, near: Number, /
+    ) -> PerspectiveProjection: ...
+
+    @overload
+    def perspective(
+        self, fov: Number, aspect: Number, near: Number, far: Number, /
+    ) -> PerspectiveProjection: ...
+
+    def perspective(self, *args: Any) -> PerspectiveProjection:
         return self._ctx.perspective(*args)
 
-    def ortho(self, *args: object) -> OrthographicProjection:
+    @overload
+    def ortho(self) -> OrthographicProjection: ...
+
+    @overload
+    def ortho(self, width: Number, height: Number, /) -> OrthographicProjection: ...
+
+    @overload
+    def ortho(
+        self, width: Number, height: Number, near: Number, far: Number, /
+    ) -> OrthographicProjection: ...
+
+    def ortho(self, *args: Any) -> OrthographicProjection:
         return self._ctx.ortho(*args)
 
-    def orbit_control(self, *args: object) -> Camera3D:
+    @overload
+    def orbit_control(self) -> Camera3D: ...
+
+    @overload
+    def orbit_control(self, sensitivity_x: Number, /) -> Camera3D: ...
+
+    @overload
+    def orbit_control(self, sensitivity_x: Number, sensitivity_y: Number, /) -> Camera3D: ...
+
+    @overload
+    def orbit_control(
+        self, sensitivity_x: Number, sensitivity_y: Number, sensitivity_z: Number, /
+    ) -> Camera3D: ...
+
+    def orbit_control(self, *args: Any) -> Camera3D:
         return self._ctx.orbit_control(*args)
 
-    def ambient_light(self, *args: object) -> None:
-        self._ctx.ambient_light(*args)
+    @overload
+    def ambient_light(self, value: ColorValue, /) -> None: ...
 
-    def directional_light(self, *args: object) -> None:
-        self._ctx.directional_light(*args)
+    @overload
+    def ambient_light(self, gray: Number, /) -> None: ...
 
-    def point_light(self, *args: object) -> None:
-        self._ctx.point_light(*args)
+    @overload
+    def ambient_light(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def ambient_light(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def ambient_light(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def ambient_light(self, *args: Any) -> None:
+        cast(Any, self._ctx).ambient_light(*args)
+
+    @overload
+    def directional_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None: ...
+
+    @overload
+    def directional_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None: ...
+
+    @overload
+    def directional_light(
+        self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
+    ) -> None: ...
+
+    @overload
+    def directional_light(
+        self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
+    ) -> None: ...
+
+    @overload
+    def directional_light(
+        self,
+        v1: Number,
+        v2: Number,
+        v3: Number,
+        alpha: Number,
+        x: Number,
+        y: Number,
+        z: Number,
+        /,
+    ) -> None: ...
+
+    def directional_light(self, *args: Any) -> None:
+        cast(Any, self._ctx).directional_light(*args)
+
+    @overload
+    def point_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None: ...
+
+    @overload
+    def point_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None: ...
+
+    @overload
+    def point_light(
+        self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
+    ) -> None: ...
+
+    @overload
+    def point_light(
+        self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
+    ) -> None: ...
+
+    @overload
+    def point_light(
+        self,
+        v1: Number,
+        v2: Number,
+        v3: Number,
+        alpha: Number,
+        x: Number,
+        y: Number,
+        z: Number,
+        /,
+    ) -> None: ...
+
+    def point_light(self, *args: Any) -> None:
+        cast(Any, self._ctx).point_light(*args)
 
     def normal_material(self) -> None:
         self._ctx.normal_material()
 
-    def ambient_material(self, *args: object) -> None:
-        self._ctx.ambient_material(*args)
+    @overload
+    def ambient_material(self, value: ColorValue, /) -> None: ...
 
-    def specular_material(self, *args: object) -> None:
-        self._ctx.specular_material(*args)
+    @overload
+    def ambient_material(self, gray: Number, /) -> None: ...
+
+    @overload
+    def ambient_material(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def ambient_material(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def ambient_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def ambient_material(self, *args: Any) -> None:
+        cast(Any, self._ctx).ambient_material(*args)
+
+    @overload
+    def specular_material(self, value: ColorValue, /) -> None: ...
+
+    @overload
+    def specular_material(self, gray: Number, /) -> None: ...
+
+    @overload
+    def specular_material(self, gray: Number, alpha: Number, /) -> None: ...
+
+    @overload
+    def specular_material(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
+
+    @overload
+    def specular_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
+
+    def specular_material(self, *args: Any) -> None:
+        cast(Any, self._ctx).specular_material(*args)
 
     def shininess(self, value: float) -> None:
         self._ctx.shininess(value)
@@ -176,7 +435,7 @@ class SketchFacadeMixin:
     def sphere(self, radius: float, detail_x: int = 24, detail_y: int = 16) -> None:
         self._ctx.sphere(radius, detail_x, detail_y)
 
-    def model(self, shape: object) -> None:
+    def model(self, shape: Mesh3D | Model3D) -> None:
         self._ctx.model(shape)
 
     def load_shader(self, vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
@@ -235,14 +494,47 @@ class SketchFacadeMixin:
     def update_pixels(self, pixels: Sequence[int] | Buffer | None = None) -> None:
         self._ctx.update_pixels(pixels)
 
-    def save_canvas(self, *args: Any, **kwargs: Any) -> Path:
-        return self._ctx.save_canvas(*args, **kwargs)
+    def save_canvas(
+        self, path: str | Path, *, extension: str | None = None, overwrite: bool = True
+    ) -> Path:
+        return self._ctx.save_canvas(path, extension=extension, overwrite=overwrite)
 
     def blend_mode(self, mode: c.BlendMode) -> None:
         self._ctx.blend_mode(mode)
 
-    def blend(self, *args: object) -> None:
-        self._ctx.blend(*args)
+    @overload
+    def blend(
+        self,
+        sx: int,
+        sy: int,
+        sw: int,
+        sh: int,
+        dx: int,
+        dy: int,
+        dw: int,
+        dh: int,
+        mode: c.BlendMode,
+        /,
+    ) -> None: ...
+
+    @overload
+    def blend(
+        self,
+        image: Image,
+        sx: int,
+        sy: int,
+        sw: int,
+        sh: int,
+        dx: int,
+        dy: int,
+        dw: int,
+        dh: int,
+        mode: c.BlendMode,
+        /,
+    ) -> None: ...
+
+    def blend(self, *args: Any) -> None:
+        cast(Any, self._ctx).blend(*args)
 
     def erase(self) -> None:
         self._ctx.erase()

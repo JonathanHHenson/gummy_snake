@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any, cast, overload
 
 from gummysnake import constants as c
 from gummysnake._context.three_d.camera import ThreeDCameraMixin
@@ -23,6 +23,8 @@ from gummysnake.drawing.renderer3d import (
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
 _MATERIAL_UNSET = object()
+Number = int | float
+ColorValue = Color | str
 
 
 class ThreeDContextMixin(
@@ -46,7 +48,22 @@ class ThreeDContextMixin(
     _frame_scroll_x: float
     _frame_scroll_y: float
 
-    def color(self, *_args: object) -> Color:
+    @overload
+    def color(self, value: ColorValue, /) -> Color: ...
+
+    @overload
+    def color(self, gray: Number, /) -> Color: ...
+
+    @overload
+    def color(self, gray: Number, alpha: Number, /) -> Color: ...
+
+    @overload
+    def color(self, v1: Number, v2: Number, v3: Number, /) -> Color: ...
+
+    @overload
+    def color(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> Color: ...
+
+    def color(self, *args: Any) -> Color:
         raise NotImplementedError
 
     def _require_webgl_mode(self, api_name: str) -> None:
@@ -80,7 +97,7 @@ class ThreeDContextMixin(
         base_color: tuple[float, float, float, float] | None = None,
         specular_color: tuple[float, float, float, float] | None = None,
         shininess: float | None = None,
-        texture: Texture3D | None | object = _MATERIAL_UNSET,
+        texture: Texture3D | None | Any = _MATERIAL_UNSET,
     ) -> Material3D:
         current = self._effective_3d_material()
         return Material3D(
@@ -95,14 +112,14 @@ class ThreeDContextMixin(
 
     def _split_color_args(
         self,
-        args: Sequence[object],
+        args: Sequence[Any],
         *,
         tail_count: int,
     ) -> tuple[Color, tuple[float, ...]]:
         for color_count in (4, 3, 2, 1):
             if len(args) != color_count + tail_count:
                 continue
-            color = self.color(*args[:color_count])
+            color = cast(Color, cast(Any, self).color(*args[:color_count]))
             tail = args[color_count:]
             if all(isinstance(value, int | float) for value in tail):
                 return color, self._numeric_values(tail)
@@ -110,7 +127,7 @@ class ThreeDContextMixin(
             "Light APIs require one to four color values followed by the expected coordinates."
         )
 
-    def _numeric_values(self, values: Sequence[object]) -> tuple[float, ...]:
+    def _numeric_values(self, values: Sequence[Any]) -> tuple[float, ...]:
         numeric: list[float] = []
         for value in values:
             if not isinstance(value, int | float):
