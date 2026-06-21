@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import cast
+from typing import cast, overload
 
 from gummysnake.core.vector.basic import VectorBasicMixin
 from gummysnake.core.vector.common import Number, _components, register_vector_type
@@ -16,6 +16,12 @@ class Vector(VectorBasicMixin, VectorOpsMixin):
     x: float = 0.0
     y: float = 0.0
     z: float = 0.0
+
+    @overload
+    def __init__(self, x: Number = 0, y: Number = 0, z: Number = 0) -> None: ...
+
+    @overload
+    def __init__(self, x: Iterable[Number], y: Number = 0, z: Number = 0) -> None: ...
 
     def __init__(self, x: Number | Iterable[Number] = 0, y: Number = 0, z: Number = 0) -> None:
         if not isinstance(x, int | float) and y == 0 and z == 0:
@@ -30,7 +36,15 @@ class Vector(VectorBasicMixin, VectorOpsMixin):
 register_vector_type(Vector)
 
 
-def create_vector(x: Number = 0, y: Number = 0, z: Number = 0) -> Vector:
+@overload
+def create_vector(x: Number = 0, y: Number = 0, z: Number = 0) -> Vector: ...
+
+
+@overload
+def create_vector(x: Iterable[Number], y: Number = 0, z: Number = 0) -> Vector: ...
+
+
+def create_vector(x: Number | Iterable[Number] = 0, y: Number = 0, z: Number = 0) -> Vector:
     return Vector(x, y, z)
 
 

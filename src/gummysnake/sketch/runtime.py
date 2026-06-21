@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 from gummysnake import constants as c
 from gummysnake._async import call_maybe_async, call_maybe_async_with_optional_args
@@ -130,51 +131,51 @@ class SketchBuilder:
 
     def __init__(self, *, headless: bool | None = None) -> None:
         self.headless = headless
-        self._preload_func: Callable[[], object] | None = None
-        self._setup_func: Callable[[], object] | None = None
-        self._draw_func: Callable[[], object] | None = None
-        self._event_callbacks: dict[str, Callable[..., object]] = {}
+        self._preload_func: Callable[[], Any] | None = None
+        self._setup_func: Callable[[], Any] | None = None
+        self._draw_func: Callable[[], Any] | None = None
+        self._event_callbacks: dict[str, Callable[..., Any]] = {}
 
     @property
-    def preload_callback(self) -> Callable[[], object] | None:
+    def preload_callback(self) -> Callable[[], Any] | None:
         return self._preload_func
 
     @property
-    def setup_callback(self) -> Callable[[], object] | None:
+    def setup_callback(self) -> Callable[[], Any] | None:
         return self._setup_func
 
     @property
-    def draw_callback(self) -> Callable[[], object] | None:
+    def draw_callback(self) -> Callable[[], Any] | None:
         return self._draw_func
 
     @property
-    def event_callbacks(self) -> dict[str, Callable[..., object]]:
+    def event_callbacks(self) -> dict[str, Callable[..., Any]]:
         return dict(self._event_callbacks)
 
-    def preload(self, callback: Callable[[], object]) -> Callable[[], object]:
+    def preload[F: Callable[[], Any]](self, callback: F) -> F:
         self._preload_func = callback
         return callback
 
-    def setup(self, callback: Callable[[], object]) -> Callable[[], object]:
+    def setup[F: Callable[[], Any]](self, callback: F) -> F:
         self._setup_func = callback
         return callback
 
-    def draw(self, callback: Callable[[], object]) -> Callable[[], object]:
+    def draw[F: Callable[[], Any]](self, callback: F) -> F:
         self._draw_func = callback
         return callback
 
-    def on(
+    def on[F: Callable[..., Any]](
         self, event_name: str | c.CallbackEventName | c.TouchEventName
-    ) -> Callable[[Callable[..., object]], Callable[..., object]]:
+    ) -> Callable[[F], F]:
         normalized_event_name = _normalize_event_name(event_name)
 
-        def decorator(callback: Callable[..., object]) -> Callable[..., object]:
+        def decorator(callback: F) -> F:
             self._event_callbacks[normalized_event_name] = callback
             return callback
 
         return decorator
 
-    def __getattr__(self, name: str) -> Callable[[Callable[..., object]], Callable[..., object]]:
+    def __getattr__[F: Callable[..., Any]](self, name: str) -> Callable[[F], F]:
         if name in EVENT_CALLBACK_NAMES:
             return self.on(name)
         raise AttributeError(name)

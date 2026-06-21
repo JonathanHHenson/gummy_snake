@@ -3,18 +3,46 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, cast
+from enum import Enum, auto
+from typing import Literal, Protocol, cast, overload
 
-_UNSET = object()
+from gummysnake.core.color import Color
+
+Number = int | float
 
 
-def style_color_args(value: Any) -> tuple[Any, ...]:
+class _Unset(Enum):
+    TOKEN = auto()
+
+
+class PointLike(Protocol):
+    x: float
+    y: float
+
+
+_UNSET = _Unset.TOKEN
+
+type ColorArgument = Color | str | Number | Sequence[Number]
+type CoordinatePair = Sequence[Number] | PointLike
+type ScaleArgument = Number | Sequence[Number]
+type Unset = Literal[_Unset.TOKEN]
+
+
+def style_color_args(value: ColorArgument) -> tuple[Color | str | Number, ...]:
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
-        return tuple(value)
-    return (value,)
+        return cast(tuple[Color | str | Number, ...], tuple(value))
+    return cast(tuple[Color | str | Number, ...], (value,))
 
 
-def xy(value: Any, y: float | None = None) -> tuple[float, float]:
+@overload
+def xy(value: CoordinatePair, y: None = None) -> tuple[float, float]: ...
+
+
+@overload
+def xy(value: Number, y: Number) -> tuple[float, float]: ...
+
+
+def xy(value: CoordinatePair | Number, y: Number | None = None) -> tuple[float, float]:
     if y is not None:
         return float(cast(float, value)), float(y)
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):

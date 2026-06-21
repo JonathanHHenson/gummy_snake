@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Buffer, Sequence
 from pathlib import Path
-from typing import Any, Protocol, cast, overload
+from typing import Any, Literal, Protocol, TypedDict, Unpack, cast, overload
 
 from gummysnake import constants as c
 from gummysnake.api.current import require_context
@@ -15,6 +15,15 @@ from gummysnake.core.color import Color
 
 class SupportsText(Protocol):
     def __str__(self) -> str: ...
+
+
+class TextProperties(TypedDict, total=False):
+    direction: str
+    wrap: str
+    weight: int
+
+
+type PixelValue = Color | tuple[int, int, int] | tuple[int, int, int, int] | Image
 
 
 def _context_call(name: str, *args: Any, **kwargs: Any) -> Any:
@@ -86,11 +95,11 @@ def text_descent() -> float:
     return cast(float, _context_call("text_descent"))
 
 
-def font_ascent(font: Any | None = None) -> float:
+def font_ascent(font: Font | str | None = None) -> float:
     return cast(float, _context_call("font_ascent", font))
 
 
-def font_descent(font: Any | None = None) -> float:
+def font_descent(font: Font | str | None = None) -> float:
     return cast(float, _context_call("font_descent", font))
 
 
@@ -120,12 +129,28 @@ def text_weight(value: int | None = None) -> int:
     return cast(int, _context_call("text_weight", value))
 
 
-def text_property(name: str, value: Any | None = None) -> Any:
+@overload
+def text_property(name: Literal["direction"], value: str | None = None) -> str: ...
+
+
+@overload
+def text_property(name: Literal["wrap"], value: str | None = None) -> str: ...
+
+
+@overload
+def text_property(name: Literal["weight"], value: int | None = None) -> int: ...
+
+
+def text_property(name: str, value: str | int | None = None) -> str | int:
     return _context_call("text_property", name, value)
 
 
-def text_properties(**properties: Any) -> dict[str, Any]:
-    return cast(dict[str, Any], _context_call("text_properties", **properties))
+def text_properties(
+    **properties: Unpack[TextProperties],
+) -> dict[str, str | int | float | c.TextStyle]:
+    return cast(
+        dict[str, str | int | float | c.TextStyle], _context_call("text_properties", **properties)
+    )
 
 
 def describe(description: SupportsText, *, label: str = "canvas") -> dict[str, str]:
@@ -183,7 +208,7 @@ def get(
     return cast(Color | Image, _context_call("get", x, y, w, h))
 
 
-def set(x: int, y: int, value: Any) -> None:
+def set(x: int, y: int, value: PixelValue) -> None:
     _context_call("set", x, y, value)
 
 

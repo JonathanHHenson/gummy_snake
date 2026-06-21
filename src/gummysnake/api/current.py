@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, cast
@@ -32,7 +32,7 @@ def require_context() -> SketchContext:
 
 
 @contextmanager
-def activate_context(context: Any) -> Iterator[None]:
+def activate_context(context: Any) -> Generator[None]:
     token = _ACTIVE_CONTEXT.set(context)
     try:
         yield

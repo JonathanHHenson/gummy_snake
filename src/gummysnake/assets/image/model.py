@@ -82,7 +82,7 @@ class Image(ImageDeferredMixin):
     @overload
     def __getitem__(self, key: tuple[slice, slice]) -> Image: ...
 
-    def __getitem__(self, key: object) -> Color | Image:
+    def __getitem__(self, key: tuple[int, int] | tuple[slice, slice]) -> Color | Image:
         if not isinstance(key, tuple) or len(key) != 2:
             raise TypeError("Image indices must be (x, y) or (x_slice, y_slice).")
         x_key, y_key = key
@@ -96,7 +96,7 @@ class Image(ImageDeferredMixin):
 
     def __setitem__(
         self,
-        key: object,
+        key: tuple[int, int],
         value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
     ) -> None:
         if not isinstance(key, tuple) or len(key) != 2:

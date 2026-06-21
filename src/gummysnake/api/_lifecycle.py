@@ -34,21 +34,21 @@ def _caller_module_name() -> str:
     return str(caller_globals.get("__name__", "__main__"))
 
 
-def preload(callback: Callable[[], Any]) -> Callable[[], Any]:
+def preload[F: Callable[[], Any]](callback: F) -> F:
     return _module_builder(_caller_module_name()).preload(callback)
 
 
-def setup(callback: Callable[[], Any]) -> Callable[[], Any]:
+def setup[F: Callable[[], Any]](callback: F) -> F:
     return _module_builder(_caller_module_name()).setup(callback)
 
 
-def draw(callback: Callable[[], Any]) -> Callable[[], Any]:
+def draw[F: Callable[[], Any]](callback: F) -> F:
     return _module_builder(_caller_module_name()).draw(callback)
 
 
-def on(
+def on[F: Callable[..., Any]](
     event_name: str | c.CallbackEventName | c.TouchEventName,
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+) -> Callable[[F], F]:
     return _module_builder(_caller_module_name()).on(event_name)
 
 

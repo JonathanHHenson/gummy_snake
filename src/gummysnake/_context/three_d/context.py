@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, cast, overload
+from enum import Enum, auto
+from typing import Any, Literal, cast, overload
 
 from gummysnake import constants as c
 from gummysnake._context.three_d.camera import ThreeDCameraMixin
@@ -22,7 +23,13 @@ from gummysnake.drawing.renderer3d import (
 )
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
-_MATERIAL_UNSET = object()
+
+class _MaterialUnset(Enum):
+    TOKEN = auto()
+
+
+_MATERIAL_UNSET = _MaterialUnset.TOKEN
+type MaterialUnset = Literal[_MaterialUnset.TOKEN]
 Number = int | float
 ColorValue = Color | str
 
@@ -97,7 +104,7 @@ class ThreeDContextMixin(
         base_color: tuple[float, float, float, float] | None = None,
         specular_color: tuple[float, float, float, float] | None = None,
         shininess: float | None = None,
-        texture: Texture3D | None | Any = _MATERIAL_UNSET,
+        texture: Texture3D | None | MaterialUnset = _MATERIAL_UNSET,
     ) -> Material3D:
         current = self._effective_3d_material()
         return Material3D(

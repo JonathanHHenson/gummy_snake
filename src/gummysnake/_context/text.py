@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, cast
+from typing import Any, Literal, Protocol, TypedDict, Unpack, cast, overload
 
 from gummysnake import constants as c
 from gummysnake._context._protocols import SketchContextHost
@@ -12,6 +12,12 @@ from gummysnake.exceptions import ArgumentValidationError
 
 class SupportsText(Protocol):
     def __str__(self) -> str: ...
+
+
+class TextProperties(TypedDict, total=False):
+    direction: str
+    wrap: str
+    weight: int
 
 
 class TextContextMixin:
@@ -151,7 +157,16 @@ class TextContextMixin:
                 cast(SketchContextHost, self)._mark_style_changed()
         return self._text_weight
 
-    def text_property(self, name: str, value: Any | None = None) -> Any:
+    @overload
+    def text_property(self, name: Literal["direction"], value: str | None = None) -> str: ...
+
+    @overload
+    def text_property(self, name: Literal["wrap"], value: str | None = None) -> str: ...
+
+    @overload
+    def text_property(self, name: Literal["weight"], value: int | None = None) -> int: ...
+
+    def text_property(self, name: str, value: str | int | None = None) -> str | int:
         if name == "direction":
             return self.text_direction(None if value is None else str(value))
         if name == "wrap":
@@ -160,9 +175,16 @@ class TextContextMixin:
             return self.text_weight(None if value is None else int(value))
         raise ArgumentValidationError("Unsupported text property.")
 
-    def text_properties(self, **properties: Any) -> dict[str, Any]:
+    def text_properties(
+        self, **properties: Unpack[TextProperties]
+    ) -> dict[str, str | int | float | c.TextStyle]:
         for name, value in properties.items():
-            self.text_property(name, value)
+            if name == "direction":
+                self.text_property("direction", cast(str, value))
+            elif name == "wrap":
+                self.text_property("wrap", cast(str, value))
+            elif name == "weight":
+                self.text_property("weight", cast(int, value))
         return {
             "direction": self._text_direction,
             "wrap": self._text_wrap,

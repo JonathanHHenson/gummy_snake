@@ -8,6 +8,8 @@ from typing import Any, Protocol
 from gummysnake.core.color import Color
 from gummysnake.drawing.renderer3d import Material3D, Mesh3D, Model3D, Texture3D
 
+type MaterialTextureArgument = Texture3D | None
+
 
 class ThreeDContextHost(Protocol):
     renderer: Any
@@ -28,7 +30,7 @@ class ThreeDContextHost(Protocol):
         base_color: tuple[float, float, float, float] | None = None,
         specular_color: tuple[float, float, float, float] | None = None,
         shininess: float | None = None,
-        texture: Texture3D | None | Any = None,
+        texture: MaterialTextureArgument = None,
     ) -> Material3D: ...
     def _effective_3d_material(self) -> Material3D: ...
     def model(self, shape: Mesh3D | Model3D) -> None: ...

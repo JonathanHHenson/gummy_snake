@@ -8,10 +8,10 @@ import inspect
 import threading
 from collections.abc import Awaitable, Callable
 from functools import partial
-from typing import Any
+from typing import Any, cast
 
 
-def run_awaitable_blocking(awaitable: Awaitable[Any]) -> Any:
+def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
     """Run an awaitable to completion from gummysnake's synchronous runtime paths."""
 
     try:
@@ -35,28 +35,30 @@ def run_awaitable_blocking(awaitable: Awaitable[Any]) -> Any:
     thread.join()
     if error is not None:
         raise error
-    return result
+    return cast(T, result)
 
 
-def resolve_maybe_awaitable(value: Any) -> Any:
+def resolve_maybe_awaitable[T](value: T | Awaitable[T]) -> T:
     """Return a value, awaiting it first when a callback returned an awaitable."""
 
     if inspect.isawaitable(value):
-        return run_awaitable_blocking(value)
-    return value
+        return run_awaitable_blocking(cast(Awaitable[T], value))
+    return cast(T, value)
 
 
-async def _await_value(awaitable: Awaitable[Any]) -> Any:
+async def _await_value[T](awaitable: Awaitable[T]) -> T:
     return await awaitable
 
 
-def call_maybe_async(callback: Callable[..., Any], *args: Any) -> Any:
+def call_maybe_async[T](callback: Callable[..., T | Awaitable[T]], *args: Any) -> T:
     """Call a Gummy Snake callback and await its result when needed."""
 
     return resolve_maybe_awaitable(callback(*args))
 
 
-def call_maybe_async_with_optional_args(callback: Callable[..., Any], *args: Any) -> Any:
+def call_maybe_async_with_optional_args[T](
+    callback: Callable[..., T | Awaitable[T]], *args: Any
+) -> T:
     """Call callback with args, falling back to no args before awaiting."""
 
     try:
@@ -66,7 +68,7 @@ def call_maybe_async_with_optional_args(callback: Callable[..., Any], *args: Any
     return resolve_maybe_awaitable(value)
 
 
-async def run_blocking_io(callback: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+async def run_blocking_io[T](callback: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     """Run blocking IO without copying active Gummy Snake contextvars to the worker thread."""
 
     loop = asyncio.get_running_loop()

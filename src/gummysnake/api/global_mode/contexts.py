@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from typing import Any, cast
 
 from gummysnake import constants as c
 from gummysnake.api.current import require_context
-from gummysnake.api.global_mode.helpers import _UNSET, style_color_args, xy
+from gummysnake.api.global_mode.helpers import (
+    _UNSET,
+    ColorArgument,
+    CoordinatePair,
+    ScaleArgument,
+    Unset,
+    style_color_args,
+    xy,
+)
 
 
 def push() -> None:
@@ -20,7 +28,7 @@ def pop() -> None:
 
 
 @contextmanager
-def pushed() -> Iterator[None]:
+def pushed() -> Generator[None]:
     context = require_context()
     context.push()
     try:
@@ -32,8 +40,8 @@ def pushed() -> Iterator[None]:
 @contextmanager
 def style(
     *,
-    fill: Any = _UNSET,
-    stroke: Any = _UNSET,
+    fill: ColorArgument | None | Unset = _UNSET,
+    stroke: ColorArgument | None | Unset = _UNSET,
     stroke_weight: float | None = None,
     stroke_cap: c.StrokeCap | None = None,
     stroke_join: c.StrokeJoin | None = None,
@@ -41,7 +49,7 @@ def style(
     ellipse_mode: c.ShapeMode | None = None,
     image_mode: c.ShapeMode | None = None,
     blend_mode: c.BlendMode | None = None,
-) -> Iterator[None]:
+) -> Generator[None]:
     context = require_context()
     context.push()
     try:
@@ -74,8 +82,11 @@ def style(
 
 @contextmanager
 def transform(
-    *, translate: Any = _UNSET, rotate: float | None = None, scale: Any = _UNSET
-) -> Iterator[None]:
+    *,
+    translate: CoordinatePair | Unset = _UNSET,
+    rotate: float | None = None,
+    scale: ScaleArgument | Unset = _UNSET,
+) -> Generator[None]:
     context = require_context()
     context.push()
     try:

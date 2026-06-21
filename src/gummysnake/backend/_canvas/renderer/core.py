@@ -238,7 +238,7 @@ class CanvasRendererCore:
             )
         return self._canvas
 
-    def _call(self, operation: str, callback: Callable[..., Any], *args: object) -> Any:
+    def _call[T](self, operation: str, callback: Callable[..., T], *args: object) -> T:
         self._count("bridge_calls")
         try:
             self._pump_native_events_if_due()

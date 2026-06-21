@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Buffer, Iterator, Sequence
+from collections.abc import Buffer, Generator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast, overload
@@ -457,7 +457,7 @@ class SketchFacadeMixin:
         self._ctx.pop()
 
     @contextmanager
-    def pushed(self) -> Iterator[None]:
+    def pushed(self) -> Generator[None]:
         self.push()
         try:
             yield
