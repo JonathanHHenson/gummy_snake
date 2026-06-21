@@ -184,6 +184,71 @@ fn gpu_path_renders_background_and_triangle_when_available() {
 }
 
 #[test]
+fn gpu_primitives_after_image_commands_are_rendered() {
+    let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    if !canvas.gpu_available() {
+        return;
+    }
+
+    canvas.begin_frame();
+    canvas.background((0, 0, 0, 255));
+    if let Some(gpu) = canvas.gpu.as_mut() {
+        gpu.upload_texture(
+            42,
+            2,
+            2,
+            &[
+                0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255,
+            ],
+        )
+        .unwrap();
+        gpu.draw_image(
+            42,
+            [
+                ([0.0, 0.0], [0.0, 0.0]),
+                ([2.0, 0.0], [1.0, 0.0]),
+                ([2.0, 2.0], [1.0, 1.0]),
+                ([0.0, 0.0], [0.0, 0.0]),
+                ([2.0, 2.0], [1.0, 1.0]),
+                ([0.0, 2.0], [0.0, 1.0]),
+            ],
+            true,
+        );
+    }
+    canvas
+        .draw_gpu_polygon(
+            &[(4.0, 4.0), (7.0, 4.0), (4.0, 7.0)],
+            &Style {
+                fill: Some(Rgba {
+                    r: 0,
+                    g: 255,
+                    b: 0,
+                    a: 255,
+                }),
+                stroke: None,
+                stroke_weight: 1.0,
+                blend_mode: BLEND_MODE_BLEND.to_string(),
+                erasing: false,
+                image_sampling: "linear".to_string(),
+                text_font_path: None,
+                text_font_name: "default".to_string(),
+                text_size: 12.0,
+                text_align_x: "left".to_string(),
+                text_align_y: "baseline".to_string(),
+                text_leading: 14.0,
+            },
+            true,
+            1.0,
+        )
+        .unwrap();
+    canvas.end_frame();
+
+    let pixels = canvas.load_pixels();
+    assert!(pixels.chunks_exact(4).any(|rgba| rgba == [0, 0, 255, 255]));
+    assert!(pixels.chunks_exact(4).any(|rgba| rgba == [0, 255, 0, 255]));
+}
+
+#[test]
 fn gpu_overlay_after_cpu_upload_does_not_replay_previous_clear() {
     let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
     if !canvas.gpu_available() {

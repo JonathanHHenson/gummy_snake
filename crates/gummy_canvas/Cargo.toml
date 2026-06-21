@@ -14,8 +14,8 @@ bytemuck = { version = "1.25.0", features = ["derive"] }
 image = { version = "0.25.8", default-features = false, features = ["png"] }
 pollster = "0.4.0"
 pyo3 = "0.22.6"
+sdl3 = { version = "0.18.4", features = ["build-from-source-static", "raw-window-handle"] }
 wgpu = "25.0.2"
-winit = "0.30.13"
 
 [features]
 default = []

@@ -64,7 +64,7 @@ Rust owns:
   Rust-owned 3D model/mesh asset data
 - sound asset bytes and metadata
 - text, pixels, and readback
-- native window and input events when compiled with those capabilities
+- SDL3-backed native window and input events when compiled with those capabilities
 
 ## Sketch, Context, and State
 

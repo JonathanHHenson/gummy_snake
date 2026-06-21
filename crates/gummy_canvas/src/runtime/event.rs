@@ -83,6 +83,20 @@ impl RuntimeEvent {
         event
     }
 
+    pub(super) fn logical_mouse(
+        event_type: &'static str,
+        x: f64,
+        y: f64,
+        dx: f64,
+        dy: f64,
+        button: Option<String>,
+        modifiers: u32,
+    ) -> Self {
+        let mut event = Self::mouse(event_type, x, y, dx, dy, button, modifiers);
+        event.coordinates = Some("logical");
+        event
+    }
+
     pub(super) fn mouse_wheel(
         x: f64,
         y: f64,
@@ -96,6 +110,18 @@ impl RuntimeEvent {
         event.scroll_x = Some(scroll_x);
         event.scroll_y = Some(scroll_y);
         event.modifiers = Some(modifiers);
+        event
+    }
+
+    pub(super) fn logical_mouse_wheel(
+        x: f64,
+        y: f64,
+        scroll_x: f64,
+        scroll_y: f64,
+        modifiers: u32,
+    ) -> Self {
+        let mut event = Self::mouse_wheel(x, y, scroll_x, scroll_y, modifiers);
+        event.coordinates = Some("logical");
         event
     }
 
@@ -133,6 +159,19 @@ impl RuntimeEvent {
         event.phase = Some(phase);
         event.pressure = pressure;
         event.timestamp = Some(Instant::now().elapsed().as_secs_f64());
+        event
+    }
+
+    pub(super) fn logical_touch(
+        event_type: &'static str,
+        touch_id: u64,
+        x: f64,
+        y: f64,
+        phase: &'static str,
+        pressure: Option<f64>,
+    ) -> Self {
+        let mut event = Self::touch(event_type, touch_id, x, y, phase, pressure);
+        event.coordinates = Some("logical");
         event
     }
 }

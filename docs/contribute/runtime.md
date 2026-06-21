@@ -4,8 +4,9 @@ The runtime is canvas-first and bounded/headless runs still use `gummy_canvas`.
 There is no supported Pillow or Pyglet fallback.
 
 The runtime starts in Python, creates a Python context, and then uses the Rust
-canvas runtime for canvas work. Rust can provide native window and input
-events, but Python still owns the sketch lifecycle.
+canvas runtime for canvas work. Rust provides native interactive windows and
+input through the SDL3-backed `gummy_canvas` desktop runtime when those
+capabilities are available, but Python still owns the sketch lifecycle.
 
 ```mermaid
 sequenceDiagram
@@ -73,8 +74,8 @@ The draw loop checks Gummy Snake lifecycle flags before drawing:
 single frame as requested. After a frame is drawn, `redraw_requested` is cleared.
 
 Interactive runs schedule frames according to the target frame rate and poll
-native events between frames. Headless bounded runs draw a fixed number of frames
-as quickly and deterministically as possible.
+SDL3 native events between frames. Headless bounded runs draw a fixed number of
+frames as quickly and deterministically as possible.
 
 ## Headless vs Interactive
 
@@ -99,9 +100,10 @@ flowchart TD
 
 ## Input Dispatch
 
-When native input is available, Rust emits window/input events. `CanvasBackend`
-polls those events, normalizes them into Python event dataclasses, updates
-`SketchContext.state.input`, and then dispatches optional user callbacks.
+When native input is available, the SDL3-backed Rust runtime emits window/input
+events. `CanvasBackend` polls those events, normalizes them into Python event
+dataclasses, updates `SketchContext.state.input`, and then dispatches optional
+user callbacks.
 
 ```mermaid
 sequenceDiagram

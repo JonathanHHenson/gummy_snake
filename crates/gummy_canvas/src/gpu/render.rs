@@ -216,6 +216,8 @@ impl GpuRenderer {
             });
             self.queue
                 .write_buffer(&buffer, 0, bytemuck::cast_slice(&batched_vertices));
+            pass.set_pipeline(pipeline);
+            pass.set_bind_group(0, &self.viewport_bind_group, &[]);
             pass.set_vertex_buffer(0, buffer.slice(..));
             pass.draw(0..batched_vertices.len() as u32, 0..1);
         }

@@ -8,6 +8,7 @@ from rust_canvas_modules import FakeCanvasModule
 from gummysnake import constants as c
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
+from gummysnake.events.input_state import KeyboardEvent
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from gummysnake.rust import canvas as canvas_bridge
 
@@ -154,7 +155,7 @@ def test_canvas_backend_explicit_headless_suppresses_unbounded_interactive_runti
     assert sketch.context.frame_count == 1
 
 
-def test_canvas_backend_dispatches_mouse_events_with_logical_coordinates(
+def test_canvas_backend_dispatches_default_physical_mouse_events_as_logical(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sketch, backend = make_canvas_context(monkeypatch)
@@ -184,10 +185,64 @@ def test_canvas_backend_dispatches_mouse_events_with_logical_coordinates(
     ]
 
 
+def test_canvas_backend_dispatches_sdl_logical_mouse_events_without_density_scaling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+
+    backend._dispatch_canvas_event(
+        sketch,
+        {
+            "type": "mouse_pressed",
+            "x": 20,
+            "y": 10,
+            "button": 1,
+            "modifiers": 4,
+            "coordinates": "logical",
+        },
+    )
+    backend._dispatch_canvas_event(
+        sketch,
+        {
+            "type": "mouse_dragged",
+            "x": 24,
+            "y": 6,
+            "dx": 4,
+            "dy": -8,
+            "button": "left",
+            "coordinates": "logical",
+        },
+    )
+    backend._dispatch_canvas_event(
+        sketch,
+        {
+            "type": "mouse_wheel",
+            "x": 24,
+            "y": 6,
+            "scroll_x": 1,
+            "scroll_y": -2,
+            "coordinates": "logical",
+        },
+    )
+
+    assert sketch.context is not None
+    assert sketch.context.mouse_x == 24
+    assert sketch.context.mouse_y == 6
+    assert sketch.context.mouse_is_pressed is True
+    assert sketch.context.mouse_button == c.LEFT_BUTTON
+    assert sketch.events == [
+        ("mouse_pressed", 20, 10, c.LEFT_BUTTON),
+        ("mouse_dragged", 24, 6, 4, -8),
+        ("mouse_wheel", 24, 6, 1, -2),
+    ]
+
+
 def test_canvas_backend_dispatches_keyboard_events_and_pressed_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sketch, backend = make_canvas_context(monkeypatch)
+
+    assert KeyboardEvent(key="l", key_code=ord("l")).matches("l") is True
 
     backend._dispatch_canvas_event(sketch, {"type": "key_pressed", "key": "a"})
     backend._dispatch_canvas_event(sketch, {"type": "key_released", "key": "a"})

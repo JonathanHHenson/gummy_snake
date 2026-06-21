@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use winit::window::Window;
+use sdl3::video::Window;
 
 use crate::gpu::pipeline::{create_texture_pipeline, surface_config};
 use crate::gpu::types::*;
@@ -76,7 +76,6 @@ impl GpuRenderer {
             pass.set_bind_group(0, &bind_group, &[]);
             pass.draw(0..6, 0..1);
         }
-        window.pre_present_notify();
         self.queue.submit([encoder.finish()]);
         frame.present();
         Ok(())
@@ -99,10 +98,23 @@ impl GpuRenderer {
             .map(|surface| surface.window_id != window.id())
             .unwrap_or(true);
         if recreate {
-            let surface = self
-                .instance
-                .create_surface(Arc::clone(&window))
-                .map_err(|err| format!("Failed to create GPU window surface: {err}"))?;
+            let target = unsafe { wgpu::SurfaceTargetUnsafe::from_window(window.as_ref()) }
+                .map_err(|err| {
+                    format!(
+                        "Failed to read SDL3 raw window/display handles for GPU presentation: {err}. \
+                         SDL3 presentation requires a windowing driver supported by the sdl3 \
+                         raw-window-handle feature on this platform."
+                    )
+                })?;
+            let surface =
+                unsafe { self.instance.create_surface_unsafe(target) }.map_err(|err| {
+                    format!(
+                        "Failed to create GPU window surface from SDL3 raw handles: {err}. \
+                     SDL3 presentation is experimental; if this platform/driver does not expose \
+                     compatible raw handles, interactive presentation is blocked while headless \
+                     rendering remains available."
+                    )
+                })?;
             let capabilities = surface.get_capabilities(&self.adapter);
             let config =
                 surface_config(&capabilities, width.max(1), height.max(1)).ok_or_else(|| {
