@@ -276,13 +276,11 @@ impl Canvas {
         let region_width = pixel_count.min(self.physical_width);
         let region_height = pixel_count.div_ceil(self.physical_width);
         if self.gpu.is_some() {
-            if self.offscreen_dirty {
-                self.render_gpu_frame(false);
-            } else if self.texture_stale {
+            if self.texture_stale {
                 self.upload_stale_texture(false)?;
             }
             if let Some(gpu) = self.gpu.as_mut() {
-                gpu.apply_pixel_prefix_mutation(
+                gpu.draw_pixel_prefix_mutation(
                     byte_limit.min(self.physical_width * self.physical_height * 4) as u32,
                     stride as u32,
                     i32::from(red_delta),
@@ -290,7 +288,7 @@ impl Canvas {
                 );
                 self.performance_counters.gpu_region_effect_passes += 1;
                 self.render_dirty = true;
-                self.offscreen_dirty = false;
+                self.offscreen_dirty = true;
                 self.pixels_stale = true;
                 self.texture_stale = false;
                 return Ok(());

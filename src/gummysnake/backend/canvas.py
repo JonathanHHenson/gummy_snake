@@ -187,7 +187,7 @@ class CanvasBackend(
     ) -> None:
         self._ensure_supported_renderer(renderer)
         density = self.renderer.pixel_density if pixel_density is None else pixel_density
-        self.renderer.resize(width, height, density, mode="headless")
+        self.renderer.resize(width, height, density, mode="headless", renderer=renderer)
         self.set_pointer_lock_mode(self._pointer_lock_mode)
 
     def resize_canvas(

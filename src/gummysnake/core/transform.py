@@ -5,8 +5,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, cast
 
+_MATRIX_HANDLE_TYPE: type[Any] | None = None
+
 
 def _matrix_handle_type() -> type[Any]:
+    global _MATRIX_HANDLE_TYPE
+    if _MATRIX_HANDLE_TYPE is not None:
+        return _MATRIX_HANDLE_TYPE
     from gummysnake.rust.canvas import require_canvas_runtime
 
     runtime = require_canvas_runtime()
@@ -15,6 +20,7 @@ def _matrix_handle_type() -> type[Any]:
         raise RuntimeError(
             "The installed canvas runtime does not provide Matrix2D. Rebuild gummy_canvas."
         )
+    _MATRIX_HANDLE_TYPE = matrix_type
     return matrix_type
 
 
@@ -26,7 +32,7 @@ class Matrix2D:
     making NumPy a required runtime dependency.
     """
 
-    __slots__ = ("_handle",)
+    __slots__ = ("_handle", "_tuple")
 
     def __init__(
         self,
@@ -41,9 +47,11 @@ class Matrix2D:
     ) -> None:
         if _handle is not None:
             self._handle = _handle
+            self._tuple: tuple[float, float, float, float, float, float] | None = None
             return
         matrix_type = _matrix_handle_type()
         self._handle = matrix_type(float(a), float(b), float(c), float(d), float(e), float(f))
+        self._tuple = None
 
     @property
     def a(self) -> float:
@@ -78,7 +86,12 @@ class Matrix2D:
         as_tuple = getattr(self._handle, "as_tuple", None)
         if not callable(as_tuple):
             raise RuntimeError("The installed canvas runtime Matrix2D does not provide as_tuple().")
-        return tuple(float(value) for value in as_tuple())  # type: ignore[return-value]
+        if self._tuple is None:
+            self._tuple = tuple(float(value) for value in as_tuple())  # type: ignore[assignment]
+        result = self._tuple
+        if result is None:
+            raise RuntimeError("Matrix2D tuple cache was not initialized.")
+        return result
 
     def multiply(self, other: Matrix2D) -> Matrix2D:
         if not isinstance(other, Matrix2D):

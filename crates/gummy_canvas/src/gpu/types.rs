@@ -120,6 +120,12 @@ pub enum DrawCommand {
         color: GpuColor,
         blend_mode: BlendMode,
     },
+    PixelPrefix {
+        byte_limit: u32,
+        stride: u32,
+        red_delta: i32,
+        green_delta: i32,
+    },
     EraseTriangles {
         vertices: Vec<([f32; 2], GpuColor)>,
         clip_id: usize,

@@ -379,14 +379,14 @@ impl GpuRenderer {
         let pixel_prefix_bind_group = create_pixel_prefix_bind_group(
             &device,
             &pixel_prefix_bind_group_layout,
-            &texture_view,
+            &pixel_prefix_texture_view,
             &texture_sampler,
             &pixel_prefix_uniform_buffer,
         );
         let blend_ellipse_bind_group = create_pixel_prefix_bind_group(
             &device,
             &pixel_prefix_bind_group_layout,
-            &texture_view,
+            &pixel_prefix_texture_view,
             &texture_sampler,
             &blend_ellipse_uniform_buffer,
         );
@@ -512,14 +512,14 @@ impl GpuRenderer {
         self.pixel_prefix_bind_group = create_pixel_prefix_bind_group(
             &self.device,
             &self.pixel_prefix_bind_group_layout,
-            &self.texture_view,
+            &self.pixel_prefix_texture_view,
             &self.texture_sampler,
             &self.pixel_prefix_uniform_buffer,
         );
         self.blend_ellipse_bind_group = create_pixel_prefix_bind_group(
             &self.device,
             &self.pixel_prefix_bind_group_layout,
-            &self.texture_view,
+            &self.pixel_prefix_texture_view,
             &self.texture_sampler,
             &self.blend_ellipse_uniform_buffer,
         );

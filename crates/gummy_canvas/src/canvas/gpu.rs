@@ -223,6 +223,9 @@ impl Canvas {
                 crate::gpu::DrawCommand::BlendEllipse { .. } => {
                     return false;
                 }
+                crate::gpu::DrawCommand::PixelPrefix { .. } => {
+                    return false;
+                }
                 crate::gpu::DrawCommand::Model { .. }
                 | crate::gpu::DrawCommand::TexturedModel { .. } => {
                     return false;

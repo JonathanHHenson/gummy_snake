@@ -20,7 +20,7 @@ mod bindings;
 #[allow(unused_imports)]
 pub(crate) use bindings::{health_check, native_window_available};
 
-use ab_glyph::FontArc;
+use ab_glyph::{FontArc, GlyphId};
 use images::{
     alpha_composite_rgba_region, apply_rgba_mask, convert_media_frame_to_rgba,
     crop_rgba_with_padding, filter_rgba, replace_rgba_region, resize_rgba_nearest,
@@ -49,7 +49,7 @@ use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
 use text::{
     default_font_paths, render_text_line, text_ascent as measure_text_ascent,
-    text_descent as measure_text_descent, text_width,
+    text_descent as measure_text_descent,
 };
 
 const SUPPORTED_RENDERER: &str = "p2d";
@@ -632,6 +632,8 @@ struct Canvas {
     text_cache: HashMap<String, CachedText>,
     text_cache_order: VecDeque<String>,
     text_metric_cache: HashMap<String, CachedTextMetrics>,
+    text_glyph_advance_cache: HashMap<(String, usize, char), (GlyphId, f32)>,
+    text_kern_cache: HashMap<(String, usize, GlyphId, GlyphId), f32>,
     font_cache: HashMap<String, FontArc>,
     next_text_key: u64,
     texture_cache_versions: HashMap<u64, u64>,

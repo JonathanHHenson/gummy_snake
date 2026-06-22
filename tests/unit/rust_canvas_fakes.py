@@ -308,6 +308,15 @@ class FakeCanvas:
     ) -> None:
         self.calls.append(("update_pixel_region", pixels, width, height, x, y, alpha_composite))
 
+    def adjust_pixel_prefix(
+        self,
+        byte_limit: int,
+        stride: int,
+        red_delta: int,
+        green_delta: int,
+    ) -> None:
+        self.calls.append(("adjust_pixel_prefix", byte_limit, stride, red_delta, green_delta))
+
     def filter_pixels(self, mode: str, value: float | None = None) -> None:
         self.calls.append(("filter_pixels", mode, value))
 

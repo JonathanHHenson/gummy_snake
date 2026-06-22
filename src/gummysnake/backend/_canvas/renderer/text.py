@@ -40,7 +40,11 @@ class CanvasRendererTextMixin:
 
     def text_width(self, value: str, style: StyleState) -> float:
         _renderer(self)._flush_line_batch()
-        current = getattr(_renderer(self)._require_canvas(), "text_width_current", None)
+        current = (
+            getattr(_renderer(self)._require_canvas(), "text_width_current", None)
+            if getattr(_renderer(self), "_rust_style_synced", True)
+            else None
+        )
         if callable(current):
             return _renderer(self)._cached_text_metric(
                 text_metric_key("width", style, value),
@@ -58,7 +62,11 @@ class CanvasRendererTextMixin:
 
     def text_ascent(self, style: StyleState) -> float:
         _renderer(self)._flush_line_batch()
-        current = getattr(_renderer(self)._require_canvas(), "text_ascent_current", None)
+        current = (
+            getattr(_renderer(self)._require_canvas(), "text_ascent_current", None)
+            if getattr(_renderer(self), "_rust_style_synced", True)
+            else None
+        )
         if callable(current):
             return _renderer(self)._cached_text_metric(
                 text_metric_key("ascent", style),
@@ -74,7 +82,11 @@ class CanvasRendererTextMixin:
 
     def text_descent(self, style: StyleState) -> float:
         _renderer(self)._flush_line_batch()
-        current = getattr(_renderer(self)._require_canvas(), "text_descent_current", None)
+        current = (
+            getattr(_renderer(self)._require_canvas(), "text_descent_current", None)
+            if getattr(_renderer(self), "_rust_style_synced", True)
+            else None
+        )
         if callable(current):
             return _renderer(self)._cached_text_metric(
                 text_metric_key("descent", style),

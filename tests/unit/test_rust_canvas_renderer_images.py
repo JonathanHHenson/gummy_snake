@@ -183,3 +183,18 @@ def test_canvas_renderer_performance_counters_cover_representative_paths() -> No
     assert reset["gpu_draws"] == 0
     assert reset["bridge_calls"] == 0
     assert reset["text_cache_evictions"] == 0
+
+
+def test_adjust_pixel_prefix_counts_gpu_region_effect_not_pixel_roundtrip() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(4, 2)
+
+    renderer.adjust_pixel_prefix(16, 4, 1, 2)
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    assert canvas.calls[-1] == ("adjust_pixel_prefix", 16, 4, 1, 2)
+    counters = cast(dict[str, int], renderer.performance_counters())
+    assert counters["gpu_region_effect_passes"] == 1
+    assert counters["pixel_readbacks"] == 0
+    assert counters["pixel_uploads"] == 0

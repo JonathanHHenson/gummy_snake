@@ -206,8 +206,7 @@ class CanvasRendererPixelsMixin:
             raise ArgumentValidationError(
                 "The installed canvas runtime cannot adjust pixel prefixes."
             )
-        _renderer(self)._count("pixel_readbacks")
-        _renderer(self)._count("pixel_uploads")
+        _renderer(self)._count("gpu_region_effect_passes")
         _renderer(self)._call(
             "pixel prefix adjustment",
             callback,

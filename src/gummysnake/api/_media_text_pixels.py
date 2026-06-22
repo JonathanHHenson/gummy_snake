@@ -56,7 +56,7 @@ def image(
 
 
 def image(*args: Any) -> None:
-    _context_call("image", *args)
+    require_context().image(*args)
 
 
 @overload
@@ -88,7 +88,7 @@ def no_tint() -> None:
 
 
 def text(value: SupportsText, x: float, y: float) -> None:
-    _context_call("text", value, x, y)
+    require_context().text(value, x, y)
 
 
 def text_size(size: float | None = None) -> float:
@@ -112,7 +112,7 @@ def text_leading(value: float | None = None) -> float:
 
 
 def text_width(value: SupportsText) -> float:
-    return cast(float, _context_call("text_width", value))
+    return require_context().text_width(value)
 
 
 def text_ascent() -> float:

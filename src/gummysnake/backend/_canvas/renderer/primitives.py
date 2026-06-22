@@ -140,7 +140,11 @@ class CanvasRendererPrimitivesMixin:
     ) -> None:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_draws")
-        draw = getattr(_renderer(self)._require_canvas(), "draw_captured_shape_current", None)
+        draw = (
+            getattr(_renderer(self)._require_canvas(), "draw_captured_shape_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
         if callable(draw):
             _renderer(self)._call("captured shape drawing", draw, state, close)
             return
@@ -171,7 +175,11 @@ class CanvasRendererPrimitivesMixin:
         _renderer(self)._flush_line_batch()
         current = (
             getattr(_renderer(self)._require_canvas(), "begin_clip_current", None)
-            if _renderer(self)._current_matrix_payload == _renderer(self)._matrix_payload(transform)
+            if getattr(_renderer(self), "_rust_transform_synced", True)
+            and (
+                _renderer(self)._current_matrix_payload
+                == _renderer(self)._matrix_payload(transform)
+            )
             else None
         )
         if callable(current):
@@ -189,7 +197,15 @@ class CanvasRendererPrimitivesMixin:
 
     def begin_clip_captured_shape(self, state: object, transform: Matrix2D) -> None:
         _renderer(self)._flush_line_batch()
-        current = getattr(_renderer(self)._require_canvas(), "begin_clip_captured_current", None)
+        current = (
+            getattr(_renderer(self)._require_canvas(), "begin_clip_captured_current", None)
+            if getattr(_renderer(self), "_rust_transform_synced", True)
+            and (
+                _renderer(self)._current_matrix_payload
+                == _renderer(self)._matrix_payload(transform)
+            )
+            else None
+        )
         if callable(current):
             _renderer(self)._call("captured clip creation", current, state)
             _renderer(self)._clip_depth += 1

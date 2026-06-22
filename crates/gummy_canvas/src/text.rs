@@ -96,26 +96,6 @@ pub(crate) fn render_text_line(
     }
 }
 
-pub(crate) fn text_width(value: &str, font: &FontArc, font_size: usize) -> f64 {
-    let scale = PxScale::from(font_size as f32);
-    let scaled_font = font.as_scaled(scale);
-    let mut max_width = 0.0_f32;
-    for line in value.split('\n') {
-        let mut caret = 0.0_f32;
-        let mut previous: Option<GlyphId> = None;
-        for ch in line.chars() {
-            let glyph_id = scaled_font.glyph_id(ch);
-            if let Some(previous_id) = previous {
-                caret += scaled_font.kern(previous_id, glyph_id);
-            }
-            caret += scaled_font.h_advance(glyph_id);
-            previous = Some(glyph_id);
-        }
-        max_width = max_width.max(caret);
-    }
-    max_width as f64
-}
-
 pub(crate) fn text_ascent(font: &FontArc, font_size: usize) -> f64 {
     let scaled_font = font.as_scaled(PxScale::from(font_size as f32));
     scaled_font.ascent().ceil().max(0.0) as f64

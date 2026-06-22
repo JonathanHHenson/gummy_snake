@@ -1,5 +1,6 @@
 use crate::runtime::style::*;
 use crate::*;
+use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
 
 mod cache;
 
@@ -208,9 +209,10 @@ impl Canvas {
             return Ok(*metrics);
         }
         self.performance_counters.text_cache_misses += 1;
+        let font_key = self.text_font_key(parsed_style);
         let font = self.load_text_font(parsed_style)?;
         let metrics = CachedTextMetrics {
-            width: text_width(value, &font, font_size),
+            width: self.cached_text_width(value, &font_key, &font, font_size),
             ascent: measure_text_ascent(&font, font_size),
             descent: measure_text_descent(&font, font_size),
         };
@@ -219,10 +221,59 @@ impl Canvas {
     }
 
     fn text_metric_cache_key(&self, value: &str, style: &Style, font_size: usize) -> String {
+        let font_key = self.text_font_key(style);
+        format!("{font_key}|{font_size}|metrics|{value}")
+    }
+
+    fn text_font_key(&self, style: &Style) -> String {
         let font_key = style
             .text_font_path
             .clone()
             .unwrap_or_else(|| format!("name:{}", style.text_font_name));
-        format!("{font_key}|{font_size}|metrics|{value}")
+        font_key
+    }
+
+    fn cached_text_width(
+        &mut self,
+        value: &str,
+        font_key: &str,
+        font: &FontArc,
+        font_size: usize,
+    ) -> f64 {
+        let scale = PxScale::from(font_size as f32);
+        let scaled_font = font.as_scaled(scale);
+        let cache_font_key = font_key.to_owned();
+        let mut max_width = 0.0_f32;
+        for line in value.split('\n') {
+            let mut caret = 0.0_f32;
+            let mut previous = None;
+            for ch in line.chars() {
+                let glyph_key = (cache_font_key.clone(), font_size, ch);
+                let (glyph_id, advance) =
+                    if let Some(cached) = self.text_glyph_advance_cache.get(&glyph_key) {
+                        *cached
+                    } else {
+                        let glyph_id = scaled_font.glyph_id(ch);
+                        let advance = scaled_font.h_advance(glyph_id);
+                        self.text_glyph_advance_cache
+                            .insert(glyph_key, (glyph_id, advance));
+                        (glyph_id, advance)
+                    };
+                if let Some(previous_id) = previous {
+                    let kern_key = (cache_font_key.clone(), font_size, previous_id, glyph_id);
+                    caret += if let Some(kern) = self.text_kern_cache.get(&kern_key) {
+                        *kern
+                    } else {
+                        let kern = scaled_font.kern(previous_id, glyph_id);
+                        self.text_kern_cache.insert(kern_key, kern);
+                        kern
+                    };
+                }
+                caret += advance;
+                previous = Some(glyph_id);
+            }
+            max_width = max_width.max(caret);
+        }
+        max_width as f64
     }
 }

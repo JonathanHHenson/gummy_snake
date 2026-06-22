@@ -146,6 +146,23 @@ impl GpuRenderer {
         }
     }
 
+    pub fn draw_pixel_prefix_mutation(
+        &mut self,
+        byte_limit: u32,
+        stride: u32,
+        red_delta: i32,
+        green_delta: i32,
+    ) {
+        if byte_limit > 0 && stride > 0 {
+            self.commands.push(DrawCommand::PixelPrefix {
+                byte_limit,
+                stride,
+                red_delta,
+                green_delta,
+            });
+        }
+    }
+
     pub fn draw_erase_triangles(&mut self, vertices: Vec<([f32; 2], GpuColor)>) {
         if !vertices.is_empty() {
             self.commands.push(DrawCommand::EraseTriangles {
@@ -205,6 +222,7 @@ impl GpuRenderer {
                 }
                 DrawCommand::Ellipse { .. }
                 | DrawCommand::BlendEllipse { .. }
+                | DrawCommand::PixelPrefix { .. }
                 | DrawCommand::Model { .. }
                 | DrawCommand::TexturedModel { .. }
                 | DrawCommand::Text { .. } => return None,
@@ -247,6 +265,7 @@ impl GpuRenderer {
                     primitive_vertices += 64 * 3;
                 }
                 DrawCommand::BlendEllipse { .. } => {}
+                DrawCommand::PixelPrefix { .. } => {}
                 DrawCommand::EraseTriangles { vertices, .. } => {
                     erase_vertices += vertices.len();
                 }
@@ -422,7 +441,9 @@ impl GpuRenderer {
         if !self.commands.iter().any(|command| {
             matches!(
                 command,
-                DrawCommand::BlendEllipse { .. } | DrawCommand::Text { .. }
+                DrawCommand::BlendEllipse { .. }
+                    | DrawCommand::PixelPrefix { .. }
+                    | DrawCommand::Text { .. }
             )
         }) {
             self.encode_plain_commands(encoder);
@@ -457,6 +478,25 @@ impl GpuRenderer {
                         *ry,
                         *color,
                         *blend_mode,
+                    );
+                    segment_start = index + 1;
+                }
+                DrawCommand::PixelPrefix {
+                    byte_limit,
+                    stride,
+                    red_delta,
+                    green_delta,
+                } => {
+                    self.commands = commands[segment_start..index].to_vec();
+                    if !self.commands.is_empty() {
+                        self.encode_plain_commands(encoder);
+                    }
+                    self.encode_pixel_prefix_pass(
+                        encoder,
+                        *byte_limit,
+                        *stride,
+                        *red_delta,
+                        *green_delta,
                     );
                     segment_start = index + 1;
                 }
@@ -495,6 +535,7 @@ impl GpuRenderer {
                 DrawCommand::Triangles { .. } => None,
                 DrawCommand::Ellipse { .. } => None,
                 DrawCommand::BlendEllipse { .. } => None,
+                DrawCommand::PixelPrefix { .. } => None,
                 DrawCommand::Model { .. } => None,
                 DrawCommand::TexturedModel { .. } => None,
                 DrawCommand::Text { .. } => None,
@@ -725,6 +766,7 @@ impl GpuRenderer {
                     );
                 }
                 DrawCommand::BlendEllipse { .. } => {}
+                DrawCommand::PixelPrefix { .. } => {}
                 DrawCommand::Text { .. } => {}
                 DrawCommand::Model {
                     key,
@@ -1059,37 +1101,37 @@ impl GpuRenderer {
         color: GpuColor,
         mode: BlendMode,
     ) {
-        let uniform_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("gummy_canvas ordered blend ellipse uniform"),
-                contents: bytemuck::bytes_of(&BlendEllipseUniform {
-                    center_radius: [cx, cy, rx.max(0.0001), ry.max(0.0001)],
-                    color: color.as_float(),
-                    mode: crate::gpu::textures::blend_mode_id(mode),
-                    _padding: [0; 7],
-                }),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
-        let source_bind_group = self.create_region_effect_bind_group(
-            &self.pixel_prefix_texture_view,
-            &uniform_buffer,
-            "gummy_canvas ordered blend ellipse source bind group",
+        self.queue.write_buffer(
+            &self.blend_ellipse_uniform_buffer,
+            0,
+            bytemuck::bytes_of(&BlendEllipseUniform {
+                center_radius: [cx, cy, rx.max(0.0001), ry.max(0.0001)],
+                color: color.as_float(),
+                mode: crate::gpu::textures::blend_mode_id(mode),
+                _padding: [0; 7],
+            }),
         );
+        let Some((x, y, width, height)) = self.effect_bounds(cx, cy, rx, ry) else {
+            return;
+        };
         encoder.copy_texture_to_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &self.texture,
                 mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
+                origin: wgpu::Origin3d { x, y, z: 0 },
                 aspect: wgpu::TextureAspect::All,
             },
             wgpu::TexelCopyTextureInfo {
                 texture: &self.pixel_prefix_texture,
                 mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
+                origin: wgpu::Origin3d { x, y, z: 0 },
                 aspect: wgpu::TextureAspect::All,
             },
-            self.texture_size,
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
         );
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("gummy_canvas ordered blend ellipse pass"),
@@ -1097,7 +1139,7 @@ impl GpuRenderer {
                 view: &self.texture_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -1106,8 +1148,91 @@ impl GpuRenderer {
             occlusion_query_set: None,
         });
         pass.set_pipeline(&self.blend_ellipse_pipeline);
-        pass.set_bind_group(0, &source_bind_group, &[]);
+        pass.set_bind_group(0, &self.blend_ellipse_bind_group, &[]);
+        pass.set_scissor_rect(x, y, width, height);
         pass.draw(0..6, 0..1);
+    }
+
+    fn encode_pixel_prefix_pass(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        byte_limit: u32,
+        stride: u32,
+        red_delta: i32,
+        green_delta: i32,
+    ) {
+        self.queue.write_buffer(
+            &self.pixel_prefix_uniform_buffer,
+            0,
+            bytemuck::bytes_of(&PixelPrefixUniform {
+                byte_limit,
+                stride,
+                red_delta,
+                green_delta,
+            }),
+        );
+        let Some((x, y, width, height)) = self.pixel_prefix_bounds(byte_limit) else {
+            return;
+        };
+        encoder.copy_texture_to_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x, y, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.pixel_prefix_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x, y, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("gummy_canvas pixel prefix pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.texture_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+        pass.set_pipeline(&self.pixel_prefix_pipeline);
+        pass.set_bind_group(0, &self.pixel_prefix_bind_group, &[]);
+        pass.set_scissor_rect(x, y, width, height);
+        pass.draw(0..6, 0..1);
+    }
+
+    fn pixel_prefix_bounds(&self, byte_limit: u32) -> Option<(u32, u32, u32, u32)> {
+        let total_pixels = self.texture_size.width.saturating_mul(self.texture_size.height);
+        let affected_pixels = byte_limit.div_ceil(4).min(total_pixels);
+        if affected_pixels == 0 || self.texture_size.width == 0 {
+            return None;
+        }
+        let width = affected_pixels.min(self.texture_size.width);
+        let height = affected_pixels.div_ceil(self.texture_size.width);
+        Some((0, 0, width, height))
+    }
+
+    fn effect_bounds(&self, cx: f32, cy: f32, rx: f32, ry: f32) -> Option<(u32, u32, u32, u32)> {
+        let x0 = (cx - rx).floor().max(0.0) as u32;
+        let y0 = (cy - ry).floor().max(0.0) as u32;
+        let x1 = (cx + rx).ceil().clamp(0.0, self.texture_size.width as f32) as u32;
+        let y1 = (cy + ry).ceil().clamp(0.0, self.texture_size.height as f32) as u32;
+        if x1 <= x0 || y1 <= y0 {
+            return None;
+        }
+        Some((x0, y0, x1 - x0, y1 - y0))
     }
     fn encode_text_pass(&mut self, encoder: &mut wgpu::CommandEncoder, commands: &[DrawCommand]) {
         self.text_viewport.update(
