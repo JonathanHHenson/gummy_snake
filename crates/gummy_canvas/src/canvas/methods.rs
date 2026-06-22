@@ -578,14 +578,7 @@ impl Canvas {
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
         let _ = py;
-        self.draw_canvas_image_current_impl(
-            image,
-            dx,
-            dy,
-            dw,
-            dh,
-            source,
-        )
+        self.draw_canvas_image_current_impl(image, dx, dy, dw, dh, source)
     }
     pub(crate) fn text(
         &mut self,

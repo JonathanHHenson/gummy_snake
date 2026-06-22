@@ -612,7 +612,9 @@ impl SketchContextState {
 
     fn begin_contour_capture(&mut self) -> PyResult<()> {
         if !self.shape_active {
-            return Err(PyRuntimeError::new_err("begin_contour() requires begin_shape()."));
+            return Err(PyRuntimeError::new_err(
+                "begin_contour() requires begin_shape().",
+            ));
         }
         if self.contour_active {
             return Err(PyRuntimeError::new_err("begin_contour() cannot be nested."));
@@ -634,7 +636,9 @@ impl SketchContextState {
 
     fn end_contour_capture(&mut self) -> PyResult<()> {
         if !self.shape_active || !self.contour_active {
-            return Err(PyRuntimeError::new_err("end_contour() requires begin_contour()."));
+            return Err(PyRuntimeError::new_err(
+                "end_contour() requires begin_contour().",
+            ));
         }
         if self.contour_vertices.len() < 3 {
             return Err(PyRuntimeError::new_err(

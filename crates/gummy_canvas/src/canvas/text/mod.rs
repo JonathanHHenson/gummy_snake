@@ -117,7 +117,11 @@ impl Canvas {
         self.text_width_with_style(value, &style)
     }
 
-    pub(crate) fn text_width_with_style(&mut self, value: &str, parsed_style: &Style) -> PyResult<f64> {
+    pub(crate) fn text_width_with_style(
+        &mut self,
+        value: &str,
+        parsed_style: &Style,
+    ) -> PyResult<f64> {
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
         }

@@ -54,6 +54,7 @@ impl Canvas {
             current_matrix: (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
             matrix_stack: Vec::new(),
             performance_counters: PerformanceCounters::default(),
+            pending_3d_triangles: Vec::new(),
         })
     }
 
@@ -375,9 +376,11 @@ impl Canvas {
             gpu.begin_frame();
         }
         self.render_dirty = false;
+        self.pending_3d_triangles.clear();
     }
 
     pub(crate) fn end_frame_impl(&mut self) {
+        self.flush_pending_3d_triangles();
         if self.render_dirty && self.offscreen_dirty && self.runtime.is_none() {
             self.render_gpu_frame(false);
         } else if self.runtime.is_none() {
@@ -387,6 +390,7 @@ impl Canvas {
 
     pub(crate) fn present_impl(&mut self) -> PyResult<()> {
         self.performance_counters.bridge_calls += 1;
+        self.flush_pending_3d_triangles();
         if self.render_dirty && self.offscreen_dirty && self.runtime.is_none() {
             self.render_gpu_frame(false);
         } else if self.runtime.is_none() {

@@ -116,10 +116,10 @@ impl GpuRenderer {
                     primitive_vertices += 64 * 3;
                 }
                 DrawCommand::EraseTriangles { vertices, .. } => {
-                    erase_vertices = erase_vertices.max(vertices.len());
+                    erase_vertices += vertices.len();
                 }
                 DrawCommand::Image { .. } => {
-                    image_vertices = image_vertices.max(6);
+                    image_vertices += 6;
                 }
                 DrawCommand::Clear(_) => {}
             }
@@ -193,7 +193,9 @@ impl GpuRenderer {
         height: u32,
     ) -> Result<Vec<u8>, String> {
         let width = width.max(1).min(self.texture_size.width.saturating_sub(x));
-        let height = height.max(1).min(self.texture_size.height.saturating_sub(y));
+        let height = height
+            .max(1)
+            .min(self.texture_size.height.saturating_sub(y));
         let bytes_per_pixel = 4usize;
         let unpadded_bytes_per_row = width as usize * bytes_per_pixel;
         let padded_bytes_per_row = align_to(
@@ -276,7 +278,7 @@ impl GpuRenderer {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("gummy_canvas readback encoder"),
-        });
+            });
         if encode_render {
             self.write_viewport(self.texture_size.width, self.texture_size.height);
             self.ensure_render_vertex_buffers();
@@ -359,6 +361,9 @@ impl GpuRenderer {
         let mut batched_vertices = std::mem::take(&mut self.primitive_staging);
         batched_vertices.clear();
         let mut batched_clip_id = 0usize;
+        let mut primitive_vertex_offset = 0usize;
+        let mut erase_vertex_offset = 0usize;
+        let mut image_vertex_offset = 0usize;
         for command in &self.commands {
             match command {
                 DrawCommand::Clear(color) => {
@@ -377,11 +382,16 @@ impl GpuRenderer {
                             .primitive_vertex_buffer
                             .as_ref()
                             .expect("primitive vertex buffer is prepared");
+                        let offset_bytes =
+                            (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                        let size_bytes =
+                            (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
                         self.queue.write_buffer(
                             &buffer,
-                            0,
+                            offset_bytes,
                             bytemuck::cast_slice(&batched_vertices),
                         );
+                        primitive_vertex_offset += batched_vertices.len();
                         pass.set_pipeline(&self.pipeline);
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
@@ -389,7 +399,10 @@ impl GpuRenderer {
                             &self.clip_textures[batched_clip_id].bind_group,
                             &[],
                         );
-                        pass.set_vertex_buffer(0, buffer.slice(..));
+                        pass.set_vertex_buffer(
+                            0,
+                            buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                        );
                         pass.draw(0..batched_vertices.len() as u32, 0..1);
                         batched_vertices.clear();
                     }
@@ -417,11 +430,16 @@ impl GpuRenderer {
                             .primitive_vertex_buffer
                             .as_ref()
                             .expect("primitive vertex buffer is prepared");
+                        let offset_bytes =
+                            (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                        let size_bytes =
+                            (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
                         self.queue.write_buffer(
                             &buffer,
-                            0,
+                            offset_bytes,
                             bytemuck::cast_slice(&batched_vertices),
                         );
+                        primitive_vertex_offset += batched_vertices.len();
                         pass.set_pipeline(&self.pipeline);
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
@@ -429,7 +447,10 @@ impl GpuRenderer {
                             &self.clip_textures[batched_clip_id].bind_group,
                             &[],
                         );
-                        pass.set_vertex_buffer(0, buffer.slice(..));
+                        pass.set_vertex_buffer(
+                            0,
+                            buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                        );
                         pass.draw(0..batched_vertices.len() as u32, 0..1);
                         batched_vertices.clear();
                     }
@@ -454,11 +475,16 @@ impl GpuRenderer {
                             .primitive_vertex_buffer
                             .as_ref()
                             .expect("primitive vertex buffer is prepared");
+                        let offset_bytes =
+                            (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                        let size_bytes =
+                            (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
                         self.queue.write_buffer(
                             &buffer,
-                            0,
+                            offset_bytes,
                             bytemuck::cast_slice(&batched_vertices),
                         );
+                        primitive_vertex_offset += batched_vertices.len();
                         pass.set_pipeline(&self.pipeline);
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
@@ -466,7 +492,10 @@ impl GpuRenderer {
                             &self.clip_textures[batched_clip_id].bind_group,
                             &[],
                         );
-                        pass.set_vertex_buffer(0, buffer.slice(..));
+                        pass.set_vertex_buffer(
+                            0,
+                            buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                        );
                         pass.draw(0..batched_vertices.len() as u32, 0..1);
                         batched_vertices.clear();
                     }
@@ -482,12 +511,22 @@ impl GpuRenderer {
                         .erase_vertex_buffer
                         .as_ref()
                         .expect("erase vertex buffer is prepared");
-                    self.queue
-                        .write_buffer(&buffer, 0, bytemuck::cast_slice(&self.erase_staging));
+                    let offset_bytes = (erase_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                    let size_bytes =
+                        (self.erase_staging.len() * std::mem::size_of::<Vertex>()) as u64;
+                    self.queue.write_buffer(
+                        &buffer,
+                        offset_bytes,
+                        bytemuck::cast_slice(&self.erase_staging),
+                    );
+                    erase_vertex_offset += self.erase_staging.len();
                     pass.set_pipeline(&self.erase_pipeline);
                     pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                     pass.set_bind_group(1, &self.clip_textures[*clip_id].bind_group, &[]);
-                    pass.set_vertex_buffer(0, buffer.slice(..));
+                    pass.set_vertex_buffer(
+                        0,
+                        buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                    );
                     pass.draw(0..self.erase_staging.len() as u32, 0..1);
                 }
                 DrawCommand::Image {
@@ -506,11 +545,16 @@ impl GpuRenderer {
                             .primitive_vertex_buffer
                             .as_ref()
                             .expect("primitive vertex buffer is prepared");
+                        let offset_bytes =
+                            (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                        let size_bytes =
+                            (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
                         self.queue.write_buffer(
                             &buffer,
-                            0,
+                            offset_bytes,
                             bytemuck::cast_slice(&batched_vertices),
                         );
+                        primitive_vertex_offset += batched_vertices.len();
                         pass.set_pipeline(&self.pipeline);
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
@@ -518,7 +562,10 @@ impl GpuRenderer {
                             &self.clip_textures[batched_clip_id].bind_group,
                             &[],
                         );
-                        pass.set_vertex_buffer(0, buffer.slice(..));
+                        pass.set_vertex_buffer(
+                            0,
+                            buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                        );
                         pass.draw(0..batched_vertices.len() as u32, 0..1);
                         batched_vertices.clear();
                     }
@@ -538,8 +585,16 @@ impl GpuRenderer {
                         .image_vertex_buffer
                         .as_ref()
                         .expect("image vertex buffer is prepared");
-                    self.queue
-                        .write_buffer(&buffer, 0, bytemuck::cast_slice(&self.image_staging));
+                    let offset_bytes =
+                        (image_vertex_offset * std::mem::size_of::<ImageVertex>()) as u64;
+                    let size_bytes =
+                        (self.image_staging.len() * std::mem::size_of::<ImageVertex>()) as u64;
+                    self.queue.write_buffer(
+                        &buffer,
+                        offset_bytes,
+                        bytemuck::cast_slice(&self.image_staging),
+                    );
+                    image_vertex_offset += self.image_staging.len();
                     pass.set_pipeline(&self.image_pipeline);
                     pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                     let bind_group = if *linear {
@@ -549,7 +604,10 @@ impl GpuRenderer {
                     };
                     pass.set_bind_group(1, bind_group, &[]);
                     pass.set_bind_group(2, &self.clip_textures[*clip_id].bind_group, &[]);
-                    pass.set_vertex_buffer(0, buffer.slice(..));
+                    pass.set_vertex_buffer(
+                        0,
+                        buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                    );
                     pass.draw(0..self.image_staging.len() as u32, 0..1);
                 }
             }
@@ -561,12 +619,17 @@ impl GpuRenderer {
                 .primitive_vertex_buffer
                 .as_ref()
                 .expect("primitive vertex buffer is prepared");
-            self.queue
-                .write_buffer(&buffer, 0, bytemuck::cast_slice(&batched_vertices));
+            let offset_bytes = (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+            let size_bytes = (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+            self.queue.write_buffer(
+                &buffer,
+                offset_bytes,
+                bytemuck::cast_slice(&batched_vertices),
+            );
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.viewport_bind_group, &[]);
             pass.set_bind_group(1, &self.clip_textures[batched_clip_id].bind_group, &[]);
-            pass.set_vertex_buffer(0, buffer.slice(..));
+            pass.set_vertex_buffer(0, buffer.slice(offset_bytes..offset_bytes + size_bytes));
             pass.draw(0..batched_vertices.len() as u32, 0..1);
         }
         batched_vertices.clear();

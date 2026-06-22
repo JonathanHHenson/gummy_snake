@@ -174,22 +174,20 @@ impl Canvas {
             self.performance_counters.image_cache_hits += 1;
         }
         if let Some(cached) = self.image_cache.get(&image_key).cloned() {
-            if self
-                .try_draw_gpu_image_parts(
-                    image_key,
-                    cached.version,
-                    cached.width,
-                    cached.height,
-                    &cached.pixels,
-                    dx,
-                    dy,
-                    dw,
-                    dh,
-                    &style,
-                    matrix,
-                    source,
-                )?
-            {
+            if self.try_draw_gpu_image_parts(
+                image_key,
+                cached.version,
+                cached.width,
+                cached.height,
+                &cached.pixels,
+                dx,
+                dy,
+                dw,
+                dh,
+                &style,
+                matrix,
+                source,
+            )? {
                 return Ok(());
             }
             self.draw_image_pixels_with_style(

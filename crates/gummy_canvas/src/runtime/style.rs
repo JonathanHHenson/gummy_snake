@@ -1,7 +1,5 @@
 use crate::runtime::RuntimeEvent;
-use crate::{
-    BlendMode, Rgba, Style, INTERACTIVE_MODE, SUPPORTED_MODE, SUPPORTED_RENDERER,
-};
+use crate::{BlendMode, Rgba, Style, INTERACTIVE_MODE, SUPPORTED_MODE, SUPPORTED_RENDERER};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict};
@@ -225,8 +223,6 @@ pub(crate) fn ensure_supported_blend_mode(mode: &str) -> PyResult<()> {
 
 pub(crate) fn parse_blend_mode(mode: &str) -> PyResult<BlendMode> {
     BlendMode::parse(mode).ok_or_else(|| {
-        PyValueError::new_err(format!(
-            "Unsupported blend mode {mode:?} for gummy_canvas."
-        ))
+        PyValueError::new_err(format!("Unsupported blend mode {mode:?} for gummy_canvas."))
     })
 }

@@ -198,11 +198,7 @@ fn shaded_faces_cpu_fallback_preserves_face_color() {
 
     canvas.background((0, 0, 0, 255));
     canvas
-        .draw_shaded_face_vertices_cpu(&[
-            ([1.0, 1.0], red),
-            ([6.0, 1.0], red),
-            ([1.0, 6.0], red),
-        ])
+        .draw_shaded_face_vertices_cpu(&[([1.0, 1.0], red), ([6.0, 1.0], red), ([1.0, 6.0], red)])
         .unwrap();
 
     let pixels = canvas.load_pixels();

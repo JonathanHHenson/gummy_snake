@@ -25,7 +25,7 @@ use self::primitives::{
 };
 use self::project::{project_mesh_payload_faces, validate_projection_payload};
 use self::types::{MeshPayload, ObjModelData, Vec3d};
-use crate::{push_triangle, Rgba};
+use crate::Rgba;
 
 pub(crate) use self::rasterize::rasterize_faces_rgba;
 
@@ -40,6 +40,12 @@ pub(crate) struct CanvasModel3D {
 #[derive(Clone, Debug)]
 pub(crate) struct CanvasMesh3D {
     mesh: ObjModelData,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ShadedTriangle {
+    pub(crate) depth: f64,
+    pub(crate) vertices: [([f32; 2], crate::gpu::GpuColor); 3],
 }
 
 fn canvas_model_from_data(model: ObjModelData, source: &str) -> CanvasModel3D {
@@ -233,7 +239,7 @@ fn projected_faces_to_py<'py>(
     Ok(output)
 }
 
-pub(crate) fn model_handle_shaded_triangles(
+pub(crate) fn model_handle_shaded_triangles_with_depth(
     model: &CanvasModel3D,
     camera: &Bound<'_, PyAny>,
     projection: &Bound<'_, PyAny>,
@@ -245,7 +251,7 @@ pub(crate) fn model_handle_shaded_triangles(
     cull_backfaces: bool,
     transform: Option<Transform2D>,
     pixel_density: f64,
-) -> PyResult<Vec<([f32; 2], crate::gpu::GpuColor)>> {
+) -> PyResult<Vec<ShadedTriangle>> {
     if viewport_width <= 0.0 || viewport_height <= 0.0 {
         return Err(PyValueError::new_err(
             "viewport dimensions must be positive.",
@@ -267,30 +273,43 @@ pub(crate) fn model_handle_shaded_triangles(
     )?;
     faces.sort_by(|left, right| right.depth.total_cmp(&left.depth));
 
-    let mut vertices = Vec::new();
+    let mut triangles = Vec::new();
     for face in faces {
         if face.points.len() < 3 {
             continue;
         }
-        let color = rgba_from_unit_tuple(shade_projected_face(
+        let color = crate::raster::gpu_color(rgba_from_unit_tuple(shade_projected_face(
             &face,
             &camera,
             &material,
             &lights,
             normal_material,
-        )?);
+        )?));
         let first = scale_point(face.points[0], pixel_density);
         for index in 1..face.points.len() - 1 {
-            push_triangle(
-                &mut vertices,
-                first,
-                scale_point(face.points[index], pixel_density),
-                scale_point(face.points[index + 1], pixel_density),
-                color,
-            );
+            triangles.push(ShadedTriangle {
+                depth: face.depth,
+                vertices: [
+                    ([first.0 as f32, first.1 as f32], color),
+                    (
+                        [
+                            (face.points[index].0 * pixel_density) as f32,
+                            (face.points[index].1 * pixel_density) as f32,
+                        ],
+                        color,
+                    ),
+                    (
+                        [
+                            (face.points[index + 1].0 * pixel_density) as f32,
+                            (face.points[index + 1].1 * pixel_density) as f32,
+                        ],
+                        color,
+                    ),
+                ],
+            });
         }
     }
-    Ok(vertices)
+    Ok(triangles)
 }
 
 fn rgba_from_unit_tuple(color: (f64, f64, f64, f64)) -> Rgba {

@@ -3,6 +3,7 @@ use crate::*;
 
 impl Canvas {
     pub(crate) fn background_impl(&mut self, rgba: (u8, u8, u8, u8)) {
+        self.pending_3d_triangles.clear();
         let color = Rgba::from_tuple(rgba).as_array();
         if !self.clip_masks.is_empty() {
             if self.gpu.is_some() && !self.cpu_compositing_active {
@@ -67,6 +68,7 @@ impl Canvas {
     }
 
     pub(crate) fn clear_impl(&mut self) {
+        self.pending_3d_triangles.clear();
         if !self.clip_masks.is_empty() {
             if self.render_dirty && self.offscreen_dirty {
                 self.render_gpu_frame(true);
@@ -175,13 +177,7 @@ impl Canvas {
         self.line_with_style(x1, y1, x2, y2, &style, matrix)
     }
 
-    pub(crate) fn line_current_impl(
-        &mut self,
-        x1: f64,
-        y1: f64,
-        x2: f64,
-        y2: f64,
-    ) -> PyResult<()> {
+    pub(crate) fn line_current_impl(&mut self, x1: f64, y1: f64, x2: f64, y2: f64) -> PyResult<()> {
         let style = self.current_style.clone();
         self.line_with_style(x1, y1, x2, y2, &style, self.current_matrix)
     }
@@ -780,7 +776,10 @@ impl Canvas {
         let mut vertices = Vec::new();
         for item in sequence.iter() {
             let dict = item.downcast::<PyDict>()?;
-            if dict.get_item("texture")?.is_some_and(|value| !value.is_none()) {
+            if dict
+                .get_item("texture")?
+                .is_some_and(|value| !value.is_none())
+            {
                 continue;
             }
             let points = dict
@@ -834,7 +833,7 @@ impl Canvas {
         cull_backfaces: bool,
         transform: Option<(f64, f64, f64, f64, f64, f64)>,
     ) -> PyResult<()> {
-        let vertices = crate::software3d::model_handle_shaded_triangles(
+        let triangles = crate::software3d::model_handle_shaded_triangles_with_depth(
             model,
             camera,
             projection,
@@ -847,15 +846,39 @@ impl Canvas {
             transform,
             self.pixel_density,
         )?;
-        if vertices.is_empty() {
+        if triangles.is_empty() {
             return Ok(());
         }
         self.performance_counters.direct_model_draws += 1;
-        if self.gpu.is_some() && !self.cpu_compositing_active {
-            self.draw_gpu_triangles(vertices)?;
-            return Ok(());
+        self.pending_3d_triangles
+            .extend(triangles.into_iter().map(|triangle| Pending3dTriangle {
+                depth: triangle.depth,
+                vertices: triangle.vertices,
+            }));
+        self.render_dirty = true;
+        self.offscreen_dirty = true;
+        self.pixels_stale = true;
+        Ok(())
+    }
+
+    pub(crate) fn flush_pending_3d_triangles(&mut self) {
+        if self.pending_3d_triangles.is_empty() {
+            return;
         }
-        self.draw_shaded_face_vertices_cpu(&vertices)
+        self.pending_3d_triangles
+            .sort_by(|left, right| right.depth.total_cmp(&left.depth));
+        let mut vertices = Vec::with_capacity(self.pending_3d_triangles.len() * 3);
+        for triangle in self.pending_3d_triangles.drain(..) {
+            vertices.extend(triangle.vertices);
+        }
+        if vertices.is_empty() {
+            return;
+        }
+        if self.gpu.is_some() && !self.cpu_compositing_active {
+            let _ = self.draw_gpu_triangles(vertices);
+        } else {
+            let _ = self.draw_shaded_face_vertices_cpu(&vertices);
+        }
     }
 
     pub(crate) fn draw_shaded_face_vertices_cpu(

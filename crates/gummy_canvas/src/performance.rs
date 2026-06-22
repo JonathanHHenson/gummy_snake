@@ -47,7 +47,10 @@ impl PerformanceCounters {
         dict.set_item("event_polls", self.event_polls)?;
         dict.set_item("direct_model_draws", self.direct_model_draws)?;
         dict.set_item("python_face_payloads", self.python_face_payloads)?;
-        dict.set_item("direct_shape_finalizations", self.direct_shape_finalizations)?;
+        dict.set_item(
+            "direct_shape_finalizations",
+            self.direct_shape_finalizations,
+        )?;
         dict.set_item("shape_buffer_extractions", self.shape_buffer_extractions)?;
         dict.set_item("pixel_payload_copies", self.pixel_payload_copies)?;
         Ok(dict)

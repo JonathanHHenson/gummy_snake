@@ -641,6 +641,13 @@ struct Canvas {
     current_matrix: Matrix,
     matrix_stack: Vec<Matrix>,
     performance_counters: PerformanceCounters,
+    pending_3d_triangles: Vec<Pending3dTriangle>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Pending3dTriangle {
+    depth: f64,
+    vertices: [([f32; 2], gpu::GpuColor); 3],
 }
 
 #[pymodule]

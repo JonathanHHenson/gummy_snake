@@ -268,7 +268,8 @@ impl Canvas {
         if byte_limit == 0 || stride == 0 {
             return Ok(());
         }
-        let pixel_count = ((byte_limit.min(self.physical_width * self.physical_height * 4)) + 3) / 4;
+        let pixel_count =
+            ((byte_limit.min(self.physical_width * self.physical_height * 4)) + 3) / 4;
         if pixel_count == 0 {
             return Ok(());
         }
@@ -287,8 +288,7 @@ impl Canvas {
                         PyValueError::new_err(format!("Failed to read pixel prefix: {err}"))
                     })?;
                 for offset in (0..byte_limit.min(region.len())).step_by(stride) {
-                    region[offset] =
-                        (i16::from(region[offset]) + red_delta).rem_euclid(256) as u8;
+                    region[offset] = (i16::from(region[offset]) + red_delta).rem_euclid(256) as u8;
                     if offset + 1 < region.len() {
                         region[offset + 1] =
                             (i16::from(region[offset + 1]) + green_delta).rem_euclid(256) as u8;

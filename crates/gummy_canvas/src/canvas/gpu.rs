@@ -2,6 +2,7 @@ use crate::*;
 
 impl Canvas {
     pub(crate) fn prepare_cpu_composite(&mut self) {
+        self.flush_pending_3d_triangles();
         self.performance_counters.cpu_fallbacks += 1;
         let pending_clear = if self.offscreen_dirty && self.pixels_stale {
             self.gpu.as_ref().and_then(|gpu| gpu.only_pending_clear())
@@ -45,6 +46,7 @@ impl Canvas {
     }
 
     pub(crate) fn upload_stale_texture(&mut self, consume_mirrored_commands: bool) -> PyResult<()> {
+        self.flush_pending_3d_triangles();
         if !self.texture_stale {
             return Ok(());
         }
@@ -65,6 +67,7 @@ impl Canvas {
     }
 
     pub(crate) fn render_gpu_frame(&mut self, readback: bool) {
+        self.flush_pending_3d_triangles();
         if self.upload_stale_texture(false).is_err() {
             self.render_dirty = false;
             self.offscreen_dirty = false;
@@ -128,6 +131,7 @@ impl Canvas {
     }
 
     pub(crate) fn read_gpu_pixels(&mut self) {
+        self.flush_pending_3d_triangles();
         if self.materialize_gpu_primitives_on_cpu() {
             self.performance_counters.pixel_readbacks += 1;
             return;
