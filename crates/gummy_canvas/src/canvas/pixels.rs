@@ -1,5 +1,6 @@
 use crate::runtime::style::*;
 use crate::*;
+use pyo3::buffer::PyBuffer;
 
 impl Canvas {
     pub(crate) fn blend_region_impl(
@@ -124,6 +125,19 @@ impl Canvas {
     }
 
     pub(crate) fn update_pixels_impl(&mut self, pixels: Vec<u8>) -> PyResult<()> {
+        self.performance_counters.pixel_payload_copies += 1;
+        self.update_pixels_from_slice(&pixels)
+    }
+
+    pub(crate) fn update_pixel_buffer_impl(
+        &mut self,
+        py: Python<'_>,
+        pixels: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        with_u8_buffer(py, pixels, |payload| self.update_pixels_from_slice(payload))
+    }
+
+    fn update_pixels_from_slice(&mut self, pixels: &[u8]) -> PyResult<()> {
         self.performance_counters.pixel_uploads += 1;
         let expected = self.physical_width * self.physical_height * 4;
         if pixels.len() != expected {
@@ -135,7 +149,8 @@ impl Canvas {
         if pixels == self.pixels {
             return Ok(());
         }
-        self.pixels = pixels;
+        self.pixels.clear();
+        self.pixels.extend_from_slice(pixels);
         self.sync_present_pixels_from_rgba();
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.begin_frame();
@@ -178,6 +193,34 @@ impl Canvas {
     pub(crate) fn update_pixel_region_impl(
         &mut self,
         pixels: Vec<u8>,
+        width: usize,
+        height: usize,
+        x: i64,
+        y: i64,
+        alpha_composite: bool,
+    ) -> PyResult<()> {
+        self.performance_counters.pixel_payload_copies += 1;
+        self.update_pixel_region_from_slice(&pixels, width, height, x, y, alpha_composite)
+    }
+
+    pub(crate) fn update_pixel_region_buffer_impl(
+        &mut self,
+        py: Python<'_>,
+        pixels: &Bound<'_, PyAny>,
+        width: usize,
+        height: usize,
+        x: i64,
+        y: i64,
+        alpha_composite: bool,
+    ) -> PyResult<()> {
+        with_u8_buffer(py, pixels, |payload| {
+            self.update_pixel_region_from_slice(payload, width, height, x, y, alpha_composite)
+        })
+    }
+
+    fn update_pixel_region_from_slice(
+        &mut self,
+        pixels: &[u8],
         width: usize,
         height: usize,
         x: i64,
@@ -331,4 +374,17 @@ impl Canvas {
             }
         }
     }
+}
+
+fn with_u8_buffer<T>(
+    py: Python<'_>,
+    pixels: &Bound<'_, PyAny>,
+    upload: impl FnOnce(&[u8]) -> PyResult<T>,
+) -> PyResult<T> {
+    let buffer = PyBuffer::<u8>::get_bound(pixels)?;
+    let cells = buffer
+        .as_slice(py)
+        .ok_or_else(|| PyValueError::new_err("Pixel buffers must be C-contiguous bytes."))?;
+    let payload = unsafe { std::slice::from_raw_parts(cells.as_ptr() as *const u8, cells.len()) };
+    upload(payload)
 }

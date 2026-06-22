@@ -190,11 +190,23 @@ impl Canvas {
         &self,
         py: Python<'py>,
     ) -> PyResult<Bound<'py, PyDict>> {
-        self.performance_counters.to_dict(py)
+        let dict = self.performance_counters.to_dict(py)?;
+        if let Some(gpu) = self.gpu.as_ref() {
+            let (allocations, uploads, primitive_batches, image_batches) =
+                gpu.render_loop_counters();
+            dict.set_item("gpu_vertex_buffer_allocations", allocations)?;
+            dict.set_item("gpu_vertex_uploads", uploads)?;
+            dict.set_item("gpu_primitive_batches", primitive_batches)?;
+            dict.set_item("gpu_image_batches", image_batches)?;
+        }
+        Ok(dict)
     }
 
     pub(crate) fn reset_performance_counters_impl(&mut self) {
         self.performance_counters = PerformanceCounters::default();
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.reset_render_loop_counters();
+        }
     }
 
     pub(crate) fn open_window_impl(&mut self) -> PyResult<()> {

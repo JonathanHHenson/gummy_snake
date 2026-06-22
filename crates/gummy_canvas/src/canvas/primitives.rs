@@ -434,6 +434,52 @@ impl Canvas {
         Ok(())
     }
 
+    pub(crate) fn draw_captured_shape_current_impl(
+        &mut self,
+        state: &mut crate::sketch_state::SketchContextState,
+        close: bool,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        let matrix = self.current_matrix;
+        let result = if state.captured_shape_contours().is_empty() {
+            self.polygon_with_style(
+                state.captured_shape_vertices().to_vec(),
+                &style,
+                matrix,
+                close,
+            )
+        } else {
+            self.complex_polygon_with_style(
+                state.captured_shape_vertices().to_vec(),
+                state.captured_shape_contours().to_vec(),
+                &style,
+                matrix,
+                close,
+            )
+        };
+        if result.is_ok() {
+            self.performance_counters.direct_shape_finalizations += 1;
+            state.reset_captured_shape();
+        }
+        result
+    }
+
+    pub(crate) fn begin_clip_captured_current_impl(
+        &mut self,
+        state: &mut crate::sketch_state::SketchContextState,
+    ) -> PyResult<()> {
+        let result = self.begin_clip_impl(
+            state.captured_shape_vertices().to_vec(),
+            state.captured_shape_contours().to_vec(),
+            self.current_matrix,
+        );
+        if result.is_ok() {
+            self.performance_counters.direct_shape_finalizations += 1;
+            state.reset_captured_shape();
+        }
+        result
+    }
+
     pub(crate) fn begin_clip_impl(
         &mut self,
         outer: Vec<(f64, f64)>,
@@ -729,6 +775,7 @@ impl Canvas {
     }
 
     pub(crate) fn shaded_faces_impl(&mut self, faces: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.performance_counters.python_face_payloads += 1;
         let sequence = faces.downcast::<PyList>()?;
         let mut vertices = Vec::new();
         for item in sequence.iter() {
@@ -767,6 +814,43 @@ impl Canvas {
         if vertices.is_empty() {
             return Ok(());
         }
+        if self.gpu.is_some() && !self.cpu_compositing_active {
+            self.draw_gpu_triangles(vertices)?;
+            return Ok(());
+        }
+        self.draw_shaded_face_vertices_cpu(&vertices)
+    }
+
+    pub(crate) fn draw_model_shaded_impl(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        lights: &Bound<'_, PyAny>,
+        normal_material: bool,
+        cull_backfaces: bool,
+        transform: Option<(f64, f64, f64, f64, f64, f64)>,
+    ) -> PyResult<()> {
+        let vertices = crate::software3d::model_handle_shaded_triangles(
+            model,
+            camera,
+            projection,
+            viewport_width,
+            viewport_height,
+            material,
+            lights,
+            normal_material,
+            cull_backfaces,
+            transform,
+            self.pixel_density,
+        )?;
+        if vertices.is_empty() {
+            return Ok(());
+        }
+        self.performance_counters.direct_model_draws += 1;
         if self.gpu.is_some() && !self.cpu_compositing_active {
             self.draw_gpu_triangles(vertices)?;
             return Ok(());

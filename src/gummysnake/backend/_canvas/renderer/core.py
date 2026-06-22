@@ -36,6 +36,11 @@ _PERFORMANCE_COUNTER_KEYS = (
     "frames_presented",
     "gpu_frames_rendered",
     "event_polls",
+    "direct_model_draws",
+    "python_face_payloads",
+    "direct_shape_finalizations",
+    "shape_buffer_extractions",
+    "pixel_payload_copies",
 )
 PerformanceCounterValue = int | dict[str, int]
 PerformanceCounters = dict[str, PerformanceCounterValue]
@@ -66,7 +71,7 @@ def style_payload(style: StyleState) -> dict[str, object]:
 
 
 def matrix_payload(transform: Matrix2D) -> MatrixPayload:
-    return (transform.a, transform.b, transform.c, transform.d, transform.e, transform.f)
+    return transform.as_tuple()
 
 
 def text_metric_key(kind: str, style: StyleState, value: str | None = None) -> TextMetricKey:

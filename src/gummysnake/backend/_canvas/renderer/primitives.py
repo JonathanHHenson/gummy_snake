@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import Any, cast
 
 from gummysnake import constants as c
 from gummysnake.backend._canvas.renderer._protocols import CanvasRendererHost
@@ -135,6 +135,33 @@ class CanvasRendererPrimitivesMixin:
             close,
         )
 
+    def draw_captured_shape(
+        self, state: object, style: StyleState, transform: Matrix2D, *, close: bool = True
+    ) -> None:
+        _renderer(self)._flush_line_batch()
+        _renderer(self)._count("gpu_draws")
+        draw = getattr(_renderer(self)._require_canvas(), "draw_captured_shape_current", None)
+        if callable(draw):
+            _renderer(self)._call("captured shape drawing", draw, state, close)
+            return
+        _renderer(self)._count("shape_buffer_extractions")
+        state_obj = cast(Any, state)
+        outer = [tuple(point) for point in state_obj.shape_vertices()]
+        contours = [list(contour) for contour in state_obj.shape_contours()]
+        if contours:
+            self.complex_polygon(
+                outer,
+                contours,
+                style,
+                transform,
+                close=close,
+            )
+        else:
+            self.polygon(outer, style, transform, close=close)
+        reset = getattr(state_obj, "reset_shape_capture", None)
+        if callable(reset):
+            reset()
+
     def begin_clip(
         self,
         outer: list[tuple[float, float]],
@@ -159,6 +186,24 @@ class CanvasRendererPrimitivesMixin:
             _renderer(self)._matrix_payload(transform),
         )
         _renderer(self)._clip_depth += 1
+
+    def begin_clip_captured_shape(self, state: object, transform: Matrix2D) -> None:
+        _renderer(self)._flush_line_batch()
+        current = getattr(_renderer(self)._require_canvas(), "begin_clip_captured_current", None)
+        if callable(current):
+            _renderer(self)._call("captured clip creation", current, state)
+            _renderer(self)._clip_depth += 1
+            return
+        _renderer(self)._count("shape_buffer_extractions")
+        state_obj = cast(Any, state)
+        self.begin_clip(
+            [tuple(point) for point in state_obj.shape_vertices()],
+            [list(contour) for contour in state_obj.shape_contours()],
+            transform,
+        )
+        reset = getattr(state_obj, "reset_shape_capture", None)
+        if callable(reset):
+            reset()
 
     def end_clip(self) -> None:
         _renderer(self)._flush_line_batch()

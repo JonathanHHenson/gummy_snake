@@ -55,12 +55,13 @@ impl GpuRenderer {
 
     pub fn render(&mut self) {
         self.write_viewport(self.texture_size.width, self.texture_size.height);
+        self.ensure_render_vertex_buffers();
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("gummy_canvas render encoder"),
             });
-        self.encode_commands(&mut encoder, &self.texture_view, &self.pipeline);
+        self.encode_commands(&mut encoder);
         self.queue.submit([encoder.finish()]);
     }
 
@@ -84,6 +85,93 @@ impl GpuRenderer {
 
     pub fn pending_commands(&self) -> &[DrawCommand] {
         &self.commands
+    }
+
+    pub fn render_loop_counters(&self) -> (u64, u64, u64, u64) {
+        (
+            self.vertex_buffer_allocations,
+            self.vertex_uploads,
+            self.primitive_batches,
+            self.image_batches,
+        )
+    }
+
+    pub fn reset_render_loop_counters(&mut self) {
+        self.vertex_buffer_allocations = 0;
+        self.vertex_uploads = 0;
+        self.primitive_batches = 0;
+        self.image_batches = 0;
+    }
+
+    fn ensure_render_vertex_buffers(&mut self) {
+        let mut primitive_vertices = 0usize;
+        let mut erase_vertices = 0usize;
+        let mut image_vertices = 0usize;
+        for command in &self.commands {
+            match command {
+                DrawCommand::Triangles { vertices, .. } => {
+                    primitive_vertices += vertices.len();
+                }
+                DrawCommand::Ellipse { .. } => {
+                    primitive_vertices += 64 * 3;
+                }
+                DrawCommand::EraseTriangles { vertices, .. } => {
+                    erase_vertices = erase_vertices.max(vertices.len());
+                }
+                DrawCommand::Image { .. } => {
+                    image_vertices = image_vertices.max(6);
+                }
+                DrawCommand::Clear(_) => {}
+            }
+        }
+        self.ensure_primitive_vertex_capacity(primitive_vertices);
+        self.ensure_erase_vertex_capacity(erase_vertices);
+        self.ensure_image_vertex_capacity(image_vertices);
+    }
+
+    fn ensure_primitive_vertex_capacity(&mut self, required: usize) {
+        if required == 0 || self.primitive_vertex_capacity >= required {
+            return;
+        }
+        let capacity = required.next_power_of_two();
+        self.primitive_vertex_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("gummy_canvas reusable primitive vertices"),
+            size: (capacity * std::mem::size_of::<Vertex>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        }));
+        self.primitive_vertex_capacity = capacity;
+        self.vertex_buffer_allocations += 1;
+    }
+
+    fn ensure_erase_vertex_capacity(&mut self, required: usize) {
+        if required == 0 || self.erase_vertex_capacity >= required {
+            return;
+        }
+        let capacity = required.next_power_of_two();
+        self.erase_vertex_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("gummy_canvas reusable erase vertices"),
+            size: (capacity * std::mem::size_of::<Vertex>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        }));
+        self.erase_vertex_capacity = capacity;
+        self.vertex_buffer_allocations += 1;
+    }
+
+    fn ensure_image_vertex_capacity(&mut self, required: usize) {
+        if required == 0 || self.image_vertex_capacity >= required {
+            return;
+        }
+        let capacity = required.next_power_of_two();
+        self.image_vertex_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("gummy_canvas reusable image vertices"),
+            size: (capacity * std::mem::size_of::<ImageVertex>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        }));
+        self.image_vertex_capacity = capacity;
+        self.vertex_buffer_allocations += 1;
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
@@ -188,10 +276,11 @@ impl GpuRenderer {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("gummy_canvas readback encoder"),
-            });
+        });
         if encode_render {
             self.write_viewport(self.texture_size.width, self.texture_size.height);
-            self.encode_commands(&mut encoder, &self.texture_view, &self.pipeline);
+            self.ensure_render_vertex_buffers();
+            self.encode_commands(&mut encoder);
         }
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
@@ -234,12 +323,7 @@ impl GpuRenderer {
         Ok(pixels)
     }
 
-    fn encode_commands(
-        &self,
-        encoder: &mut wgpu::CommandEncoder,
-        view: &wgpu::TextureView,
-        pipeline: &wgpu::RenderPipeline,
-    ) {
+    fn encode_commands(&mut self, encoder: &mut wgpu::CommandEncoder) {
         let clear = self
             .commands
             .iter()
@@ -254,7 +338,7 @@ impl GpuRenderer {
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("gummy_canvas primitive render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view,
+                view: &self.texture_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: clear
@@ -268,11 +352,12 @@ impl GpuRenderer {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        pass.set_pipeline(pipeline);
+        pass.set_pipeline(&self.pipeline);
         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
         pass.set_bind_group(1, &self.clip_textures[0].bind_group, &[]);
         let mut skip_until_last_clear = clear.is_some();
-        let mut batched_vertices = Vec::new();
+        let mut batched_vertices = std::mem::take(&mut self.primitive_staging);
+        batched_vertices.clear();
         let mut batched_clip_id = 0usize;
         for command in &self.commands {
             match command {
@@ -286,18 +371,18 @@ impl GpuRenderer {
                         continue;
                     }
                     if !batched_vertices.is_empty() && batched_clip_id != *clip_id {
-                        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                            label: Some("gummy_canvas primitive vertices"),
-                            size: (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
-                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                            mapped_at_creation: false,
-                        });
+                        self.vertex_uploads += 1;
+                        self.primitive_batches += 1;
+                        let buffer = self
+                            .primitive_vertex_buffer
+                            .as_ref()
+                            .expect("primitive vertex buffer is prepared");
                         self.queue.write_buffer(
                             &buffer,
                             0,
                             bytemuck::cast_slice(&batched_vertices),
                         );
-                        pass.set_pipeline(pipeline);
+                        pass.set_pipeline(&self.pipeline);
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
                             1,
@@ -326,18 +411,18 @@ impl GpuRenderer {
                         continue;
                     }
                     if !batched_vertices.is_empty() && batched_clip_id != *clip_id {
-                        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                            label: Some("gummy_canvas primitive vertices"),
-                            size: (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
-                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                            mapped_at_creation: false,
-                        });
+                        self.vertex_uploads += 1;
+                        self.primitive_batches += 1;
+                        let buffer = self
+                            .primitive_vertex_buffer
+                            .as_ref()
+                            .expect("primitive vertex buffer is prepared");
                         self.queue.write_buffer(
                             &buffer,
                             0,
                             bytemuck::cast_slice(&batched_vertices),
                         );
-                        pass.set_pipeline(pipeline);
+                        pass.set_pipeline(&self.pipeline);
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
                             1,
@@ -363,18 +448,18 @@ impl GpuRenderer {
                         continue;
                     }
                     if !batched_vertices.is_empty() {
-                        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                            label: Some("gummy_canvas primitive vertices"),
-                            size: (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
-                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                            mapped_at_creation: false,
-                        });
+                        self.vertex_uploads += 1;
+                        self.primitive_batches += 1;
+                        let buffer = self
+                            .primitive_vertex_buffer
+                            .as_ref()
+                            .expect("primitive vertex buffer is prepared");
                         self.queue.write_buffer(
                             &buffer,
                             0,
                             bytemuck::cast_slice(&batched_vertices),
                         );
-                        pass.set_pipeline(pipeline);
+                        pass.set_pipeline(&self.pipeline);
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
                             1,
@@ -385,26 +470,25 @@ impl GpuRenderer {
                         pass.draw(0..batched_vertices.len() as u32, 0..1);
                         batched_vertices.clear();
                     }
-                    let erase_vertices: Vec<Vertex> = vertices
-                        .iter()
-                        .map(|(position, color)| Vertex {
+                    self.erase_staging.clear();
+                    self.erase_staging
+                        .extend(vertices.iter().map(|(position, color)| Vertex {
                             position: *position,
                             color: color.as_float(),
-                        })
-                        .collect();
-                    let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("gummy_canvas erase primitive vertices"),
-                        size: (erase_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
-                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                        mapped_at_creation: false,
-                    });
+                        }));
+                    self.vertex_uploads += 1;
+                    self.primitive_batches += 1;
+                    let buffer = self
+                        .erase_vertex_buffer
+                        .as_ref()
+                        .expect("erase vertex buffer is prepared");
                     self.queue
-                        .write_buffer(&buffer, 0, bytemuck::cast_slice(&erase_vertices));
+                        .write_buffer(&buffer, 0, bytemuck::cast_slice(&self.erase_staging));
                     pass.set_pipeline(&self.erase_pipeline);
                     pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                     pass.set_bind_group(1, &self.clip_textures[*clip_id].bind_group, &[]);
                     pass.set_vertex_buffer(0, buffer.slice(..));
-                    pass.draw(0..erase_vertices.len() as u32, 0..1);
+                    pass.draw(0..self.erase_staging.len() as u32, 0..1);
                 }
                 DrawCommand::Image {
                     key,
@@ -416,18 +500,18 @@ impl GpuRenderer {
                         continue;
                     }
                     if !batched_vertices.is_empty() {
-                        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                            label: Some("gummy_canvas primitive vertices"),
-                            size: (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
-                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                            mapped_at_creation: false,
-                        });
+                        self.vertex_uploads += 1;
+                        self.primitive_batches += 1;
+                        let buffer = self
+                            .primitive_vertex_buffer
+                            .as_ref()
+                            .expect("primitive vertex buffer is prepared");
                         self.queue.write_buffer(
                             &buffer,
                             0,
                             bytemuck::cast_slice(&batched_vertices),
                         );
-                        pass.set_pipeline(pipeline);
+                        pass.set_pipeline(&self.pipeline);
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
                             1,
@@ -441,22 +525,21 @@ impl GpuRenderer {
                     let Some(texture) = self.textures.get(key) else {
                         continue;
                     };
-                    let image_vertices: Vec<ImageVertex> = vertices
-                        .iter()
-                        .map(|(position, uv, tint)| ImageVertex {
+                    self.image_staging.clear();
+                    self.image_staging
+                        .extend(vertices.iter().map(|(position, uv, tint)| ImageVertex {
                             position: *position,
                             uv: *uv,
                             tint: tint.as_float(),
-                        })
-                        .collect();
-                    let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("gummy_canvas image vertices"),
-                        size: (image_vertices.len() * std::mem::size_of::<ImageVertex>()) as u64,
-                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                        mapped_at_creation: false,
-                    });
+                        }));
+                    self.vertex_uploads += 1;
+                    self.image_batches += 1;
+                    let buffer = self
+                        .image_vertex_buffer
+                        .as_ref()
+                        .expect("image vertex buffer is prepared");
                     self.queue
-                        .write_buffer(&buffer, 0, bytemuck::cast_slice(&image_vertices));
+                        .write_buffer(&buffer, 0, bytemuck::cast_slice(&self.image_staging));
                     pass.set_pipeline(&self.image_pipeline);
                     pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                     let bind_group = if *linear {
@@ -467,25 +550,27 @@ impl GpuRenderer {
                     pass.set_bind_group(1, bind_group, &[]);
                     pass.set_bind_group(2, &self.clip_textures[*clip_id].bind_group, &[]);
                     pass.set_vertex_buffer(0, buffer.slice(..));
-                    pass.draw(0..image_vertices.len() as u32, 0..1);
+                    pass.draw(0..self.image_staging.len() as u32, 0..1);
                 }
             }
         }
         if !batched_vertices.is_empty() {
-            let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("gummy_canvas primitive vertices"),
-                size: (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
+            self.vertex_uploads += 1;
+            self.primitive_batches += 1;
+            let buffer = self
+                .primitive_vertex_buffer
+                .as_ref()
+                .expect("primitive vertex buffer is prepared");
             self.queue
                 .write_buffer(&buffer, 0, bytemuck::cast_slice(&batched_vertices));
-            pass.set_pipeline(pipeline);
+            pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, &self.viewport_bind_group, &[]);
             pass.set_bind_group(1, &self.clip_textures[batched_clip_id].bind_group, &[]);
             pass.set_vertex_buffer(0, buffer.slice(..));
             pass.draw(0..batched_vertices.len() as u32, 0..1);
         }
+        batched_vertices.clear();
+        self.primitive_staging = batched_vertices;
     }
 }
 

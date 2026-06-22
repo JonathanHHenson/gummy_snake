@@ -96,9 +96,12 @@ Rust owns:
   Rust-owned 3D model/mesh asset data
 - software-3D projection/shading/rasterization and direct GPU triangle
   submission for untextured shaded faces when available
+- direct finalization of Rust-captured shape buffers into draw and clip commands
+- buffer-protocol pixel uploads and dirty row-aligned pixel region updates
 - sound asset bytes and metadata
 - text, pixels, and readback
-- GPU command encoding, including primitive and image/text pipeline switching
+- GPU command encoding, reusable vertex buffers, and primitive/image/text
+  pipeline switching
 - SDL3-backed native window and input events when compiled with those capabilities
 - `SketchContextState` for canvas lifecycle fields, timing, loop/redraw flags,
   input snapshots, and shape-building buffers

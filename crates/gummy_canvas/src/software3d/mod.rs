@@ -25,6 +25,7 @@ use self::primitives::{
 };
 use self::project::{project_mesh_payload_faces, validate_projection_payload};
 use self::types::{MeshPayload, ObjModelData, Vec3d};
+use crate::{push_triangle, Rgba};
 
 pub(crate) use self::rasterize::rasterize_faces_rgba;
 
@@ -230,6 +231,79 @@ fn projected_faces_to_py<'py>(
         output.append(dict)?;
     }
     Ok(output)
+}
+
+pub(crate) fn model_handle_shaded_triangles(
+    model: &CanvasModel3D,
+    camera: &Bound<'_, PyAny>,
+    projection: &Bound<'_, PyAny>,
+    viewport_width: f64,
+    viewport_height: f64,
+    material: &Bound<'_, PyAny>,
+    lights: &Bound<'_, PyAny>,
+    normal_material: bool,
+    cull_backfaces: bool,
+    transform: Option<Transform2D>,
+    pixel_density: f64,
+) -> PyResult<Vec<([f32; 2], crate::gpu::GpuColor)>> {
+    if viewport_width <= 0.0 || viewport_height <= 0.0 {
+        return Err(PyValueError::new_err(
+            "viewport dimensions must be positive.",
+        ));
+    }
+    let camera = parse_camera_payload(camera)?;
+    let projection = parse_projection_payload(projection)?;
+    validate_projection_payload(&projection)?;
+    let material = parse_material_payload(material)?;
+    let lights = parse_light_payloads(lights)?;
+    let mesh = model_to_mesh_payload(&model.model, transform);
+    let mut faces = project_mesh_payload_faces(
+        &mesh,
+        &camera,
+        &projection,
+        viewport_width,
+        viewport_height,
+        cull_backfaces,
+    )?;
+    faces.sort_by(|left, right| right.depth.total_cmp(&left.depth));
+
+    let mut vertices = Vec::new();
+    for face in faces {
+        if face.points.len() < 3 {
+            continue;
+        }
+        let color = rgba_from_unit_tuple(shade_projected_face(
+            &face,
+            &camera,
+            &material,
+            &lights,
+            normal_material,
+        )?);
+        let first = scale_point(face.points[0], pixel_density);
+        for index in 1..face.points.len() - 1 {
+            push_triangle(
+                &mut vertices,
+                first,
+                scale_point(face.points[index], pixel_density),
+                scale_point(face.points[index + 1], pixel_density),
+                color,
+            );
+        }
+    }
+    Ok(vertices)
+}
+
+fn rgba_from_unit_tuple(color: (f64, f64, f64, f64)) -> Rgba {
+    Rgba {
+        r: (color.0.clamp(0.0, 1.0) * 255.0).round() as u8,
+        g: (color.1.clamp(0.0, 1.0) * 255.0).round() as u8,
+        b: (color.2.clamp(0.0, 1.0) * 255.0).round() as u8,
+        a: (color.3.clamp(0.0, 1.0) * 255.0).round() as u8,
+    }
+}
+
+fn scale_point(point: (f64, f64), scale: f64) -> (f64, f64) {
+    (point.0 * scale, point.1 * scale)
 }
 
 #[pymethods]

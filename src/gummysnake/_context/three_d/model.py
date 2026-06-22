@@ -15,6 +15,7 @@ from gummysnake.drawing.renderer3d import (
     OrthographicProjection,
     PerspectiveProjection,
     Shader3D,
+    _model_rust_handle,
 )
 from gummysnake.drawing.software3d import (
     ShadedFace,
@@ -71,6 +72,20 @@ class ThreeDModelMixin:
 
         model_transform = self.state.transform.matrix
         material = _three_d(self)._effective_3d_material()
+        draw_fill = (
+            self._normal_material3d
+            or self._material3d is not None
+            or self.state.style.fill_color is not None
+        )
+        texture = None if self._normal_material3d else texture_image(material)
+        if (
+            draw_fill
+            and texture is None
+            and self.state.style.stroke_color is None
+            and self._draw_model_shaded_direct(model, material, model_transform)
+        ):
+            return
+
         faces = rust_project_shade_faces(
             model,
             self._camera3d,
@@ -84,13 +99,7 @@ class ThreeDModelMixin:
             model_transform=model_transform,
         )
         screen_transform = Matrix2D.identity()
-        draw_fill = (
-            self._normal_material3d
-            or self._material3d is not None
-            or self.state.style.fill_color is not None
-        )
         if draw_fill:
-            texture = None if self._normal_material3d else texture_image(material)
             if texture is None and self._draw_shaded_faces_direct(faces):
                 pass
             else:
@@ -111,6 +120,101 @@ class ThreeDModelMixin:
                 for face in faces
             ]
             self._stroke_3d_faces(shaded_faces, screen_transform)
+
+    def _draw_model_shaded_direct(
+        self,
+        model: Model3D,
+        material: Material3D,
+        model_transform: Matrix2D | None,
+    ) -> bool:
+        handle = _model_rust_handle(model)
+        if handle is None:
+            return False
+        require_canvas = getattr(self.renderer, "_require_canvas", None)
+        flush_line_batch = getattr(self.renderer, "_flush_line_batch", None)
+        if not callable(require_canvas):
+            return False
+        canvas = require_canvas()
+        draw = getattr(canvas, "draw_model_shaded", None)
+        if not callable(draw):
+            return False
+        transform_payload: tuple[float, float, float, float, float, float] | None = None
+        if model_transform is not None and model_transform != Matrix2D.identity():
+            transform_payload = (
+                model_transform.a,
+                model_transform.b,
+                model_transform.c,
+                model_transform.d,
+                model_transform.e,
+                model_transform.f,
+            )
+        if callable(flush_line_batch):
+            flush_line_batch()
+        draw(
+            handle,
+            self._camera_payload(),
+            self._projection_payload(),
+            float(self.width),
+            float(self.height),
+            self._material_payload(material),
+            self._light_payloads(),
+            self._normal_material3d,
+            True,
+            transform_payload,
+        )
+        return True
+
+    def _camera_payload(self) -> dict[str, tuple[float, float, float]]:
+        return {
+            "eye": (self._camera3d.eye.x, self._camera3d.eye.y, self._camera3d.eye.z),
+            "target": (
+                self._camera3d.target.x,
+                self._camera3d.target.y,
+                self._camera3d.target.z,
+            ),
+            "up": (self._camera3d.up.x, self._camera3d.up.y, self._camera3d.up.z),
+        }
+
+    def _projection_payload(self) -> dict[str, Any]:
+        if isinstance(self._projection3d, PerspectiveProjection):
+            return {
+                "kind": "perspective",
+                "fov_y": self._projection3d.fov_y,
+                "aspect": self._projection3d.aspect,
+                "near": self._projection3d.near,
+                "far": self._projection3d.far,
+            }
+        return {
+            "kind": "orthographic",
+            "width": self._projection3d.width,
+            "height": self._projection3d.height,
+            "near": self._projection3d.near,
+            "far": self._projection3d.far,
+        }
+
+    def _material_payload(self, material: Material3D) -> dict[str, Any]:
+        return {
+            "base_color": material.base_color,
+            "emissive_color": material.emissive_color,
+            "specular_color": material.specular_color,
+            "shininess": material.shininess,
+        }
+
+    def _light_payloads(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "kind": light.kind.value,
+                "color": light.color,
+                "intensity": light.intensity,
+                "position": None
+                if light.position is None
+                else (light.position.x, light.position.y, light.position.z),
+                "direction": None
+                if light.direction is None
+                else (light.direction.x, light.direction.y, light.direction.z),
+            }
+            for light in self._lights3d
+        ]
 
     def _draw_shaded_faces_direct(self, faces: list[dict[str, Any]]) -> bool:
         require_canvas = getattr(self.renderer, "_require_canvas", None)

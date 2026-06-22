@@ -73,7 +73,10 @@ Important consequences:
 - `gummysnake.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
 - The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn after text/images must remain visible.
+- GPU render encoding owns reusable vertex buffers sized to frame demand. When changing primitive, erase, image, or text command encoding, preserve capacity-growth reuse and keep `gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`, and `gpu_image_batches` meaningful.
 - Projected software-3D coordinates are logical canvas coordinates. Any direct GPU primitive path that consumes those coordinates must scale by `pixel_density()` before submitting physical vertices, or HiDPI/Retina scenes will appear smaller and farther away.
+- Untextured unstroked model draws with Rust model handles should use the Rust direct model path and avoid Python face dictionaries. Textured or stroked model paths may fall back, but diagnostics should make that boundary visible.
+- Captured `begin_shape()` buffers live in Rust and should be finalized directly into Rust draw/clip commands. Avoid materializing `shape_vertices()` / `shape_contours()` Python lists on normal renderer paths.
 
 The Python public API must not expose Rust internals or depend on a concrete renderer in user-facing functions.
 
@@ -262,6 +265,7 @@ Gummy Snake distinguishes logical canvas dimensions from physical backing-buffer
 - SDL3 pointer/touch events arrive in logical/window coordinates and must remain logical at the Python boundary.
 - `load_pixels()` and `update_pixels()` operate on physical top-left-oriented RGBA buffers.
 - `load_pixel_bytes()` is the lower-copy readback path for pixel workflows that do not need a list.
+- `update_pixels()` should pass `bytes`, `bytearray`, `memoryview`, and dirty `PixelBuffer` payloads through Rust buffer/region upload paths without forcing Python `bytes(...)` copies. List inputs remain compatibility paths and should be counted in diagnostics.
 
 Do not regress Retina/HiDPI behavior when changing runtime, renderer, pixels,
 export, images, input coordinate handling, or software-3D GPU submission. See

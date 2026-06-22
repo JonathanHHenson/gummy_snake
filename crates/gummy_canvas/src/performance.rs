@@ -19,6 +19,11 @@ pub(crate) struct PerformanceCounters {
     pub(crate) frames_presented: u64,
     pub(crate) gpu_frames_rendered: u64,
     pub(crate) event_polls: u64,
+    pub(crate) direct_model_draws: u64,
+    pub(crate) python_face_payloads: u64,
+    pub(crate) direct_shape_finalizations: u64,
+    pub(crate) shape_buffer_extractions: u64,
+    pub(crate) pixel_payload_copies: u64,
 }
 
 impl PerformanceCounters {
@@ -40,6 +45,11 @@ impl PerformanceCounters {
         dict.set_item("frames_presented", self.frames_presented)?;
         dict.set_item("gpu_frames_rendered", self.gpu_frames_rendered)?;
         dict.set_item("event_polls", self.event_polls)?;
+        dict.set_item("direct_model_draws", self.direct_model_draws)?;
+        dict.set_item("python_face_payloads", self.python_face_payloads)?;
+        dict.set_item("direct_shape_finalizations", self.direct_shape_finalizations)?;
+        dict.set_item("shape_buffer_extractions", self.shape_buffer_extractions)?;
+        dict.set_item("pixel_payload_copies", self.pixel_payload_copies)?;
         Ok(dict)
     }
 }

@@ -21,6 +21,8 @@ class CanvasRendererHost(Protocol):
     _current_matrix_payload: MatrixPayload
     _image_cache_versions: OrderedDict[int, int]
     _clip_depth: int
+    physical_width: int
+    physical_height: int
 
     def _flush_line_batch(self) -> None: ...
     def _count(self, name: str, amount: int = 1) -> None: ...

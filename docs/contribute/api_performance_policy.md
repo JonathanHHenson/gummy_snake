@@ -54,7 +54,11 @@ image, or text-measurement calls per frame.
 
 Prefer renderer-native drawing over full-canvas pixel workflows. Use
 `load_pixel_bytes()` for readback when a bytes-like RGBA buffer is sufficient.
-Use `update_pixels()` with `bytes`, `bytearray`, or `memoryview` for uploads.
+Use `update_pixels()` with `bytes`, `bytearray`, or `memoryview` for uploads;
+these route through the Rust canvas buffer-protocol path without first forcing a
+Python `bytes(...)` copy. The `PixelBuffer` returned by `load_pixels()` tracks a
+dirty byte range, and row-aligned changes can upload as a Rust region update
+instead of a full-canvas upload.
 Images are backed by Rust-managed `CanvasImage` handles. Mutating image pixels
 is supported and keeps storage in Rust, but repeated per-frame mutations should
 still be treated as texture-update work.
@@ -63,6 +67,11 @@ Software-3D model and mesh data are also Rust-managed. Projection, shading,
 export, and direct untextured face submission should use Rust handles and
 logical-to-physical scaling in the canvas runtime rather than Python geometry
 loops in `draw()`.
+
+Captured `begin_shape()` buffers live in Rust. Normal `end_shape()` and
+`clip()` calls finalize those buffers directly into Rust canvas draw/clip
+operations; Python vertex-list extraction is a compatibility fallback and should
+show up in renderer diagnostics if it returns to a hot path.
 
 ## Diagnostics
 

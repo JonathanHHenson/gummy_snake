@@ -117,12 +117,16 @@ API and version semantics.
 For pixel effects, `load_pixels()` returns a list-based pixel buffer and
 `load_pixel_bytes()` provides a bytes readback path; `update_pixels()` accepts
 lists and buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.
+Buffer-like uploads use the Rust canvas buffer-protocol path without an
+intermediate Python `bytes(...)` copy, and dirty row-aligned changes to the
+`PixelBuffer` returned by `load_pixels()` can upload as smaller Rust regions.
 Small canvas `get()` and `set()` region operations use Rust region calls instead
 of reconstructing the full canvas as a Python image.
 For dense drawing loops, `gs.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel
-conversion, upload, texture cache, and CPU compositing fallback paths.
+conversion, upload, direct model/shape draw, GPU vertex-buffer, texture cache,
+and CPU compositing fallback paths.
 HiDPI/Retina rendering keeps sketch coordinates logical while physical pixel
 buffers and GPU vertices are scaled by `pixel_density()`.
 

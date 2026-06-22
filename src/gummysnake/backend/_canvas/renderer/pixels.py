@@ -107,11 +107,26 @@ class CanvasRendererPixelsMixin:
 
     def update_pixels(self, pixels: Sequence[int] | Buffer) -> None:
         _renderer(self)._flush_line_batch()
+        if isinstance(pixels, PixelBuffer) and self._upload_dirty_pixel_range(pixels):
+            pixels.clear_dirty()
+            return
         payload = self._pixel_payload(pixels)
         _renderer(self)._count("pixel_uploads")
+        callback = (
+            getattr(_renderer(self)._require_canvas(), "update_pixel_buffer", None)
+            if payload is pixels
+            else None
+        )
+        if callable(callback):
+            _renderer(self)._call("pixel buffer upload", callback, payload)
+            if isinstance(pixels, PixelBuffer):
+                pixels.clear_dirty()
+            return
         _renderer(self)._call(
             "pixel upload", _renderer(self)._require_canvas().update_pixels, payload
         )
+        if isinstance(pixels, PixelBuffer):
+            pixels.clear_dirty()
 
     def set_pixel_rgba(self, x: int, y: int, rgba: tuple[int, int, int, int]) -> None:
         _renderer(self)._flush_line_batch()
@@ -150,6 +165,23 @@ class CanvasRendererPixelsMixin:
         _renderer(self)._flush_line_batch()
         payload = self._pixel_payload(pixels)
         _renderer(self)._count("pixel_uploads")
+        callback = (
+            getattr(_renderer(self)._require_canvas(), "update_pixel_region_buffer", None)
+            if payload is pixels
+            else None
+        )
+        if callable(callback):
+            _renderer(self)._call(
+                "pixel region buffer upload",
+                callback,
+                payload,
+                int(width),
+                int(height),
+                int(x),
+                int(y),
+                alpha_composite,
+            )
+            return
         _renderer(self)._call(
             "pixel region upload",
             _renderer(self)._require_canvas().update_pixel_region,
@@ -239,14 +271,55 @@ class CanvasRendererPixelsMixin:
         _renderer(self)._flush_line_batch()
         _renderer(self)._call("canvas export", _renderer(self)._require_canvas().save, str(path))
 
-    @staticmethod
-    def _pixel_payload(pixels: Sequence[int] | Buffer) -> bytes:
+    def _pixel_payload(self, pixels: Sequence[int] | Buffer) -> bytes | Buffer:
+        if isinstance(pixels, bytes | bytearray | memoryview | PixelBuffer):
+            return pixels
         try:
+            _renderer(self)._count("pixel_payload_copies")
             return bytes(pixels)
         except ValueError as exc:
             raise ArgumentValidationError(
                 "Pixel values must be integers between 0 and 255."
             ) from exc
+
+    def _upload_dirty_pixel_range(self, pixels: PixelBuffer) -> bool:
+        dirty = pixels.dirty_range()
+        if dirty is None or _renderer(self).physical_width <= 0:
+            return False
+        start, end = dirty
+        if start % 4 != 0 or end % 4 != 0 or end <= start:
+            return False
+        pixel_start = start // 4
+        pixel_end = end // 4
+        if pixel_end <= pixel_start:
+            return False
+        canvas_width = int(_renderer(self).physical_width)
+        row_start, col_start = divmod(pixel_start, canvas_width)
+        row_end, last_col = divmod(pixel_end - 1, canvas_width)
+        col_end = last_col + 1
+        if row_start == row_end:
+            width = col_end - col_start
+            height = 1
+        elif col_start == 0 and col_end == canvas_width:
+            width = canvas_width
+            height = row_end - row_start + 1
+        else:
+            return False
+        _renderer(self)._count("pixel_uploads")
+        callback = getattr(_renderer(self)._require_canvas(), "update_pixel_region_buffer", None)
+        if not callable(callback):
+            return False
+        _renderer(self)._call(
+            "dirty pixel region upload",
+            callback,
+            memoryview(pixels)[start:end],
+            width,
+            height,
+            col_start,
+            row_start,
+            False,
+        )
+        return True
 
     def _blend_image(
         self,

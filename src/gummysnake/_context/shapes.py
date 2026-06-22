@@ -243,24 +243,35 @@ class ShapeContextMixin:
             raise ArgumentValidationError("end_shape() requires begin_shape().")
         if self.state.rust.contour_active:
             raise ArgumentValidationError("end_shape() requires end_contour() first.")
+        draw_captured = getattr(self.renderer, "draw_captured_shape", None)
+        if callable(draw_captured):
+            draw_captured(
+                self.state.rust,
+                self.state.style,
+                self.state.transform.matrix,
+                close=mode == c.CLOSE,
+            )
+            return
         contours = [list(contour) for contour in self.state.rust.shape_contours()]
         vertices = [tuple(point) for point in self.state.rust.shape_vertices()]
-        if contours:
-            self.renderer.complex_polygon(
-                vertices,
-                contours,
-                self.state.style,
-                self.state.transform.matrix,
-                close=mode == c.CLOSE,
-            )
-        else:
-            self.renderer.polygon(
-                vertices,
-                self.state.style,
-                self.state.transform.matrix,
-                close=mode == c.CLOSE,
-            )
-        self._reset_shape_capture()
+        try:
+            if contours:
+                self.renderer.complex_polygon(
+                    vertices,
+                    contours,
+                    self.state.style,
+                    self.state.transform.matrix,
+                    close=mode == c.CLOSE,
+                )
+            else:
+                self.renderer.polygon(
+                    vertices,
+                    self.state.style,
+                    self.state.transform.matrix,
+                    close=mode == c.CLOSE,
+                )
+        finally:
+            self._reset_shape_capture()
 
     def begin_contour(self) -> None:
         if not self.state.rust.shape_active:
@@ -306,12 +317,18 @@ class ShapeContextMixin:
             raise ArgumentValidationError("clip() requires begin_clip().")
         if self.state.rust.contour_active:
             raise ArgumentValidationError("clip() requires end_contour() first.")
-        self.renderer.begin_clip(
-            [tuple(point) for point in self.state.rust.shape_vertices()],
-            [list(contour) for contour in self.state.rust.shape_contours()],
-            self.state.transform.matrix,
-        )
-        self._reset_shape_capture()
+        begin_clip_captured = getattr(self.renderer, "begin_clip_captured_shape", None)
+        if callable(begin_clip_captured):
+            begin_clip_captured(self.state.rust, self.state.transform.matrix)
+            return
+        try:
+            self.renderer.begin_clip(
+                [tuple(point) for point in self.state.rust.shape_vertices()],
+                [list(contour) for contour in self.state.rust.shape_contours()],
+                self.state.transform.matrix,
+            )
+        finally:
+            self._reset_shape_capture()
 
     def end_clip(self) -> None:
         self.renderer.end_clip()

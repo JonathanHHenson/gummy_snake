@@ -255,6 +255,20 @@ impl Canvas {
     ) -> PyResult<()> {
         self.begin_clip_impl(outer, contours, self.current_matrix)
     }
+    #[pyo3(signature = (state, close=true))]
+    pub(crate) fn draw_captured_shape_current(
+        &mut self,
+        mut state: PyRefMut<'_, crate::sketch_state::SketchContextState>,
+        close: bool,
+    ) -> PyResult<()> {
+        self.draw_captured_shape_current_impl(&mut state, close)
+    }
+    pub(crate) fn begin_clip_captured_current(
+        &mut self,
+        mut state: PyRefMut<'_, crate::sketch_state::SketchContextState>,
+    ) -> PyResult<()> {
+        self.begin_clip_captured_current_impl(&mut state)
+    }
     pub(crate) fn end_clip(&mut self) -> PyResult<()> {
         self.end_clip_impl()
     }
@@ -338,6 +352,33 @@ impl Canvas {
     }
     pub(crate) fn shaded_faces(&mut self, faces: &Bound<'_, PyAny>) -> PyResult<()> {
         self.shaded_faces_impl(faces)
+    }
+    #[pyo3(signature = (model, camera, projection, viewport_width, viewport_height, material, lights, normal_material, cull_backfaces, transform=None))]
+    pub(crate) fn draw_model_shaded(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        lights: &Bound<'_, PyAny>,
+        normal_material: bool,
+        cull_backfaces: bool,
+        transform: Option<(f64, f64, f64, f64, f64, f64)>,
+    ) -> PyResult<()> {
+        self.draw_model_shaded_impl(
+            model,
+            camera,
+            projection,
+            viewport_width,
+            viewport_height,
+            material,
+            lights,
+            normal_material,
+            cull_backfaces,
+            transform,
+        )
     }
     pub(crate) fn ellipse(
         &mut self,
@@ -625,6 +666,13 @@ impl Canvas {
     pub(crate) fn update_pixels(&mut self, pixels: Vec<u8>) -> PyResult<()> {
         self.update_pixels_impl(pixels)
     }
+    pub(crate) fn update_pixel_buffer(
+        &mut self,
+        py: Python<'_>,
+        pixels: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        self.update_pixel_buffer_impl(py, pixels)
+    }
     pub(crate) fn set_pixel_rgba(
         &mut self,
         x: i64,
@@ -644,6 +692,18 @@ impl Canvas {
         alpha_composite: bool,
     ) -> PyResult<()> {
         self.update_pixel_region_impl(pixels, width, height, x, y, alpha_composite)
+    }
+    pub(crate) fn update_pixel_region_buffer(
+        &mut self,
+        py: Python<'_>,
+        pixels: &Bound<'_, PyAny>,
+        width: usize,
+        height: usize,
+        x: i64,
+        y: i64,
+        alpha_composite: bool,
+    ) -> PyResult<()> {
+        self.update_pixel_region_buffer_impl(py, pixels, width, height, x, y, alpha_composite)
     }
     pub(crate) fn adjust_pixel_prefix(
         &mut self,

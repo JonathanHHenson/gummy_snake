@@ -30,10 +30,20 @@ The stable top-level counters are:
 | `frames_presented` | Frames presented by the renderer/backend. |
 | `gpu_frames_rendered` | Offscreen GPU frame resolves. |
 | `event_polls` | Native input/event polling calls. |
+| `direct_model_draws` | Rust-owned model-handle draws that project, shade, and submit untextured triangles without Python face dictionaries. |
+| `python_face_payloads` | Legacy/fallback shaded-face payloads materialized as Python dictionaries. |
+| `direct_shape_finalizations` | Rust-owned `begin_shape()` buffers finalized directly into draw or clip operations. |
+| `shape_buffer_extractions` | Shape buffers extracted into Python lists for compatibility fallback paths. |
+| `pixel_payload_copies` | Pixel uploads that required Python list/sequence conversion before reaching the runtime. |
 
 When the installed Rust canvas exposes native counters, the Python report also
 contains a `native` dictionary. Treat that dictionary as diagnostic detail; use
 the top-level keys in tests and docs.
+
+Native diagnostics may also include GPU render-loop counters:
+`gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`,
+and `gpu_image_batches`. Allocations should grow with peak frame demand rather
+than with every frame; uploads and batches track actual draw work.
 
 ## Fallback Matrix
 
@@ -49,9 +59,10 @@ the top-level keys in tests and docs.
 | Text drawing and metrics | Native text/cache path using the image/texture pipeline | First glyph/metric use is expensive; mixed text then primitive drawing exercises GPU pipeline switching | Reuse text strings/styles where practical and validate primitives after text when changing renderer batching. |
 | `load_pixels()` / `pixels()` | Readback plus list conversion | Synchronizes canvas data and allocates Python list | Use `load_pixel_bytes()` for bytes workflows. |
 | `load_pixel_bytes()` | Byte readback | Synchronizes canvas data but does not populate `context.pixels` | Keep data as `bytes`/`memoryview` and pass it back to bulk APIs when possible. |
-| `update_pixels()` | Full pixel upload | Sends entire physical RGBA buffer | Use bytes-like inputs and avoid per-frame full-canvas uploads. |
+| `update_pixels()` | Full or dirty-region pixel upload | Buffer-like inputs reach Rust through the Python buffer protocol; list inputs are copied for compatibility | Use `bytes`, `bytearray`, `memoryview`, or the `PixelBuffer` returned by `load_pixels()`; prefer dirty row-aligned updates over full-canvas uploads. |
 | `get()`, `set()`, canvas `filter()` | CPU compositing fallback | Canvas-to-image copy plus upload | Prefer renderer-native drawing or image-local work. |
-| Software `WEBGL` model drawing | Rust projection/shading with Rust-owned model handles; untextured faces can use direct GPU triangles, textured faces use Rust raster image compositing | Projected points are logical coordinates and direct GPU submission must scale by `pixel_density()`; unsupported paths should fail with canvas capability errors | Reuse primitive/model objects so caches avoid repeated topology allocation. |
+| `begin_shape()` / `end_shape()` and clip paths | Rust shape-buffer finalization | Normal canvas paths avoid Python vertex-list extraction | Keep shape construction in the captured shape APIs; use diagnostics to catch fallback extraction. |
+| Software `WEBGL` model drawing | Rust projection/shading with Rust-owned model handles; untextured unstroked faces use direct GPU triangles, textured/stroked faces use fallback raster/stroke paths | Projected points are logical coordinates and direct GPU submission must scale by `pixel_density()`; unsupported paths should fail with canvas capability errors | Reuse primitive/model objects so caches avoid repeated topology allocation. |
 | `save_obj()` / `save_stl()` | Streaming text writer | Writes incrementally instead of assembling unbounded `list[str]` payloads | Use direct export helpers for large generated meshes. |
 
 ## Frame Pacing

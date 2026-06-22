@@ -652,3 +652,22 @@ impl SketchContextState {
         self.contour_active = false;
     }
 }
+
+impl SketchContextState {
+    pub(crate) fn captured_shape_vertices(&self) -> &[(f64, f64)] {
+        &self.shape_vertices
+    }
+
+    pub(crate) fn captured_shape_contours(&self) -> &[Vec<(f64, f64)>] {
+        &self.shape_contours
+    }
+
+    pub(crate) fn reset_captured_shape(&mut self) {
+        self.shape_active = false;
+        self.shape_vertices.clear();
+        self.shape_contours.clear();
+        self.contour_active = false;
+        self.contour_vertices.clear();
+        self.shape_kind = None;
+    }
+}
