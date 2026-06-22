@@ -282,24 +282,13 @@ impl Canvas {
                 self.upload_stale_texture(false)?;
             }
             if let Some(gpu) = self.gpu.as_mut() {
-                let mut region = gpu
-                    .read_pixel_region(0, 0, region_width as u32, region_height as u32)
-                    .map_err(|err| {
-                        PyValueError::new_err(format!("Failed to read pixel prefix: {err}"))
-                    })?;
-                for offset in (0..byte_limit.min(region.len())).step_by(stride) {
-                    region[offset] = (i16::from(region[offset]) + red_delta).rem_euclid(256) as u8;
-                    if offset + 1 < region.len() {
-                        region[offset + 1] =
-                            (i16::from(region[offset + 1]) + green_delta).rem_euclid(256) as u8;
-                    }
-                }
-                gpu.upload_pixel_region(0, 0, region_width as u32, region_height as u32, &region)
-                    .map_err(|err| {
-                        PyValueError::new_err(format!("Failed to upload pixel prefix: {err}"))
-                    })?;
-                self.performance_counters.pixel_readbacks += 1;
-                self.performance_counters.pixel_uploads += 1;
+                gpu.apply_pixel_prefix_mutation(
+                    byte_limit.min(self.physical_width * self.physical_height * 4) as u32,
+                    stride as u32,
+                    i32::from(red_delta),
+                    i32::from(green_delta),
+                );
+                self.performance_counters.gpu_region_effect_passes += 1;
                 self.render_dirty = true;
                 self.offscreen_dirty = false;
                 self.pixels_stale = true;

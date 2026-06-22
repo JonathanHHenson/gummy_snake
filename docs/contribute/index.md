@@ -8,6 +8,7 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 - [Runtime diagnostics](runtime_diagnostics.md)
 - [Build capabilities](build_capabilities.md)
 - [API performance policy](api_performance_policy.md)
+- [Text renderer decision](text_renderer_decision.md)
 - [Native 3D renderer plan](native_3d_plan.md)
 - [Testing and CI](testing.md)
 - [Documentation workflow](documentation.md)
@@ -83,6 +84,9 @@ probes.
 Read [API performance policy](api_performance_policy.md) before adding public
 APIs, changing pixel/image behavior, or documenting performance-sensitive
 drawing patterns.
+
+Read [Text renderer decision](text_renderer_decision.md) before changing text
+layout, text metrics, glyph caching, or GPU text batching.
 
 Read [Testing and CI](testing.md) before adding tests or changing workflows.
 

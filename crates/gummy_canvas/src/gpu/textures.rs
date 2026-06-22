@@ -179,15 +179,107 @@ impl GpuRenderer {
         key: u64,
         vertices: [([f32; 2], [f32; 2], GpuColor); 6],
         linear: bool,
+        blend_mode: crate::BlendMode,
     ) {
         if self.textures.contains_key(&key) {
             self.commands.push(DrawCommand::Image {
                 key,
                 vertices,
                 linear,
+                blend_mode,
                 clip_id: self.current_clip_id,
             });
         }
+    }
+
+    pub fn apply_pixel_prefix_mutation(
+        &mut self,
+        byte_limit: u32,
+        stride: u32,
+        red_delta: i32,
+        green_delta: i32,
+    ) {
+        self.queue.write_buffer(
+            &self.pixel_prefix_uniform_buffer,
+            0,
+            bytemuck::bytes_of(&PixelPrefixUniform {
+                byte_limit,
+                stride,
+                red_delta,
+                green_delta,
+            }),
+        );
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("gummy_canvas pixel prefix encoder"),
+            });
+        encoder.copy_texture_to_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.pixel_prefix_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            self.texture_size,
+        );
+        let source_bind_group = self.create_region_effect_bind_group(
+            &self.pixel_prefix_texture_view,
+            &self.pixel_prefix_uniform_buffer,
+            "gummy_canvas pixel prefix source bind group",
+        );
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("gummy_canvas pixel prefix pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            pass.set_pipeline(&self.pixel_prefix_pipeline);
+            pass.set_bind_group(0, &source_bind_group, &[]);
+            pass.draw(0..6, 0..1);
+        }
+        self.queue.submit([encoder.finish()]);
+    }
+
+    pub(super) fn create_region_effect_bind_group(
+        &self,
+        source_view: &wgpu::TextureView,
+        uniform_buffer: &wgpu::Buffer,
+        label: &'static str,
+    ) -> wgpu::BindGroup {
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some(label),
+            layout: &self.pixel_prefix_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(source_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: uniform_buffer.as_entire_binding(),
+                },
+            ],
+        })
     }
 
     pub fn upload_pixels(&mut self, pixels: &[u8]) -> Result<(), String> {
@@ -216,43 +308,6 @@ impl GpuRenderer {
         Ok(())
     }
 
-    pub fn upload_pixel_region(
-        &mut self,
-        x: u32,
-        y: u32,
-        width: u32,
-        height: u32,
-        pixels: &[u8],
-    ) -> Result<(), String> {
-        let expected = width as usize * height as usize * 4;
-        if pixels.len() != expected {
-            return Err(format!(
-                "Pixel region buffer length must be {expected}, got {}.",
-                pixels.len()
-            ));
-        }
-        self.queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &self.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d { x, y, z: 0 },
-                aspect: wgpu::TextureAspect::All,
-            },
-            pixels,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(width * 4),
-                rows_per_image: Some(height),
-            },
-            wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-        );
-        Ok(())
-    }
-
     pub(super) fn write_viewport(&self, width: u32, height: u32) {
         let viewport = ViewportUniform {
             size: [width.max(1) as f32, height.max(1) as f32],
@@ -260,5 +315,18 @@ impl GpuRenderer {
         };
         self.queue
             .write_buffer(&self.viewport_buffer, 0, bytemuck::bytes_of(&viewport));
+    }
+}
+
+pub(super) fn blend_mode_id(mode: crate::BlendMode) -> u32 {
+    match mode {
+        crate::BlendMode::Add => 1,
+        crate::BlendMode::Darkest => 2,
+        crate::BlendMode::Lightest => 3,
+        crate::BlendMode::Difference => 4,
+        crate::BlendMode::Exclusion => 5,
+        crate::BlendMode::Multiply => 6,
+        crate::BlendMode::Screen => 7,
+        crate::BlendMode::Blend | crate::BlendMode::Replace => 0,
     }
 }

@@ -375,20 +375,27 @@ uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
-Canvas benchmark scenarios must average at least 120 FPS. Treat failures below
+Canvas benchmark scenarios must average at least 240 FPS. Treat failures below
 that floor as optimization work, not as flaky thresholds to loosen. Baseline
 snapshots live in `tests/benchmark/baselines/`; keep captured baseline values as
-measured and record whether they meet the 120 FPS floor.
+measured and record whether they meet the 240 FPS floor.
 Model export benchmarks use a streaming memory budget rather than an FPS floor.
 API overhead benchmarks should compare global-mode, object-oriented sketch,
 context-direct, `fast()`, and renderer-direct dispatch paths.
-WEBGL frame-style benchmarks also use the 120 FPS floor; failures are
+WEBGL frame-style benchmarks also use the 240 FPS floor; failures are
 optimization work for the Rust software-3D path unless the benchmark is
 explicitly measuring a memory budget instead of FPS.
 Renderer/runtime diagnostics should expose counters through public Python APIs
 such as `renderer_performance_counters()` rather than leaking unstable Rust
 details. Keep fallback-boundary benchmark scenes and
 `docs/contribute/runtime_diagnostics.md` aligned when renderer paths change.
+GPU region effects should stay ordered with pending draw commands and avoid CPU
+readback/upload in the GPU path; update `gpu_region_effect_passes` diagnostics
+when adding new region effects. Destination-sampling blend modes must not be
+enabled outside the ordered command encoder source/target snapshot path.
+Untransformed default-font text uses the Rust-owned glyphon/cosmic-text GPU
+path with cached shaped buffers and a glyph atlas; transformed/custom-font text
+may use the internal fallback until those cases are explicitly migrated.
 Resource lifecycle stress tests are opt-in:
 
 ```sh
@@ -435,6 +442,7 @@ docs/contribute/runtime.md
 docs/contribute/runtime_diagnostics.md
 docs/contribute/build_capabilities.md
 docs/contribute/api_performance_policy.md
+docs/contribute/text_renderer_decision.md
 docs/contribute/native_3d_plan.md
 docs/contribute/testing.md
 docs/contribute/documentation.md

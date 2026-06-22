@@ -126,7 +126,8 @@ For dense drawing loops, `gs.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel
 conversion, upload, direct model/shape draw, GPU vertex-buffer, texture cache,
-and CPU compositing fallback paths.
+GPU blend/region-effect passes, glyphon-backed text drawing, and CPU
+compositing fallback paths.
 HiDPI/Retina rendering keeps sketch coordinates logical while physical pixel
 buffers and GPU vertices are scaled by `pixel_density()`.
 
@@ -174,6 +175,7 @@ workflow, and release shape in more detail:
 - [Runtime diagnostics](docs/contribute/runtime_diagnostics.md)
 - [Build capabilities](docs/contribute/build_capabilities.md)
 - [API performance policy](docs/contribute/api_performance_policy.md)
+- [Text renderer decision](docs/contribute/text_renderer_decision.md)
 - [Testing and CI](docs/contribute/testing.md)
 
 Performance benchmarks are opt-in:
@@ -187,7 +189,7 @@ uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
 Canvas and WEBGL frame-style benchmark scenarios are expected to average at
-least 120 FPS. Failures below that floor are intentional optimization signals.
+least 240 FPS. Failures below that floor are intentional optimization signals.
 Model export benchmarks use a memory budget for streaming OBJ/STL output.
 Machine-specific baseline snapshots live in `tests/benchmark/baselines/`.
 

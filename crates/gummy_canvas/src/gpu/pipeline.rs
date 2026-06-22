@@ -1,5 +1,8 @@
-use crate::gpu::shaders::{IMAGE_SHADER, TEXTURE_SHADER, TRIANGLE_SHADER};
+use crate::gpu::shaders::{
+    BLEND_ELLIPSE_SHADER, IMAGE_SHADER, PIXEL_PREFIX_SHADER, TEXTURE_SHADER, TRIANGLE_SHADER,
+};
 use crate::gpu::types::{GpuColor, ImageVertex, Vertex};
+use crate::BlendMode;
 
 pub(super) fn to_wgpu_color(color: GpuColor) -> wgpu::Color {
     wgpu::Color {
@@ -101,6 +104,44 @@ pub(super) fn create_pipeline(
     )
 }
 
+pub(super) fn fixed_function_blend_state(mode: BlendMode) -> Option<wgpu::BlendState> {
+    match mode {
+        BlendMode::Blend => Some(wgpu::BlendState::ALPHA_BLENDING),
+        BlendMode::Add => Some(wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::SrcAlpha,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
+            },
+        }),
+        BlendMode::Replace => None,
+        _ => Some(wgpu::BlendState::ALPHA_BLENDING),
+    }
+}
+
+pub(super) fn create_pipeline_for_blend_mode(
+    device: &wgpu::Device,
+    viewport_bind_group_layout: &wgpu::BindGroupLayout,
+    clip_bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+    mode: BlendMode,
+) -> wgpu::RenderPipeline {
+    create_primitive_pipeline(
+        device,
+        viewport_bind_group_layout,
+        clip_bind_group_layout,
+        format,
+        fixed_function_blend_state(mode),
+        wgpu::ColorWrites::ALL,
+        "gummy_canvas primitive blend pipeline",
+    )
+}
+
 pub(super) fn create_erase_pipeline(
     device: &wgpu::Device,
     viewport_bind_group_layout: &wgpu::BindGroupLayout,
@@ -115,13 +156,13 @@ pub(super) fn create_erase_pipeline(
         Some(wgpu::BlendState {
             color: wgpu::BlendComponent {
                 src_factor: wgpu::BlendFactor::Zero,
-                dst_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
                 operation: wgpu::BlendOperation::Add,
             },
             alpha: wgpu::BlendComponent {
-                src_factor: wgpu::BlendFactor::One,
-                dst_factor: wgpu::BlendFactor::One,
-                operation: wgpu::BlendOperation::ReverseSubtract,
+                src_factor: wgpu::BlendFactor::Zero,
+                dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                operation: wgpu::BlendOperation::Add,
             },
         }),
         wgpu::ColorWrites::ALL,
@@ -248,6 +289,26 @@ pub(super) fn create_image_pipeline(
     clip_bind_group_layout: &wgpu::BindGroupLayout,
     format: wgpu::TextureFormat,
 ) -> wgpu::RenderPipeline {
+    create_image_pipeline_inner(
+        device,
+        viewport_bind_group_layout,
+        image_bind_group_layout,
+        clip_bind_group_layout,
+        format,
+        Some(wgpu::BlendState::ALPHA_BLENDING),
+        "gummy_canvas image pipeline",
+    )
+}
+
+fn create_image_pipeline_inner(
+    device: &wgpu::Device,
+    viewport_bind_group_layout: &wgpu::BindGroupLayout,
+    image_bind_group_layout: &wgpu::BindGroupLayout,
+    clip_bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+    blend: Option<wgpu::BlendState>,
+    label: &'static str,
+) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("gummy_canvas image shader"),
         source: wgpu::ShaderSource::Wgsl(IMAGE_SHADER.into()),
@@ -262,7 +323,7 @@ pub(super) fn create_image_pipeline(
         push_constant_ranges: &[],
     });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("gummy_canvas image pipeline"),
+        label: Some(label),
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader,
@@ -296,7 +357,7 @@ pub(super) fn create_image_pipeline(
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             targets: &[Some(wgpu::ColorTargetState {
                 format,
-                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                blend,
                 write_mask: wgpu::ColorWrites::ALL,
             })],
         }),
@@ -314,6 +375,147 @@ pub(super) fn create_image_pipeline(
         multiview: None,
         cache: None,
     })
+}
+
+pub(super) fn pixel_prefix_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("gummy_canvas pixel prefix bind group layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    })
+}
+
+pub(super) fn create_pixel_prefix_pipeline(
+    device: &wgpu::Device,
+    bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("gummy_canvas pixel prefix shader"),
+        source: wgpu::ShaderSource::Wgsl(PIXEL_PREFIX_SHADER.into()),
+    });
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("gummy_canvas pixel prefix pipeline layout"),
+        bind_group_layouts: &[bind_group_layout],
+        push_constant_ranges: &[],
+    });
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("gummy_canvas pixel prefix pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            buffers: &[],
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            ..wgpu::PrimitiveState::default()
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
+}
+
+pub(super) fn create_blend_ellipse_pipeline(
+    device: &wgpu::Device,
+    bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("gummy_canvas blend ellipse shader"),
+        source: wgpu::ShaderSource::Wgsl(BLEND_ELLIPSE_SHADER.into()),
+    });
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("gummy_canvas blend ellipse pipeline layout"),
+        bind_group_layouts: &[bind_group_layout],
+        push_constant_ranges: &[],
+    });
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("gummy_canvas blend ellipse pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            buffers: &[],
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            ..wgpu::PrimitiveState::default()
+        },
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
+}
+
+pub(super) fn create_image_pipeline_for_blend_mode(
+    device: &wgpu::Device,
+    viewport_bind_group_layout: &wgpu::BindGroupLayout,
+    image_bind_group_layout: &wgpu::BindGroupLayout,
+    clip_bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+    mode: BlendMode,
+) -> wgpu::RenderPipeline {
+    create_image_pipeline_inner(
+        device,
+        viewport_bind_group_layout,
+        image_bind_group_layout,
+        clip_bind_group_layout,
+        format,
+        fixed_function_blend_state(mode),
+        "gummy_canvas image blend pipeline",
+    )
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]

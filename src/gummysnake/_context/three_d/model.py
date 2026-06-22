@@ -80,6 +80,13 @@ class ThreeDModelMixin:
         texture = None if self._normal_material3d else texture_image(material)
         if (
             draw_fill
+            and texture is not None
+            and self.state.style.stroke_color is None
+            and self._draw_model_textured_direct(model, texture, material, model_transform)
+        ):
+            return
+        if (
+            draw_fill
             and texture is None
             and self.state.style.stroke_color is None
             and self._draw_model_shaded_direct(model, material, model_transform)
@@ -163,6 +170,56 @@ class ThreeDModelMixin:
             transform_payload,
         )
         return True
+
+    def _draw_model_textured_direct(
+        self,
+        model: Model3D,
+        texture: Any,
+        material: Material3D,
+        model_transform: Matrix2D | None,
+    ) -> bool:
+        handle = _model_rust_handle(model)
+        if handle is None:
+            return False
+        rust_image = getattr(texture, "rust_image", None)
+        rust_image = getattr(rust_image, "_rust_image", None)
+        if rust_image is None:
+            return False
+        require_canvas = getattr(self.renderer, "_require_canvas", None)
+        flush_line_batch = getattr(self.renderer, "_flush_line_batch", None)
+        if not callable(require_canvas):
+            return False
+        canvas = require_canvas()
+        draw = getattr(canvas, "draw_model_textured", None)
+        if not callable(draw):
+            return False
+        transform_payload: tuple[float, float, float, float, float, float] | None = None
+        if model_transform is not None and model_transform != Matrix2D.identity():
+            transform_payload = (
+                model_transform.a,
+                model_transform.b,
+                model_transform.c,
+                model_transform.d,
+                model_transform.e,
+                model_transform.f,
+            )
+        if callable(flush_line_batch):
+            flush_line_batch()
+        return bool(
+            draw(
+                handle,
+                rust_image,
+                self._camera_payload(),
+                self._projection_payload(),
+                float(self.width),
+                float(self.height),
+                self._material_payload(material),
+                self._light_payloads(),
+                self._normal_material3d,
+                True,
+                transform_payload,
+            )
+        )
 
     def _camera_payload(self) -> dict[str, tuple[float, float, float]]:
         return {

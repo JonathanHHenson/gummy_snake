@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
 
+use crate::BlendMode;
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub(super) struct Vertex {
@@ -32,6 +34,24 @@ pub(super) struct ClipUniform {
     pub(super) flags: [f32; 4],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub(super) struct PixelPrefixUniform {
+    pub(super) byte_limit: u32,
+    pub(super) stride: u32,
+    pub(super) red_delta: i32,
+    pub(super) green_delta: i32,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub(super) struct BlendEllipseUniform {
+    pub(super) center_radius: [f32; 4],
+    pub(super) color: [f32; 4],
+    pub(super) mode: u32,
+    pub(super) _padding: [u32; 7],
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GpuColor {
     pub r: u8,
@@ -56,6 +76,7 @@ pub enum DrawCommand {
     Clear(GpuColor),
     Triangles {
         vertices: Vec<([f32; 2], GpuColor)>,
+        blend_mode: BlendMode,
         clip_id: usize,
     },
     Ellipse {
@@ -64,7 +85,16 @@ pub enum DrawCommand {
         rx: f32,
         ry: f32,
         color: GpuColor,
+        blend_mode: BlendMode,
         clip_id: usize,
+    },
+    BlendEllipse {
+        cx: f32,
+        cy: f32,
+        rx: f32,
+        ry: f32,
+        color: GpuColor,
+        blend_mode: BlendMode,
     },
     EraseTriangles {
         vertices: Vec<([f32; 2], GpuColor)>,
@@ -74,7 +104,18 @@ pub enum DrawCommand {
         key: u64,
         vertices: [([f32; 2], [f32; 2], GpuColor); 6],
         linear: bool,
+        blend_mode: BlendMode,
         clip_id: usize,
+    },
+    Text {
+        text: String,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        font_size: f32,
+        line_height: f32,
+        color: GpuColor,
     },
 }
 
@@ -101,14 +142,31 @@ pub struct GpuRenderer {
     pub(super) texture_view: wgpu::TextureView,
     pub(super) texture_size: wgpu::Extent3d,
     pub(super) pipeline: wgpu::RenderPipeline,
+    pub(super) primitive_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) erase_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipeline: wgpu::RenderPipeline,
+    pub(super) image_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
+    pub(super) pixel_prefix_pipeline: wgpu::RenderPipeline,
+    pub(super) blend_ellipse_pipeline: wgpu::RenderPipeline,
+    pub(super) pixel_prefix_bind_group_layout: wgpu::BindGroupLayout,
+    pub(super) pixel_prefix_uniform_buffer: wgpu::Buffer,
+    pub(super) blend_ellipse_uniform_buffer: wgpu::Buffer,
+    pub(super) pixel_prefix_texture: wgpu::Texture,
+    pub(super) pixel_prefix_texture_view: wgpu::TextureView,
+    pub(super) pixel_prefix_bind_group: wgpu::BindGroup,
+    pub(super) blend_ellipse_bind_group: wgpu::BindGroup,
     pub(super) image_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) clip_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) texture_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) texture_surface_pipeline: Option<(wgpu::TextureFormat, wgpu::RenderPipeline)>,
     pub(super) texture_sampler: wgpu::Sampler,
     pub(super) linear_texture_sampler: wgpu::Sampler,
+    pub(super) text_font_system: glyphon::FontSystem,
+    pub(super) text_swash_cache: glyphon::SwashCache,
+    pub(super) text_viewport: glyphon::Viewport,
+    pub(super) text_atlas: glyphon::TextAtlas,
+    pub(super) text_renderer: glyphon::TextRenderer,
+    pub(super) text_buffers: HashMap<String, glyphon::Buffer>,
     pub(super) viewport_buffer: wgpu::Buffer,
     pub(super) viewport_bind_group: wgpu::BindGroup,
     pub(super) clip_textures: Vec<ClipTextureAsset>,

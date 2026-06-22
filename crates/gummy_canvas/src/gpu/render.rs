@@ -1,5 +1,7 @@
 use crate::gpu::pipeline::{align_to, to_wgpu_color};
 use crate::gpu::types::*;
+use crate::BlendMode;
+use wgpu::util::DeviceExt;
 
 impl GpuRenderer {
     pub fn begin_frame(&mut self) {
@@ -22,16 +24,25 @@ impl GpuRenderer {
         });
     }
 
-    pub fn draw_triangles(&mut self, vertices: Vec<([f32; 2], GpuColor)>) {
+    pub fn draw_triangles(&mut self, vertices: Vec<([f32; 2], GpuColor)>, blend_mode: BlendMode) {
         if !vertices.is_empty() {
             self.commands.push(DrawCommand::Triangles {
                 vertices,
+                blend_mode,
                 clip_id: self.current_clip_id,
             });
         }
     }
 
-    pub fn draw_filled_ellipse(&mut self, cx: f32, cy: f32, rx: f32, ry: f32, color: GpuColor) {
+    pub fn draw_filled_ellipse(
+        &mut self,
+        cx: f32,
+        cy: f32,
+        rx: f32,
+        ry: f32,
+        color: GpuColor,
+        blend_mode: BlendMode,
+    ) {
         if rx > 0.0 && ry > 0.0 {
             self.commands.push(DrawCommand::Ellipse {
                 cx,
@@ -39,7 +50,29 @@ impl GpuRenderer {
                 rx,
                 ry,
                 color,
+                blend_mode,
                 clip_id: self.current_clip_id,
+            });
+        }
+    }
+
+    pub fn draw_blend_ellipse(
+        &mut self,
+        cx: f32,
+        cy: f32,
+        rx: f32,
+        ry: f32,
+        color: GpuColor,
+        blend_mode: BlendMode,
+    ) {
+        if rx > 0.0 && ry > 0.0 {
+            self.commands.push(DrawCommand::BlendEllipse {
+                cx,
+                cy,
+                rx,
+                ry,
+                color,
+                blend_mode,
             });
         }
     }
@@ -49,6 +82,31 @@ impl GpuRenderer {
             self.commands.push(DrawCommand::EraseTriangles {
                 vertices,
                 clip_id: self.current_clip_id,
+            });
+        }
+    }
+
+    pub fn draw_text(
+        &mut self,
+        text: String,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        font_size: f32,
+        line_height: f32,
+        color: GpuColor,
+    ) {
+        if !text.is_empty() && font_size > 0.0 && line_height > 0.0 {
+            self.commands.push(DrawCommand::Text {
+                text,
+                x,
+                y,
+                width: width.max(1.0),
+                height: height.max(line_height).max(1.0),
+                font_size,
+                line_height,
+                color,
             });
         }
     }
@@ -76,7 +134,9 @@ impl GpuRenderer {
                         return None;
                     }
                 }
-                DrawCommand::Ellipse { .. } => return None,
+                DrawCommand::Ellipse { .. }
+                | DrawCommand::BlendEllipse { .. }
+                | DrawCommand::Text { .. } => return None,
                 DrawCommand::Image { .. } => return None,
             }
         }
@@ -115,12 +175,14 @@ impl GpuRenderer {
                 DrawCommand::Ellipse { .. } => {
                     primitive_vertices += 64 * 3;
                 }
+                DrawCommand::BlendEllipse { .. } => {}
                 DrawCommand::EraseTriangles { vertices, .. } => {
                     erase_vertices += vertices.len();
                 }
                 DrawCommand::Image { .. } => {
                     image_vertices += 6;
                 }
+                DrawCommand::Text { .. } => {}
                 DrawCommand::Clear(_) => {}
             }
         }
@@ -182,81 +244,6 @@ impl GpuRenderer {
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     pub fn render_and_read_pixels(&mut self) -> Result<Vec<u8>, String> {
         self.read_pixels_after_encoding(true)
-    }
-
-    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    pub fn read_pixel_region(
-        &mut self,
-        x: u32,
-        y: u32,
-        width: u32,
-        height: u32,
-    ) -> Result<Vec<u8>, String> {
-        let width = width.max(1).min(self.texture_size.width.saturating_sub(x));
-        let height = height
-            .max(1)
-            .min(self.texture_size.height.saturating_sub(y));
-        let bytes_per_pixel = 4usize;
-        let unpadded_bytes_per_row = width as usize * bytes_per_pixel;
-        let padded_bytes_per_row = align_to(
-            unpadded_bytes_per_row,
-            wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize,
-        );
-        let output_size = padded_bytes_per_row * height as usize;
-        let output = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas region readback buffer"),
-            size: output_size as u64,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("gummy_canvas region readback encoder"),
-            });
-        encoder.copy_texture_to_buffer(
-            wgpu::TexelCopyTextureInfo {
-                texture: &self.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d { x, y, z: 0 },
-                aspect: wgpu::TextureAspect::All,
-            },
-            wgpu::TexelCopyBufferInfo {
-                buffer: &output,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(padded_bytes_per_row as u32),
-                    rows_per_image: Some(height),
-                },
-            },
-            wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-        );
-        self.queue.submit([encoder.finish()]);
-        let slice = output.slice(..);
-        let (sender, receiver) = std::sync::mpsc::channel();
-        slice.map_async(wgpu::MapMode::Read, move |result| {
-            let _ = sender.send(result);
-        });
-        let _ = self.device.poll(wgpu::PollType::Wait);
-        receiver
-            .recv()
-            .map_err(|err| format!("Failed to receive GPU readback status: {err}"))?
-            .map_err(|err| format!("Failed to map GPU readback buffer: {err}"))?;
-        let mapped = slice.get_mapped_range();
-        let mut pixels = vec![0; unpadded_bytes_per_row * height as usize];
-        for row in 0..height as usize {
-            let src_start = row * padded_bytes_per_row;
-            let dst_start = row * unpadded_bytes_per_row;
-            pixels[dst_start..dst_start + unpadded_bytes_per_row]
-                .copy_from_slice(&mapped[src_start..src_start + unpadded_bytes_per_row]);
-        }
-        drop(mapped);
-        output.unmap();
-        Ok(pixels)
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
@@ -326,6 +313,66 @@ impl GpuRenderer {
     }
 
     fn encode_commands(&mut self, encoder: &mut wgpu::CommandEncoder) {
+        if !self
+            .commands
+            .iter()
+            .any(|command| matches!(command, DrawCommand::BlendEllipse { .. } | DrawCommand::Text { .. }))
+        {
+            self.encode_plain_commands(encoder);
+            return;
+        }
+
+        let commands = self.commands.clone();
+        let mut segment_start = 0usize;
+        let mut skip_special_until = 0usize;
+        for (index, command) in commands.iter().enumerate() {
+            if index < skip_special_until {
+                continue;
+            }
+            match command {
+                DrawCommand::BlendEllipse {
+                    cx,
+                    cy,
+                    rx,
+                    ry,
+                    color,
+                    blend_mode,
+                } => {
+                    self.commands = commands[segment_start..index].to_vec();
+                    if !self.commands.is_empty() {
+                        self.encode_plain_commands(encoder);
+                    }
+                    self.encode_blend_ellipse_pass(encoder, *cx, *cy, *rx, *ry, *color, *blend_mode);
+                    segment_start = index + 1;
+                }
+                DrawCommand::Text {
+                    ..
+                } => {
+                    self.commands = commands[segment_start..index].to_vec();
+                    if !self.commands.is_empty() {
+                        self.encode_plain_commands(encoder);
+                    }
+                    let mut batch_end = index + 1;
+                    while batch_end < commands.len()
+                        && matches!(commands[batch_end], DrawCommand::Text { .. })
+                    {
+                        batch_end += 1;
+                    }
+                    self.encode_text_pass(encoder, &commands[index..batch_end]);
+                    segment_start = batch_end;
+                    skip_special_until = batch_end;
+                }
+                _ => {}
+            }
+        }
+        self.commands = commands[segment_start..].to_vec();
+        if !self.commands.is_empty() {
+            self.encode_plain_commands(encoder);
+        }
+        self.commands = commands;
+    }
+
+    fn encode_plain_commands(&mut self, encoder: &mut wgpu::CommandEncoder) {
         let clear = self
             .commands
             .iter()
@@ -334,9 +381,55 @@ impl GpuRenderer {
                 DrawCommand::Clear(color) => Some(*color),
                 DrawCommand::Triangles { .. } => None,
                 DrawCommand::Ellipse { .. } => None,
+                DrawCommand::BlendEllipse { .. } => None,
+                DrawCommand::Text { .. } => None,
                 DrawCommand::EraseTriangles { .. } => None,
                 DrawCommand::Image { .. } => None,
             });
+        let last_clear_index = self
+            .commands
+            .iter()
+            .rposition(|command| matches!(command, DrawCommand::Clear(_)));
+        let has_image_commands = self
+            .commands
+            .iter()
+            .any(|command| matches!(command, DrawCommand::Image { .. }));
+        let mut image_offsets = if has_image_commands {
+            vec![None; self.commands.len()]
+        } else {
+            Vec::new()
+        };
+        let mut image_staging = std::mem::take(&mut self.image_staging);
+        image_staging.clear();
+        if has_image_commands {
+            for (command_index, command) in self.commands.iter().enumerate() {
+                if last_clear_index.is_some_and(|index| command_index <= index) {
+                    continue;
+                }
+                let DrawCommand::Image { key, vertices, .. } = command else {
+                    continue;
+                };
+                if !self.textures.contains_key(key) {
+                    continue;
+                }
+                let offset = image_staging.len();
+                image_staging.extend(vertices.iter().map(|(position, uv, tint)| ImageVertex {
+                    position: *position,
+                    uv: *uv,
+                    tint: tint.as_float(),
+                }));
+                image_offsets[command_index] = Some((offset, vertices.len()));
+            }
+            if !image_staging.is_empty() {
+                self.vertex_uploads += 1;
+                let buffer = self
+                    .image_vertex_buffer
+                    .as_ref()
+                    .expect("image vertex buffer is prepared");
+                self.queue
+                    .write_buffer(buffer, 0, bytemuck::cast_slice(&image_staging));
+            }
+        }
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("gummy_canvas primitive render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -361,21 +454,28 @@ impl GpuRenderer {
         let mut batched_vertices = std::mem::take(&mut self.primitive_staging);
         batched_vertices.clear();
         let mut batched_clip_id = 0usize;
+        let mut batched_blend_mode = BlendMode::Blend;
         let mut primitive_vertex_offset = 0usize;
         let mut erase_vertex_offset = 0usize;
-        let mut image_vertex_offset = 0usize;
-        for command in &self.commands {
+        let mut skip_image_commands_until = 0usize;
+        for (command_index, command) in self.commands.iter().enumerate() {
             match command {
                 DrawCommand::Clear(color) => {
                     if skip_until_last_clear && Some(*color) == clear {
                         skip_until_last_clear = false;
                     }
                 }
-                DrawCommand::Triangles { vertices, clip_id } => {
+                DrawCommand::Triangles {
+                    vertices,
+                    blend_mode,
+                    clip_id,
+                } => {
                     if skip_until_last_clear {
                         continue;
                     }
-                    if !batched_vertices.is_empty() && batched_clip_id != *clip_id {
+                    if !batched_vertices.is_empty()
+                        && (batched_clip_id != *clip_id || batched_blend_mode != *blend_mode)
+                    {
                         self.vertex_uploads += 1;
                         self.primitive_batches += 1;
                         let buffer = self
@@ -392,7 +492,7 @@ impl GpuRenderer {
                             bytemuck::cast_slice(&batched_vertices),
                         );
                         primitive_vertex_offset += batched_vertices.len();
-                        pass.set_pipeline(&self.pipeline);
+                        pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
                             1,
@@ -407,6 +507,7 @@ impl GpuRenderer {
                         batched_vertices.clear();
                     }
                     batched_clip_id = *clip_id;
+                    batched_blend_mode = *blend_mode;
                     batched_vertices.extend(vertices.iter().map(|(position, color)| Vertex {
                         position: *position,
                         color: color.as_float(),
@@ -418,12 +519,15 @@ impl GpuRenderer {
                     rx,
                     ry,
                     color,
+                    blend_mode,
                     clip_id,
                 } => {
                     if skip_until_last_clear {
                         continue;
                     }
-                    if !batched_vertices.is_empty() && batched_clip_id != *clip_id {
+                    if !batched_vertices.is_empty()
+                        && (batched_clip_id != *clip_id || batched_blend_mode != *blend_mode)
+                    {
                         self.vertex_uploads += 1;
                         self.primitive_batches += 1;
                         let buffer = self
@@ -440,7 +544,7 @@ impl GpuRenderer {
                             bytemuck::cast_slice(&batched_vertices),
                         );
                         primitive_vertex_offset += batched_vertices.len();
-                        pass.set_pipeline(&self.pipeline);
+                        pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
                             1,
@@ -455,6 +559,7 @@ impl GpuRenderer {
                         batched_vertices.clear();
                     }
                     batched_clip_id = *clip_id;
+                    batched_blend_mode = *blend_mode;
                     push_ellipse_vertices(
                         &mut batched_vertices,
                         *cx as f64,
@@ -464,6 +569,8 @@ impl GpuRenderer {
                         *color,
                     );
                 }
+                DrawCommand::BlendEllipse { .. } => {}
+                DrawCommand::Text { .. } => {}
                 DrawCommand::EraseTriangles { vertices, clip_id } => {
                     if skip_until_last_clear {
                         continue;
@@ -485,7 +592,7 @@ impl GpuRenderer {
                             bytemuck::cast_slice(&batched_vertices),
                         );
                         primitive_vertex_offset += batched_vertices.len();
-                        pass.set_pipeline(&self.pipeline);
+                        pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
                             1,
@@ -531,10 +638,14 @@ impl GpuRenderer {
                 }
                 DrawCommand::Image {
                     key,
-                    vertices,
+                    vertices: _,
                     linear,
+                    blend_mode,
                     clip_id,
                 } => {
+                    if command_index < skip_image_commands_until {
+                        continue;
+                    }
                     if skip_until_last_clear {
                         continue;
                     }
@@ -555,7 +666,7 @@ impl GpuRenderer {
                             bytemuck::cast_slice(&batched_vertices),
                         );
                         primitive_vertex_offset += batched_vertices.len();
-                        pass.set_pipeline(&self.pipeline);
+                        pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
                         pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                         pass.set_bind_group(
                             1,
@@ -572,14 +683,41 @@ impl GpuRenderer {
                     let Some(texture) = self.textures.get(key) else {
                         continue;
                     };
-                    self.image_staging.clear();
-                    self.image_staging
-                        .extend(vertices.iter().map(|(position, uv, tint)| ImageVertex {
-                            position: *position,
-                            uv: *uv,
-                            tint: tint.as_float(),
-                        }));
-                    self.vertex_uploads += 1;
+                    let Some((image_vertex_offset, image_vertex_len)) =
+                        image_offsets[command_index]
+                    else {
+                        continue;
+                    };
+                    let mut batched_image_vertex_len = image_vertex_len;
+                    let mut next_command_index = command_index + 1;
+                    while next_command_index < self.commands.len() {
+                        let DrawCommand::Image {
+                            key: next_key,
+                            vertices: _,
+                            linear: next_linear,
+                            blend_mode: next_blend_mode,
+                            clip_id: next_clip_id,
+                        } = &self.commands[next_command_index]
+                        else {
+                            break;
+                        };
+                        if next_key != key
+                            || next_linear != linear
+                            || next_blend_mode != blend_mode
+                            || next_clip_id != clip_id
+                        {
+                            break;
+                        }
+                        let Some((next_offset, next_len)) = image_offsets[next_command_index] else {
+                            break;
+                        };
+                        if next_offset != image_vertex_offset + batched_image_vertex_len {
+                            break;
+                        }
+                        batched_image_vertex_len += next_len;
+                        next_command_index += 1;
+                    }
+                    skip_image_commands_until = next_command_index;
                     self.image_batches += 1;
                     let buffer = self
                         .image_vertex_buffer
@@ -588,14 +726,8 @@ impl GpuRenderer {
                     let offset_bytes =
                         (image_vertex_offset * std::mem::size_of::<ImageVertex>()) as u64;
                     let size_bytes =
-                        (self.image_staging.len() * std::mem::size_of::<ImageVertex>()) as u64;
-                    self.queue.write_buffer(
-                        &buffer,
-                        offset_bytes,
-                        bytemuck::cast_slice(&self.image_staging),
-                    );
-                    image_vertex_offset += self.image_staging.len();
-                    pass.set_pipeline(&self.image_pipeline);
+                        (batched_image_vertex_len * std::mem::size_of::<ImageVertex>()) as u64;
+                    pass.set_pipeline(self.image_pipeline_for(*blend_mode));
                     pass.set_bind_group(0, &self.viewport_bind_group, &[]);
                     let bind_group = if *linear {
                         &texture.linear_bind_group
@@ -608,7 +740,7 @@ impl GpuRenderer {
                         0,
                         buffer.slice(offset_bytes..offset_bytes + size_bytes),
                     );
-                    pass.draw(0..self.image_staging.len() as u32, 0..1);
+                    pass.draw(0..batched_image_vertex_len as u32, 0..1);
                 }
             }
         }
@@ -626,7 +758,7 @@ impl GpuRenderer {
                 offset_bytes,
                 bytemuck::cast_slice(&batched_vertices),
             );
-            pass.set_pipeline(&self.pipeline);
+            pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
             pass.set_bind_group(0, &self.viewport_bind_group, &[]);
             pass.set_bind_group(1, &self.clip_textures[batched_clip_id].bind_group, &[]);
             pass.set_vertex_buffer(0, buffer.slice(offset_bytes..offset_bytes + size_bytes));
@@ -634,6 +766,179 @@ impl GpuRenderer {
         }
         batched_vertices.clear();
         self.primitive_staging = batched_vertices;
+        image_staging.clear();
+        self.image_staging = image_staging;
+    }
+
+    fn encode_blend_ellipse_pass(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        cx: f32,
+        cy: f32,
+        rx: f32,
+        ry: f32,
+        color: GpuColor,
+        mode: BlendMode,
+    ) {
+        let uniform_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("gummy_canvas ordered blend ellipse uniform"),
+                contents: bytemuck::bytes_of(&BlendEllipseUniform {
+                    center_radius: [cx, cy, rx.max(0.0001), ry.max(0.0001)],
+                    color: color.as_float(),
+                    mode: crate::gpu::textures::blend_mode_id(mode),
+                    _padding: [0; 7],
+                }),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+        let source_bind_group = self.create_region_effect_bind_group(
+            &self.pixel_prefix_texture_view,
+            &uniform_buffer,
+            "gummy_canvas ordered blend ellipse source bind group",
+        );
+        encoder.copy_texture_to_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.pixel_prefix_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            self.texture_size,
+        );
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("gummy_canvas ordered blend ellipse pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.texture_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+        pass.set_pipeline(&self.blend_ellipse_pipeline);
+        pass.set_bind_group(0, &source_bind_group, &[]);
+        pass.draw(0..6, 0..1);
+    }
+    fn encode_text_pass(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        commands: &[DrawCommand],
+    ) {
+        self.text_viewport.update(
+            &self.queue,
+            glyphon::Resolution {
+                width: self.texture_size.width,
+                height: self.texture_size.height,
+            },
+        );
+        let mut text_keys = Vec::new();
+        let mut areas = Vec::new();
+        for command in commands {
+            let DrawCommand::Text {
+                text,
+                x,
+                y,
+                width,
+                height,
+                font_size,
+                line_height,
+                color,
+            } = command
+            else {
+                continue;
+            };
+            let key = format!("{font_size:.2}|{line_height:.2}|{width:.2}|{height:.2}|{text}");
+            if !self.text_buffers.contains_key(&key) {
+                let mut buffer = glyphon::Buffer::new(
+                    &mut self.text_font_system,
+                    glyphon::Metrics::new(*font_size, *line_height),
+                );
+                buffer.set_size(&mut self.text_font_system, Some(*width), Some(*height));
+                buffer.set_text(
+                    &mut self.text_font_system,
+                    text,
+                    &glyphon::Attrs::new().family(glyphon::Family::SansSerif),
+                    glyphon::Shaping::Advanced,
+                );
+                buffer.shape_until_scroll(&mut self.text_font_system, false);
+                self.text_buffers.insert(key.clone(), buffer);
+            }
+            text_keys.push((key, *x, *y, *color));
+        }
+        for (key, x, y, color) in &text_keys {
+            let Some(buffer) = self.text_buffers.get(key) else {
+                continue;
+            };
+            areas.push(glyphon::TextArea {
+                buffer,
+                left: *x,
+                top: *y,
+                scale: 1.0,
+                bounds: glyphon::TextBounds::default(),
+                default_color: glyphon::Color::rgba(color.r, color.g, color.b, color.a),
+                custom_glyphs: &[],
+            });
+        }
+        if areas.is_empty() {
+            return;
+        }
+        if self
+            .text_renderer
+            .prepare(
+                &self.device,
+                &self.queue,
+                &mut self.text_font_system,
+                &mut self.text_atlas,
+                &self.text_viewport,
+                areas,
+                &mut self.text_swash_cache,
+            )
+            .is_err()
+        {
+            return;
+        }
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("gummy_canvas glyphon text pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.texture_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+        let _ = self
+            .text_renderer
+            .render(&self.text_atlas, &self.text_viewport, &mut pass);
+        drop(pass);
+        self.text_atlas.trim();
+    }
+
+    fn primitive_pipeline(&self, blend_mode: BlendMode) -> &wgpu::RenderPipeline {
+        self.primitive_pipelines
+            .get(&blend_mode)
+            .unwrap_or(&self.pipeline)
+    }
+
+    fn image_pipeline_for(&self, blend_mode: BlendMode) -> &wgpu::RenderPipeline {
+        self.image_pipelines
+            .get(&blend_mode)
+            .unwrap_or(&self.image_pipeline)
     }
 }
 

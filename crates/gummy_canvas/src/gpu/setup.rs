@@ -4,10 +4,13 @@ use std::sync::Arc;
 use pollster::block_on;
 
 use crate::gpu::pipeline::{
-    clip_bind_group_layout, create_erase_pipeline, create_image_pipeline, create_pipeline,
+    clip_bind_group_layout, create_erase_pipeline, create_image_pipeline,
+    create_blend_ellipse_pipeline, create_image_pipeline_for_blend_mode, create_pipeline,
+    create_pipeline_for_blend_mode, create_pixel_prefix_pipeline, pixel_prefix_bind_group_layout,
     texture_bind_group_layout, viewport_bind_group_layout,
 };
 use crate::gpu::types::*;
+use crate::BlendMode;
 
 fn checked_texture_size(
     width: usize,
@@ -48,6 +51,49 @@ fn create_offscreen_texture(device: &wgpu::Device, size: wgpu::Extent3d) -> wgpu
             | wgpu::TextureUsages::COPY_SRC
             | wgpu::TextureUsages::COPY_DST,
         view_formats: &[],
+    })
+}
+
+fn create_pixel_prefix_texture(device: &wgpu::Device, size: wgpu::Extent3d) -> wgpu::Texture {
+    device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("gummy_canvas pixel prefix target texture"),
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+            | wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::COPY_SRC
+            | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    })
+}
+
+fn create_pixel_prefix_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    view: &wgpu::TextureView,
+    sampler: &wgpu::Sampler,
+    uniform_buffer: &wgpu::Buffer,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("gummy_canvas pixel prefix bind group"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::Sampler(sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: uniform_buffer.as_entire_binding(),
+            },
+        ],
     })
 }
 
@@ -168,6 +214,18 @@ impl GpuRenderer {
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..wgpu::SamplerDescriptor::default()
         });
+        let text_font_system = glyphon::FontSystem::new();
+        let text_swash_cache = glyphon::SwashCache::new();
+        let text_cache = glyphon::Cache::new(&device);
+        let text_viewport = glyphon::Viewport::new(&device, &text_cache);
+        let mut text_atlas =
+            glyphon::TextAtlas::new(&device, &queue, &text_cache, wgpu::TextureFormat::Rgba8Unorm);
+        let text_renderer = glyphon::TextRenderer::new(
+            &mut text_atlas,
+            &device,
+            wgpu::MultisampleState::default(),
+            None,
+        );
         let viewport_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("gummy_canvas viewport bind group"),
             layout: &bind_group_layout,
@@ -182,6 +240,25 @@ impl GpuRenderer {
             &clip_bind_group_layout,
             wgpu::TextureFormat::Rgba8Unorm,
         );
+        let primitive_pipelines = [
+            BlendMode::Blend,
+            BlendMode::Add,
+            BlendMode::Replace,
+        ]
+        .into_iter()
+        .map(|mode| {
+            (
+                mode,
+                create_pipeline_for_blend_mode(
+                    &device,
+                    &bind_group_layout,
+                    &clip_bind_group_layout,
+                    wgpu::TextureFormat::Rgba8Unorm,
+                    mode,
+                ),
+            )
+        })
+        .collect();
         let erase_pipeline = create_erase_pipeline(
             &device,
             &bind_group_layout,
@@ -195,9 +272,69 @@ impl GpuRenderer {
             &clip_bind_group_layout,
             wgpu::TextureFormat::Rgba8Unorm,
         );
+        let image_pipelines = [
+            BlendMode::Blend,
+            BlendMode::Add,
+            BlendMode::Replace,
+        ]
+        .into_iter()
+        .map(|mode| {
+            (
+                mode,
+                create_image_pipeline_for_blend_mode(
+                    &device,
+                    &bind_group_layout,
+                    &image_bind_group_layout,
+                    &clip_bind_group_layout,
+                    wgpu::TextureFormat::Rgba8Unorm,
+                    mode,
+                ),
+            )
+        })
+        .collect();
+        let pixel_prefix_bind_group_layout = pixel_prefix_bind_group_layout(&device);
+        let pixel_prefix_pipeline = create_pixel_prefix_pipeline(
+            &device,
+            &pixel_prefix_bind_group_layout,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
+        let blend_ellipse_pipeline = create_blend_ellipse_pipeline(
+            &device,
+            &pixel_prefix_bind_group_layout,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
+        let pixel_prefix_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("gummy_canvas pixel prefix uniform"),
+            size: std::mem::size_of::<PixelPrefixUniform>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let blend_ellipse_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("gummy_canvas blend ellipse uniform"),
+            size: std::mem::size_of::<BlendEllipseUniform>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
         let texture_size = checked_texture_size(width, height, limits.max_texture_dimension_2d)?;
         let texture = create_offscreen_texture(&device, texture_size);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let pixel_prefix_texture = create_pixel_prefix_texture(&device, texture_size);
+        let pixel_prefix_texture_view =
+            pixel_prefix_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let pixel_prefix_bind_group = create_pixel_prefix_bind_group(
+            &device,
+            &pixel_prefix_bind_group_layout,
+            &texture_view,
+            &texture_sampler,
+            &pixel_prefix_uniform_buffer,
+        );
+        let blend_ellipse_bind_group = create_pixel_prefix_bind_group(
+            &device,
+            &pixel_prefix_bind_group_layout,
+            &texture_view,
+            &texture_sampler,
+            &blend_ellipse_uniform_buffer,
+        );
         let clip_texture = create_clip_texture(&device, &queue, 1, 1, &[255, 255, 255, 255]);
         let clip_texture_view = clip_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let clip_uniform = ClipUniform {
@@ -233,14 +370,31 @@ impl GpuRenderer {
             texture_view,
             texture_size,
             pipeline,
+            primitive_pipelines,
             erase_pipeline,
             image_pipeline,
+            image_pipelines,
+            pixel_prefix_pipeline,
+            blend_ellipse_pipeline,
+            pixel_prefix_bind_group_layout,
+            pixel_prefix_uniform_buffer,
+            blend_ellipse_uniform_buffer,
+            pixel_prefix_texture,
+            pixel_prefix_texture_view,
+            pixel_prefix_bind_group,
+            blend_ellipse_bind_group,
             image_bind_group_layout,
             clip_bind_group_layout,
             texture_bind_group_layout: present_texture_bind_group_layout,
             texture_surface_pipeline: None,
             texture_sampler,
             linear_texture_sampler,
+            text_font_system,
+            text_swash_cache,
+            text_viewport,
+            text_atlas,
+            text_renderer,
+            text_buffers: HashMap::new(),
             viewport_buffer,
             viewport_bind_group,
             clip_textures,
@@ -282,6 +436,25 @@ impl GpuRenderer {
         self.texture_view = self
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
+        self.pixel_prefix_texture = create_pixel_prefix_texture(&self.device, self.texture_size);
+        self.pixel_prefix_texture_view = self
+            .pixel_prefix_texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        self.text_buffers.clear();
+        self.pixel_prefix_bind_group = create_pixel_prefix_bind_group(
+            &self.device,
+            &self.pixel_prefix_bind_group_layout,
+            &self.texture_view,
+            &self.texture_sampler,
+            &self.pixel_prefix_uniform_buffer,
+        );
+        self.blend_ellipse_bind_group = create_pixel_prefix_bind_group(
+            &self.device,
+            &self.pixel_prefix_bind_group_layout,
+            &self.texture_view,
+            &self.texture_sampler,
+            &self.blend_ellipse_uniform_buffer,
+        );
         let viewport = ViewportUniform {
             size: [
                 self.texture_size.width as f32,

@@ -13,7 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 FRAMES = 90
 REPEATS = 2
-MIN_MEAN_FPS = 120.0
+MIN_MEAN_FPS = 240.0
 VARIANTS = (
     "box",
     "sphere",

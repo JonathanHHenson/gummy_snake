@@ -103,7 +103,7 @@ impl Canvas {
         self.gpu.is_some()
             && !self.cpu_compositing_active
             && !style.erasing
-            && style.blend_mode == BLEND_MODE_BLEND
+            && style.blend_mode_kind.gpu_fixed_function_supported()
     }
 
     pub(crate) fn can_queue_gpu_polygon(

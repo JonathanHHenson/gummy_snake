@@ -60,7 +60,7 @@ The canvas backend benchmarks require the `gummysnake.rust._canvas` runtime modu
 bounded headless mode, so they do not open a native window. Each run reports
 frames per second plus the canvas size, pixel density, backend mode, Python
 version, and platform. Every canvas benchmark scenario must average at least
-120 FPS. A below-threshold failure is an optimization signal, not a reason to
+240 FPS. A below-threshold failure is an optimization signal, not a reason to
 loosen the benchmark.
 
 Use the suite when changing renderer hot paths, image upload/cache behavior,
@@ -96,14 +96,14 @@ The WEBGL 3D benchmarks exercise the current Rust-backed software 3D path for
 box, sphere, textured plane, imported model, and repeated primitive scenes.
 They cover Rust-owned model handles, projection/shading, textured rasterization,
 and the direct GPU triangle path for untextured shaded faces. They are
-frame-style benchmarks and keep the same 120 FPS target; failures are expected
+frame-style benchmarks and keep the same 240 FPS target; failures are expected
 optimization signals until native accelerated 3D or additional software
 optimizations land.
 
 Checked-in baseline snapshots live in `tests/benchmark/baselines/` as TOML.
 Each baseline records the command, machine/configuration, commit, canvas size,
 pixel density, backend mode, frame count or iteration count, and whether GPU
-availability is known. Canvas baselines also record the required 120 FPS floor
+availability is known. Canvas baselines also record the required 240 FPS floor
 and whether each captured scenario met it. To compare an optimization branch,
 run the same command on the same machine, compare each scenario's mean/min/max
 against the matching baseline, and describe material changes as percentages. Do

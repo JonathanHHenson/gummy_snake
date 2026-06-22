@@ -4,6 +4,8 @@ use pyo3::types::PyDict;
 #[derive(Clone, Debug, Default)]
 pub(crate) struct PerformanceCounters {
     pub(crate) gpu_draws: u64,
+    pub(crate) gpu_blend_commands: u64,
+    pub(crate) gpu_region_effect_passes: u64,
     pub(crate) cpu_fallbacks: u64,
     pub(crate) pixel_readbacks: u64,
     pub(crate) pixel_uploads: u64,
@@ -30,6 +32,8 @@ impl PerformanceCounters {
     pub(crate) fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new_bound(py);
         dict.set_item("gpu_draws", self.gpu_draws)?;
+        dict.set_item("gpu_blend_commands", self.gpu_blend_commands)?;
+        dict.set_item("gpu_region_effect_passes", self.gpu_region_effect_passes)?;
         dict.set_item("cpu_fallbacks", self.cpu_fallbacks)?;
         dict.set_item("pixel_readbacks", self.pixel_readbacks)?;
         dict.set_item("pixel_uploads", self.pixel_uploads)?;

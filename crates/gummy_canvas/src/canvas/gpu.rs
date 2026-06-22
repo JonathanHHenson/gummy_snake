@@ -183,7 +183,11 @@ impl Canvas {
                     fill_rgba_buffer(&mut self.pixels, &rgba);
                     self.present_pixels.fill(rgba_to_present_pixel(&rgba));
                 }
-                crate::gpu::DrawCommand::Triangles { vertices, clip_id } => {
+                crate::gpu::DrawCommand::Triangles {
+                    vertices,
+                    blend_mode: _,
+                    clip_id,
+                } => {
                     if *clip_id != 0 {
                         return false;
                     }
@@ -202,6 +206,7 @@ impl Canvas {
                     rx,
                     ry,
                     color,
+                    blend_mode: _,
                     clip_id,
                 } => {
                     if *clip_id != 0 {
@@ -214,6 +219,9 @@ impl Canvas {
                         (*ry).into(),
                         *color,
                     );
+                }
+                crate::gpu::DrawCommand::BlendEllipse { .. } => {
+                    return false;
                 }
                 crate::gpu::DrawCommand::EraseTriangles { vertices, clip_id } => {
                     if *clip_id != 0 {
@@ -232,8 +240,12 @@ impl Canvas {
                     key: _,
                     vertices: _,
                     linear: _,
+                    blend_mode: _,
                     clip_id: _,
                 } => {
+                    return false;
+                }
+                crate::gpu::DrawCommand::Text { .. } => {
                     return false;
                 }
             }
@@ -317,7 +329,7 @@ impl Canvas {
                         fill,
                     );
                 }
-                self.draw_gpu_triangles(vertices)?;
+                self.draw_gpu_triangles(vertices, style.blend_mode_kind)?;
             }
         }
         if let Some(stroke) = style.stroke {
@@ -326,6 +338,7 @@ impl Canvas {
                 close,
                 stroke_width(style.stroke_weight, pixel_density),
                 stroke,
+                style.blend_mode_kind,
             )?;
         }
         Ok(())
@@ -337,12 +350,13 @@ impl Canvas {
         close: bool,
         stroke_width: f64,
         color: Rgba,
+        blend_mode: BlendMode,
     ) -> PyResult<()> {
         if points.len() < 2 {
             return Ok(());
         }
         for pair in points.windows(2) {
-            self.draw_gpu_segment(pair[0], pair[1], stroke_width, color)?;
+            self.draw_gpu_segment(pair[0], pair[1], stroke_width, color, blend_mode)?;
         }
         if close {
             self.draw_gpu_segment(
@@ -350,6 +364,7 @@ impl Canvas {
                 points[0],
                 stroke_width,
                 color,
+                blend_mode,
             )?;
         }
         Ok(())
@@ -360,6 +375,7 @@ impl Canvas {
         bounds: (usize, usize, usize, usize),
         rings: &[&[Point]],
         color: Rgba,
+        blend_mode: BlendMode,
     ) -> PyResult<()> {
         let mut vertices = Vec::new();
         for_even_odd_spans(bounds, rings, |y, start, end| {
@@ -370,7 +386,7 @@ impl Canvas {
             push_triangle(&mut vertices, (x0, y0), (x1, y0), (x1, y1), color);
             push_triangle(&mut vertices, (x0, y0), (x1, y1), (x0, y1), color);
         });
-        self.draw_gpu_triangles(vertices)
+        self.draw_gpu_triangles(vertices, blend_mode)
     }
 
     pub(crate) fn draw_gpu_segment(
@@ -379,12 +395,13 @@ impl Canvas {
         p2: Point,
         stroke_width: f64,
         color: Rgba,
+        blend_mode: BlendMode,
     ) -> PyResult<()> {
         let dx = p2.0 - p1.0;
         let dy = p2.1 - p1.1;
         let length = (dx * dx + dy * dy).sqrt();
         if length <= f64::EPSILON {
-            self.draw_gpu_disc(p1.0, p1.1, (stroke_width / 2.0).max(0.5), color)?;
+            self.draw_gpu_disc(p1.0, p1.1, (stroke_width / 2.0).max(0.5), color, blend_mode)?;
             return Ok(());
         }
         let half = (stroke_width / 2.0).max(0.5);
@@ -397,7 +414,7 @@ impl Canvas {
         let mut vertices = Vec::with_capacity(6);
         push_triangle(&mut vertices, a, b, c, color);
         push_triangle(&mut vertices, a, c, d, color);
-        self.draw_gpu_triangles(vertices)
+        self.draw_gpu_triangles(vertices, blend_mode)
     }
 
     pub(crate) fn draw_gpu_disc(
@@ -406,6 +423,7 @@ impl Canvas {
         cy: f64,
         radius: f64,
         color: Rgba,
+        blend_mode: BlendMode,
     ) -> PyResult<()> {
         if radius <= 0.0 {
             return Ok(());
@@ -423,7 +441,7 @@ impl Canvas {
                 color,
             );
         }
-        self.draw_gpu_triangles(vertices)
+        self.draw_gpu_triangles(vertices, blend_mode)
     }
 
     pub(crate) fn draw_gpu_axis_aligned_ellipse(
@@ -435,12 +453,29 @@ impl Canvas {
         style: &Style,
         pixel_density: f64,
     ) -> PyResult<()> {
-        if style.erasing || rx <= 0.0 || ry <= 0.0 {
+        if rx <= 0.0 || ry <= 0.0 {
             return Ok(());
         }
         if let Some(fill) = style.fill {
             if style.stroke.is_none() {
-                self.draw_gpu_filled_ellipse(cx, cy, rx, ry, fill)?;
+                if style.erasing {
+                    let steps = 64usize;
+                    let mut vertices = Vec::with_capacity(steps * 3);
+                    for index in 0..steps {
+                        let a = 2.0 * PI * index as f64 / steps as f64;
+                        let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
+                        push_triangle(
+                            &mut vertices,
+                            (cx, cy),
+                            (cx + a.cos() * rx, cy + a.sin() * ry),
+                            (cx + b.cos() * rx, cy + b.sin() * ry),
+                            fill,
+                        );
+                    }
+                    self.draw_gpu_erase_triangles(vertices)?;
+                    return Ok(());
+                }
+                self.draw_gpu_filled_ellipse(cx, cy, rx, ry, fill, style.blend_mode_kind)?;
                 return Ok(());
             }
             let steps = 64usize;
@@ -456,7 +491,11 @@ impl Canvas {
                     fill,
                 );
             }
-            self.draw_gpu_triangles(vertices)?;
+            if style.erasing {
+                self.draw_gpu_erase_triangles(vertices)?;
+            } else {
+                self.draw_gpu_triangles(vertices, style.blend_mode_kind)?;
+            }
         }
         if let Some(stroke) = style.stroke {
             let half_width = (stroke_width(style.stroke_weight, pixel_density) / 2.0).max(0.5);
@@ -476,7 +515,102 @@ impl Canvas {
                 push_triangle(&mut vertices, outer_a, inner_a, inner_b, stroke);
                 push_triangle(&mut vertices, outer_a, inner_b, outer_b, stroke);
             }
-            self.draw_gpu_triangles(vertices)?;
+            if style.erasing {
+                self.draw_gpu_erase_triangles(vertices)?;
+            } else {
+                self.draw_gpu_triangles(vertices, style.blend_mode_kind)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn can_draw_gpu_blend_ellipse(&self, style: &Style) -> bool {
+        self.gpu.is_some()
+            && !style.erasing
+            && style.stroke.is_none()
+            && style.fill.is_some()
+            && matches!(
+                style.blend_mode_kind,
+                BlendMode::Multiply
+                    | BlendMode::Screen
+                    | BlendMode::Difference
+                    | BlendMode::Exclusion
+                    | BlendMode::Darkest
+                    | BlendMode::Lightest
+            )
+            && self.clip_masks.is_empty()
+    }
+
+    pub(crate) fn can_draw_gpu_text(&self, style: &Style, matrix: Matrix) -> bool {
+        self.gpu.is_some()
+            && !self.cpu_compositing_active
+            && self.clip_masks.is_empty()
+            && !style.erasing
+            && style.fill.is_some()
+            && style.blend_mode_kind == BlendMode::Blend
+            && style.text_font_path.is_none()
+            && matrix == (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+    }
+
+    pub(crate) fn draw_gpu_blend_ellipse(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+        style: &Style,
+    ) -> PyResult<()> {
+        let Some(fill) = style.fill else {
+            return Ok(());
+        };
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_blend_ellipse(
+                cx as f32,
+                cy as f32,
+                rx as f32,
+                ry as f32,
+                crate::raster::gpu_color(fill),
+                style.blend_mode_kind,
+            );
+            self.performance_counters.gpu_draws += 1;
+            self.performance_counters.gpu_blend_commands += 1;
+            self.performance_counters.gpu_region_effect_passes += 1;
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn draw_gpu_text(
+        &mut self,
+        text: &str,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        font_size: f64,
+        line_height: f64,
+        color: Rgba,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_text(
+                text.to_string(),
+                x as f32,
+                y as f32,
+                width as f32,
+                height as f32,
+                font_size as f32,
+                line_height as f32,
+                crate::raster::gpu_color(color),
+            );
+            self.performance_counters.gpu_draws += 1;
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
         }
         Ok(())
     }
@@ -488,6 +622,7 @@ impl Canvas {
         rx: f64,
         ry: f64,
         color: Rgba,
+        blend_mode: BlendMode,
     ) -> PyResult<()> {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
@@ -497,8 +632,12 @@ impl Canvas {
                 rx as f32,
                 ry as f32,
                 crate::raster::gpu_color(color),
+                blend_mode,
             );
             self.performance_counters.gpu_draws += 1;
+            if blend_mode != BlendMode::Blend {
+                self.performance_counters.gpu_blend_commands += 1;
+            }
             self.render_dirty = true;
             self.offscreen_dirty = true;
             self.pixels_stale = true;
@@ -509,11 +648,15 @@ impl Canvas {
     pub(crate) fn draw_gpu_triangles(
         &mut self,
         vertices: Vec<([f32; 2], crate::gpu::GpuColor)>,
+        blend_mode: BlendMode,
     ) -> PyResult<()> {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.draw_triangles(vertices);
+            gpu.draw_triangles(vertices, blend_mode);
             self.performance_counters.gpu_draws += 1;
+            if blend_mode != BlendMode::Blend {
+                self.performance_counters.gpu_blend_commands += 1;
+            }
             self.render_dirty = true;
             self.offscreen_dirty = true;
             self.pixels_stale = true;
@@ -523,10 +666,16 @@ impl Canvas {
 
     pub(crate) fn draw_gpu_erase_triangles(
         &mut self,
-        vertices: Vec<([f32; 2], crate::gpu::GpuColor)>,
+        mut vertices: Vec<([f32; 2], crate::gpu::GpuColor)>,
     ) -> PyResult<()> {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
+            for (_, color) in &mut vertices {
+                color.r = 255;
+                color.g = 255;
+                color.b = 255;
+                color.a = 255;
+            }
             gpu.draw_erase_triangles(vertices);
             self.performance_counters.gpu_draws += 1;
             self.render_dirty = true;

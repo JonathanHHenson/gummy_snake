@@ -33,6 +33,7 @@ impl Canvas {
             image_cache: HashMap::new(),
             text_cache: HashMap::new(),
             text_cache_order: VecDeque::new(),
+            text_metric_cache: HashMap::new(),
             font_cache: HashMap::new(),
             next_text_key: 1_u64 << 62,
             texture_cache_versions: HashMap::new(),
@@ -99,6 +100,7 @@ impl Canvas {
         self.clip_bounds.clear();
         self.text_cache.clear();
         self.text_cache_order.clear();
+        self.text_metric_cache.clear();
         if let Some(runtime) = self.runtime.as_mut() {
             runtime
                 .request_resize(width, height, pixel_density)
@@ -150,6 +152,7 @@ impl Canvas {
         self.clip_bounds.clear();
         self.text_cache.clear();
         self.text_cache_order.clear();
+        self.text_metric_cache.clear();
         Ok(())
     }
 

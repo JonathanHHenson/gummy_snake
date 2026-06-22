@@ -21,6 +21,8 @@ The stable top-level counters are:
 | `cpu_fallbacks` | Operations that require CPU compositing or CPU pixel work. |
 | `pixel_readbacks` | Canvas pixel reads into Python or CPU memory. |
 | `pixel_uploads` | Full pixel or texture uploads back to the canvas. |
+| `gpu_blend_commands` | Non-default blend commands that stayed in the GPU command stream. |
+| `gpu_region_effect_passes` | Bounded GPU region-effect passes, such as internal pixel-prefix mutation. |
 | `image_cache_hits` / `image_cache_misses` | Legacy Python image byte-cache reuse or upload; Rust-backed `Image` draws normally bypass this path. |
 | `texture_cache_hits` / `texture_uploads` | Native texture reuse or upload, including canvas-managed image handles. |
 | `text_cache_hits` / `text_cache_misses` | Text metric or glyph cache reuse. |
@@ -45,18 +47,38 @@ Native diagnostics may also include GPU render-loop counters:
 and `gpu_image_batches`. Allocations should grow with peak frame demand rather
 than with every frame; uploads and batches track actual draw work.
 
+## GPU Region Effects
+
+GPU region effects are internal renderer operations that snapshot the current
+canvas texture into a temporary texture, run a bounded shader pass, and write
+the result back to the canvas texture without mapping pixels into CPU memory.
+They preserve draw order by resolving pending draw commands before the effect
+and then continuing future commands against the updated canvas texture.
+
+The current region-effect framework is used for benchmark pixel-prefix mutation
+and reports through `gpu_region_effect_passes`. That path should not increment
+`pixel_readbacks` or `pixel_uploads` when a GPU renderer is available.
+
+Destination-sampling blend modes use the same ordered source/target discipline:
+the command encoder flushes earlier draw commands, snapshots the canvas texture,
+runs the shader effect, and then continues later commands against the updated
+canvas texture. They should report through `gpu_blend_commands` and
+`gpu_region_effect_passes` rather than `pixel_readbacks` or `pixel_uploads`
+when the effect shape is supported by the GPU path.
+
 ## Fallback Matrix
 
 | Public operation or state | Typical path | Cost boundary | Preferred pattern |
 | --- | --- | --- | --- |
 | `background()`, `clear()`, basic primitives with `BLEND` | GPU-oriented draw | Low synchronization pressure | Keep normal style state for dense primitive loops; primitives must remain visible after text/image commands. |
 | Batched `line()` calls with same style/transform | Batched GPU-oriented draw | Low bridge overhead | Use `gs.fast()` or local method bindings in dense loops. |
-| Non-`BLEND` blend modes | CPU compositing fallback | May read/merge/upload pixel regions | Use sparingly in animation hot loops; isolate blended layers when possible. |
+| `ADD` / `REPLACE` blend modes | Fixed-function GPU pipelines | Low synchronization pressure | Prefer these modes over destination-sampling modes in hot animation loops when they express the same visual result. |
+| Destination-sampling blend modes such as `MULTIPLY`, `SCREEN`, `DIFFERENCE`, `EXCLUSION`, `DARKEST`, and `LIGHTEST` on supported filled ellipses | Ordered GPU shader region pass | Extra render pass and canvas texture snapshot, but no CPU read/merge/upload | Keep shapes simple and unclipped when these modes are used in hot animation loops. |
 | `erase()` / `no_erase()` drawing | CPU compositing fallback | Requires alpha-modifying pixel work | Prefer normal alpha drawing unless erasure semantics are required. |
 | Loaded images drawn unchanged | Cached texture path | First draw uploads, later draws reuse | Reuse `Image` objects and avoid per-frame mutation. |
 | Mutated images drawn each frame | Texture upload path | Uploads changed image data | Batch mutations or draw with primitives when possible. |
 | Rotated/scaled images | GPU texture path when cached; CPU fallback when unsupported | First texture upload, then draw cost | Reuse images; avoid changing pixels while transforming. |
-| Text drawing and metrics | Native text/cache path using the image/texture pipeline | First glyph/metric use is expensive; mixed text then primitive drawing exercises GPU pipeline switching | Reuse text strings/styles where practical and validate primitives after text when changing renderer batching. |
+| Text drawing and metrics | Glyphon-backed GPU text path for untransformed default-font text, with cached shaped buffers and a GPU glyph atlas; Rust metric cache for measurements | First glyph/layout use is expensive; mixed text then primitive drawing exercises GPU pipeline switching | Reuse text strings/styles where practical and validate primitives after text when changing renderer batching. |
 | `load_pixels()` / `pixels()` | Readback plus list conversion | Synchronizes canvas data and allocates Python list | Use `load_pixel_bytes()` for bytes workflows. |
 | `load_pixel_bytes()` | Byte readback | Synchronizes canvas data but does not populate `context.pixels` | Keep data as `bytes`/`memoryview` and pass it back to bulk APIs when possible. |
 | `update_pixels()` | Full or dirty-region pixel upload | Buffer-like inputs reach Rust through the Python buffer protocol; list inputs are copied for compatibility | Use `bytes`, `bytearray`, `memoryview`, or the `PixelBuffer` returned by `load_pixels()`; prefer dirty row-aligned updates over full-canvas uploads. |

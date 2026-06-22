@@ -11,8 +11,8 @@ notes = '''
 Machine-specific baseline captured from the local development machine.
 Use these numbers only for comparison against subsequent runs on the same
 machine/configuration, not as portable thresholds for CI or other hardware.
-Canvas benchmark tests still enforce the project target that each scenario must
-average at least 120 FPS; below-target measured values are recorded here to make
+Canvas benchmark tests now enforce the project target that each scenario must
+average at least 240 FPS; below-target measured values are recorded here to make
 optimization gaps explicit.
 '''
 
@@ -20,7 +20,7 @@ optimization gaps explicit.
 command = "uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks -s"
 frames = 120
 repeats = 2
-required_min_fps = 120.0
+required_min_fps = 240.0
 backend_mode = "headless"
 canvas_size = [720, 480]
 pixel_density = 1.0

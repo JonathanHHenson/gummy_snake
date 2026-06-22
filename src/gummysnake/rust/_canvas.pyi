@@ -368,6 +368,20 @@ class Canvas:
         y4: float,
     ) -> None: ...
     def shaded_faces(self, faces: list[dict[str, Any]]) -> None: ...
+    def draw_model_textured(
+        self,
+        model: CanvasModel3D,
+        image: CanvasImage,
+        camera: dict[str, Any],
+        projection: dict[str, Any],
+        viewport_width: float,
+        viewport_height: float,
+        material: dict[str, Any],
+        lights: list[dict[str, Any]],
+        normal_material: bool,
+        cull_backfaces: bool,
+        transform: tuple[float, float, float, float, float, float] | None = None,
+    ) -> bool: ...
     def ellipse(
         self,
         x: float,

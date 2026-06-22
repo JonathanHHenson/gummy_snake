@@ -69,7 +69,7 @@ impl<'a> OverlayRegion<'a> {
         let dst = &mut self.pixels[offset..offset + 4];
         let color = color.as_array();
         if self.erasing {
-            dst[3] = dst[3].saturating_sub(color[3]);
+            dst[3] = 0;
         } else {
             blend_pixel(dst, &color, self.blend_mode);
         }

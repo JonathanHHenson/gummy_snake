@@ -70,8 +70,8 @@ const TEXT_CACHE_LIMIT: usize = 512;
 const CANVAS_ABI_VERSION: u32 = 9;
 static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum BlendMode {
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub(crate) enum BlendMode {
     Blend,
     Add,
     Darkest,
@@ -97,6 +97,10 @@ impl BlendMode {
             BLEND_MODE_SCREEN => Some(Self::Screen),
             _ => None,
         }
+    }
+
+    fn gpu_fixed_function_supported(self) -> bool {
+        matches!(self, Self::Blend | Self::Add | Self::Replace)
     }
 }
 
@@ -295,6 +299,13 @@ struct CachedText {
     bbox_left: i32,
     bbox_top: i32,
     ascent: f64,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct CachedTextMetrics {
+    width: f64,
+    ascent: f64,
+    descent: f64,
 }
 
 #[pyclass(name = "CanvasImage", unsendable)]
@@ -620,6 +631,7 @@ struct Canvas {
     image_cache: HashMap<u64, CachedImage>,
     text_cache: HashMap<String, CachedText>,
     text_cache_order: VecDeque<String>,
+    text_metric_cache: HashMap<String, CachedTextMetrics>,
     font_cache: HashMap<String, FontArc>,
     next_text_key: u64,
     texture_cache_versions: HashMap<u64, u64>,

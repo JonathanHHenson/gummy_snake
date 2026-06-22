@@ -53,6 +53,21 @@ impl Canvas {
                 self.physical_width,
                 self.physical_height,
             );
+            if parsed_style.erasing
+                && self.gpu.is_some()
+                && !self.cpu_compositing_active
+                && parsed_style.blend_mode == crate::BLEND_MODE_BLEND
+            {
+                self.draw_gpu_axis_aligned_ellipse(
+                    cx,
+                    cy,
+                    rx,
+                    ry,
+                    parsed_style,
+                    self.pixel_density,
+                )?;
+                return Ok(());
+            }
             if self.can_queue_gpu_primitives(&parsed_style) {
                 self.draw_gpu_axis_aligned_ellipse(
                     cx,
@@ -62,6 +77,10 @@ impl Canvas {
                     parsed_style,
                     self.pixel_density,
                 )?;
+                return Ok(());
+            }
+            if self.can_draw_gpu_blend_ellipse(parsed_style) {
+                self.draw_gpu_blend_ellipse(cx, cy, rx, ry, parsed_style)?;
                 return Ok(());
             }
             self.prepare_cpu_composite();
@@ -171,6 +190,7 @@ impl Canvas {
                             false,
                             stroke_width(parsed_style.stroke_weight, self.pixel_density),
                             stroke,
+                            parsed_style.blend_mode_kind,
                         )?;
                     }
                     return Ok(());

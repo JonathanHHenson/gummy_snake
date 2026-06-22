@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CHILD_RUNNER = Path(__file__).with_name("canvas_backend_perf_child.py")
 FRAMES = 120
 REPEATS = 2
-MIN_MEAN_FPS = 120.0
+MIN_MEAN_FPS = 240.0
 VARIANTS = (
     "dense_primitives",
     "sparse_primitives",

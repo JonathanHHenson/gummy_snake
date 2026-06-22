@@ -273,8 +273,11 @@ impl Canvas {
             let Some(gpu) = self.gpu.as_mut() else {
                 return Ok(false);
             };
-            gpu.draw_image(image_key, vertices, linear_sampling);
+            gpu.draw_image(image_key, vertices, linear_sampling, style.blend_mode_kind);
             self.performance_counters.gpu_draws += 1;
+            if style.blend_mode_kind != BlendMode::Blend {
+                self.performance_counters.gpu_blend_commands += 1;
+            }
             self.render_dirty = true;
             self.offscreen_dirty = true;
             self.pixels_stale = true;

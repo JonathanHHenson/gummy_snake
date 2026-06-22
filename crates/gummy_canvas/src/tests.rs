@@ -244,6 +244,7 @@ fn gpu_primitives_after_image_commands_are_rendered() {
                 ([0.0, 2.0], [0.0, 1.0], white),
             ],
             true,
+            BlendMode::Blend,
         );
     }
     canvas
