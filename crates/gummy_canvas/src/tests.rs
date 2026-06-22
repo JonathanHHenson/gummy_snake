@@ -186,6 +186,33 @@ fn gpu_path_renders_background_and_triangle_when_available() {
 }
 
 #[test]
+fn shaded_faces_cpu_fallback_preserves_face_color() {
+    let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    canvas.gpu = None;
+    let red = crate::gpu::GpuColor {
+        r: 255,
+        g: 0,
+        b: 0,
+        a: 255,
+    };
+
+    canvas.background((0, 0, 0, 255));
+    canvas
+        .draw_shaded_face_vertices_cpu(&[
+            ([1.0, 1.0], red),
+            ([6.0, 1.0], red),
+            ([1.0, 6.0], red),
+        ])
+        .unwrap();
+
+    let pixels = canvas.load_pixels();
+    assert!(pixels.chunks_exact(4).any(|rgba| rgba == [255, 0, 0, 255]));
+    assert!(!pixels
+        .chunks_exact(4)
+        .any(|rgba| rgba == [255, 255, 255, 255]));
+}
+
+#[test]
 fn gpu_primitives_after_image_commands_are_rendered() {
     let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
     if !canvas.gpu_available() {

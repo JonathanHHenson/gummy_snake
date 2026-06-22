@@ -771,17 +771,25 @@ impl Canvas {
             self.draw_gpu_triangles(vertices)?;
             return Ok(());
         }
-        let style = Style {
-            fill: Some(Rgba {
-                r: 255,
-                g: 255,
-                b: 255,
-                a: 255,
-            }),
-            stroke: None,
-            ..Style::default()
-        };
+        self.draw_shaded_face_vertices_cpu(&vertices)
+    }
+
+    pub(crate) fn draw_shaded_face_vertices_cpu(
+        &mut self,
+        vertices: &[([f32; 2], crate::gpu::GpuColor)],
+    ) -> PyResult<()> {
         for triangle in vertices.chunks_exact(3) {
+            let color = triangle[0].1;
+            let style = Style {
+                fill: Some(Rgba {
+                    r: color.r,
+                    g: color.g,
+                    b: color.b,
+                    a: color.a,
+                }),
+                stroke: None,
+                ..Style::default()
+            };
             let points = [
                 (triangle[0].0[0] as f64, triangle[0].0[1] as f64),
                 (triangle[1].0[0] as f64, triangle[1].0[1] as f64),
