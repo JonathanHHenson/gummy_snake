@@ -3,30 +3,67 @@
 Gummy Snake keeps sketch semantics in Python and delegates canvas work to Rust.
 
 ```mermaid
-flowchart LR
-    subgraph Python
+flowchart TD
+    subgraph Python["Python sketch shell"]
         User[setup/draw callbacks]
+        Builder[SketchBuilder / FunctionSketch]
         Global[gs.api.global_mode]
+        Current[gs.api.current]
         Sketch[Sketch]
         Context[SketchContext]
-        State[SketchState]
+        SketchState[SketchState<br/>public mirrors and lifecycle state]
+    end
+
+    subgraph Adapter["Python canvas adapters"]
         Backend[CanvasBackend]
         Renderer[CanvasRenderer]
-        Wrapper[gummysnake.rust.canvas]
+        BridgeImport[gummysnake.rust.canvas<br/>import / ABI / capabilities]
+        RuntimeBridge[native runtime<br/>events / presentation]
+        CanvasBridge[canvas lifecycle<br/>allocate / resize / density]
+        DrawBridge[drawing bridge<br/>state / primitives / text / pixels]
+        AssetBridge[asset bridge<br/>images / models / sounds / export]
     end
 
-    subgraph Rust
-        Runtime[gummysnake.rust._canvas]
-        Canvas[gummy_canvas crate]
+    subgraph Rust["Rust canvas runtime"]
+        Runtime[gummysnake.rust._canvas PyO3 module]
+        Native[SDL3 runtime and input events]
+        Canvas[gummy_canvas canvas and backing surface]
+        State[renderer state<br/>style / transform / draw state]
+        Commands[draw commands<br/>construction / batching]
+        Rendering[render paths<br/>GPU / raster / export]
+        Assets[image/model/sound assets]
     end
 
-    User --> Global --> Context
-    User --> Sketch --> Context
-    Context --> State
+    User --> Builder
+    Builder --> Sketch
+    User --> Sketch
+    Sketch --> Context
+    Sketch --> Current
+    User --> Global
+    Global --> Current
+    Current --> Context
+    Context --> SketchState
     Context --> Backend
     Context --> Renderer
-    Backend --> Wrapper --> Runtime --> Canvas
-    Renderer --> Wrapper
+    Backend --> Renderer
+    Backend --> BridgeImport
+    Renderer --> BridgeImport
+    Backend --> RuntimeBridge
+    Backend --> CanvasBridge
+    Renderer --> CanvasBridge
+    Renderer --> DrawBridge
+    Renderer --> AssetBridge
+    BridgeImport --> Runtime
+    RuntimeBridge --> Runtime
+    CanvasBridge --> Runtime
+    DrawBridge --> Runtime
+    AssetBridge --> Runtime
+    Runtime --> Native
+    Runtime --> Canvas
+    Canvas --> State
+    Canvas --> Commands
+    Canvas --> Rendering
+    Canvas --> Assets
 ```
 
 ## The Core Objects
@@ -39,9 +76,9 @@ The runtime has a small set of objects that appear in most changes:
 | `FunctionSketch` | `src/gummysnake/sketch/runtime.py` | Wraps module-level `setup()`, `draw()`, and event callbacks so function-mode sketches use the same lifecycle as object-mode sketches. |
 | `SketchBuilder` | `src/gummysnake/sketch/runtime.py` | Stores decorator-registered callbacks for `@gs.setup`, `@gs.draw`, and `@gs.on(...)` sketches. |
 | `SketchContext` | `src/gummysnake/context.py` plus `src/gummysnake/_context/` mixins | Runtime controller for one sketch. It validates high-level Gummy Snake operations, updates `SketchState`, calls plugins, and sends drawing work to the renderer. |
-| `SketchState` | `src/gummysnake/core/state.py` | Mutable data for one sketch: canvas dimensions, style, transforms, timing, input, shape-building state, and lifecycle flags. |
+| `SketchState` | `src/gummysnake/core/state.py` | Mutable public/lifecycle data for one sketch: canvas dimensions, style and transform mirrors, timing, input, shape-building state, and lifecycle flags. The renderer's current draw state is owned by `gummy_canvas`. |
 | `CanvasBackend` | `src/gummysnake/backend/canvas.py` plus `src/gummysnake/backend/_canvas/backend/` mixins | Runtime adapter. It chooses headless vs interactive execution, opens native windows when supported, schedules frames, and dispatches input events. |
-| `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/_canvas/renderer/` mixins | Drawing adapter. It translates Python state and drawing requests into payloads understood by the Rust canvas runtime. |
+| `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/_canvas/renderer/` mixins | Drawing adapter. It mirrors canvas dimensions, synchronizes Python facade state mutations into Rust current state, and forwards drawing requests to the Rust canvas runtime. |
 | `gummysnake.rust.canvas` | `src/gummysnake/rust/canvas.py` | Import, ABI validation, health-check, and capability wrapper for the PyO3 runtime module. It turns missing native support into clear Gummy Snake errors. |
 | `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime and renderer implementation. |
 
@@ -109,8 +146,8 @@ classDiagram
         +stack
     }
 
-    Sketch --> SketchContext : creates and activates
-    SketchContext --> SketchState : owns mutable data
+    Sketch --> SketchContext
+    SketchContext --> SketchState
 ```
 
 `SketchContext` methods are where most Gummy Snake semantics live. For example,
@@ -121,8 +158,11 @@ public API calls; it only stores the values those methods need.
 ## What Sketch State Means
 
 `SketchState` is the mutable Python data model for one running sketch. It is not
-the sketch object itself, and it is not the Rust canvas. It is the place where
-Gummy Snake stores the current Gummy Snake-style settings that affect later API calls.
+the sketch object itself, and it is not the Rust canvas. It stores public
+lifecycle values and Python-facing mirrors of settings that user code can
+observe or that Gummy Snake semantics need. The renderer's authoritative current
+style, transform, image/text state, draw-command construction, and batching live
+inside `gummy_canvas`.
 
 For example:
 
@@ -153,15 +193,17 @@ stateful Rust draw call using the Rust-owned current style and transform.
 
 ```mermaid
 flowchart TD
-    A[gs.fill red] --> B[update public style mirror]
-    B --> C[sync Rust current style]
-    D[gs.translate] --> E[update public transform mirror]
-    E --> F[sync Rust current matrix]
-    G[gs.circle] --> H[validate geometry and color mode]
-    C --> I[CanvasRenderer current draw call]
-    F --> I
-    H --> I
-    I --> J[gummy_canvas constructs command from current state]
+    StyleCall[gs.fill red] --> StyleMirror[SketchState style mirror]
+    StyleMirror --> RustStyle[gummy_canvas current style]
+
+    TransformCall[gs.translate] --> TransformMirror[SketchState transform mirror]
+    TransformMirror --> RustTransform[gummy_canvas current matrix]
+
+    DrawCall[gs.circle] --> Validate[validate geometry and color mode]
+    Validate --> RendererCall[CanvasRenderer current draw call]
+    RustStyle --> RendererCall
+    RustTransform --> RendererCall
+    RendererCall --> Command[gummy_canvas constructs command from current state]
 ```
 
 ## Public API Call Flow

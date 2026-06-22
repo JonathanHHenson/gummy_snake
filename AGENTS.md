@@ -15,12 +15,29 @@ Do not add JavaScript, HTML, DOM APIs, browser-only APIs, or browser runtime dep
 The current runtime is canvas-first:
 
 ```text
-user sketch
+Python sketch shell:
+  user sketch
+    -> Sketch / FunctionSketch lifecycle
+    -> SketchContext
+
+Python canvas adapters:
+  SketchContext
+    -> CanvasBackend
+    -> CanvasRenderer owned by CanvasBackend
+    -> gummysnake.rust.canvas wrapper
+
+Rust-owned canvas runtime:
+  gummysnake.rust._canvas
+    -> crates/gummy_canvas
+    -> canvas state, draw commands, batching, GPU/raster rendering,
+       assets, export, pixels, text, SDL3 window/input
+
+user sketch gs.* calls during callbacks
   -> Gummy Snake public API
-  -> Sketch / SketchContext
-  -> CanvasBackend + CanvasRenderer Python adapters
-  -> PyO3 runtime module gummysnake.rust._canvas
-  -> crates/gummy_canvas Rust runtime and renderer
+  -> active SketchContext
+  -> CanvasRenderer
+  -> gummysnake.rust._canvas
+  -> crates/gummy_canvas
 ```
 
 `gummysnake.rust._canvas` owns drawing, presentation, renderer draw state,
@@ -220,7 +237,8 @@ For the current implementation this means:
 
 - `src/gummysnake/backend/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backend/_canvas/backend/`.
 - `src/gummysnake/backend/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins in `src/gummysnake/backend/_canvas/renderer/`.
-- `CanvasRenderer` translates Python state into bridge payloads and mirrors canvas dimensions.
+- `CanvasRenderer` mirrors canvas dimensions, synchronizes Python facade state
+  changes into Rust current state, and forwards draw calls to `gummy_canvas`.
 - `gummysnake.rust.canvas` handles optional import, health checks, ABI validation, and clear capability failures.
 - `crates/gummy_canvas` owns the native SDL3 runtime and rendering implementation.
 

@@ -5,21 +5,40 @@ problems.
 
 ```mermaid
 flowchart LR
-    Context[SketchContext] --> Backend[CanvasBackend]
-    Context --> Renderer[CanvasRenderer]
+    subgraph Python["Python facade"]
+        Context[SketchContext]
+        Backend[CanvasBackend]
+        Renderer[CanvasRenderer]
+        RuntimeBridge[native runtime and event bridge]
+        CanvasBridge[canvas lifecycle bridge]
+        DrawBridge[drawing and pixel bridge]
+        AssetBridge[asset and export bridge]
+    end
 
-    Backend --> Runtime[Runtime concerns]
-    Renderer --> Drawing[Drawing concerns]
+    subgraph Rust["gummy_canvas ownership"]
+        Runtime[SDL3 runtime and frame pump]
+        Canvas[canvas allocation and draw state]
+        Commands[draw commands and batching]
+        Drawing[GPU primitives, images, text, pixels, export]
+        Assets[image/model/sound assets]
+        Events[native input events]
+    end
 
-    Runtime --> Windows[window lifecycle]
-    Runtime --> Frames[frame scheduling]
-    Runtime --> Events[input event polling]
-    Runtime --> Shutdown[shutdown]
-
-    Drawing --> Primitives[shapes and paths]
-    Drawing --> Assets[images and text]
-    Drawing --> Pixels[pixels and export]
-    Drawing --> Surface[logical and physical canvas size]
+    Context --> Backend
+    Context --> Renderer
+    Backend --> Renderer
+    Backend --> RuntimeBridge
+    Backend --> CanvasBridge
+    Renderer --> CanvasBridge
+    Renderer --> DrawBridge
+    Renderer --> AssetBridge
+    RuntimeBridge --> Runtime
+    RuntimeBridge --> Events
+    CanvasBridge --> Canvas
+    DrawBridge --> Canvas
+    DrawBridge --> Commands
+    DrawBridge --> Drawing
+    AssetBridge --> Assets
 ```
 
 ## CanvasBackend

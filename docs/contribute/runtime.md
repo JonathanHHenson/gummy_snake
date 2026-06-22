@@ -14,16 +14,20 @@ sequenceDiagram
     participant C as SketchContext
     participant B as CanvasBackend
     participant R as CanvasRenderer
-    participant X as gummy_canvas
+    participant X as gummy_canvas Rust runtime
 
     S->>B: create_backend(headless=...)
+    B->>R: construct CanvasRenderer
     S->>C: create context
+    C->>B: keep backend reference
+    C->>R: keep backend.renderer reference
     S->>S: preload()
     S->>S: setup() user callback
     S->>C: ensure canvas exists
     C->>B: create_canvas() if requested or defaulted
     B->>R: resize()
-    R->>X: allocate canvas
+    R->>X: allocate canvas and backing surface
+    X->>X: initialize draw state, command queues, assets, GPU/raster paths
     B->>S: run frames
 ```
 
