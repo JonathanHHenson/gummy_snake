@@ -19,8 +19,9 @@ sequenceDiagram
     S->>B: create_backend(headless=...)
     S->>C: create context
     S->>S: preload()
-    S->>S: setup()
-    C->>B: create_canvas()
+    S->>S: setup() user callback
+    S->>C: ensure canvas exists
+    C->>B: create_canvas() if requested or defaulted
     B->>R: resize()
     R->>X: allocate canvas
     B->>S: run frames
@@ -136,12 +137,15 @@ Gummy Snake separates logical and physical size:
 - `pixel_density()` controls physical backing scale.
 - `load_pixels()` and `update_pixels()` operate on physical top-left RGBA
   buffers.
+- Projected software-3D points are logical canvas coordinates until the canvas
+  runtime submits or rasterizes them. Direct GPU submission must multiply those
+  points by `pixel_density()` before building physical vertices.
 
 Do not collapse logical and physical dimensions when touching renderer, export,
-pixels, image, or input coordinate code. SDL3 resize events report logical
-window size plus display scale; after a native resize, keep `SketchState.canvas`,
-renderer dimensions, physical backing size, export size, and input coordinates in
-sync.
+pixels, image, input coordinate code, or software-3D GPU submission. SDL3 resize
+events report logical window size plus display scale; after a native resize,
+keep `SketchState.canvas`, renderer dimensions, physical backing size, export
+size, and input coordinates in sync.
 
 ## Asset, Image, And Pixel Ownership
 
@@ -184,6 +188,10 @@ not a runtime fallback. Optional NumPy vertex, normal, texture-coordinate, and
 packed face-index arrays are also lazy inspection/interchange views over that
 storage. Hot paths such as OBJ/STL export and software-3D projection should use
 Rust handles directly instead of forcing repeated Python `Vec3` loops.
+Software-3D projection and shading return logical screen-space faces. Untextured
+faces can be submitted directly as Rust/GPU triangles when GPU drawing is
+available, while textured faces use the Rust raster image path so texture
+sampling remains deterministic.
 
 `load_sound()` keeps sound bytes and metadata in a Rust-owned `CanvasSound`
 handle attached to the public `Sound` wrapper. Python still owns the friendly
@@ -255,8 +263,10 @@ smoke test for that ordering.
 
 `create_canvas(..., WEBGL)` currently uses Rust-backed software projection,
 lighting, sorting, OBJ parsing, and software rasterization presented through the
-2D canvas runtime. It is deterministic and covered by headless tests, but it is
-not native accelerated 3D. Backend capabilities therefore distinguish:
+2D canvas runtime. Untextured shaded faces may be submitted directly to the
+existing GPU primitive path after projection, but the mode is still not native
+accelerated 3D and does not have a native depth buffer across separate model
+draw calls. Backend capabilities therefore distinguish:
 
 - `three_d`: WEBGL mode is accepted.
 - `software_three_d`: the Rust-backed software 3D path is available.
@@ -266,8 +276,8 @@ not native accelerated 3D. Backend capabilities therefore distinguish:
 
 The canvas backend currently reports `three_d=True`, `software_three_d=True`,
 `native_three_d=False`, `shaders=True`, and `native_shaders=False`. See
-[`native_3d_plan.md`](native_3d_plan.md) before moving 3D drawing into Rust/GPU
-code.
+[`native_3d_plan.md`](native_3d_plan.md) before adding a native accelerated 3D
+renderer, GPU depth-buffer ownership, or native shader execution.
 
 ## Canvas Creation And Synchronization
 
@@ -303,5 +313,7 @@ can disagree.
 - Pixel operations should report capability problems explicitly instead of
   failing with unrelated buffer errors.
 - SDL3 logical input coordinates should not be density-scaled twice.
+- Software-3D projected points should not be submitted to GPU primitives without
+  physical pixel-density scaling.
 - Mixed text/image and primitive GPU commands should preserve draw order and
   pipeline state, including primitives drawn after text.

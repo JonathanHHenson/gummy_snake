@@ -53,4 +53,11 @@ API compatibility. It does not imply native accelerated 3D or native shader
 execution; backend capabilities distinguish `software_three_d`,
 `native_three_d`, `shaders`, and `native_shaders`.
 
+The current path keeps model and mesh data in Rust-owned handles. Projection,
+lighting, face sorting, OBJ parsing, primitive model generation, and OBJ/STL
+export are handled by the canvas runtime. Untextured shaded faces may be drawn
+through the Rust/GPU primitive path when GPU drawing is available; textured
+faces use deterministic Rust rasterization before compositing into the canvas.
+Sketch coordinates remain logical, including on HiDPI displays.
+
 Unsupported shader or advanced 3D APIs raise explicit Gummy Snake exceptions.

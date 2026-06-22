@@ -51,7 +51,7 @@ the top-level keys in tests and docs.
 | `load_pixel_bytes()` | Byte readback | Synchronizes canvas data but does not populate `context.pixels` | Keep data as `bytes`/`memoryview` and pass it back to bulk APIs when possible. |
 | `update_pixels()` | Full pixel upload | Sends entire physical RGBA buffer | Use bytes-like inputs and avoid per-frame full-canvas uploads. |
 | `get()`, `set()`, canvas `filter()` | CPU compositing fallback | Canvas-to-image copy plus upload | Prefer renderer-native drawing or image-local work. |
-| Software `WEBGL` model drawing | Rust projection/shading/rasterization with Python state payloads | Transforms are applied while building bridge payloads; unsupported paths should fail with canvas capability errors | Reuse primitive/model objects so caches avoid repeated topology allocation. |
+| Software `WEBGL` model drawing | Rust projection/shading with Rust-owned model handles; untextured faces can use direct GPU triangles, textured faces use Rust raster image compositing | Projected points are logical coordinates and direct GPU submission must scale by `pixel_density()`; unsupported paths should fail with canvas capability errors | Reuse primitive/model objects so caches avoid repeated topology allocation. |
 | `save_obj()` / `save_stl()` | Streaming text writer | Writes incrementally instead of assembling unbounded `list[str]` payloads | Use direct export helpers for large generated meshes. |
 
 ## Frame Pacing

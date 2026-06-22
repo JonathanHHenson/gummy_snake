@@ -13,7 +13,9 @@ building a full app.
 The public API is Python-first. Function names use `snake_case`, sketches are
 ordinary Python files, and drawing, export, pixels, text, images, and native
 interactive windows are powered by the packaged Rust `gummy_canvas` runtime. On
-desktop builds, native windows and input use the SDL3-backed runtime.
+desktop builds, native windows and input use the SDL3-backed runtime. The Rust
+canvas owns the hot renderer state used to construct draw commands, including
+the current style, transform stack, image/text state, and GPU command batches.
 
 ## Install
 
@@ -103,8 +105,10 @@ geometry arrays, parsing, export, and metadata extraction should stay in the
 Rust canvas runtime so sketches avoid repeated Python object materialization and
 per-element loops. Normal `load_image(); image(...)` sprite drawing can stay on
 the fast renderer path, model projection/export can use Rust-owned geometry
-without first creating Python `Vec3` objects, and loaded sounds keep their bytes
-and duration metadata in `CanvasSound` until user code asks for Python bytes.
+without first creating Python `Vec3` objects, untextured software-3D faces can
+be submitted directly as Rust/GPU triangles when GPU drawing is available, and
+loaded sounds keep their bytes and duration metadata in `CanvasSound` until user
+code asks for Python bytes.
 Image-local resize, mask, filter, crop/copy, and alpha compositing delegate
 bulk byte work to the Rust canvas runtime while keeping the Python `Image`
 API and version semantics.
@@ -117,6 +121,8 @@ For dense drawing loops, `gs.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel
 conversion, upload, texture cache, and CPU compositing fallback paths.
+HiDPI/Retina rendering keeps sketch coordinates logical while physical pixel
+buffers and GPU vertices are scaled by `pixel_density()`.
 
 ## Learn More
 
@@ -147,8 +153,8 @@ The refactored Python package is split by responsibility: public API modules in
 lifecycle code in `src/gummysnake/sketch/`, enum-backed constants in
 `src/gummysnake/constants/`, and thin canvas backend/renderer facades over the
 implementation modules in `src/gummysnake/backend/_canvas/`. The native desktop
-runtime itself lives in `crates/gummy_canvas` and uses SDL3 for windowing,
-resizing, and input event collection.
+runtime itself lives in `crates/gummy_canvas`, owns canvas draw state and command
+construction, and uses SDL3 for windowing, resizing, and input event collection.
 
 The contributor documentation explains the architecture, lifecycle, testing
 workflow, and release shape in more detail:
@@ -172,10 +178,10 @@ uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
-Canvas benchmark scenarios are expected to average at least 120 FPS. Failures
-below that floor are intentional optimization signals. Model export benchmarks
-use a memory budget for streaming OBJ/STL output. Machine-specific baseline
-snapshots live in `tests/benchmark/baselines/`.
+Canvas and WEBGL frame-style benchmark scenarios are expected to average at
+least 120 FPS. Failures below that floor are intentional optimization signals.
+Model export benchmarks use a memory budget for streaming OBJ/STL output.
+Machine-specific baseline snapshots live in `tests/benchmark/baselines/`.
 
 Long-running resource lifecycle checks are also opt-in:
 

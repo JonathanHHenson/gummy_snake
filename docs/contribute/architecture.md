@@ -12,10 +12,10 @@ flowchart LR
         State[SketchState]
         Backend[CanvasBackend]
         Renderer[CanvasRenderer]
+        Wrapper[gummysnake.rust.canvas]
     end
 
     subgraph Rust
-        Wrapper[gummysnake.rust.canvas]
         Runtime[gummysnake.rust._canvas]
         Canvas[gummy_canvas crate]
     end
@@ -52,16 +52,19 @@ Python owns:
 - public API naming and validation
 - `setup()`, `draw()`, and callback ordering
 - global-mode context activation
-- sketch state, style state, transforms, and plugin hooks
+- sketch lifecycle state, public style/transform mirrors, and plugin hooks
 - backend and renderer adapter contracts
 
 Rust owns:
 
 - canvas allocation and drawing
+- renderer current style, transform stack, command construction, and batching
 - presentation and export
 - image asset loading, saving, and image-local byte processing
 - OBJ model parsing, primitive model generation, direct projection/export, and
   Rust-owned 3D model/mesh asset data
+- software-3D projection/shading/rasterization and direct GPU triangle
+  submission for untextured shaded faces when available
 - sound asset bytes and metadata
 - text, pixels, and readback
 - GPU command encoding, including primitive and image/text pipeline switching
@@ -129,9 +132,10 @@ gs.no_stroke()
 gs.circle(100, 100, 40)
 ```
 
-`fill()` and `no_stroke()` update `SketchContext.state.style`. When `circle()`
-runs, `SketchContext` reads that style state, combines it with the current
-transform and color mode, and asks `CanvasRenderer` to draw the circle.
+`fill()` and `no_stroke()` update Python's public style mirror and synchronize
+the Rust canvas current style. When `circle()` runs, `SketchContext` validates
+geometry and color-mode semantics, then asks `CanvasRenderer` to issue a
+stateful Rust draw call using the Rust-owned current style and transform.
 
 `SketchState` is defined in `src/gummysnake/core/state.py` and contains:
 
@@ -149,13 +153,15 @@ transform and color mode, and asks `CanvasRenderer` to draw the circle.
 
 ```mermaid
 flowchart TD
-    A[gs.fill red] --> B[SketchContext.state.style.fill_color]
-    C[gs.translate] --> D[SketchContext.state.transform.matrix]
-    E[gs.circle] --> F[SketchContext reads state]
-    B --> F
-    D --> F
-    F --> G[CanvasRenderer draw call]
-    G --> H[gummy_canvas Rust renderer]
+    A[gs.fill red] --> B[update public style mirror]
+    B --> C[sync Rust current style]
+    D[gs.translate] --> E[update public transform mirror]
+    E --> F[sync Rust current matrix]
+    G[gs.circle] --> H[validate geometry and color mode]
+    C --> I[CanvasRenderer current draw call]
+    F --> I
+    H --> I
+    I --> J[gummy_canvas constructs command from current state]
 ```
 
 ## Public API Call Flow
@@ -176,9 +182,10 @@ sequenceDiagram
     API->>Current: require_context()
     Current-->>API: active SketchContext
     API->>Ctx: circle(100, 100, 40)
-    Ctx->>Ctx: read style, transform, color mode
+    Ctx->>Ctx: validate geometry and color mode
     Ctx->>Renderer: ellipse/circle draw request
-    Renderer->>Rust: bridge payload
+    Renderer->>Rust: stateful current draw call
+    Rust->>Rust: construct command from current style/transform
 ```
 
 This is why public API functions should stay small. If a function needs Gummy Snake

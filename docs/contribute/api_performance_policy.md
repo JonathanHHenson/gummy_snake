@@ -21,6 +21,9 @@ Advanced APIs are supported but may have backend-dependent costs. This includes
 blend modes, text shaping/metrics, image sampling modes, software 3D,
 shader objects, and model/image asset loading. Keep capability errors explicit
 and avoid promising native acceleration unless the backend reports it.
+When an advanced path is hot, prefer moving bulk work into `gummy_canvas` or an
+existing Rust/GPU path over materializing Python lists, pixel buffers, vertices,
+or per-face objects in every frame.
 
 Intentionally slow or diagnostic APIs should be opt-in or visibly named for
 inspection. This includes performance diagnostics, full-canvas readback,
@@ -55,6 +58,11 @@ Use `update_pixels()` with `bytes`, `bytearray`, or `memoryview` for uploads.
 Images are backed by Rust-managed `CanvasImage` handles. Mutating image pixels
 is supported and keeps storage in Rust, but repeated per-frame mutations should
 still be treated as texture-update work.
+
+Software-3D model and mesh data are also Rust-managed. Projection, shading,
+export, and direct untextured face submission should use Rust handles and
+logical-to-physical scaling in the canvas runtime rather than Python geometry
+loops in `draw()`.
 
 ## Diagnostics
 

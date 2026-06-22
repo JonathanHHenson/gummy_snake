@@ -138,3 +138,8 @@ sequenceDiagram
 The context owns Gummy Snake behavior. The renderer owns the Python adapter
 boundary. Rust owns drawing state, command construction, batching, and actual
 rendering.
+
+For software `WEBGL`, projected face coordinates crossing this boundary are
+logical canvas coordinates. Rust-side direct GPU primitive submission must scale
+those coordinates by the canvas pixel density before building physical vertices,
+while textured software-3D faces remain on the Rust raster image path.

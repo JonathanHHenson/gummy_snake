@@ -29,6 +29,7 @@ Use focused checks while developing, then broaden before handing off:
 | Backend scheduling or capability behavior | `tests/contracts/` plus relevant unit tests |
 | Renderer or pixel behavior | contract or integration test plus a headless smoke example |
 | Rust canvas runtime behavior | `cargo test --manifest-path crates/gummy_canvas/Cargo.toml` plus Python wrapper tests |
+| Software 3D or WEBGL path behavior | focused integration tests plus `tests/benchmark/test_webgl_3d_perf.py --run-benchmarks` when hot paths change |
 | Long-running resource lifecycle behavior | `uv run pytest tests/stress --run-stress -q -s` |
 | Documentation only | link/path review; no full test suite required unless commands changed |
 | CI workflow changes | local command equivalence where practical |
@@ -69,6 +70,9 @@ drawing, cached image drawing with default linear and nearest sampling,
 per-frame image upload churn, blend modes, erasing, transformed images, text,
 pixel readback/upload, mixed text/pixel readback work, a deterministic game-style
 scene, and a software 3D prototype scene.
+The mixed text/pixel benchmark intentionally exercises readback/update
+boundaries; keep bulk pixel mutations in Rust or a Rust/GPU region path instead
+of reintroducing Python per-pixel loops into the measured hot path.
 
 The API overhead microbenchmarks use a no-op renderer/backend and do not require
 the canvas runtime. They report nanoseconds per call for global-mode,
@@ -90,9 +94,11 @@ a fixed peak-memory budget instead of an FPS floor.
 
 The WEBGL 3D benchmarks exercise the current Rust-backed software 3D path for
 box, sphere, textured plane, imported model, and repeated primitive scenes.
-They are frame-style benchmarks and keep the same 120 FPS target; failures are
-expected optimization signals until native accelerated 3D or additional
-software optimizations land.
+They cover Rust-owned model handles, projection/shading, textured rasterization,
+and the direct GPU triangle path for untextured shaded faces. They are
+frame-style benchmarks and keep the same 120 FPS target; failures are expected
+optimization signals until native accelerated 3D or additional software
+optimizations land.
 
 Checked-in baseline snapshots live in `tests/benchmark/baselines/` as TOML.
 Each baseline records the command, machine/configuration, commit, canvas size,

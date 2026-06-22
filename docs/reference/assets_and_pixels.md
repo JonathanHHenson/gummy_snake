@@ -150,4 +150,6 @@ Wavefront OBJ parsing, normalization, primitive model generation, projection,
 and OBJ/STL export are handled by the Rust canvas runtime. `Model3D` and
 `Mesh3D` keep Rust-managed handles as canonical storage and expose immutable
 Python tuple buffers plus optional lazy NumPy views for inspection and
-interchange.
+interchange. The software-3D renderer projects and shades those handles in Rust;
+untextured shaded faces can stay on the Rust/GPU primitive path, while textured
+faces are rasterized in Rust before canvas compositing.

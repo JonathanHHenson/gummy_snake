@@ -20,9 +20,10 @@ flowchart TD
     API --> Context[SketchContext]
     Context --> Backend[CanvasBackend]
     Context --> Renderer[CanvasRenderer]
-    Backend --> Rust[gummysnake.rust._canvas]
-    Renderer --> Rust
-    Rust --> Crate[crates/gummy_canvas]
+    Backend --> Wrapper[gummysnake.rust.canvas]
+    Renderer --> Wrapper
+    Wrapper --> Runtime[gummysnake.rust._canvas]
+    Runtime --> Crate[crates/gummy_canvas]
 ```
 
 Gummy Snake is canvas-first. The Rust `gummy_canvas` crate provides the required runtime for

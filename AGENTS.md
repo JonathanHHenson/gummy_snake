@@ -23,16 +23,21 @@ user sketch
   -> crates/gummy_canvas Rust runtime and renderer
 ```
 
-`gummysnake.rust._canvas` owns drawing, presentation, image asset loading/saving,
-image-local byte operations, media frame conversion, text, pixels, export, and
-native window/input support when built with those capabilities. The current
-native desktop window/input runtime is SDL3-backed inside `crates/gummy_canvas`; do
-not reintroduce winit/Tao window loops as the primary interactive path without an
-explicit user request and a new experiment plan.
+`gummysnake.rust._canvas` owns drawing, presentation, renderer draw state,
+image asset loading/saving, image-local byte operations, media frame conversion,
+text, pixels, export, and native window/input support when built with those
+capabilities. The current native desktop window/input runtime is SDL3-backed
+inside `crates/gummy_canvas`; do not reintroduce winit/Tao window loops as the
+primary interactive path without an explicit user request and a new experiment
+plan.
 Current `WEBGL` support is a Rust-backed software 3D path presented through the
 canvas runtime, not native accelerated 3D. Backend capabilities distinguish
 `software_three_d`, `native_three_d`, `shaders`, and `native_shaders`; do not
-imply native 3D or native shader support from `three_d=True`.
+imply native 3D or native shader support from `three_d=True`. Rust handles
+software-3D projection, shading, sorting, OBJ/model storage, rasterization, and
+direct GPU triangle submission for untextured shaded faces when GPU drawing is
+available; textured software-3D faces still route through the Rust raster image
+path. This is not a native depth-buffered 3D renderer.
 
 Important consequences:
 
@@ -48,6 +53,7 @@ Important consequences:
 - `gummysnake.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
 - The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn after text/images must remain visible.
+- Projected software-3D coordinates are logical canvas coordinates. Any direct GPU primitive path that consumes those coordinates must scale by `pixel_density()` before submitting physical vertices, or HiDPI/Retina scenes will appear smaller and farther away.
 
 The Python public API must not expose Rust internals or depend on a concrete renderer in user-facing functions.
 
@@ -229,7 +235,9 @@ Gummy Snake distinguishes logical canvas dimensions from physical backing-buffer
 - `load_pixels()` and `update_pixels()` operate on physical top-left-oriented RGBA buffers.
 - `load_pixel_bytes()` is the lower-copy readback path for pixel workflows that do not need a list.
 
-Do not regress Retina/HiDPI behavior when changing runtime, renderer, pixels, export, images, or input coordinate handling. See `docs/contribute/runtime.md`.
+Do not regress Retina/HiDPI behavior when changing runtime, renderer, pixels,
+export, images, input coordinate handling, or software-3D GPU submission. See
+`docs/contribute/runtime.md`.
 
 Loaded images, models/meshes, and sounds should keep Rust-managed asset handles
 attached to their public Python wrappers whenever practical. This is a core
@@ -342,6 +350,9 @@ measured and record whether they meet the 120 FPS floor.
 Model export benchmarks use a streaming memory budget rather than an FPS floor.
 API overhead benchmarks should compare global-mode, object-oriented sketch,
 context-direct, `fast()`, and renderer-direct dispatch paths.
+WEBGL frame-style benchmarks also use the 120 FPS floor; failures are
+optimization work for the Rust software-3D path unless the benchmark is
+explicitly measuring a memory budget instead of FPS.
 Renderer/runtime diagnostics should expose counters through public Python APIs
 such as `renderer_performance_counters()` rather than leaking unstable Rust
 details. Keep fallback-boundary benchmark scenes and
