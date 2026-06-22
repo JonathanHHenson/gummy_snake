@@ -1,0 +1,139 @@
+[baseline]
+id = "2026-06-22_local_macos_arm64"
+captured_at = "2026-06-22"
+git_commit = "b87d239"
+machine = "local-macos-arm64"
+os = "Darwin 25.5.0 arm64"
+platform = "macOS-26.5.1-arm64-arm-64bit"
+python = "3.12.11"
+python_executable = "/Users/jhenson/zed_projects/gummy_snake/.venv/bin/python"
+notes = '''
+Machine-specific baseline captured from the local development machine after
+raising canvas and WEBGL frame-style benchmarks to the 240 FPS target. Use these
+numbers only for comparison against subsequent runs on the same
+machine/configuration, not as portable thresholds for CI or other hardware.
+Below-target measured values are recorded here to make optimization gaps
+explicit.
+'''
+
+[canvas_suite]
+command = "uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks -q -s"
+frames = 120
+repeats = 2
+required_min_fps = 240.0
+backend_mode = "headless"
+canvas_size = [720, 480]
+pixel_density = 1.0
+gpu_available = "unknown"
+
+[[canvas_suite.results]]
+variant = "dense_primitives"
+category = "primitive-heavy"
+mean_fps = 269.07
+min_fps = 268.79
+max_fps = 269.36
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "sparse_primitives"
+category = "primitive-light"
+mean_fps = 1148.67
+min_fps = 1143.32
+max_fps = 1154.02
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "cached_images"
+category = "image-heavy-cached"
+mean_fps = 377.43
+min_fps = 374.91
+max_fps = 379.96
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "cached_images_nearest"
+category = "image-heavy-cached-nearest"
+mean_fps = 372.87
+min_fps = 372.47
+max_fps = 373.28
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "image_upload_churn"
+category = "image-heavy-upload-churn"
+mean_fps = 325.07
+min_fps = 325.00
+max_fps = 325.14
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "blend_modes"
+category = "advanced-blend-heavy"
+mean_fps = 216.72
+min_fps = 216.46
+max_fps = 216.98
+meets_required_min_fps = false
+
+[[canvas_suite.results]]
+variant = "erasing"
+category = "alpha-mask-heavy"
+mean_fps = 1055.60
+min_fps = 1050.36
+max_fps = 1060.85
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "transformed_images"
+category = "image-transform-heavy"
+mean_fps = 321.80
+min_fps = 321.37
+max_fps = 322.23
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "text_only"
+category = "text-heavy"
+mean_fps = 523.20
+min_fps = 521.01
+max_fps = 525.40
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "pixel_readback_upload"
+category = "pixel-roundtrip"
+mean_fps = 691.17
+min_fps = 690.00
+max_fps = 692.35
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "mixed_text_pixels"
+category = "text-and-pixel-heavy"
+mean_fps = 188.12
+min_fps = 187.98
+max_fps = 188.25
+meets_required_min_fps = false
+
+[[canvas_suite.results]]
+variant = "contours_clipping_tint"
+category = "clip-and-image-tint"
+mean_fps = 321.33
+min_fps = 321.26
+max_fps = 321.41
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "asteroids_scene"
+category = "representative-game-scene"
+mean_fps = 269.18
+min_fps = 268.91
+max_fps = 269.44
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "webgl_3d"
+category = "3d-prototype"
+mean_fps = 164.13
+min_fps = 163.70
+max_fps = 164.57
+meets_required_min_fps = false
