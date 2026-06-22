@@ -15,10 +15,12 @@ def main() -> None:
     variant = sys.argv[1]
     frames = int(sys.argv[2])
     start = 0.0
+    canvas_size = [0, 0]
 
     def setup() -> None:
-        nonlocal start
+        nonlocal start, canvas_size
         setup_scene(variant)
+        canvas_size = [gs.current.width, gs.current.height]
         start = time.perf_counter()
 
     def draw() -> None:
@@ -27,7 +29,6 @@ def main() -> None:
     require_canvas_runtime()
     gs.run(setup=setup, draw=draw, headless=True, max_frames=frames)
     elapsed = time.perf_counter() - start
-    canvas_size = [760, 430] if variant == "contours_clipping_tint" else [720, 480]
     print(
         json.dumps(
             {

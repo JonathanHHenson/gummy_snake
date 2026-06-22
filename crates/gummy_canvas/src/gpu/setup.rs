@@ -4,8 +4,8 @@ use std::sync::Arc;
 use pollster::block_on;
 
 use crate::gpu::pipeline::{
-    clip_bind_group_layout, create_image_pipeline, create_pipeline, texture_bind_group_layout,
-    viewport_bind_group_layout,
+    clip_bind_group_layout, create_erase_pipeline, create_image_pipeline, create_pipeline,
+    texture_bind_group_layout, viewport_bind_group_layout,
 };
 use crate::gpu::types::*;
 
@@ -182,6 +182,12 @@ impl GpuRenderer {
             &clip_bind_group_layout,
             wgpu::TextureFormat::Rgba8Unorm,
         );
+        let erase_pipeline = create_erase_pipeline(
+            &device,
+            &bind_group_layout,
+            &clip_bind_group_layout,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
         let image_pipeline = create_image_pipeline(
             &device,
             &bind_group_layout,
@@ -227,6 +233,7 @@ impl GpuRenderer {
             texture_view,
             texture_size,
             pipeline,
+            erase_pipeline,
             image_pipeline,
             image_bind_group_layout,
             clip_bind_group_layout,

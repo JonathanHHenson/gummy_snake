@@ -132,6 +132,9 @@ impl Canvas {
                 pixels.len()
             )));
         }
+        if pixels == self.pixels {
+            return Ok(());
+        }
         self.pixels = pixels;
         self.sync_present_pixels_from_rgba();
         if let Some(gpu) = self.gpu.as_mut() {

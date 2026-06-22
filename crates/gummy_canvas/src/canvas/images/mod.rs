@@ -110,6 +110,27 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
+        let needs_cache = self
+            .image_cache
+            .get(&image.key)
+            .map(|cached| {
+                cached.version != image.version
+                    || cached.width != image.width
+                    || cached.height != image.height
+            })
+            .unwrap_or(true);
+        if needs_cache {
+            self.evict_image_cache_if_needed(image.key);
+            self.image_cache.insert(
+                image.key,
+                CachedImage {
+                    version: image.version,
+                    width: image.width,
+                    height: image.height,
+                    pixels: image.pixels.clone(),
+                },
+            );
+        }
         if self.try_draw_gpu_image_parts(
             image.key,
             image.version,

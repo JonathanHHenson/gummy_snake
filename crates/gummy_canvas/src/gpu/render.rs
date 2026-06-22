@@ -31,6 +31,28 @@ impl GpuRenderer {
         }
     }
 
+    pub fn draw_filled_ellipse(&mut self, cx: f32, cy: f32, rx: f32, ry: f32, color: GpuColor) {
+        if rx > 0.0 && ry > 0.0 {
+            self.commands.push(DrawCommand::Ellipse {
+                cx,
+                cy,
+                rx,
+                ry,
+                color,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
+    pub fn draw_erase_triangles(&mut self, vertices: Vec<([f32; 2], GpuColor)>) {
+        if !vertices.is_empty() {
+            self.commands.push(DrawCommand::EraseTriangles {
+                vertices,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
     pub fn render(&mut self) {
         self.write_viewport(self.texture_size.width, self.texture_size.height);
         let mut encoder = self
@@ -42,8 +64,40 @@ impl GpuRenderer {
         self.queue.submit([encoder.finish()]);
     }
 
+    pub fn only_pending_clear(&self) -> Option<GpuColor> {
+        let mut clear = None;
+        for command in &self.commands {
+            match command {
+                DrawCommand::Clear(color) => clear = Some(*color),
+                DrawCommand::Triangles { vertices, .. }
+                | DrawCommand::EraseTriangles { vertices, .. } => {
+                    if !vertices.is_empty() {
+                        return None;
+                    }
+                }
+                DrawCommand::Ellipse { .. } => return None,
+                DrawCommand::Image { .. } => return None,
+            }
+        }
+        clear
+    }
+
+    pub fn pending_commands(&self) -> &[DrawCommand] {
+        &self.commands
+    }
+
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-    pub fn read_pixels(&self) -> Result<Vec<u8>, String> {
+    pub fn read_pixels(&mut self) -> Result<Vec<u8>, String> {
+        self.read_pixels_after_encoding(false)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    pub fn render_and_read_pixels(&mut self) -> Result<Vec<u8>, String> {
+        self.read_pixels_after_encoding(true)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn read_pixels_after_encoding(&mut self, encode_render: bool) -> Result<Vec<u8>, String> {
         let bytes_per_pixel = 4usize;
         let unpadded_bytes_per_row = self.texture_size.width as usize * bytes_per_pixel;
         let padded_bytes_per_row = align_to(
@@ -62,6 +116,10 @@ impl GpuRenderer {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("gummy_canvas readback encoder"),
             });
+        if encode_render {
+            self.write_viewport(self.texture_size.width, self.texture_size.height);
+            self.encode_commands(&mut encoder, &self.texture_view, &self.pipeline);
+        }
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
                 texture: &self.texture,
@@ -116,6 +174,8 @@ impl GpuRenderer {
             .find_map(|command| match command {
                 DrawCommand::Clear(color) => Some(*color),
                 DrawCommand::Triangles { .. } => None,
+                DrawCommand::Ellipse { .. } => None,
+                DrawCommand::EraseTriangles { .. } => None,
                 DrawCommand::Image { .. } => None,
             });
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -180,6 +240,98 @@ impl GpuRenderer {
                         position: *position,
                         color: color.as_float(),
                     }));
+                }
+                DrawCommand::Ellipse {
+                    cx,
+                    cy,
+                    rx,
+                    ry,
+                    color,
+                    clip_id,
+                } => {
+                    if skip_until_last_clear {
+                        continue;
+                    }
+                    if !batched_vertices.is_empty() && batched_clip_id != *clip_id {
+                        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                            label: Some("gummy_canvas primitive vertices"),
+                            size: (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
+                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                            mapped_at_creation: false,
+                        });
+                        self.queue.write_buffer(
+                            &buffer,
+                            0,
+                            bytemuck::cast_slice(&batched_vertices),
+                        );
+                        pass.set_pipeline(pipeline);
+                        pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                        pass.set_bind_group(
+                            1,
+                            &self.clip_textures[batched_clip_id].bind_group,
+                            &[],
+                        );
+                        pass.set_vertex_buffer(0, buffer.slice(..));
+                        pass.draw(0..batched_vertices.len() as u32, 0..1);
+                        batched_vertices.clear();
+                    }
+                    batched_clip_id = *clip_id;
+                    push_ellipse_vertices(
+                        &mut batched_vertices,
+                        *cx as f64,
+                        *cy as f64,
+                        *rx as f64,
+                        *ry as f64,
+                        *color,
+                    );
+                }
+                DrawCommand::EraseTriangles { vertices, clip_id } => {
+                    if skip_until_last_clear {
+                        continue;
+                    }
+                    if !batched_vertices.is_empty() {
+                        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                            label: Some("gummy_canvas primitive vertices"),
+                            size: (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
+                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                            mapped_at_creation: false,
+                        });
+                        self.queue.write_buffer(
+                            &buffer,
+                            0,
+                            bytemuck::cast_slice(&batched_vertices),
+                        );
+                        pass.set_pipeline(pipeline);
+                        pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                        pass.set_bind_group(
+                            1,
+                            &self.clip_textures[batched_clip_id].bind_group,
+                            &[],
+                        );
+                        pass.set_vertex_buffer(0, buffer.slice(..));
+                        pass.draw(0..batched_vertices.len() as u32, 0..1);
+                        batched_vertices.clear();
+                    }
+                    let erase_vertices: Vec<Vertex> = vertices
+                        .iter()
+                        .map(|(position, color)| Vertex {
+                            position: *position,
+                            color: color.as_float(),
+                        })
+                        .collect();
+                    let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                        label: Some("gummy_canvas erase primitive vertices"),
+                        size: (erase_vertices.len() * std::mem::size_of::<Vertex>()) as u64,
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                        mapped_at_creation: false,
+                    });
+                    self.queue
+                        .write_buffer(&buffer, 0, bytemuck::cast_slice(&erase_vertices));
+                    pass.set_pipeline(&self.erase_pipeline);
+                    pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                    pass.set_bind_group(1, &self.clip_textures[*clip_id].bind_group, &[]);
+                    pass.set_vertex_buffer(0, buffer.slice(..));
+                    pass.draw(0..erase_vertices.len() as u32, 0..1);
                 }
                 DrawCommand::Image {
                     key,
@@ -261,5 +413,33 @@ impl GpuRenderer {
             pass.set_vertex_buffer(0, buffer.slice(..));
             pass.draw(0..batched_vertices.len() as u32, 0..1);
         }
+    }
+}
+
+fn push_ellipse_vertices(
+    vertices: &mut Vec<Vertex>,
+    cx: f64,
+    cy: f64,
+    rx: f64,
+    ry: f64,
+    color: GpuColor,
+) {
+    let steps = 64usize;
+    let color = color.as_float();
+    for index in 0..steps {
+        let a = 2.0 * std::f64::consts::PI * index as f64 / steps as f64;
+        let b = 2.0 * std::f64::consts::PI * (index + 1) as f64 / steps as f64;
+        vertices.push(Vertex {
+            position: [cx as f32, cy as f32],
+            color,
+        });
+        vertices.push(Vertex {
+            position: [(cx + a.cos() * rx) as f32, (cy + a.sin() * ry) as f32],
+            color,
+        });
+        vertices.push(Vertex {
+            position: [(cx + b.cos() * rx) as f32, (cy + b.sin() * ry) as f32],
+            color,
+        });
     }
 }

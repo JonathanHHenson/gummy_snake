@@ -447,6 +447,31 @@ impl Canvas {
                     .min(self.physical_height as f64)
                     .max(0.0) as usize,
             );
+            if style.erasing
+                && self.gpu.is_some()
+                && !self.cpu_compositing_active
+                && style.blend_mode == BLEND_MODE_BLEND
+            {
+                if let Some(fill) = style.fill {
+                    let mut vertices = Vec::with_capacity(6);
+                    push_triangle(
+                        &mut vertices,
+                        (min_x, min_y),
+                        (max_x, min_y),
+                        (max_x, max_y),
+                        fill,
+                    );
+                    push_triangle(
+                        &mut vertices,
+                        (min_x, min_y),
+                        (max_x, max_y),
+                        (min_x, max_y),
+                        fill,
+                    );
+                    self.draw_gpu_erase_triangles(vertices)?;
+                    return Ok(());
+                }
+            }
             if !self.can_queue_gpu_primitives(&style) {
                 self.prepare_cpu_composite();
                 let Some(mut overlay) = OverlayRegion::from_bounds(

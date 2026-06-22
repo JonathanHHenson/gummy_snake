@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Buffer, Sequence
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from gummysnake import constants as c
 from gummysnake.assets.image import Image
@@ -16,14 +16,65 @@ def _renderer(self: object) -> CanvasRendererHost:
     return cast(CanvasRendererHost, self)
 
 
+class PixelBuffer(bytearray):
+    _dirty_start: int | None
+    _dirty_end: int | None
+
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+        self._dirty_start = None
+        self._dirty_end = None
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        super().__setitem__(key, value)
+        if isinstance(key, slice):
+            start, stop, _step = key.indices(len(self))
+            self._mark_dirty(start, stop)
+        else:
+            index = key if key >= 0 else len(self) + key
+            self._mark_dirty(index, index + 1)
+
+    def __getitem__(self, key: Any) -> Any:
+        value = super().__getitem__(key)
+        if isinstance(key, slice):
+            return list(value)
+        return value
+
+    def __eq__(self, value: object) -> bool:
+        if isinstance(value, list | tuple):
+            return len(self) == len(value) and all(
+                left == right for left, right in zip(self, value, strict=True)
+            )
+        return super().__eq__(value)
+
+    def dirty_range(self) -> tuple[int, int] | None:
+        if self._dirty_start is None or self._dirty_end is None:
+            return None
+        return self._dirty_start, self._dirty_end
+
+    def clear_dirty(self) -> None:
+        self._dirty_start = None
+        self._dirty_end = None
+
+    def _mark_dirty(self, start: int, end: int) -> None:
+        if end <= start:
+            return
+        self._dirty_start = start if self._dirty_start is None else min(self._dirty_start, start)
+        self._dirty_end = end if self._dirty_end is None else max(self._dirty_end, end)
+
+
 class CanvasRendererPixelsMixin:
     def load_pixels(self) -> list[int]:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("pixel_readbacks")
-        pixels = _renderer(self)._call(
-            "pixel readback", _renderer(self)._require_canvas().load_pixels
-        )
-        return list(pixels)
+        callback = getattr(_renderer(self)._require_canvas(), "load_pixel_bytes", None)
+        if callable(callback):
+            pixels = _renderer(self)._call("pixel byte readback", callback)
+        else:
+            pixels = _renderer(self)._call(
+                "pixel readback", _renderer(self)._require_canvas().load_pixels
+            )
+        return cast(list[int], PixelBuffer(pixels))
 
     def load_pixel_bytes(self) -> bytes:
         _renderer(self)._flush_line_batch()
@@ -31,6 +82,8 @@ class CanvasRendererPixelsMixin:
         callback = getattr(_renderer(self)._require_canvas(), "load_pixel_bytes", None)
         if callable(callback):
             pixels = _renderer(self)._call("pixel byte readback", callback)
+            if isinstance(pixels, bytes):
+                return pixels
             return bytes(cast(Buffer | Sequence[int], pixels))
         pixels = cast(
             Buffer | Sequence[int],

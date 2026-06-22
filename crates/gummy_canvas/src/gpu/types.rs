@@ -58,6 +58,18 @@ pub enum DrawCommand {
         vertices: Vec<([f32; 2], GpuColor)>,
         clip_id: usize,
     },
+    Ellipse {
+        cx: f32,
+        cy: f32,
+        rx: f32,
+        ry: f32,
+        color: GpuColor,
+        clip_id: usize,
+    },
+    EraseTriangles {
+        vertices: Vec<([f32; 2], GpuColor)>,
+        clip_id: usize,
+    },
     Image {
         key: u64,
         vertices: [([f32; 2], [f32; 2], GpuColor); 6],
@@ -89,6 +101,7 @@ pub struct GpuRenderer {
     pub(super) texture_view: wgpu::TextureView,
     pub(super) texture_size: wgpu::Extent3d,
     pub(super) pipeline: wgpu::RenderPipeline,
+    pub(super) erase_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipeline: wgpu::RenderPipeline,
     pub(super) image_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) clip_bind_group_layout: wgpu::BindGroupLayout,

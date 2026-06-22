@@ -90,6 +90,54 @@ pub(super) fn create_pipeline(
     clip_bind_group_layout: &wgpu::BindGroupLayout,
     format: wgpu::TextureFormat,
 ) -> wgpu::RenderPipeline {
+    create_primitive_pipeline(
+        device,
+        viewport_bind_group_layout,
+        clip_bind_group_layout,
+        format,
+        Some(wgpu::BlendState::ALPHA_BLENDING),
+        wgpu::ColorWrites::ALL,
+        "gummy_canvas primitive pipeline",
+    )
+}
+
+pub(super) fn create_erase_pipeline(
+    device: &wgpu::Device,
+    viewport_bind_group_layout: &wgpu::BindGroupLayout,
+    clip_bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    create_primitive_pipeline(
+        device,
+        viewport_bind_group_layout,
+        clip_bind_group_layout,
+        format,
+        Some(wgpu::BlendState {
+            color: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::Zero,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::Add,
+            },
+            alpha: wgpu::BlendComponent {
+                src_factor: wgpu::BlendFactor::One,
+                dst_factor: wgpu::BlendFactor::One,
+                operation: wgpu::BlendOperation::ReverseSubtract,
+            },
+        }),
+        wgpu::ColorWrites::ALL,
+        "gummy_canvas erase primitive pipeline",
+    )
+}
+
+fn create_primitive_pipeline(
+    device: &wgpu::Device,
+    viewport_bind_group_layout: &wgpu::BindGroupLayout,
+    clip_bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+    blend: Option<wgpu::BlendState>,
+    write_mask: wgpu::ColorWrites,
+    label: &'static str,
+) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some("gummy_canvas primitive shader"),
         source: wgpu::ShaderSource::Wgsl(TRIANGLE_SHADER.into()),
@@ -100,7 +148,7 @@ pub(super) fn create_pipeline(
         push_constant_ranges: &[],
     });
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("gummy_canvas primitive pipeline"),
+        label: Some(label),
         layout: Some(&pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader,
@@ -129,8 +177,8 @@ pub(super) fn create_pipeline(
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             targets: &[Some(wgpu::ColorTargetState {
                 format,
-                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                write_mask: wgpu::ColorWrites::ALL,
+                blend,
+                write_mask,
             })],
         }),
         primitive: wgpu::PrimitiveState {

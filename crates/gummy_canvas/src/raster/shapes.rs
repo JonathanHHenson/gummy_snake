@@ -69,7 +69,7 @@ pub(crate) fn draw_axis_aligned_ellipse(
     }
 }
 
-fn fill_axis_aligned_ellipse(
+pub(crate) fn fill_axis_aligned_ellipse(
     overlay: &mut OverlayRegion<'_>,
     cx: f64,
     cy: f64,

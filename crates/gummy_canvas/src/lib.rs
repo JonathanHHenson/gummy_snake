@@ -32,11 +32,11 @@ use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
 use raster::{
     affine_bounds, axis_aligned_image_destination, blit_affine_region, blit_scaled_region,
     clipped_bounds, clipped_dest_rect, clipped_source_rect, draw_axis_aligned_ellipse,
-    draw_polygon_overlay, draw_polyline_stroke, ellipse_bounds, fill_disc, fill_even_odd_polygon,
-    fill_rgba_buffer, for_even_odd_spans, image_to_canvas_matrix, matrix_determinant,
-    matrix_inverse, matrix_transform_point, point_to_f32, polygon_is_convex, push_triangle,
-    rasterize_even_odd_mask, rgba_to_present_pixel, scale_rect, stroke_segment, stroke_width,
-    Matrix, OverlayRegion, Point,
+    draw_polygon_overlay, draw_polyline_stroke, ellipse_bounds, fill_axis_aligned_ellipse,
+    fill_disc, fill_even_odd_polygon, fill_rgba_buffer, for_even_odd_spans, image_to_canvas_matrix,
+    matrix_determinant, matrix_inverse, matrix_transform_point, point_to_f32, polygon_is_convex,
+    push_triangle, rasterize_even_odd_mask, rgba_to_present_pixel, scale_rect, stroke_segment,
+    stroke_width, Matrix, OverlayRegion, Point,
 };
 use runtime::{
     native_window_available as runtime_native_window_available, InteractiveRuntime,

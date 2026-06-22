@@ -19,6 +19,7 @@ class PixelContextMixin:
     state: Any
     backend: Any
     pixels: Sequence[int]
+    _last_pixel_bytes: bytes | None
 
     def _record_performance_diagnostic(self, _name: str) -> None: ...
 
@@ -33,11 +34,36 @@ class PixelContextMixin:
 
     def load_pixel_bytes(self) -> bytes:
         self._record_performance_diagnostic("pixel_readback")
-        return self.renderer.load_pixel_bytes()
+        pixels = self.renderer.load_pixel_bytes()
+        self._last_pixel_bytes = pixels
+        return pixels
 
     def update_pixels(self, pixels: Sequence[int] | Buffer | None = None) -> None:
         self._record_performance_diagnostic("pixel_upload")
         if pixels is not None:
+            if (
+                isinstance(pixels, memoryview)
+                and isinstance(pixels.obj, bytes)
+                and pixels.obj is getattr(self, "_last_pixel_bytes", None)
+            ):
+                return
+            if isinstance(pixels, bytes) and pixels is getattr(self, "_last_pixel_bytes", None):
+                return
+            dirty_range = getattr(pixels, "dirty_range", None)
+            if callable(dirty_range):
+                dirty = dirty_range()
+                if (
+                    isinstance(dirty, tuple)
+                    and len(dirty) == 2
+                    and isinstance(dirty[0], int)
+                    and isinstance(dirty[1], int)
+                    and self._update_dirty_pixel_range(pixels, dirty)
+                ):
+                    clear_dirty = getattr(pixels, "clear_dirty", None)
+                    if callable(clear_dirty):
+                        clear_dirty()
+                    self.pixels = pixels if isinstance(pixels, Sequence) else bytes(pixels)
+                    return
             if isinstance(pixels, Sequence) and not isinstance(
                 pixels, bytes | bytearray | memoryview
             ):
@@ -46,6 +72,58 @@ class PixelContextMixin:
         if not self.pixels:
             self.load_pixels()
         self.renderer.update_pixels(self.pixels)
+
+    def _update_dirty_pixel_range(
+        self,
+        pixels: Sequence[int] | Buffer,
+        dirty: tuple[int, int],
+    ) -> bool:
+        start, end = dirty
+        if end <= start:
+            return True
+        width = self.state.canvas.physical_width
+        height = self.state.canvas.physical_height
+        total = width * height * 4
+        pixel_data = cast(Any, pixels)
+        if width <= 0 or len(pixel_data) != total:
+            return False
+        start_pixel = max(0, start // 4)
+        end_pixel = min(width * height, (end + 3) // 4)
+        if end_pixel <= start_pixel:
+            return True
+        start_row, start_col = divmod(start_pixel, width)
+        end_row, end_col = divmod(end_pixel - 1, width)
+        payload = memoryview(cast(Buffer, pixels))
+        if start_row == end_row:
+            region_x = start_col
+            region_y = start_row
+            region_width = end_col - start_col + 1
+            byte_start = (start_row * width + start_col) * 4
+            byte_end = byte_start + region_width * 4
+            region = payload[byte_start:byte_end]
+            self.renderer.update_pixel_region(
+                region,
+                region_width,
+                1,
+                region_x,
+                region_y,
+                alpha_composite=False,
+            )
+            return True
+        region_y = start_row
+        region_height = end_row - start_row + 1
+        byte_start = start_row * width * 4
+        byte_end = (end_row + 1) * width * 4
+        region = payload[byte_start:byte_end]
+        self.renderer.update_pixel_region(
+            region,
+            width,
+            region_height,
+            0,
+            region_y,
+            alpha_composite=False,
+        )
+        return True
 
     @overload
     def get(self) -> Image: ...

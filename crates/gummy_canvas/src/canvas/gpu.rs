@@ -3,6 +3,30 @@ use crate::*;
 impl Canvas {
     pub(crate) fn prepare_cpu_composite(&mut self) {
         self.performance_counters.cpu_fallbacks += 1;
+        let pending_clear = if self.offscreen_dirty && self.pixels_stale {
+            self.gpu.as_ref().and_then(|gpu| gpu.only_pending_clear())
+        } else {
+            None
+        };
+        if let Some(color) = pending_clear {
+            let rgba = [color.r, color.g, color.b, color.a];
+            let packed = rgba_to_present_pixel(&rgba);
+            fill_rgba_buffer(&mut self.pixels, &rgba);
+            self.present_pixels.fill(packed);
+            if let Some(gpu) = self.gpu.as_mut() {
+                gpu.begin_frame();
+            }
+            self.render_dirty = false;
+            self.offscreen_dirty = false;
+            self.pixels_stale = false;
+            self.texture_stale = true;
+            self.cpu_compositing_active = true;
+            return;
+        }
+        if self.offscreen_dirty && self.pixels_stale && self.materialize_gpu_primitives_on_cpu() {
+            self.cpu_compositing_active = true;
+            return;
+        }
         if self.offscreen_dirty && self.pixels_stale {
             self.render_gpu_frame(true);
         } else if self.pixels_stale {
@@ -47,10 +71,51 @@ impl Canvas {
             self.texture_stale = false;
             return;
         }
-        let Some(gpu) = self.gpu.as_mut() else {
+        if readback && self.materialize_gpu_primitives_on_cpu() {
+            self.performance_counters.gpu_frames_rendered += 1;
+            self.performance_counters.pixel_readbacks += 1;
+            return;
+        }
+        if self.gpu.is_none() {
             self.render_dirty = false;
             self.offscreen_dirty = false;
             self.texture_stale = false;
+            return;
+        }
+        if readback {
+            let readback_result = self
+                .gpu
+                .as_mut()
+                .expect("checked above")
+                .render_and_read_pixels();
+            match readback_result {
+                Ok(pixels) => {
+                    self.performance_counters.gpu_frames_rendered += 1;
+                    self.performance_counters.pixel_readbacks += 1;
+                    self.pixels = pixels;
+                    self.sync_present_pixels_from_rgba();
+                    if let Some(gpu) = self.gpu.as_mut() {
+                        gpu.begin_frame();
+                    }
+                    self.render_dirty = false;
+                    self.offscreen_dirty = false;
+                    self.pixels_stale = false;
+                    self.texture_stale = false;
+                }
+                Err(err) => {
+                    self.gpu_error = Some(err);
+                    if let Some(gpu) = self.gpu.as_mut() {
+                        gpu.begin_frame();
+                    }
+                    self.render_dirty = false;
+                    self.offscreen_dirty = false;
+                    self.pixels_stale = false;
+                    self.texture_stale = false;
+                }
+            }
+            return;
+        }
+        let Some(gpu) = self.gpu.as_mut() else {
             return;
         };
         gpu.render();
@@ -60,13 +125,14 @@ impl Canvas {
         self.offscreen_dirty = false;
         self.pixels_stale = true;
         self.texture_stale = false;
-        if readback {
-            self.read_gpu_pixels();
-        }
     }
 
     pub(crate) fn read_gpu_pixels(&mut self) {
-        let Some(gpu) = self.gpu.as_ref() else {
+        if self.materialize_gpu_primitives_on_cpu() {
+            self.performance_counters.pixel_readbacks += 1;
+            return;
+        }
+        let Some(gpu) = self.gpu.as_mut() else {
             self.pixels_stale = false;
             return;
         };
@@ -82,6 +148,237 @@ impl Canvas {
                 self.pixels_stale = false;
             }
         }
+    }
+
+    fn materialize_gpu_primitives_on_cpu(&mut self) -> bool {
+        let Some(gpu) = self.gpu.as_ref() else {
+            return false;
+        };
+        let commands = gpu.pending_commands().to_vec();
+        if commands.is_empty() {
+            return false;
+        }
+        if !self.replay_gpu_commands_on_cpu(&commands) {
+            return false;
+        }
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.begin_frame();
+        }
+        self.render_dirty = false;
+        self.offscreen_dirty = false;
+        self.pixels_stale = false;
+        self.texture_stale = true;
+        true
+    }
+
+    fn replay_gpu_commands_on_cpu(&mut self, commands: &[crate::gpu::DrawCommand]) -> bool {
+        for command in commands {
+            match command {
+                crate::gpu::DrawCommand::Clear(color) => {
+                    let rgba = [color.r, color.g, color.b, color.a];
+                    fill_rgba_buffer(&mut self.pixels, &rgba);
+                    self.present_pixels.fill(rgba_to_present_pixel(&rgba));
+                }
+                crate::gpu::DrawCommand::Triangles { vertices, clip_id } => {
+                    if *clip_id != 0 {
+                        return false;
+                    }
+                    for triangle in vertices.chunks_exact(3) {
+                        let points = [
+                            (triangle[0].0[0] as f64, triangle[0].0[1] as f64),
+                            (triangle[1].0[0] as f64, triangle[1].0[1] as f64),
+                            (triangle[2].0[0] as f64, triangle[2].0[1] as f64),
+                        ];
+                        self.replay_triangle_on_cpu(&points, triangle[0].1, false);
+                    }
+                }
+                crate::gpu::DrawCommand::Ellipse {
+                    cx,
+                    cy,
+                    rx,
+                    ry,
+                    color,
+                    clip_id,
+                } => {
+                    if *clip_id != 0 {
+                        return false;
+                    }
+                    self.replay_ellipse_on_cpu(
+                        (*cx).into(),
+                        (*cy).into(),
+                        (*rx).into(),
+                        (*ry).into(),
+                        *color,
+                    );
+                }
+                crate::gpu::DrawCommand::EraseTriangles { vertices, clip_id } => {
+                    if *clip_id != 0 {
+                        return false;
+                    }
+                    for triangle in vertices.chunks_exact(3) {
+                        let points = [
+                            (triangle[0].0[0] as f64, triangle[0].0[1] as f64),
+                            (triangle[1].0[0] as f64, triangle[1].0[1] as f64),
+                            (triangle[2].0[0] as f64, triangle[2].0[1] as f64),
+                        ];
+                        self.replay_triangle_on_cpu(&points, triangle[0].1, true);
+                    }
+                }
+                crate::gpu::DrawCommand::Image {
+                    key,
+                    vertices,
+                    linear,
+                    clip_id,
+                } => {
+                    if *clip_id != 0 {
+                        return false;
+                    }
+                    if !self.replay_image_on_cpu(*key, vertices, *linear) {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    fn replay_triangle_on_cpu(
+        &mut self,
+        points: &[Point; 3],
+        color: crate::gpu::GpuColor,
+        erasing: bool,
+    ) {
+        let bounds = clipped_bounds(points, 0.0, self.physical_width, self.physical_height);
+        let Some(mut overlay) = OverlayRegion::from_bounds(
+            bounds,
+            self.physical_width,
+            &mut self.pixels,
+            &mut self.present_pixels,
+            erasing,
+            BLEND_MODE_BLEND,
+            None,
+        ) else {
+            return;
+        };
+        let color = Rgba::from_tuple((color.r, color.g, color.b, color.a));
+        fill_even_odd_polygon(&mut overlay, &[points], color);
+    }
+
+    fn replay_ellipse_on_cpu(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+        color: crate::gpu::GpuColor,
+    ) {
+        let bounds = ellipse_bounds(
+            cx,
+            cy,
+            rx,
+            ry,
+            0.0,
+            self.physical_width,
+            self.physical_height,
+        );
+        let Some(mut overlay) = OverlayRegion::from_bounds(
+            bounds,
+            self.physical_width,
+            &mut self.pixels,
+            &mut self.present_pixels,
+            false,
+            BLEND_MODE_BLEND,
+            None,
+        ) else {
+            return;
+        };
+        let color = Rgba::from_tuple((color.r, color.g, color.b, color.a));
+        fill_axis_aligned_ellipse(&mut overlay, cx, cy, rx, ry, color);
+    }
+
+    fn replay_image_on_cpu(
+        &mut self,
+        key: u64,
+        vertices: &[([f32; 2], [f32; 2], crate::gpu::GpuColor); 6],
+        linear: bool,
+    ) -> bool {
+        if vertices
+            .iter()
+            .any(|(_, _, tint)| tint.r != 255 || tint.g != 255 || tint.b != 255 || tint.a != 255)
+        {
+            return false;
+        }
+        let Some(image) = self.image_cache.get(&key) else {
+            return false;
+        };
+        let u_min = vertices
+            .iter()
+            .map(|(_, uv, _)| uv[0])
+            .fold(f32::INFINITY, f32::min);
+        let u_max = vertices
+            .iter()
+            .map(|(_, uv, _)| uv[0])
+            .fold(f32::NEG_INFINITY, f32::max);
+        let v_min = vertices
+            .iter()
+            .map(|(_, uv, _)| uv[1])
+            .fold(f32::INFINITY, f32::min);
+        let v_max = vertices
+            .iter()
+            .map(|(_, uv, _)| uv[1])
+            .fold(f32::NEG_INFINITY, f32::max);
+        let sx = (u_min * image.width as f32).round().max(0.0) as usize;
+        let sy = (v_min * image.height as f32).round().max(0.0) as usize;
+        let sw = ((u_max - u_min) * image.width as f32).round().max(0.0) as usize;
+        let sh = ((v_max - v_min) * image.height as f32).round().max(0.0) as usize;
+        if sw == 0 || sh == 0 {
+            return true;
+        }
+        let p0 = vertices[0].0;
+        let p1 = vertices[1].0;
+        let p3 = vertices[5].0;
+        let image_to_canvas = (
+            (p1[0] - p0[0]) as f64 / sw as f64,
+            (p1[1] - p0[1]) as f64 / sw as f64,
+            (p3[0] - p0[0]) as f64 / sh as f64,
+            (p3[1] - p0[1]) as f64 / sh as f64,
+            p0[0] as f64,
+            p0[1] as f64,
+        );
+        let Some((dest_x, dest_y, dest_w, dest_h)) = affine_bounds(
+            image_to_canvas,
+            sw,
+            sh,
+            self.physical_width,
+            self.physical_height,
+        ) else {
+            return true;
+        };
+        let Some(canvas_to_image) = matrix_inverse(image_to_canvas) else {
+            return false;
+        };
+        let sampling = if linear { "linear" } else { "nearest" };
+        blit_affine_region(
+            &mut self.pixels,
+            &mut self.present_pixels,
+            self.physical_width,
+            &image.pixels,
+            image.width,
+            sx,
+            sy,
+            sw,
+            sh,
+            dest_x,
+            dest_y,
+            dest_w,
+            dest_h,
+            canvas_to_image,
+            false,
+            BLEND_MODE_BLEND,
+            sampling,
+            None,
+        );
+        true
     }
 
     pub(crate) fn draw_gpu_polygon(
@@ -228,6 +525,10 @@ impl Canvas {
             return Ok(());
         }
         if let Some(fill) = style.fill {
+            if style.stroke.is_none() {
+                self.draw_gpu_filled_ellipse(cx, cy, rx, ry, fill)?;
+                return Ok(());
+            }
             let steps = 64usize;
             let mut vertices = Vec::with_capacity(steps * 3);
             for index in 0..steps {
@@ -266,6 +567,31 @@ impl Canvas {
         Ok(())
     }
 
+    pub(crate) fn draw_gpu_filled_ellipse(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+        color: Rgba,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_filled_ellipse(
+                cx as f32,
+                cy as f32,
+                rx as f32,
+                ry as f32,
+                crate::raster::gpu_color(color),
+            );
+            self.performance_counters.gpu_draws += 1;
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        }
+        Ok(())
+    }
+
     pub(crate) fn draw_gpu_triangles(
         &mut self,
         vertices: Vec<([f32; 2], crate::gpu::GpuColor)>,
@@ -273,6 +599,21 @@ impl Canvas {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_triangles(vertices);
+            self.performance_counters.gpu_draws += 1;
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_gpu_erase_triangles(
+        &mut self,
+        vertices: Vec<([f32; 2], crate::gpu::GpuColor)>,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_erase_triangles(vertices);
             self.performance_counters.gpu_draws += 1;
             self.render_dirty = true;
             self.offscreen_dirty = true;
