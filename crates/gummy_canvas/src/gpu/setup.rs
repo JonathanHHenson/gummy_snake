@@ -469,6 +469,7 @@ impl GpuRenderer {
                 a: 0,
             },
             commands: Vec::new(),
+            previous_render_commands: Vec::new(),
             textures: HashMap::new(),
             model_meshes: HashMap::new(),
             primitive_staging: Vec::new(),
@@ -488,6 +489,23 @@ impl GpuRenderer {
             surface: None,
         };
         renderer.resize(width, height)?;
+        renderer.draw_text(
+            ".".to_string(),
+            0.0,
+            0.0,
+            16.0,
+            16.0,
+            12.0,
+            12.0,
+            GpuColor {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 0,
+            },
+        );
+        renderer.render();
+        renderer.begin_frame();
         renderer.clear_transparent();
         renderer.render();
         Ok(renderer)
@@ -509,6 +527,7 @@ impl GpuRenderer {
             .pixel_prefix_texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         self.text_buffers.clear();
+        self.previous_render_commands.clear();
         self.pixel_prefix_bind_group = create_pixel_prefix_bind_group(
             &self.device,
             &self.pixel_prefix_bind_group_layout,

@@ -198,6 +198,9 @@ impl GpuRenderer {
     }
 
     pub fn render(&mut self) {
+        if self.can_reuse_previous_render() {
+            return;
+        }
         self.write_viewport(self.texture_size.width, self.texture_size.height);
         self.ensure_render_vertex_buffers();
         let mut encoder = self
@@ -207,6 +210,14 @@ impl GpuRenderer {
             });
         self.encode_commands(&mut encoder);
         self.queue.submit([encoder.finish()]);
+        self.previous_render_commands = self.commands.clone();
+    }
+
+    fn can_reuse_previous_render(&self) -> bool {
+        if self.commands.is_empty() || self.commands != self.previous_render_commands {
+            return false;
+        }
+        matches!(self.commands.first(), Some(DrawCommand::Clear(_)))
     }
 
     pub fn only_pending_clear(&self) -> Option<GpuColor> {

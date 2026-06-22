@@ -87,7 +87,9 @@ report = gs.renderer_performance_counters()
 
 Text-heavy sketches can inspect `text_cache_hits`, `text_cache_misses`,
 `text_cache_evictions`, and `text_measurements` in that report to spot dynamic
-text churn.
+text churn. Dense label overlays should prefer `text_batch()` and `text_widths()`
+so repeated labels can stay on the Rust/GPU text path with fewer Python bridge
+calls.
 
 For native interactive timing, enable frame pacing diagnostics and inspect
 `frame_pacing_diagnostics()` for draw, present, frame-interval, and input-poll

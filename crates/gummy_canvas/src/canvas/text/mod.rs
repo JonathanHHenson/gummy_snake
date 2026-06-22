@@ -22,6 +22,129 @@ impl Canvas {
         self.text_with_style(value, x, y, &style, self.current_matrix)
     }
 
+    pub(crate) fn text_batch_impl(
+        &mut self,
+        items: Vec<(String, f64, f64)>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let parsed_style = self.cached_style(style)?;
+        for (value, x, y) in items {
+            self.text_with_style(&value, x, y, &parsed_style, matrix)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn text_batch_current_impl(
+        &mut self,
+        items: Vec<(String, f64, f64)>,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        let matrix = self.current_matrix;
+        for (value, x, y) in items {
+            self.text_with_style(&value, x, y, &style, matrix)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn text_batch_frame_impl(
+        &mut self,
+        items: Vec<(String, f64, f64)>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<bool> {
+        let parsed_style = self.cached_style(style)?;
+        self.text_batch_frame_with_style(items, &parsed_style, matrix)
+    }
+
+    pub(crate) fn text_batch_frame_current_impl(
+        &mut self,
+        items: Vec<(String, f64, f64)>,
+    ) -> PyResult<bool> {
+        let style = self.current_style.clone();
+        let matrix = self.current_matrix;
+        self.text_batch_frame_with_style(items, &style, matrix)
+    }
+
+    fn text_batch_frame_with_style(
+        &mut self,
+        items: Vec<(String, f64, f64)>,
+        parsed_style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<bool> {
+        if self.can_draw_gpu_text(parsed_style, matrix) {
+            if let Some(signature) = self.reusable_text_frame_signature(&items, parsed_style, matrix)
+            {
+                if self.try_reuse_text_frame(&signature) {
+                    return Ok(true);
+                }
+                self.pending_reusable_text_frame_signature = Some(signature);
+            }
+        }
+        for (value, x, y) in items {
+            self.text_with_style(&value, x, y, parsed_style, matrix)?;
+        }
+        Ok(false)
+    }
+
+    fn reusable_text_frame_signature(
+        &self,
+        items: &[(String, f64, f64)],
+        parsed_style: &Style,
+        matrix: Matrix,
+    ) -> Option<String> {
+        let clear = self.gpu.as_ref()?.only_pending_clear()?;
+        let fill = parsed_style.fill?;
+        let mut signature = format!(
+            "clear={},{},{},{}|fill={},{},{},{}|font={}|font_path={:?}|size={:.3}|leading={:.3}|align={},{}|matrix={:.3},{:.3},{:.3},{:.3},{:.3},{:.3}|",
+            clear.r,
+            clear.g,
+            clear.b,
+            clear.a,
+            fill.r,
+            fill.g,
+            fill.b,
+            fill.a,
+            parsed_style.text_font_name,
+            parsed_style.text_font_path,
+            parsed_style.text_size,
+            parsed_style.text_leading,
+            parsed_style.text_align_x,
+            parsed_style.text_align_y,
+            matrix.0,
+            matrix.1,
+            matrix.2,
+            matrix.3,
+            matrix.4,
+            matrix.5,
+        );
+        for (value, x, y) in items {
+            signature.push_str(value);
+            signature.push('@');
+            signature.push_str(&format!("{x:.3},{y:.3};"));
+        }
+        Some(signature)
+    }
+
+    fn try_reuse_text_frame(&mut self, signature: &str) -> bool {
+        if self.last_reusable_text_frame_signature.as_deref() != Some(signature) {
+            return false;
+        }
+        let Some(gpu) = self.gpu.as_mut() else {
+            return false;
+        };
+        if gpu.only_pending_clear().is_none() {
+            return false;
+        }
+        gpu.begin_frame();
+        self.render_dirty = false;
+        self.offscreen_dirty = true;
+        self.pixels_stale = true;
+        self.texture_stale = false;
+        self.pending_reusable_text_frame_signature = None;
+        true
+    }
+
     pub(crate) fn text_with_style(
         &mut self,
         value: &str,

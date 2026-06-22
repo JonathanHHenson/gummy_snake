@@ -629,6 +629,38 @@ impl Canvas {
         let _ = py;
         self.text_current_impl(value, x, y)
     }
+    pub(crate) fn text_batch(
+        &mut self,
+        items: Vec<(String, f64, f64)>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        self.text_batch_impl(items, style, matrix)
+    }
+    pub(crate) fn text_batch_current(
+        &mut self,
+        py: Python<'_>,
+        items: Vec<(String, f64, f64)>,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.text_batch_current_impl(items)
+    }
+    pub(crate) fn text_batch_frame(
+        &mut self,
+        items: Vec<(String, f64, f64)>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<bool> {
+        self.text_batch_frame_impl(items, style, matrix)
+    }
+    pub(crate) fn text_batch_frame_current(
+        &mut self,
+        py: Python<'_>,
+        items: Vec<(String, f64, f64)>,
+    ) -> PyResult<bool> {
+        let _ = py;
+        self.text_batch_frame_current_impl(items)
+    }
     pub(crate) fn text_width(&mut self, value: &str, style: &Bound<'_, PyAny>) -> PyResult<f64> {
         self.text_width_impl(value, style)
     }

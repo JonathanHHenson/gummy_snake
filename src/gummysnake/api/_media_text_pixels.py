@@ -88,7 +88,23 @@ def no_tint() -> None:
 
 
 def text(value: SupportsText, x: float, y: float) -> None:
-    require_context().text(value, x, y)
+    context = require_context()
+    context.renderer.text(
+        str(value),
+        float(x),
+        float(y),
+        context.state.style,
+        context.state.transform.matrix,
+    )
+
+
+def text_batch(items: Sequence[tuple[SupportsText, float, float]]) -> None:
+    context = require_context()
+    context.renderer.text_batch(
+        [(str(value), float(x), float(y)) for value, x, y in items],
+        context.state.style,
+        context.state.transform.matrix,
+    )
 
 
 def text_size(size: float | None = None) -> float:
@@ -112,7 +128,14 @@ def text_leading(value: float | None = None) -> float:
 
 
 def text_width(value: SupportsText) -> float:
-    return require_context().text_width(value)
+    context = require_context()
+    return context.renderer.text_width(str(value), context.state.style)
+
+
+def text_widths(values: Sequence[SupportsText]) -> tuple[float, ...]:
+    context = require_context()
+    style = context.state.style
+    return tuple(context.renderer.text_width(str(value), style) for value in values)
 
 
 def text_ascent() -> float:

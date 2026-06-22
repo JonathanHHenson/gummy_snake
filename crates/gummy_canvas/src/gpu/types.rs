@@ -29,7 +29,7 @@ pub struct ModelVertex {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct ModelUniform {
     pub model: [[f32; 4]; 4],
     pub view_projection: [[f32; 4]; 4],
@@ -95,7 +95,7 @@ impl GpuColor {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DrawCommand {
     Clear(GpuColor),
     Triangles {
@@ -229,6 +229,7 @@ pub struct GpuRenderer {
     pub(super) current_clip_id: usize,
     pub(super) clear_color: GpuColor,
     pub(super) commands: Vec<DrawCommand>,
+    pub(super) previous_render_commands: Vec<DrawCommand>,
     pub(super) textures: HashMap<u64, TextureAsset>,
     pub(super) model_meshes: HashMap<u64, GpuModelMesh>,
     pub(super) primitive_staging: Vec<Vertex>,

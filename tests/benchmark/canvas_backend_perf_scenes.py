@@ -165,9 +165,13 @@ def _draw_text_only():
     gs.fill(235)
     gs.no_stroke()
     gs.text_size(15)
-    for index in range(80):
-        gs.text_width(f"label {index % 12}")
-        gs.text(f"label {index}", 24 + (index % 5) * 136, 28 + (index // 5) * 27)
+    gs.text_widths([f"label {index}" for index in range(12)])
+    gs.text_batch(
+        [
+            (f"label {index}", 24 + (index % 5) * 136, 28 + (index // 5) * 27)
+            for index in range(80)
+        ]
+    )
 
 
 def _draw_pixel_readback_upload():
@@ -332,6 +336,11 @@ def setup_scene(variant: str) -> None:
     if variant == "cached_images_nearest":
         gs.no_smooth()
     _reset_asteroids()
+    if variant == "text_only":
+        renderer = require_context().renderer
+        renderer.begin_frame()
+        _draw_text_only()
+        renderer.end_frame()
 
 
 def draw_scene(variant: str) -> None:

@@ -49,6 +49,8 @@ impl Canvas {
             offscreen_dirty: false,
             pixels_stale: false,
             texture_stale: false,
+            last_reusable_text_frame_signature: None,
+            pending_reusable_text_frame_signature: None,
             cpu_compositing_active: false,
             cached_style_key: None,
             cached_style: None,
@@ -95,6 +97,8 @@ impl Canvas {
         self.offscreen_dirty = false;
         self.pixels_stale = false;
         self.texture_stale = false;
+        self.last_reusable_text_frame_signature = None;
+        self.pending_reusable_text_frame_signature = None;
         self.cpu_compositing_active = false;
         self.cached_style_key = None;
         self.cached_style = None;
@@ -149,6 +153,8 @@ impl Canvas {
         self.offscreen_dirty = false;
         self.pixels_stale = false;
         self.texture_stale = false;
+        self.last_reusable_text_frame_signature = None;
+        self.pending_reusable_text_frame_signature = None;
         self.cpu_compositing_active = false;
         self.cached_style_key = None;
         self.cached_style = None;
@@ -381,6 +387,7 @@ impl Canvas {
     pub(crate) fn begin_frame_impl(&mut self) {
         self.performance_counters.bridge_calls += 1;
         self.cpu_compositing_active = false;
+        self.pending_reusable_text_frame_signature = None;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.begin_frame();
         }

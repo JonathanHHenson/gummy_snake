@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Callable, Hashable
+from collections.abc import Callable
 from typing import Any, Protocol
 
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
 
 MatrixPayload = tuple[float, float, float, float, float, float]
-TextMetricKey = tuple[str, str | None, tuple[tuple[str, Hashable], ...]]
+TextMetricKey = tuple[str, str | None, int, int]
 
 
 class CanvasRendererHost(Protocol):
@@ -18,6 +18,11 @@ class CanvasRendererHost(Protocol):
     _line_batch_style: dict[str, object] | None
     _line_batch_matrix: MatrixPayload | None
     _line_batch_current: bool
+    _text_batch: list[tuple[str, float, float]]
+    _text_batch_style: dict[str, object] | None
+    _text_batch_matrix: MatrixPayload | None
+    _text_batch_current: bool
+    _skip_canvas_end_frame: bool
     _current_matrix_payload: MatrixPayload
     _image_cache_versions: OrderedDict[int, int]
     _clip_depth: int
@@ -25,6 +30,8 @@ class CanvasRendererHost(Protocol):
     physical_height: int
 
     def _flush_line_batch(self) -> None: ...
+    def _flush_line_batch_only(self) -> None: ...
+    def _flush_text_batch(self, *, final: bool = False) -> None: ...
     def _count(self, name: str, amount: int = 1) -> None: ...
     def _call[T](self, operation: str, callback: Callable[..., T], *args: object) -> T: ...
     def _require_canvas(self) -> Any: ...

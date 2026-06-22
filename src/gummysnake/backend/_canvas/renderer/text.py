@@ -16,30 +16,48 @@ def _renderer(self: object) -> CanvasRendererHost:
 
 class CanvasRendererTextMixin:
     def text(self, value: str, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
-        _renderer(self)._flush_line_batch()
+        _renderer(self)._flush_line_batch_only()
         if style.fill_color is None:
             return
-        _renderer(self)._count("gpu_draws")
-        current = (
-            getattr(_renderer(self)._require_canvas(), "text_current", None)
-            if _renderer(self)._can_use_current_state(style, transform)
-            else None
-        )
-        if callable(current):
-            _renderer(self)._call("text drawing", current, value, x, y)
+        self._queue_text_batch([(value, x, y)], style, transform)
+
+    def text_batch(
+        self,
+        items: list[tuple[str, float, float]],
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> None:
+        _renderer(self)._flush_line_batch_only()
+        if not items or style.fill_color is None:
             return
-        _renderer(self)._call(
-            "text drawing",
-            _renderer(self)._require_canvas().text,
-            value,
-            x,
-            y,
-            _renderer(self)._style_payload(style),
-            _renderer(self)._matrix_payload(transform),
-        )
+        self._queue_text_batch(items, style, transform)
+
+    def _queue_text_batch(
+        self,
+        items: list[tuple[str, float, float]],
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> None:
+        if _renderer(self)._can_use_current_state(style, transform):
+            if _renderer(self)._text_batch and not _renderer(self)._text_batch_current:
+                _renderer(self)._flush_text_batch()
+            _renderer(self)._text_batch.extend(items)
+            _renderer(self)._text_batch_current = True
+            return
+        style_payload = _renderer(self)._style_payload(style)
+        matrix_payload = _renderer(self)._matrix_payload(transform)
+        if _renderer(self)._text_batch and (
+            _renderer(self)._text_batch_current
+            or _renderer(self)._text_batch_style is not style_payload
+            or _renderer(self)._text_batch_matrix is not matrix_payload
+        ):
+            _renderer(self)._flush_text_batch()
+        _renderer(self)._text_batch.extend(items)
+        _renderer(self)._text_batch_style = style_payload
+        _renderer(self)._text_batch_matrix = matrix_payload
 
     def text_width(self, value: str, style: StyleState) -> float:
-        _renderer(self)._flush_line_batch()
+        _renderer(self)._flush_line_batch_only()
         current = (
             getattr(_renderer(self)._require_canvas(), "text_width_current", None)
             if getattr(_renderer(self), "_rust_style_synced", True)
@@ -61,7 +79,7 @@ class CanvasRendererTextMixin:
         )
 
     def text_ascent(self, style: StyleState) -> float:
-        _renderer(self)._flush_line_batch()
+        _renderer(self)._flush_line_batch_only()
         current = (
             getattr(_renderer(self)._require_canvas(), "text_ascent_current", None)
             if getattr(_renderer(self), "_rust_style_synced", True)
@@ -81,7 +99,7 @@ class CanvasRendererTextMixin:
         )
 
     def text_descent(self, style: StyleState) -> float:
-        _renderer(self)._flush_line_batch()
+        _renderer(self)._flush_line_batch_only()
         current = (
             getattr(_renderer(self)._require_canvas(), "text_descent_current", None)
             if getattr(_renderer(self), "_rust_style_synced", True)
@@ -99,3 +117,43 @@ class CanvasRendererTextMixin:
             _renderer(self)._require_canvas().text_descent,
             _renderer(self)._style_payload(style),
         )
+
+    def _flush_text_batch(self, *, final: bool = False) -> None:
+        if not _renderer(self)._text_batch:
+            return
+        items = _renderer(self)._text_batch
+        style = _renderer(self)._text_batch_style
+        matrix = _renderer(self)._text_batch_matrix
+        current = _renderer(self)._text_batch_current
+        _renderer(self)._text_batch = []
+        _renderer(self)._text_batch_style = None
+        _renderer(self)._text_batch_matrix = None
+        _renderer(self)._text_batch_current = False
+        canvas = _renderer(self)._require_canvas()
+        _renderer(self)._count("gpu_draws", len(items))
+        if current:
+            batch_current = getattr(
+                canvas,
+                "text_batch_frame_current" if final else "text_batch_current",
+                None,
+            )
+            if callable(batch_current):
+                reused = _renderer(self)._call("batched text drawing", batch_current, items)
+                if final and reused is True:
+                    _renderer(self)._skip_canvas_end_frame = True
+                return
+            text_current = getattr(canvas, "text_current", None)
+            if callable(text_current):
+                for value, x, y in items:
+                    _renderer(self)._call("text drawing", text_current, value, x, y)
+                return
+        if style is None or matrix is None:
+            return
+        batch = getattr(canvas, "text_batch_frame" if final else "text_batch", None)
+        if callable(batch):
+            reused = _renderer(self)._call("batched text drawing", batch, items, style, matrix)
+            if final and reused is True:
+                _renderer(self)._skip_canvas_end_frame = True
+            return
+        for value, x, y in items:
+            _renderer(self)._call("text drawing", canvas.text, value, x, y, style, matrix)

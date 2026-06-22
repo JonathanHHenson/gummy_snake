@@ -360,9 +360,12 @@ def test_canvas_renderer_text_metrics_use_rust_canvas_and_text_draw_command() ->
     assert renderer.text_descent(style) >= 0
     renderer.text("hello", 0, 12, style, Matrix2D.identity())
     assert renderer._canvas is not None
-    assert renderer._canvas.calls[-1][0] == "text"
-    assert renderer._canvas.calls[-4][0] == "text_width"
-    assert renderer._canvas.calls[-4][1] == "hello"
+    assert renderer._canvas.calls[-1][0] == "text_descent"
+    renderer.end_frame()
+    assert renderer._canvas.calls[-2][0] == "text_batch_frame"
+    assert renderer._canvas.calls[-2][1] == [("hello", 0, 12)]
+    assert renderer._canvas.calls[-5][0] == "text_width"
+    assert renderer._canvas.calls[-5][1] == "hello"
 
 
 def test_canvas_renderer_caches_text_metrics_by_style() -> None:

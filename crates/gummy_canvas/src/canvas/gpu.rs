@@ -121,9 +121,11 @@ impl Canvas {
         let Some(gpu) = self.gpu.as_mut() else {
             return;
         };
+        let reusable_text_frame_signature = self.pending_reusable_text_frame_signature.take();
         gpu.render();
         self.performance_counters.gpu_frames_rendered += 1;
         gpu.begin_frame();
+        self.last_reusable_text_frame_signature = reusable_text_frame_signature;
         self.render_dirty = false;
         self.offscreen_dirty = false;
         self.pixels_stale = true;

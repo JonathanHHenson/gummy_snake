@@ -423,6 +423,10 @@ class CanvasRendererPrimitivesMixin:
         )
 
     def _flush_line_batch(self) -> None:
+        _renderer(self)._flush_line_batch_only()
+        _renderer(self)._flush_text_batch()
+
+    def _flush_line_batch_only(self) -> None:
         if not _renderer(self)._line_batch:
             return
         lines = _renderer(self)._line_batch

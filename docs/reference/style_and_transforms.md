@@ -61,13 +61,19 @@ transform calls manually.
 ## Text
 
 - `text(value, x, y, width=None, height=None)`
+- `text_batch(items)` where each item is `(value, x, y)`
 - `text_size(size)`
 - `text_font(font)`
 - `text_align(horizontal, vertical=None)`
 - `text_style(style)`
 - `text_width(value)`
+- `text_widths(values)`
 - `text_ascent()`
 - `text_descent()`
 - `text_bounds(value, x=0, y=0)`
 - `describe(text)`
 - `describe_element(name, text)`
+
+Use `text_batch()` and `text_widths()` for dense label overlays where many
+strings share the current style and transform. They keep the Python API
+Pythonic while reducing per-label dispatch overhead.

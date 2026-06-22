@@ -246,6 +246,18 @@ class FakeCanvas:
     def text(self, *args: object) -> None:
         self.calls.append(("text", *args))
 
+    def text_batch(self, *args: object) -> None:
+        self.calls.append(("text_batch", *args))
+
+    def text_batch_current(self, *args: object) -> None:
+        self.calls.append(("text_batch_current", *args))
+
+    def text_batch_frame(self, *args: object) -> None:
+        self.calls.append(("text_batch_frame", *args))
+
+    def text_batch_frame_current(self, *args: object) -> None:
+        self.calls.append(("text_batch_frame_current", *args))
+
     def text_width(self, value: str, style: dict[str, object]) -> float:
         self.calls.append(("text_width", value, style))
         text_size = cast(float, style["text_size"])

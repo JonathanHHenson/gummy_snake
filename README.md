@@ -127,6 +127,9 @@ Small canvas `get()` and `set()` region operations use Rust region calls instead
 of reconstructing the full canvas as a Python image.
 For dense drawing loops, `gs.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
+Text-heavy overlays can use `text_batch()` and `text_widths()` to submit many
+labels or measurements with fewer Python calls while staying on the Rust/GPU
+text path.
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel
 conversion, upload, direct model/shape draw, GPU vertex-buffer, texture cache,
 GPU blend/region-effect passes, glyphon-backed text drawing, and CPU

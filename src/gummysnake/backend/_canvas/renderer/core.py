@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Callable, Hashable
+from collections.abc import Callable
 from time import perf_counter
 from typing import Any, cast
 
@@ -45,7 +45,7 @@ _PERFORMANCE_COUNTER_KEYS = (
 )
 PerformanceCounterValue = int | dict[str, int]
 PerformanceCounters = dict[str, PerformanceCounterValue]
-TextMetricKey = tuple[str, str | None, tuple[tuple[str, Hashable], ...]]
+TextMetricKey = tuple[str, str | None, int, int]
 MatrixPayload = tuple[float, float, float, float, float, float]
 
 
@@ -76,17 +76,7 @@ def matrix_payload(transform: Matrix2D) -> MatrixPayload:
 
 
 def text_metric_key(kind: str, style: StyleState, value: str | None = None) -> TextMetricKey:
-    payload = style_payload(style)
-    return (
-        kind,
-        value,
-        tuple(
-            sorted(
-                (payload_key, cast(Hashable, payload_value))
-                for payload_key, payload_value in payload.items()
-            )
-        ),
-    )
+    return (kind, value, id(style), style.revision)
 
 
 class CanvasRendererCore:
@@ -113,6 +103,11 @@ class CanvasRendererCore:
         self._line_batch_style: dict[str, object] | None = None
         self._line_batch_matrix: MatrixPayload | None = None
         self._line_batch_current = False
+        self._text_batch: list[tuple[str, float, float]] = []
+        self._text_batch_style: dict[str, object] | None = None
+        self._text_batch_matrix: MatrixPayload | None = None
+        self._text_batch_current = False
+        self._skip_canvas_end_frame = False
         self._clip_depth = 0
         self._performance_counters: dict[str, int] = dict.fromkeys(_PERFORMANCE_COUNTER_KEYS, 0)
         self._last_native_event_pump = 0.0
@@ -380,13 +375,16 @@ class CanvasRendererCore:
 
     def begin_frame(self) -> None:
         self._abort_frame_on_native_close = True
+        self._skip_canvas_end_frame = False
         self._require_canvas().begin_frame()
 
     def end_frame(self) -> None:
         try:
-            cast(CanvasRendererHost, self)._flush_line_batch()
+            cast(CanvasRendererHost, self)._flush_line_batch_only()
+            cast(CanvasRendererHost, self)._flush_text_batch(final=True)
             self.restore_clip_depth(0)
-            self._require_canvas().end_frame()
+            if not self._skip_canvas_end_frame:
+                self._require_canvas().end_frame()
         finally:
             self._abort_frame_on_native_close = False
 

@@ -647,6 +647,8 @@ struct Canvas {
     offscreen_dirty: bool,
     pixels_stale: bool,
     texture_stale: bool,
+    last_reusable_text_frame_signature: Option<String>,
+    pending_reusable_text_frame_signature: Option<String>,
     cpu_compositing_active: bool,
     cached_style_key: Option<usize>,
     cached_style: Option<Style>,

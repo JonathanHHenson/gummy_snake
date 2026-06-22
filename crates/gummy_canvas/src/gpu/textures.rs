@@ -200,6 +200,7 @@ impl GpuRenderer {
                 pixels.len()
             ));
         }
+        self.previous_render_commands.clear();
         self.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &self.texture,
