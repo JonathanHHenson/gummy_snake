@@ -23,10 +23,14 @@ jobs:
             libx11-dev \
             libxcb1-dev \
             libxcursor-dev \
+            libxext-dev \
+            libxfixes-dev \
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxrender-dev \
             libxss-dev \
+            libxtst-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
@@ -54,10 +58,14 @@ jobs:
             libx11-dev \
             libxcb1-dev \
             libxcursor-dev \
+            libxext-dev \
+            libxfixes-dev \
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxrender-dev \
             libxss-dev \
+            libxtst-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
@@ -92,10 +100,14 @@ jobs:
             libx11-dev \
             libxcb1-dev \
             libxcursor-dev \
+            libxext-dev \
+            libxfixes-dev \
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxrender-dev \
             libxss-dev \
+            libxtst-dev \
             pkg-config
       - run: uv build
 
@@ -117,10 +129,14 @@ jobs:
             libx11-dev \
             libxcb1-dev \
             libxcursor-dev \
+            libxext-dev \
+            libxfixes-dev \
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxrender-dev \
             libxss-dev \
+            libxtst-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml
@@ -145,10 +161,14 @@ jobs:
             libx11-dev \
             libxcb1-dev \
             libxcursor-dev \
+            libxext-dev \
+            libxfixes-dev \
             libxi-dev \
             libxkbcommon-dev \
             libxrandr-dev \
+            libxrender-dev \
             libxss-dev \
+            libxtst-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
