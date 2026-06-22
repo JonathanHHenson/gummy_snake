@@ -107,6 +107,46 @@ impl Canvas {
     pub(crate) fn clear(&mut self) {
         self.clear_impl()
     }
+    pub(crate) fn set_current_style(&mut self, style: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.set_current_style_impl(style)
+    }
+    pub(crate) fn current_style<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        self.current_style_impl(py)
+    }
+    pub(crate) fn set_current_matrix(&mut self, matrix: Matrix) {
+        self.set_current_matrix_impl(matrix)
+    }
+    pub(crate) fn current_matrix(&self) -> Matrix {
+        self.current_matrix_impl()
+    }
+    pub(crate) fn push_canvas_state(&mut self) {
+        self.push_canvas_state_impl()
+    }
+    pub(crate) fn pop_canvas_state(&mut self) -> PyResult<()> {
+        self.pop_canvas_state_impl()
+    }
+    pub(crate) fn translate(&mut self, x: f64, y: f64) {
+        self.translate_impl(x, y)
+    }
+    pub(crate) fn rotate(&mut self, angle: f64) {
+        self.rotate_impl(angle)
+    }
+    #[pyo3(signature = (x, y=None))]
+    pub(crate) fn scale(&mut self, x: f64, y: Option<f64>) {
+        self.scale_impl(x, y)
+    }
+    pub(crate) fn shear_x(&mut self, angle: f64) {
+        self.shear_x_impl(angle)
+    }
+    pub(crate) fn shear_y(&mut self, angle: f64) {
+        self.shear_y_impl(angle)
+    }
+    pub(crate) fn apply_matrix(&mut self, matrix: Matrix) {
+        self.apply_matrix_impl(matrix)
+    }
+    pub(crate) fn reset_matrix(&mut self) {
+        self.reset_matrix_impl()
+    }
     pub(crate) fn point(
         &mut self,
         x: f64,
@@ -115,6 +155,10 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         self.point_impl(x, y, style, matrix)
+    }
+    pub(crate) fn point_current(&mut self, py: Python<'_>, x: f64, y: f64) -> PyResult<()> {
+        let _ = py;
+        self.point_current_impl(x, y)
     }
     pub(crate) fn line(
         &mut self,
@@ -127,6 +171,17 @@ impl Canvas {
     ) -> PyResult<()> {
         self.line_impl(x1, y1, x2, y2, style, matrix)
     }
+    pub(crate) fn line_current(
+        &mut self,
+        py: Python<'_>,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.line_current_impl(x1, y1, x2, y2)
+    }
     pub(crate) fn batch_lines(
         &mut self,
         lines: Vec<(f64, f64, f64, f64)>,
@@ -134,6 +189,14 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         self.batch_lines_impl(lines, style, matrix)
+    }
+    pub(crate) fn batch_lines_current(
+        &mut self,
+        py: Python<'_>,
+        lines: Vec<(f64, f64, f64, f64)>,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.batch_lines_current_impl(lines)
     }
     #[pyo3(signature = (points, style, matrix, close=true))]
     pub(crate) fn polygon(
@@ -144,6 +207,16 @@ impl Canvas {
         close: bool,
     ) -> PyResult<()> {
         self.polygon_impl(points, style, matrix, close)
+    }
+    #[pyo3(signature = (points, close=true))]
+    pub(crate) fn polygon_current(
+        &mut self,
+        py: Python<'_>,
+        points: Vec<(f64, f64)>,
+        close: bool,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.polygon_current_impl(points, close)
     }
     #[pyo3(signature = (outer, contours, style, matrix, close=true))]
     pub(crate) fn complex_polygon(
@@ -156,6 +229,17 @@ impl Canvas {
     ) -> PyResult<()> {
         self.complex_polygon_impl(outer, contours, style, matrix, close)
     }
+    #[pyo3(signature = (outer, contours, close=true))]
+    pub(crate) fn complex_polygon_current(
+        &mut self,
+        py: Python<'_>,
+        outer: Vec<(f64, f64)>,
+        contours: Vec<Vec<(f64, f64)>>,
+        close: bool,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.complex_polygon_current_impl(outer, contours, close)
+    }
     pub(crate) fn begin_clip(
         &mut self,
         outer: Vec<(f64, f64)>,
@@ -163,6 +247,13 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         self.begin_clip_impl(outer, contours, matrix)
+    }
+    pub(crate) fn begin_clip_current(
+        &mut self,
+        outer: Vec<(f64, f64)>,
+        contours: Vec<Vec<(f64, f64)>>,
+    ) -> PyResult<()> {
+        self.begin_clip_impl(outer, contours, self.current_matrix)
     }
     pub(crate) fn end_clip(&mut self) -> PyResult<()> {
         self.end_clip_impl()
@@ -178,6 +269,17 @@ impl Canvas {
     ) -> PyResult<()> {
         self.rect_impl(x, y, width, height, style, matrix)
     }
+    pub(crate) fn rect_current(
+        &mut self,
+        py: Python<'_>,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.rect_current_impl(x, y, width, height)
+    }
     pub(crate) fn triangle(
         &mut self,
         x1: f64,
@@ -190,6 +292,19 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         self.triangle_impl(x1, y1, x2, y2, x3, y3, style, matrix)
+    }
+    pub(crate) fn triangle_current(
+        &mut self,
+        py: Python<'_>,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.triangle_current_impl(x1, y1, x2, y2, x3, y3)
     }
     pub(crate) fn quad(
         &mut self,
@@ -206,6 +321,24 @@ impl Canvas {
     ) -> PyResult<()> {
         self.quad_impl(x1, y1, x2, y2, x3, y3, x4, y4, style, matrix)
     }
+    pub(crate) fn quad_current(
+        &mut self,
+        py: Python<'_>,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.quad_current_impl(x1, y1, x2, y2, x3, y3, x4, y4)
+    }
+    pub(crate) fn shaded_faces(&mut self, faces: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.shaded_faces_impl(faces)
+    }
     pub(crate) fn ellipse(
         &mut self,
         x: f64,
@@ -216,6 +349,17 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         self.ellipse_impl(x, y, width, height, style, matrix)
+    }
+    pub(crate) fn ellipse_current(
+        &mut self,
+        py: Python<'_>,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.ellipse_current_impl(x, y, width, height)
     }
     pub(crate) fn arc(
         &mut self,
@@ -230,6 +374,30 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         self.arc_impl(x, y, width, height, start, stop, mode, style, matrix)
+    }
+    pub(crate) fn arc_current(
+        &mut self,
+        py: Python<'_>,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        start: f64,
+        stop: f64,
+        mode: &str,
+    ) -> PyResult<()> {
+        let style = self.current_style_payload_impl(py)?;
+        self.arc_impl(
+            x,
+            y,
+            width,
+            height,
+            start,
+            stop,
+            mode,
+            style.as_any(),
+            self.current_matrix,
+        )
     }
     #[pyo3(signature = (image_pixels, image_width, image_height, dx, dy, dw, dh, style, matrix, source=None))]
     pub(crate) fn draw_image(
@@ -255,6 +423,31 @@ impl Canvas {
             dh,
             style,
             matrix,
+            source,
+        )
+    }
+    #[pyo3(signature = (image_pixels, image_width, image_height, dx, dy, dw, dh, source=None))]
+    pub(crate) fn draw_image_current(
+        &mut self,
+        py: Python<'_>,
+        image_pixels: Vec<u8>,
+        image_width: usize,
+        image_height: usize,
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.draw_image_current_impl(
+            image_pixels,
+            image_width,
+            image_height,
+            dx,
+            dy,
+            dw,
+            dh,
             source,
         )
     }
@@ -289,6 +482,35 @@ impl Canvas {
             source,
         )
     }
+    #[pyo3(signature = (image_key, image_version, image_pixels, image_width, image_height, dx, dy, dw, dh, source=None))]
+    pub(crate) fn draw_cached_image_current(
+        &mut self,
+        py: Python<'_>,
+        image_key: u64,
+        image_version: u64,
+        image_pixels: Option<Vec<u8>>,
+        image_width: usize,
+        image_height: usize,
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.draw_cached_image_current_impl(
+            image_key,
+            image_version,
+            image_pixels,
+            image_width,
+            image_height,
+            dx,
+            dy,
+            dw,
+            dh,
+            source,
+        )
+    }
     #[pyo3(signature = (image, dx, dy, dw, dh, style, matrix, source=None))]
     pub(crate) fn draw_canvas_image(
         &mut self,
@@ -303,6 +525,27 @@ impl Canvas {
     ) -> PyResult<()> {
         self.draw_canvas_image_impl(image, dx, dy, dw, dh, style, matrix, source)
     }
+    #[pyo3(signature = (image, dx, dy, dw, dh, source=None))]
+    pub(crate) fn draw_canvas_image_current(
+        &mut self,
+        py: Python<'_>,
+        image: PyRef<'_, CanvasImage>,
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.draw_canvas_image_current_impl(
+            image,
+            dx,
+            dy,
+            dw,
+            dh,
+            source,
+        )
+    }
     pub(crate) fn text(
         &mut self,
         value: &str,
@@ -313,14 +556,36 @@ impl Canvas {
     ) -> PyResult<()> {
         self.text_impl(value, x, y, style, matrix)
     }
+    pub(crate) fn text_current(
+        &mut self,
+        py: Python<'_>,
+        value: &str,
+        x: f64,
+        y: f64,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.text_current_impl(value, x, y)
+    }
     pub(crate) fn text_width(&mut self, value: &str, style: &Bound<'_, PyAny>) -> PyResult<f64> {
         self.text_width_impl(value, style)
+    }
+    pub(crate) fn text_width_current(&mut self, py: Python<'_>, value: &str) -> PyResult<f64> {
+        let _ = py;
+        self.text_width_current_impl(value)
     }
     pub(crate) fn text_ascent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
         self.text_ascent_impl(style)
     }
+    pub(crate) fn text_ascent_current(&mut self, py: Python<'_>) -> PyResult<f64> {
+        let style = self.current_style_payload_impl(py)?;
+        self.text_ascent_impl(style.as_any())
+    }
     pub(crate) fn text_descent(&mut self, style: &Bound<'_, PyAny>) -> PyResult<f64> {
         self.text_descent_impl(style)
+    }
+    pub(crate) fn text_descent_current(&mut self, py: Python<'_>) -> PyResult<f64> {
+        let style = self.current_style_payload_impl(py)?;
+        self.text_descent_impl(style.as_any())
     }
     #[pyo3(signature = (source_pixels, source_width, source_height, source, destination, mode))]
     pub(crate) fn blend_region(
@@ -379,6 +644,15 @@ impl Canvas {
         alpha_composite: bool,
     ) -> PyResult<()> {
         self.update_pixel_region_impl(pixels, width, height, x, y, alpha_composite)
+    }
+    pub(crate) fn adjust_pixel_prefix(
+        &mut self,
+        byte_limit: usize,
+        stride: usize,
+        red_delta: i16,
+        green_delta: i16,
+    ) -> PyResult<()> {
+        self.adjust_pixel_prefix_impl(byte_limit, stride, red_delta, green_delta)
     }
     #[pyo3(signature = (mode, value=None))]
     pub(crate) fn filter_pixels(&mut self, mode: &str, value: Option<f64>) -> PyResult<()> {

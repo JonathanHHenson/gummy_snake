@@ -97,6 +97,12 @@ class CanvasContextMixin:
         if renderer == c.WEBGL:
             cast(SketchContextHost, self)._reset_3d_state()
         self._sync_canvas_state()
+        sync_style = getattr(self.renderer, "set_current_style", None)
+        if callable(sync_style):
+            sync_style(self.state.style)
+        sync_matrix = getattr(self.renderer, "set_current_matrix", None)
+        if callable(sync_matrix):
+            sync_matrix(self.state.transform.matrix)
         self.state.canvas.created = True
 
     def resize_canvas(self, width: int, height: int, *, pixel_density: float | None = None) -> None:
@@ -106,6 +112,12 @@ class CanvasContextMixin:
         )
         self.renderer = self.backend.renderer
         self._sync_canvas_state()
+        sync_style = getattr(self.renderer, "set_current_style", None)
+        if callable(sync_style):
+            sync_style(self.state.style)
+        sync_matrix = getattr(self.renderer, "set_current_matrix", None)
+        if callable(sync_matrix):
+            sync_matrix(self.state.transform.matrix)
         self.state.canvas.created = True
 
     def ensure_canvas(self) -> None:

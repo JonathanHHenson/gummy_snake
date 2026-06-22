@@ -16,6 +16,34 @@ impl Canvas {
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
+        self.draw_image_pixels_with_style(
+            image_pixels,
+            image_width,
+            image_height,
+            dx,
+            dy,
+            dw,
+            dh,
+            &style,
+            matrix,
+            source,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn draw_image_pixels_with_style(
+        &mut self,
+        image_pixels: &[u8],
+        image_width: usize,
+        image_height: usize,
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        style: &Style,
+        matrix: Matrix,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<()> {
         ensure_supported_style(&style)?;
         if dw <= 0.0 || dh <= 0.0 || image_width == 0 || image_height == 0 {
             return Ok(());
@@ -117,6 +145,7 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<bool> {
+        let style = self.cached_style(style)?;
         self.try_draw_gpu_image_parts(
             image_key,
             image.version,
@@ -127,7 +156,40 @@ impl Canvas {
             dy,
             dw,
             dh,
-            style,
+            &style,
+            matrix,
+            source,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn try_draw_gpu_image_parts_for_payload(
+        &mut self,
+        image_key: u64,
+        image_version: u64,
+        image_width: usize,
+        image_height: usize,
+        image_pixels: &[u8],
+        dx: f64,
+        dy: f64,
+        dw: f64,
+        dh: f64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        source: Option<(i64, i64, i64, i64)>,
+    ) -> PyResult<bool> {
+        let style = self.cached_style(style)?;
+        self.try_draw_gpu_image_parts(
+            image_key,
+            image_version,
+            image_width,
+            image_height,
+            image_pixels,
+            dx,
+            dy,
+            dw,
+            dh,
+            &style,
             matrix,
             source,
         )
@@ -145,11 +207,10 @@ impl Canvas {
         dy: f64,
         dw: f64,
         dh: f64,
-        style: &Bound<'_, PyAny>,
+        style: &Style,
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<bool> {
-        let style = self.cached_style(style)?;
         if !self.can_queue_gpu_primitives(&style) || dw <= 0.0 || dh <= 0.0 {
             return Ok(false);
         }

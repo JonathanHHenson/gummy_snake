@@ -13,6 +13,22 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         let parsed_style = self.cached_style(style)?;
+        self.text_with_style(value, x, y, &parsed_style, matrix)
+    }
+
+    pub(crate) fn text_current_impl(&mut self, value: &str, x: f64, y: f64) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.text_with_style(value, x, y, &style, self.current_matrix)
+    }
+
+    pub(crate) fn text_with_style(
+        &mut self,
+        value: &str,
+        x: f64,
+        y: f64,
+        parsed_style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         ensure_supported_style(&parsed_style)?;
         let Some(fill) = parsed_style.fill else {
             return Ok(());
@@ -63,13 +79,13 @@ impl Canvas {
                 dy,
                 width,
                 height,
-                style,
+                parsed_style,
                 matrix,
                 None,
             )? {
                 continue;
             }
-            self.draw_image_pixels(
+            self.draw_image_pixels_with_style(
                 &cached.image.pixels,
                 cached.image.width,
                 cached.image.height,
@@ -77,7 +93,7 @@ impl Canvas {
                 dy,
                 width,
                 height,
-                style,
+                parsed_style,
                 matrix,
                 None,
             )?;
@@ -92,6 +108,16 @@ impl Canvas {
     ) -> PyResult<f64> {
         self.performance_counters.text_measurements += 1;
         let parsed_style = self.cached_style(style)?;
+        self.text_width_with_style(value, &parsed_style)
+    }
+
+    pub(crate) fn text_width_current_impl(&mut self, value: &str) -> PyResult<f64> {
+        self.performance_counters.text_measurements += 1;
+        let style = self.current_style.clone();
+        self.text_width_with_style(value, &style)
+    }
+
+    pub(crate) fn text_width_with_style(&mut self, value: &str, parsed_style: &Style) -> PyResult<f64> {
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
         }

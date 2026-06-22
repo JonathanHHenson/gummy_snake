@@ -18,9 +18,11 @@ from gummysnake.drawing.renderer3d import (
 )
 from gummysnake.drawing.software3d import (
     ShadedFace,
+    rasterize_face_payload_region,
     rasterize_faces_image_region,
-    shade_model_faces,
 )
+from gummysnake.drawing.software3d.rust_bridge import rust_project_shade_faces
+from gummysnake.drawing.software3d.shading import texture_image
 from gummysnake.exceptions import ArgumentValidationError
 
 
@@ -68,24 +70,17 @@ class ThreeDModelMixin:
             return
 
         model_transform = self.state.transform.matrix
-        faces = shade_model_faces(
+        material = _three_d(self)._effective_3d_material()
+        faces = rust_project_shade_faces(
             model,
             self._camera3d,
             self._projection3d,
             viewport_width=float(self.width),
             viewport_height=float(self.height),
-            base_material=_three_d(self)._effective_3d_material(),
+            base_material=material,
             lights=tuple(self._lights3d),
             normal_material=self._normal_material3d,
-            cache_identity=(
-                id(model),
-                model_transform.a,
-                model_transform.b,
-                model_transform.c,
-                model_transform.d,
-                model_transform.e,
-                model_transform.f,
-            ),
+            cull_backfaces=True,
             model_transform=model_transform,
         )
         screen_transform = Matrix2D.identity()
@@ -95,9 +90,67 @@ class ThreeDModelMixin:
             or self.state.style.fill_color is not None
         )
         if draw_fill:
-            self._draw_rasterized_3d_faces(faces, screen_transform)
+            texture = None if self._normal_material3d else texture_image(material)
+            if texture is None and self._draw_shaded_faces_direct(faces):
+                pass
+            else:
+                self._draw_rasterized_3d_payload(
+                    faces,
+                    screen_transform,
+                    texture=texture,
+                )
         if self.state.style.stroke_color is not None:
-            self._stroke_3d_faces(faces, screen_transform)
+            shaded_faces = [
+                ShadedFace(
+                    points=tuple((float(x), float(y)) for x, y in face["points"]),
+                    color=cast(tuple[float, float, float, float], tuple(face["color"])),
+                    depth=float(face["depth"]),
+                    texcoords=None,
+                    texture=None,
+                )
+                for face in faces
+            ]
+            self._stroke_3d_faces(shaded_faces, screen_transform)
+
+    def _draw_shaded_faces_direct(self, faces: list[dict[str, Any]]) -> bool:
+        require_canvas = getattr(self.renderer, "_require_canvas", None)
+        flush_line_batch = getattr(self.renderer, "_flush_line_batch", None)
+        if not callable(require_canvas):
+            return False
+        canvas = require_canvas()
+        draw = getattr(canvas, "shaded_faces", None)
+        if not callable(draw):
+            return False
+        if callable(flush_line_batch):
+            flush_line_batch()
+        draw(faces)
+        return True
+
+    def _draw_rasterized_3d_payload(
+        self,
+        faces: list[dict[str, Any]],
+        screen_transform: Matrix2D,
+        *,
+        texture: Any | None,
+    ) -> None:
+        overlay, overlay_x, overlay_y = rasterize_face_payload_region(
+            faces,
+            viewport_width=float(self.width),
+            viewport_height=float(self.height),
+            texture=texture,
+        )
+        overlay_style = self.state.style.copy()
+        overlay_style.fill_color = None
+        overlay_style.stroke_color = None
+        self.renderer.draw_image(
+            overlay,
+            float(overlay_x),
+            float(overlay_y),
+            float(overlay.width),
+            float(overlay.height),
+            overlay_style,
+            screen_transform,
+        )
 
     def _draw_rasterized_3d_faces(
         self, faces: list[ShadedFace], screen_transform: Matrix2D

@@ -112,3 +112,135 @@ def test_canvas_gpu_status_explains_cpu_continuation_when_gpu_unavailable(
 
     assert canvas_gpu_available() is False
     assert "headless rendering can continue" in canvas_gpu_status()
+
+
+def test_canvas_runtime_owns_current_style_and_transform_stack() -> None:
+    runtime = require_canvas_runtime()
+    canvas = runtime.Canvas(12, 12, 1.0, "headless", "p2d")
+
+    canvas.set_current_style(
+        {
+            "fill": (255, 0, 0, 255),
+            "stroke": None,
+            "stroke_weight": 1.0,
+            "image_tint": None,
+            "blend_mode": "blend",
+            "erasing": False,
+            "image_sampling": "linear",
+            "text_font_path": None,
+            "text_font_name": "default",
+            "text_size": 12.0,
+            "text_align_x": "left",
+            "text_align_y": "baseline",
+            "text_leading": 14.0,
+        }
+    )
+    canvas.translate(2.0, 3.0)
+    canvas.push_canvas_state()
+    canvas.set_current_style(
+        {
+            "fill": (0, 255, 0, 255),
+            "stroke": None,
+            "stroke_weight": 1.0,
+            "image_tint": None,
+            "blend_mode": "blend",
+            "erasing": False,
+            "image_sampling": "linear",
+            "text_font_path": None,
+            "text_font_name": "default",
+            "text_size": 12.0,
+            "text_align_x": "left",
+            "text_align_y": "baseline",
+            "text_leading": 14.0,
+        }
+    )
+    canvas.translate(5.0, 0.0)
+
+    assert canvas.current_matrix() == (1.0, 0.0, 0.0, 1.0, 7.0, 3.0)
+    assert canvas.current_style()["fill"] == (0, 255, 0, 255)
+
+    canvas.pop_canvas_state()
+
+    assert canvas.current_matrix() == (1.0, 0.0, 0.0, 1.0, 2.0, 3.0)
+    assert canvas.current_style()["fill"] == (255, 0, 0, 255)
+
+    canvas.rect_current(0.0, 0.0, 2.0, 2.0)
+    pixels = canvas.load_pixels()
+    offset = ((3 * 12) + 2) * 4
+    assert tuple(pixels[offset : offset + 4]) == (255, 0, 0, 255)
+
+
+def test_canvas_current_draws_do_not_reuse_stale_temporary_style_payloads() -> None:
+    runtime = require_canvas_runtime()
+    canvas = runtime.Canvas(16, 6, 1.0, "headless", "p2d")
+
+    def style(fill: tuple[int, int, int, int]) -> dict[str, object]:
+        return {
+            "fill": fill,
+            "stroke": None,
+            "stroke_weight": 1.0,
+            "image_tint": None,
+            "blend_mode": "blend",
+            "erasing": False,
+            "image_sampling": "linear",
+            "text_font_path": None,
+            "text_font_name": "default",
+            "text_size": 12.0,
+            "text_align_x": "left",
+            "text_align_y": "baseline",
+            "text_leading": 14.0,
+        }
+
+    canvas.set_current_style(style((255, 0, 0, 255)))
+    canvas.rect_current(0.0, 0.0, 4.0, 4.0)
+    canvas.set_current_style(style((0, 255, 0, 255)))
+    canvas.rect_current(4.0, 0.0, 4.0, 4.0)
+    canvas.set_current_style(style((0, 0, 255, 255)))
+    canvas.rect_current(8.0, 0.0, 4.0, 4.0)
+
+    pixels = canvas.load_pixels()
+    assert tuple(pixels[((1 * 16) + 1) * 4 : ((1 * 16) + 1) * 4 + 4]) == (255, 0, 0, 255)
+    assert tuple(pixels[((1 * 16) + 5) * 4 : ((1 * 16) + 5) * 4 + 4]) == (0, 255, 0, 255)
+    assert tuple(pixels[((1 * 16) + 9) * 4 : ((1 * 16) + 9) * 4 + 4]) == (0, 0, 255, 255)
+
+
+def test_canvas_shaded_faces_preserve_logical_size_at_pixel_density_two() -> None:
+    runtime = require_canvas_runtime()
+
+    def logical_occupied_bounds(density: float) -> tuple[float, float, float, float]:
+        canvas = runtime.Canvas(64, 64, density, "headless", "p2d")
+        canvas.background((0, 0, 0, 255))
+        canvas.shaded_faces(
+            [
+                {
+                    "points": [(10.0, 10.0), (30.0, 10.0), (10.0, 30.0)],
+                    "color": (1.0, 0.0, 0.0, 1.0),
+                    "depth": 0.0,
+                    "texture": None,
+                }
+            ]
+        )
+        pixels = canvas.load_pixels()
+        physical_width = int(64 * density)
+        occupied = []
+        for y in range(int(64 * density)):
+            row = y * physical_width * 4
+            for x in range(physical_width):
+                offset = row + x * 4
+                if tuple(pixels[offset : offset + 3]) == (255, 0, 0):
+                    occupied.append((x / density, y / density))
+        assert occupied
+        return (
+            min(x for x, _ in occupied),
+            min(y for _, y in occupied),
+            max(x for x, _ in occupied),
+            max(y for _, y in occupied),
+        )
+
+    density_one = logical_occupied_bounds(1.0)
+    density_two = logical_occupied_bounds(2.0)
+
+    assert density_two[0] == pytest.approx(density_one[0], abs=0.75)
+    assert density_two[1] == pytest.approx(density_one[1], abs=0.75)
+    assert density_two[2] == pytest.approx(density_one[2], abs=0.75)
+    assert density_two[3] == pytest.approx(density_one[3], abs=0.75)

@@ -55,6 +55,23 @@ class CanvasRendererImagesMixin:
         source: tuple[int, int, int, int] | None,
     ) -> None:
         _renderer(self)._count("gpu_draws")
+        current = (
+            getattr(_renderer(self)._require_canvas(), "draw_canvas_image_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._call(
+                "image drawing",
+                current,
+                rust_image,
+                dx,
+                dy,
+                dw,
+                dh,
+                source,
+            )
+            return
         _renderer(self)._call(
             "image drawing",
             _renderer(self)._require_canvas().draw_canvas_image,

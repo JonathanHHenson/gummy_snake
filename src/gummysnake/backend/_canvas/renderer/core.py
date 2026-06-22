@@ -96,9 +96,13 @@ class CanvasRendererCore:
         self._text_metric_cache: OrderedDict[TextMetricKey, float] = OrderedDict()
         self._style_payload_cache: dict[int, tuple[StyleState, int, dict[str, object]]] = {}
         self._matrix_payload_cache: dict[int, tuple[Matrix2D, MatrixPayload]] = {}
+        self._current_style_id: int | None = None
+        self._current_style_revision: int | None = None
+        self._current_matrix_payload: MatrixPayload = matrix_payload(Matrix2D.identity())
         self._line_batch: list[tuple[float, float, float, float]] = []
         self._line_batch_style: dict[str, object] | None = None
         self._line_batch_matrix: MatrixPayload | None = None
+        self._line_batch_current = False
         self._clip_depth = 0
         self._performance_counters: dict[str, int] = dict.fromkeys(_PERFORMANCE_COUNTER_KEYS, 0)
         self._last_native_event_pump = 0.0
@@ -152,6 +156,107 @@ class CanvasRendererCore:
             self._matrix_payload_cache.clear()
         self._matrix_payload_cache[key] = (transform, payload)
         return payload
+
+    def set_current_style(self, style: StyleState) -> None:
+        self._current_style_id = id(style)
+        self._current_style_revision = style.revision
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "set_current_style", None)
+        if callable(callback):
+            self._call("current style update", callback, self._style_payload(style))
+
+    def set_current_matrix(self, transform: Matrix2D) -> None:
+        self.remember_current_matrix(transform)
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "set_current_matrix", None)
+        if callable(callback):
+            self._call("current matrix update", callback, self._matrix_payload(transform))
+
+    def push_canvas_state(self) -> None:
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "push_canvas_state", None)
+        if callable(callback):
+            self._call("canvas state push", callback)
+
+    def pop_canvas_state(self) -> None:
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "pop_canvas_state", None)
+        if callable(callback):
+            self._call("canvas state pop", callback)
+
+    def translate(self, x: float, y: float) -> None:
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "translate", None)
+        if callable(callback):
+            self._call("canvas translation", callback, float(x), float(y))
+
+    def rotate(self, angle: float) -> None:
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "rotate", None)
+        if callable(callback):
+            self._call("canvas rotation", callback, float(angle))
+
+    def scale(self, x: float, y: float | None = None) -> None:
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "scale", None)
+        if callable(callback):
+            self._call("canvas scale", callback, float(x), None if y is None else float(y))
+
+    def shear_x(self, angle: float) -> None:
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "shear_x", None)
+        if callable(callback):
+            self._call("canvas x shear", callback, float(angle))
+
+    def shear_y(self, angle: float) -> None:
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "shear_y", None)
+        if callable(callback):
+            self._call("canvas y shear", callback, float(angle))
+
+    def apply_matrix(self, transform: Matrix2D) -> None:
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "apply_matrix", None)
+        if callable(callback):
+            self._call("canvas matrix application", callback, self._matrix_payload(transform))
+
+    def reset_matrix(self) -> None:
+        if self._canvas is None:
+            return
+        cast(CanvasRendererHost, self)._flush_line_batch()
+        callback = getattr(self._require_canvas(), "reset_matrix", None)
+        if callable(callback):
+            self._call("canvas matrix reset", callback)
+
+    def _can_use_current_state(self, style: StyleState, transform: Matrix2D) -> bool:
+        return (
+            self._current_style_id == id(style)
+            and self._current_style_revision == style.revision
+            and self._current_matrix_payload == self._matrix_payload(transform)
+        )
+
+    def remember_current_matrix(self, transform: Matrix2D) -> None:
+        self._current_matrix_payload = self._matrix_payload(transform)
 
     def display_density(self) -> float:
         if self._canvas is None:

@@ -1,16 +1,8 @@
 use crate::images::alpha_composite_pixel;
-use crate::{
-    BLEND_MODE_ADD, BLEND_MODE_BLEND, BLEND_MODE_DARKEST, BLEND_MODE_DIFFERENCE,
-    BLEND_MODE_EXCLUSION, BLEND_MODE_LIGHTEST, BLEND_MODE_MULTIPLY, BLEND_MODE_REPLACE,
-    BLEND_MODE_SCREEN,
-};
+use crate::BlendMode;
 
-pub(super) fn blend_pixel(dst: &mut [u8], src: &[u8], mode: &str) {
-    if mode == BLEND_MODE_BLEND {
-        alpha_composite_pixel(dst, src);
-        return;
-    }
-    if mode == BLEND_MODE_REPLACE {
+pub(super) fn blend_pixel(dst: &mut [u8], src: &[u8], mode: BlendMode) {
+    if matches!(mode, BlendMode::Blend | BlendMode::Replace) {
         alpha_composite_pixel(dst, src);
         return;
     }
@@ -31,19 +23,19 @@ pub(super) fn blend_pixel(dst: &mut [u8], src: &[u8], mode: &str) {
     }
 }
 
-fn blend_channel(base: u8, src: u8, mode: &str) -> u8 {
+fn blend_channel(base: u8, src: u8, mode: BlendMode) -> u8 {
     match mode {
-        BLEND_MODE_ADD => base.saturating_add(src),
-        BLEND_MODE_DARKEST => base.min(src),
-        BLEND_MODE_LIGHTEST => base.max(src),
-        BLEND_MODE_DIFFERENCE => base.abs_diff(src),
-        BLEND_MODE_EXCLUSION => {
+        BlendMode::Add => base.saturating_add(src),
+        BlendMode::Darkest => base.min(src),
+        BlendMode::Lightest => base.max(src),
+        BlendMode::Difference => base.abs_diff(src),
+        BlendMode::Exclusion => {
             let base = base as u32;
             let src = src as u32;
             (base + src - (2 * base * src + 127) / 255).min(255) as u8
         }
-        BLEND_MODE_MULTIPLY => ((base as u32 * src as u32 + 127) / 255) as u8,
-        BLEND_MODE_SCREEN => {
+        BlendMode::Multiply => ((base as u32 * src as u32 + 127) / 255) as u8,
+        BlendMode::Screen => {
             let inv = (255 - base as u32) * (255 - src as u32);
             (255 - (inv + 127) / 255) as u8
         }

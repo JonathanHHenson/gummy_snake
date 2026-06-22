@@ -113,6 +113,21 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
+        self.point_with_style(x, y, &style, matrix)
+    }
+
+    pub(crate) fn point_current_impl(&mut self, x: f64, y: f64) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.point_with_style(x, y, &style, self.current_matrix)
+    }
+
+    pub(crate) fn point_with_style(
+        &mut self,
+        x: f64,
+        y: f64,
+        style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         ensure_supported_style(&style)?;
         let color = match style.stroke.or(style.fill) {
             Some(color) => color,
@@ -137,7 +152,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             style.erasing,
-            &style.blend_mode,
+            style.blend_mode_kind,
             self.clip_masks.last().map(Vec::as_slice),
         ) else {
             return Ok(());
@@ -157,6 +172,29 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
+        self.line_with_style(x1, y1, x2, y2, &style, matrix)
+    }
+
+    pub(crate) fn line_current_impl(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.line_with_style(x1, y1, x2, y2, &style, self.current_matrix)
+    }
+
+    pub(crate) fn line_with_style(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         ensure_supported_style(&style)?;
         let stroke = match style.stroke {
             Some(color) => color,
@@ -177,7 +215,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             style.erasing,
-            &style.blend_mode,
+            style.blend_mode_kind,
             self.clip_masks.last().map(Vec::as_slice),
         ) else {
             return Ok(());
@@ -194,6 +232,23 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
+        self.batch_lines_with_style(lines, &style, matrix)
+    }
+
+    pub(crate) fn batch_lines_current_impl(
+        &mut self,
+        lines: Vec<(f64, f64, f64, f64)>,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.batch_lines_with_style(lines, &style, self.current_matrix)
+    }
+
+    pub(crate) fn batch_lines_with_style(
+        &mut self,
+        lines: Vec<(f64, f64, f64, f64)>,
+        style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         ensure_supported_style(&style)?;
         let Some(stroke) = style.stroke else {
             return Ok(());
@@ -215,7 +270,7 @@ impl Canvas {
                 &mut self.pixels,
                 &mut self.present_pixels,
                 style.erasing,
-                &style.blend_mode,
+                style.blend_mode_kind,
                 self.clip_masks.last().map(Vec::as_slice),
             ) else {
                 continue;
@@ -234,6 +289,25 @@ impl Canvas {
         close: bool,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
+        self.polygon_with_style(points, &style, matrix, close)
+    }
+
+    pub(crate) fn polygon_current_impl(
+        &mut self,
+        points: Vec<(f64, f64)>,
+        close: bool,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.polygon_with_style(points, &style, self.current_matrix, close)
+    }
+
+    pub(crate) fn polygon_with_style(
+        &mut self,
+        points: Vec<(f64, f64)>,
+        style: &Style,
+        matrix: Matrix,
+        close: bool,
+    ) -> PyResult<()> {
         ensure_supported_style(&style)?;
         if points.is_empty() {
             return Ok(());
@@ -254,6 +328,27 @@ impl Canvas {
         close: bool,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
+        self.complex_polygon_with_style(outer, contours, &style, matrix, close)
+    }
+
+    pub(crate) fn complex_polygon_current_impl(
+        &mut self,
+        outer: Vec<(f64, f64)>,
+        contours: Vec<Vec<(f64, f64)>>,
+        close: bool,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.complex_polygon_with_style(outer, contours, &style, self.current_matrix, close)
+    }
+
+    pub(crate) fn complex_polygon_with_style(
+        &mut self,
+        outer: Vec<(f64, f64)>,
+        contours: Vec<Vec<(f64, f64)>>,
+        style: &Style,
+        matrix: Matrix,
+        close: bool,
+    ) -> PyResult<()> {
         ensure_supported_style(&style)?;
         if outer.is_empty() {
             return Ok(());
@@ -313,7 +408,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             style.erasing,
-            &style.blend_mode,
+            style.blend_mode_kind,
             self.clip_masks.last().map(Vec::as_slice),
         ) else {
             return Ok(());
@@ -419,6 +514,29 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
+        self.rect_with_style(x, y, width, height, &style, matrix)
+    }
+
+    pub(crate) fn rect_current_impl(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.rect_with_style(x, y, width, height, &style, self.current_matrix)
+    }
+
+    pub(crate) fn rect_with_style(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         ensure_supported_style(&style)?;
         let (a, b, c, d, e, f) = matrix;
         if b.abs() <= f64::EPSILON && c.abs() <= f64::EPSILON {
@@ -480,7 +598,7 @@ impl Canvas {
                     &mut self.pixels,
                     &mut self.present_pixels,
                     style.erasing,
-                    &style.blend_mode,
+                    style.blend_mode_kind,
                     self.clip_masks.last().map(Vec::as_slice),
                 ) else {
                     return Ok(());
@@ -519,6 +637,33 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
+        self.triangle_with_style(x1, y1, x2, y2, x3, y3, &style, matrix)
+    }
+
+    pub(crate) fn triangle_current_impl(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.triangle_with_style(x1, y1, x2, y2, x3, y3, &style, self.current_matrix)
+    }
+
+    pub(crate) fn triangle_with_style(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         ensure_supported_style(&style)?;
         let points = [
             self.transform_point(matrix, x1, y1),
@@ -542,6 +687,37 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
+        self.quad_with_style(x1, y1, x2, y2, x3, y3, x4, y4, &style, matrix)
+    }
+
+    pub(crate) fn quad_current_impl(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.quad_with_style(x1, y1, x2, y2, x3, y3, x4, y4, &style, self.current_matrix)
+    }
+
+    pub(crate) fn quad_with_style(
+        &mut self,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+        style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         ensure_supported_style(&style)?;
         let points = [
             self.transform_point(matrix, x1, y1),
@@ -550,6 +726,70 @@ impl Canvas {
             self.transform_point(matrix, x4, y4),
         ];
         self.draw_transformed_polygon(&points, &style, true)
+    }
+
+    pub(crate) fn shaded_faces_impl(&mut self, faces: &Bound<'_, PyAny>) -> PyResult<()> {
+        let sequence = faces.downcast::<PyList>()?;
+        let mut vertices = Vec::new();
+        for item in sequence.iter() {
+            let dict = item.downcast::<PyDict>()?;
+            if dict.get_item("texture")?.is_some_and(|value| !value.is_none()) {
+                continue;
+            }
+            let points = dict
+                .get_item("points")?
+                .ok_or_else(|| PyValueError::new_err("face payload is missing points."))?
+                .extract::<Vec<(f64, f64)>>()?;
+            if points.len() < 3 {
+                continue;
+            }
+            let color = dict
+                .get_item("color")?
+                .ok_or_else(|| PyValueError::new_err("face payload is missing color."))?
+                .extract::<(f64, f64, f64, f64)>()?;
+            let color = Rgba {
+                r: (color.0.clamp(0.0, 1.0) * 255.0).round() as u8,
+                g: (color.1.clamp(0.0, 1.0) * 255.0).round() as u8,
+                b: (color.2.clamp(0.0, 1.0) * 255.0).round() as u8,
+                a: (color.3.clamp(0.0, 1.0) * 255.0).round() as u8,
+            };
+            let first = scale_point(points[0], self.pixel_density);
+            for index in 1..points.len() - 1 {
+                push_triangle(
+                    &mut vertices,
+                    first,
+                    scale_point(points[index], self.pixel_density),
+                    scale_point(points[index + 1], self.pixel_density),
+                    color,
+                );
+            }
+        }
+        if vertices.is_empty() {
+            return Ok(());
+        }
+        if self.gpu.is_some() && !self.cpu_compositing_active {
+            self.draw_gpu_triangles(vertices)?;
+            return Ok(());
+        }
+        let style = Style {
+            fill: Some(Rgba {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            }),
+            stroke: None,
+            ..Style::default()
+        };
+        for triangle in vertices.chunks_exact(3) {
+            let points = [
+                (triangle[0].0[0] as f64, triangle[0].0[1] as f64),
+                (triangle[1].0[0] as f64, triangle[1].0[1] as f64),
+                (triangle[2].0[0] as f64, triangle[2].0[1] as f64),
+            ];
+            self.draw_transformed_polygon(&points, &style, true)?;
+        }
+        Ok(())
     }
 }
 
@@ -636,4 +876,8 @@ fn draw_axis_aligned_rect_overlay(
             }
         }
     }
+}
+
+fn scale_point(point: Point, scale: f64) -> Point {
+    (point.0 * scale, point.1 * scale)
 }

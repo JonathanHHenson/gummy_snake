@@ -31,6 +31,14 @@ class CanvasRendererPrimitivesMixin:
     def point(self, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_draws")
+        current = (
+            getattr(_renderer(self)._require_canvas(), "point_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._call("point drawing", current, x, y)
+            return
         _renderer(self)._call(
             "point drawing",
             _renderer(self)._require_canvas().point,
@@ -49,6 +57,17 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        batch_lines_current = (
+            getattr(_renderer(self)._require_canvas(), "batch_lines_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(batch_lines_current):
+            if _renderer(self)._line_batch and not _renderer(self)._line_batch_current:
+                _renderer(self)._flush_line_batch()
+            _renderer(self)._line_batch.append((x1, y1, x2, y2))
+            _renderer(self)._line_batch_current = True
+            return
         style_payload = _renderer(self)._style_payload(style)
         matrix_payload = _renderer(self)._matrix_payload(transform)
         if _renderer(self)._line_batch and (
@@ -70,6 +89,14 @@ class CanvasRendererPrimitivesMixin:
     ) -> None:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_draws")
+        current = (
+            getattr(_renderer(self)._require_canvas(), "polygon_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._call("polygon drawing", current, points, close)
+            return
         _renderer(self)._call(
             "polygon drawing",
             _renderer(self)._require_canvas().polygon,
@@ -90,6 +117,14 @@ class CanvasRendererPrimitivesMixin:
     ) -> None:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_draws")
+        current = (
+            getattr(_renderer(self)._require_canvas(), "complex_polygon_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._call("complex polygon drawing", current, outer, contours, close)
+            return
         _renderer(self)._call(
             "complex polygon drawing",
             _renderer(self)._require_canvas_method("complex_polygon", "contour drawing"),
@@ -107,6 +142,15 @@ class CanvasRendererPrimitivesMixin:
         transform: Matrix2D,
     ) -> None:
         _renderer(self)._flush_line_batch()
+        current = (
+            getattr(_renderer(self)._require_canvas(), "begin_clip_current", None)
+            if _renderer(self)._current_matrix_payload == _renderer(self)._matrix_payload(transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._call("clip creation", current, outer, contours)
+            _renderer(self)._clip_depth += 1
+            return
         _renderer(self)._call(
             "clip creation",
             _renderer(self)._require_canvas_method("begin_clip", "path clipping"),
@@ -138,6 +182,15 @@ class CanvasRendererPrimitivesMixin:
         transform: Matrix2D,
     ) -> None:
         _renderer(self)._flush_line_batch()
+        current = (
+            getattr(_renderer(self)._require_canvas(), "rect_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._count("gpu_draws")
+            _renderer(self)._call("rectangle drawing", current, x, y, width, height)
+            return
         callback = getattr(_renderer(self)._require_canvas(), "rect", None)
         if callable(callback):
             _renderer(self)._count("gpu_draws")
@@ -168,6 +221,15 @@ class CanvasRendererPrimitivesMixin:
         transform: Matrix2D,
     ) -> None:
         _renderer(self)._flush_line_batch()
+        current = (
+            getattr(_renderer(self)._require_canvas(), "triangle_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._count("gpu_draws")
+            _renderer(self)._call("triangle drawing", current, x1, y1, x2, y2, x3, y3)
+            return
         callback = getattr(_renderer(self)._require_canvas(), "triangle", None)
         if callable(callback):
             _renderer(self)._count("gpu_draws")
@@ -200,6 +262,17 @@ class CanvasRendererPrimitivesMixin:
         transform: Matrix2D,
     ) -> None:
         _renderer(self)._flush_line_batch()
+        current = (
+            getattr(_renderer(self)._require_canvas(), "quad_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._count("gpu_draws")
+            _renderer(self)._call(
+                "quadrilateral drawing", current, x1, y1, x2, y2, x3, y3, x4, y4
+            )
+            return
         callback = getattr(_renderer(self)._require_canvas(), "quad", None)
         if callable(callback):
             _renderer(self)._count("gpu_draws")
@@ -231,6 +304,14 @@ class CanvasRendererPrimitivesMixin:
     ) -> None:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_draws")
+        current = (
+            getattr(_renderer(self)._require_canvas(), "ellipse_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._call("ellipse drawing", current, x, y, width, height)
+            return
         _renderer(self)._call(
             "ellipse drawing",
             _renderer(self)._require_canvas().ellipse,
@@ -256,6 +337,16 @@ class CanvasRendererPrimitivesMixin:
     ) -> None:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_draws")
+        current = (
+            getattr(_renderer(self)._require_canvas(), "arc_current", None)
+            if _renderer(self)._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            _renderer(self)._call(
+                "arc drawing", current, x, y, width, height, start, stop, mode
+            )
+            return
         _renderer(self)._call(
             "arc drawing",
             _renderer(self)._require_canvas().arc,
@@ -276,9 +367,24 @@ class CanvasRendererPrimitivesMixin:
         lines = _renderer(self)._line_batch
         style = _renderer(self)._line_batch_style
         matrix = _renderer(self)._line_batch_matrix
+        current = _renderer(self)._line_batch_current
         _renderer(self)._line_batch = []
         _renderer(self)._line_batch_style = None
         _renderer(self)._line_batch_matrix = None
+        _renderer(self)._line_batch_current = False
+        if current:
+            canvas = _renderer(self)._require_canvas()
+            batch_lines_current = getattr(canvas, "batch_lines_current", None)
+            if callable(batch_lines_current):
+                _renderer(self)._count("gpu_draws", len(lines))
+                _renderer(self)._call("batched line drawing", batch_lines_current, lines)
+                return
+            for x1, y1, x2, y2 in lines:
+                line_current = getattr(canvas, "line_current", None)
+                if callable(line_current):
+                    _renderer(self)._count("gpu_draws")
+                    _renderer(self)._call("line drawing", line_current, x1, y1, x2, y2)
+            return
         if style is None or matrix is None:
             return
         canvas = _renderer(self)._require_canvas()

@@ -12,7 +12,30 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         let parsed_style = self.cached_style(style)?;
-        ensure_supported_style(&parsed_style)?;
+        self.ellipse_with_style(x, y, width, height, &parsed_style, matrix)
+    }
+
+    pub(crate) fn ellipse_current_impl(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.ellipse_with_style(x, y, width, height, &style, self.current_matrix)
+    }
+
+    fn ellipse_with_style(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        parsed_style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        ensure_supported_style(parsed_style)?;
         if let Some((cx, cy, rx, ry)) =
             self.axis_aligned_ellipse_geometry(matrix, x, y, width, height)
         {
@@ -36,7 +59,7 @@ impl Canvas {
                     cy,
                     rx,
                     ry,
-                    &parsed_style,
+                    parsed_style,
                     self.pixel_density,
                 )?;
                 return Ok(());
@@ -48,7 +71,7 @@ impl Canvas {
                 &mut self.pixels,
                 &mut self.present_pixels,
                 parsed_style.erasing,
-                &parsed_style.blend_mode,
+                parsed_style.blend_mode_kind,
                 self.clip_masks.last().map(Vec::as_slice),
             ) else {
                 return Ok(());
@@ -59,7 +82,7 @@ impl Canvas {
                 cy,
                 rx,
                 ry,
-                &parsed_style,
+                parsed_style,
                 self.pixel_density,
             );
             self.upload_cpu_pixels()?;
@@ -76,7 +99,7 @@ impl Canvas {
                 (cx + t.cos() * rx, cy + t.sin() * ry)
             })
             .collect();
-        self.polygon_impl(points, style, matrix, true)
+        self.polygon_with_style(points, parsed_style, matrix, true)
     }
 
     pub(crate) fn arc_impl(
@@ -159,7 +182,7 @@ impl Canvas {
                     &mut self.pixels,
                     &mut self.present_pixels,
                     parsed_style.erasing,
-                    &parsed_style.blend_mode,
+                    parsed_style.blend_mode_kind,
                     self.clip_masks.last().map(Vec::as_slice),
                 ) else {
                     return Ok(());

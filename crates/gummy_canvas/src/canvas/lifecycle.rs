@@ -49,6 +49,10 @@ impl Canvas {
             cpu_compositing_active: false,
             cached_style_key: None,
             cached_style: None,
+            current_style: Style::default(),
+            style_stack: Vec::new(),
+            current_matrix: (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+            matrix_stack: Vec::new(),
             performance_counters: PerformanceCounters::default(),
         })
     }

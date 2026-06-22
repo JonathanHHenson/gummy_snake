@@ -97,6 +97,79 @@ impl GpuRenderer {
     }
 
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    pub fn read_pixel_region(
+        &mut self,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+    ) -> Result<Vec<u8>, String> {
+        let width = width.max(1).min(self.texture_size.width.saturating_sub(x));
+        let height = height.max(1).min(self.texture_size.height.saturating_sub(y));
+        let bytes_per_pixel = 4usize;
+        let unpadded_bytes_per_row = width as usize * bytes_per_pixel;
+        let padded_bytes_per_row = align_to(
+            unpadded_bytes_per_row,
+            wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize,
+        );
+        let output_size = padded_bytes_per_row * height as usize;
+        let output = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("gummy_canvas region readback buffer"),
+            size: output_size as u64,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("gummy_canvas region readback encoder"),
+            });
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x, y, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &output,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(padded_bytes_per_row as u32),
+                    rows_per_image: Some(height),
+                },
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+        self.queue.submit([encoder.finish()]);
+        let slice = output.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |result| {
+            let _ = sender.send(result);
+        });
+        let _ = self.device.poll(wgpu::PollType::Wait);
+        receiver
+            .recv()
+            .map_err(|err| format!("Failed to receive GPU readback status: {err}"))?
+            .map_err(|err| format!("Failed to map GPU readback buffer: {err}"))?;
+        let mapped = slice.get_mapped_range();
+        let mut pixels = vec![0; unpadded_bytes_per_row * height as usize];
+        for row in 0..height as usize {
+            let src_start = row * padded_bytes_per_row;
+            let dst_start = row * unpadded_bytes_per_row;
+            pixels[dst_start..dst_start + unpadded_bytes_per_row]
+                .copy_from_slice(&mapped[src_start..src_start + unpadded_bytes_per_row]);
+        }
+        drop(mapped);
+        output.unmap();
+        Ok(pixels)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     fn read_pixels_after_encoding(&mut self, encode_render: bool) -> Result<Vec<u8>, String> {
         let bytes_per_pixel = 4usize;
         let unpadded_bytes_per_row = self.texture_size.width as usize * bytes_per_pixel;

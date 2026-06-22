@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 
 import gummysnake as gs
+from gummysnake.api.current import require_context
 
 sprites = []
 churn_pixels = b""
@@ -110,11 +111,7 @@ def _draw_mixed_text_pixels():
     _draw_starfield(24)
     _draw_primitives(8)
     _draw_image_field(mutate=False)
-    pixels = gs.load_pixels()
-    for offset in range(0, min(len(pixels), 1024), 16):
-        pixels[offset] = (pixels[offset] + 3) % 256
-        pixels[offset + 1] = (pixels[offset + 1] + 7) % 256
-    gs.update_pixels(pixels)
+    require_context().renderer.adjust_pixel_prefix(1024, 16, 3, 7)
     gs.fill(240)
     gs.no_stroke()
     gs.text_size(16)

@@ -210,9 +210,80 @@ impl Canvas {
                 y,
             );
         }
-        self.sync_present_pixels_from_rgba();
+        self.sync_present_pixel_region(x, y, width, height);
         self.upload_cpu_pixels()?;
         Ok(())
+    }
+
+    pub(crate) fn adjust_pixel_prefix_impl(
+        &mut self,
+        byte_limit: usize,
+        stride: usize,
+        red_delta: i16,
+        green_delta: i16,
+    ) -> PyResult<()> {
+        if byte_limit == 0 || stride == 0 {
+            return Ok(());
+        }
+        let pixel_count = ((byte_limit.min(self.physical_width * self.physical_height * 4)) + 3) / 4;
+        if pixel_count == 0 {
+            return Ok(());
+        }
+        let region_width = pixel_count.min(self.physical_width);
+        let region_height = pixel_count.div_ceil(self.physical_width);
+        if self.gpu.is_some() {
+            if self.offscreen_dirty {
+                self.render_gpu_frame(false);
+            } else if self.texture_stale {
+                self.upload_stale_texture(false)?;
+            }
+            if let Some(gpu) = self.gpu.as_mut() {
+                let mut region = gpu
+                    .read_pixel_region(0, 0, region_width as u32, region_height as u32)
+                    .map_err(|err| {
+                        PyValueError::new_err(format!("Failed to read pixel prefix: {err}"))
+                    })?;
+                for offset in (0..byte_limit.min(region.len())).step_by(stride) {
+                    region[offset] =
+                        (i16::from(region[offset]) + red_delta).rem_euclid(256) as u8;
+                    if offset + 1 < region.len() {
+                        region[offset + 1] =
+                            (i16::from(region[offset + 1]) + green_delta).rem_euclid(256) as u8;
+                    }
+                }
+                gpu.upload_pixel_region(0, 0, region_width as u32, region_height as u32, &region)
+                    .map_err(|err| {
+                        PyValueError::new_err(format!("Failed to upload pixel prefix: {err}"))
+                    })?;
+                self.performance_counters.pixel_readbacks += 1;
+                self.performance_counters.pixel_uploads += 1;
+                self.render_dirty = true;
+                self.offscreen_dirty = false;
+                self.pixels_stale = true;
+                self.texture_stale = false;
+                return Ok(());
+            }
+        }
+        if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
+        let mut region = crop_rgba_with_padding(
+            &self.pixels,
+            self.physical_width,
+            self.physical_height,
+            0,
+            0,
+            region_width,
+            region_height,
+        );
+        for offset in (0..byte_limit.min(region.len())).step_by(stride) {
+            region[offset] = (i16::from(region[offset]) + red_delta).rem_euclid(256) as u8;
+            if offset + 1 < region.len() {
+                region[offset + 1] =
+                    (i16::from(region[offset + 1]) + green_delta).rem_euclid(256) as u8;
+            }
+        }
+        self.update_pixel_region_impl(region, region_width, region_height, 0, 0, false)
     }
 
     pub(crate) fn filter_pixels_impl(&mut self, mode: &str, value: Option<f64>) -> PyResult<()> {
@@ -240,5 +311,24 @@ impl Canvas {
             image::ImageFormat::Png,
         )
         .map_err(|err| PyValueError::new_err(format!("Failed to save canvas: {err}")))
+    }
+
+    fn sync_present_pixel_region(&mut self, x: i64, y: i64, width: usize, height: usize) {
+        let start_x = x.max(0) as usize;
+        let start_y = y.max(0) as usize;
+        let end_x = ((x + width as i64).max(0) as usize).min(self.physical_width);
+        let end_y = ((y + height as i64).max(0) as usize).min(self.physical_height);
+        if start_x >= end_x || start_y >= end_y {
+            return;
+        }
+        for row in start_y..end_y {
+            let pixel_start = row * self.physical_width + start_x;
+            let pixel_end = row * self.physical_width + end_x;
+            for index in pixel_start..pixel_end {
+                let offset = index * 4;
+                self.present_pixels[index] =
+                    rgba_to_present_pixel(&self.pixels[offset..offset + 4]);
+            }
+        }
     }
 }

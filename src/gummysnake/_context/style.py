@@ -18,6 +18,9 @@ class StyleContextMixin:
 
     def _mark_style_changed(self) -> None:
         self.state.style.mark_changed()
+        sync_style = getattr(self.renderer, "set_current_style", None)
+        if callable(sync_style):
+            sync_style(self.state.style)
 
     def _color_from_args(self, args: tuple[Any, ...]) -> Color:
         return Color.from_args(

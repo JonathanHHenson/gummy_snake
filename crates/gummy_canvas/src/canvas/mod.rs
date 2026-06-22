@@ -5,4 +5,5 @@ mod lifecycle;
 mod methods;
 mod pixels;
 mod primitives;
+mod state;
 mod text;

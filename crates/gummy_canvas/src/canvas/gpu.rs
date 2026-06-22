@@ -225,17 +225,12 @@ impl Canvas {
                     }
                 }
                 crate::gpu::DrawCommand::Image {
-                    key,
-                    vertices,
-                    linear,
-                    clip_id,
+                    key: _,
+                    vertices: _,
+                    linear: _,
+                    clip_id: _,
                 } => {
-                    if *clip_id != 0 {
-                        return false;
-                    }
-                    if !self.replay_image_on_cpu(*key, vertices, *linear) {
-                        return false;
-                    }
+                    return false;
                 }
             }
         }
@@ -255,7 +250,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             erasing,
-            BLEND_MODE_BLEND,
+            BlendMode::Blend,
             None,
         ) else {
             return;
@@ -287,98 +282,13 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             false,
-            BLEND_MODE_BLEND,
+            BlendMode::Blend,
             None,
         ) else {
             return;
         };
         let color = Rgba::from_tuple((color.r, color.g, color.b, color.a));
         fill_axis_aligned_ellipse(&mut overlay, cx, cy, rx, ry, color);
-    }
-
-    fn replay_image_on_cpu(
-        &mut self,
-        key: u64,
-        vertices: &[([f32; 2], [f32; 2], crate::gpu::GpuColor); 6],
-        linear: bool,
-    ) -> bool {
-        if vertices
-            .iter()
-            .any(|(_, _, tint)| tint.r != 255 || tint.g != 255 || tint.b != 255 || tint.a != 255)
-        {
-            return false;
-        }
-        let Some(image) = self.image_cache.get(&key) else {
-            return false;
-        };
-        let u_min = vertices
-            .iter()
-            .map(|(_, uv, _)| uv[0])
-            .fold(f32::INFINITY, f32::min);
-        let u_max = vertices
-            .iter()
-            .map(|(_, uv, _)| uv[0])
-            .fold(f32::NEG_INFINITY, f32::max);
-        let v_min = vertices
-            .iter()
-            .map(|(_, uv, _)| uv[1])
-            .fold(f32::INFINITY, f32::min);
-        let v_max = vertices
-            .iter()
-            .map(|(_, uv, _)| uv[1])
-            .fold(f32::NEG_INFINITY, f32::max);
-        let sx = (u_min * image.width as f32).round().max(0.0) as usize;
-        let sy = (v_min * image.height as f32).round().max(0.0) as usize;
-        let sw = ((u_max - u_min) * image.width as f32).round().max(0.0) as usize;
-        let sh = ((v_max - v_min) * image.height as f32).round().max(0.0) as usize;
-        if sw == 0 || sh == 0 {
-            return true;
-        }
-        let p0 = vertices[0].0;
-        let p1 = vertices[1].0;
-        let p3 = vertices[5].0;
-        let image_to_canvas = (
-            (p1[0] - p0[0]) as f64 / sw as f64,
-            (p1[1] - p0[1]) as f64 / sw as f64,
-            (p3[0] - p0[0]) as f64 / sh as f64,
-            (p3[1] - p0[1]) as f64 / sh as f64,
-            p0[0] as f64,
-            p0[1] as f64,
-        );
-        let Some((dest_x, dest_y, dest_w, dest_h)) = affine_bounds(
-            image_to_canvas,
-            sw,
-            sh,
-            self.physical_width,
-            self.physical_height,
-        ) else {
-            return true;
-        };
-        let Some(canvas_to_image) = matrix_inverse(image_to_canvas) else {
-            return false;
-        };
-        let sampling = if linear { "linear" } else { "nearest" };
-        blit_affine_region(
-            &mut self.pixels,
-            &mut self.present_pixels,
-            self.physical_width,
-            &image.pixels,
-            image.width,
-            sx,
-            sy,
-            sw,
-            sh,
-            dest_x,
-            dest_y,
-            dest_w,
-            dest_h,
-            canvas_to_image,
-            false,
-            BLEND_MODE_BLEND,
-            sampling,
-            None,
-        );
-        true
     }
 
     pub(crate) fn draw_gpu_polygon(

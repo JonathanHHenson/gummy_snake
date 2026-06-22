@@ -175,6 +175,21 @@ class Canvas:
     def close(self) -> None: ...
     def background(self, rgba: tuple[int, int, int, int]) -> None: ...
     def clear(self) -> None: ...
+    def set_current_style(self, style: dict[str, Any]) -> None: ...
+    def current_style(self) -> dict[str, Any]: ...
+    def set_current_matrix(
+        self, matrix: tuple[float, float, float, float, float, float]
+    ) -> None: ...
+    def current_matrix(self) -> tuple[float, float, float, float, float, float]: ...
+    def push_canvas_state(self) -> None: ...
+    def pop_canvas_state(self) -> None: ...
+    def translate(self, x: float, y: float) -> None: ...
+    def rotate(self, angle: float) -> None: ...
+    def scale(self, x: float, y: float | None = None) -> None: ...
+    def shear_x(self, angle: float) -> None: ...
+    def shear_y(self, angle: float) -> None: ...
+    def apply_matrix(self, matrix: tuple[float, float, float, float, float, float]) -> None: ...
+    def reset_matrix(self) -> None: ...
     def point(
         self,
         x: float,
@@ -182,6 +197,7 @@ class Canvas:
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
+    def point_current(self, x: float, y: float) -> None: ...
     def line(
         self,
         x1: float,
@@ -191,18 +207,23 @@ class Canvas:
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
+    def line_current(self, x1: float, y1: float, x2: float, y2: float) -> None: ...
     def batch_lines(
         self,
         lines: list[tuple[float, float, float, float]],
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
+    def batch_lines_current(self, lines: list[tuple[float, float, float, float]]) -> None: ...
     def polygon(
         self,
         points: list[tuple[float, float]],
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
         close: bool = True,
+    ) -> None: ...
+    def polygon_current(
+        self, points: list[tuple[float, float]], close: bool = True
     ) -> None: ...
     def complex_polygon(
         self,
@@ -212,11 +233,20 @@ class Canvas:
         matrix: tuple[float, float, float, float, float, float],
         close: bool = True,
     ) -> None: ...
+    def complex_polygon_current(
+        self,
+        outer: list[tuple[float, float]],
+        contours: list[list[tuple[float, float]]],
+        close: bool = True,
+    ) -> None: ...
     def begin_clip(
         self,
         outer: list[tuple[float, float]],
         contours: list[list[tuple[float, float]]],
         matrix: tuple[float, float, float, float, float, float],
+    ) -> None: ...
+    def begin_clip_current(
+        self, outer: list[tuple[float, float]], contours: list[list[tuple[float, float]]]
     ) -> None: ...
     def end_clip(self) -> None: ...
     def rect(
@@ -228,6 +258,7 @@ class Canvas:
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
+    def rect_current(self, x: float, y: float, width: float, height: float) -> None: ...
     def triangle(
         self,
         x1: float,
@@ -238,6 +269,9 @@ class Canvas:
         y3: float,
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
+    ) -> None: ...
+    def triangle_current(
+        self, x1: float, y1: float, x2: float, y2: float, x3: float, y3: float
     ) -> None: ...
     def quad(
         self,
@@ -252,6 +286,18 @@ class Canvas:
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
+    def quad_current(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        x3: float,
+        y3: float,
+        x4: float,
+        y4: float,
+    ) -> None: ...
+    def shaded_faces(self, faces: list[dict[str, Any]]) -> None: ...
     def ellipse(
         self,
         x: float,
@@ -261,6 +307,7 @@ class Canvas:
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
+    def ellipse_current(self, x: float, y: float, width: float, height: float) -> None: ...
     def arc(
         self,
         x: float,
@@ -273,6 +320,16 @@ class Canvas:
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
+    def arc_current(
+        self,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        start: float,
+        stop: float,
+        mode: str,
+    ) -> None: ...
     def draw_image(
         self,
         image_pixels: bytes,
@@ -284,6 +341,17 @@ class Canvas:
         dh: float,
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
+        source: tuple[int, int, int, int] | None = None,
+    ) -> None: ...
+    def draw_image_current(
+        self,
+        image_pixels: bytes,
+        image_width: int,
+        image_height: int,
+        dx: float,
+        dy: float,
+        dw: float,
+        dh: float,
         source: tuple[int, int, int, int] | None = None,
     ) -> None: ...
     def draw_cached_image(
@@ -301,6 +369,19 @@ class Canvas:
         matrix: tuple[float, float, float, float, float, float],
         source: tuple[int, int, int, int] | None = None,
     ) -> None: ...
+    def draw_cached_image_current(
+        self,
+        image_key: int,
+        image_version: int,
+        image_pixels: bytes | None,
+        image_width: int,
+        image_height: int,
+        dx: float,
+        dy: float,
+        dw: float,
+        dh: float,
+        source: tuple[int, int, int, int] | None = None,
+    ) -> None: ...
     def draw_canvas_image(
         self,
         image: CanvasImage,
@@ -312,6 +393,15 @@ class Canvas:
         matrix: tuple[float, float, float, float, float, float],
         source: tuple[int, int, int, int] | None = None,
     ) -> None: ...
+    def draw_canvas_image_current(
+        self,
+        image: CanvasImage,
+        dx: float,
+        dy: float,
+        dw: float,
+        dh: float,
+        source: tuple[int, int, int, int] | None = None,
+    ) -> None: ...
     def text(
         self,
         value: str,
@@ -320,9 +410,13 @@ class Canvas:
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
+    def text_current(self, value: str, x: float, y: float) -> None: ...
     def text_width(self, value: str, style: dict[str, Any]) -> float: ...
+    def text_width_current(self, value: str) -> float: ...
     def text_ascent(self, style: dict[str, Any]) -> float: ...
+    def text_ascent_current(self) -> float: ...
     def text_descent(self, style: dict[str, Any]) -> float: ...
+    def text_descent_current(self) -> float: ...
     def blend_region(
         self,
         source_pixels: bytes | None,
@@ -345,6 +439,9 @@ class Canvas:
         x: int,
         y: int,
         alpha_composite: bool = True,
+    ) -> None: ...
+    def adjust_pixel_prefix(
+        self, byte_limit: int, stride: int, red_delta: int, green_delta: int
     ) -> None: ...
     def filter_pixels(self, mode: str, value: float | None = None) -> None: ...
     def save(self, path: str) -> None: ...

@@ -1,4 +1,4 @@
-use crate::BLEND_MODE_BLEND;
+use crate::{BlendMode, BLEND_MODE_BLEND};
 
 use crate::raster::blend::{blend_pixel, rgba_to_present_pixel};
 use crate::raster::types::Matrix;
@@ -28,6 +28,7 @@ pub(crate) fn blit_scaled_region(
     }
     let nearest = sampling == "nearest";
     let default_blend = blend_mode == BLEND_MODE_BLEND;
+    let blend_mode = BlendMode::parse(blend_mode).unwrap_or(BlendMode::Blend);
     for out_y in 0..dh {
         let local_y = if nearest {
             (out_y * sh / dh).min(sh - 1) as f64
@@ -89,6 +90,7 @@ pub(crate) fn blit_affine_region(
     }
     let nearest = sampling == "nearest";
     let default_blend = blend_mode == BLEND_MODE_BLEND;
+    let blend_mode = BlendMode::parse(blend_mode).unwrap_or(BlendMode::Blend);
     let (a, b, c, d, e, f) = canvas_to_image;
     for out_y in 0..dh {
         let canvas_y = dy + out_y;

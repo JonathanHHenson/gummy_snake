@@ -1,4 +1,4 @@
-use crate::Rgba;
+use crate::{BlendMode, Rgba};
 
 use crate::raster::blend::{blend_pixel, rgba_to_present_pixel};
 
@@ -15,7 +15,7 @@ pub(crate) struct OverlayRegion<'a> {
     pub(super) pixels: &'a mut [u8],
     pub(super) present_pixels: &'a mut [u32],
     pub(super) erasing: bool,
-    pub(super) blend_mode: &'a str,
+    pub(super) blend_mode: BlendMode,
     pub(super) clip_mask: Option<&'a [bool]>,
 }
 
@@ -26,7 +26,7 @@ impl<'a> OverlayRegion<'a> {
         pixels: &'a mut [u8],
         present_pixels: &'a mut [u32],
         erasing: bool,
-        blend_mode: &'a str,
+        blend_mode: BlendMode,
         clip_mask: Option<&'a [bool]>,
     ) -> Option<Self> {
         let (min_x, min_y, max_x, max_y) = bounds;

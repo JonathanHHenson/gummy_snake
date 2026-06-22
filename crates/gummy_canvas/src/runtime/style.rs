@@ -1,8 +1,6 @@
 use crate::runtime::RuntimeEvent;
 use crate::{
-    Rgba, Style, BLEND_MODE_ADD, BLEND_MODE_BLEND, BLEND_MODE_DARKEST, BLEND_MODE_DIFFERENCE,
-    BLEND_MODE_EXCLUSION, BLEND_MODE_LIGHTEST, BLEND_MODE_MULTIPLY, BLEND_MODE_REPLACE,
-    BLEND_MODE_SCREEN, INTERACTIVE_MODE, SUPPORTED_MODE, SUPPORTED_RENDERER,
+    BlendMode, Rgba, Style, INTERACTIVE_MODE, SUPPORTED_MODE, SUPPORTED_RENDERER,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -133,6 +131,7 @@ pub(crate) fn parse_style(style: &Bound<'_, PyAny>) -> PyResult<Style> {
         .get_item("blend_mode")?
         .ok_or_else(|| PyValueError::new_err("Style payload missing 'blend_mode'."))?
         .extract::<String>()?;
+    let blend_mode_kind = parse_blend_mode(&blend_mode)?;
     let erasing = dict
         .get_item("erasing")?
         .ok_or_else(|| PyValueError::new_err("Style payload missing 'erasing'."))?
@@ -177,6 +176,7 @@ pub(crate) fn parse_style(style: &Bound<'_, PyAny>) -> PyResult<Style> {
         stroke_weight,
         image_tint,
         blend_mode,
+        blend_mode_kind,
         erasing,
         image_sampling,
         text_font_path,
@@ -220,26 +220,13 @@ pub(crate) fn ensure_supported_style(style: &Style) -> PyResult<()> {
 }
 
 pub(crate) fn ensure_supported_blend_mode(mode: &str) -> PyResult<()> {
-    if is_supported_blend_mode(mode) {
-        Ok(())
-    } else {
-        Err(PyValueError::new_err(format!(
-            "Unsupported blend mode {mode:?} for gummy_canvas."
-        )))
-    }
+    parse_blend_mode(mode).map(|_| ())
 }
 
-pub(crate) fn is_supported_blend_mode(mode: &str) -> bool {
-    matches!(
-        mode,
-        BLEND_MODE_BLEND
-            | BLEND_MODE_REPLACE
-            | BLEND_MODE_ADD
-            | BLEND_MODE_DARKEST
-            | BLEND_MODE_LIGHTEST
-            | BLEND_MODE_DIFFERENCE
-            | BLEND_MODE_EXCLUSION
-            | BLEND_MODE_MULTIPLY
-            | BLEND_MODE_SCREEN
-    )
+pub(crate) fn parse_blend_mode(mode: &str) -> PyResult<BlendMode> {
+    BlendMode::parse(mode).ok_or_else(|| {
+        PyValueError::new_err(format!(
+            "Unsupported blend mode {mode:?} for gummy_canvas."
+        ))
+    })
 }

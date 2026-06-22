@@ -216,6 +216,43 @@ impl GpuRenderer {
         Ok(())
     }
 
+    pub fn upload_pixel_region(
+        &mut self,
+        x: u32,
+        y: u32,
+        width: u32,
+        height: u32,
+        pixels: &[u8],
+    ) -> Result<(), String> {
+        let expected = width as usize * height as usize * 4;
+        if pixels.len() != expected {
+            return Err(format!(
+                "Pixel region buffer length must be {expected}, got {}.",
+                pixels.len()
+            ));
+        }
+        self.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x, y, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+            pixels,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(width * 4),
+                rows_per_image: Some(height),
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+        Ok(())
+    }
+
     pub(super) fn write_viewport(&self, width: u32, height: u32) {
         let viewport = ViewportUniform {
             size: [width.max(1) as f32, height.max(1) as f32],

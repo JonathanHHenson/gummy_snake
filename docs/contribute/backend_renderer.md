@@ -63,8 +63,7 @@ It is responsible for:
 - tracking logical canvas dimensions
 - tracking physical backing-buffer dimensions
 - tracking pixel density
-- converting `Color`, style, transform, image, text, and path data into bridge
-  payloads
+- synchronizing Python facade style/transform changes into the Rust canvas state
 - forwarding primitive drawing to the Rust canvas runtime
 - reading and updating physical RGBA pixel buffers
 - exporting the canvas
@@ -75,6 +74,17 @@ the sketch lifecycle. The Rust renderer may batch and reorder internally only
 where observable draw order is preserved. Mixed primitive and image/text GPU
 commands must flush batches and restore the correct pipeline/bind groups when
 switching command families.
+
+The current canvas drawing boundary is stateful. `SketchContext` still validates
+Gummy Snake semantics and keeps Python-facing mirrors for public readbacks,
+argument normalization, and features such as `rect_mode()`. `gummy_canvas`
+owns the mutable renderer state used to construct draw commands: current style,
+current transform matrix, push/pop drawing state, image/text draw state, and
+batching state. New drawing operations should prefer Rust `*_current` methods
+that consume the Rust-owned current style and matrix instead of rebuilding a
+full Python style/matrix payload per command. Legacy payload-style methods may
+remain as compatibility shims for tests and staged migrations, but they should
+not become the primary path for new renderer work.
 
 ## gummysnake.rust.canvas
 
@@ -100,7 +110,7 @@ Use these examples when deciding where code belongs:
 | --- | --- |
 | Add a new public drawing function | topic module under `src/gummysnake/api/global_mode/`, `src/gummysnake/__init__.py`, `SketchContext` or a `src/gummysnake/_context/` mixin, and maybe `CanvasRenderer`/Rust |
 | Change how `rect_mode(CENTER)` computes coordinates | `SketchContext` or geometry helpers |
-| Add a new Rust primitive call payload | `src/gummysnake/backend/_canvas/renderer/primitives.py` and `crates/gummy_canvas` |
+| Add a new Rust primitive call | `src/gummysnake/backend/_canvas/renderer/primitives.py` and `crates/gummy_canvas`, preferably as a stateful `*_current` operation |
 | Improve missing runtime or ABI error text | `gummysnake.rust.canvas` |
 | Poll a new native input event | `src/gummysnake/backend/_canvas/backend/events.py` and Rust SDL3 event support |
 | Add a new pixel export format | `src/gummysnake/backend/_canvas/renderer/pixels.py` and `crates/gummy_canvas` |
@@ -116,12 +126,15 @@ sequenceDiagram
     participant R as CanvasRenderer
     participant X as gummy_canvas
 
-    C->>S: read style, transform, color mode
+    C->>S: read facade state and color mode
     C->>C: validate and normalize arguments
-    C->>R: draw primitive with normalized payload
-    R->>X: call Rust canvas API
+    C->>R: sync style/transform mutations as they happen
+    C->>R: draw primitive with normalized geometry
+    R->>X: call stateful Rust canvas API
+    X->>X: construct command from current style/transform
     X-->>R: success or renderer error
 ```
 
-The context owns Gummy Snake behavior. The renderer owns translation. Rust owns actual
+The context owns Gummy Snake behavior. The renderer owns the Python adapter
+boundary. Rust owns drawing state, command construction, batching, and actual
 rendering.

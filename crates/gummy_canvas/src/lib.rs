@@ -69,6 +69,36 @@ const TEXT_CACHE_LIMIT: usize = 512;
 const CANVAS_ABI_VERSION: u32 = 7;
 static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BlendMode {
+    Blend,
+    Add,
+    Darkest,
+    Lightest,
+    Difference,
+    Exclusion,
+    Multiply,
+    Replace,
+    Screen,
+}
+
+impl BlendMode {
+    fn parse(mode: &str) -> Option<Self> {
+        match mode {
+            BLEND_MODE_BLEND => Some(Self::Blend),
+            BLEND_MODE_ADD => Some(Self::Add),
+            BLEND_MODE_DARKEST => Some(Self::Darkest),
+            BLEND_MODE_LIGHTEST => Some(Self::Lightest),
+            BLEND_MODE_DIFFERENCE => Some(Self::Difference),
+            BLEND_MODE_EXCLUSION => Some(Self::Exclusion),
+            BLEND_MODE_MULTIPLY => Some(Self::Multiply),
+            BLEND_MODE_REPLACE => Some(Self::Replace),
+            BLEND_MODE_SCREEN => Some(Self::Screen),
+            _ => None,
+        }
+    }
+}
+
 #[pyclass(name = "Matrix2D", frozen, unsendable)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Matrix2D {
@@ -84,6 +114,12 @@ struct Matrix2D {
     e: f64,
     #[pyo3(get)]
     f: f64,
+}
+
+impl Default for Matrix2D {
+    fn default() -> Self {
+        Self::new(1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+    }
 }
 
 #[pymethods]
@@ -201,6 +237,7 @@ struct Style {
     stroke_weight: f64,
     image_tint: Option<Rgba>,
     blend_mode: String,
+    blend_mode_kind: BlendMode,
     erasing: bool,
     image_sampling: String,
     text_font_path: Option<String>,
@@ -209,6 +246,37 @@ struct Style {
     text_align_x: String,
     text_align_y: String,
     text_leading: f64,
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Self {
+            fill: Some(Rgba {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            }),
+            stroke: Some(Rgba {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 255,
+            }),
+            stroke_weight: 1.0,
+            image_tint: None,
+            blend_mode: BLEND_MODE_BLEND.to_string(),
+            blend_mode_kind: BlendMode::Blend,
+            erasing: false,
+            image_sampling: "linear".to_string(),
+            text_font_path: None,
+            text_font_name: "default".to_string(),
+            text_size: 12.0,
+            text_align_x: "left".to_string(),
+            text_align_y: "baseline".to_string(),
+            text_leading: 14.0,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -567,6 +635,10 @@ struct Canvas {
     cpu_compositing_active: bool,
     cached_style_key: Option<usize>,
     cached_style: Option<Style>,
+    current_style: Style,
+    style_stack: Vec<Style>,
+    current_matrix: Matrix,
+    matrix_stack: Vec<Matrix>,
     performance_counters: PerformanceCounters,
 }
 

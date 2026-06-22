@@ -161,6 +161,30 @@ class CanvasRendererPixelsMixin:
             alpha_composite,
         )
 
+    def adjust_pixel_prefix(
+        self,
+        byte_limit: int,
+        stride: int,
+        red_delta: int,
+        green_delta: int,
+    ) -> None:
+        _renderer(self)._flush_line_batch()
+        callback = getattr(_renderer(self)._require_canvas(), "adjust_pixel_prefix", None)
+        if not callable(callback):
+            raise ArgumentValidationError(
+                "The installed canvas runtime cannot adjust pixel prefixes."
+            )
+        _renderer(self)._count("pixel_readbacks")
+        _renderer(self)._count("pixel_uploads")
+        _renderer(self)._call(
+            "pixel prefix adjustment",
+            callback,
+            int(byte_limit),
+            int(stride),
+            int(red_delta),
+            int(green_delta),
+        )
+
     def filter_pixels(self, mode: c.ImageFilter, value: float | None = None) -> None:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("cpu_fallbacks")
