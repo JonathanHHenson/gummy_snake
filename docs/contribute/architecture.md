@@ -25,7 +25,7 @@ flowchart TD
         Canvas[gummy_canvas canvas and backing surface]
         State[renderer state<br/>style / transform / draw state]
         Commands[draw commands<br/>construction / batching]
-        Rendering[render paths<br/>GPU / raster / export]
+        Rendering[render paths<br/>GPU 2D / GPU 3D / raster / export]
         Assets[image/model/sound assets]
     end
 
@@ -94,8 +94,11 @@ Rust owns:
 - image asset loading, saving, and image-local byte processing
 - OBJ model parsing, primitive model generation, direct projection/export, and
   Rust-owned 3D model/mesh asset data
-- software-3D projection/shading/rasterization and direct GPU triangle
-  submission for untextured shaded faces when available
+- GPU-ready model triangle packing, retained model vertex/index buffers,
+  built-in 3D material/texture pipelines, GPU transform/projection, and GPU
+  depth testing when GPU drawing is available
+- fallback software-3D projection/shading/rasterization for unsupported or
+  CPU-only paths
 - direct finalization of Rust-captured shape buffers into draw and clip commands
 - buffer-protocol pixel uploads and dirty row-aligned pixel region updates
 - sound asset bytes and metadata

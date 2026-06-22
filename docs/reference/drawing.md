@@ -148,10 +148,13 @@ mutate the source `Image`; bulk RGBA work stays inside the Rust canvas runtime.
 - `load_model(path, normalize=False)`
 - `model(shape)`
 
-Current WEBGL support is a deterministic Rust-backed software 3D path. It is
-useful for small sketches, tests, examples, model loading, materials, lights,
-texture coordinates, and Python API coverage, but it is not yet native
-accelerated 3D rendering. Rust owns model handles, projection, shading, face
-sorting, and rasterization; untextured shaded faces may use the GPU primitive
-path when available. Backend capabilities distinguish `software_three_d` from
-`native_three_d`; the canvas backend currently reports software 3D support.
+Current WEBGL support is a deterministic Rust-backed 3D path. It is useful for
+small sketches, tests, examples, model loading, materials, lights, texture
+coordinates, and Python API coverage. Rust owns model handles, primitive model
+generation, built-in material/texture rendering, and fallback software
+rasterization. When GPU drawing is available, unstroked built-in primitive and
+loaded-model draws use retained GPU vertex/index buffers plus GPU
+transform/projection/depth testing/shading. Backend capabilities still
+distinguish `software_three_d`, built-in GPU acceleration, and future
+`native_shaders`; the canvas backend does not expose user-programmable native
+shader execution yet.

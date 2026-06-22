@@ -149,15 +149,19 @@ Gummy Snake separates logical and physical size:
 - `pixel_density()` controls physical backing scale.
 - `load_pixels()` and `update_pixels()` operate on physical top-left RGBA
   buffers.
-- Projected software-3D points are logical canvas coordinates until the canvas
-  runtime submits or rasterizes them. Direct GPU submission must multiply those
-  points by `pixel_density()` before building physical vertices.
+- Built-in WEBGL model draws should avoid projected face payloads on the GPU
+  path. The canvas runtime retains model buffers and uses GPU
+  transform/projection/depth/material pipelines when available.
+- Fallback software-3D projected points are logical canvas coordinates until
+  the canvas runtime submits or rasterizes them. Any direct GPU primitive
+  fallback must multiply those points by `pixel_density()` before building
+  physical vertices.
 
 Do not collapse logical and physical dimensions when touching renderer, export,
-pixels, image, input coordinate code, or software-3D GPU submission. SDL3 resize
-events report logical window size plus display scale; after a native resize,
-keep Rust `SketchContextState`, renderer dimensions, physical backing size,
-export size, and input coordinates in sync.
+pixels, image, input coordinate code, GPU model drawing, or software-3D GPU
+fallback submission. SDL3 resize events report logical window size plus display
+scale; after a native resize, keep Rust `SketchContextState`, renderer
+dimensions, physical backing size, export size, and input coordinates in sync.
 
 ## Asset, Image, And Pixel Ownership
 
@@ -198,12 +202,14 @@ code inspects geometry. `Mesh3D` retains a Rust-owned `CanvasMesh3D` handle as
 canonical storage; immutable tuple buffers are lazy inspection/interchange views,
 not a runtime fallback. Optional NumPy vertex, normal, texture-coordinate, and
 packed face-index arrays are also lazy inspection/interchange views over that
-storage. Hot paths such as OBJ/STL export and software-3D projection should use
-Rust handles directly instead of forcing repeated Python `Vec3` loops.
-Software-3D projection and shading return logical screen-space faces. Untextured
-faces can be submitted directly as Rust/GPU triangles when GPU drawing is
-available, while textured faces use the Rust raster image path so texture
-sampling remains deterministic.
+storage. Hot paths such as OBJ/STL export and WEBGL drawing should use Rust
+handles directly instead of forcing repeated Python `Vec3` loops. Built-in
+WEBGL model draws pack GPU-ready triangle data on Rust model handles and retain
+GPU vertex/index buffers after first use. Per-frame draws should update small
+transform/camera/material/light uniforms; transform, projection, depth testing,
+texture sampling, and built-in material shading belong in GPU pipelines when
+GPU drawing is available. Fallback software projection/shading/rasterization is
+reserved for unsupported or CPU-only paths.
 
 `load_sound()` keeps sound bytes and metadata in a Rust-owned `CanvasSound`
 handle attached to the public `Sound` wrapper. Python still owns the friendly
@@ -273,23 +279,26 @@ smoke test for that ordering.
 
 ## WEBGL Runtime Status
 
-`create_canvas(..., WEBGL)` currently uses Rust-backed software projection,
-lighting, sorting, OBJ parsing, and software rasterization presented through the
-2D canvas runtime. Untextured shaded faces may be submitted directly to the
-existing GPU primitive path after projection, but the mode is still not native
-accelerated 3D and does not have a native depth buffer across separate model
-draw calls. Backend capabilities therefore distinguish:
+`create_canvas(..., WEBGL)` uses Rust-owned model/mesh handles and the canvas
+runtime for OBJ parsing, primitive model generation, export, built-in material
+state, and fallback software rasterization. When GPU drawing is available,
+unstroked built-in primitive and loaded-model draws use retained GPU model
+buffers plus GPU transform/projection, depth testing, texture sampling, and
+built-in material shaders. Backend capabilities therefore distinguish:
 
 - `three_d`: WEBGL mode is accepted.
-- `software_three_d`: the Rust-backed software 3D path is available.
-- `native_three_d`: the native runtime owns 3D geometry and depth rendering.
+- `software_three_d`: WEBGL compatibility and fallback software 3D paths are
+  available.
+- `native_three_d`: the native runtime owns a broader native 3D feature set
+  beyond the current built-in model pipelines.
 - `shaders`: shader-style Python API objects are accepted.
 - `native_shaders`: user shader programs are handled by the native renderer.
 
 The canvas backend currently reports `three_d=True`, `software_three_d=True`,
-`native_three_d=False`, `shaders=True`, and `native_shaders=False`. See
-[`native_3d_plan.md`](native_3d_plan.md) before adding a native accelerated 3D
-renderer, GPU depth-buffer ownership, or native shader execution.
+`native_three_d=False`, `shaders=True`, and `native_shaders=False`. Built-in
+GPU model pipelines do not imply user-programmable native shader execution. See
+[`native_3d_plan.md`](native_3d_plan.md) before broadening native 3D capability
+flags or adding native user shader execution.
 
 ## Canvas Creation And Synchronization
 
@@ -321,12 +330,12 @@ can disagree.
 - Unsupported renderer names should raise `ArgumentValidationError`.
 - Requesting `WEBGL` on a backend without 3D support should raise
   `BackendCapabilityError`.
-- Native 3D and native shader support should not be implied by software WEBGL
-  capability flags.
+- Built-in GPU model pipelines should not imply `native_shaders` or broad
+  native 3D feature support.
 - Pixel operations should report capability problems explicitly instead of
   failing with unrelated buffer errors.
 - SDL3 logical input coordinates should not be density-scaled twice.
-- Software-3D projected points should not be submitted to GPU primitives without
-  physical pixel-density scaling.
+- Fallback software-3D projected points should not be submitted to GPU
+  primitives without physical pixel-density scaling.
 - Mixed text/image and primitive GPU commands should preserve draw order and
   pipeline state, including primitives drawn after text.

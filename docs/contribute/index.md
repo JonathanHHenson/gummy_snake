@@ -35,7 +35,7 @@ flowchart TD
         ContextState[SketchContextState]
         DrawState[style / transform / draw state]
         Commands[draw commands and batching]
-        Rendering[GPU, raster, export, assets, SDL3]
+        Rendering[GPU 2D / GPU 3D, raster, export, assets, SDL3]
     end
 
     User --> Sketch
@@ -70,9 +70,10 @@ anything in `src/gummysnake/backend/`, `src/gummysnake/backend/_canvas/`,
 from putting a behavior in the wrong layer.
 
 Read [Runtime model](runtime.md) before touching lifecycle, frame scheduling,
-interactive mode, headless mode, input dispatch, HiDPI behavior, or current
-software WEBGL behavior. Read [Native 3D renderer plan](native_3d_plan.md)
-before moving WEBGL drawing into `gummy_canvas`.
+interactive mode, headless mode, input dispatch, HiDPI behavior, or WEBGL
+behavior. Read [Native 3D renderer plan](native_3d_plan.md) before broadening
+native 3D capability flags, adding new 3D GPU resource classes, or enabling
+native user shader execution.
 
 Read [Runtime diagnostics](runtime_diagnostics.md) when changing renderer
 counters, fallback boundaries, benchmark scenes, or interactive frame pacing.

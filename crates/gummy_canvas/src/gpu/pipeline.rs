@@ -1,7 +1,8 @@
 use crate::gpu::shaders::{
-    BLEND_ELLIPSE_SHADER, IMAGE_SHADER, PIXEL_PREFIX_SHADER, TEXTURE_SHADER, TRIANGLE_SHADER,
+    BLEND_ELLIPSE_SHADER, IMAGE_SHADER, MODEL_SHADER, PIXEL_PREFIX_SHADER, TEXTURED_MODEL_SHADER,
+    TEXTURE_SHADER, TRIANGLE_SHADER,
 };
-use crate::gpu::types::{GpuColor, ImageVertex, Vertex};
+use crate::gpu::types::{GpuColor, ImageVertex, ModelVertex, Vertex};
 use crate::BlendMode;
 
 pub(super) fn to_wgpu_color(color: GpuColor) -> wgpu::Color {
@@ -21,6 +22,22 @@ pub(super) fn viewport_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGro
             visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
             ty: wgpu::BindingType::Buffer {
                 ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }],
+    })
+}
+
+pub(super) fn model_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("gummy_canvas model bind group layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: true },
                 has_dynamic_offset: false,
                 min_binding_size: None,
             },
@@ -231,7 +248,13 @@ fn create_primitive_pipeline(
             unclipped_depth: false,
             conservative: false,
         },
-        depth_stencil: None,
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth24Plus,
+            depth_write_enabled: false,
+            depth_compare: wgpu::CompareFunction::Always,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
         multisample: wgpu::MultisampleState::default(),
         multiview: None,
         cache: None,
@@ -370,7 +393,127 @@ fn create_image_pipeline_inner(
             unclipped_depth: false,
             conservative: false,
         },
-        depth_stencil: None,
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth24Plus,
+            depth_write_enabled: false,
+            depth_compare: wgpu::CompareFunction::Always,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
+}
+
+pub(super) fn create_model_pipeline(
+    device: &wgpu::Device,
+    model_bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    create_model_pipeline_inner(
+        device,
+        model_bind_group_layout,
+        &[],
+        format,
+        MODEL_SHADER,
+        "gummy_canvas model shader",
+        "gummy_canvas model pipeline",
+    )
+}
+
+pub(super) fn create_textured_model_pipeline(
+    device: &wgpu::Device,
+    model_bind_group_layout: &wgpu::BindGroupLayout,
+    image_bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    create_model_pipeline_inner(
+        device,
+        model_bind_group_layout,
+        &[image_bind_group_layout],
+        format,
+        TEXTURED_MODEL_SHADER,
+        "gummy_canvas textured model shader",
+        "gummy_canvas textured model pipeline",
+    )
+}
+
+fn create_model_pipeline_inner(
+    device: &wgpu::Device,
+    model_bind_group_layout: &wgpu::BindGroupLayout,
+    additional_bind_group_layouts: &[&wgpu::BindGroupLayout],
+    format: wgpu::TextureFormat,
+    shader_source: &str,
+    shader_label: &'static str,
+    pipeline_label: &'static str,
+) -> wgpu::RenderPipeline {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some(shader_label),
+        source: wgpu::ShaderSource::Wgsl(shader_source.into()),
+    });
+    let mut bind_group_layouts = vec![model_bind_group_layout];
+    bind_group_layouts.extend_from_slice(additional_bind_group_layouts);
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("gummy_canvas model pipeline layout"),
+        bind_group_layouts: &bind_group_layouts,
+        push_constant_ranges: &[],
+    });
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some(pipeline_label),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<ModelVertex>() as u64,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &[
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x3,
+                        offset: 0,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x3,
+                        offset: std::mem::size_of::<[f32; 3]>() as u64,
+                        shader_location: 1,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x2,
+                        offset: (std::mem::size_of::<[f32; 3]>() * 2) as u64,
+                        shader_location: 2,
+                    },
+                ],
+            }],
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: Some(wgpu::Face::Back),
+            polygon_mode: wgpu::PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: false,
+        },
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth24Plus,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
         multisample: wgpu::MultisampleState::default(),
         multiview: None,
         cache: None,

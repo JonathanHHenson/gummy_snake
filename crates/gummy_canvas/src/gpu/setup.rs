@@ -4,9 +4,10 @@ use std::sync::Arc;
 use pollster::block_on;
 
 use crate::gpu::pipeline::{
-    clip_bind_group_layout, create_erase_pipeline, create_image_pipeline,
-    create_blend_ellipse_pipeline, create_image_pipeline_for_blend_mode, create_pipeline,
-    create_pipeline_for_blend_mode, create_pixel_prefix_pipeline, pixel_prefix_bind_group_layout,
+    clip_bind_group_layout, create_blend_ellipse_pipeline, create_erase_pipeline,
+    create_image_pipeline, create_image_pipeline_for_blend_mode, create_model_pipeline,
+    create_pipeline, create_pipeline_for_blend_mode, create_pixel_prefix_pipeline,
+    create_textured_model_pipeline, model_bind_group_layout, pixel_prefix_bind_group_layout,
     texture_bind_group_layout, viewport_bind_group_layout,
 };
 use crate::gpu::types::*;
@@ -50,6 +51,19 @@ fn create_offscreen_texture(device: &wgpu::Device, size: wgpu::Extent3d) -> wgpu
             | wgpu::TextureUsages::TEXTURE_BINDING
             | wgpu::TextureUsages::COPY_SRC
             | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    })
+}
+
+fn create_depth_texture(device: &wgpu::Device, size: wgpu::Extent3d) -> wgpu::Texture {
+    device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("gummy_canvas 3D depth texture"),
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth24Plus,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         view_formats: &[],
     })
 }
@@ -164,6 +178,30 @@ fn create_clip_bind_group(
     })
 }
 
+fn create_model_uniform_buffer(device: &wgpu::Device, capacity: usize) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("gummy_canvas model uniforms"),
+        size: (capacity.max(1) * std::mem::size_of::<ModelUniform>()) as u64,
+        usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
+fn create_model_uniform_bind_group(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    buffer: &wgpu::Buffer,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("gummy_canvas model uniform bind group"),
+        layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: buffer.as_entire_binding(),
+        }],
+    })
+}
+
 impl GpuRenderer {
     pub fn new(width: usize, height: usize) -> Result<Self, String> {
         let instance = wgpu::Instance::default();
@@ -194,6 +232,7 @@ impl GpuRenderer {
         let present_texture_bind_group_layout = texture_bind_group_layout(&device);
         let image_bind_group_layout = texture_bind_group_layout(&device);
         let clip_bind_group_layout = clip_bind_group_layout(&device);
+        let model_bind_group_layout = model_bind_group_layout(&device);
         let texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("gummy_canvas nearest texture sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -218,8 +257,12 @@ impl GpuRenderer {
         let text_swash_cache = glyphon::SwashCache::new();
         let text_cache = glyphon::Cache::new(&device);
         let text_viewport = glyphon::Viewport::new(&device, &text_cache);
-        let mut text_atlas =
-            glyphon::TextAtlas::new(&device, &queue, &text_cache, wgpu::TextureFormat::Rgba8Unorm);
+        let mut text_atlas = glyphon::TextAtlas::new(
+            &device,
+            &queue,
+            &text_cache,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
         let text_renderer = glyphon::TextRenderer::new(
             &mut text_atlas,
             &device,
@@ -240,25 +283,21 @@ impl GpuRenderer {
             &clip_bind_group_layout,
             wgpu::TextureFormat::Rgba8Unorm,
         );
-        let primitive_pipelines = [
-            BlendMode::Blend,
-            BlendMode::Add,
-            BlendMode::Replace,
-        ]
-        .into_iter()
-        .map(|mode| {
-            (
-                mode,
-                create_pipeline_for_blend_mode(
-                    &device,
-                    &bind_group_layout,
-                    &clip_bind_group_layout,
-                    wgpu::TextureFormat::Rgba8Unorm,
+        let primitive_pipelines = [BlendMode::Blend, BlendMode::Add, BlendMode::Replace]
+            .into_iter()
+            .map(|mode| {
+                (
                     mode,
-                ),
-            )
-        })
-        .collect();
+                    create_pipeline_for_blend_mode(
+                        &device,
+                        &bind_group_layout,
+                        &clip_bind_group_layout,
+                        wgpu::TextureFormat::Rgba8Unorm,
+                        mode,
+                    ),
+                )
+            })
+            .collect();
         let erase_pipeline = create_erase_pipeline(
             &device,
             &bind_group_layout,
@@ -272,26 +311,40 @@ impl GpuRenderer {
             &clip_bind_group_layout,
             wgpu::TextureFormat::Rgba8Unorm,
         );
-        let image_pipelines = [
-            BlendMode::Blend,
-            BlendMode::Add,
-            BlendMode::Replace,
-        ]
-        .into_iter()
-        .map(|mode| {
-            (
-                mode,
-                create_image_pipeline_for_blend_mode(
-                    &device,
-                    &bind_group_layout,
-                    &image_bind_group_layout,
-                    &clip_bind_group_layout,
-                    wgpu::TextureFormat::Rgba8Unorm,
+        let image_pipelines = [BlendMode::Blend, BlendMode::Add, BlendMode::Replace]
+            .into_iter()
+            .map(|mode| {
+                (
                     mode,
-                ),
-            )
-        })
-        .collect();
+                    create_image_pipeline_for_blend_mode(
+                        &device,
+                        &bind_group_layout,
+                        &image_bind_group_layout,
+                        &clip_bind_group_layout,
+                        wgpu::TextureFormat::Rgba8Unorm,
+                        mode,
+                    ),
+                )
+            })
+            .collect();
+        let model_pipeline = create_model_pipeline(
+            &device,
+            &model_bind_group_layout,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
+        let textured_model_pipeline = create_textured_model_pipeline(
+            &device,
+            &model_bind_group_layout,
+            &image_bind_group_layout,
+            wgpu::TextureFormat::Rgba8Unorm,
+        );
+        let model_uniform_capacity = 16usize;
+        let model_uniform_buffer = create_model_uniform_buffer(&device, model_uniform_capacity);
+        let model_uniform_bind_group = create_model_uniform_bind_group(
+            &device,
+            &model_bind_group_layout,
+            &model_uniform_buffer,
+        );
         let pixel_prefix_bind_group_layout = pixel_prefix_bind_group_layout(&device);
         let pixel_prefix_pipeline = create_pixel_prefix_pipeline(
             &device,
@@ -318,6 +371,8 @@ impl GpuRenderer {
         let texture_size = checked_texture_size(width, height, limits.max_texture_dimension_2d)?;
         let texture = create_offscreen_texture(&device, texture_size);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let depth_texture = create_depth_texture(&device, texture_size);
+        let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let pixel_prefix_texture = create_pixel_prefix_texture(&device, texture_size);
         let pixel_prefix_texture_view =
             pixel_prefix_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -368,14 +423,22 @@ impl GpuRenderer {
             queue,
             texture,
             texture_view,
+            depth_texture,
+            depth_texture_view,
             texture_size,
             pipeline,
             primitive_pipelines,
             erase_pipeline,
             image_pipeline,
             image_pipelines,
+            model_pipeline,
+            textured_model_pipeline,
             pixel_prefix_pipeline,
             blend_ellipse_pipeline,
+            model_bind_group_layout,
+            model_uniform_buffer,
+            model_uniform_bind_group,
+            model_uniform_capacity,
             pixel_prefix_bind_group_layout,
             pixel_prefix_uniform_buffer,
             blend_ellipse_uniform_buffer,
@@ -407,6 +470,7 @@ impl GpuRenderer {
             },
             commands: Vec::new(),
             textures: HashMap::new(),
+            model_meshes: HashMap::new(),
             primitive_staging: Vec::new(),
             erase_staging: Vec::new(),
             image_staging: Vec::new(),
@@ -435,6 +499,10 @@ impl GpuRenderer {
         self.texture = create_offscreen_texture(&self.device, self.texture_size);
         self.texture_view = self
             .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        self.depth_texture = create_depth_texture(&self.device, self.texture_size);
+        self.depth_texture_view = self
+            .depth_texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         self.pixel_prefix_texture = create_pixel_prefix_texture(&self.device, self.texture_size);
         self.pixel_prefix_texture_view = self

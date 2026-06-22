@@ -10,7 +10,7 @@ Use this matrix when validating local builds, wheels, and release candidates.
 | GPU renderer | Optional/platform-dependent | `wgpu` path in `gummy_canvas` | `gummysnake.rust.canvas.canvas_gpu_status()` and `CanvasBackend.gpu_status()` | `uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks -q -s` |
 | Media helpers | Optional extra | Python package extra `media` | import/use media helpers | `uv sync --extra media --dev` plus media-specific examples |
 | Optional acceleration | Optional | `crates/gummy_accel` PyO3 module `gummysnake.rust._accelerated` | `gummysnake.rust.is_acceleration_available()` | `uv run pytest tests/unit/test_rust_acceleration.py` |
-| Software WEBGL path | Required for accepted `WEBGL` mode | Rust-backed software projection/shading/rasterization plus canvas presentation; untextured faces can use the GPU primitive path when available | backend flags `three_d=True`, `software_three_d=True`, `native_three_d=False` | `uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks -q -s` |
+| WEBGL path | Required for accepted `WEBGL` mode | Rust-owned model handles, fallback software 3D paths, and built-in retained GPU model pipelines when GPU drawing is available | backend flags `three_d=True`, `software_three_d=True`, `native_three_d=False`, `native_shaders=False` | `uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks -q -s` |
 
 ## Compatibility Marker
 
@@ -48,6 +48,6 @@ windowing experiment is explicitly requested.
 - GPU unavailable: headless CPU-backed rendering can continue, but native
   interactive presentation and GPU-accelerated drawing may be disabled or
   slower.
-- WEBGL visual scale drift on HiDPI displays: verify projected software-3D
-  logical coordinates are scaled by `pixel_density()` before direct GPU
-  primitive submission.
+- WEBGL visual scale drift: verify GPU model matrix conversion keeps rotation
+  scale-stable, and verify fallback projected logical coordinates are scaled by
+  `pixel_density()` before direct GPU primitive submission.

@@ -46,18 +46,19 @@ gs.create_canvas(640, 480, renderer=gs.WEBGL)
 - `shader(shader_program)`
 - `reset_shader()`
 
-Current `WEBGL` support is a Rust-backed software 3D path presented through the
-canvas runtime. It supports deterministic small-sketch rendering, primitive
-meshes, loaded OBJ models, lights, materials, textures, and shader objects for
-API compatibility. It does not imply native accelerated 3D or native shader
-execution; backend capabilities distinguish `software_three_d`,
-`native_three_d`, `shaders`, and `native_shaders`.
+Current `WEBGL` support is a Rust-backed 3D path presented through the canvas
+runtime. It supports deterministic small-sketch rendering, primitive meshes,
+loaded OBJ models, lights, materials, textures, and shader objects for API
+compatibility. It does not imply user-programmable native shader execution;
+backend capabilities distinguish `software_three_d`, `native_three_d`,
+`shaders`, and `native_shaders`.
 
-The current path keeps model and mesh data in Rust-owned handles. Projection,
-lighting, face sorting, OBJ parsing, primitive model generation, and OBJ/STL
-export are handled by the canvas runtime. Untextured shaded faces may be drawn
-through the Rust/GPU primitive path when GPU drawing is available; textured
-faces use deterministic Rust rasterization before compositing into the canvas.
-Sketch coordinates remain logical, including on HiDPI displays.
+The current path keeps model and mesh data in Rust-owned handles. OBJ parsing,
+primitive model generation, OBJ/STL export, built-in material lighting, texture
+sampling, and fallback rasterization are handled by the canvas runtime. When GPU
+drawing is available, unstroked primitive and loaded-model draws use retained
+GPU vertex/index buffers with GPU transform/projection, depth testing, and
+built-in material/texture shaders. Sketch coordinates remain logical, including
+on HiDPI displays.
 
 Unsupported shader or advanced 3D APIs raise explicit Gummy Snake exceptions.

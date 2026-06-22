@@ -97,8 +97,10 @@ async def preload() -> None:
 - Text, font measurement, and accessibility descriptions.
 - Interactive sketches with SDL3-backed native windows, mouse, keyboard, and
   touch state when native window support is available.
-- Software 3D sketches with primitives, lights, materials, models, textures,
-  and shader objects on the current Rust-backed software 3D path.
+- WEBGL-style 3D sketches with primitives, lights, materials, models, textures,
+  and shader objects. Built-in model and primitive draws use retained Rust/GPU
+  buffers, GPU transforms/projection/depth, and built-in material shaders when
+  GPU drawing is available.
 - Small games and visual toys using the examples as starting points.
 
 Loaded images, models/meshes, and sounds keep Rust-managed asset handles behind
@@ -106,11 +108,12 @@ friendly Python wrappers. This is intentional for performance: bulk asset bytes,
 geometry arrays, parsing, export, and metadata extraction should stay in the
 Rust canvas runtime so sketches avoid repeated Python object materialization and
 per-element loops. Normal `load_image(); image(...)` sprite drawing can stay on
-the fast renderer path, model projection/export can use Rust-owned geometry
-without first creating Python `Vec3` objects, untextured software-3D faces can
-be submitted directly as Rust/GPU triangles when GPU drawing is available, and
-loaded sounds keep their bytes and duration metadata in `CanvasSound` until user
-code asks for Python bytes.
+the fast renderer path, model export can use Rust-owned geometry without first
+creating Python `Vec3` objects, and built-in WEBGL model draws can reuse
+retained GPU vertex/index buffers while the GPU handles transform, projection,
+depth testing, texture sampling, and material lighting. Loaded sounds keep their
+bytes and duration metadata in `CanvasSound` until user code asks for Python
+bytes.
 Image-local resize, mask, filter, crop/copy, and alpha compositing delegate
 bulk byte work to the Rust canvas runtime while keeping the Python `Image`
 API and version semantics.

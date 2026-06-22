@@ -223,6 +223,10 @@ impl Canvas {
                 crate::gpu::DrawCommand::BlendEllipse { .. } => {
                     return false;
                 }
+                crate::gpu::DrawCommand::Model { .. }
+                | crate::gpu::DrawCommand::TexturedModel { .. } => {
+                    return false;
+                }
                 crate::gpu::DrawCommand::EraseTriangles { vertices, clip_id } => {
                     if *clip_id != 0 {
                         return false;

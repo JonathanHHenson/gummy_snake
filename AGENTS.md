@@ -50,14 +50,15 @@ mirror. The current native desktop window/input runtime is SDL3-backed
 inside `crates/gummy_canvas`; do not reintroduce winit/Tao window loops as the
 primary interactive path without an explicit user request and a new experiment
 plan.
-Current `WEBGL` support is a Rust-backed software 3D path presented through the
-canvas runtime, not native accelerated 3D. Backend capabilities distinguish
-`software_three_d`, `native_three_d`, `shaders`, and `native_shaders`; do not
-imply native 3D or native shader support from `three_d=True`. Rust handles
-software-3D projection, shading, sorting, OBJ/model storage, rasterization, and
-direct GPU triangle submission for untextured shaded faces when GPU drawing is
-available; textured software-3D faces still route through the Rust raster image
-path. This is not a native depth-buffered 3D renderer.
+Current `WEBGL` support is a Rust canvas 3D path presented through the canvas
+runtime. Backend capabilities distinguish `software_three_d`, `native_three_d`,
+`shaders`, and `native_shaders`; do not imply user-programmable native shader
+support from `three_d=True`. Rust handles OBJ/model storage, primitive model
+generation, export, fallback software projection/raster paths, and built-in
+GPU model pipelines. When GPU drawing is available, built-in unstroked model
+and primitive draws should use retained Rust/GPU vertex/index buffers, GPU
+transform/projection, GPU depth testing, and built-in material/texture shaders
+instead of CPU-projected face payloads.
 
 Important consequences:
 
@@ -74,8 +75,8 @@ Important consequences:
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
 - The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn after text/images must remain visible.
 - GPU render encoding owns reusable vertex buffers sized to frame demand. When changing primitive, erase, image, or text command encoding, preserve capacity-growth reuse and keep `gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`, and `gpu_image_batches` meaningful.
-- Projected software-3D coordinates are logical canvas coordinates. Any direct GPU primitive path that consumes those coordinates must scale by `pixel_density()` before submitting physical vertices, or HiDPI/Retina scenes will appear smaller and farther away.
-- Untextured unstroked model draws with Rust model handles should use the Rust direct model path and avoid Python face dictionaries. Textured or stroked model paths may fall back, but diagnostics should make that boundary visible.
+- Fallback software-3D coordinates are logical canvas coordinates. Any direct GPU primitive fallback that consumes those coordinates must scale by `pixel_density()` before submitting physical vertices, or HiDPI/Retina scenes will appear smaller and farther away.
+- Unstroked model draws with Rust model handles should use the retained GPU model path when GPU drawing is available and avoid Python face dictionaries, CPU projection/sorting, and CPU shading. Stroked or unsupported model paths may fall back, but diagnostics should make that boundary visible.
 - Captured `begin_shape()` buffers live in Rust and should be finalized directly into Rust draw/clip commands. Avoid materializing `shape_vertices()` / `shape_contours()` Python lists on normal renderer paths.
 
 The Python public API must not expose Rust internals or depend on a concrete renderer in user-facing functions.
@@ -268,8 +269,8 @@ Gummy Snake distinguishes logical canvas dimensions from physical backing-buffer
 - `update_pixels()` should pass `bytes`, `bytearray`, `memoryview`, and dirty `PixelBuffer` payloads through Rust buffer/region upload paths without forcing Python `bytes(...)` copies. List inputs remain compatibility paths and should be counted in diagnostics.
 
 Do not regress Retina/HiDPI behavior when changing runtime, renderer, pixels,
-export, images, input coordinate handling, or software-3D GPU submission. See
-`docs/contribute/runtime.md`.
+export, images, input coordinate handling, GPU model draws, or software-3D GPU
+fallback submission. See `docs/contribute/runtime.md`.
 
 Loaded images, models/meshes, and sounds should keep Rust-managed asset handles
 attached to their public Python wrappers whenever practical. This is a core
@@ -281,8 +282,11 @@ never `id(image)`, and preserve bounded Rust image/texture cache lifecycle
 behavior.
 
 Image-local resize, mask, filter, crop/copy, and alpha compositing should keep
-delegating bulk RGBA byte work to `gummy_canvas`. Model projection/export should
-prefer `CanvasModel3D` / `CanvasMesh3D` handles over Python mesh materialization.
+delegating bulk RGBA byte work to `gummy_canvas`. Model export and built-in
+WEBGL drawing should prefer `CanvasModel3D` / `CanvasMesh3D` handles over
+Python mesh materialization. Retained GPU model buffers should be keyed by
+Rust model identity and reused across frames; per-frame changes should update
+small transform/camera/material/light uniforms.
 Sound metadata and bytes should prefer `CanvasSound` handles while Python keeps
 friendly playback controls until audio playback itself moves into the runtime.
 Canvas `get(x, y)`,
@@ -383,8 +387,8 @@ Model export benchmarks use a streaming memory budget rather than an FPS floor.
 API overhead benchmarks should compare global-mode, object-oriented sketch,
 context-direct, `fast()`, and renderer-direct dispatch paths.
 WEBGL frame-style benchmarks also use the 240 FPS floor; failures are
-optimization work for the Rust software-3D path unless the benchmark is
-explicitly measuring a memory budget instead of FPS.
+optimization work for the Rust 3D/GPU model path or its fallback boundaries
+unless the benchmark is explicitly measuring a memory budget instead of FPS.
 Renderer/runtime diagnostics should expose counters through public Python APIs
 such as `renderer_performance_counters()` rather than leaking unstable Rust
 details. Keep fallback-boundary benchmark scenes and

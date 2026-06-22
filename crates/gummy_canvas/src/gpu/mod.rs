@@ -10,4 +10,4 @@ mod types;
 mod tests;
 
 #[allow(unused_imports)]
-pub use types::{DrawCommand, GpuColor, GpuRenderer};
+pub use types::{DrawCommand, GpuColor, GpuRenderer, ModelUniform, ModelVertex};

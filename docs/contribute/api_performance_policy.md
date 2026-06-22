@@ -63,10 +63,12 @@ Images are backed by Rust-managed `CanvasImage` handles. Mutating image pixels
 is supported and keeps storage in Rust, but repeated per-frame mutations should
 still be treated as texture-update work.
 
-Software-3D model and mesh data are also Rust-managed. Projection, shading,
-export, and direct untextured face submission should use Rust handles and
-logical-to-physical scaling in the canvas runtime rather than Python geometry
-loops in `draw()`.
+WEBGL model and mesh data are also Rust-managed. Export and built-in model
+drawing should use Rust handles rather than Python geometry loops in `draw()`.
+When GPU drawing is available, retained model buffers and GPU
+transform/projection/depth/material pipelines are the preferred path. Fallback
+software projection should remain Rust-owned and keep logical-to-physical
+scaling in the canvas runtime.
 
 Captured `begin_shape()` buffers live in Rust. Normal `end_shape()` and
 `clip()` calls finalize those buffers directly into Rust canvas draw/clip

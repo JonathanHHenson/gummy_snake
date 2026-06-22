@@ -16,7 +16,7 @@ flowchart LR
         ContextState[SketchContextState<br/>timing / input / shape]
         Canvas[canvas allocation and draw state]
         Commands[draw commands and batching]
-        Drawing[GPU primitives, images, text, pixels, export]
+        Drawing[GPU primitives, GPU 3D models, images, text, pixels, export]
         Assets[image/model/sound assets]
         Events[native input events]
     end
@@ -157,7 +157,10 @@ The context owns Gummy Snake behavior. The renderer owns the Python adapter
 boundary. Rust owns drawing state, command construction, batching, and actual
 rendering.
 
-For software `WEBGL`, projected face coordinates crossing this boundary are
-logical canvas coordinates. Rust-side direct GPU primitive submission must scale
-those coordinates by the canvas pixel density before building physical vertices,
-while textured software-3D faces remain on the Rust raster image path.
+For built-in `WEBGL` model draws, Python should pass Rust-owned model handles
+and synchronized style/transform/camera/material state rather than projected
+face payloads. The Rust canvas runtime owns retained model buffers, GPU
+transform/projection, depth testing, texture sampling, and built-in material
+shading when GPU drawing is available. Fallback software-3D projected
+coordinates are logical canvas coordinates and must be scaled by pixel density
+before any direct GPU primitive fallback submission.

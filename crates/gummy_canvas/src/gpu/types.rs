@@ -21,6 +21,30 @@ pub(super) struct ImageVertex {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct ModelVertex {
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
+    pub uv: [f32; 2],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct ModelUniform {
+    pub model: [[f32; 4]; 4],
+    pub view_projection: [[f32; 4]; 4],
+    pub base_color: [f32; 4],
+    pub emissive_color: [f32; 4],
+    pub specular_shininess: [f32; 4],
+    pub ambient_color: [f32; 4],
+    pub directional_color: [f32; 4],
+    pub directional_direction: [f32; 4],
+    pub point_color: [f32; 4],
+    pub point_position: [f32; 4],
+    pub flags: [f32; 4],
+}
+
+#[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub(super) struct ViewportUniform {
     pub(super) size: [f32; 2],
@@ -107,6 +131,18 @@ pub enum DrawCommand {
         blend_mode: BlendMode,
         clip_id: usize,
     },
+    Model {
+        key: u64,
+        index_count: u32,
+        uniform: ModelUniform,
+    },
+    TexturedModel {
+        model_key: u64,
+        texture_key: u64,
+        index_count: u32,
+        uniform: ModelUniform,
+        linear: bool,
+    },
     Text {
         text: String,
         x: f32,
@@ -133,6 +169,12 @@ pub(super) struct ClipTextureAsset {
     pub(super) bind_group: wgpu::BindGroup,
 }
 
+pub(super) struct GpuModelMesh {
+    pub(super) _vertex_buffer: wgpu::Buffer,
+    pub(super) _index_buffer: wgpu::Buffer,
+    pub(super) index_count: u32,
+}
+
 pub struct GpuRenderer {
     pub(super) instance: wgpu::Instance,
     pub(super) adapter: wgpu::Adapter,
@@ -140,14 +182,22 @@ pub struct GpuRenderer {
     pub(super) queue: Arc<wgpu::Queue>,
     pub(super) texture: wgpu::Texture,
     pub(super) texture_view: wgpu::TextureView,
+    pub(super) depth_texture: wgpu::Texture,
+    pub(super) depth_texture_view: wgpu::TextureView,
     pub(super) texture_size: wgpu::Extent3d,
     pub(super) pipeline: wgpu::RenderPipeline,
     pub(super) primitive_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) erase_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
+    pub(super) model_pipeline: wgpu::RenderPipeline,
+    pub(super) textured_model_pipeline: wgpu::RenderPipeline,
     pub(super) pixel_prefix_pipeline: wgpu::RenderPipeline,
     pub(super) blend_ellipse_pipeline: wgpu::RenderPipeline,
+    pub(super) model_bind_group_layout: wgpu::BindGroupLayout,
+    pub(super) model_uniform_buffer: wgpu::Buffer,
+    pub(super) model_uniform_bind_group: wgpu::BindGroup,
+    pub(super) model_uniform_capacity: usize,
     pub(super) pixel_prefix_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) pixel_prefix_uniform_buffer: wgpu::Buffer,
     pub(super) blend_ellipse_uniform_buffer: wgpu::Buffer,
@@ -174,6 +224,7 @@ pub struct GpuRenderer {
     pub(super) clear_color: GpuColor,
     pub(super) commands: Vec<DrawCommand>,
     pub(super) textures: HashMap<u64, TextureAsset>,
+    pub(super) model_meshes: HashMap<u64, GpuModelMesh>,
     pub(super) primitive_staging: Vec<Vertex>,
     pub(super) erase_staging: Vec<Vertex>,
     pub(super) image_staging: Vec<ImageVertex>,

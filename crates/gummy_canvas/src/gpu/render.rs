@@ -34,6 +34,75 @@ impl GpuRenderer {
         }
     }
 
+    pub fn ensure_model_mesh(
+        &mut self,
+        key: u64,
+        vertices: &[ModelVertex],
+        indices: &[u32],
+    ) -> Result<u32, String> {
+        if let Some(mesh) = self.model_meshes.get(&key) {
+            return Ok(mesh.index_count);
+        }
+        if vertices.is_empty() || indices.is_empty() {
+            return Ok(0);
+        }
+        let index_count = u32::try_from(indices.len())
+            .map_err(|_| "model index count exceeds GPU draw limits".to_owned())?;
+        let vertex_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("gummy_canvas model vertices"),
+                contents: bytemuck::cast_slice(vertices),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+        let index_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("gummy_canvas model indices"),
+                contents: bytemuck::cast_slice(indices),
+                usage: wgpu::BufferUsages::INDEX,
+            });
+        self.model_meshes.insert(
+            key,
+            GpuModelMesh {
+                _vertex_buffer: vertex_buffer,
+                _index_buffer: index_buffer,
+                index_count,
+            },
+        );
+        self.vertex_buffer_allocations += 2;
+        Ok(index_count)
+    }
+
+    pub fn draw_model(&mut self, key: u64, index_count: u32, uniform: ModelUniform) {
+        if index_count > 0 {
+            self.commands.push(DrawCommand::Model {
+                key,
+                index_count,
+                uniform,
+            });
+        }
+    }
+
+    pub fn draw_textured_model(
+        &mut self,
+        model_key: u64,
+        texture_key: u64,
+        index_count: u32,
+        uniform: ModelUniform,
+        linear: bool,
+    ) {
+        if index_count > 0 {
+            self.commands.push(DrawCommand::TexturedModel {
+                model_key,
+                texture_key,
+                index_count,
+                uniform,
+                linear,
+            });
+        }
+    }
+
     pub fn draw_filled_ellipse(
         &mut self,
         cx: f32,
@@ -136,6 +205,8 @@ impl GpuRenderer {
                 }
                 DrawCommand::Ellipse { .. }
                 | DrawCommand::BlendEllipse { .. }
+                | DrawCommand::Model { .. }
+                | DrawCommand::TexturedModel { .. }
                 | DrawCommand::Text { .. } => return None,
                 DrawCommand::Image { .. } => return None,
             }
@@ -182,6 +253,7 @@ impl GpuRenderer {
                 DrawCommand::Image { .. } => {
                     image_vertices += 6;
                 }
+                DrawCommand::Model { .. } | DrawCommand::TexturedModel { .. } => {}
                 DrawCommand::Text { .. } => {}
                 DrawCommand::Clear(_) => {}
             }
@@ -189,6 +261,40 @@ impl GpuRenderer {
         self.ensure_primitive_vertex_capacity(primitive_vertices);
         self.ensure_erase_vertex_capacity(erase_vertices);
         self.ensure_image_vertex_capacity(image_vertices);
+        let model_uniforms = self
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Model { .. } | DrawCommand::TexturedModel { .. }
+                )
+            })
+            .count();
+        self.ensure_model_uniform_capacity(model_uniforms);
+    }
+
+    fn ensure_model_uniform_capacity(&mut self, required: usize) {
+        if required == 0 || self.model_uniform_capacity >= required {
+            return;
+        }
+        let capacity = required.next_power_of_two();
+        self.model_uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("gummy_canvas model uniforms"),
+            size: (capacity * std::mem::size_of::<ModelUniform>()) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        self.model_uniform_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("gummy_canvas model uniform bind group"),
+            layout: &self.model_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: self.model_uniform_buffer.as_entire_binding(),
+            }],
+        });
+        self.model_uniform_capacity = capacity;
+        self.vertex_buffer_allocations += 1;
     }
 
     fn ensure_primitive_vertex_capacity(&mut self, required: usize) {
@@ -313,11 +419,12 @@ impl GpuRenderer {
     }
 
     fn encode_commands(&mut self, encoder: &mut wgpu::CommandEncoder) {
-        if !self
-            .commands
-            .iter()
-            .any(|command| matches!(command, DrawCommand::BlendEllipse { .. } | DrawCommand::Text { .. }))
-        {
+        if !self.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::BlendEllipse { .. } | DrawCommand::Text { .. }
+            )
+        }) {
             self.encode_plain_commands(encoder);
             return;
         }
@@ -342,12 +449,18 @@ impl GpuRenderer {
                     if !self.commands.is_empty() {
                         self.encode_plain_commands(encoder);
                     }
-                    self.encode_blend_ellipse_pass(encoder, *cx, *cy, *rx, *ry, *color, *blend_mode);
+                    self.encode_blend_ellipse_pass(
+                        encoder,
+                        *cx,
+                        *cy,
+                        *rx,
+                        *ry,
+                        *color,
+                        *blend_mode,
+                    );
                     segment_start = index + 1;
                 }
-                DrawCommand::Text {
-                    ..
-                } => {
+                DrawCommand::Text { .. } => {
                     self.commands = commands[segment_start..index].to_vec();
                     if !self.commands.is_empty() {
                         self.encode_plain_commands(encoder);
@@ -382,6 +495,8 @@ impl GpuRenderer {
                 DrawCommand::Triangles { .. } => None,
                 DrawCommand::Ellipse { .. } => None,
                 DrawCommand::BlendEllipse { .. } => None,
+                DrawCommand::Model { .. } => None,
+                DrawCommand::TexturedModel { .. } => None,
                 DrawCommand::Text { .. } => None,
                 DrawCommand::EraseTriangles { .. } => None,
                 DrawCommand::Image { .. } => None,
@@ -430,6 +545,39 @@ impl GpuRenderer {
                     .write_buffer(buffer, 0, bytemuck::cast_slice(&image_staging));
             }
         }
+        let mut model_uniforms = Vec::new();
+        let mut model_uniform_indices = if self.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Model { .. } | DrawCommand::TexturedModel { .. }
+            )
+        }) {
+            vec![None; self.commands.len()]
+        } else {
+            Vec::new()
+        };
+        for (command_index, command) in self.commands.iter().enumerate() {
+            if last_clear_index.is_some_and(|index| command_index <= index) {
+                continue;
+            }
+            let uniform = match command {
+                DrawCommand::Model { uniform, .. } | DrawCommand::TexturedModel { uniform, .. } => {
+                    uniform
+                }
+                _ => continue,
+            };
+            let uniform_index = model_uniforms.len() as u32;
+            model_uniforms.push(*uniform);
+            model_uniform_indices[command_index] = Some(uniform_index);
+        }
+        if !model_uniforms.is_empty() {
+            self.queue.write_buffer(
+                &self.model_uniform_buffer,
+                0,
+                bytemuck::cast_slice(&model_uniforms),
+            );
+            self.vertex_uploads += 1;
+        }
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("gummy_canvas primitive render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -443,7 +591,14 @@ impl GpuRenderer {
                     store: wgpu::StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &self.depth_texture_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Discard,
+                }),
+                stencil_ops: None,
+            }),
             timestamp_writes: None,
             occlusion_query_set: None,
         });
@@ -571,6 +726,129 @@ impl GpuRenderer {
                 }
                 DrawCommand::BlendEllipse { .. } => {}
                 DrawCommand::Text { .. } => {}
+                DrawCommand::Model {
+                    key,
+                    index_count,
+                    uniform: _,
+                } => {
+                    if skip_until_last_clear {
+                        continue;
+                    }
+                    if !batched_vertices.is_empty() {
+                        self.vertex_uploads += 1;
+                        self.primitive_batches += 1;
+                        let buffer = self
+                            .primitive_vertex_buffer
+                            .as_ref()
+                            .expect("primitive vertex buffer is prepared");
+                        let offset_bytes =
+                            (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                        let size_bytes =
+                            (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.queue.write_buffer(
+                            &buffer,
+                            offset_bytes,
+                            bytemuck::cast_slice(&batched_vertices),
+                        );
+                        primitive_vertex_offset += batched_vertices.len();
+                        pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
+                        pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                        pass.set_bind_group(
+                            1,
+                            &self.clip_textures[batched_clip_id].bind_group,
+                            &[],
+                        );
+                        pass.set_vertex_buffer(
+                            0,
+                            buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                        );
+                        pass.draw(0..batched_vertices.len() as u32, 0..1);
+                        batched_vertices.clear();
+                    }
+                    let Some(mesh) = self.model_meshes.get(key) else {
+                        continue;
+                    };
+                    let Some(uniform_index) = model_uniform_indices[command_index] else {
+                        continue;
+                    };
+                    let count = (*index_count).min(mesh.index_count);
+                    if count == 0 {
+                        continue;
+                    }
+                    self.primitive_batches += 1;
+                    pass.set_pipeline(&self.model_pipeline);
+                    pass.set_bind_group(0, &self.model_uniform_bind_group, &[]);
+                    pass.set_vertex_buffer(0, mesh._vertex_buffer.slice(..));
+                    pass.set_index_buffer(mesh._index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    pass.draw_indexed(0..count, 0, uniform_index..uniform_index + 1);
+                }
+                DrawCommand::TexturedModel {
+                    model_key,
+                    texture_key,
+                    index_count,
+                    uniform: _,
+                    linear,
+                } => {
+                    if skip_until_last_clear {
+                        continue;
+                    }
+                    if !batched_vertices.is_empty() {
+                        self.vertex_uploads += 1;
+                        self.primitive_batches += 1;
+                        let buffer = self
+                            .primitive_vertex_buffer
+                            .as_ref()
+                            .expect("primitive vertex buffer is prepared");
+                        let offset_bytes =
+                            (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                        let size_bytes =
+                            (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.queue.write_buffer(
+                            &buffer,
+                            offset_bytes,
+                            bytemuck::cast_slice(&batched_vertices),
+                        );
+                        primitive_vertex_offset += batched_vertices.len();
+                        pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
+                        pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                        pass.set_bind_group(
+                            1,
+                            &self.clip_textures[batched_clip_id].bind_group,
+                            &[],
+                        );
+                        pass.set_vertex_buffer(
+                            0,
+                            buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                        );
+                        pass.draw(0..batched_vertices.len() as u32, 0..1);
+                        batched_vertices.clear();
+                    }
+                    let Some(mesh) = self.model_meshes.get(model_key) else {
+                        continue;
+                    };
+                    let Some(texture) = self.textures.get(texture_key) else {
+                        continue;
+                    };
+                    let Some(uniform_index) = model_uniform_indices[command_index] else {
+                        continue;
+                    };
+                    let count = (*index_count).min(mesh.index_count);
+                    if count == 0 {
+                        continue;
+                    }
+                    self.primitive_batches += 1;
+                    pass.set_pipeline(&self.textured_model_pipeline);
+                    pass.set_bind_group(0, &self.model_uniform_bind_group, &[]);
+                    let bind_group = if *linear {
+                        &texture.linear_bind_group
+                    } else {
+                        &texture.nearest_bind_group
+                    };
+                    pass.set_bind_group(1, bind_group, &[]);
+                    pass.set_vertex_buffer(0, mesh._vertex_buffer.slice(..));
+                    pass.set_index_buffer(mesh._index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                    pass.draw_indexed(0..count, 0, uniform_index..uniform_index + 1);
+                }
                 DrawCommand::EraseTriangles { vertices, clip_id } => {
                     if skip_until_last_clear {
                         continue;
@@ -708,7 +986,8 @@ impl GpuRenderer {
                         {
                             break;
                         }
-                        let Some((next_offset, next_len)) = image_offsets[next_command_index] else {
+                        let Some((next_offset, next_len)) = image_offsets[next_command_index]
+                        else {
                             break;
                         };
                         if next_offset != image_vertex_offset + batched_image_vertex_len {
@@ -830,11 +1109,7 @@ impl GpuRenderer {
         pass.set_bind_group(0, &source_bind_group, &[]);
         pass.draw(0..6, 0..1);
     }
-    fn encode_text_pass(
-        &mut self,
-        encoder: &mut wgpu::CommandEncoder,
-        commands: &[DrawCommand],
-    ) {
+    fn encode_text_pass(&mut self, encoder: &mut wgpu::CommandEncoder, commands: &[DrawCommand]) {
         self.text_viewport.update(
             &self.queue,
             glyphon::Resolution {

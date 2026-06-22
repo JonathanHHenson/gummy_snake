@@ -32,7 +32,7 @@ The stable top-level counters are:
 | `frames_presented` | Frames presented by the renderer/backend. |
 | `gpu_frames_rendered` | Offscreen GPU frame resolves. |
 | `event_polls` | Native input/event polling calls. |
-| `direct_model_draws` | Rust-owned model-handle draws that project, shade, and submit untextured triangles without Python face dictionaries. |
+| `direct_model_draws` | Rust-owned model-handle draws that avoid Python face dictionaries; GPU builds use retained model buffers and built-in model pipelines. |
 | `python_face_payloads` | Legacy/fallback shaded-face payloads materialized as Python dictionaries. |
 | `direct_shape_finalizations` | Rust-owned `begin_shape()` buffers finalized directly into draw or clip operations. |
 | `shape_buffer_extractions` | Shape buffers extracted into Python lists for compatibility fallback paths. |
@@ -84,7 +84,7 @@ when the effect shape is supported by the GPU path.
 | `update_pixels()` | Full or dirty-region pixel upload | Buffer-like inputs reach Rust through the Python buffer protocol; list inputs are copied for compatibility | Use `bytes`, `bytearray`, `memoryview`, or the `PixelBuffer` returned by `load_pixels()`; prefer dirty row-aligned updates over full-canvas uploads. |
 | `get()`, `set()`, canvas `filter()` | CPU compositing fallback | Canvas-to-image copy plus upload | Prefer renderer-native drawing or image-local work. |
 | `begin_shape()` / `end_shape()` and clip paths | Rust shape-buffer finalization | Normal canvas paths avoid Python vertex-list extraction | Keep shape construction in the captured shape APIs; use diagnostics to catch fallback extraction. |
-| Software `WEBGL` model drawing | Rust projection/shading with Rust-owned model handles; untextured unstroked faces use direct GPU triangles, textured/stroked faces use fallback raster/stroke paths | Projected points are logical coordinates and direct GPU submission must scale by `pixel_density()`; unsupported paths should fail with canvas capability errors | Reuse primitive/model objects so caches avoid repeated topology allocation. |
+| WEBGL model drawing | Rust-owned model handles; unstroked built-in primitive/model draws use retained GPU vertex/index buffers with GPU transform/projection/depth/material/texture pipelines when GPU drawing is available | First draw may upload model buffers and textures; fallback projected points are logical coordinates and direct GPU primitive fallback must scale by `pixel_density()` | Reuse primitive/model and image objects so retained buffers and texture caches stay hot. |
 | `save_obj()` / `save_stl()` | Streaming text writer | Writes incrementally instead of assembling unbounded `list[str]` payloads | Use direct export helpers for large generated meshes. |
 
 ## Frame Pacing

@@ -839,6 +839,35 @@ impl Canvas {
         cull_backfaces: bool,
         transform: Option<(f64, f64, f64, f64, f64, f64)>,
     ) -> PyResult<()> {
+        if self.gpu.is_some() && !self.cpu_compositing_active && cull_backfaces {
+            let (key, vertices, indices) = crate::software3d::model_gpu_buffers(model);
+            if !vertices.is_empty() && !indices.is_empty() {
+                let uniform = crate::software3d::model_gpu_uniform(
+                    camera,
+                    projection,
+                    viewport_width,
+                    viewport_height,
+                    material,
+                    lights,
+                    normal_material,
+                    transform,
+                )?;
+                self.upload_stale_texture(false)?;
+                if let Some(gpu) = self.gpu.as_mut() {
+                    let index_count = gpu
+                        .ensure_model_mesh(key, vertices, indices)
+                        .map_err(PyValueError::new_err)?;
+                    gpu.draw_model(key, index_count, uniform);
+                    self.performance_counters.direct_model_draws += 1;
+                    self.performance_counters.gpu_draws += 1;
+                    self.render_dirty = true;
+                    self.offscreen_dirty = true;
+                    self.pixels_stale = true;
+                    self.texture_stale = false;
+                    return Ok(());
+                }
+            }
+        }
         let triangles = crate::software3d::model_handle_shaded_triangles_with_depth(
             model,
             camera,
@@ -884,6 +913,37 @@ impl Canvas {
     ) -> PyResult<bool> {
         if image.width == 0 || image.height == 0 {
             return Ok(true);
+        }
+        if self.gpu.is_some() && !self.cpu_compositing_active && cull_backfaces {
+            let (key, vertices, indices) = crate::software3d::model_gpu_buffers(model);
+            if !vertices.is_empty() && !indices.is_empty() {
+                let uniform = crate::software3d::model_gpu_uniform(
+                    camera,
+                    projection,
+                    viewport_width,
+                    viewport_height,
+                    material,
+                    lights,
+                    normal_material,
+                    transform,
+                )?;
+                self.upload_stale_texture(false)?;
+                self.ensure_gpu_canvas_image_texture(&image)?;
+                let linear_sampling = self.current_style.image_sampling != "nearest";
+                if let Some(gpu) = self.gpu.as_mut() {
+                    let index_count = gpu
+                        .ensure_model_mesh(key, vertices, indices)
+                        .map_err(PyValueError::new_err)?;
+                    gpu.draw_textured_model(key, image.key, index_count, uniform, linear_sampling);
+                    self.performance_counters.direct_model_draws += 1;
+                    self.performance_counters.gpu_draws += 1;
+                    self.render_dirty = true;
+                    self.offscreen_dirty = true;
+                    self.pixels_stale = true;
+                    self.texture_stale = false;
+                    return Ok(true);
+                }
+            }
         }
         let triangles = crate::software3d::model_handle_textured_triangles_with_depth(
             model,

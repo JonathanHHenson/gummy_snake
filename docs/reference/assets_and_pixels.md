@@ -146,10 +146,10 @@ contiguous frame buffer.
 - `load_model_async(path, normalize=False, package=None)`
 - `load_shader_async(vertex_path, fragment_path)`
 
-Wavefront OBJ parsing, normalization, primitive model generation, projection,
-and OBJ/STL export are handled by the Rust canvas runtime. `Model3D` and
-`Mesh3D` keep Rust-managed handles as canonical storage and expose immutable
-Python tuple buffers plus optional lazy NumPy views for inspection and
-interchange. The software-3D renderer projects and shades those handles in Rust;
-untextured shaded faces can stay on the Rust/GPU primitive path, while textured
-faces are rasterized in Rust before canvas compositing.
+Wavefront OBJ parsing, normalization, primitive model generation, GPU-ready
+triangle packing, and OBJ/STL export are handled by the Rust canvas runtime.
+`Model3D` and `Mesh3D` keep Rust-managed handles as canonical storage and expose
+immutable Python tuple buffers plus optional lazy NumPy views for inspection and
+interchange. Built-in WEBGL drawing reuses retained GPU vertex/index buffers
+when GPU acceleration is available, with transform/projection, depth testing,
+texture sampling, and material lighting handled by GPU pipelines.
