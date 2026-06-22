@@ -9,24 +9,23 @@ flowchart TD
         Builder[SketchBuilder / FunctionSketch]
         Global[gs.api.global_mode]
         Current[gs.api.current]
-        Sketch[Sketch]
-        Context[SketchContext]
-        SketchState[SketchState<br/>public mirrors and lifecycle state]
+        Lifecycle[lifecycle and callback dispatch]
+        ApiFacade[public API validation<br/>and Python wrappers]
     end
 
-    subgraph Adapter["Python canvas adapters"]
+    subgraph Adapter["Python canvas adapter responsibilities"]
         Backend[CanvasBackend]
         Renderer[CanvasRenderer]
         BridgeImport[gummysnake.rust.canvas<br/>import / ABI / capabilities]
-        RuntimeBridge[native runtime<br/>events / presentation]
-        CanvasBridge[canvas lifecycle<br/>allocate / resize / density]
-        DrawBridge[drawing bridge<br/>state / primitives / text / pixels]
-        AssetBridge[asset bridge<br/>images / models / sounds / export]
+        RuntimeAdapter[run loop adapter<br/>events / pacing / presentation]
+        CanvasAdapter[canvas adapter<br/>allocate / resize / dimensions]
+        DrawAdapter[drawing adapter<br/>primitives / text / pixels]
+        AssetAdapter[asset adapter<br/>images / models / sounds / export]
     end
 
     subgraph Rust["Rust canvas runtime"]
-        Runtime[gummysnake.rust._canvas PyO3 module]
         Native[SDL3 runtime and input events]
+        ContextState[SketchContextState<br/>canvas / timing / input / shape]
         Canvas[gummy_canvas canvas and backing surface]
         State[renderer state<br/>style / transform / draw state]
         Commands[draw commands<br/>construction / batching]
@@ -35,31 +34,36 @@ flowchart TD
     end
 
     User --> Builder
-    Builder --> Sketch
-    User --> Sketch
-    Sketch --> Context
-    Sketch --> Current
+    Builder --> Lifecycle
+    User --> Lifecycle
+    Lifecycle --> Current
     User --> Global
     Global --> Current
-    Current --> Context
-    Context --> SketchState
-    Context --> Backend
-    Context --> Renderer
+    Current --> ApiFacade
+    ApiFacade --> Backend
+    ApiFacade --> Renderer
     Backend --> Renderer
     Backend --> BridgeImport
     Renderer --> BridgeImport
-    Backend --> RuntimeBridge
-    Backend --> CanvasBridge
-    Renderer --> CanvasBridge
-    Renderer --> DrawBridge
-    Renderer --> AssetBridge
-    BridgeImport --> Runtime
-    RuntimeBridge --> Runtime
-    CanvasBridge --> Runtime
-    DrawBridge --> Runtime
-    AssetBridge --> Runtime
-    Runtime --> Native
-    Runtime --> Canvas
+    Backend --> RuntimeAdapter
+    RuntimeAdapter --> Renderer
+    Renderer --> CanvasAdapter
+    Renderer --> DrawAdapter
+    Renderer --> AssetAdapter
+    BridgeImport --> ContextState
+    BridgeImport --> Canvas
+    BridgeImport --> Assets
+    RuntimeAdapter --> Native
+    RuntimeAdapter --> Canvas
+    CanvasAdapter --> ContextState
+    CanvasAdapter --> Canvas
+    DrawAdapter --> ContextState
+    DrawAdapter --> State
+    DrawAdapter --> Commands
+    DrawAdapter --> Rendering
+    AssetAdapter --> Assets
+    AssetAdapter --> Rendering
+    ContextState --> Canvas
     Canvas --> State
     Canvas --> Commands
     Canvas --> Rendering
@@ -75,8 +79,8 @@ The runtime has a small set of objects that appear in most changes:
 | `Sketch` | `src/gummysnake/sketch/runtime.py` | Owns lifecycle ordering, callback dispatch, and the run loop entry point for object-mode sketches. Re-exported from `src/gummysnake/sketch/__init__.py`. |
 | `FunctionSketch` | `src/gummysnake/sketch/runtime.py` | Wraps module-level `setup()`, `draw()`, and event callbacks so function-mode sketches use the same lifecycle as object-mode sketches. |
 | `SketchBuilder` | `src/gummysnake/sketch/runtime.py` | Stores decorator-registered callbacks for `@gs.setup`, `@gs.draw`, and `@gs.on(...)` sketches. |
-| `SketchContext` | `src/gummysnake/context.py` plus `src/gummysnake/_context/` mixins | Runtime controller for one sketch. It validates high-level Gummy Snake operations, updates `SketchState`, calls plugins, and sends drawing work to the renderer. |
-| `SketchState` | `src/gummysnake/core/state.py` | Mutable public/lifecycle data for one sketch: canvas dimensions, style and transform mirrors, timing, input, shape-building state, and lifecycle flags. The renderer's current draw state is owned by `gummy_canvas`. |
+| `SketchContext` | `src/gummysnake/context.py` plus `src/gummysnake/_context/` mixins | Runtime controller for one sketch. It validates high-level Gummy Snake operations, calls plugins, updates Rust-owned context state through Python facades, and sends drawing work to the renderer. |
+| `SketchState` | `src/gummysnake/core/state.py` | Compatibility facade for one sketch. Canvas lifecycle, timing, loop flags, input snapshots, and shape-building buffers read/write the Rust `SketchContextState`; Python still keeps API conversion state such as color mode and style objects used at the public boundary. |
 | `CanvasBackend` | `src/gummysnake/backend/canvas.py` plus `src/gummysnake/backend/_canvas/backend/` mixins | Runtime adapter. It chooses headless vs interactive execution, opens native windows when supported, schedules frames, and dispatches input events. |
 | `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/_canvas/renderer/` mixins | Drawing adapter. It mirrors canvas dimensions, synchronizes Python facade state mutations into Rust current state, and forwards drawing requests to the Rust canvas runtime. |
 | `gummysnake.rust.canvas` | `src/gummysnake/rust/canvas.py` | Import, ABI validation, health-check, and capability wrapper for the PyO3 runtime module. It turns missing native support into clear Gummy Snake errors. |
@@ -89,7 +93,7 @@ Python owns:
 - public API naming and validation
 - `setup()`, `draw()`, and callback ordering
 - global-mode context activation
-- sketch lifecycle state, public style/transform mirrors, and plugin hooks
+- callback/plugin orchestration and public API conversion state
 - backend and renderer adapter contracts
 
 Rust owns:
@@ -106,6 +110,8 @@ Rust owns:
 - text, pixels, and readback
 - GPU command encoding, including primitive and image/text pipeline switching
 - SDL3-backed native window and input events when compiled with those capabilities
+- `SketchContextState` for canvas lifecycle fields, timing, loop/redraw flags,
+  input snapshots, and shape-building buffers
 
 ## Sketch, Context, and State
 
@@ -113,56 +119,56 @@ These names are close enough to be confusing:
 
 - `Sketch` is the user-program object and lifecycle owner.
 - `SketchContext` is the active runtime controller for that sketch.
-- `SketchState` is the mutable data inside the context.
+- `SketchState` is the Python compatibility facade over Rust-owned context
+  state plus Python-only API conversion state.
 
-In code, that relationship looks like this:
+The implementation still has Python classes with those names, but ownership
+looks like this:
 
 ```mermaid
-classDiagram
-    class Sketch {
-        +preload()
-        +setup()
-        +draw()
-        +run()
-        +stop()
-    }
+flowchart TD
+    subgraph Python["Python lifecycle/API"]
+        Callbacks[preload / setup / draw]
+        Dispatch[callback and plugin dispatch]
+        Validation[public API validation<br/>Python wrappers]
+        Facades[read-through facades<br/>for compatibility]
+    end
 
-    class SketchContext {
-        +state: SketchState
-        +backend
-        +renderer
-        +create_canvas()
-        +fill()
-        +circle()
-        +load_pixels()
-    }
+    subgraph Rust["Rust state owners"]
+        ContextState[SketchContextState<br/>canvas / timing / input / shape]
+        RendererState[renderer state<br/>style / transform / draw state]
+        Canvas[canvas runtime]
+    end
 
-    class SketchState {
-        +canvas
-        +style
-        +transform
-        +timing
-        +input
-        +stack
-    }
-
-    Sketch --> SketchContext
-    SketchContext --> SketchState
+    Callbacks --> Dispatch
+    Dispatch --> Validation
+    Validation --> ContextState
+    Validation --> RendererState
+    Facades --> ContextState
+    RendererState --> Canvas
+    ContextState --> Canvas
 ```
 
 `SketchContext` methods are where most Gummy Snake semantics live. For example,
 `SketchContext.rect()` resolves the current rectangle mode and style before
 asking the renderer to draw. `SketchState` does not draw and does not validate
-public API calls; it only stores the values those methods need.
+public API calls; it exposes Python-facing accessors over Rust context state and
+keeps Python-only conversion state.
 
 ## What Sketch State Means
 
-`SketchState` is the mutable Python data model for one running sketch. It is not
-the sketch object itself, and it is not the Rust canvas. It stores public
-lifecycle values and Python-facing mirrors of settings that user code can
-observe or that Gummy Snake semantics need. The renderer's authoritative current
-style, transform, image/text state, draw-command construction, and batching live
-inside `gummy_canvas`.
+`SketchState` is now a facade rather than the authoritative runtime store. It is
+not the sketch object itself, and it is not the Rust canvas. Canvas dimensions,
+pixel density, renderer mode, created state, frame counters, loop/redraw flags,
+mouse/keyboard/touch snapshots, and in-progress shape buffers live in the Rust
+`SketchContextState` exposed by `gummysnake.rust._canvas`.
+
+Python still owns the API-level objects and conversions that are naturally
+Pythonic: color mode conversion, public style objects, font wrappers, matrix
+objects used by validation helpers, callback/plugin orchestration, and public
+exception policy. The renderer's authoritative current style, transform,
+image/text state, draw-command construction, and batching live inside
+`gummy_canvas`.
 
 For example:
 
@@ -172,32 +178,43 @@ gs.no_stroke()
 gs.circle(100, 100, 40)
 ```
 
-`fill()` and `no_stroke()` update Python's public style mirror and synchronize
-the Rust canvas current style. When `circle()` runs, `SketchContext` validates
-geometry and color-mode semantics, then asks `CanvasRenderer` to issue a
-stateful Rust draw call using the Rust-owned current style and transform.
+`fill()` and `no_stroke()` update the Python public style object used for API
+conversion and synchronize the Rust canvas current style. When `circle()` runs,
+`SketchContext` validates geometry and color-mode semantics, then asks
+`CanvasRenderer` to issue a stateful Rust draw call using the Rust-owned current
+style and transform.
 
-`SketchState` is defined in `src/gummysnake/core/state.py` and contains:
+`SketchState` is defined in `src/gummysnake/core/state.py` and exposes:
 
 - `canvas`: logical size, physical size, pixel density, renderer kind, and
-  whether a canvas has been created.
+  whether a canvas has been created, backed by Rust `SketchContextState`.
 - `color_mode`: current RGB, HSB, or HSL interpretation and channel ranges.
 - `style`: fill, stroke, stroke weight, text style, image mode, blend mode, and
-  related drawing settings.
+  related Python API conversion settings synchronized into Rust renderer state.
 - `transform`: the current 2D transform matrix.
-- `shape`: temporary vertices while `begin_shape()` / `end_shape()` is active.
-- `timing`: `frame_count`, `delta_time`, target frame rate, and elapsed time.
-- `input`: current mouse, keyboard, and touch values.
-- `stack`: saved style and transform entries for `push()` / `pop()`.
-- `looping` and `redraw_requested`: frame scheduling flags.
+- `shape`: read-through access to Rust-owned `begin_shape()` / `end_shape()`
+  capture buffers.
+- `timing`: Rust-owned `frame_count`, `delta_time`, target frame rate, and
+  elapsed time.
+- `input`: Rust-owned current mouse, keyboard, and touch values.
+- `looping` and `redraw_requested`: Rust-owned frame scheduling flags.
 
 ```mermaid
 flowchart TD
-    StyleCall[gs.fill red] --> StyleMirror[SketchState style mirror]
-    StyleMirror --> RustStyle[gummy_canvas current style]
+    CanvasCall[gs.create_canvas] --> StateProxy[Python canvas accessor]
+    StateProxy --> RustContext[SketchContextState]
 
-    TransformCall[gs.translate] --> TransformMirror[SketchState transform mirror]
-    TransformMirror --> RustTransform[gummy_canvas current matrix]
+    InputEvent[SDL3 input event] --> RustContext
+    RustContext --> InputProxy[Python input accessor]
+
+    ShapeCall[gs.vertex] --> ShapeProxy[Python shape accessor]
+    ShapeProxy --> RustContext
+
+    StyleCall[gs.fill red] --> StyleFacade[Python style facade]
+    StyleFacade --> RustStyle[gummy_canvas current style]
+
+    TransformCall[gs.translate] --> TransformFacade[Python transform facade]
+    TransformFacade --> RustTransform[gummy_canvas current matrix]
 
     DrawCall[gs.circle] --> Validate[validate geometry and color mode]
     Validate --> RendererCall[CanvasRenderer current draw call]
@@ -244,8 +261,9 @@ Use these rules of thumb:
   explicit imports and `__all__` entries in sync.
 - Implement sketch behavior in `SketchContext` when it depends on current Gummy Snake
   state.
-- Add persistent current values to `SketchState` when they must survive across
-  API calls or frames.
+- Add persistent mutable sketch/runtime values to Rust `SketchContextState`
+  when they must survive across API calls or frames. Add Python facade
+  properties only for public readback or API conversion.
 - Add one-frame temporary values to `SketchContext` when they are not part of
   the public Gummy Snake state model.
 - Change `CanvasRenderer` or its mixins in
@@ -285,7 +303,7 @@ features or leave the name absent from public exports until the feature exists.
 ## Common Invariants
 
 - A public drawing call must have an active `SketchContext`.
-- `create_canvas()` must keep `SketchState.canvas` synchronized with the
+- `create_canvas()` must synchronize Rust `SketchContextState` with the
   renderer's logical and physical dimensions.
 - `push()` / `pop()` should preserve style and transform state together.
 - Headless rendering must still go through `gummy_canvas`.

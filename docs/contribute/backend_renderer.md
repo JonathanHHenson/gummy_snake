@@ -5,18 +5,19 @@ problems.
 
 ```mermaid
 flowchart LR
-    subgraph Python["Python facade"]
-        Context[SketchContext]
+    subgraph Python["Python adapter responsibilities"]
+        ApiFacade[Python lifecycle/API facade]
         Backend[CanvasBackend]
         Renderer[CanvasRenderer]
-        RuntimeBridge[native runtime and event bridge]
-        CanvasBridge[canvas lifecycle bridge]
-        DrawBridge[drawing and pixel bridge]
-        AssetBridge[asset and export bridge]
+        RuntimeAdapter[run loop / events / presentation]
+        CanvasAdapter[canvas allocation / resize / dimensions]
+        DrawAdapter[drawing / text / pixels]
+        AssetAdapter[assets / model handles / export]
     end
 
     subgraph Rust["gummy_canvas ownership"]
         Runtime[SDL3 runtime and frame pump]
+        ContextState[SketchContextState<br/>timing / input / shape]
         Canvas[canvas allocation and draw state]
         Commands[draw commands and batching]
         Drawing[GPU primitives, images, text, pixels, export]
@@ -24,21 +25,23 @@ flowchart LR
         Events[native input events]
     end
 
-    Context --> Backend
-    Context --> Renderer
+    ApiFacade --> Backend
+    ApiFacade --> Renderer
     Backend --> Renderer
-    Backend --> RuntimeBridge
-    Backend --> CanvasBridge
-    Renderer --> CanvasBridge
-    Renderer --> DrawBridge
-    Renderer --> AssetBridge
-    RuntimeBridge --> Runtime
-    RuntimeBridge --> Events
-    CanvasBridge --> Canvas
-    DrawBridge --> Canvas
-    DrawBridge --> Commands
-    DrawBridge --> Drawing
-    AssetBridge --> Assets
+    Backend --> RuntimeAdapter
+    RuntimeAdapter --> Renderer
+    Renderer --> CanvasAdapter
+    Renderer --> DrawAdapter
+    Renderer --> AssetAdapter
+    RuntimeAdapter --> Runtime
+    RuntimeAdapter --> Events
+    CanvasAdapter --> ContextState
+    DrawAdapter --> ContextState
+    CanvasAdapter --> Canvas
+    DrawAdapter --> Canvas
+    DrawAdapter --> Commands
+    DrawAdapter --> Drawing
+    AssetAdapter --> Assets
 ```
 
 ## CanvasBackend
@@ -54,7 +57,7 @@ It is responsible for:
 
 - constructing and owning the `CanvasRenderer`
 - checking whether native interactive mode is available
-- creating and resizing the canvas through the renderer
+- requesting canvas creation and resize through the renderer
 - choosing bounded headless execution or interactive execution
 - opening SDL3-backed native windows when supported
 - scheduling frames at the requested frame rate
@@ -82,6 +85,8 @@ It is responsible for:
 - tracking logical canvas dimensions
 - tracking physical backing-buffer dimensions
 - tracking pixel density
+- allocating/resizing the Rust canvas when the backend or public API requests it
+- synchronizing canvas lifecycle dimensions into Rust `SketchContextState`
 - synchronizing Python facade style/transform changes into the Rust canvas state
 - forwarding primitive drawing to the Rust canvas runtime
 - reading and updating physical RGBA pixel buffers
@@ -95,8 +100,9 @@ commands must flush batches and restore the correct pipeline/bind groups when
 switching command families.
 
 The current canvas drawing boundary is stateful. `SketchContext` still validates
-Gummy Snake semantics and keeps Python-facing mirrors for public readbacks,
-argument normalization, and features such as `rect_mode()`. `gummy_canvas`
+Gummy Snake semantics and owns Python-facing conversion objects, but mutable
+canvas lifecycle fields, timing, loop flags, input snapshots, and
+`begin_shape()` buffers live in Rust `SketchContextState`. `gummy_canvas` also
 owns the mutable renderer state used to construct draw commands: current style,
 current transform matrix, push/pop drawing state, image/text draw state, and
 batching state. New drawing operations should prefer Rust `*_current` methods
@@ -140,12 +146,14 @@ Use these examples when deciding where code belongs:
 
 ```mermaid
 sequenceDiagram
-    participant C as SketchContext
-    participant S as SketchState
+    participant C as Python API facade
+    participant S as Python read-through facades
     participant R as CanvasRenderer
+    participant K as SketchContextState
     participant X as gummy_canvas
 
-    C->>S: read facade state and color mode
+    C->>S: read color mode and Python conversion state
+    S->>K: read/write canvas, timing, input, shape state
     C->>C: validate and normalize arguments
     C->>R: sync style/transform mutations as they happen
     C->>R: draw primitive with normalized geometry

@@ -15,12 +15,12 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 ## Project Shape
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Python["Python sketch shell"]
         User[User sketch]
         Sketch[Sketch / FunctionSketch]
         API[Gummy Snake public API]
-        Context[SketchContext]
+        Facade[Python lifecycle/API facade]
     end
 
     subgraph Adapter["Python canvas adapters"]
@@ -30,8 +30,8 @@ flowchart LR
     end
 
     subgraph Rust["Rust-owned canvas runtime"]
-        Runtime[gummysnake.rust._canvas]
         Crate[crates/gummy_canvas]
+        ContextState[SketchContextState]
         DrawState[style / transform / draw state]
         Commands[draw commands and batching]
         Rendering[GPU, raster, export, assets, SDL3]
@@ -40,22 +40,23 @@ flowchart LR
     User --> Sketch
     User --> API
     Sketch --> Backend
-    Sketch --> Context
-    API --> Context
-    Context --> Backend
-    Context --> Renderer
+    Sketch --> Facade
+    API --> Facade
+    Facade --> Backend
+    Facade --> Renderer
     Backend --> Renderer
     Backend --> Wrapper
     Renderer --> Wrapper
-    Wrapper --> Runtime --> Crate
+    Wrapper --> Crate
+    Crate --> ContextState
     Crate --> DrawState
     Crate --> Commands
     Crate --> Rendering
 ```
 
-Gummy Snake is canvas-first. The Rust `gummy_canvas` crate provides the required runtime for
-drawing, presentation, image loading, pixels, export, text, and native
-window/input support when available.
+Gummy Snake is canvas-first. The Rust `gummy_canvas` crate provides the required
+runtime for sketch context state, drawing, presentation, image loading, pixels,
+export, text, and native window/input support when available.
 
 ## Reading Order
 

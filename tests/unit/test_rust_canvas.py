@@ -244,3 +244,56 @@ def test_canvas_shaded_faces_preserve_logical_size_at_pixel_density_two() -> Non
     assert density_two[1] == pytest.approx(density_one[1], abs=0.75)
     assert density_two[2] == pytest.approx(density_one[2], abs=0.75)
     assert density_two[3] == pytest.approx(density_one[3], abs=0.75)
+
+
+def test_sketch_context_state_owns_lifecycle_input_and_shape_buffers() -> None:
+    runtime = require_canvas_runtime()
+    state = runtime.SketchContextState()
+
+    state.sync_canvas(320, 240, 640, 480, 2.0, "webgl", True)
+    assert state.width == 320
+    assert state.height == 240
+    assert state.physical_width == 640
+    assert state.physical_height == 480
+    assert state.pixel_density == 2.0
+    assert state.renderer == "webgl"
+    assert state.created is True
+
+    state.looping = False
+    state.redraw_requested = True
+    state.target_frame_rate = 30.0
+    state.begin_frame_timing()
+    state.increment_frame_count()
+    assert state.looping is False
+    assert state.redraw_requested is True
+    assert state.target_frame_rate == 30.0
+    assert state.frame_count == 1
+    assert state.delta_time >= 0.0
+    assert state.millis() >= 0.0
+
+    state.update_mouse(12.0, 20.0)
+    state.update_mouse(15.0, 24.0, 3.0, 4.0)
+    assert state.mouse_x == 15.0
+    assert state.mouse_y == 24.0
+    assert state.previous_mouse_x == 12.0
+    assert state.previous_mouse_y == 20.0
+    assert state.moved_x == 3.0
+    assert state.moved_y == 4.0
+    state.set_key_down(65, True)
+    state.set_code_down("KeyA", True)
+    assert state.key_is_down(65) is True
+    assert state.code_is_down("KeyA") is True
+
+    state.begin_shape_capture()
+    state.add_vertex(0.0, 0.0)
+    state.add_vertex(10.0, 0.0)
+    state.add_vertex(10.0, 10.0)
+    state.begin_contour_capture()
+    state.add_vertex(2.0, 2.0)
+    state.add_vertex(4.0, 2.0)
+    state.add_vertex(4.0, 4.0)
+    state.end_contour_capture()
+    assert state.shape_vertices() == [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]
+    assert state.shape_contours() == [[(2.0, 2.0), (4.0, 2.0), (4.0, 4.0)]]
+    state.reset_shape_capture()
+    assert state.shape_active is False

@@ -216,11 +216,15 @@ class CanvasContextMixin:
         self._frame_scroll_y = 0.0
 
     def _sync_canvas_state(self) -> None:
-        self.state.canvas.width = self.renderer.width
-        self.state.canvas.height = self.renderer.height
-        self.state.canvas.physical_width = self.renderer.physical_width
-        self.state.canvas.physical_height = self.renderer.physical_height
-        self.state.canvas.pixel_density = self.renderer.pixel_density
+        self.state.rust.sync_canvas(
+            int(self.renderer.width),
+            int(self.renderer.height),
+            int(self.renderer.physical_width),
+            int(self.renderer.physical_height),
+            float(self.renderer.pixel_density),
+            self.state.canvas.renderer.value,
+            self.state.canvas.created,
+        )
 
     def frame_rate(self, value: float | None = None) -> float:
         if value is not None:

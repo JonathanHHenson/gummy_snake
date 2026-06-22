@@ -29,8 +29,8 @@ Python canvas adapters:
 Rust-owned canvas runtime:
   gummysnake.rust._canvas
     -> crates/gummy_canvas
-    -> canvas state, draw commands, batching, GPU/raster rendering,
-       assets, export, pixels, text, SDL3 window/input
+    -> SketchContextState, canvas state, draw commands, batching,
+       GPU/raster rendering, assets, export, pixels, text, SDL3 window/input
 
 user sketch gs.* calls during callbacks
   -> Gummy Snake public API
@@ -41,9 +41,12 @@ user sketch gs.* calls during callbacks
 ```
 
 `gummysnake.rust._canvas` owns drawing, presentation, renderer draw state,
-image asset loading/saving, image-local byte operations, media frame conversion,
-text, pixels, export, and native window/input support when built with those
-capabilities. The current native desktop window/input runtime is SDL3-backed
+sketch context state for canvas lifecycle/timing/input/shape capture, image
+asset loading/saving, image-local byte operations, media frame conversion, text,
+pixels, export, and native window/input support when built with those
+capabilities. Python `SketchState` is a compatibility facade over that Rust
+state plus Python-only API conversion objects, not an independent runtime
+mirror. The current native desktop window/input runtime is SDL3-backed
 inside `crates/gummy_canvas`; do not reintroduce winit/Tao window loops as the
 primary interactive path without an explicit user request and a new experiment
 plan.
@@ -216,11 +219,16 @@ When adding or changing enum-backed public values:
 
 ### Preserve Sketch Lifecycle Ownership
 
-Python `Sketch` and `SketchContext` own lifecycle ordering, global-mode dispatch, state, plugin hooks, timing, and callback invocation. The Rust runtime may schedule frames and provide events, but it should not own Gummy Snake API naming policy or sketch semantics.
+Python `Sketch` and `SketchContext` own lifecycle ordering, global-mode
+dispatch, plugin hooks, public API validation, and callback invocation. Rust
+`SketchContextState` owns mutable canvas lifecycle fields, timing/frame
+counters, loop/redraw flags, input snapshots, and shape capture buffers. The
+Rust runtime may schedule frames and provide events, but it should not own Gummy
+Snake API naming policy or callback/plugin semantics.
 
 Frame rendering should preserve the existing high-level order:
 
-1. update timing/context frame state
+1. update Rust timing/context frame state
 2. begin renderer frame
 3. run sketch `draw()` and plugin hooks
 4. end renderer frame
@@ -237,8 +245,10 @@ For the current implementation this means:
 
 - `src/gummysnake/backend/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backend/_canvas/backend/`.
 - `src/gummysnake/backend/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins in `src/gummysnake/backend/_canvas/renderer/`.
-- `CanvasRenderer` mirrors canvas dimensions, synchronizes Python facade state
-  changes into Rust current state, and forwards draw calls to `gummy_canvas`.
+- `CanvasRenderer` mirrors canvas dimensions for adapter compatibility,
+  synchronizes Rust `SketchContextState` during resize/create, synchronizes
+  Python facade style/transform changes into Rust current renderer state, and
+  forwards draw calls to `gummy_canvas`.
 - `gummysnake.rust.canvas` handles optional import, health checks, ABI validation, and clear capability failures.
 - `crates/gummy_canvas` owns the native SDL3 runtime and rendering implementation.
 

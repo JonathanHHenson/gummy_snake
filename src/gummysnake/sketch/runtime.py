@@ -76,7 +76,7 @@ class Sketch(SketchFacadeMixin):
             context.plugins.dispatch_lifecycle(LifecycleHookName.AFTER_DRAW, context)
         context.renderer.end_frame()
         context.end_frame()
-        context.state.timing.frame_count += 1
+        context.state.rust.increment_frame_count()
         context.state.redraw_requested = False
 
     def _dispatch_callback(self, name: str, event: object) -> None:

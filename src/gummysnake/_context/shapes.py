@@ -120,22 +120,18 @@ class ShapeContextMixin:
         )
 
     def begin_shape(self, kind: c.ShapeKind | None = None) -> None:
-        if self.state.shape.active:
+        if self.state.rust.shape_active:
             raise ArgumentValidationError("begin_shape() cannot be nested.")
-        self.state.shape.active = True
-        self.state.shape.vertices.clear()
-        self.state.shape.contours.clear()
-        self.state.shape.contour_active = False
-        self.state.shape.contour_vertices.clear()
-        self.state.shape.kind = kind
+        self.state.rust.begin_shape_capture(None if kind is None else kind.value)
 
     def _reset_shape_capture(self) -> None:
-        self.state.shape.active = False
-        self.state.shape.vertices.clear()
-        self.state.shape.contours.clear()
-        self.state.shape.contour_active = False
-        self.state.shape.contour_vertices.clear()
-        self.state.shape.kind = None
+        self.state.rust.reset_shape_capture()
+
+    def _active_shape_vertices(self) -> list[tuple[float, float]]:
+        return [tuple(point) for point in self.state.rust.active_vertices()]
+
+    def _extend_shape_vertices(self, vertices: list[tuple[float, float]]) -> None:
+        self.state.rust.extend_vertices(vertices)
 
     @contextmanager
     def shape(
@@ -148,65 +144,50 @@ class ShapeContextMixin:
             self.end_shape(mode)
             completed = True
         finally:
-            if not completed and self.state.shape.active:
+            if not completed and self.state.rust.shape_active:
                 self._reset_shape_capture()
 
     def vertex(self, x: float, y: float) -> None:
-        if not self.state.shape.active:
+        if not self.state.rust.shape_active:
             raise ArgumentValidationError(
                 "vertex() must be called between begin_shape() and end_shape()."
             )
-        target = (
-            self.state.shape.contour_vertices
-            if self.state.shape.contour_active
-            else self.state.shape.vertices
-        )
-        target.append((float(x), float(y)))
+        self.state.rust.add_vertex(float(x), float(y))
 
     def bezier_vertex(
         self, x2: float, y2: float, x3: float, y3: float, x4: float, y4: float
     ) -> None:
-        vertices = (
-            self.state.shape.contour_vertices
-            if self.state.shape.contour_active
-            else self.state.shape.vertices
-        )
+        vertices = self._active_shape_vertices()
         if not vertices:
             raise ArgumentValidationError("bezier_vertex() requires an initial vertex().")
         p0 = vertices[-1]
-        vertices.extend(flatten_cubic(p0, (x2, y2), (x3, y3), (x4, y4)))
+        self._extend_shape_vertices(flatten_cubic(p0, (x2, y2), (x3, y3), (x4, y4)))
 
     def quadratic_vertex(self, cx: float, cy: float, x3: float, y3: float) -> None:
-        vertices = (
-            self.state.shape.contour_vertices
-            if self.state.shape.contour_active
-            else self.state.shape.vertices
-        )
+        vertices = self._active_shape_vertices()
         if not vertices:
             raise ArgumentValidationError("quadratic_vertex() requires an initial vertex().")
         p0 = vertices[-1]
-        vertices.extend(flatten_quadratic(p0, (cx, cy), (x3, y3)))
+        self._extend_shape_vertices(flatten_quadratic(p0, (cx, cy), (x3, y3)))
 
     def spline_vertex(self, x: float, y: float) -> None:
-        if not self.state.shape.active:
+        if not self.state.rust.shape_active:
             raise ArgumentValidationError(
                 "spline_vertex() must be called between begin_shape() and end_shape()."
             )
-        vertices = (
-            self.state.shape.contour_vertices
-            if self.state.shape.contour_active
-            else self.state.shape.vertices
-        )
+        vertices = self._active_shape_vertices()
         point = (float(x), float(y))
         if not vertices:
-            vertices.append(point)
+            self.state.rust.add_vertex(*point)
             return
         if len(vertices) == 1:
-            vertices.append(point)
+            self.state.rust.add_vertex(*point)
             return
         p0 = vertices[-2]
         p1 = vertices[-1]
-        vertices.extend(flatten_spline(p0, p1, point, point, tightness=self._spline_tightness))
+        self._extend_shape_vertices(
+            flatten_spline(p0, p1, point, point, tightness=self._spline_tightness)
+        )
 
     def spline(
         self,
@@ -258,14 +239,15 @@ class ShapeContextMixin:
         return {"tightness": self._spline_tightness}
 
     def end_shape(self, mode: c.ArcMode = c.OPEN) -> None:
-        if not self.state.shape.active:
+        if not self.state.rust.shape_active:
             raise ArgumentValidationError("end_shape() requires begin_shape().")
-        if self.state.shape.contour_active:
+        if self.state.rust.contour_active:
             raise ArgumentValidationError("end_shape() requires end_contour() first.")
-        contours = [list(contour) for contour in self.state.shape.contours]
+        contours = [list(contour) for contour in self.state.rust.shape_contours()]
+        vertices = [tuple(point) for point in self.state.rust.shape_vertices()]
         if contours:
             self.renderer.complex_polygon(
-                list(self.state.shape.vertices),
+                vertices,
                 contours,
                 self.state.style,
                 self.state.transform.matrix,
@@ -273,7 +255,7 @@ class ShapeContextMixin:
             )
         else:
             self.renderer.polygon(
-                list(self.state.shape.vertices),
+                vertices,
                 self.state.style,
                 self.state.transform.matrix,
                 close=mode == c.CLOSE,
@@ -281,29 +263,26 @@ class ShapeContextMixin:
         self._reset_shape_capture()
 
     def begin_contour(self) -> None:
-        if not self.state.shape.active:
+        if not self.state.rust.shape_active:
             raise ArgumentValidationError("begin_contour() requires begin_shape().")
-        if self.state.shape.contour_active:
+        if self.state.rust.contour_active:
             raise ArgumentValidationError("begin_contour() cannot be nested.")
-        if self.state.shape.kind is not None:
+        if self.state.rust.shape_kind is not None:
             raise ArgumentValidationError(
                 "begin_contour() is supported only for freeform begin_shape() paths."
             )
-        if len(self.state.shape.vertices) < 3:
+        if self.state.rust.shape_vertex_count() < 3:
             raise ArgumentValidationError(
                 "begin_contour() requires at least three outer shape vertices first."
             )
-        self.state.shape.contour_active = True
-        self.state.shape.contour_vertices.clear()
+        self.state.rust.begin_contour_capture()
 
     def end_contour(self) -> None:
-        if not self.state.shape.active or not self.state.shape.contour_active:
+        if not self.state.rust.shape_active or not self.state.rust.contour_active:
             raise ArgumentValidationError("end_contour() requires begin_contour().")
-        if len(self.state.shape.contour_vertices) < 3:
+        if self.state.rust.contour_vertex_count() < 3:
             raise ArgumentValidationError("end_contour() requires at least three vertices.")
-        self.state.shape.contours.append(list(self.state.shape.contour_vertices))
-        self.state.shape.contour_vertices.clear()
-        self.state.shape.contour_active = False
+        self.state.rust.end_contour_capture()
 
     @contextmanager
     def contour(self) -> Generator[None]:
@@ -314,23 +293,22 @@ class ShapeContextMixin:
             self.end_contour()
             completed = True
         finally:
-            if not completed and self.state.shape.contour_active:
-                self.state.shape.contour_vertices.clear()
-                self.state.shape.contour_active = False
+            if not completed and self.state.rust.contour_active:
+                self.state.rust.reset_contour_capture()
 
     def begin_clip(self) -> None:
-        if self.state.shape.active:
+        if self.state.rust.shape_active:
             raise ArgumentValidationError("begin_clip() cannot be called inside begin_shape().")
         self.begin_shape()
 
     def clip(self) -> None:
-        if not self.state.shape.active:
+        if not self.state.rust.shape_active:
             raise ArgumentValidationError("clip() requires begin_clip().")
-        if self.state.shape.contour_active:
+        if self.state.rust.contour_active:
             raise ArgumentValidationError("clip() requires end_contour() first.")
         self.renderer.begin_clip(
-            list(self.state.shape.vertices),
-            [list(contour) for contour in self.state.shape.contours],
+            [tuple(point) for point in self.state.rust.shape_vertices()],
+            [list(contour) for contour in self.state.rust.shape_contours()],
             self.state.transform.matrix,
         )
         self._reset_shape_capture()
@@ -347,7 +325,7 @@ class ShapeContextMixin:
             self.clip()
             completed = True
         finally:
-            if not completed and self.state.shape.active:
+            if not completed and self.state.rust.shape_active:
                 self._reset_shape_capture()
 
     def bezier(

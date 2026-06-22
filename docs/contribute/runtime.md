@@ -6,7 +6,10 @@ There is no supported Pillow or Pyglet fallback.
 The runtime starts in Python, creates a Python context, and then uses the Rust
 canvas runtime for canvas work. Rust provides native interactive windows and
 input through the SDL3-backed `gummy_canvas` desktop runtime when those
-capabilities are available, but Python still owns the sketch lifecycle.
+capabilities are available, but Python still owns callback/plugin orchestration
+and public API policy. The mutable sketch context state that affects scheduling,
+input readback, canvas dimensions, and shape capture lives in Rust
+`SketchContextState`.
 
 ```mermaid
 sequenceDiagram
@@ -19,6 +22,7 @@ sequenceDiagram
     S->>B: create_backend(headless=...)
     B->>R: construct CanvasRenderer
     S->>C: create context
+    C->>X: create SketchContextState
     C->>B: keep backend reference
     C->>R: keep backend.renderer reference
     S->>S: preload()
@@ -27,7 +31,7 @@ sequenceDiagram
     C->>B: create_canvas() if requested or defaulted
     B->>R: resize()
     R->>X: allocate canvas and backing surface
-    X->>X: initialize draw state, command queues, assets, GPU/raster paths
+    X->>X: initialize context state, draw state, command queues, assets, GPU/raster paths
     B->>S: run frames
 ```
 
@@ -69,14 +73,16 @@ Keep this ordering intact when changing lifecycle behavior.
 
 ## Frame Scheduling
 
-The draw loop checks Gummy Snake lifecycle flags before drawing:
+The draw loop checks Rust-owned Gummy Snake lifecycle flags before drawing:
 
 - if `state.looping` is true, draw every scheduled frame
 - if `state.redraw_requested` is true, draw one frame even when looping is off
 - otherwise skip drawing
 
 `no_loop()` sets `state.looping` false. `loop()` sets it true. `redraw()` marks a
-single frame as requested. After a frame is drawn, `redraw_requested` is cleared.
+single frame as requested. These Python properties are facades over
+`SketchContextState`; after a frame is drawn, the Rust-owned
+`redraw_requested` flag is cleared.
 
 Interactive runs schedule frames according to the target frame rate and poll
 SDL3 native events between frames. The Rust runtime also pumps native events
@@ -110,8 +116,9 @@ flowchart TD
 
 When native input is available, the SDL3-backed Rust runtime emits window/input
 events. `CanvasBackend` polls those events, normalizes them into Python event
-dataclasses, updates `SketchContext.state.input`, and then dispatches optional
-user callbacks. SDL3 pointer, wheel, and touch coordinates are logical/window
+dataclasses, updates Rust `SketchContextState` through the
+`SketchContext.state.input` facade, and then dispatches optional user
+callbacks. SDL3 pointer, wheel, and touch coordinates are logical/window
 coordinates; Rust payloads must mark them with `coordinates = "logical"` so the
 Python backend does not divide them by pixel density again. One-character SDL3
 key names should be normalized to lowercase before crossing into Python so
@@ -130,8 +137,9 @@ sequenceDiagram
     S->>S: user callback(event)
 ```
 
-Input state should always be updated before the user callback runs, so callback
-code sees the same values that later Gummy Snake input functions return.
+Input state should always be updated in `SketchContextState` before the user
+callback runs, so callback code sees the same values that later Gummy Snake
+input functions return.
 
 ## HiDPI
 
@@ -148,8 +156,8 @@ Gummy Snake separates logical and physical size:
 Do not collapse logical and physical dimensions when touching renderer, export,
 pixels, image, input coordinate code, or software-3D GPU submission. SDL3 resize
 events report logical window size plus display scale; after a native resize,
-keep `SketchState.canvas`, renderer dimensions, physical backing size, export
-size, and input coordinates in sync.
+keep Rust `SketchContextState`, renderer dimensions, physical backing size,
+export size, and input coordinates in sync.
 
 ## Asset, Image, And Pixel Ownership
 
@@ -292,10 +300,11 @@ Canvas creation is a cross-layer operation:
 2. `CanvasBackend.create_canvas()` forwards the requested logical size and pixel
    density to the renderer.
 3. `CanvasRenderer.resize()` asks Rust to allocate or resize the canvas.
-4. `SketchContext._sync_canvas_state()` copies renderer dimensions back into
-   `SketchState.canvas`.
+4. `SketchContext._sync_canvas_state()` copies renderer dimensions into Rust
+   `SketchContextState`; `SketchState.canvas` reads those values through its
+   facade.
 
-If a change resizes the canvas but does not synchronize `SketchState.canvas`,
+If a change resizes the canvas but does not synchronize `SketchContextState`,
 `width()`, `height()`, `pixel_density()`, pixels, export, and input coordinates
 can disagree.
 

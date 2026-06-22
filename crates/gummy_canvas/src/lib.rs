@@ -11,6 +11,7 @@ mod images;
 mod performance;
 mod raster;
 mod runtime;
+mod sketch_state;
 mod software3d;
 mod text;
 
@@ -66,7 +67,7 @@ const BLEND_MODE_SCREEN: &str = "screen";
 const IMAGE_CACHE_LIMIT: usize = 1024;
 const TEXTURE_CACHE_LIMIT: usize = 1024;
 const TEXT_CACHE_LIMIT: usize = 512;
-const CANVAS_ABI_VERSION: u32 = 7;
+const CANVAS_ABI_VERSION: u32 = 8;
 static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

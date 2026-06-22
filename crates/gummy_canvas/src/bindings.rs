@@ -347,6 +347,7 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Canvas>()?;
     m.add_class::<CanvasImage>()?;
     m.add_class::<CanvasSound>()?;
+    m.add_class::<sketch_state::SketchContextState>()?;
     m.add_class::<software3d::CanvasModel3D>()?;
     m.add_class::<software3d::CanvasMesh3D>()?;
     Ok(())

@@ -16,6 +16,8 @@ interactive windows are powered by the packaged Rust `gummy_canvas` runtime. On
 desktop builds, native windows and input use the SDL3-backed runtime. The Rust
 canvas owns the hot renderer state used to construct draw commands, including
 the current style, transform stack, image/text state, and GPU command batches.
+It also owns the mutable sketch context state for canvas lifecycle fields,
+timing, loop/redraw flags, input snapshots, and in-progress shape buffers.
 
 ## Install
 
@@ -153,8 +155,10 @@ The refactored Python package is split by responsibility: public API modules in
 lifecycle code in `src/gummysnake/sketch/`, enum-backed constants in
 `src/gummysnake/constants/`, and thin canvas backend/renderer facades over the
 implementation modules in `src/gummysnake/backend/_canvas/`. The native desktop
-runtime itself lives in `crates/gummy_canvas`, owns canvas draw state and command
-construction, and uses SDL3 for windowing, resizing, and input event collection.
+runtime itself lives in `crates/gummy_canvas`, owns sketch context state, canvas
+draw state, and command construction, and uses SDL3 for windowing, resizing, and
+input event collection. Python keeps the public API, callbacks, plugin hooks,
+and friendly wrapper objects.
 
 The contributor documentation explains the architecture, lifecycle, testing
 workflow, and release shape in more detail:
