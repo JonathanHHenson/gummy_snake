@@ -379,10 +379,13 @@ uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
-Canvas benchmark scenarios must average at least 240 FPS. Treat failures below
-that floor as optimization work, not as flaky thresholds to loosen. Baseline
-snapshots live in `tests/benchmark/baselines/`; keep captured baseline values as
-measured and record whether they meet the 240 FPS floor.
+Canvas backend benchmark scenarios measure native interactive presentation and
+must average at least 240 FPS. Headless/offscreen numbers are useful for export
+diagnostics, but they are not the runtime performance acceptance metric. Treat
+failures below the interactive floor as optimization work, not as flaky
+thresholds to loosen. Baseline snapshots live in `tests/benchmark/baselines/`;
+keep captured baseline values as measured and record whether they meet the
+240 FPS floor.
 Model export benchmarks use a streaming memory budget rather than an FPS floor.
 API overhead benchmarks should compare global-mode, object-oriented sketch,
 context-direct, `fast()`, and renderer-direct dispatch paths.

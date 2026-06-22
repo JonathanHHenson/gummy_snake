@@ -56,12 +56,14 @@ uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
-The canvas backend benchmarks require the `gummysnake.rust._canvas` runtime module and run in
-bounded headless mode, so they do not open a native window. Each run reports
-frames per second plus the canvas size, pixel density, backend mode, Python
-version, and platform. Every canvas benchmark scenario must average at least
-240 FPS. A below-threshold failure is an optimization signal, not a reason to
-loosen the benchmark.
+The canvas backend benchmarks require the `gummysnake.rust._canvas` runtime
+module and run bounded native interactive windows, because interactive
+presentation is the runtime performance acceptance path. Headless/offscreen
+numbers are useful for export diagnostics, but they are not the canvas runtime
+performance standard. Each run reports frames per second plus the canvas size,
+pixel density, backend mode, Python version, and platform. Every canvas
+benchmark scenario must average at least 240 FPS. A below-threshold failure is
+an optimization signal, not a reason to loosen the benchmark.
 
 Use the suite when changing renderer hot paths, image upload/cache behavior,
 pixel readback/update behavior, text measurement, frame scheduling, or native
