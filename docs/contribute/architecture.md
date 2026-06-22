@@ -13,14 +13,10 @@ flowchart TD
         ApiFacade[public API validation<br/>and Python wrappers]
     end
 
-    subgraph Adapter["Python canvas adapter responsibilities"]
+    subgraph Adapter["Python canvas adapters"]
         Backend[CanvasBackend]
         Renderer[CanvasRenderer]
         BridgeImport[gummysnake.rust.canvas<br/>import / ABI / capabilities]
-        RuntimeAdapter[run loop adapter<br/>events / pacing / presentation]
-        CanvasAdapter[canvas adapter<br/>allocate / resize / dimensions]
-        DrawAdapter[drawing adapter<br/>primitives / text / pixels]
-        AssetAdapter[asset adapter<br/>images / models / sounds / export]
     end
 
     subgraph Rust["Rust canvas runtime"]
@@ -45,24 +41,18 @@ flowchart TD
     Backend --> Renderer
     Backend --> BridgeImport
     Renderer --> BridgeImport
-    Backend --> RuntimeAdapter
-    RuntimeAdapter --> Renderer
-    Renderer --> CanvasAdapter
-    Renderer --> DrawAdapter
-    Renderer --> AssetAdapter
     BridgeImport --> ContextState
     BridgeImport --> Canvas
     BridgeImport --> Assets
-    RuntimeAdapter --> Native
-    RuntimeAdapter --> Canvas
-    CanvasAdapter --> ContextState
-    CanvasAdapter --> Canvas
-    DrawAdapter --> ContextState
-    DrawAdapter --> State
-    DrawAdapter --> Commands
-    DrawAdapter --> Rendering
-    AssetAdapter --> Assets
-    AssetAdapter --> Rendering
+    Backend --> Native
+    Backend --> ContextState
+    Backend --> Canvas
+    Renderer --> ContextState
+    Renderer --> Canvas
+    Renderer --> State
+    Renderer --> Commands
+    Renderer --> Rendering
+    Renderer --> Assets
     ContextState --> Canvas
     Canvas --> State
     Canvas --> Commands
@@ -201,26 +191,33 @@ style and transform.
 
 ```mermaid
 flowchart TD
-    CanvasCall[gs.create_canvas] --> StateProxy[Python canvas accessor]
-    StateProxy --> RustContext[SketchContextState]
+    CanvasCall[gs.create_canvas] --> Backend[CanvasBackend request]
+    Backend --> RendererResize[CanvasRenderer resize]
+    RendererResize --> RustCanvas[gummy_canvas canvas]
+    RendererResize --> RustContext[SketchContextState]
 
-    InputEvent[SDL3 input event] --> RustContext
-    RustContext --> InputProxy[Python input accessor]
+    InputEvent[SDL3 input event] --> BackendEvents[CanvasBackend event normalization]
+    BackendEvents --> InputFacade[Python input facade]
+    InputFacade --> RustContext
 
-    ShapeCall[gs.vertex] --> ShapeProxy[Python shape accessor]
-    ShapeProxy --> RustContext
+    ShapeCall[gs.vertex] --> ShapeValidation[shape lifecycle validation]
+    ShapeValidation --> RustContext
+    RustContext --> ShapeDraw[shape vertices read for end_shape]
+    ShapeDraw --> RendererShape[CanvasRenderer polygon draw]
 
-    StyleCall[gs.fill red] --> StyleFacade[Python style facade]
-    StyleFacade --> RustStyle[gummy_canvas current style]
+    StyleCall[gs.fill red] --> StyleFacade[Python style conversion]
+    StyleFacade --> RendererStyle[CanvasRenderer sync style]
+    RendererStyle --> RustStyle[gummy_canvas current style]
 
-    TransformCall[gs.translate] --> TransformFacade[Python transform facade]
-    TransformFacade --> RustTransform[gummy_canvas current matrix]
+    TransformCall[gs.translate] --> TransformFacade[Python transform conversion]
+    TransformFacade --> RendererMatrix[CanvasRenderer sync matrix]
+    RendererMatrix --> RustTransform[gummy_canvas current matrix]
 
     DrawCall[gs.circle] --> Validate[validate geometry and color mode]
     Validate --> RendererCall[CanvasRenderer current draw call]
-    RustStyle --> RendererCall
-    RustTransform --> RendererCall
-    RendererCall --> Command[gummy_canvas constructs command from current state]
+    RustStyle --> Command[gummy_canvas constructs command]
+    RustTransform --> Command
+    RendererCall --> Command
 ```
 
 ## Public API Call Flow

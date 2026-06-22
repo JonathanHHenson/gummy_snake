@@ -5,14 +5,10 @@ problems.
 
 ```mermaid
 flowchart LR
-    subgraph Python["Python adapter responsibilities"]
+    subgraph Python["Python facades"]
         ApiFacade[Python lifecycle/API facade]
         Backend[CanvasBackend]
         Renderer[CanvasRenderer]
-        RuntimeAdapter[run loop / events / presentation]
-        CanvasAdapter[canvas allocation / resize / dimensions]
-        DrawAdapter[drawing / text / pixels]
-        AssetAdapter[assets / model handles / export]
     end
 
     subgraph Rust["gummy_canvas ownership"]
@@ -28,20 +24,15 @@ flowchart LR
     ApiFacade --> Backend
     ApiFacade --> Renderer
     Backend --> Renderer
-    Backend --> RuntimeAdapter
-    RuntimeAdapter --> Renderer
-    Renderer --> CanvasAdapter
-    Renderer --> DrawAdapter
-    Renderer --> AssetAdapter
-    RuntimeAdapter --> Runtime
-    RuntimeAdapter --> Events
-    CanvasAdapter --> ContextState
-    DrawAdapter --> ContextState
-    CanvasAdapter --> Canvas
-    DrawAdapter --> Canvas
-    DrawAdapter --> Commands
-    DrawAdapter --> Drawing
-    AssetAdapter --> Assets
+    Backend --> Runtime
+    Backend --> Events
+    Backend --> ContextState
+    Backend --> Canvas
+    Renderer --> ContextState
+    Renderer --> Canvas
+    Renderer --> Commands
+    Renderer --> Drawing
+    Renderer --> Assets
 ```
 
 ## CanvasBackend
