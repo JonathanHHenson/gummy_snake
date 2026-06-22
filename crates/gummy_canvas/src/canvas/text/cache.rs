@@ -1,5 +1,6 @@
 use crate::runtime::style::parse_style;
 use crate::*;
+use pyo3::types::PyDict;
 
 impl Canvas {
     pub(crate) fn evict_image_cache_if_needed(&mut self, incoming_key: u64) {
@@ -26,7 +27,15 @@ impl Canvas {
     }
 
     pub(crate) fn cached_style(&mut self, style: &Bound<'_, PyAny>) -> PyResult<Style> {
-        let key = style.as_ptr() as usize;
+        let revision = style
+            .downcast::<PyDict>()
+            .ok()
+            .and_then(|dict| dict.get_item("_style_revision").ok().flatten())
+            .and_then(|value| value.extract::<i64>().ok());
+        let Some(revision) = revision else {
+            return parse_style(style);
+        };
+        let key = (style.as_ptr() as usize, revision);
         if self.cached_style_key == Some(key) {
             if let Some(cached) = self.cached_style.as_ref() {
                 return Ok(cached.clone());

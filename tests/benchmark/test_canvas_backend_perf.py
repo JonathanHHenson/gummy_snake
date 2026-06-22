@@ -14,6 +14,7 @@ CHILD_RUNNER = Path(__file__).with_name("canvas_backend_perf_child.py")
 FRAMES = 120
 REPEATS = 2
 MIN_MEAN_FPS = 240.0
+BENCHMARK_MODE = "interactive"
 VARIANTS = (
     "dense_primitives",
     "sparse_primitives",
@@ -51,12 +52,18 @@ class BenchmarkSummary:
         return max(self.samples)
 
 
-def _run_variant(variant: str, *, frames: int = FRAMES, repeats: int = REPEATS) -> BenchmarkSummary:
+def _run_variant(
+    variant: str,
+    *,
+    frames: int = FRAMES,
+    repeats: int = REPEATS,
+    mode: str = BENCHMARK_MODE,
+) -> BenchmarkSummary:
     samples: list[float] = []
     metadata: dict[str, object] = {}
     for _ in range(repeats):
         result = subprocess.run(
-            [sys.executable, str(CHILD_RUNNER), variant, str(frames)],
+            [sys.executable, str(CHILD_RUNNER), variant, str(frames), mode],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -84,7 +91,7 @@ def _run_variant(variant: str, *, frames: int = FRAMES, repeats: int = REPEATS) 
 
 @pytest.mark.benchmark
 @pytest.mark.parametrize("variant", VARIANTS)
-def test_canvas_benchmark_variants_execute(variant: str) -> None:
+def test_canvas_interactive_benchmark_variants_execute(variant: str) -> None:
     summary = _run_variant(variant)
     print(
         f"benchmark {summary.variant}: mean_fps={summary.mean_fps:.2f} "
@@ -95,7 +102,7 @@ def test_canvas_benchmark_variants_execute(variant: str) -> None:
 
 
 @pytest.mark.benchmark
-def test_canvas_dense_scene_regression_ratio() -> None:
+def test_canvas_interactive_dense_scene_regression_ratio() -> None:
     sparse = _run_variant("sparse_primitives")
     dense = _run_variant("dense_primitives")
     cached_images = _run_variant("cached_images")

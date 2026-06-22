@@ -14,6 +14,9 @@ from gummysnake.rust.canvas import require_canvas_runtime
 def main() -> None:
     variant = sys.argv[1]
     frames = int(sys.argv[2])
+    mode = sys.argv[3] if len(sys.argv) > 3 else "interactive"
+    if mode not in {"interactive", "headless"}:
+        raise ValueError("benchmark mode must be 'interactive' or 'headless'")
     start = 0.0
     canvas_size = [0, 0]
 
@@ -27,7 +30,7 @@ def main() -> None:
         draw_scene(variant)
 
     require_canvas_runtime()
-    gs.run(setup=setup, draw=draw, headless=True, max_frames=frames)
+    gs.run(setup=setup, draw=draw, headless=(mode == "headless"), max_frames=frames)
     elapsed = time.perf_counter() - start
     print(
         json.dumps(
@@ -36,7 +39,7 @@ def main() -> None:
                 "frames": frames,
                 "canvas_size": canvas_size,
                 "pixel_density": 1.0,
-                "backend_mode": "headless",
+                "backend_mode": mode,
                 "gpu_available": None,
                 "python": platform.python_version(),
                 "platform": platform.platform(),

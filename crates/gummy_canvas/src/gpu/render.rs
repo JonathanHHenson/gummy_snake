@@ -243,6 +243,12 @@ impl GpuRenderer {
         clear
     }
 
+    pub fn has_pending_image_commands(&self) -> bool {
+        self.commands
+            .iter()
+            .any(|command| matches!(command, DrawCommand::Image { .. }))
+    }
+
     pub fn pending_commands(&self) -> &[DrawCommand] {
         &self.commands
     }
@@ -1225,7 +1231,10 @@ impl GpuRenderer {
     }
 
     fn pixel_prefix_bounds(&self, byte_limit: u32) -> Option<(u32, u32, u32, u32)> {
-        let total_pixels = self.texture_size.width.saturating_mul(self.texture_size.height);
+        let total_pixels = self
+            .texture_size
+            .width
+            .saturating_mul(self.texture_size.height);
         let affected_pixels = byte_limit.div_ceil(4).min(total_pixels);
         if affected_pixels == 0 || self.texture_size.width == 0 {
             return None;
@@ -1296,7 +1305,12 @@ impl GpuRenderer {
                 left: *x,
                 top: *y,
                 scale: 1.0,
-                bounds: glyphon::TextBounds::default(),
+                bounds: glyphon::TextBounds {
+                    left: 0,
+                    top: 0,
+                    right: self.texture_size.width as i32,
+                    bottom: self.texture_size.height as i32,
+                },
                 default_color: glyphon::Color::rgba(color.r, color.g, color.b, color.a),
                 custom_glyphs: &[],
             });

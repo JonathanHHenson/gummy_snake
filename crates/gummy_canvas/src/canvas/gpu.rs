@@ -552,10 +552,17 @@ impl Canvas {
 
     pub(crate) fn can_draw_gpu_text(&self, style: &Style, matrix: Matrix) -> bool {
         self.gpu.is_some()
+            && self.runtime.is_none()
             && !self.cpu_compositing_active
+            && !self.image_text_active_this_frame
+            && !self
+                .gpu
+                .as_ref()
+                .is_some_and(|gpu| gpu.has_pending_image_commands())
             && self.clip_masks.is_empty()
             && !style.erasing
             && style.fill.is_some()
+            && style.stroke.is_none()
             && style.blend_mode_kind == BlendMode::Blend
             && style.text_font_path.is_none()
             && matrix == (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)

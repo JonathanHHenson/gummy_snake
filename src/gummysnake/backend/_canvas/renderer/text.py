@@ -38,18 +38,12 @@ class CanvasRendererTextMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        if _renderer(self)._can_use_current_state(style, transform):
-            if _renderer(self)._text_batch and not _renderer(self)._text_batch_current:
-                _renderer(self)._flush_text_batch()
-            _renderer(self)._text_batch.extend(items)
-            _renderer(self)._text_batch_current = True
-            return
-        style_payload = _renderer(self)._style_payload(style)
+        style_payload = dict(_renderer(self)._style_payload(style))
         matrix_payload = _renderer(self)._matrix_payload(transform)
         if _renderer(self)._text_batch and (
             _renderer(self)._text_batch_current
-            or _renderer(self)._text_batch_style is not style_payload
-            or _renderer(self)._text_batch_matrix is not matrix_payload
+            or _renderer(self)._text_batch_style != style_payload
+            or _renderer(self)._text_batch_matrix != matrix_payload
         ):
             _renderer(self)._flush_text_batch()
         _renderer(self)._text_batch.extend(items)

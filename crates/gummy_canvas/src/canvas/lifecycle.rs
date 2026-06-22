@@ -52,6 +52,7 @@ impl Canvas {
             last_reusable_text_frame_signature: None,
             pending_reusable_text_frame_signature: None,
             cpu_compositing_active: false,
+            image_text_active_this_frame: false,
             cached_style_key: None,
             cached_style: None,
             current_style: Style::default(),
@@ -100,6 +101,7 @@ impl Canvas {
         self.last_reusable_text_frame_signature = None;
         self.pending_reusable_text_frame_signature = None;
         self.cpu_compositing_active = false;
+        self.image_text_active_this_frame = false;
         self.cached_style_key = None;
         self.cached_style = None;
         self.clip_masks.clear();
@@ -387,6 +389,7 @@ impl Canvas {
     pub(crate) fn begin_frame_impl(&mut self) {
         self.performance_counters.bridge_calls += 1;
         self.cpu_compositing_active = false;
+        self.image_text_active_this_frame = false;
         self.pending_reusable_text_frame_signature = None;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.begin_frame();
@@ -426,29 +429,24 @@ impl Canvas {
                 return Ok(());
             }
         }
-        if self.runtime.is_some() && self.render_dirty {
-            self.upload_stale_texture(false)?;
-        }
-        if let Some(runtime) = self.runtime.as_mut() {
-            let window = runtime.window().ok_or_else(|| {
-                PyValueError::new_err("Native canvas window is not available for presentation.")
-            })?;
-            let (surface_width, surface_height) = runtime.physical_size();
-            let gpu = self.gpu.as_mut().ok_or_else(|| {
-                PyValueError::new_err(
-                    self.gpu_error
-                        .clone()
-                        .unwrap_or_else(|| "GPU presentation is unavailable.".to_string()),
-                )
-            })?;
-            if self.render_dirty {
-                if self.offscreen_dirty {
-                    gpu.render();
-                    gpu.begin_frame();
-                    self.offscreen_dirty = false;
-                    self.pixels_stale = true;
-                    self.texture_stale = false;
-                }
+        if self.runtime.is_some() {
+            let should_present = self.render_dirty;
+            if should_present && self.offscreen_dirty {
+                self.render_gpu_frame(false);
+            }
+            if should_present {
+                let runtime = self.runtime.as_mut().expect("runtime checked above");
+                let window = runtime.window().ok_or_else(|| {
+                    PyValueError::new_err("Native canvas window is not available for presentation.")
+                })?;
+                let (surface_width, surface_height) = runtime.physical_size();
+                let gpu = self.gpu.as_mut().ok_or_else(|| {
+                    PyValueError::new_err(
+                        self.gpu_error
+                            .clone()
+                            .unwrap_or_else(|| "GPU presentation is unavailable.".to_string()),
+                    )
+                })?;
                 gpu.present_texture_to_window(window, surface_width, surface_height)
                     .map_err(|err| {
                         PyValueError::new_err(format!("Failed to present native GPU frame: {err}"))
@@ -456,7 +454,11 @@ impl Canvas {
                 self.performance_counters.frames_presented += 1;
                 self.render_dirty = false;
             }
-            if runtime.should_close() {
+            if self
+                .runtime
+                .as_ref()
+                .is_some_and(InteractiveRuntime::should_close)
+            {
                 self.closed = true;
             }
         }

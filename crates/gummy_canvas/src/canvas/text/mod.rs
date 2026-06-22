@@ -73,7 +73,8 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<bool> {
         if self.can_draw_gpu_text(parsed_style, matrix) {
-            if let Some(signature) = self.reusable_text_frame_signature(&items, parsed_style, matrix)
+            if let Some(signature) =
+                self.reusable_text_frame_signature(&items, parsed_style, matrix)
             {
                 if self.try_reuse_text_frame(&signature) {
                     return Ok(true);
@@ -179,8 +180,8 @@ impl Canvas {
                     continue;
                 }
                 let width = metrics.width / self.pixel_density;
-                let height = (metrics.ascent + metrics.descent).max(font_size as f64)
-                    / self.pixel_density;
+                let height =
+                    (metrics.ascent + metrics.descent).max(font_size as f64) / self.pixel_density;
                 let mut dx = x;
                 let mut dy = y + line_index as f64 * parsed_style.text_leading;
                 if parsed_style.text_align_x == "center" {
@@ -208,6 +209,7 @@ impl Canvas {
                 )?;
                 continue;
             }
+            self.image_text_active_this_frame = true;
             let cached = self.cached_text_line(line, fill, &parsed_style)?;
             if cached.image.width == 0 || cached.image.height == 0 {
                 continue;

@@ -68,6 +68,7 @@ def style_payload(style: StyleState) -> dict[str, object]:
         "text_align_x": style.text_align_x,
         "text_align_y": style.text_align_y,
         "text_leading": float(style.text_leading),
+        "_style_revision": style.revision,
     }
 
 
@@ -182,6 +183,7 @@ class CanvasRendererCore:
         return payload
 
     def set_current_style(self, style: StyleState) -> None:
+        cast(CanvasRendererHost, self)._flush_line_batch()
         self._current_style_id = id(style)
         self._current_style_revision = style.revision
         self._current_style = style
@@ -190,7 +192,6 @@ class CanvasRendererCore:
         if self.renderer_mode == c.P2D:
             self._rust_style_synced = False
             return
-        cast(CanvasRendererHost, self)._flush_line_batch()
         callback = getattr(self._require_canvas(), "set_current_style", None)
         if callable(callback):
             self._call("current style update", callback, self._style_payload(style))
