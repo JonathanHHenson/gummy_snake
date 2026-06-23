@@ -32,6 +32,15 @@ class FakeCanvas:
         self.pointer_lock_mode_value = "clamped"
         self.text_input_active_value = False
         self.pixels = bytes([0] * self.physical_width * self.physical_height * 4)
+        self.current_style_value: dict[str, object] | None = None
+        self.current_matrix_value: tuple[float, float, float, float, float, float] = (
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+        )
 
     def resize(self, width: int, height: int, pixel_density: float, renderer: str) -> None:
         self._resize_storage(width, height, pixel_density, renderer)
@@ -197,6 +206,28 @@ class FakeCanvas:
     def clear(self) -> None:
         self.calls.append(("clear",))
         self.pixels = bytes([0] * self.physical_width * self.physical_height * 4)
+
+    def set_current_style(self, style: dict[str, object]) -> None:
+        self.current_style_value = dict(style)
+        self.calls.append(("set_current_style", self.current_style_value))
+
+    def current_style(self) -> dict[str, object]:
+        return {} if self.current_style_value is None else dict(self.current_style_value)
+
+    def set_current_matrix(
+        self, matrix: tuple[float, float, float, float, float, float]
+    ) -> None:
+        self.current_matrix_value = matrix
+        self.calls.append(("set_current_matrix", matrix))
+
+    def current_matrix(self) -> tuple[float, float, float, float, float, float]:
+        return self.current_matrix_value
+
+    def push_canvas_state(self) -> None:
+        self.calls.append(("push_canvas_state",))
+
+    def pop_canvas_state(self) -> None:
+        self.calls.append(("pop_canvas_state",))
 
     def point(self, *args: object) -> None:
         self.calls.append(("point", *args))

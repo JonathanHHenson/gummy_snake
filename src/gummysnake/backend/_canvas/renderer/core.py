@@ -93,6 +93,7 @@ class CanvasRendererCore:
         self._image_cache_versions: OrderedDict[int, int] = OrderedDict()
         self._text_metric_cache: OrderedDict[TextMetricKey, float] = OrderedDict()
         self._style_payload_cache: dict[int, tuple[StyleState, int, dict[str, object]]] = {}
+        self._style_payload_generation = 0
         self._matrix_payload_cache: dict[int, tuple[Matrix2D, MatrixPayload]] = {}
         self._current_style_id: int | None = None
         self._current_style_revision: int | None = None
@@ -166,6 +167,8 @@ class CanvasRendererCore:
         if cached is not None and cached[0] is style and cached[1] == revision:
             return cached[2]
         payload = style_payload(style)
+        self._style_payload_generation += 1
+        payload["_style_cache_key"] = self._style_payload_generation
         if len(self._style_payload_cache) >= _STYLE_PAYLOAD_CACHE_LIMIT:
             self._style_payload_cache.clear()
         self._style_payload_cache[key] = (style, revision, payload)

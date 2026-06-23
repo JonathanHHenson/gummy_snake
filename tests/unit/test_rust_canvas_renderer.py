@@ -153,6 +153,15 @@ def test_canvas_context_style_cache_invalidation_respects_push_pop(
     context.translate(5, 6)
     context.line(0, 0, 1, 1)
     context.pop()
+    assert backend.renderer._current_style is context.state.style
+    assert backend.renderer._current_matrix_payload == (
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+    )
     context.line(0, 0, 1, 1)
     context.renderer.end_frame()
 

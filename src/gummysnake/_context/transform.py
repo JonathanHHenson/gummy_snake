@@ -53,6 +53,12 @@ class TransformContextMixin:
         self.state.style = entry.style
         self.state.transform.matrix = entry.matrix
         self.state.transform.revision += 1
+        sync_style = getattr(self.renderer, "set_current_style", None)
+        if callable(sync_style):
+            sync_style(self.state.style)
+        sync_matrix = getattr(self.renderer, "set_current_matrix", None)
+        if callable(sync_matrix):
+            sync_matrix(self.state.transform.matrix)
         self.renderer.restore_clip_depth(entry.clip_depth)
         self._material3d, self._normal_material3d = self._material3d_style_stack.pop()
 

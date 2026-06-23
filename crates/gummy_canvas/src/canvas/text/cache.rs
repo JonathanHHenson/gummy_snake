@@ -27,15 +27,20 @@ impl Canvas {
     }
 
     pub(crate) fn cached_style(&mut self, style: &Bound<'_, PyAny>) -> PyResult<Style> {
-        let revision = style
-            .downcast::<PyDict>()
-            .ok()
+        let dict = style.downcast::<PyDict>().ok();
+        let revision = dict
+            .as_ref()
             .and_then(|dict| dict.get_item("_style_revision").ok().flatten())
             .and_then(|value| value.extract::<i64>().ok());
         let Some(revision) = revision else {
             return parse_style(style);
         };
-        let key = (style.as_ptr() as usize, revision);
+        let payload_key = dict
+            .as_ref()
+            .and_then(|dict| dict.get_item("_style_cache_key").ok().flatten())
+            .and_then(|value| value.extract::<usize>().ok())
+            .unwrap_or_else(|| style.as_ptr() as usize);
+        let key = (payload_key, revision);
         if self.cached_style_key == Some(key) {
             if let Some(cached) = self.cached_style.as_ref() {
                 return Ok(cached.clone());
