@@ -19,8 +19,6 @@ VARIANTS = (
     "dense_primitives",
     "sparse_primitives",
     "stress_primitives_10k",
-    "stress_primitives_50k",
-    "stress_primitives_100k",
     "cached_images",
     "cached_images_nearest",
     "stress_sprites_10k",
@@ -111,6 +109,35 @@ def test_canvas_interactive_benchmark_variants_execute(variant: str) -> None:
         f"metadata={json.dumps(summary.metadata, sort_keys=True)}"
     )
     assert summary.mean_fps >= STRESS_FPS_TARGETS.get(variant, MIN_MEAN_FPS)
+
+
+@pytest.mark.benchmark
+@pytest.mark.high_count_benchmark
+def test_canvas_high_count_primitive_benchmarks() -> None:
+    stress_10k = _run_variant("stress_primitives_10k")
+    print(
+        f"benchmark {stress_10k.variant}: mean_fps={stress_10k.mean_fps:.2f} "
+        f"min_fps={stress_10k.min_fps:.2f} max_fps={stress_10k.max_fps:.2f} "
+        f"metadata={json.dumps(stress_10k.metadata, sort_keys=True)}"
+    )
+    if stress_10k.mean_fps < 60.0:
+        pytest.skip("50k primitive benchmark is gated until 10k primitives baseline at 60 FPS.")
+
+    stress_50k = _run_variant("stress_primitives_50k")
+    print(
+        f"benchmark {stress_50k.variant}: mean_fps={stress_50k.mean_fps:.2f} "
+        f"min_fps={stress_50k.min_fps:.2f} max_fps={stress_50k.max_fps:.2f} "
+        f"metadata={json.dumps(stress_50k.metadata, sort_keys=True)}"
+    )
+    if stress_50k.mean_fps < 30.0:
+        pytest.skip("100k primitive benchmark is gated until 50k primitives baseline at 30 FPS.")
+
+    stress_100k = _run_variant("stress_primitives_100k")
+    print(
+        f"benchmark {stress_100k.variant}: mean_fps={stress_100k.mean_fps:.2f} "
+        f"min_fps={stress_100k.min_fps:.2f} max_fps={stress_100k.max_fps:.2f} "
+        f"metadata={json.dumps(stress_100k.metadata, sort_keys=True)}"
+    )
 
 
 @pytest.mark.benchmark

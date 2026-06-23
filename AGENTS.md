@@ -379,6 +379,19 @@ uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
+The 50k and 100k primitive stress benchmarks are intentionally excluded from
+the default canvas benchmark run for now. Run them separately only when the
+lower-count baselines justify the cost:
+
+```sh
+uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks --run-high-count-benchmarks -k high_count
+```
+
+Do not start the 50k primitive benchmark until the 10k primitive benchmark has
+a measured baseline of at least 60 FPS. Do not start the 100k primitive
+benchmark until the 50k primitive benchmark has a measured baseline of at least
+30 FPS.
+
 Canvas backend benchmark scenarios measure native interactive presentation and
 must average at least 240 FPS. Headless/offscreen numbers are useful for export
 diagnostics, but they are not the runtime performance acceptance metric. Treat

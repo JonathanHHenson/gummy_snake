@@ -54,6 +54,7 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 markers = [
     "benchmark: opt-in runtime performance benchmarks",
+    "high_count_benchmark: opt-in high-count primitive benchmark gates",
     "stress: opt-in long-running resource lifecycle stress tests",
 ]
 
