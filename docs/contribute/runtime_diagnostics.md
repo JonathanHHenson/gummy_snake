@@ -47,6 +47,13 @@ Native diagnostics may also include GPU render-loop counters:
 and `gpu_image_batches`. Allocations should grow with peak frame demand rather
 than with every frame; uploads and batches track actual draw work.
 
+Canvas benchmark subprocesses flatten the same native counters into their JSON
+`metrics` payload so interactive FPS samples can be correlated with renderer
+work. Normal interactive frames should keep `pixel_readbacks` at zero unless
+user code calls an explicit readback or export API. Sprite and text-heavy stress
+scenes should show texture cache reuse and text cache reuse after their first
+unique layouts have been shaped.
+
 ## GPU Region Effects
 
 GPU region effects are internal renderer operations that snapshot the current

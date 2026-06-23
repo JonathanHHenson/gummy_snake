@@ -138,10 +138,18 @@ canvas runtime until code asks for Python bytes with `sound.to_bytes()`, while
 Python keeps the current friendly `play()`, `pause()`, `stop()`, `volume()`,
 `rate()`, and `pan()` controls.
 
+Audio analysis, synthesis, Web Audio contexts, oscillator/envelope/filter APIs,
+and microphone/audio capture are not public APIs yet. They remain deferred until
+native backends, deterministic DSP tests, and capability reporting are in place.
+
 Some media helpers require installing the `media` extra.
 Decoded grayscale, BGR, and BGRA frames are converted to Gummy Snake RGBA image buffers
 by the Rust canvas runtime once the optional media dependency supplies a
 contiguous frame buffer.
+
+`create_capture()` currently covers native video/camera capture through the
+optional media backend. Browser permission APIs and DOM media elements are not
+exposed.
 
 3D asset helpers also include awaitable variants:
 

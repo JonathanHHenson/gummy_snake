@@ -62,3 +62,8 @@ built-in material/texture shaders. Sketch coordinates remain logical, including
 on HiDPI displays.
 
 Unsupported shader or advanced 3D APIs raise explicit Gummy Snake exceptions.
+Browser context APIs such as `webgl_version`, `set_attributes`,
+`drawing_context`, WebGPU compute/storage APIs, offscreen browser canvas helpers,
+and user-programmable native shader execution are not public API surfaces. See
+[Feature scope decisions](../contribute/feature_scope_decisions.md) for the
+native capability contract and deferred WebGPU/compute design.

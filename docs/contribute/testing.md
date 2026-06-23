@@ -61,17 +61,24 @@ module and run bounded native interactive windows, because interactive
 presentation is the runtime performance acceptance path. Headless/offscreen
 numbers are useful for export diagnostics, but they are not the canvas runtime
 performance standard. Each run reports frames per second plus the canvas size,
-pixel density, backend mode, Python version, and platform. Every canvas
-benchmark scenario must average at least 240 FPS. A below-threshold failure is
-an optimization signal, not a reason to loosen the benchmark.
+pixel density, backend mode, Python version, platform, and renderer metrics.
+The metrics payload includes command/draw counts, primitive and image batches,
+vertex-buffer allocations/uploads, texture uploads and cache hits, text cache
+hits/misses, pixel readbacks/uploads, GPU region-effect passes, presented frame
+counts, and CPU fallback counts. Every normal canvas benchmark scenario must
+average at least 240 FPS. High-count primitive and sprite stress variants use a
+60 FPS target for 10k draws and record larger 50k/100k scenes as optimization
+baselines. A below-threshold failure is an optimization signal, not a reason to
+loosen the benchmark.
 
 Use the suite when changing renderer hot paths, image upload/cache behavior,
 pixel readback/update behavior, text measurement, frame scheduling, or native
 canvas packaging. The current scenarios cover sparse and dense primitive
-drawing, cached image drawing with default linear and nearest sampling,
-per-frame image upload churn, blend modes, erasing, transformed images, text,
-pixel readback/upload, mixed text/pixel readback work, a deterministic game-style
-scene, and a software 3D prototype scene.
+drawing, 10k/50k/100k primitive stress scenes, cached image drawing with default
+linear and nearest sampling, 10k/50k sprite stress scenes, per-frame image upload
+churn, blend modes, erasing, transformed images, text, 1k label overlays, mixed
+sprite/text overlays, pixel readback/upload, mixed text/pixel readback work, a
+deterministic game-style scene, and a software 3D prototype scene.
 The mixed text/pixel benchmark intentionally exercises readback/update
 boundaries; keep bulk pixel mutations in Rust or a Rust/GPU region path instead
 of reintroducing Python per-pixel loops into the measured hot path.

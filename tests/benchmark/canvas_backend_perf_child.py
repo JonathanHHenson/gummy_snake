@@ -8,7 +8,36 @@ import time
 from canvas_backend_perf_scenes import draw_scene, setup_scene
 
 import gummysnake as gs
-from gummysnake.rust.canvas import require_canvas_runtime
+from gummysnake.rust.canvas import canvas_gpu_available, require_canvas_runtime
+
+
+def _flatten_metrics(counters):
+    native = counters.get("native", {})
+    if not isinstance(native, dict):
+        native = {}
+    return {
+        "gpu_draws": int(native.get("gpu_draws", counters.get("gpu_draws", 0))),
+        "gpu_primitive_batches": int(native.get("gpu_primitive_batches", 0)),
+        "gpu_image_batches": int(native.get("gpu_image_batches", 0)),
+        "gpu_vertex_buffer_allocations": int(native.get("gpu_vertex_buffer_allocations", 0)),
+        "gpu_vertex_uploads": int(native.get("gpu_vertex_uploads", 0)),
+        "gpu_region_effect_passes": int(native.get("gpu_region_effect_passes", 0)),
+        "gpu_blend_commands": int(native.get("gpu_blend_commands", 0)),
+        "pixel_readbacks": int(native.get("pixel_readbacks", counters.get("pixel_readbacks", 0))),
+        "pixel_uploads": int(native.get("pixel_uploads", counters.get("pixel_uploads", 0))),
+        "texture_cache_hits": int(native.get("texture_cache_hits", 0)),
+        "texture_uploads": int(native.get("texture_uploads", counters.get("texture_uploads", 0))),
+        "text_cache_hits": int(native.get("text_cache_hits", counters.get("text_cache_hits", 0))),
+        "text_cache_misses": int(
+            native.get("text_cache_misses", counters.get("text_cache_misses", 0))
+        ),
+        "frames_presented": int(native.get("frames_presented", 0)),
+        "gpu_frames_rendered": int(native.get("gpu_frames_rendered", 0)),
+        "bridge_calls": int(native.get("bridge_calls", 0)),
+        "cpu_fallbacks": int(native.get("cpu_fallbacks", counters.get("cpu_fallbacks", 0))),
+        "direct_model_draws": int(native.get("direct_model_draws", 0)),
+        "python_face_payloads": int(native.get("python_face_payloads", 0)),
+    }
 
 
 def main() -> None:
@@ -30,8 +59,9 @@ def main() -> None:
         draw_scene(variant)
 
     require_canvas_runtime()
-    gs.run(setup=setup, draw=draw, headless=(mode == "headless"), max_frames=frames)
+    context = gs.run(setup=setup, draw=draw, headless=(mode == "headless"), max_frames=frames)
     elapsed = time.perf_counter() - start
+    metrics = _flatten_metrics(context.renderer_performance_counters())
     print(
         json.dumps(
             {
@@ -40,7 +70,8 @@ def main() -> None:
                 "canvas_size": canvas_size,
                 "pixel_density": 1.0,
                 "backend_mode": mode,
-                "gpu_available": None,
+                "gpu_available": canvas_gpu_available(),
+                "metrics": metrics,
                 "python": platform.python_version(),
                 "platform": platform.platform(),
                 "elapsed": elapsed,

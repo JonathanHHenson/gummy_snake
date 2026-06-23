@@ -7,6 +7,7 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 - [Runtime model](runtime.md)
 - [Runtime diagnostics](runtime_diagnostics.md)
 - [Build capabilities](build_capabilities.md)
+- [Feature scope decisions](feature_scope_decisions.md)
 - [API performance policy](api_performance_policy.md)
 - [Text renderer decision](text_renderer_decision.md)
 - [Native 3D renderer plan](native_3d_plan.md)

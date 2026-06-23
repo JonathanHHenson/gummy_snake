@@ -174,6 +174,55 @@ def _draw_text_only():
     )
 
 
+def _draw_stress_primitives(count):
+    gs.no_stroke()
+    for index in range(count):
+        x = 4 + (index * 37) % 712
+        y = 4 + (index * 53 + index // 97) % 472
+        gs.fill(40 + index % 160, 120 + (index * 3) % 90, 215, 180)
+        if index % 3 == 0:
+            gs.rect(x, y, 3 + index % 5, 3 + (index // 7) % 5)
+        elif index % 3 == 1:
+            gs.circle(x, y, 3 + index % 6)
+        else:
+            gs.triangle(x, y, x + 5, y + 1 + index % 4, x + 1, y + 5)
+
+
+def _draw_stress_sprites(count):
+    gs.image_mode(gs.CENTER)
+    for index in range(count):
+        image = sprites[index % len(sprites)]
+        x = 10 + (index * 29 + gs.frame_count()) % 700
+        y = 10 + (index * 47 + index // 131) % 460
+        size = 6 + index % 5
+        gs.image(image, x, y, size, size)
+    gs.image_mode(gs.CORNER)
+
+
+def _draw_stress_text(count):
+    gs.fill(235)
+    gs.no_stroke()
+    gs.text_size(10)
+    labels = [
+        (f"L{index % 100}", 8 + (index % 40) * 18, 14 + (index // 40) * 18)
+        for index in range(count)
+    ]
+    gs.text_batch(labels)
+
+
+def _draw_stress_sprite_text_overlay():
+    _draw_stress_sprites(10_000)
+    gs.fill(248)
+    gs.no_stroke()
+    gs.text_size(12)
+    gs.text_batch(
+        [
+            (f"{index:03d}", 12 + (index % 25) * 28, 18 + (index // 25) * 24)
+            for index in range(500)
+        ]
+    )
+
+
 def _draw_pixel_readback_upload():
     _draw_starfield(24)
     pixels = gs.load_pixel_bytes()
@@ -353,8 +402,18 @@ def draw_scene(variant: str) -> None:
         _draw_starfield(12)
         _draw_primitives(6)
         _draw_laser_field(4)
+    elif variant == "stress_primitives_10k":
+        _draw_stress_primitives(10_000)
+    elif variant == "stress_primitives_50k":
+        _draw_stress_primitives(50_000)
+    elif variant == "stress_primitives_100k":
+        _draw_stress_primitives(100_000)
     elif variant == "cached_images" or variant == "cached_images_nearest":
         _draw_image_field(mutate=False)
+    elif variant == "stress_sprites_10k":
+        _draw_stress_sprites(10_000)
+    elif variant == "stress_sprites_50k":
+        _draw_stress_sprites(50_000)
     elif variant == "image_upload_churn":
         _draw_image_field(mutate=True)
     elif variant == "blend_modes":
@@ -365,6 +424,10 @@ def draw_scene(variant: str) -> None:
         _draw_transformed_images()
     elif variant == "text_only":
         _draw_text_only()
+    elif variant == "stress_text_1k":
+        _draw_stress_text(1_000)
+    elif variant == "stress_sprite_text_overlay":
+        _draw_stress_sprite_text_overlay()
     elif variant == "pixel_readback_upload":
         _draw_pixel_readback_upload()
     elif variant == "mixed_text_pixels":

@@ -115,6 +115,11 @@ async def preload() -> None:
 - `pixel_density(value=None)`
 - `display_density()`
 
+`window_width()` and `window_height()` report the active logical canvas size.
+`display_width()` and `display_height()` scale that logical size by the native
+display density when a window backend can report one; headless sketches use
+deterministic canvas dimensions.
+
 The `gs.current` facade exposes common active-sketch properties:
 
 - `gs.current.width`

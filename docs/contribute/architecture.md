@@ -254,6 +254,14 @@ This is why public API functions should stay small. If a function needs Gummy Sn
 semantics, validation, state changes, or renderer calls, that logic usually
 belongs on `SketchContext`.
 
+Canvas frames use a unified Rust-owned command stream before final output.
+Headless and native interactive runs append the same typed draw commands into
+the canvas runtime, encode them into the same offscreen render target, and
+branch only at the output boundary: readback/export for headless diagnostics or
+texture-to-surface presentation for native windows. Text, image, primitive,
+blend/effect, pixel, and 3D commands are segmented inside the Rust encoder so
+pipeline switches preserve visible draw order.
+
 ## Where To Make A Change
 
 Use these rules of thumb:

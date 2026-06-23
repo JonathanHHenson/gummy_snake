@@ -197,8 +197,13 @@ uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 Canvas backend benchmark scenarios measure native interactive presentation and
 are expected to average at least 240 FPS. Headless/offscreen numbers are useful
 for export diagnostics, but they are not the runtime performance acceptance
-metric. WEBGL frame-style benchmark scenarios use the same FPS floor.
-Failures below that floor are intentional optimization signals.
+metric. The canvas benchmark payload includes renderer metrics for draw counts,
+primitive/image batches, vertex uploads, texture uploads/reuse, text cache hits,
+pixel readbacks/uploads, GPU region effects, and presented/rendered frame counts.
+WEBGL frame-style benchmark scenarios use the same FPS floor.
+High-count primitive and sprite stress variants keep 60 FPS targets for 10k
+draws and record larger 50k/100k scenes as optimization baselines. Failures
+below those floors are intentional optimization signals.
 Model export benchmarks use a memory budget for streaming OBJ/STL output.
 Machine-specific baseline snapshots live in `tests/benchmark/baselines/`.
 

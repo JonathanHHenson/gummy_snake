@@ -18,19 +18,30 @@ BENCHMARK_MODE = "interactive"
 VARIANTS = (
     "dense_primitives",
     "sparse_primitives",
+    "stress_primitives_10k",
+    "stress_primitives_50k",
+    "stress_primitives_100k",
     "cached_images",
     "cached_images_nearest",
+    "stress_sprites_10k",
+    "stress_sprites_50k",
     "image_upload_churn",
     "blend_modes",
     "erasing",
     "transformed_images",
     "text_only",
+    "stress_text_1k",
+    "stress_sprite_text_overlay",
     "pixel_readback_upload",
     "mixed_text_pixels",
     "contours_clipping_tint",
     "asteroids_scene",
     "webgl_3d",
 )
+STRESS_FPS_TARGETS = {
+    "stress_primitives_10k": 60.0,
+    "stress_sprites_10k": 60.0,
+}
 
 
 @dataclass(frozen=True)
@@ -82,6 +93,7 @@ def _run_variant(
             "pixel_density": payload["pixel_density"],
             "backend_mode": payload["backend_mode"],
             "gpu_available": payload["gpu_available"],
+            "metrics": payload["metrics"],
             "python": payload["python"],
             "platform": payload["platform"],
             "frames": payload["frames"],
@@ -98,7 +110,7 @@ def test_canvas_interactive_benchmark_variants_execute(variant: str) -> None:
         f"min_fps={summary.min_fps:.2f} max_fps={summary.max_fps:.2f} "
         f"metadata={json.dumps(summary.metadata, sort_keys=True)}"
     )
-    assert summary.mean_fps >= MIN_MEAN_FPS
+    assert summary.mean_fps >= STRESS_FPS_TARGETS.get(variant, MIN_MEAN_FPS)
 
 
 @pytest.mark.benchmark
