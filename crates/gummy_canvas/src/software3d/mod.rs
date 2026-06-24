@@ -193,6 +193,9 @@ fn model_gpu_uniform_from_payloads(
     let mut point_color = [0.0, 0.0, 0.0, 1.0];
     let mut point_position = [0.0, 0.0, 0.0, 1.0];
     let mut flags = [0.0, 0.0, if normal_material { 1.0 } else { 0.0 }, 0.0];
+    if lights.is_empty() {
+        ambient_color = [1.0, 1.0, 1.0, 1.0];
+    }
     for light in lights {
         let color = [
             (light.color.0 * light.intensity).max(0.0) as f32,
