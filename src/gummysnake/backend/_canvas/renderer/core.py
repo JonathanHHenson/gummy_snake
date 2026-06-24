@@ -42,6 +42,7 @@ _PERFORMANCE_COUNTER_KEYS = (
     "direct_shape_finalizations",
     "shape_buffer_extractions",
     "pixel_payload_copies",
+    "pixel_noop_upload_skips",
     "primitive_batch_records",
     "primitive_batch_flushes",
     "primitive_batch_fallbacks",
@@ -126,6 +127,7 @@ class CanvasRendererCore:
         self._image_batch_style: dict[str, object] | None = None
         self._image_batch_matrix: MatrixPayload | None = None
         self._skip_canvas_end_frame = False
+        self._last_pixel_bytes: bytes | None = None
         self._clip_depth = 0
         self._performance_counters: dict[str, int] = dict.fromkeys(_PERFORMANCE_COUNTER_KEYS, 0)
         self._last_native_event_pump = 0.0

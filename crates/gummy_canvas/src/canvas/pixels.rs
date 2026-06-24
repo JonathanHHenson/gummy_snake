@@ -90,6 +90,7 @@ impl Canvas {
         } else if self.pixels_stale {
             self.read_gpu_pixels();
         }
+        self.performance_counters.pixel_bytes_created += 1;
         PyBytes::new_bound(py, &self.pixels)
     }
 
@@ -147,8 +148,10 @@ impl Canvas {
             )));
         }
         if pixels == self.pixels {
+            self.performance_counters.pixel_noop_upload_skips += 1;
             return Ok(());
         }
+        self.performance_counters.pixel_full_uploads += 1;
         self.pixels.clear();
         self.pixels.extend_from_slice(pixels);
         self.sync_present_pixels_from_rgba();
@@ -229,6 +232,7 @@ impl Canvas {
     ) -> PyResult<()> {
         validate_rgba_buffer(pixels.len(), width, height)?;
         self.performance_counters.pixel_uploads += 1;
+        self.performance_counters.pixel_region_uploads += 1;
         self.prepare_cpu_composite();
         if alpha_composite {
             alpha_composite_rgba_region(

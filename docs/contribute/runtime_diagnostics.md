@@ -37,6 +37,7 @@ The stable top-level counters are:
 | `direct_shape_finalizations` | Rust-owned `begin_shape()` buffers finalized directly into draw or clip operations. |
 | `shape_buffer_extractions` | Shape buffers extracted into Python lists for compatibility fallback paths. |
 | `pixel_payload_copies` | Pixel uploads that required Python list/sequence conversion before reaching the runtime. |
+| `pixel_noop_upload_skips` | Full-canvas byte payload uploads skipped because they were the exact fresh `load_pixel_bytes()` result. |
 | `primitive_batch_records` | Python-side simple primitive records flushed through the compact batch bridge. |
 | `primitive_batch_flushes` | Python-side compact primitive batch bridge calls. |
 | `primitive_batch_fallbacks` | Primitive records replayed through legacy per-shape calls because the native batch ABI was unavailable. |
@@ -52,7 +53,9 @@ Native diagnostics may also include GPU render-loop counters:
 `gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`,
 `gpu_uploaded_vertex_bytes`, `gpu_image_batches`, `gpu_encode_time_ms`,
 `gpu_present_time_ms`, `native_draw_commands`, `native_primitive_records`, and
-`native_primitive_batches`. Retained reuse diagnostics include
+`native_primitive_batches`. Pixel pipeline diagnostics include `gpu_pixel_readbacks`,
+`pixel_bytes_created`, `pixel_noop_upload_skips`, `pixel_full_uploads`, and
+`pixel_region_uploads`. Retained reuse diagnostics include
 `retained_batch_cache_hits`, `retained_batch_cache_misses`,
 `retained_batch_cache_evictions`, and `retained_batch_reused_bytes`.
 Allocations should grow with peak frame demand rather than with every frame;
@@ -89,7 +92,9 @@ output remains correct.
 Image draws may similarly queue through `batch_canvas_images`. The Rust runtime
 can pack small compatible image batches into an internal atlas texture so
 alternating sprites from a small texture set remain ordered while avoiding one
-GPU image batch per sprite.
+GPU image batch per sprite. Internal stress paths may use compact binary sprite
+records for repeated image handles and motion terms so dynamic sprite batches
+avoid per-sprite Python tuple allocation while preserving the public image API.
 
 Retained reuse is layered. Static compact primitive batches keep a retained
 native batch key and replay shared instance/vertex payloads after warmup.

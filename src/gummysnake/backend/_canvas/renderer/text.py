@@ -18,7 +18,6 @@ class CanvasRendererTextMixin:
     def text(self, value: str, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
         _renderer(self)._flush_line_batch_only()
         _renderer(self)._flush_primitive_batch_only()
-        _renderer(self)._flush_image_batch()
         if style.fill_color is None:
             return
         self._queue_text_batch([(value, x, y)], style, transform)
@@ -31,7 +30,6 @@ class CanvasRendererTextMixin:
     ) -> None:
         _renderer(self)._flush_line_batch_only()
         _renderer(self)._flush_primitive_batch_only()
-        _renderer(self)._flush_image_batch()
         if not items or style.fill_color is None:
             return
         self._queue_text_batch(items, style, transform)

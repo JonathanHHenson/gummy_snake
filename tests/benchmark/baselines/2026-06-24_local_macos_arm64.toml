@@ -1,0 +1,219 @@
+[baseline]
+id = "2026-06-24_local_macos_arm64"
+captured_at = "2026-06-24"
+git_commit = "working-tree"
+machine = "local-macos-arm64"
+os = "macOS arm64"
+platform = "macOS-26.5.1-arm64-arm-64bit"
+python = "3.12.11"
+notes = '''
+Machine-specific baseline captured after completing renderer performance epics
+238-245. Canvas backend values use native interactive mode with the required
+Rust gummy_canvas runtime rebuilt in release mode. Normal scenarios use the
+240 FPS floor; explicitly named high-count stress scenarios use their documented
+60 FPS stress target.
+'''
+
+[canvas_suite]
+command = "uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks -q -s"
+frames = 120
+repeats = 2
+required_min_fps = 240.0
+stress_min_fps = 60.0
+backend_mode = "interactive"
+canvas_size = [720, 480]
+pixel_density = 1.0
+gpu_available = true
+status = "passed"
+
+[[canvas_suite.results]]
+variant = "dense_primitives"
+category = "primitive-heavy"
+mean_fps = 308.66
+min_fps = 305.32
+max_fps = 312.00
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "sparse_primitives"
+category = "primitive-light"
+mean_fps = 911.58
+min_fps = 890.21
+max_fps = 932.96
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "stress_primitives_10k"
+category = "stress-primitive-high-count"
+mean_fps = 1086.17
+min_fps = 1056.28
+max_fps = 1116.06
+required_min_fps = 60.0
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "cached_images"
+category = "image-heavy-cached"
+mean_fps = 284.72
+min_fps = 280.28
+max_fps = 289.16
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "cached_images_nearest"
+category = "image-heavy-cached-nearest"
+mean_fps = 292.53
+min_fps = 282.95
+max_fps = 302.11
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "stress_sprites_10k"
+category = "stress-sprite-high-count"
+mean_fps = 323.72
+min_fps = 318.23
+max_fps = 329.21
+required_min_fps = 60.0
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "stress_sprites_50k"
+category = "stress-sprite-high-count"
+mean_fps = 134.76
+min_fps = 133.31
+max_fps = 136.21
+required_min_fps = 60.0
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "image_upload_churn"
+category = "image-heavy-upload-churn"
+mean_fps = 292.24
+min_fps = 289.81
+max_fps = 294.67
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "blend_modes"
+category = "advanced-blend-heavy"
+mean_fps = 799.81
+min_fps = 787.70
+max_fps = 811.93
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "erasing"
+category = "alpha-mask-heavy"
+mean_fps = 1002.44
+min_fps = 993.99
+max_fps = 1010.90
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "transformed_images"
+category = "image-transform-heavy"
+mean_fps = 271.95
+min_fps = 250.90
+max_fps = 293.00
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "text_only"
+category = "text-heavy"
+mean_fps = 1060.61
+min_fps = 1057.68
+max_fps = 1063.55
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "stress_text_1k"
+category = "stress-text-high-count"
+mean_fps = 730.54
+min_fps = 729.29
+max_fps = 731.79
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "stress_sprite_text_overlay"
+category = "sprite-text-overlay"
+mean_fps = 241.45
+min_fps = 239.75
+max_fps = 243.14
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "pixel_readback_upload"
+category = "pixel-roundtrip"
+mean_fps = 332.81
+min_fps = 329.94
+max_fps = 335.68
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "mixed_text_pixels"
+category = "text-and-pixel-heavy"
+mean_fps = 243.55
+min_fps = 241.76
+max_fps = 245.34
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "contours_clipping_tint"
+category = "clip-and-image-tint"
+mean_fps = 771.94
+min_fps = 765.81
+max_fps = 778.06
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "asteroids_scene"
+category = "representative-game-scene"
+mean_fps = 495.44
+min_fps = 486.83
+max_fps = 504.06
+meets_required_min_fps = true
+
+[[canvas_suite.results]]
+variant = "webgl_3d"
+category = "3d-prototype"
+mean_fps = 1010.06
+min_fps = 996.50
+max_fps = 1023.63
+meets_required_min_fps = true
+
+[api_overhead_suite]
+command = "uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks -q -s"
+status = "passed"
+fast_rect_ns = 164.9
+fast_circle_ns = 170.2
+fast_triangle_ns = 181.9
+fast_image_ns = 183.0
+
+[image_pipeline_suite]
+command = "uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks -q -s"
+status = "passed"
+load_pixel_bytes_ms = 0.0029
+update_pixels_memoryview_ms = 0.0067
+
+[model_export_suite]
+command = "uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks -q -s"
+status = "passed"
+obj_torus_streaming_mean_ms = 9.92
+stl_sphere_streaming_mean_ms = 57.44
+streaming_fits_4mib_budget = true
+
+[webgl_3d_suite]
+command = "uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks -q -s"
+status = "passed"
+box_mean_fps = 6564.00
+sphere_mean_fps = 7484.59
+textured_plane_mean_fps = 7737.91
+imported_model_mean_fps = 7533.70
+repeated_primitives_mean_fps = 2538.03
+
+[high_count_primitive_suite]
+command = "uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks --run-high-count-benchmarks -q -s -k high_count"
+status = "passed"
+stress_primitives_10k_mean_fps = 1017.63
+stress_primitives_50k_mean_fps = 1099.46
+stress_primitives_100k_mean_fps = 1024.87

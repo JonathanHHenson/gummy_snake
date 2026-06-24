@@ -196,6 +196,24 @@ impl GpuRenderer {
         }
     }
 
+    pub fn draw_image_batch(
+        &mut self,
+        key: u64,
+        vertices: Vec<ImageVertex>,
+        linear: bool,
+        blend_mode: crate::BlendMode,
+    ) {
+        if self.textures.contains_key(&key) && !vertices.is_empty() {
+            self.commands.push(DrawCommand::ImageBatch {
+                key,
+                vertices,
+                linear,
+                blend_mode,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
     pub fn upload_pixels(&mut self, pixels: &[u8]) -> Result<(), String> {
         let expected = self.texture_size.width as usize * self.texture_size.height as usize * 4;
         if pixels.len() != expected {

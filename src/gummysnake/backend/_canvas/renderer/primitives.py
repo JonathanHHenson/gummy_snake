@@ -13,6 +13,7 @@ from gummysnake.core.transform import Matrix2D
 _PRIMITIVE_RECT = 1
 _PRIMITIVE_TRIANGLE = 2
 _PRIMITIVE_ELLIPSE = 3
+_PRIMITIVE_LINE = 4
 
 
 def _renderer(self: object) -> CanvasRendererHost:
@@ -61,7 +62,13 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        _renderer(self)._flush_primitive_batch_only()
+        if self._queue_primitive_batch(
+            _PRIMITIVE_LINE,
+            (x1, y1, x2, y2, 0.0, 0.0),
+            style,
+            transform,
+        ):
+            return
         _renderer(self)._flush_image_batch()
         batch_lines_current = (
             getattr(_renderer(self)._require_canvas(), "batch_lines_current", None)
@@ -154,6 +161,17 @@ class CanvasRendererPrimitivesMixin:
         if callable(draw):
             _renderer(self)._call("captured shape drawing", draw, state, close)
             return
+        draw_explicit = getattr(_renderer(self)._require_canvas(), "draw_captured_shape", None)
+        if callable(draw_explicit):
+            _renderer(self)._call(
+                "captured shape drawing",
+                draw_explicit,
+                state,
+                _renderer(self)._style_payload(style),
+                _renderer(self)._matrix_payload(transform),
+                close,
+            )
+            return
         _renderer(self)._count("shape_buffer_extractions")
         state_obj = cast(Any, state)
         outer = [tuple(point) for point in state_obj.shape_vertices()]
@@ -214,6 +232,16 @@ class CanvasRendererPrimitivesMixin:
         )
         if callable(current):
             _renderer(self)._call("captured clip creation", current, state)
+            _renderer(self)._clip_depth += 1
+            return
+        begin_explicit = getattr(_renderer(self)._require_canvas(), "begin_clip_captured", None)
+        if callable(begin_explicit):
+            _renderer(self)._call(
+                "captured clip creation",
+                begin_explicit,
+                state,
+                _renderer(self)._matrix_payload(transform),
+            )
             _renderer(self)._clip_depth += 1
             return
         _renderer(self)._count("shape_buffer_extractions")
@@ -469,9 +497,16 @@ class CanvasRendererPrimitivesMixin:
         )
         batch_fill = getattr(canvas, "batch_fill_primitives", None)
         fill_color = style.fill_color
-        if fill_only and fill_color is not None and callable(batch_fill):
-            if renderer._line_batch or renderer._text_batch:
-                renderer._flush_line_batch()
+        if (
+            kind != _PRIMITIVE_LINE
+            and fill_only
+            and fill_color is not None
+            and callable(batch_fill)
+        ):
+            if renderer._line_batch:
+                renderer._flush_line_batch_only()
+            if renderer._text_batch:
+                renderer._flush_text_batch()
             renderer._flush_image_batch()
             if renderer._primitive_batch and (
                 renderer._primitive_batch_mode != "fill"
@@ -489,8 +524,10 @@ class CanvasRendererPrimitivesMixin:
             else None
         )
         if callable(current):
-            if renderer._line_batch or renderer._text_batch:
-                renderer._flush_line_batch()
+            if renderer._line_batch:
+                renderer._flush_line_batch_only()
+            if renderer._text_batch:
+                renderer._flush_text_batch()
             renderer._flush_image_batch()
             if renderer._primitive_batch and not renderer._primitive_batch_current:
                 renderer._flush_primitive_batch_only()
@@ -503,8 +540,10 @@ class CanvasRendererPrimitivesMixin:
         if not callable(batch):
             return False
         style_payload = renderer._style_payload(style)
-        if renderer._line_batch or renderer._text_batch:
-            renderer._flush_line_batch()
+        if renderer._line_batch:
+            renderer._flush_line_batch_only()
+        if renderer._text_batch:
+            renderer._flush_text_batch()
         renderer._flush_image_batch()
         if renderer._primitive_batch and (
             renderer._primitive_batch_mode != "style"
@@ -615,3 +654,5 @@ class CanvasRendererPrimitivesMixin:
                 )
             elif kind == _PRIMITIVE_ELLIPSE and style is not None and matrix is not None:
                 renderer._call("ellipse drawing", canvas.ellipse, a, b, c1, d, style, matrix)
+            elif kind == _PRIMITIVE_LINE and style is not None and matrix is not None:
+                renderer._call("line drawing", canvas.line, a, b, c1, d, style, matrix)

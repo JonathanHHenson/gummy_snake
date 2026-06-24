@@ -289,11 +289,28 @@ impl Canvas {
     ) -> PyResult<()> {
         self.draw_captured_shape_current_impl(&mut state, close)
     }
+    #[pyo3(signature = (state, style, matrix, close=true))]
+    pub(crate) fn draw_captured_shape(
+        &mut self,
+        mut state: PyRefMut<'_, crate::sketch_state::SketchContextState>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        close: bool,
+    ) -> PyResult<()> {
+        self.draw_captured_shape_impl(&mut state, style, matrix, close)
+    }
     pub(crate) fn begin_clip_captured_current(
         &mut self,
         mut state: PyRefMut<'_, crate::sketch_state::SketchContextState>,
     ) -> PyResult<()> {
         self.begin_clip_captured_current_impl(&mut state)
+    }
+    pub(crate) fn begin_clip_captured(
+        &mut self,
+        mut state: PyRefMut<'_, crate::sketch_state::SketchContextState>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        self.begin_clip_captured_impl(&mut state, matrix)
     }
     pub(crate) fn end_clip(&mut self) -> PyResult<()> {
         self.end_clip_impl()
@@ -642,6 +659,16 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         self.batch_canvas_images_impl(records, style, matrix)
+    }
+    pub(crate) fn batch_canvas_image_motion_terms(
+        &mut self,
+        records: Vec<u8>,
+        images: Vec<PyRef<'_, CanvasImage>>,
+        frame: u64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        self.batch_canvas_image_motion_terms_impl(&records, images, frame, style, matrix)
     }
     pub(crate) fn text(
         &mut self,

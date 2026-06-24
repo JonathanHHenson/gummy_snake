@@ -13,11 +13,11 @@ pub(super) struct Vertex {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Pod, Zeroable)]
-pub(super) struct ImageVertex {
-    pub(super) position: [f32; 2],
-    pub(super) uv: [f32; 2],
-    pub(super) tint: [f32; 4],
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub(crate) struct ImageVertex {
+    pub(crate) position: [f32; 2],
+    pub(crate) uv: [f32; 2],
+    pub(crate) tint: [f32; 4],
 }
 
 #[repr(C)]
@@ -96,7 +96,7 @@ pub struct GpuColor {
 }
 
 impl GpuColor {
-    pub(super) fn as_float(self) -> [f32; 4] {
+    pub(crate) fn as_float(self) -> [f32; 4] {
         [
             self.r as f32 / 255.0,
             self.g as f32 / 255.0,
@@ -183,6 +183,13 @@ pub enum DrawCommand {
     Image {
         key: u64,
         vertices: [([f32; 2], [f32; 2], GpuColor); 6],
+        linear: bool,
+        blend_mode: BlendMode,
+        clip_id: usize,
+    },
+    ImageBatch {
+        key: u64,
+        vertices: Vec<ImageVertex>,
         linear: bool,
         blend_mode: BlendMode,
         clip_id: usize,

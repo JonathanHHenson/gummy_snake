@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import struct
 
 import gummysnake as gs
 from gummysnake.api.current import require_context
@@ -12,6 +13,8 @@ asteroids = []
 stamp = None
 stress_primitive_records = {}
 stress_sprite_terms = {}
+stress_sprite_payloads = {}
+stress_overlay_labels = None
 
 
 def _sprite(width, height, seed):
@@ -117,9 +120,10 @@ def _draw_mixed_text_pixels():
     gs.fill(240)
     gs.no_stroke()
     gs.text_size(16)
-    for index in range(18):
-        gs.text_width(f"score {index} frame {gs.frame_count()}")
-        gs.text(f"score {index * 125}", 28, 36 + index * 22)
+    frame = gs.frame_count()
+    width_labels = [f"score {index} frame {frame}" for index in range(18)]
+    gs.text_widths(width_labels)
+    gs.text_batch([(f"score {index * 125}", 28, 36 + index * 22) for index in range(18)])
 
 
 def _draw_blend_modes():
@@ -247,6 +251,37 @@ def _draw_stress_sprites(count):
     renderer = context.renderer
     style = renderer._style_payload(context.state.style)
     matrix = renderer._matrix_payload(context.state.transform.matrix)
+    canvas = renderer._require_canvas()
+    compact = getattr(canvas, "batch_canvas_image_motion_terms", None)
+    if callable(compact):
+        payload = stress_sprite_payloads.get(count)
+        if payload is None:
+            payload_buffer = bytearray(count * 16)
+            for index in range(count):
+                struct.pack_into(
+                    "<Ifff",
+                    payload_buffer,
+                    index * 16,
+                    index % len(sprites),
+                    float(index * 29),
+                    float(10 + (index * 47 + index // 131) % 460),
+                    float(6 + index % 5),
+                )
+            payload = bytes(payload_buffer)
+            stress_sprite_payloads[count] = payload
+        renderer._count("gpu_draws", count)
+        renderer._count("image_batch_records", count)
+        renderer._count("image_batch_flushes")
+        renderer._call(
+            "compact batched image drawing",
+            compact,
+            payload,
+            [sprite.rust_image._rust_image for sprite in sprites],
+            gs.frame_count(),
+            style,
+            matrix,
+        )
+        return
     terms = stress_sprite_terms.get(count)
     if terms is None:
         terms = [
@@ -269,7 +304,7 @@ def _draw_stress_sprites(count):
     renderer._count("image_batch_flushes")
     renderer._call(
         "batched image drawing",
-        renderer._require_canvas().batch_canvas_images,
+        canvas.batch_canvas_images,
         records,
         style,
         matrix,
@@ -288,13 +323,17 @@ def _draw_stress_text(count):
 
 
 def _draw_stress_sprite_text_overlay():
+    global stress_overlay_labels
     _draw_stress_sprites(10_000)
     gs.fill(248)
     gs.no_stroke()
     gs.text_size(12)
-    gs.text_batch(
-        [(f"{index:03d}", 12 + (index % 25) * 28, 18 + (index // 25) * 24) for index in range(500)]
-    )
+    if stress_overlay_labels is None:
+        stress_overlay_labels = [
+            (f"{index:03d}", 12 + (index % 25) * 28, 18 + (index // 25) * 24)
+            for index in range(500)
+        ]
+    gs.text_batch(stress_overlay_labels)
 
 
 def _draw_pixel_readback_upload():

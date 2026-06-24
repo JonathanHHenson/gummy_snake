@@ -4,6 +4,26 @@ use crate::BlendMode;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 
+fn image_command_signature(command: &DrawCommand) -> Option<(u64, bool, BlendMode, usize)> {
+    match command {
+        DrawCommand::Image {
+            key,
+            linear,
+            blend_mode,
+            clip_id,
+            ..
+        }
+        | DrawCommand::ImageBatch {
+            key,
+            linear,
+            blend_mode,
+            clip_id,
+            ..
+        } => Some((*key, *linear, *blend_mode, *clip_id)),
+        _ => None,
+    }
+}
+
 impl GpuRenderer {
     pub fn begin_frame(&mut self) {
         self.commands.clear();
@@ -321,16 +341,20 @@ impl GpuRenderer {
                 | DrawCommand::Model { .. }
                 | DrawCommand::TexturedModel { .. }
                 | DrawCommand::Text { .. } => return None,
-                DrawCommand::Image { .. } => return None,
+                DrawCommand::Image { .. } | DrawCommand::ImageBatch { .. } => return None,
             }
         }
         clear
     }
 
+    #[allow(dead_code)]
     pub fn has_pending_image_commands(&self) -> bool {
-        self.commands
-            .iter()
-            .any(|command| matches!(command, DrawCommand::Image { .. }))
+        self.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Image { .. } | DrawCommand::ImageBatch { .. }
+            )
+        })
     }
 
     pub fn pending_commands(&self) -> &[DrawCommand] {
@@ -400,6 +424,9 @@ impl GpuRenderer {
                 }
                 DrawCommand::Image { .. } => {
                     image_vertices += 6;
+                }
+                DrawCommand::ImageBatch { vertices, .. } => {
+                    image_vertices += vertices.len();
                 }
                 DrawCommand::Model { .. } | DrawCommand::TexturedModel { .. } => {}
                 DrawCommand::Text { .. } => {}
@@ -691,16 +718,18 @@ impl GpuRenderer {
                 DrawCommand::TexturedModel { .. } => None,
                 DrawCommand::Text { .. } => None,
                 DrawCommand::EraseTriangles { .. } => None,
-                DrawCommand::Image { .. } => None,
+                DrawCommand::Image { .. } | DrawCommand::ImageBatch { .. } => None,
             });
         let last_clear_index = self
             .commands
             .iter()
             .rposition(|command| matches!(command, DrawCommand::Clear(_)));
-        let has_image_commands = self
-            .commands
-            .iter()
-            .any(|command| matches!(command, DrawCommand::Image { .. }));
+        let has_image_commands = self.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Image { .. } | DrawCommand::ImageBatch { .. }
+            )
+        });
         let mut image_offsets = if has_image_commands {
             vec![None; self.commands.len()]
         } else {
@@ -713,19 +742,31 @@ impl GpuRenderer {
                 if last_clear_index.is_some_and(|index| command_index <= index) {
                     continue;
                 }
-                let DrawCommand::Image { key, vertices, .. } = command else {
-                    continue;
-                };
-                if !self.textures.contains_key(key) {
-                    continue;
+                match command {
+                    DrawCommand::Image { key, vertices, .. } => {
+                        if !self.textures.contains_key(key) {
+                            continue;
+                        }
+                        let offset = image_staging.len();
+                        image_staging.extend(vertices.iter().map(|(position, uv, tint)| {
+                            ImageVertex {
+                                position: *position,
+                                uv: *uv,
+                                tint: tint.as_float(),
+                            }
+                        }));
+                        image_offsets[command_index] = Some((offset, vertices.len()));
+                    }
+                    DrawCommand::ImageBatch { key, vertices, .. } => {
+                        if !self.textures.contains_key(key) || vertices.is_empty() {
+                            continue;
+                        }
+                        let offset = image_staging.len();
+                        image_staging.extend(vertices.iter().copied());
+                        image_offsets[command_index] = Some((offset, vertices.len()));
+                    }
+                    _ => continue,
                 }
-                let offset = image_staging.len();
-                image_staging.extend(vertices.iter().map(|(position, uv, tint)| ImageVertex {
-                    position: *position,
-                    uv: *uv,
-                    tint: tint.as_float(),
-                }));
-                image_offsets[command_index] = Some((offset, vertices.len()));
             }
             if !image_staging.is_empty() {
                 self.vertex_uploads += 1;
@@ -1303,10 +1344,17 @@ impl GpuRenderer {
                 }
                 DrawCommand::Image {
                     key,
-                    vertices: _,
                     linear,
                     blend_mode,
                     clip_id,
+                    ..
+                }
+                | DrawCommand::ImageBatch {
+                    key,
+                    linear,
+                    blend_mode,
+                    clip_id,
+                    ..
                 } => {
                     if command_index < skip_image_commands_until {
                         continue;
@@ -1357,20 +1405,15 @@ impl GpuRenderer {
                     let mut batched_image_vertex_len = image_vertex_len;
                     let mut next_command_index = command_index + 1;
                     while next_command_index < self.commands.len() {
-                        let DrawCommand::Image {
-                            key: next_key,
-                            vertices: _,
-                            linear: next_linear,
-                            blend_mode: next_blend_mode,
-                            clip_id: next_clip_id,
-                        } = &self.commands[next_command_index]
+                        let Some((next_key, next_linear, next_blend_mode, next_clip_id)) =
+                            image_command_signature(&self.commands[next_command_index])
                         else {
                             break;
                         };
-                        if next_key != key
-                            || next_linear != linear
-                            || next_blend_mode != blend_mode
-                            || next_clip_id != clip_id
+                        if next_key != *key
+                            || next_linear != *linear
+                            || next_blend_mode != *blend_mode
+                            || next_clip_id != *clip_id
                         {
                             break;
                         }

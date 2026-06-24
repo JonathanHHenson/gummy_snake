@@ -39,6 +39,7 @@ VARIANTS = (
 STRESS_FPS_TARGETS = {
     "stress_primitives_10k": 60.0,
     "stress_sprites_10k": 60.0,
+    "stress_sprites_50k": 60.0,
 }
 
 

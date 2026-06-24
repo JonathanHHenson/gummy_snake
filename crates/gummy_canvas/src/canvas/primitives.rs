@@ -6,6 +6,7 @@ use std::sync::Arc;
 const PRIMITIVE_BATCH_RECT: u8 = 1;
 const PRIMITIVE_BATCH_TRIANGLE: u8 = 2;
 const PRIMITIVE_BATCH_ELLIPSE: u8 = 3;
+const PRIMITIVE_BATCH_LINE: u8 = 4;
 
 impl Canvas {
     pub(crate) fn background_impl(&mut self, rgba: (u8, u8, u8, u8)) {
@@ -324,6 +325,7 @@ impl Canvas {
                     self.triangle_with_style(a, b, c, d, e, f, style, matrix)?
                 }
                 PRIMITIVE_BATCH_ELLIPSE => self.ellipse_with_style(a, b, c, d, style, matrix)?,
+                PRIMITIVE_BATCH_LINE => self.line_with_style(a, b, c, d, style, matrix)?,
                 _ => {
                     return Err(PyValueError::new_err(format!(
                         "Unknown primitive batch record kind {kind}."
@@ -675,11 +677,31 @@ impl Canvas {
         close: bool,
     ) -> PyResult<()> {
         let style = self.current_style.clone();
-        let matrix = self.current_matrix;
+        self.draw_captured_shape_with_style(state, &style, self.current_matrix, close)
+    }
+
+    pub(crate) fn draw_captured_shape_impl(
+        &mut self,
+        state: &mut crate::sketch_state::SketchContextState,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        close: bool,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        self.draw_captured_shape_with_style(state, &style, matrix, close)
+    }
+
+    fn draw_captured_shape_with_style(
+        &mut self,
+        state: &mut crate::sketch_state::SketchContextState,
+        style: &Style,
+        matrix: Matrix,
+        close: bool,
+    ) -> PyResult<()> {
         let result = if state.captured_shape_contours().is_empty() {
             self.polygon_with_style(
                 state.captured_shape_vertices().to_vec(),
-                &style,
+                style,
                 matrix,
                 close,
             )
@@ -687,7 +709,7 @@ impl Canvas {
             self.complex_polygon_with_style(
                 state.captured_shape_vertices().to_vec(),
                 state.captured_shape_contours().to_vec(),
-                &style,
+                style,
                 matrix,
                 close,
             )
@@ -703,10 +725,18 @@ impl Canvas {
         &mut self,
         state: &mut crate::sketch_state::SketchContextState,
     ) -> PyResult<()> {
+        self.begin_clip_captured_impl(state, self.current_matrix)
+    }
+
+    pub(crate) fn begin_clip_captured_impl(
+        &mut self,
+        state: &mut crate::sketch_state::SketchContextState,
+        matrix: Matrix,
+    ) -> PyResult<()> {
         let result = self.begin_clip_impl(
             state.captured_shape_vertices().to_vec(),
             state.captured_shape_contours().to_vec(),
-            self.current_matrix,
+            matrix,
         );
         if result.is_ok() {
             self.performance_counters.direct_shape_finalizations += 1;

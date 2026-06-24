@@ -10,6 +10,8 @@ mod types;
 mod tests;
 
 #[allow(unused_imports)]
+pub(crate) use types::ImageVertex;
+#[allow(unused_imports)]
 pub use types::{
     DrawCommand, GpuColor, GpuRenderer, ModelUniform, ModelVertex, PrimitiveInstance,
     RetainedPrimitiveInstances, RetainedTriangleVertices,

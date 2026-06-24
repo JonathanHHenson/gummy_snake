@@ -19,6 +19,8 @@ struct BatchUniqueImage {
     pixels: Vec<u8>,
 }
 
+const MOTION_SPRITE_RECORD_SIZE: usize = 16;
+
 impl Canvas {
     pub(crate) fn draw_image_impl(
         &mut self,
@@ -457,6 +459,79 @@ impl Canvas {
         Ok(())
     }
 
+    pub(crate) fn batch_canvas_image_motion_terms_impl(
+        &mut self,
+        records: &[u8],
+        images: Vec<PyRef<'_, CanvasImage>>,
+        frame: u64,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        if records.len() % MOTION_SPRITE_RECORD_SIZE != 0 {
+            return Err(PyValueError::new_err(
+                "Compact sprite records must be 16-byte little-endian records.",
+            ));
+        }
+        let style = self.cached_style(style)?;
+        let unique_images = images
+            .iter()
+            .map(|image| BatchUniqueImage {
+                key: image.key,
+                version: image.version,
+                width: image.width,
+                height: image.height,
+                pixels: image.pixels.clone(),
+            })
+            .collect::<Vec<_>>();
+        let mut parsed_records = Vec::with_capacity(records.len() / MOTION_SPRITE_RECORD_SIZE);
+        for record in records.chunks_exact(MOTION_SPRITE_RECORD_SIZE) {
+            let image_index =
+                u32::from_le_bytes([record[0], record[1], record[2], record[3]]) as usize;
+            if image_index >= unique_images.len() {
+                return Err(PyValueError::new_err(
+                    "Compact sprite record references an out-of-range image index.",
+                ));
+            }
+            let base_x = f32::from_le_bytes([record[4], record[5], record[6], record[7]]) as f64;
+            let y = f32::from_le_bytes([record[8], record[9], record[10], record[11]]) as f64;
+            let size = f32::from_le_bytes([record[12], record[13], record[14], record[15]]) as f64;
+            if size <= 0.0 {
+                continue;
+            }
+            let x = 10.0 + (base_x + frame as f64).rem_euclid(700.0) - size / 2.0;
+            parsed_records.push(BatchCanvasImage {
+                unique_index: image_index,
+                dx: x,
+                dy: y - size / 2.0,
+                dw: size,
+                dh: size,
+                source: None,
+            });
+        }
+        if parsed_records.is_empty() {
+            return Ok(());
+        }
+        if self.try_draw_gpu_image_atlas_batch(&unique_images, &parsed_records, &style, matrix)? {
+            return Ok(());
+        }
+        for record in parsed_records {
+            let image = &unique_images[record.unique_index];
+            self.draw_image_pixels_with_style(
+                &image.pixels,
+                image.width,
+                image.height,
+                record.dx,
+                record.dy,
+                record.dw,
+                record.dh,
+                &style,
+                matrix,
+                None,
+            )?;
+        }
+        Ok(())
+    }
+
     fn try_draw_gpu_image_atlas_batch(
         &mut self,
         images: &[BatchUniqueImage],
@@ -535,6 +610,7 @@ impl Canvas {
             b: tint.b,
             a: tint.a,
         };
+        let mut batch_vertices = Vec::with_capacity(records.len() * 6);
         for record in records {
             if record.dw <= 0.0 || record.dh <= 0.0 {
                 continue;
@@ -571,20 +647,53 @@ impl Canvas {
             let v0 = sy as f32 / atlas_height as f32;
             let u1 = (atlas_x + sx + sw) as f32 / atlas_width as f32;
             let v1 = (sy + sh) as f32 / atlas_height as f32;
-            let vertices = [
-                (point_to_f32(corners[0]), [u0, v0], tint),
-                (point_to_f32(corners[1]), [u1, v0], tint),
-                (point_to_f32(corners[2]), [u1, v1], tint),
-                (point_to_f32(corners[0]), [u0, v0], tint),
-                (point_to_f32(corners[2]), [u1, v1], tint),
-                (point_to_f32(corners[3]), [u0, v1], tint),
-            ];
-            let Some(gpu) = self.gpu.as_mut() else {
-                return Ok(false);
-            };
-            gpu.draw_image(atlas_key, vertices, linear_sampling, style.blend_mode_kind);
+            let tint = tint.as_float();
+            batch_vertices.extend([
+                crate::gpu::ImageVertex {
+                    position: point_to_f32(corners[0]),
+                    uv: [u0, v0],
+                    tint,
+                },
+                crate::gpu::ImageVertex {
+                    position: point_to_f32(corners[1]),
+                    uv: [u1, v0],
+                    tint,
+                },
+                crate::gpu::ImageVertex {
+                    position: point_to_f32(corners[2]),
+                    uv: [u1, v1],
+                    tint,
+                },
+                crate::gpu::ImageVertex {
+                    position: point_to_f32(corners[0]),
+                    uv: [u0, v0],
+                    tint,
+                },
+                crate::gpu::ImageVertex {
+                    position: point_to_f32(corners[2]),
+                    uv: [u1, v1],
+                    tint,
+                },
+                crate::gpu::ImageVertex {
+                    position: point_to_f32(corners[3]),
+                    uv: [u0, v1],
+                    tint,
+                },
+            ]);
             self.performance_counters.gpu_draws += 1;
         }
+        if batch_vertices.is_empty() {
+            return Ok(false);
+        }
+        let Some(gpu) = self.gpu.as_mut() else {
+            return Ok(false);
+        };
+        gpu.draw_image_batch(
+            atlas_key,
+            batch_vertices,
+            linear_sampling,
+            style.blend_mode_kind,
+        );
         self.render_dirty = true;
         self.offscreen_dirty = true;
         self.pixels_stale = true;

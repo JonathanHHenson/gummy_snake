@@ -9,6 +9,11 @@ pub(crate) struct PerformanceCounters {
     pub(crate) cpu_fallbacks: u64,
     pub(crate) pixel_readbacks: u64,
     pub(crate) pixel_uploads: u64,
+    pub(crate) gpu_pixel_readbacks: u64,
+    pub(crate) pixel_bytes_created: u64,
+    pub(crate) pixel_noop_upload_skips: u64,
+    pub(crate) pixel_full_uploads: u64,
+    pub(crate) pixel_region_uploads: u64,
     pub(crate) image_cache_hits: u64,
     pub(crate) image_cache_misses: u64,
     pub(crate) texture_cache_hits: u64,
@@ -42,6 +47,11 @@ impl PerformanceCounters {
         dict.set_item("cpu_fallbacks", self.cpu_fallbacks)?;
         dict.set_item("pixel_readbacks", self.pixel_readbacks)?;
         dict.set_item("pixel_uploads", self.pixel_uploads)?;
+        dict.set_item("gpu_pixel_readbacks", self.gpu_pixel_readbacks)?;
+        dict.set_item("pixel_bytes_created", self.pixel_bytes_created)?;
+        dict.set_item("pixel_noop_upload_skips", self.pixel_noop_upload_skips)?;
+        dict.set_item("pixel_full_uploads", self.pixel_full_uploads)?;
+        dict.set_item("pixel_region_uploads", self.pixel_region_uploads)?;
         dict.set_item("image_cache_hits", self.image_cache_hits)?;
         dict.set_item("image_cache_misses", self.image_cache_misses)?;
         dict.set_item("texture_cache_hits", self.texture_cache_hits)?;

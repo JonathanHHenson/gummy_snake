@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, overload
+from typing import TYPE_CHECKING, Any, Protocol, overload
 
+from gummysnake import constants as c
 from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.core.geometry import resolve_ellipse, resolve_rect
 
@@ -13,6 +14,38 @@ if TYPE_CHECKING:
 
 class SupportsText(Protocol):
     def __str__(self) -> str: ...
+
+
+_PRIMITIVE_RECT = 1
+_PRIMITIVE_TRIANGLE = 2
+_PRIMITIVE_ELLIPSE = 3
+
+
+def _queue_fill_primitive(context: Any, kind: int, coords: tuple[float, ...]) -> bool:
+    style = context.state.style
+    fill = style.fill_color
+    renderer = context.renderer
+    if (
+        fill is None
+        or style.stroke_color is not None
+        or style.erasing
+        or style.blend_mode != c.BLEND
+        or getattr(renderer, "_canvas", None) is None
+        or not callable(getattr(renderer._canvas, "batch_fill_primitives", None))
+    ):
+        return False
+    matrix = renderer._matrix_payload(context.state.transform.matrix)
+    if renderer._line_batch or renderer._text_batch:
+        renderer._flush_line_batch()
+    renderer._flush_image_batch()
+    if renderer._primitive_batch and (
+        renderer._primitive_batch_mode != "fill" or renderer._primitive_batch_matrix is not matrix
+    ):
+        renderer._flush_primitive_batch_only()
+    renderer._primitive_batch.append((kind, *coords, *fill.to_tuple()))
+    renderer._primitive_batch_matrix = matrix
+    renderer._primitive_batch_mode = "fill"
+    return True
 
 
 class FastDrawScope:
@@ -53,12 +86,28 @@ class FastDrawScope:
 
     def rect(self, x: float, y: float, width: float, height: float | None = None) -> None:
         context = self._context
+        fx = float(x)
+        fy = float(y)
+        fw = float(width)
+        if height is not None and context.state.style.rect_mode == c.CORNER:
+            fh = float(height)
+            if _queue_fill_primitive(context, _PRIMITIVE_RECT, (fx, fy, fw, fh, 0.0, 0.0)):
+                return
+            context.renderer.rect(
+                fx,
+                fy,
+                fw,
+                fh,
+                context.state.style,
+                context.state.transform.matrix,
+            )
+            return
         h = width if height is None else height
         rx, ry, rw, rh = resolve_rect(
             context.state.style.rect_mode,
-            float(x),
-            float(y),
-            float(width),
+            fx,
+            fy,
+            fw,
             float(h),
         )
         context.renderer.rect(
@@ -93,7 +142,41 @@ class FastDrawScope:
         )
 
     def circle(self, x: float, y: float, diameter: float) -> None:
+        context = self._context
+        if context.state.style.ellipse_mode == c.CENTER:
+            fx = float(x)
+            fy = float(y)
+            d = float(diameter)
+            left = fx - d / 2.0
+            top = fy - d / 2.0
+            if _queue_fill_primitive(context, _PRIMITIVE_ELLIPSE, (left, top, d, d, 0.0, 0.0)):
+                return
+            context.renderer.ellipse(
+                left,
+                top,
+                d,
+                d,
+                context.state.style,
+                context.state.transform.matrix,
+            )
+            return
         self.ellipse(x, y, diameter, diameter)
+
+    def triangle(self, x1: float, y1: float, x2: float, y2: float, x3: float, y3: float) -> None:
+        context = self._context
+        values = (float(x1), float(y1), float(x2), float(y2), float(x3), float(y3))
+        if _queue_fill_primitive(context, _PRIMITIVE_TRIANGLE, values):
+            return
+        context.renderer.triangle(
+            values[0],
+            values[1],
+            values[2],
+            values[3],
+            values[4],
+            values[5],
+            context.state.style,
+            context.state.transform.matrix,
+        )
 
     @overload
     def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None: ...
@@ -119,7 +202,31 @@ class FastDrawScope:
     ) -> None: ...
 
     def image(self, image: Image | CanvasImage, x: float, y: float, *args: float) -> None:
-        self._context._draw_image_fast(image, x, y, *args)
+        context = self._context
+        if len(args) == 2:
+            dx = float(x)
+            dy = float(y)
+            dw = float(args[0])
+            dh = float(args[1])
+            if context.state.style.image_mode == c.CENTER:
+                dx -= dw / 2.0
+                dy -= dh / 2.0
+            elif context.state.style.image_mode != c.CORNER:
+                context._draw_image_fast(image, x, y, *args)
+                return
+            context._record_image_diagnostics(image)
+            context.renderer.draw_image(
+                image,
+                dx,
+                dy,
+                dw,
+                dh,
+                context.state.style,
+                context.state.transform.matrix,
+                source=None,
+            )
+            return
+        context._draw_image_fast(image, x, y, *args)
 
     def text(self, value: SupportsText, x: float, y: float) -> None:
         context = self._context

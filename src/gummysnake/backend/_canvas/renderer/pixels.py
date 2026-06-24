@@ -83,13 +83,18 @@ class CanvasRendererPixelsMixin:
         if callable(callback):
             pixels = _renderer(self)._call("pixel byte readback", callback)
             if isinstance(pixels, bytes):
+                self._last_pixel_bytes = pixels
                 return pixels
-            return bytes(cast(Buffer | Sequence[int], pixels))
+            pixel_bytes = bytes(cast(Buffer | Sequence[int], pixels))
+            self._last_pixel_bytes = pixel_bytes
+            return pixel_bytes
         pixels = cast(
             Buffer | Sequence[int],
             _renderer(self)._call("pixel readback", _renderer(self)._require_canvas().load_pixels),
         )
-        return bytes(pixels)
+        pixel_bytes = bytes(pixels)
+        self._last_pixel_bytes = pixel_bytes
+        return pixel_bytes
 
     def load_pixel_region(self, x: int, y: int, width: int, height: int) -> bytes:
         _renderer(self)._flush_line_batch()
@@ -107,6 +112,14 @@ class CanvasRendererPixelsMixin:
 
     def update_pixels(self, pixels: Sequence[int] | Buffer) -> None:
         _renderer(self)._flush_line_batch()
+        last_pixel_bytes = getattr(self, "_last_pixel_bytes", None)
+        if pixels is last_pixel_bytes or (
+            isinstance(pixels, memoryview)
+            and isinstance(pixels.obj, bytes)
+            and pixels.obj is last_pixel_bytes
+        ):
+            _renderer(self)._count("pixel_noop_upload_skips")
+            return
         if isinstance(pixels, PixelBuffer) and self._upload_dirty_pixel_range(pixels):
             pixels.clear_dirty()
             return
@@ -303,7 +316,11 @@ class CanvasRendererPixelsMixin:
             width = canvas_width
             height = row_end - row_start + 1
         else:
-            return False
+            width = canvas_width
+            height = row_end - row_start + 1
+            col_start = 0
+            start = row_start * canvas_width * 4
+            end = (row_end + 1) * canvas_width * 4
         _renderer(self)._count("pixel_uploads")
         callback = getattr(_renderer(self)._require_canvas(), "update_pixel_region_buffer", None)
         if not callable(callback):

@@ -7,6 +7,7 @@ from rust_canvas_context_helpers import make_canvas_context
 from rust_canvas_modules import FakeCanvasModule
 
 from gummysnake import constants as c
+from gummysnake.backend._canvas.renderer.pixels import PixelBuffer
 from gummysnake.backend.canvas_renderer import CanvasRenderer
 from gummysnake.context import SketchContext
 from gummysnake.core.color import Color
@@ -113,13 +114,13 @@ def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None
     canvas = renderer._canvas
     assert canvas is not None
     renderer.end_frame()
-    line_call = canvas.calls[-3]
-    ellipse_call = canvas.calls[-2]
-    assert line_call[0] == "batch_lines"
-    assert ellipse_call[0] == "batch_primitives"
-    assert line_call[1] == [(0, 0, 1, 1), (2, 2, 3, 3)]
-    assert line_call[2] is ellipse_call[2]
-    assert line_call[3] is ellipse_call[3]
+    primitive_call = canvas.calls[-2]
+    assert primitive_call[0] == "batch_primitives"
+    assert primitive_call[1] == [
+        (4, 0, 0, 1, 1, 0.0, 0.0),
+        (4, 2, 2, 3, 3, 0.0, 0.0),
+        (3, 2, 2, 3, 3, 0.0, 0.0),
+    ]
 
     style.fill_color = Color(0, 255, 0, 255)
     style.mark_changed()
@@ -128,15 +129,15 @@ def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None
     renderer.line(0, 0, 1, 1, style, moved)
 
     changed_call = canvas.calls[-1]
-    assert changed_call[0] == "batch_lines"
-    assert changed_call[2] is not line_call[2]
+    assert changed_call[0] == "batch_primitives"
+    assert changed_call[2] is not primitive_call[2]
     assert changed_call[2]["fill"] == (0, 255, 0, 255)
-    assert changed_call[3] is line_call[3]
+    assert changed_call[3] is primitive_call[3]
 
     renderer.end_frame()
 
     transformed_call = canvas.calls[-2]
-    assert transformed_call[0] == "batch_lines"
+    assert transformed_call[0] == "batch_primitives"
     assert transformed_call[2] is changed_call[2]
     assert transformed_call[3] is not changed_call[3]
     assert transformed_call[3] == (1.0, 0.0, 0.0, 1.0, 4, 5)
@@ -169,7 +170,7 @@ def test_canvas_context_style_cache_invalidation_respects_push_pop(
 
     canvas = backend.renderer._canvas
     assert canvas is not None
-    batches = [call for call in canvas.calls if call[0] == "batch_lines"]
+    batches = [call for call in canvas.calls if call[0] == "batch_primitives"]
     first, second, third = batches[-3:]
     assert first[2]["fill"] == (255, 0, 0, 255)
     assert second[2]["fill"] == (0, 255, 0, 255)
@@ -428,3 +429,148 @@ def test_canvas_renderer_caches_text_metrics_by_style() -> None:
     larger_style.text_size = 24.0
     assert renderer.text_width("hello", larger_style) != renderer.text_width("hello", style)
     assert [call[0] for call in canvas.calls].count("text_width") == 2
+
+
+def test_canvas_renderer_skips_noop_update_after_load_pixel_bytes() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(2, 2)
+
+    payload = renderer.load_pixel_bytes()
+    renderer.update_pixels(payload)
+    renderer.update_pixels(memoryview(payload))
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    assert [call[0] for call in canvas.calls].count("update_pixels") == 0
+    assert renderer.performance_counters()["pixel_noop_upload_skips"] == 2
+
+
+def test_canvas_renderer_dirty_pixel_buffer_uploads_full_dirty_rows() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(4, 3)
+    canvas = renderer._canvas
+    assert canvas is not None
+
+    def update_pixel_region_buffer(
+        pixels: memoryview,
+        width: int,
+        height: int,
+        x: int,
+        y: int,
+        alpha_composite: bool = True,
+    ) -> None:
+        canvas.calls.append(
+            (
+                "update_pixel_region_buffer",
+                bytes(pixels),
+                width,
+                height,
+                x,
+                y,
+                alpha_composite,
+            )
+        )
+
+    canvas.update_pixel_region_buffer = update_pixel_region_buffer
+    pixels = PixelBuffer(bytes(renderer.physical_width * renderer.physical_height * 4))
+    pixels[8:24] = bytes(range(16))
+
+    renderer.update_pixels(pixels)
+
+    assert canvas.calls[-1] == (
+        "update_pixel_region_buffer",
+        bytes(pixels[:32]),
+        4,
+        2,
+        0,
+        0,
+        False,
+    )
+    assert pixels.dirty_range() is None
+
+
+def test_canvas_renderer_forwards_captured_shape_without_python_extraction() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(10, 10)
+    canvas = renderer._canvas
+    assert canvas is not None
+
+    class CapturedState:
+        def shape_vertices(self) -> list[tuple[float, float]]:
+            raise AssertionError("shape vertices should stay in Rust")
+
+        def shape_contours(self) -> list[list[tuple[float, float]]]:
+            raise AssertionError("shape contours should stay in Rust")
+
+    def draw_captured_shape(
+        state: object,
+        style: dict[str, object],
+        matrix: tuple[float, float, float, float, float, float],
+        close: bool = True,
+    ) -> None:
+        canvas.calls.append(("draw_captured_shape", state, style, matrix, close))
+
+    canvas.draw_captured_shape = draw_captured_shape
+    style = StyleState(fill_color=Color(10, 20, 30, 255), stroke_color=None)
+    transform = Matrix2D.translation(3, 4)
+    state = CapturedState()
+
+    renderer.draw_captured_shape(state, style, transform, close=False)
+
+    call = canvas.calls[-1]
+    assert call[0] == "draw_captured_shape"
+    assert call[1] is state
+    assert call[2]["fill"] == (10, 20, 30, 255)
+    assert call[3] == (1.0, 0.0, 0.0, 1.0, 3, 4)
+    assert call[4] is False
+    assert renderer.performance_counters()["shape_buffer_extractions"] == 0
+
+
+def test_canvas_renderer_forwards_captured_clip_without_python_extraction() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(10, 10)
+    canvas = renderer._canvas
+    assert canvas is not None
+
+    class CapturedState:
+        def shape_vertices(self) -> list[tuple[float, float]]:
+            raise AssertionError("clip vertices should stay in Rust")
+
+        def shape_contours(self) -> list[list[tuple[float, float]]]:
+            raise AssertionError("clip contours should stay in Rust")
+
+    def begin_clip_captured(
+        state: object,
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None:
+        canvas.calls.append(("begin_clip_captured", state, matrix))
+
+    canvas.begin_clip_captured = begin_clip_captured
+    transform = Matrix2D.translation(5, 6)
+    state = CapturedState()
+
+    renderer.begin_clip_captured_shape(state, transform)
+
+    assert canvas.calls[-1] == ("begin_clip_captured", state, (1.0, 0.0, 0.0, 1.0, 5, 6))
+    assert renderer.performance_counters()["shape_buffer_extractions"] == 0
+
+
+def test_canvas_renderer_batches_lines_with_mixed_primitives() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(20, 20)
+    style = StyleState(fill_color=Color(255, 255, 255, 255), stroke_color=Color(0, 0, 0, 255))
+    transform = Matrix2D.identity()
+
+    renderer.triangle(1, 2, 3, 4, 5, 6, style, transform)
+    renderer.line(7, 8, 9, 10, style, transform)
+    renderer.ellipse(11, 12, 13, 14, style, transform)
+    renderer.end_frame()
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    batch = next(call for call in canvas.calls if call[0] == "batch_primitives")
+    assert batch[1] == [
+        (2, 1, 2, 3, 4, 5, 6),
+        (4, 7, 8, 9, 10, 0.0, 0.0),
+        (3, 11, 12, 13, 14, 0.0, 0.0),
+    ]

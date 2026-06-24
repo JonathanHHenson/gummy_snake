@@ -33,6 +33,7 @@ class CanvasRendererHost(Protocol):
     _image_batch_style: dict[str, object] | None
     _image_batch_matrix: MatrixPayload | None
     _skip_canvas_end_frame: bool
+    _last_pixel_bytes: bytes | None
     _current_matrix_payload: MatrixPayload
     _image_cache_versions: OrderedDict[int, int]
     _clip_depth: int

@@ -77,6 +77,7 @@ impl Canvas {
         if readback && self.materialize_gpu_primitives_on_cpu() {
             self.performance_counters.gpu_frames_rendered += 1;
             self.performance_counters.pixel_readbacks += 1;
+            self.performance_counters.gpu_pixel_readbacks += 1;
             return;
         }
         if self.gpu.is_none() {
@@ -95,6 +96,7 @@ impl Canvas {
                 Ok(pixels) => {
                     self.performance_counters.gpu_frames_rendered += 1;
                     self.performance_counters.pixel_readbacks += 1;
+                    self.performance_counters.gpu_pixel_readbacks += 1;
                     self.pixels = pixels;
                     self.sync_present_pixels_from_rgba();
                     if let Some(gpu) = self.gpu.as_mut() {
@@ -136,6 +138,7 @@ impl Canvas {
         self.flush_pending_3d_triangles();
         if self.materialize_gpu_primitives_on_cpu() {
             self.performance_counters.pixel_readbacks += 1;
+            self.performance_counters.gpu_pixel_readbacks += 1;
             return;
         }
         let Some(gpu) = self.gpu.as_mut() else {
@@ -145,6 +148,7 @@ impl Canvas {
         match gpu.read_pixels() {
             Ok(pixels) => {
                 self.performance_counters.pixel_readbacks += 1;
+                self.performance_counters.gpu_pixel_readbacks += 1;
                 self.pixels = pixels;
                 self.sync_present_pixels_from_rgba();
                 self.pixels_stale = false;
@@ -266,13 +270,8 @@ impl Canvas {
                         self.replay_triangle_on_cpu(&points, triangle[0].1, true);
                     }
                 }
-                crate::gpu::DrawCommand::Image {
-                    key: _,
-                    vertices: _,
-                    linear: _,
-                    blend_mode: _,
-                    clip_id: _,
-                } => {
+                crate::gpu::DrawCommand::Image { .. }
+                | crate::gpu::DrawCommand::ImageBatch { .. } => {
                     return false;
                 }
                 crate::gpu::DrawCommand::Text { .. } => {
@@ -577,11 +576,6 @@ impl Canvas {
         self.gpu.is_some()
             && self.runtime.is_none()
             && !self.cpu_compositing_active
-            && !self.image_text_active_this_frame
-            && !self
-                .gpu
-                .as_ref()
-                .is_some_and(|gpu| gpu.has_pending_image_commands())
             && self.clip_masks.is_empty()
             && !style.erasing
             && style.fill.is_some()

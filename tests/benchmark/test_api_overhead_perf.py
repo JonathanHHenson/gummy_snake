@@ -43,7 +43,9 @@ class NoopRenderer:
     def point(self, x, y, style, transform) -> None: ...
     def line(self, x1, y1, x2, y2, style, transform) -> None: ...
     def polygon(self, points, style, transform, *, close=True) -> None: ...
+    def rect(self, x, y, width, height, style, transform) -> None: ...
     def ellipse(self, x, y, width, height, style, transform) -> None: ...
+    def triangle(self, x1, y1, x2, y2, x3, y3, style, transform) -> None: ...
     def arc(self, x, y, width, height, start, stop, mode, style, transform) -> None: ...
     def draw_image(self, image, dx, dy, dw, dh, style, transform, *, source=None) -> None: ...
     def text(self, value, x, y, style, transform) -> None: ...
@@ -176,19 +178,27 @@ def _build_cases(sketch: Sketch, context: SketchContext, image: gs.Image) -> lis
     return [
         ApiBenchmarkCase("global", "fill", lambda: gs.fill(16, 32, 48, 192)),
         ApiBenchmarkCase("global", "line", lambda: gs.line(1, 2, 40, 50)),
+        ApiBenchmarkCase("global", "rect", lambda: gs.rect(4, 5, 12, 16)),
         ApiBenchmarkCase("global", "circle", lambda: gs.circle(24, 24, 12)),
+        ApiBenchmarkCase("global", "triangle", lambda: gs.triangle(1, 2, 20, 4, 8, 24)),
         ApiBenchmarkCase("global", "image", lambda: gs.image(image, 8, 8, 16, 16)),
         ApiBenchmarkCase("global", "text_width", lambda: gs.text_width("dispatch")),
         ApiBenchmarkCase("sketch", "fill", lambda: sketch.fill(16, 32, 48, 192)),
         ApiBenchmarkCase("sketch", "line", lambda: sketch.line(1, 2, 40, 50)),
+        ApiBenchmarkCase("sketch", "rect", lambda: sketch.rect(4, 5, 12, 16)),
         ApiBenchmarkCase("sketch", "circle", lambda: sketch.circle(24, 24, 12)),
+        ApiBenchmarkCase("sketch", "triangle", lambda: sketch.triangle(1, 2, 20, 4, 8, 24)),
         ApiBenchmarkCase("context", "fill", lambda: context.fill(16, 32, 48, 192)),
         ApiBenchmarkCase("context", "line", lambda: context.line(1, 2, 40, 50)),
+        ApiBenchmarkCase("context", "rect", lambda: context.rect(4, 5, 12, 16)),
         ApiBenchmarkCase("context", "circle", lambda: context.circle(24, 24, 12)),
+        ApiBenchmarkCase("context", "triangle", lambda: context.triangle(1, 2, 20, 4, 8, 24)),
         ApiBenchmarkCase("context", "image", lambda: context.image(image, 8, 8, 16, 16)),
         ApiBenchmarkCase("context", "text_width", lambda: context.text_width("dispatch")),
         ApiBenchmarkCase("fast", "line", lambda: fast.line(1, 2, 40, 50)),
+        ApiBenchmarkCase("fast", "rect", lambda: fast.rect(4, 5, 12, 16)),
         ApiBenchmarkCase("fast", "circle", lambda: fast.circle(24, 24, 12)),
+        ApiBenchmarkCase("fast", "triangle", lambda: fast.triangle(1, 2, 20, 4, 8, 24)),
         ApiBenchmarkCase("fast", "image", lambda: fast.image(image, 8, 8, 16, 16)),
         ApiBenchmarkCase("fast", "text_width", lambda: fast.text_width("dispatch")),
         ApiBenchmarkCase(
@@ -198,8 +208,18 @@ def _build_cases(sketch: Sketch, context: SketchContext, image: gs.Image) -> lis
         ),
         ApiBenchmarkCase(
             "renderer",
+            "rect",
+            lambda: renderer.rect(4, 5, 12, 16, style, transform),
+        ),
+        ApiBenchmarkCase(
+            "renderer",
             "circle",
             lambda: renderer.ellipse(24, 24, 12, 12, style, transform),
+        ),
+        ApiBenchmarkCase(
+            "renderer",
+            "triangle",
+            lambda: renderer.triangle(1, 2, 20, 4, 8, 24, style, transform),
         ),
         ApiBenchmarkCase(
             "renderer",
@@ -232,5 +252,5 @@ def test_api_dispatch_microbenchmarks() -> None:
         assert summary.mean_ns > 0
 
     by_case = {(summary.layer, summary.operation): summary for summary in summaries}
-    for operation in ("line", "circle", "image", "text_width"):
+    for operation in ("line", "rect", "circle", "triangle", "image", "text_width"):
         assert by_case[("fast", operation)].mean_ns < by_case[("global", operation)].mean_ns
