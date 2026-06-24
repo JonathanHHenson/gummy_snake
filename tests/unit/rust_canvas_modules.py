@@ -1,10 +1,23 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Protocol
 
 from rust_canvas_fakes import FakeCanvas
 
 from gummysnake.rust.canvas import EXPECTED_CANVAS_ABI_VERSION
+
+
+class TouchLike(Protocol):
+    id: int
+    x: float
+    y: float
+    previous_x: float | None
+    previous_y: float | None
+    pressure: float | None
+    phase: str
+    timestamp: float
+    device: str
 
 
 class FakeSketchContextState:
@@ -104,7 +117,7 @@ class FakeSketchContextState:
         else:
             self._pressed_codes.discard(code)
 
-    def update_touches(self, touches: list[object]) -> None:
+    def update_touches(self, touches: list[TouchLike]) -> None:
         previous = {touch["id"]: touch for touch in self._touches}
         self._touches = []
         for touch in touches:

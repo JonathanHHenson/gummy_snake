@@ -1,13 +1,30 @@
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
+from types import ModuleType
+from typing import Any, cast
 
 BENCHMARK_DIR = Path(__file__).resolve().parents[1] / "benchmark"
-sys.path.insert(0, str(BENCHMARK_DIR))
 
-from canvas_backend_perf_child import _flatten_metrics  # noqa: E402
-from canvas_backend_perf_scenes import draw_scene, setup_scene  # noqa: E402
+
+def _load_benchmark_module(name: str) -> ModuleType:
+    path = BENCHMARK_DIR / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load benchmark helper module {name!r} from {path!s}.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+canvas_backend_perf_scenes = _load_benchmark_module("canvas_backend_perf_scenes")
+canvas_backend_perf_child = _load_benchmark_module("canvas_backend_perf_child")
+_flatten_metrics = cast(Any, canvas_backend_perf_child)._flatten_metrics
+draw_scene = cast(Any, canvas_backend_perf_scenes).draw_scene
+setup_scene = cast(Any, canvas_backend_perf_scenes).setup_scene
 
 
 def test_canvas_benchmark_metrics_flatten_native_counters() -> None:
@@ -96,6 +113,7 @@ def test_canvas_benchmark_setup_accepts_stress_variants(monkeypatch) -> None:
 
     fake = FakeGs()
     monkeypatch.setattr("canvas_backend_perf_scenes.gs", fake)
+
     class FakeSprite:
         def to_rgba_bytes(self) -> bytes:
             return b""
