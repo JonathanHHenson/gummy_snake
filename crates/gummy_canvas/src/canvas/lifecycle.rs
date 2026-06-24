@@ -30,6 +30,12 @@ impl Canvas {
             closed: false,
             pixels: vec![0; physical_width * physical_height * 4],
             present_pixels: vec![0; physical_width * physical_height],
+            erase_color: Rgba {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            },
             image_cache: HashMap::new(),
             text_cache: HashMap::new(),
             text_cache_order: VecDeque::new(),
@@ -431,8 +437,12 @@ impl Canvas {
         }
         if self.runtime.is_some() {
             let should_present = self.render_dirty;
-            if should_present && self.offscreen_dirty {
-                self.render_gpu_frame(false);
+            if should_present {
+                if self.offscreen_dirty {
+                    self.render_gpu_frame(false);
+                } else if self.texture_stale {
+                    self.upload_stale_texture(false)?;
+                }
             }
             if should_present {
                 let runtime = self.runtime.as_mut().expect("runtime checked above");

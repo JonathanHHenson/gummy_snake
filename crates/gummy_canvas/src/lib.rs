@@ -628,6 +628,7 @@ struct Canvas {
     closed: bool,
     pixels: Vec<u8>,
     present_pixels: Vec<u32>,
+    erase_color: Rgba,
     image_cache: HashMap<u64, CachedImage>,
     text_cache: HashMap<String, CachedText>,
     text_cache_order: VecDeque<String>,

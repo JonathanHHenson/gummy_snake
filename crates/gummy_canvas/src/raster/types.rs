@@ -15,6 +15,7 @@ pub(crate) struct OverlayRegion<'a> {
     pub(super) pixels: &'a mut [u8],
     pub(super) present_pixels: &'a mut [u32],
     pub(super) erasing: bool,
+    pub(super) erase_color: Rgba,
     pub(super) blend_mode: BlendMode,
     pub(super) clip_mask: Option<&'a [bool]>,
 }
@@ -26,6 +27,7 @@ impl<'a> OverlayRegion<'a> {
         pixels: &'a mut [u8],
         present_pixels: &'a mut [u32],
         erasing: bool,
+        erase_color: Rgba,
         blend_mode: BlendMode,
         clip_mask: Option<&'a [bool]>,
     ) -> Option<Self> {
@@ -44,6 +46,7 @@ impl<'a> OverlayRegion<'a> {
             pixels,
             present_pixels,
             erasing,
+            erase_color,
             blend_mode,
             clip_mask,
         })
@@ -69,6 +72,10 @@ impl<'a> OverlayRegion<'a> {
         let dst = &mut self.pixels[offset..offset + 4];
         let color = color.as_array();
         if self.erasing {
+            let erase_color = self.erase_color.as_array();
+            dst[0] = erase_color[0];
+            dst[1] = erase_color[1];
+            dst[2] = erase_color[2];
             dst[3] = 0;
         } else {
             blend_pixel(dst, &color, self.blend_mode);

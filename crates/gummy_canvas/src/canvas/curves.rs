@@ -90,6 +90,7 @@ impl Canvas {
                 &mut self.pixels,
                 &mut self.present_pixels,
                 parsed_style.erasing,
+                self.erase_color,
                 parsed_style.blend_mode_kind,
                 self.clip_masks.last().map(Vec::as_slice),
             ) else {
@@ -202,6 +203,7 @@ impl Canvas {
                     &mut self.pixels,
                     &mut self.present_pixels,
                     parsed_style.erasing,
+                    self.erase_color,
                     parsed_style.blend_mode_kind,
                     self.clip_masks.last().map(Vec::as_slice),
                 ) else {

@@ -4,7 +4,8 @@ use crate::*;
 impl Canvas {
     pub(crate) fn background_impl(&mut self, rgba: (u8, u8, u8, u8)) {
         self.pending_3d_triangles.clear();
-        let color = Rgba::from_tuple(rgba).as_array();
+        self.erase_color = Rgba::from_tuple(rgba);
+        let color = self.erase_color.as_array();
         if !self.clip_masks.is_empty() {
             if self.gpu.is_some() && !self.cpu_compositing_active {
                 let fill = Rgba::from_tuple(rgba);
@@ -154,6 +155,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             style.erasing,
+            self.erase_color,
             style.blend_mode_kind,
             self.clip_masks.last().map(Vec::as_slice),
         ) else {
@@ -211,6 +213,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             style.erasing,
+            self.erase_color,
             style.blend_mode_kind,
             self.clip_masks.last().map(Vec::as_slice),
         ) else {
@@ -266,6 +269,7 @@ impl Canvas {
                 &mut self.pixels,
                 &mut self.present_pixels,
                 style.erasing,
+                self.erase_color,
                 style.blend_mode_kind,
                 self.clip_masks.last().map(Vec::as_slice),
             ) else {
@@ -410,6 +414,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             style.erasing,
+            self.erase_color,
             style.blend_mode_kind,
             self.clip_masks.last().map(Vec::as_slice),
         ) else {
@@ -646,6 +651,7 @@ impl Canvas {
                     &mut self.pixels,
                     &mut self.present_pixels,
                     style.erasing,
+                    self.erase_color,
                     style.blend_mode_kind,
                     self.clip_masks.last().map(Vec::as_slice),
                 ) else {

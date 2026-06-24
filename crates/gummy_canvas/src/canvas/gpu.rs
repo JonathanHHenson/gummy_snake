@@ -275,6 +275,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             erasing,
+            self.erase_color,
             BlendMode::Blend,
             None,
         ) else {
@@ -307,6 +308,7 @@ impl Canvas {
             &mut self.pixels,
             &mut self.present_pixels,
             false,
+            self.erase_color,
             BlendMode::Blend,
             None,
         ) else {
@@ -687,9 +689,9 @@ impl Canvas {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             for (_, color) in &mut vertices {
-                color.r = 255;
-                color.g = 255;
-                color.b = 255;
+                color.r = self.erase_color.r;
+                color.g = self.erase_color.g;
+                color.b = self.erase_color.b;
                 color.a = 255;
             }
             gpu.draw_erase_triangles(vertices);
