@@ -462,6 +462,8 @@ impl GpuRenderer {
             viewport_bind_group,
             clip_textures,
             current_clip_id: 0,
+            clip_generation: 0,
+            previous_render_clip_generation: 0,
             clear_color: GpuColor {
                 r: 0,
                 g: 0,

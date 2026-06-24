@@ -78,11 +78,15 @@ impl GpuRenderer {
             _uniform_buffer: uniform_buffer,
             bind_group,
         });
+        self.clip_generation = self.clip_generation.wrapping_add(1);
         self.current_clip_id = self.clip_textures.len() - 1;
         self.current_clip_id
     }
 
     pub fn clear_clip_mask(&mut self) {
+        if self.current_clip_id != 0 {
+            self.clip_generation = self.clip_generation.wrapping_add(1);
+        }
         self.current_clip_id = 0;
     }
 

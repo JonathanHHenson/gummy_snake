@@ -186,6 +186,53 @@ fn gpu_path_renders_background_and_triangle_when_available() {
 }
 
 #[test]
+fn gpu_reuse_invalidates_when_clip_mask_changes() {
+    let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    if !canvas.gpu_available() {
+        return;
+    }
+
+    canvas.begin_frame();
+    canvas.background((255, 255, 255, 255));
+    canvas
+        .begin_clip(
+            vec![(0.0, 0.0), (4.0, 0.0), (4.0, 8.0), (0.0, 8.0)],
+            vec![],
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+        )
+        .unwrap();
+    canvas.background((0, 0, 255, 255));
+    canvas.end_clip().unwrap();
+    canvas.end_frame();
+
+    let first_frame = canvas.load_pixels();
+    let physical_width = canvas.physical_width;
+    let pixel = |pixels: &[u8], x: usize, y: usize| -> [u8; 4] {
+        let offset = (y * physical_width + x) * 4;
+        pixels[offset..offset + 4].try_into().unwrap()
+    };
+    assert_eq!(pixel(&first_frame, 1, 4), [0, 0, 255, 255]);
+    assert_eq!(pixel(&first_frame, 6, 4), [255, 255, 255, 255]);
+
+    canvas.begin_frame();
+    canvas.background((255, 255, 255, 255));
+    canvas
+        .begin_clip(
+            vec![(4.0, 0.0), (8.0, 0.0), (8.0, 8.0), (4.0, 8.0)],
+            vec![],
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+        )
+        .unwrap();
+    canvas.background((0, 0, 255, 255));
+    canvas.end_clip().unwrap();
+    canvas.end_frame();
+
+    let second_frame = canvas.load_pixels();
+    assert_eq!(pixel(&second_frame, 1, 4), [255, 255, 255, 255]);
+    assert_eq!(pixel(&second_frame, 6, 4), [0, 0, 255, 255]);
+}
+
+#[test]
 fn shaded_faces_cpu_fallback_preserves_face_color() {
     let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
     canvas.gpu = None;

@@ -227,6 +227,8 @@ pub struct GpuRenderer {
     pub(super) viewport_bind_group: wgpu::BindGroup,
     pub(super) clip_textures: Vec<ClipTextureAsset>,
     pub(super) current_clip_id: usize,
+    pub(super) clip_generation: u64,
+    pub(super) previous_render_clip_generation: u64,
     pub(super) clear_color: GpuColor,
     pub(super) commands: Vec<DrawCommand>,
     pub(super) previous_render_commands: Vec<DrawCommand>,

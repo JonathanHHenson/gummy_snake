@@ -211,10 +211,14 @@ impl GpuRenderer {
         self.encode_commands(&mut encoder);
         self.queue.submit([encoder.finish()]);
         self.previous_render_commands = self.commands.clone();
+        self.previous_render_clip_generation = self.clip_generation;
     }
 
     fn can_reuse_previous_render(&self) -> bool {
-        if self.commands.is_empty() || self.commands != self.previous_render_commands {
+        if self.commands.is_empty()
+            || self.commands != self.previous_render_commands
+            || self.clip_generation != self.previous_render_clip_generation
+        {
             return false;
         }
         matches!(self.commands.first(), Some(DrawCommand::Clear(_)))
