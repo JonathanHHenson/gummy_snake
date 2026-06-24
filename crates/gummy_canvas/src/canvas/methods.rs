@@ -214,6 +214,9 @@ impl Canvas {
         let _ = py;
         self.batch_primitives_current_impl(records)
     }
+    pub(crate) fn batch_primitives_mixed(&mut self, records: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.batch_primitives_mixed_impl(records)
+    }
     pub(crate) fn batch_fill_primitives(
         &mut self,
         records: Vec<(u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8)>,
@@ -659,6 +662,13 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         self.batch_canvas_images_impl(records, style, matrix)
+    }
+    pub(crate) fn batch_canvas_images_transformed(
+        &mut self,
+        records: &Bound<'_, PyAny>,
+        style: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        self.batch_canvas_images_transformed_impl(records, style)
     }
     pub(crate) fn batch_canvas_image_motion_terms(
         &mut self,

@@ -45,9 +45,11 @@ _PERFORMANCE_COUNTER_KEYS = (
     "pixel_noop_upload_skips",
     "primitive_batch_records",
     "primitive_batch_flushes",
+    "primitive_batch_max_records",
     "primitive_batch_fallbacks",
     "image_batch_records",
     "image_batch_flushes",
+    "image_batch_max_records",
     "image_batch_fallbacks",
 )
 PerformanceCounterValue = int | dict[str, int]
@@ -55,7 +57,15 @@ PerformanceCounters = dict[str, PerformanceCounterValue]
 TextMetricKey = tuple[str, str | None, int, int]
 MatrixPayload = tuple[float, float, float, float, float, float]
 PrimitiveBatchRecord = tuple[object, ...]
-ImageBatchRecord = tuple[object, float, float, float, float, tuple[int, int, int, int] | None]
+ImageBatchRecord = tuple[
+    object,
+    float,
+    float,
+    float,
+    float,
+    tuple[int, int, int, int] | None,
+    MatrixPayload,
+]
 
 
 def color_payload(color: Color | None) -> tuple[int, int, int, int] | None:
@@ -223,6 +233,9 @@ class CanvasRendererCore:
     def set_current_matrix(self, transform: Matrix2D) -> None:
         self.remember_current_matrix(transform)
         if self._canvas is None:
+            return
+        if self.renderer_mode == c.P2D:
+            self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
         callback = getattr(self._require_canvas(), "set_current_matrix", None)
@@ -396,6 +409,12 @@ class CanvasRendererCore:
 
     def _count(self, name: str, amount: int = 1) -> None:
         self._performance_counters[name] = int(self._performance_counters.get(name, 0)) + amount
+
+    def _max_count(self, name: str, value: int) -> None:
+        self._performance_counters[name] = max(
+            int(self._performance_counters.get(name, 0)),
+            int(value),
+        )
 
     def begin_frame(self) -> None:
         self._abort_frame_on_native_close = True

@@ -1,6 +1,8 @@
+use super::images::{BatchCanvasImage, BatchUniqueImage, IMAGE_ATLAS_MAX_UNIQUE_IMAGES};
 use crate::runtime::style::*;
 use crate::*;
 use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
+use std::collections::HashMap;
 
 mod cache;
 
@@ -82,10 +84,150 @@ impl Canvas {
                 self.pending_reusable_text_frame_signature = Some(signature);
             }
         }
+        if self.try_text_batch_cached_image_atlas(&items, parsed_style, matrix)? {
+            return Ok(false);
+        }
         for (value, x, y) in items {
             self.text_with_style(&value, x, y, parsed_style, matrix)?;
         }
         Ok(false)
+    }
+
+    fn try_text_batch_cached_image_atlas(
+        &mut self,
+        items: &[(String, f64, f64)],
+        parsed_style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<bool> {
+        if items.is_empty()
+            || self.gpu.is_none()
+            || !self.can_queue_gpu_primitives(parsed_style)
+            || parsed_style.fill.is_none()
+        {
+            return Ok(false);
+        }
+        let fill = parsed_style.fill.expect("fill was checked");
+        let mut unique_images = Vec::<BatchUniqueImage>::new();
+        let mut unique_indices = HashMap::<(u64, u64), usize>::new();
+        let mut records = Vec::<BatchCanvasImage>::new();
+        let mut drew_any = false;
+
+        for (value, x, y) in items {
+            let lines: Vec<&str> = if value.is_empty() {
+                vec![""]
+            } else {
+                value.split('\n').collect()
+            };
+            for (line_index, line) in lines.iter().enumerate() {
+                let cached = self.cached_text_line(line, fill, parsed_style)?;
+                if cached.image.width == 0 || cached.image.height == 0 {
+                    continue;
+                }
+                let width = cached.image.width as f64 / self.pixel_density;
+                let height = cached.image.height as f64 / self.pixel_density;
+                let mut dx = *x;
+                let mut dy = *y + line_index as f64 * parsed_style.text_leading;
+                if parsed_style.text_align_x == "center" {
+                    dx -= width / 2.0;
+                } else if parsed_style.text_align_x == "right" {
+                    dx -= width;
+                }
+                if parsed_style.text_align_y == "center" {
+                    dy -= height / 2.0;
+                } else if parsed_style.text_align_y == "bottom" {
+                    dy -= height;
+                } else if parsed_style.text_align_y == "baseline" {
+                    dy -= cached.ascent / self.pixel_density;
+                }
+                dx += cached.bbox_left as f64 / self.pixel_density;
+                dy += cached.bbox_top as f64 / self.pixel_density;
+
+                let unique_key = (cached.texture_key, cached.image.version);
+                if !unique_indices.contains_key(&unique_key)
+                    && unique_images.len() >= IMAGE_ATLAS_MAX_UNIQUE_IMAGES
+                {
+                    if self.draw_cached_text_image_batch(&unique_images, &records, parsed_style)? {
+                        drew_any = true;
+                    }
+                    unique_images.clear();
+                    unique_indices.clear();
+                    records.clear();
+                }
+                let unique_index = if let Some(index) = unique_indices.get(&unique_key) {
+                    *index
+                } else {
+                    let index = unique_images.len();
+                    unique_images.push(BatchUniqueImage {
+                        key: cached.texture_key,
+                        version: cached.image.version,
+                        width: cached.image.width,
+                        height: cached.image.height,
+                        pixels: cached.image.pixels.clone(),
+                    });
+                    unique_indices.insert(unique_key, index);
+                    index
+                };
+                records.push(BatchCanvasImage {
+                    unique_index,
+                    dx,
+                    dy,
+                    dw: width,
+                    dh: height,
+                    source: None,
+                    matrix,
+                });
+            }
+        }
+        if self.draw_cached_text_image_batch(&unique_images, &records, parsed_style)? {
+            drew_any = true;
+        }
+        Ok(drew_any)
+    }
+
+    fn draw_cached_text_image_batch(
+        &mut self,
+        unique_images: &[BatchUniqueImage],
+        records: &[BatchCanvasImage],
+        parsed_style: &Style,
+    ) -> PyResult<bool> {
+        if records.is_empty() {
+            return Ok(false);
+        }
+        if self.try_draw_gpu_image_atlas_batch(unique_images, records, parsed_style)? {
+            return Ok(true);
+        }
+        for record in records {
+            let image = &unique_images[record.unique_index];
+            if self.try_draw_gpu_image_parts(
+                image.key,
+                image.version,
+                image.width,
+                image.height,
+                &image.pixels,
+                record.dx,
+                record.dy,
+                record.dw,
+                record.dh,
+                parsed_style,
+                record.matrix,
+                record.source,
+            )? {
+                continue;
+            }
+            self.draw_image_pixels_with_style(
+                &image.pixels,
+                image.width,
+                image.height,
+                record.dx,
+                record.dy,
+                record.dw,
+                record.dh,
+                parsed_style,
+                record.matrix,
+                record.source,
+            )?;
+        }
+        Ok(true)
     }
 
     fn reusable_text_frame_signature(

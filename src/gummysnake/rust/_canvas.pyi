@@ -294,6 +294,22 @@ class Canvas:
     def batch_primitives_current(
         self, records: list[tuple[int, float, float, float, float, float, float]]
     ) -> None: ...
+    def batch_primitives_mixed(
+        self,
+        records: list[
+            tuple[
+                int,
+                float,
+                float,
+                float,
+                float,
+                float,
+                float,
+                dict[str, Any],
+                tuple[float, float, float, float, float, float],
+            ]
+        ],
+    ) -> None: ...
     def batch_fill_primitives(
         self,
         records: list[tuple[int, float, float, float, float, float, float, int, int, int, int]],
@@ -506,6 +522,21 @@ class Canvas:
         ],
         style: dict[str, Any],
         matrix: tuple[float, float, float, float, float, float],
+    ) -> None: ...
+    def batch_canvas_images_transformed(
+        self,
+        records: list[
+            tuple[
+                CanvasImage,
+                float,
+                float,
+                float,
+                float,
+                tuple[int, int, int, int] | None,
+                tuple[float, float, float, float, float, float],
+            ]
+        ],
+        style: dict[str, Any],
     ) -> None: ...
     def text(
         self,

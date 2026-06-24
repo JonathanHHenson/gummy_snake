@@ -33,5 +33,5 @@ Most examples save to `examples/output/` when `--frames` is provided. Pass `--no
 - `06_math`: vectors, random numbers, noise, mapping, and interpolation.
 - `07_plugins`: plugin hook ordering and plugin-provided APIs.
 - `08_3d`: current WEBGL primitives, lights, materials, model loading, and textures.
-- `09_performance`: dense 60 FPS load showcases using public batched drawing APIs.
+- `09_performance`: dense 60 FPS load showcases and retained 3D performance sketches.
 - `games`: small sprite-based games using the included assets.

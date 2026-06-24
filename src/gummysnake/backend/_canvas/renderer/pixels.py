@@ -64,6 +64,8 @@ class PixelBuffer(bytearray):
 
 
 class CanvasRendererPixelsMixin:
+    _last_pixel_bytes: bytes | None
+
     def load_pixels(self) -> list[int]:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("pixel_readbacks")

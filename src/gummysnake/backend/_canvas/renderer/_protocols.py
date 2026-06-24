@@ -11,7 +11,15 @@ from gummysnake.core.transform import Matrix2D
 
 MatrixPayload = tuple[float, float, float, float, float, float]
 PrimitiveBatchRecord = tuple[object, ...]
-ImageBatchRecord = tuple[object, float, float, float, float, tuple[int, int, int, int] | None]
+ImageBatchRecord = tuple[
+    object,
+    float,
+    float,
+    float,
+    float,
+    tuple[int, int, int, int] | None,
+    MatrixPayload,
+]
 TextMetricKey = tuple[str, str | None, int, int]
 
 
@@ -46,6 +54,7 @@ class CanvasRendererHost(Protocol):
     def _flush_image_batch(self) -> None: ...
     def _flush_text_batch(self, *, final: bool = False) -> None: ...
     def _count(self, name: str, amount: int = 1) -> None: ...
+    def _max_count(self, name: str, value: int) -> None: ...
     def _call[T](self, operation: str, callback: Callable[..., T], *args: object) -> T: ...
     def _require_canvas(self) -> Any: ...
     def _require_canvas_method(self, name: str, operation: str) -> Callable[..., Any]: ...

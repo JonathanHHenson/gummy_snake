@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Any
 
 from gummysnake import constants as c
@@ -107,7 +107,27 @@ class StyleState:
     revision: int = 0
 
     def copy(self) -> StyleState:
-        return replace(self)
+        return StyleState(
+            fill_color=self.fill_color,
+            stroke_color=self.stroke_color,
+            stroke_weight=self.stroke_weight,
+            stroke_cap=self.stroke_cap,
+            stroke_join=self.stroke_join,
+            rect_mode=self.rect_mode,
+            ellipse_mode=self.ellipse_mode,
+            image_mode=self.image_mode,
+            image_sampling=self.image_sampling,
+            image_tint=self.image_tint,
+            blend_mode=self.blend_mode,
+            erasing=self.erasing,
+            text_font=self.text_font,
+            text_size=self.text_size,
+            text_style=self.text_style,
+            text_align_x=self.text_align_x,
+            text_align_y=self.text_align_y,
+            text_leading=self.text_leading,
+            revision=self.revision,
+        )
 
     def mark_changed(self) -> None:
         self.revision += 1

@@ -2,21 +2,24 @@ use crate::*;
 
 mod helpers;
 
-struct BatchCanvasImage {
-    unique_index: usize,
-    dx: f64,
-    dy: f64,
-    dw: f64,
-    dh: f64,
-    source: Option<(i64, i64, i64, i64)>,
+pub(crate) const IMAGE_ATLAS_MAX_UNIQUE_IMAGES: usize = 128;
+
+pub(crate) struct BatchCanvasImage {
+    pub(crate) unique_index: usize,
+    pub(crate) dx: f64,
+    pub(crate) dy: f64,
+    pub(crate) dw: f64,
+    pub(crate) dh: f64,
+    pub(crate) source: Option<(i64, i64, i64, i64)>,
+    pub(crate) matrix: Matrix,
 }
 
-struct BatchUniqueImage {
-    key: u64,
-    version: u64,
-    width: usize,
-    height: usize,
-    pixels: Vec<u8>,
+pub(crate) struct BatchUniqueImage {
+    pub(crate) key: u64,
+    pub(crate) version: u64,
+    pub(crate) width: usize,
+    pub(crate) height: usize,
+    pub(crate) pixels: Vec<u8>,
 }
 
 const MOTION_SPRITE_RECORD_SIZE: usize = 16;
@@ -399,9 +402,10 @@ impl Canvas {
                 dw,
                 dh,
                 source,
+                matrix,
             });
         }
-        if self.try_draw_gpu_image_atlas_batch(&unique_images, &parsed_records, &style, matrix)? {
+        if self.try_draw_gpu_image_atlas_batch(&unique_images, &parsed_records, &style)? {
             return Ok(());
         }
         for record in parsed_records {
@@ -438,7 +442,7 @@ impl Canvas {
                 record.dw,
                 record.dh,
                 &style,
-                matrix,
+                record.matrix,
                 record.source,
             )? {
                 continue;
@@ -452,7 +456,95 @@ impl Canvas {
                 record.dw,
                 record.dh,
                 &style,
+                record.matrix,
+                record.source,
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn batch_canvas_images_transformed_impl(
+        &mut self,
+        records: &Bound<'_, PyAny>,
+        style: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        let sequence = records.downcast::<PyList>()?;
+        let mut unique_images = Vec::<BatchUniqueImage>::new();
+        let mut unique_indices = HashMap::<(u64, u64), usize>::new();
+        let mut parsed_records = Vec::<BatchCanvasImage>::with_capacity(sequence.len());
+        for item in sequence.iter() {
+            let record = item.downcast::<PyTuple>()?;
+            if record.len() != 7 {
+                return Err(PyValueError::new_err(
+                    "Transformed image batch records must contain image, dx, dy, dw, dh, source, and matrix.",
+                ));
+            }
+            let image = record.get_item(0)?.extract::<PyRef<'_, CanvasImage>>()?;
+            let dx = record.get_item(1)?.extract::<f64>()?;
+            let dy = record.get_item(2)?.extract::<f64>()?;
+            let dw = record.get_item(3)?.extract::<f64>()?;
+            let dh = record.get_item(4)?.extract::<f64>()?;
+            let source = record
+                .get_item(5)?
+                .extract::<Option<(i64, i64, i64, i64)>>()?;
+            let matrix = record.get_item(6)?.extract::<Matrix>()?;
+            let unique_key = (image.key, image.version);
+            let unique_index = if let Some(index) = unique_indices.get(&unique_key) {
+                *index
+            } else {
+                let index = unique_images.len();
+                unique_images.push(BatchUniqueImage {
+                    key: image.key,
+                    version: image.version,
+                    width: image.width,
+                    height: image.height,
+                    pixels: image.pixels.clone(),
+                });
+                unique_indices.insert(unique_key, index);
+                index
+            };
+            parsed_records.push(BatchCanvasImage {
+                unique_index,
+                dx,
+                dy,
+                dw,
+                dh,
+                source,
                 matrix,
+            });
+        }
+        if self.try_draw_gpu_image_atlas_batch(&unique_images, &parsed_records, &style)? {
+            return Ok(());
+        }
+        for record in parsed_records {
+            let image = &unique_images[record.unique_index];
+            if self.try_draw_gpu_image_parts(
+                image.key,
+                image.version,
+                image.width,
+                image.height,
+                &image.pixels,
+                record.dx,
+                record.dy,
+                record.dw,
+                record.dh,
+                &style,
+                record.matrix,
+                record.source,
+            )? {
+                continue;
+            }
+            self.draw_image_pixels_with_style(
+                &image.pixels,
+                image.width,
+                image.height,
+                record.dx,
+                record.dy,
+                record.dw,
+                record.dh,
+                &style,
+                record.matrix,
                 record.source,
             )?;
         }
@@ -506,12 +598,13 @@ impl Canvas {
                 dw: size,
                 dh: size,
                 source: None,
+                matrix,
             });
         }
         if parsed_records.is_empty() {
             return Ok(());
         }
-        if self.try_draw_gpu_image_atlas_batch(&unique_images, &parsed_records, &style, matrix)? {
+        if self.try_draw_gpu_image_atlas_batch(&unique_images, &parsed_records, &style)? {
             return Ok(());
         }
         for record in parsed_records {
@@ -525,23 +618,22 @@ impl Canvas {
                 record.dw,
                 record.dh,
                 &style,
-                matrix,
+                record.matrix,
                 None,
             )?;
         }
         Ok(())
     }
 
-    fn try_draw_gpu_image_atlas_batch(
+    pub(crate) fn try_draw_gpu_image_atlas_batch(
         &mut self,
         images: &[BatchUniqueImage],
         records: &[BatchCanvasImage],
         style: &Style,
-        matrix: Matrix,
     ) -> PyResult<bool> {
         if images.is_empty()
             || records.is_empty()
-            || images.len() > 64
+            || images.len() > IMAGE_ATLAS_MAX_UNIQUE_IMAGES
             || !self.can_queue_gpu_primitives(style)
             || self.gpu.is_none()
         {
@@ -624,7 +716,7 @@ impl Canvas {
                 continue;
             };
             let image_to_canvas = image_to_canvas_matrix(
-                matrix,
+                record.matrix,
                 record.dx,
                 record.dy,
                 record.dw,

@@ -518,6 +518,21 @@ class CanvasRendererPrimitivesMixin:
             renderer._primitive_batch_mode = "fill"
             return True
 
+        batch_mixed = getattr(canvas, "batch_primitives_mixed", None)
+        if callable(batch_mixed):
+            if renderer._line_batch:
+                renderer._flush_line_batch_only()
+            if renderer._text_batch:
+                renderer._flush_text_batch()
+            renderer._flush_image_batch()
+            if renderer._primitive_batch and renderer._primitive_batch_mode != "mixed":
+                renderer._flush_primitive_batch_only()
+            renderer._primitive_batch.append(
+                (kind, *coords, renderer._style_payload(style), matrix_payload)
+            )
+            renderer._primitive_batch_mode = "mixed"
+            return True
+
         current = (
             getattr(canvas, "batch_primitives_current", None)
             if renderer._can_use_current_state(style, transform)
@@ -609,12 +624,22 @@ class CanvasRendererPrimitivesMixin:
         renderer._primitive_batch_current = False
         renderer._primitive_batch_mode = None
         canvas = renderer._require_canvas()
+        if mode == "mixed":
+            batch_mixed = getattr(canvas, "batch_primitives_mixed", None)
+            if callable(batch_mixed):
+                renderer._count("gpu_draws", len(records))
+                renderer._count("primitive_batch_records", len(records))
+                renderer._count("primitive_batch_flushes")
+                renderer._max_count("primitive_batch_max_records", len(records))
+                renderer._call("mixed batched primitive drawing", batch_mixed, records)
+                return
         if mode == "fill" and matrix is not None:
             batch_fill = getattr(canvas, "batch_fill_primitives", None)
             if callable(batch_fill):
                 renderer._count("gpu_draws", len(records))
                 renderer._count("primitive_batch_records", len(records))
                 renderer._count("primitive_batch_flushes")
+                renderer._max_count("primitive_batch_max_records", len(records))
                 renderer._call("batched fill primitive drawing", batch_fill, records, matrix)
                 return
         if current:
@@ -623,6 +648,7 @@ class CanvasRendererPrimitivesMixin:
                 renderer._count("gpu_draws", len(records))
                 renderer._count("primitive_batch_records", len(records))
                 renderer._count("primitive_batch_flushes")
+                renderer._max_count("primitive_batch_max_records", len(records))
                 renderer._call("batched primitive drawing", batch_current, records)
                 return
         elif style is not None and matrix is not None:
@@ -631,6 +657,7 @@ class CanvasRendererPrimitivesMixin:
                 renderer._count("gpu_draws", len(records))
                 renderer._count("primitive_batch_records", len(records))
                 renderer._count("primitive_batch_flushes")
+                renderer._max_count("primitive_batch_max_records", len(records))
                 renderer._call("batched primitive drawing", batch, records, style, matrix)
                 return
 
