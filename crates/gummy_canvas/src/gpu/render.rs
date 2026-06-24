@@ -1,6 +1,7 @@
 use crate::gpu::pipeline::{align_to, to_wgpu_color};
 use crate::gpu::types::*;
 use crate::BlendMode;
+use std::time::Instant;
 use wgpu::util::DeviceExt;
 
 impl GpuRenderer {
@@ -28,6 +29,50 @@ impl GpuRenderer {
         if !vertices.is_empty() {
             self.commands.push(DrawCommand::Triangles {
                 vertices,
+                blend_mode,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
+    pub fn draw_retained_triangles(
+        &mut self,
+        key: u64,
+        vertices: std::sync::Arc<Vec<([f32; 2], GpuColor)>>,
+        blend_mode: BlendMode,
+    ) {
+        if !vertices.is_empty() {
+            self.commands.push(DrawCommand::RetainedTriangles {
+                retained: RetainedTriangleVertices { key, vertices },
+                blend_mode,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
+    pub fn draw_primitive_instances(
+        &mut self,
+        instances: Vec<PrimitiveInstance>,
+        blend_mode: BlendMode,
+    ) {
+        if !instances.is_empty() {
+            self.commands.push(DrawCommand::PrimitiveInstances {
+                instances,
+                blend_mode,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
+    pub fn draw_retained_primitive_instances(
+        &mut self,
+        key: u64,
+        instances: std::sync::Arc<Vec<PrimitiveInstance>>,
+        blend_mode: BlendMode,
+    ) {
+        if !instances.is_empty() {
+            self.commands.push(DrawCommand::RetainedPrimitiveInstances {
+                retained: RetainedPrimitiveInstances { key, instances },
                 blend_mode,
                 clip_id: self.current_clip_id,
             });
@@ -199,7 +244,12 @@ impl GpuRenderer {
 
     pub fn render(&mut self) {
         if self.can_reuse_previous_render() {
+            self.retained_batch_cache_hits += 1;
+            self.retained_batch_reused_bytes += self.retained_render_bytes();
             return;
+        }
+        if !self.commands.is_empty() {
+            self.retained_batch_cache_misses += 1;
         }
         self.write_viewport(self.texture_size.width, self.texture_size.height);
         self.ensure_render_vertex_buffers();
@@ -208,8 +258,10 @@ impl GpuRenderer {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("gummy_canvas render encoder"),
             });
+        let encode_start = Instant::now();
         self.encode_commands(&mut encoder);
         self.queue.submit([encoder.finish()]);
+        self.encode_time_ms += encode_start.elapsed().as_secs_f64() * 1000.0;
         self.previous_render_commands = self.commands.clone();
         self.previous_render_clip_generation = self.clip_generation;
     }
@@ -224,6 +276,13 @@ impl GpuRenderer {
         matches!(self.commands.first(), Some(DrawCommand::Clear(_)))
     }
 
+    fn retained_render_bytes(&self) -> u64 {
+        ((self.primitive_vertex_capacity * std::mem::size_of::<Vertex>())
+            + (self.procedural_primitive_capacity * std::mem::size_of::<PrimitiveInstance>())
+            + (self.erase_vertex_capacity * std::mem::size_of::<Vertex>())
+            + (self.image_vertex_capacity * std::mem::size_of::<ImageVertex>())) as u64
+    }
+
     pub fn only_pending_clear(&self) -> Option<GpuColor> {
         let mut clear = None;
         for command in &self.commands {
@@ -232,6 +291,27 @@ impl GpuRenderer {
                 DrawCommand::Triangles { vertices, .. }
                 | DrawCommand::EraseTriangles { vertices, .. } => {
                     if !vertices.is_empty() {
+                        return None;
+                    }
+                }
+                DrawCommand::RetainedTriangles {
+                    retained: RetainedTriangleVertices { vertices, .. },
+                    ..
+                } => {
+                    if !vertices.is_empty() {
+                        return None;
+                    }
+                }
+                DrawCommand::PrimitiveInstances { instances, .. } => {
+                    if !instances.is_empty() {
+                        return None;
+                    }
+                }
+                DrawCommand::RetainedPrimitiveInstances {
+                    retained: RetainedPrimitiveInstances { instances, .. },
+                    ..
+                } => {
+                    if !instances.is_empty() {
                         return None;
                     }
                 }
@@ -257,30 +337,58 @@ impl GpuRenderer {
         &self.commands
     }
 
-    pub fn render_loop_counters(&self) -> (u64, u64, u64, u64) {
+    pub fn render_loop_counters(&self) -> (u64, u64, u64, u64, u64, f64, u64, u64, u64, u64) {
         (
             self.vertex_buffer_allocations,
             self.vertex_uploads,
+            self.uploaded_vertex_bytes,
             self.primitive_batches,
             self.image_batches,
+            self.encode_time_ms,
+            self.retained_batch_cache_hits,
+            self.retained_batch_cache_misses,
+            self.retained_batch_reused_bytes,
+            self.retained_batch_cache_evictions,
         )
     }
 
     pub fn reset_render_loop_counters(&mut self) {
         self.vertex_buffer_allocations = 0;
         self.vertex_uploads = 0;
+        self.uploaded_vertex_bytes = 0;
         self.primitive_batches = 0;
         self.image_batches = 0;
+        self.encode_time_ms = 0.0;
+        self.retained_batch_cache_hits = 0;
+        self.retained_batch_cache_misses = 0;
+        self.retained_batch_reused_bytes = 0;
+        self.retained_batch_cache_evictions = 0;
     }
 
     fn ensure_render_vertex_buffers(&mut self) {
         let mut primitive_vertices = 0usize;
+        let mut procedural_instances = 0usize;
         let mut erase_vertices = 0usize;
         let mut image_vertices = 0usize;
         for command in &self.commands {
             match command {
                 DrawCommand::Triangles { vertices, .. } => {
                     primitive_vertices += vertices.len();
+                }
+                DrawCommand::RetainedTriangles {
+                    retained: RetainedTriangleVertices { vertices, .. },
+                    ..
+                } => {
+                    primitive_vertices += vertices.len();
+                }
+                DrawCommand::PrimitiveInstances { instances, .. } => {
+                    procedural_instances += instances.len();
+                }
+                DrawCommand::RetainedPrimitiveInstances {
+                    retained: RetainedPrimitiveInstances { instances, .. },
+                    ..
+                } => {
+                    procedural_instances += instances.len();
                 }
                 DrawCommand::Ellipse { .. } => {
                     primitive_vertices += 64 * 3;
@@ -299,6 +407,7 @@ impl GpuRenderer {
             }
         }
         self.ensure_primitive_vertex_capacity(primitive_vertices);
+        self.ensure_procedural_primitive_capacity(procedural_instances);
         self.ensure_erase_vertex_capacity(erase_vertices);
         self.ensure_image_vertex_capacity(image_vertices);
         let model_uniforms = self
@@ -349,6 +458,22 @@ impl GpuRenderer {
             mapped_at_creation: false,
         }));
         self.primitive_vertex_capacity = capacity;
+        self.vertex_buffer_allocations += 1;
+    }
+
+    fn ensure_procedural_primitive_capacity(&mut self, required: usize) {
+        if required == 0 || self.procedural_primitive_capacity >= required {
+            return;
+        }
+        let capacity = required.next_power_of_two();
+        self.procedural_primitive_buffer =
+            Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("gummy_canvas reusable procedural primitive instances"),
+                size: (capacity * std::mem::size_of::<PrimitiveInstance>()) as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
+        self.procedural_primitive_capacity = capacity;
         self.vertex_buffer_allocations += 1;
     }
 
@@ -415,7 +540,9 @@ impl GpuRenderer {
         if encode_render {
             self.write_viewport(self.texture_size.width, self.texture_size.height);
             self.ensure_render_vertex_buffers();
+            let encode_start = Instant::now();
             self.encode_commands(&mut encoder);
+            self.encode_time_ms += encode_start.elapsed().as_secs_f64() * 1000.0;
         }
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
@@ -554,6 +681,9 @@ impl GpuRenderer {
             .find_map(|command| match command {
                 DrawCommand::Clear(color) => Some(*color),
                 DrawCommand::Triangles { .. } => None,
+                DrawCommand::RetainedTriangles { .. } => None,
+                DrawCommand::PrimitiveInstances { .. } => None,
+                DrawCommand::RetainedPrimitiveInstances { .. } => None,
                 DrawCommand::Ellipse { .. } => None,
                 DrawCommand::BlendEllipse { .. } => None,
                 DrawCommand::PixelPrefix { .. } => None,
@@ -599,6 +729,8 @@ impl GpuRenderer {
             }
             if !image_staging.is_empty() {
                 self.vertex_uploads += 1;
+                self.uploaded_vertex_bytes +=
+                    (image_staging.len() * std::mem::size_of::<ImageVertex>()) as u64;
                 let buffer = self
                     .image_vertex_buffer
                     .as_ref()
@@ -633,6 +765,8 @@ impl GpuRenderer {
             model_uniform_indices[command_index] = Some(uniform_index);
         }
         if !model_uniforms.is_empty() {
+            self.uploaded_vertex_bytes +=
+                (model_uniforms.len() * std::mem::size_of::<ModelUniform>()) as u64;
             self.queue.write_buffer(
                 &self.model_uniform_buffer,
                 0,
@@ -673,6 +807,7 @@ impl GpuRenderer {
         let mut batched_clip_id = 0usize;
         let mut batched_blend_mode = BlendMode::Blend;
         let mut primitive_vertex_offset = 0usize;
+        let mut procedural_primitive_offset = 0usize;
         let mut erase_vertex_offset = 0usize;
         let mut skip_image_commands_until = 0usize;
         for (command_index, command) in self.commands.iter().enumerate() {
@@ -703,6 +838,7 @@ impl GpuRenderer {
                             (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
                         let size_bytes =
                             (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.uploaded_vertex_bytes += size_bytes;
                         self.queue.write_buffer(
                             &buffer,
                             offset_bytes,
@@ -730,6 +866,189 @@ impl GpuRenderer {
                         color: color.as_float(),
                     }));
                 }
+                DrawCommand::RetainedTriangles {
+                    retained: RetainedTriangleVertices { vertices, .. },
+                    blend_mode,
+                    clip_id,
+                } => {
+                    if skip_until_last_clear {
+                        continue;
+                    }
+                    if !batched_vertices.is_empty()
+                        && (batched_clip_id != *clip_id || batched_blend_mode != *blend_mode)
+                    {
+                        self.vertex_uploads += 1;
+                        self.primitive_batches += 1;
+                        let buffer = self
+                            .primitive_vertex_buffer
+                            .as_ref()
+                            .expect("primitive vertex buffer is prepared");
+                        let offset_bytes =
+                            (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                        let size_bytes =
+                            (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.uploaded_vertex_bytes += size_bytes;
+                        self.queue.write_buffer(
+                            &buffer,
+                            offset_bytes,
+                            bytemuck::cast_slice(&batched_vertices),
+                        );
+                        primitive_vertex_offset += batched_vertices.len();
+                        pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
+                        pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                        pass.set_bind_group(
+                            1,
+                            &self.clip_textures[batched_clip_id].bind_group,
+                            &[],
+                        );
+                        pass.set_vertex_buffer(
+                            0,
+                            buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                        );
+                        pass.draw(0..batched_vertices.len() as u32, 0..1);
+                        batched_vertices.clear();
+                    }
+                    batched_clip_id = *clip_id;
+                    batched_blend_mode = *blend_mode;
+                    batched_vertices.extend(vertices.iter().map(|(position, color)| Vertex {
+                        position: *position,
+                        color: color.as_float(),
+                    }));
+                }
+                DrawCommand::PrimitiveInstances {
+                    instances,
+                    blend_mode,
+                    clip_id,
+                } => {
+                    if skip_until_last_clear {
+                        continue;
+                    }
+                    if !batched_vertices.is_empty() {
+                        self.vertex_uploads += 1;
+                        self.primitive_batches += 1;
+                        let buffer = self
+                            .primitive_vertex_buffer
+                            .as_ref()
+                            .expect("primitive vertex buffer is prepared");
+                        let offset_bytes =
+                            (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                        let size_bytes =
+                            (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.uploaded_vertex_bytes += size_bytes;
+                        self.queue.write_buffer(
+                            &buffer,
+                            offset_bytes,
+                            bytemuck::cast_slice(&batched_vertices),
+                        );
+                        primitive_vertex_offset += batched_vertices.len();
+                        pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
+                        pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                        pass.set_bind_group(
+                            1,
+                            &self.clip_textures[batched_clip_id].bind_group,
+                            &[],
+                        );
+                        pass.set_vertex_buffer(
+                            0,
+                            buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                        );
+                        pass.draw(0..batched_vertices.len() as u32, 0..1);
+                        batched_vertices.clear();
+                    }
+                    if instances.is_empty() {
+                        continue;
+                    }
+                    self.vertex_uploads += 1;
+                    self.primitive_batches += 1;
+                    let buffer = self
+                        .procedural_primitive_buffer
+                        .as_ref()
+                        .expect("procedural primitive instance buffer is prepared");
+                    let offset_bytes = (procedural_primitive_offset
+                        * std::mem::size_of::<PrimitiveInstance>())
+                        as u64;
+                    let size_bytes =
+                        (instances.len() * std::mem::size_of::<PrimitiveInstance>()) as u64;
+                    self.uploaded_vertex_bytes += size_bytes;
+                    self.queue
+                        .write_buffer(buffer, offset_bytes, bytemuck::cast_slice(instances));
+                    procedural_primitive_offset += instances.len();
+                    pass.set_pipeline(self.procedural_primitive_pipeline(*blend_mode));
+                    pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                    pass.set_bind_group(1, &self.clip_textures[*clip_id].bind_group, &[]);
+                    pass.set_vertex_buffer(
+                        0,
+                        buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                    );
+                    pass.draw(0..6, 0..instances.len() as u32);
+                }
+                DrawCommand::RetainedPrimitiveInstances {
+                    retained: RetainedPrimitiveInstances { instances, .. },
+                    blend_mode,
+                    clip_id,
+                } => {
+                    if skip_until_last_clear {
+                        continue;
+                    }
+                    if !batched_vertices.is_empty() {
+                        self.vertex_uploads += 1;
+                        self.primitive_batches += 1;
+                        let buffer = self
+                            .primitive_vertex_buffer
+                            .as_ref()
+                            .expect("primitive vertex buffer is prepared");
+                        let offset_bytes =
+                            (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
+                        let size_bytes =
+                            (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.uploaded_vertex_bytes += size_bytes;
+                        self.queue.write_buffer(
+                            &buffer,
+                            offset_bytes,
+                            bytemuck::cast_slice(&batched_vertices),
+                        );
+                        primitive_vertex_offset += batched_vertices.len();
+                        pass.set_pipeline(self.primitive_pipeline(batched_blend_mode));
+                        pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                        pass.set_bind_group(
+                            1,
+                            &self.clip_textures[batched_clip_id].bind_group,
+                            &[],
+                        );
+                        pass.set_vertex_buffer(
+                            0,
+                            buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                        );
+                        pass.draw(0..batched_vertices.len() as u32, 0..1);
+                        batched_vertices.clear();
+                    }
+                    if instances.is_empty() {
+                        continue;
+                    }
+                    self.vertex_uploads += 1;
+                    self.primitive_batches += 1;
+                    let buffer = self
+                        .procedural_primitive_buffer
+                        .as_ref()
+                        .expect("procedural primitive instance buffer is prepared");
+                    let offset_bytes = (procedural_primitive_offset
+                        * std::mem::size_of::<PrimitiveInstance>())
+                        as u64;
+                    let size_bytes =
+                        (instances.len() * std::mem::size_of::<PrimitiveInstance>()) as u64;
+                    self.uploaded_vertex_bytes += size_bytes;
+                    self.queue
+                        .write_buffer(buffer, offset_bytes, bytemuck::cast_slice(instances));
+                    procedural_primitive_offset += instances.len();
+                    pass.set_pipeline(self.procedural_primitive_pipeline(*blend_mode));
+                    pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+                    pass.set_bind_group(1, &self.clip_textures[*clip_id].bind_group, &[]);
+                    pass.set_vertex_buffer(
+                        0,
+                        buffer.slice(offset_bytes..offset_bytes + size_bytes),
+                    );
+                    pass.draw(0..6, 0..instances.len() as u32);
+                }
                 DrawCommand::Ellipse {
                     cx,
                     cy,
@@ -755,6 +1074,7 @@ impl GpuRenderer {
                             (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
                         let size_bytes =
                             (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.uploaded_vertex_bytes += size_bytes;
                         self.queue.write_buffer(
                             &buffer,
                             offset_bytes,
@@ -808,6 +1128,7 @@ impl GpuRenderer {
                             (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
                         let size_bytes =
                             (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.uploaded_vertex_bytes += size_bytes;
                         self.queue.write_buffer(
                             &buffer,
                             offset_bytes,
@@ -866,6 +1187,7 @@ impl GpuRenderer {
                             (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
                         let size_bytes =
                             (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.uploaded_vertex_bytes += size_bytes;
                         self.queue.write_buffer(
                             &buffer,
                             offset_bytes,
@@ -927,6 +1249,7 @@ impl GpuRenderer {
                             (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
                         let size_bytes =
                             (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.uploaded_vertex_bytes += size_bytes;
                         self.queue.write_buffer(
                             &buffer,
                             offset_bytes,
@@ -962,6 +1285,7 @@ impl GpuRenderer {
                     let offset_bytes = (erase_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
                     let size_bytes =
                         (self.erase_staging.len() * std::mem::size_of::<Vertex>()) as u64;
+                    self.uploaded_vertex_bytes += size_bytes;
                     self.queue.write_buffer(
                         &buffer,
                         offset_bytes,
@@ -1001,6 +1325,7 @@ impl GpuRenderer {
                             (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
                         let size_bytes =
                             (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+                        self.uploaded_vertex_bytes += size_bytes;
                         self.queue.write_buffer(
                             &buffer,
                             offset_bytes,
@@ -1095,6 +1420,7 @@ impl GpuRenderer {
                 .expect("primitive vertex buffer is prepared");
             let offset_bytes = (primitive_vertex_offset * std::mem::size_of::<Vertex>()) as u64;
             let size_bytes = (batched_vertices.len() * std::mem::size_of::<Vertex>()) as u64;
+            self.uploaded_vertex_bytes += size_bytes;
             self.queue.write_buffer(
                 &buffer,
                 offset_bytes,
@@ -1380,6 +1706,12 @@ impl GpuRenderer {
 
     fn primitive_pipeline(&self, blend_mode: BlendMode) -> &wgpu::RenderPipeline {
         self.primitive_pipelines
+            .get(&blend_mode)
+            .unwrap_or(&self.pipeline)
+    }
+
+    fn procedural_primitive_pipeline(&self, blend_mode: BlendMode) -> &wgpu::RenderPipeline {
+        self.procedural_primitive_pipelines
             .get(&blend_mode)
             .unwrap_or(&self.pipeline)
     }

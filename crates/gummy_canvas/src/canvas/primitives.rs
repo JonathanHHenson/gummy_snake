@@ -1,5 +1,11 @@
 use crate::runtime::style::*;
 use crate::*;
+use std::collections::hash_map::DefaultHasher;
+use std::sync::Arc;
+
+const PRIMITIVE_BATCH_RECT: u8 = 1;
+const PRIMITIVE_BATCH_TRIANGLE: u8 = 2;
+const PRIMITIVE_BATCH_ELLIPSE: u8 = 3;
 
 impl Canvas {
     pub(crate) fn background_impl(&mut self, rgba: (u8, u8, u8, u8)) {
@@ -279,6 +285,228 @@ impl Canvas {
             self.upload_cpu_pixels()?;
         }
         Ok(())
+    }
+
+    pub(crate) fn batch_primitives_impl(
+        &mut self,
+        records: Vec<(u8, f64, f64, f64, f64, f64, f64)>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        let style = self.cached_style(style)?;
+        self.batch_primitives_with_style(records, &style, matrix)
+    }
+
+    pub(crate) fn batch_primitives_current_impl(
+        &mut self,
+        records: Vec<(u8, f64, f64, f64, f64, f64, f64)>,
+    ) -> PyResult<()> {
+        let style = self.current_style.clone();
+        self.batch_primitives_with_style(records, &style, self.current_matrix)
+    }
+
+    pub(crate) fn batch_primitives_with_style(
+        &mut self,
+        records: Vec<(u8, f64, f64, f64, f64, f64, f64)>,
+        style: &Style,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        if records.is_empty() {
+            return Ok(());
+        }
+        ensure_supported_style(style)?;
+        self.performance_counters.native_primitive_batches += 1;
+        self.performance_counters.native_primitive_records += records.len() as u64;
+        for (kind, a, b, c, d, e, f) in records {
+            match kind {
+                PRIMITIVE_BATCH_RECT => self.rect_with_style(a, b, c, d, style, matrix)?,
+                PRIMITIVE_BATCH_TRIANGLE => {
+                    self.triangle_with_style(a, b, c, d, e, f, style, matrix)?
+                }
+                PRIMITIVE_BATCH_ELLIPSE => self.ellipse_with_style(a, b, c, d, style, matrix)?,
+                _ => {
+                    return Err(PyValueError::new_err(format!(
+                        "Unknown primitive batch record kind {kind}."
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn batch_fill_primitives_impl(
+        &mut self,
+        records: Vec<(u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8)>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        if records.is_empty() {
+            return Ok(());
+        }
+        self.performance_counters.native_primitive_batches += 1;
+        self.performance_counters.native_primitive_records += records.len() as u64;
+        if self.gpu.is_some() && !self.cpu_compositing_active {
+            let cache_key = fill_primitive_batch_cache_key(
+                &records,
+                matrix,
+                self.pixel_density,
+                self.physical_width,
+                self.physical_height,
+            );
+            if self.primitive_batch_cache_key == Some(cache_key) {
+                if !self.primitive_batch_cache_instances.is_empty() {
+                    self.draw_gpu_retained_primitive_instances(
+                        cache_key,
+                        self.primitive_batch_cache_instances.clone(),
+                        BlendMode::Blend,
+                    )?;
+                } else {
+                    self.draw_gpu_retained_triangles(
+                        cache_key,
+                        self.primitive_batch_cache_vertices.clone(),
+                        BlendMode::Blend,
+                    )?;
+                }
+                return Ok(());
+            }
+            if let Some(instances) = fill_primitive_batch_instances(
+                &records,
+                matrix,
+                self.pixel_density,
+                self.physical_width,
+                self.physical_height,
+            )? {
+                self.primitive_batch_cache_key = Some(cache_key);
+                self.primitive_batch_cache_record_count = records.len();
+                self.primitive_batch_cache_vertices = Arc::new(Vec::new());
+                self.primitive_batch_cache_instances = Arc::new(instances.clone());
+                self.draw_gpu_primitive_instances(instances, BlendMode::Blend)?;
+                return Ok(());
+            }
+            let mut vertices = Vec::with_capacity(records.len() * 6);
+            for (kind, a, b, c, d, e, f, r, g, blue, alpha) in &records {
+                let color = Rgba {
+                    r: *r,
+                    g: *g,
+                    b: *blue,
+                    a: *alpha,
+                };
+                match *kind {
+                    PRIMITIVE_BATCH_RECT => {
+                        let points = [
+                            self.transform_point(matrix, *a, *b),
+                            self.transform_point(matrix, *a + *c, *b),
+                            self.transform_point(matrix, *a + *c, *b + *d),
+                            self.transform_point(matrix, *a, *b + *d),
+                        ];
+                        push_triangle(&mut vertices, points[0], points[1], points[2], color);
+                        push_triangle(&mut vertices, points[0], points[2], points[3], color);
+                    }
+                    PRIMITIVE_BATCH_TRIANGLE => {
+                        push_triangle(
+                            &mut vertices,
+                            self.transform_point(matrix, *a, *b),
+                            self.transform_point(matrix, *c, *d),
+                            self.transform_point(matrix, *e, *f),
+                            color,
+                        );
+                    }
+                    PRIMITIVE_BATCH_ELLIPSE => {
+                        let cx = *a + *c / 2.0;
+                        let cy = *b + *d / 2.0;
+                        let rx = *c / 2.0;
+                        let ry = *d / 2.0;
+                        let center = self.transform_point(matrix, cx, cy);
+                        for index in 0..64 {
+                            let t0 = 2.0 * PI * index as f64 / 64.0;
+                            let t1 = 2.0 * PI * (index + 1) as f64 / 64.0;
+                            push_triangle(
+                                &mut vertices,
+                                center,
+                                self.transform_point(
+                                    matrix,
+                                    cx + t0.cos() * rx,
+                                    cy + t0.sin() * ry,
+                                ),
+                                self.transform_point(
+                                    matrix,
+                                    cx + t1.cos() * rx,
+                                    cy + t1.sin() * ry,
+                                ),
+                                color,
+                            );
+                        }
+                    }
+                    _ => {
+                        return Err(PyValueError::new_err(format!(
+                            "Unknown primitive batch record kind {kind}."
+                        )));
+                    }
+                }
+            }
+            self.primitive_batch_cache_key = Some(cache_key);
+            self.primitive_batch_cache_record_count = records.len();
+            self.primitive_batch_cache_vertices = Arc::new(vertices.clone());
+            self.primitive_batch_cache_instances = Arc::new(Vec::new());
+            self.draw_gpu_triangles(vertices, BlendMode::Blend)?;
+            return Ok(());
+        }
+        let mut style = self.current_style.clone();
+        style.stroke = None;
+        style.erasing = false;
+        style.blend_mode = BLEND_MODE_BLEND.to_string();
+        style.blend_mode_kind = BlendMode::Blend;
+        for (kind, a, b, c, d, e, f, r, g, blue, alpha) in records {
+            style.fill = Some(Rgba {
+                r,
+                g,
+                b: blue,
+                a: alpha,
+            });
+            match kind {
+                PRIMITIVE_BATCH_RECT => self.rect_with_style(a, b, c, d, &style, matrix)?,
+                PRIMITIVE_BATCH_TRIANGLE => {
+                    self.triangle_with_style(a, b, c, d, e, f, &style, matrix)?
+                }
+                PRIMITIVE_BATCH_ELLIPSE => self.ellipse_with_style(a, b, c, d, &style, matrix)?,
+                _ => {
+                    return Err(PyValueError::new_err(format!(
+                        "Unknown primitive batch record kind {kind}."
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn replay_fill_primitive_batch_impl(&mut self) -> PyResult<bool> {
+        if self.primitive_batch_cache_vertices.is_empty()
+            && self.primitive_batch_cache_instances.is_empty()
+        {
+            return Ok(false);
+        }
+        if self.gpu.is_none() || self.cpu_compositing_active {
+            return Ok(false);
+        }
+        self.performance_counters.native_primitive_batches += 1;
+        self.performance_counters.native_primitive_records +=
+            self.primitive_batch_cache_record_count as u64;
+        let Some(cache_key) = self.primitive_batch_cache_key else {
+            return Ok(false);
+        };
+        if !self.primitive_batch_cache_instances.is_empty() {
+            self.draw_gpu_retained_primitive_instances(
+                cache_key,
+                self.primitive_batch_cache_instances.clone(),
+                BlendMode::Blend,
+            )?;
+        } else {
+            self.draw_gpu_retained_triangles(
+                cache_key,
+                self.primitive_batch_cache_vertices.clone(),
+                BlendMode::Blend,
+            )?;
+        }
+        Ok(true)
     }
 
     pub(crate) fn polygon_impl(
@@ -1061,6 +1289,133 @@ impl Canvas {
         self.texture_cache_versions.insert(image.key, image.version);
         Ok(())
     }
+}
+
+fn fill_primitive_batch_cache_key(
+    records: &[(u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8)],
+    matrix: Matrix,
+    pixel_density: f64,
+    physical_width: usize,
+    physical_height: usize,
+) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    matrix.0.to_bits().hash(&mut hasher);
+    matrix.1.to_bits().hash(&mut hasher);
+    matrix.2.to_bits().hash(&mut hasher);
+    matrix.3.to_bits().hash(&mut hasher);
+    matrix.4.to_bits().hash(&mut hasher);
+    matrix.5.to_bits().hash(&mut hasher);
+    pixel_density.to_bits().hash(&mut hasher);
+    physical_width.hash(&mut hasher);
+    physical_height.hash(&mut hasher);
+    records.len().hash(&mut hasher);
+    for record in records {
+        record.0.hash(&mut hasher);
+        record.1.to_bits().hash(&mut hasher);
+        record.2.to_bits().hash(&mut hasher);
+        record.3.to_bits().hash(&mut hasher);
+        record.4.to_bits().hash(&mut hasher);
+        record.5.to_bits().hash(&mut hasher);
+        record.6.to_bits().hash(&mut hasher);
+        record.7.hash(&mut hasher);
+        record.8.hash(&mut hasher);
+        record.9.hash(&mut hasher);
+        record.10.hash(&mut hasher);
+    }
+    hasher.finish()
+}
+
+fn fill_primitive_batch_instances(
+    records: &[(u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8)],
+    matrix: Matrix,
+    pixel_density: f64,
+    _physical_width: usize,
+    _physical_height: usize,
+) -> PyResult<Option<Vec<gpu::PrimitiveInstance>>> {
+    let axis_aligned = matrix.1.abs() <= f64::EPSILON && matrix.2.abs() <= f64::EPSILON;
+    if !axis_aligned
+        && records
+            .iter()
+            .any(|record| record.0 == PRIMITIVE_BATCH_RECT || record.0 == PRIMITIVE_BATCH_ELLIPSE)
+    {
+        return Ok(None);
+    }
+    let mut instances = Vec::with_capacity(records.len());
+    for (kind, a, b, c, d, e, f, r, g, blue, alpha) in records {
+        let color = [
+            *r as f32 / 255.0,
+            *g as f32 / 255.0,
+            *blue as f32 / 255.0,
+            *alpha as f32 / 255.0,
+        ];
+        match *kind {
+            PRIMITIVE_BATCH_RECT | PRIMITIVE_BATCH_ELLIPSE => {
+                let p0 = transform_batch_point(matrix, pixel_density, *a, *b);
+                let p1 = transform_batch_point(matrix, pixel_density, *a + *c, *b + *d);
+                let min_x = p0.0.min(p1.0) as f32;
+                let min_y = p0.1.min(p1.1) as f32;
+                let max_x = p0.0.max(p1.0) as f32;
+                let max_y = p0.1.max(p1.1) as f32;
+                if !min_x.is_finite()
+                    || !min_y.is_finite()
+                    || !max_x.is_finite()
+                    || !max_y.is_finite()
+                    || min_x == max_x
+                    || min_y == max_y
+                {
+                    continue;
+                }
+                instances.push(gpu::PrimitiveInstance {
+                    p0: [min_x, min_y],
+                    p1: [max_x, max_y],
+                    p2: [0.0, 0.0],
+                    bounds: [min_x, min_y, max_x, max_y],
+                    color,
+                    params: [*kind as f32, 0.0, 0.0, 0.0],
+                });
+            }
+            PRIMITIVE_BATCH_TRIANGLE => {
+                let p0 = transform_batch_point(matrix, pixel_density, *a, *b);
+                let p1 = transform_batch_point(matrix, pixel_density, *c, *d);
+                let p2 = transform_batch_point(matrix, pixel_density, *e, *f);
+                let min_x = p0.0.min(p1.0).min(p2.0) as f32;
+                let min_y = p0.1.min(p1.1).min(p2.1) as f32;
+                let max_x = p0.0.max(p1.0).max(p2.0) as f32;
+                let max_y = p0.1.max(p1.1).max(p2.1) as f32;
+                if !min_x.is_finite()
+                    || !min_y.is_finite()
+                    || !max_x.is_finite()
+                    || !max_y.is_finite()
+                    || min_x == max_x
+                    || min_y == max_y
+                {
+                    continue;
+                }
+                instances.push(gpu::PrimitiveInstance {
+                    p0: [p0.0 as f32, p0.1 as f32],
+                    p1: [p1.0 as f32, p1.1 as f32],
+                    p2: [p2.0 as f32, p2.1 as f32],
+                    bounds: [min_x, min_y, max_x, max_y],
+                    color,
+                    params: [PRIMITIVE_BATCH_TRIANGLE as f32, 0.0, 0.0, 0.0],
+                });
+            }
+            _ => {
+                return Err(PyValueError::new_err(format!(
+                    "Unknown primitive batch record kind {kind}."
+                )));
+            }
+        }
+    }
+    Ok(Some(instances))
+}
+
+fn transform_batch_point(matrix: Matrix, pixel_density: f64, x: f64, y: f64) -> Point {
+    let (a, b, c, d, e, f) = matrix;
+    (
+        (a * x + c * y + e) * pixel_density,
+        (b * x + d * y + f) * pixel_density,
+    )
 }
 
 impl Canvas {

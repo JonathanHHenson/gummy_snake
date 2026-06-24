@@ -10,6 +10,10 @@ from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
 
+_PRIMITIVE_RECT = 1
+_PRIMITIVE_TRIANGLE = 2
+_PRIMITIVE_ELLIPSE = 3
+
 
 def _renderer(self: object) -> CanvasRendererHost:
     return cast(CanvasRendererHost, self)
@@ -57,6 +61,8 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_image_batch()
         batch_lines_current = (
             getattr(_renderer(self)._require_canvas(), "batch_lines_current", None)
             if _renderer(self)._can_use_current_state(style, transform)
@@ -242,6 +248,13 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        if self._queue_primitive_batch(
+            _PRIMITIVE_RECT,
+            (x, y, width, height, 0.0, 0.0),
+            style,
+            transform,
+        ):
+            return
         _renderer(self)._flush_line_batch()
         current = (
             getattr(_renderer(self)._require_canvas(), "rect_current", None)
@@ -281,6 +294,13 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        if self._queue_primitive_batch(
+            _PRIMITIVE_TRIANGLE,
+            (x1, y1, x2, y2, x3, y3),
+            style,
+            transform,
+        ):
+            return
         _renderer(self)._flush_line_batch()
         current = (
             getattr(_renderer(self)._require_canvas(), "triangle_current", None)
@@ -330,9 +350,7 @@ class CanvasRendererPrimitivesMixin:
         )
         if callable(current):
             _renderer(self)._count("gpu_draws")
-            _renderer(self)._call(
-                "quadrilateral drawing", current, x1, y1, x2, y2, x3, y3, x4, y4
-            )
+            _renderer(self)._call("quadrilateral drawing", current, x1, y1, x2, y2, x3, y3, x4, y4)
             return
         callback = getattr(_renderer(self)._require_canvas(), "quad", None)
         if callable(callback):
@@ -363,6 +381,13 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
+        if self._queue_primitive_batch(
+            _PRIMITIVE_ELLIPSE,
+            (x, y, width, height, 0.0, 0.0),
+            style,
+            transform,
+        ):
+            return
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_draws")
         current = (
@@ -404,9 +429,7 @@ class CanvasRendererPrimitivesMixin:
             else None
         )
         if callable(current):
-            _renderer(self)._call(
-                "arc drawing", current, x, y, width, height, start, stop, mode
-            )
+            _renderer(self)._call("arc drawing", current, x, y, width, height, start, stop, mode)
             return
         _renderer(self)._call(
             "arc drawing",
@@ -424,7 +447,77 @@ class CanvasRendererPrimitivesMixin:
 
     def _flush_line_batch(self) -> None:
         _renderer(self)._flush_line_batch_only()
+        _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_image_batch()
         _renderer(self)._flush_text_batch()
+
+    def _queue_primitive_batch(
+        self,
+        kind: int,
+        coords: tuple[float, float, float, float, float, float],
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> bool:
+        renderer = _renderer(self)
+        canvas = renderer._require_canvas()
+        matrix_payload = renderer._matrix_payload(transform)
+        fill_only = (
+            style.fill_color is not None
+            and style.stroke_color is None
+            and not style.erasing
+            and style.blend_mode == c.BLEND
+        )
+        batch_fill = getattr(canvas, "batch_fill_primitives", None)
+        fill_color = style.fill_color
+        if fill_only and fill_color is not None and callable(batch_fill):
+            if renderer._line_batch or renderer._text_batch:
+                renderer._flush_line_batch()
+            renderer._flush_image_batch()
+            if renderer._primitive_batch and (
+                renderer._primitive_batch_mode != "fill"
+                or renderer._primitive_batch_matrix is not matrix_payload
+            ):
+                renderer._flush_primitive_batch_only()
+            renderer._primitive_batch.append((kind, *coords, *fill_color.to_tuple()))
+            renderer._primitive_batch_matrix = matrix_payload
+            renderer._primitive_batch_mode = "fill"
+            return True
+
+        current = (
+            getattr(canvas, "batch_primitives_current", None)
+            if renderer._can_use_current_state(style, transform)
+            else None
+        )
+        if callable(current):
+            if renderer._line_batch or renderer._text_batch:
+                renderer._flush_line_batch()
+            renderer._flush_image_batch()
+            if renderer._primitive_batch and not renderer._primitive_batch_current:
+                renderer._flush_primitive_batch_only()
+            renderer._primitive_batch.append((kind, *coords))
+            renderer._primitive_batch_current = True
+            renderer._primitive_batch_mode = "style"
+            return True
+
+        batch = getattr(canvas, "batch_primitives", None)
+        if not callable(batch):
+            return False
+        style_payload = renderer._style_payload(style)
+        if renderer._line_batch or renderer._text_batch:
+            renderer._flush_line_batch()
+        renderer._flush_image_batch()
+        if renderer._primitive_batch and (
+            renderer._primitive_batch_mode != "style"
+            or renderer._primitive_batch_current
+            or renderer._primitive_batch_style is not style_payload
+            or renderer._primitive_batch_matrix is not matrix_payload
+        ):
+            renderer._flush_primitive_batch_only()
+        renderer._primitive_batch.append((kind, *coords))
+        renderer._primitive_batch_style = style_payload
+        renderer._primitive_batch_matrix = matrix_payload
+        renderer._primitive_batch_mode = "style"
+        return True
 
     def _flush_line_batch_only(self) -> None:
         if not _renderer(self)._line_batch:
@@ -461,3 +554,64 @@ class CanvasRendererPrimitivesMixin:
         for x1, y1, x2, y2 in lines:
             _renderer(self)._count("gpu_draws")
             _renderer(self)._call("line drawing", canvas.line, x1, y1, x2, y2, style, matrix)
+
+    def _flush_primitive_batch_only(self) -> None:
+        renderer = _renderer(self)
+        if not renderer._primitive_batch:
+            return
+        records = renderer._primitive_batch
+        style = renderer._primitive_batch_style
+        matrix = renderer._primitive_batch_matrix
+        current = renderer._primitive_batch_current
+        mode = renderer._primitive_batch_mode
+        renderer._primitive_batch = []
+        renderer._primitive_batch_style = None
+        renderer._primitive_batch_matrix = None
+        renderer._primitive_batch_current = False
+        renderer._primitive_batch_mode = None
+        canvas = renderer._require_canvas()
+        if mode == "fill" and matrix is not None:
+            batch_fill = getattr(canvas, "batch_fill_primitives", None)
+            if callable(batch_fill):
+                renderer._count("gpu_draws", len(records))
+                renderer._count("primitive_batch_records", len(records))
+                renderer._count("primitive_batch_flushes")
+                renderer._call("batched fill primitive drawing", batch_fill, records, matrix)
+                return
+        if current:
+            batch_current = getattr(canvas, "batch_primitives_current", None)
+            if callable(batch_current):
+                renderer._count("gpu_draws", len(records))
+                renderer._count("primitive_batch_records", len(records))
+                renderer._count("primitive_batch_flushes")
+                renderer._call("batched primitive drawing", batch_current, records)
+                return
+        elif style is not None and matrix is not None:
+            batch = getattr(canvas, "batch_primitives", None)
+            if callable(batch):
+                renderer._count("gpu_draws", len(records))
+                renderer._count("primitive_batch_records", len(records))
+                renderer._count("primitive_batch_flushes")
+                renderer._call("batched primitive drawing", batch, records, style, matrix)
+                return
+
+        renderer._count("primitive_batch_fallbacks", len(records))
+        for kind, a, b, c1, d, e, f in records:
+            renderer._count("gpu_draws")
+            if kind == _PRIMITIVE_RECT and style is not None and matrix is not None:
+                renderer._call("rectangle drawing", canvas.rect, a, b, c1, d, style, matrix)
+            elif kind == _PRIMITIVE_TRIANGLE and style is not None and matrix is not None:
+                renderer._call(
+                    "triangle drawing",
+                    canvas.triangle,
+                    a,
+                    b,
+                    c1,
+                    d,
+                    e,
+                    f,
+                    style,
+                    matrix,
+                )
+            elif kind == _PRIMITIVE_ELLIPSE and style is not None and matrix is not None:
+                renderer._call("ellipse drawing", canvas.ellipse, a, b, c1, d, style, matrix)

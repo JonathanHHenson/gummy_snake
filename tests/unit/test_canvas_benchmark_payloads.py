@@ -30,12 +30,17 @@ setup_scene = cast(Any, canvas_backend_perf_scenes).setup_scene
 def test_canvas_benchmark_metrics_flatten_native_counters() -> None:
     metrics = _flatten_metrics(
         {
+            "bridge_calls": 11,
             "gpu_draws": 3,
             "pixel_readbacks": 1,
             "native": {
+                "bridge_calls": 2,
                 "gpu_draws": 9,
                 "gpu_primitive_batches": 4,
                 "gpu_image_batches": 2,
+                "native_draw_commands": 6,
+                "native_primitive_records": 5,
+                "native_primitive_batches": 1,
                 "texture_cache_hits": 7,
                 "text_cache_hits": 5,
                 "frames_presented": 8,
@@ -50,6 +55,12 @@ def test_canvas_benchmark_metrics_flatten_native_counters() -> None:
     assert metrics["text_cache_hits"] == 5
     assert metrics["frames_presented"] == 8
     assert metrics["pixel_readbacks"] == 1
+    assert metrics["bridge_calls"] == 11
+    assert metrics["python_bridge_calls"] == 11
+    assert metrics["native_bridge_calls"] == 2
+    assert metrics["native_draw_commands"] == 6
+    assert metrics["native_primitive_records"] == 5
+    assert metrics["native_primitive_batches"] == 1
 
 
 def test_canvas_benchmark_stress_variants_are_registered(monkeypatch) -> None:
@@ -72,7 +83,51 @@ def test_canvas_benchmark_stress_variants_are_registered(monkeypatch) -> None:
 
     fake = FakeGs()
     monkeypatch.setattr("canvas_backend_perf_scenes.gs", fake)
-    monkeypatch.setattr("canvas_backend_perf_scenes.sprites", [object()])
+
+    class FakeRustImage:
+        _rust_image = object()
+
+    class FakeSprite:
+        rust_image = FakeRustImage()
+
+    class FakeCanvas:
+        def replay_fill_primitive_batch(self) -> bool:
+            calls.append(("replay_fill_primitive_batch", ()))
+            return False
+
+        def batch_fill_primitives(self, *args: object) -> None:
+            calls.append(("batch_fill_primitives", args))
+
+        def batch_canvas_images(self, *args: object) -> None:
+            calls.append(("batch_canvas_images", args))
+
+    class FakeRenderer:
+        def _matrix_payload(self, matrix: object) -> object:
+            return matrix
+
+        def _style_payload(self, style: object) -> object:
+            return style
+
+        def _require_canvas(self) -> FakeCanvas:
+            return FakeCanvas()
+
+        def _count(self, name: str, amount: int = 1) -> None:
+            calls.append((name, (amount,)))
+
+        def _call(self, _operation: str, callback, *args: object):
+            return callback(*args)
+
+    class FakeContext:
+        renderer = FakeRenderer()
+
+        class state:
+            class transform:
+                matrix = object()
+
+            style = object()
+
+    monkeypatch.setattr("canvas_backend_perf_scenes.require_context", lambda: FakeContext())
+    monkeypatch.setattr("canvas_backend_perf_scenes.sprites", [FakeSprite()])
 
     for variant in (
         "stress_primitives_10k",

@@ -40,6 +40,11 @@ def draw():
 context lookup and flexible vector-like argument normalization, so it is meant
 for hot loops rather than as the only style for simple sketches.
 
+Dense fill-only `rect()`, `triangle()`, `circle()`, and axis-aligned
+`ellipse()` loops are internally batched by the canvas runtime where supported.
+Sketch code does not need a separate batch API; keep using the normal drawing
+functions or the `fast()` facade when reducing Python dispatch overhead matters.
+
 ## Paths and Curves
 
 - `begin_shape(kind=None)`

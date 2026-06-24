@@ -89,6 +89,11 @@ the sketch lifecycle. The Rust renderer may batch and reorder internally only
 where observable draw order is preserved. Mixed primitive and image/text GPU
 commands must flush batches and restore the correct pipeline/bind groups when
 switching command families.
+Compact fill-only primitive batches may use procedural GPU instance commands
+for rects, triangles, and axis-aligned ellipses/circles. Unsupported transforms
+must keep the general vertex path. Ordered image batches may use atlas-backed
+GPU draws, and unchanged static command streams may be retained and reused
+across frames.
 
 The current canvas drawing boundary is stateful. `SketchContext` still validates
 Gummy Snake semantics and owns Python-facing conversion objects, but mutable

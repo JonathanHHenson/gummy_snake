@@ -12,9 +12,7 @@ from gummysnake.exceptions import ContextError
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
 
-_ACTIVE_CONTEXT: ContextVar[Any | None] = ContextVar(
-    "gummysnake_active_context", default=None
-)
+_ACTIVE_CONTEXT: ContextVar[Any | None] = ContextVar("gummysnake_active_context", default=None)
 _ACTIVE_CONTEXT_FAST: Any | None = None
 
 

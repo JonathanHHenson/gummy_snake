@@ -26,7 +26,7 @@ impl Canvas {
         self.ellipse_with_style(x, y, width, height, &style, self.current_matrix)
     }
 
-    fn ellipse_with_style(
+    pub(crate) fn ellipse_with_style(
         &mut self,
         x: f64,
         y: f64,

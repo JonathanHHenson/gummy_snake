@@ -16,7 +16,7 @@ from gummysnake.exceptions import BackendCapabilityError
 GUMMY_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml"
 )
-EXPECTED_CANVAS_ABI_VERSION = 9
+EXPECTED_CANVAS_ABI_VERSION = 12
 
 
 class _RustCanvasImage(Protocol):

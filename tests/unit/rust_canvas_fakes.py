@@ -160,9 +160,7 @@ class FakeCanvas:
 
     def set_pointer_lock_mode(self, mode: str) -> None:
         if mode not in {"unclamped", "clamped", "fixed"}:
-            raise ValueError(
-                "Pointer lock mode must be 'unclamped', 'clamped', or 'fixed'."
-            )
+            raise ValueError("Pointer lock mode must be 'unclamped', 'clamped', or 'fixed'.")
         self.pointer_lock_mode_value = mode
         self.calls.append(("set_pointer_lock_mode", mode))
 
@@ -214,9 +212,7 @@ class FakeCanvas:
     def current_style(self) -> dict[str, object]:
         return {} if self.current_style_value is None else dict(self.current_style_value)
 
-    def set_current_matrix(
-        self, matrix: tuple[float, float, float, float, float, float]
-    ) -> None:
+    def set_current_matrix(self, matrix: tuple[float, float, float, float, float, float]) -> None:
         self.current_matrix_value = matrix
         self.calls.append(("set_current_matrix", matrix))
 
@@ -237,6 +233,16 @@ class FakeCanvas:
 
     def batch_lines(self, *args: object) -> None:
         self.calls.append(("batch_lines", *args))
+
+    def batch_primitives(self, *args: object) -> None:
+        self.calls.append(("batch_primitives", *args))
+
+    def batch_fill_primitives(self, *args: object) -> None:
+        self.calls.append(("batch_fill_primitives", *args))
+
+    def replay_fill_primitive_batch(self) -> bool:
+        self.calls.append(("replay_fill_primitive_batch",))
+        return True
 
     def polygon(self, *args: object) -> None:
         self.calls.append(("polygon", *args))
@@ -273,6 +279,9 @@ class FakeCanvas:
 
     def draw_canvas_image(self, *args: object) -> None:
         self.calls.append(("draw_canvas_image", *args))
+
+    def batch_canvas_images(self, *args: object) -> None:
+        self.calls.append(("batch_canvas_images", *args))
 
     def text(self, *args: object) -> None:
         self.calls.append(("text", *args))

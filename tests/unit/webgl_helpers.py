@@ -22,11 +22,13 @@ def make_context() -> SketchContext:
     context.create_canvas(96, 96, renderer=gs.WEBGL)
     return context
 
+
 def _camera_radius(context: SketchContext) -> float:
     offset_x = context._camera3d.eye.x - context._camera3d.target.x
     offset_y = context._camera3d.eye.y - context._camera3d.target.y
     offset_z = context._camera3d.eye.z - context._camera3d.target.z
     return math.sqrt(offset_x * offset_x + offset_y * offset_y + offset_z * offset_z)
+
 
 class Fake3DRenderer:
     three_d = True
@@ -157,4 +159,3 @@ class FakeUpgradeableCanvasBackend(FakeCanvas3DBackend):
         self.capabilities = BackendCapabilities(three_d=True, shaders=True)
         self.renderer = Fake3DRenderer()
         return True
-

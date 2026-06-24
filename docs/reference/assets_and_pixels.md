@@ -30,6 +30,10 @@ for normal image sizes.
 `no_smooth()` and `image_sampling(NEAREST)` request nearest-neighbor sampling.
 The renderer may choose the fastest supported path for the current sampling
 mode, transform, blend mode, and backend capabilities.
+Dense sprite loops are internally batched where ordering permits. Alternating
+draws from a small set of images can use a runtime-managed atlas path while
+preserving public `image()` semantics, tint, source rectangles, and sampling
+mode.
 
 `tint()` multiplies image RGB and alpha during drawing without changing the
 source image. `no_tint()` restores untinted drawing, and `push()`/`pop()` preserve

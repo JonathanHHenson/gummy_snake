@@ -213,5 +213,3 @@ def test_performance_diagnostics_are_opt_in_and_use_public_terms():
     assert counters["pixel_upload"] == 1
     assert "Pixel readback" in messages
     assert "Rust" not in messages
-
-

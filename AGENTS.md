@@ -75,6 +75,8 @@ Important consequences:
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
 - The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn after text/images must remain visible.
 - GPU render encoding owns reusable vertex buffers sized to frame demand. When changing primitive, erase, image, or text command encoding, preserve capacity-growth reuse and keep `gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`, and `gpu_image_batches` meaningful.
+- Compact fill-only primitive batches may use procedural GPU instance commands for rects, triangles, and axis-aligned ellipses/circles. Preserve retained batch replay, HiDPI scaling, clip/blend ordering, and fallback to vertex-expanded paths for unsupported transforms.
+- Ordered sprite batches may use the Rust image atlas path for small alternating texture sets. Static unchanged full-frame command streams may be retained and reused by the GPU renderer; dynamic image batches must still report texture/cache/upload counters accurately.
 - Fallback software-3D coordinates are logical canvas coordinates. Any direct GPU primitive fallback that consumes those coordinates must scale by `pixel_density()` before submitting physical vertices, or HiDPI/Retina scenes will appear smaller and farther away.
 - Unstroked model draws with Rust model handles should use the retained GPU model path when GPU drawing is available and avoid Python face dictionaries, CPU projection/sorting, and CPU shading. Stroked or unsupported model paths may fall back, but diagnostics should make that boundary visible.
 - Captured `begin_shape()` buffers live in Rust and should be finalized directly into Rust draw/clip commands. Avoid materializing `shape_vertices()` / `shape_contours()` Python lists on normal renderer paths.
@@ -380,17 +382,15 @@ uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 ```
 
 The 50k and 100k primitive stress benchmarks are intentionally excluded from
-the default canvas benchmark run for now. Run them separately only when the
-lower-count baselines justify the cost:
+the default canvas benchmark run. Run the high-count suite separately after the
+10k primitive gate is healthy:
 
 ```sh
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks --run-high-count-benchmarks -k high_count
 ```
 
-Do not start the 50k primitive benchmark until the 10k primitive benchmark has
-a measured baseline of at least 60 FPS. Do not start the 100k primitive
-benchmark until the 50k primitive benchmark has a measured baseline of at least
-30 FPS.
+The high-count test itself still gates progression: it skips 50k until 10k
+reaches at least 60 FPS, and skips 100k until 50k reaches at least 30 FPS.
 
 Canvas backend benchmark scenarios measure native interactive presentation and
 must average at least 240 FPS. Headless/offscreen numbers are useful for export

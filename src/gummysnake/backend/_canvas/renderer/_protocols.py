@@ -10,6 +10,8 @@ from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
 
 MatrixPayload = tuple[float, float, float, float, float, float]
+PrimitiveBatchRecord = tuple[object, ...]
+ImageBatchRecord = tuple[object, float, float, float, float, tuple[int, int, int, int] | None]
 TextMetricKey = tuple[str, str | None, int, int]
 
 
@@ -18,10 +20,18 @@ class CanvasRendererHost(Protocol):
     _line_batch_style: dict[str, object] | None
     _line_batch_matrix: MatrixPayload | None
     _line_batch_current: bool
+    _primitive_batch: list[PrimitiveBatchRecord]
+    _primitive_batch_style: dict[str, object] | None
+    _primitive_batch_matrix: MatrixPayload | None
+    _primitive_batch_current: bool
+    _primitive_batch_mode: str | None
     _text_batch: list[tuple[str, float, float]]
     _text_batch_style: dict[str, object] | None
     _text_batch_matrix: MatrixPayload | None
     _text_batch_current: bool
+    _image_batch: list[ImageBatchRecord]
+    _image_batch_style: dict[str, object] | None
+    _image_batch_matrix: MatrixPayload | None
     _skip_canvas_end_frame: bool
     _current_matrix_payload: MatrixPayload
     _image_cache_versions: OrderedDict[int, int]
@@ -31,6 +41,8 @@ class CanvasRendererHost(Protocol):
 
     def _flush_line_batch(self) -> None: ...
     def _flush_line_batch_only(self) -> None: ...
+    def _flush_primitive_batch_only(self) -> None: ...
+    def _flush_image_batch(self) -> None: ...
     def _flush_text_batch(self, *, final: bool = False) -> None: ...
     def _count(self, name: str, amount: int = 1) -> None: ...
     def _call[T](self, operation: str, callback: Callable[..., T], *args: object) -> T: ...

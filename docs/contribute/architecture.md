@@ -103,8 +103,9 @@ Rust owns:
 - buffer-protocol pixel uploads and dirty row-aligned pixel region updates
 - sound asset bytes and metadata
 - text, pixels, and readback
-- GPU command encoding, reusable vertex buffers, and primitive/image/text
-  pipeline switching
+- GPU command encoding, reusable vertex and instance buffers,
+  procedural primitive batches, retained command-stream reuse, and
+  primitive/image/text pipeline switching
 - SDL3-backed native window and input events when compiled with those capabilities
 - `SketchContextState` for canvas lifecycle fields, timing, loop/redraw flags,
   input snapshots, and shape-building buffers

@@ -67,6 +67,10 @@ impl Canvas {
             matrix_stack: Vec::new(),
             performance_counters: PerformanceCounters::default(),
             pending_3d_triangles: Vec::new(),
+            primitive_batch_cache_key: None,
+            primitive_batch_cache_record_count: 0,
+            primitive_batch_cache_vertices: std::sync::Arc::new(Vec::new()),
+            primitive_batch_cache_instances: std::sync::Arc::new(Vec::new()),
         })
     }
 
@@ -216,12 +220,31 @@ impl Canvas {
     ) -> PyResult<Bound<'py, PyDict>> {
         let dict = self.performance_counters.to_dict(py)?;
         if let Some(gpu) = self.gpu.as_ref() {
-            let (allocations, uploads, primitive_batches, image_batches) =
-                gpu.render_loop_counters();
+            let (
+                allocations,
+                uploads,
+                uploaded_vertex_bytes,
+                primitive_batches,
+                image_batches,
+                encode_time_ms,
+                retained_batch_cache_hits,
+                retained_batch_cache_misses,
+                retained_batch_reused_bytes,
+                retained_batch_cache_evictions,
+            ) = gpu.render_loop_counters();
             dict.set_item("gpu_vertex_buffer_allocations", allocations)?;
             dict.set_item("gpu_vertex_uploads", uploads)?;
+            dict.set_item("gpu_uploaded_vertex_bytes", uploaded_vertex_bytes)?;
             dict.set_item("gpu_primitive_batches", primitive_batches)?;
             dict.set_item("gpu_image_batches", image_batches)?;
+            dict.set_item("gpu_encode_time_ms", encode_time_ms)?;
+            dict.set_item("retained_batch_cache_hits", retained_batch_cache_hits)?;
+            dict.set_item("retained_batch_cache_misses", retained_batch_cache_misses)?;
+            dict.set_item("retained_batch_reused_bytes", retained_batch_reused_bytes)?;
+            dict.set_item(
+                "retained_batch_cache_evictions",
+                retained_batch_cache_evictions,
+            )?;
         }
         Ok(dict)
     }
@@ -457,10 +480,13 @@ impl Canvas {
                             .unwrap_or_else(|| "GPU presentation is unavailable.".to_string()),
                     )
                 })?;
+                let present_start = std::time::Instant::now();
                 gpu.present_texture_to_window(window, surface_width, surface_height)
                     .map_err(|err| {
                         PyValueError::new_err(format!("Failed to present native GPU frame: {err}"))
                     })?;
+                self.performance_counters.gpu_present_time_ms +=
+                    present_start.elapsed().as_secs_f64() * 1000.0;
                 self.performance_counters.frames_presented += 1;
                 self.render_dirty = false;
             }

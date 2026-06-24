@@ -1,8 +1,8 @@
 use crate::gpu::shaders::{
-    BLEND_ELLIPSE_SHADER, IMAGE_SHADER, MODEL_SHADER, PIXEL_PREFIX_SHADER, TEXTURED_MODEL_SHADER,
-    TEXTURE_SHADER, TRIANGLE_SHADER,
+    BLEND_ELLIPSE_SHADER, IMAGE_SHADER, MODEL_SHADER, PIXEL_PREFIX_SHADER,
+    PROCEDURAL_PRIMITIVE_SHADER, TEXTURED_MODEL_SHADER, TEXTURE_SHADER, TRIANGLE_SHADER,
 };
-use crate::gpu::types::{GpuColor, ImageVertex, ModelVertex, Vertex};
+use crate::gpu::types::{GpuColor, ImageVertex, ModelVertex, PrimitiveInstance, Vertex};
 use crate::BlendMode;
 
 pub(super) fn to_wgpu_color(color: GpuColor) -> wgpu::Color {
@@ -157,6 +157,102 @@ pub(super) fn create_pipeline_for_blend_mode(
         wgpu::ColorWrites::ALL,
         "gummy_canvas primitive blend pipeline",
     )
+}
+
+pub(super) fn create_procedural_primitive_pipeline(
+    device: &wgpu::Device,
+    viewport_bind_group_layout: &wgpu::BindGroupLayout,
+    clip_bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+    mode: BlendMode,
+) -> wgpu::RenderPipeline {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("gummy_canvas procedural primitive shader"),
+        source: wgpu::ShaderSource::Wgsl(PROCEDURAL_PRIMITIVE_SHADER.into()),
+    });
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("gummy_canvas procedural primitive pipeline layout"),
+        bind_group_layouts: &[viewport_bind_group_layout, clip_bind_group_layout],
+        push_constant_ranges: &[],
+    });
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("gummy_canvas procedural primitive pipeline"),
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs_main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<PrimitiveInstance>() as u64,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &[
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x2,
+                        offset: 0,
+                        shader_location: 0,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x2,
+                        offset: std::mem::size_of::<[f32; 2]>() as u64,
+                        shader_location: 1,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x2,
+                        offset: (std::mem::size_of::<[f32; 2]>() * 2) as u64,
+                        shader_location: 2,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x4,
+                        offset: (std::mem::size_of::<[f32; 2]>() * 3) as u64,
+                        shader_location: 3,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x4,
+                        offset: (std::mem::size_of::<[f32; 2]>() * 3
+                            + std::mem::size_of::<[f32; 4]>())
+                            as u64,
+                        shader_location: 4,
+                    },
+                    wgpu::VertexAttribute {
+                        format: wgpu::VertexFormat::Float32x4,
+                        offset: (std::mem::size_of::<[f32; 2]>() * 3
+                            + std::mem::size_of::<[f32; 4]>() * 2)
+                            as u64,
+                        shader_location: 5,
+                    },
+                ],
+            }],
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs_main"),
+            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: fixed_function_blend_state(mode),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: None,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            unclipped_depth: false,
+            conservative: false,
+        },
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth24Plus,
+            depth_write_enabled: false,
+            depth_compare: wgpu::CompareFunction::Always,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+        cache: None,
+    })
 }
 
 pub(super) fn create_erase_pipeline(

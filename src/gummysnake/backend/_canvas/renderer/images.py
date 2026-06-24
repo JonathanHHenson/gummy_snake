@@ -28,7 +28,9 @@ class CanvasRendererImagesMixin:
         source: tuple[int, int, int, int] | None = None,
         cache: bool = True,
     ) -> None:
-        _renderer(self)._flush_line_batch()
+        _renderer(self)._flush_line_batch_only()
+        _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_text_batch()
         if isinstance(image, CanvasImage):
             self._draw_rust_image(image._rust_image, dx, dy, dw, dh, style, transform, source)
             return
@@ -54,15 +56,32 @@ class CanvasRendererImagesMixin:
         transform: Matrix2D,
         source: tuple[int, int, int, int] | None,
     ) -> None:
-        _renderer(self)._count("gpu_draws")
-        canvas = _renderer(self)._require_canvas()
+        renderer = _renderer(self)
+        canvas = renderer._require_canvas()
+        batch = getattr(canvas, "batch_canvas_images", None)
+        if callable(batch):
+            renderer._flush_line_batch_only()
+            renderer._flush_primitive_batch_only()
+            style_payload = renderer._style_payload(style)
+            matrix_payload = renderer._matrix_payload(transform)
+            if renderer._image_batch and (
+                renderer._image_batch_style is not style_payload
+                or renderer._image_batch_matrix is not matrix_payload
+            ):
+                renderer._flush_image_batch()
+            renderer._image_batch.append((rust_image, dx, dy, dw, dh, source))
+            renderer._image_batch_style = style_payload
+            renderer._image_batch_matrix = matrix_payload
+            return
+
+        renderer._count("gpu_draws")
         current = (
             getattr(canvas, "draw_canvas_image_current", None)
-            if _renderer(self)._can_use_current_state(style, transform)
+            if renderer._can_use_current_state(style, transform)
             else None
         )
         if callable(current):
-            _renderer(self)._call(
+            renderer._call(
                 "image drawing",
                 current,
                 rust_image,
@@ -73,7 +92,7 @@ class CanvasRendererImagesMixin:
                 source,
             )
             return
-        _renderer(self)._call(
+        renderer._call(
             "image drawing",
             canvas.draw_canvas_image,
             rust_image,
@@ -81,7 +100,43 @@ class CanvasRendererImagesMixin:
             dy,
             dw,
             dh,
-            _renderer(self)._style_payload(style),
-            _renderer(self)._matrix_payload(transform),
+            renderer._style_payload(style),
+            renderer._matrix_payload(transform),
             source,
         )
+
+    def _flush_image_batch(self) -> None:
+        renderer = _renderer(self)
+        if not renderer._image_batch:
+            return
+        records = renderer._image_batch
+        style = renderer._image_batch_style
+        matrix = renderer._image_batch_matrix
+        renderer._image_batch = []
+        renderer._image_batch_style = None
+        renderer._image_batch_matrix = None
+        if style is None or matrix is None:
+            return
+        canvas = renderer._require_canvas()
+        batch = getattr(canvas, "batch_canvas_images", None)
+        if callable(batch):
+            renderer._count("gpu_draws", len(records))
+            renderer._count("image_batch_records", len(records))
+            renderer._count("image_batch_flushes")
+            renderer._call("batched image drawing", batch, records, style, matrix)
+            return
+        renderer._count("image_batch_fallbacks", len(records))
+        for rust_image, dx, dy, dw, dh, source in records:
+            renderer._count("gpu_draws")
+            renderer._call(
+                "image drawing",
+                canvas.draw_canvas_image,
+                rust_image,
+                dx,
+                dy,
+                dw,
+                dh,
+                style,
+                matrix,
+                source,
+            )

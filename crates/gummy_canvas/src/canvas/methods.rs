@@ -198,6 +198,32 @@ impl Canvas {
         let _ = py;
         self.batch_lines_current_impl(lines)
     }
+    pub(crate) fn batch_primitives(
+        &mut self,
+        records: Vec<(u8, f64, f64, f64, f64, f64, f64)>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        self.batch_primitives_impl(records, style, matrix)
+    }
+    pub(crate) fn batch_primitives_current(
+        &mut self,
+        py: Python<'_>,
+        records: Vec<(u8, f64, f64, f64, f64, f64, f64)>,
+    ) -> PyResult<()> {
+        let _ = py;
+        self.batch_primitives_current_impl(records)
+    }
+    pub(crate) fn batch_fill_primitives(
+        &mut self,
+        records: Vec<(u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8)>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        self.batch_fill_primitives_impl(records, matrix)
+    }
+    pub(crate) fn replay_fill_primitive_batch(&mut self) -> PyResult<bool> {
+        self.replay_fill_primitive_batch_impl()
+    }
     #[pyo3(signature = (points, style, matrix, close=true))]
     pub(crate) fn polygon(
         &mut self,
@@ -608,6 +634,14 @@ impl Canvas {
     ) -> PyResult<()> {
         let _ = py;
         self.draw_canvas_image_current_impl(image, dx, dy, dw, dh, source)
+    }
+    pub(crate) fn batch_canvas_images(
+        &mut self,
+        records: &Bound<'_, PyAny>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        self.batch_canvas_images_impl(records, style, matrix)
     }
     pub(crate) fn text(
         &mut self,

@@ -162,7 +162,21 @@ def fill(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
 
 
 def fill(*args: Any) -> None:
-    cast(Any, require_context()).fill(*args)
+    context = require_context()
+    if (
+        context.state.color_mode.mode == c.RGB
+        and context.state.color_mode.ranges == (255.0, 255.0, 255.0, 255.0)
+        and len(args) in {3, 4}
+        and all(isinstance(value, int | float) for value in args)
+    ):
+        red = int(round(max(0.0, min(255.0, float(args[0])))))
+        green = int(round(max(0.0, min(255.0, float(args[1])))))
+        blue = int(round(max(0.0, min(255.0, float(args[2])))))
+        alpha = int(round(max(0.0, min(255.0, float(args[3]))))) if len(args) == 4 else 255
+        context.state.style.fill_color = Color(red, green, blue, alpha)
+        context.state.style.mark_changed()
+        return
+    cast(Any, context).fill(*args)
 
 
 def no_fill() -> None:
@@ -190,7 +204,21 @@ def stroke(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
 
 
 def stroke(*args: Any) -> None:
-    cast(Any, require_context()).stroke(*args)
+    context = require_context()
+    if (
+        context.state.color_mode.mode == c.RGB
+        and context.state.color_mode.ranges == (255.0, 255.0, 255.0, 255.0)
+        and len(args) in {3, 4}
+        and all(isinstance(value, int | float) for value in args)
+    ):
+        red = int(round(max(0.0, min(255.0, float(args[0])))))
+        green = int(round(max(0.0, min(255.0, float(args[1])))))
+        blue = int(round(max(0.0, min(255.0, float(args[2])))))
+        alpha = int(round(max(0.0, min(255.0, float(args[3]))))) if len(args) == 4 else 255
+        context.state.style.stroke_color = Color(red, green, blue, alpha)
+        context.state.style.mark_changed()
+        return
+    cast(Any, context).stroke(*args)
 
 
 def no_stroke() -> None:

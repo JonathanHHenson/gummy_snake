@@ -112,12 +112,14 @@ def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None
 
     canvas = renderer._canvas
     assert canvas is not None
-    line_call = canvas.calls[-2]
-    ellipse_call = canvas.calls[-1]
+    renderer.end_frame()
+    line_call = canvas.calls[-3]
+    ellipse_call = canvas.calls[-2]
     assert line_call[0] == "batch_lines"
+    assert ellipse_call[0] == "batch_primitives"
     assert line_call[1] == [(0, 0, 1, 1), (2, 2, 3, 3)]
-    assert line_call[2] is ellipse_call[5]
-    assert line_call[3] is ellipse_call[6]
+    assert line_call[2] is ellipse_call[2]
+    assert line_call[3] is ellipse_call[3]
 
     style.fill_color = Color(0, 255, 0, 255)
     style.mark_changed()
@@ -176,7 +178,7 @@ def test_canvas_context_style_cache_invalidation_respects_push_pop(
     assert second[3] == (1.0, 0.0, 0.0, 1.0, 5.0, 6.0)
 
 
-def test_canvas_context_rect_uses_direct_rectangle_bridge(
+def test_canvas_context_rect_uses_primitive_batch_bridge(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sketch, backend = make_canvas_context(monkeypatch)
@@ -188,14 +190,16 @@ def test_canvas_context_rect_uses_direct_rectangle_bridge(
 
     canvas = backend.renderer._canvas
     assert canvas is not None
-    call = canvas.calls[-1]
-    assert call[0] == "rect"
-    assert call[1:5] == (10.0, 11.0, 12.0, 13.0)
-    assert call[5]["fill"] == (255, 0, 0, 255)
-    assert call[6] == (1.0, 0.0, 0.0, 1.0, 3.0, 4.0)
+    context.renderer.end_frame()
+
+    call = canvas.calls[-2]
+    assert call[0] == "batch_primitives"
+    assert call[1] == [(1, 10.0, 11.0, 12.0, 13.0, 0.0, 0.0)]
+    assert call[2]["fill"] == (255, 0, 0, 255)
+    assert call[3] == (1.0, 0.0, 0.0, 1.0, 3.0, 4.0)
 
 
-def test_canvas_context_triangle_and_quad_use_direct_shape_bridge(
+def test_canvas_context_triangle_batches_before_quad_direct_shape_bridge(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sketch, backend = make_canvas_context(monkeypatch)
@@ -206,14 +210,41 @@ def test_canvas_context_triangle_and_quad_use_direct_shape_bridge(
 
     canvas = backend.renderer._canvas
     assert canvas is not None
-    triangle_call = canvas.calls[-2]
-    quad_call = canvas.calls[-1]
-    assert triangle_call[0] == "triangle"
-    assert triangle_call[1:7] == (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
+    context.renderer.end_frame()
+
+    triangle_call = canvas.calls[-3]
+    quad_call = canvas.calls[-2]
+    assert triangle_call[0] == "batch_primitives"
+    assert triangle_call[1] == [(2, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0)]
     assert quad_call[0] == "quad"
     assert quad_call[1:9] == (7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0)
     assert triangle_call[-2] is quad_call[-2]
     assert triangle_call[-1] is quad_call[-1]
+
+
+def test_canvas_renderer_batches_simple_primitives_until_order_boundary() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(20, 20)
+    style = StyleState(fill_color=Color(255, 0, 0, 255), stroke_color=None)
+    transform = Matrix2D.identity()
+
+    renderer.rect(1, 2, 3, 4, style, transform)
+    renderer.triangle(1, 1, 5, 1, 3, 6, style, transform)
+    renderer.ellipse(10, 10, 4, 6, style, transform)
+    renderer.text("label", 0, 10, style, transform)
+    renderer.end_frame()
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    primitive_call = next(call for call in canvas.calls if call[0] == "batch_fill_primitives")
+    text_call = next(call for call in canvas.calls if call[0] == "text_batch_frame")
+    assert canvas.calls.index(primitive_call) < canvas.calls.index(text_call)
+    assert primitive_call[1] == [
+        (1, 1, 2, 3, 4, 0.0, 0.0, 255, 0, 0, 255),
+        (2, 1, 1, 5, 1, 3, 6, 255, 0, 0, 255),
+        (3, 10, 10, 4, 6, 0.0, 0.0, 255, 0, 0, 255),
+    ]
+    assert renderer.performance_counters()["primitive_batch_records"] == 3
 
 
 def test_canvas_context_shape_context_manager_draws_on_exit(
@@ -280,7 +311,8 @@ def test_canvas_context_clip_path_context_manager_applies_path(
     calls = canvas.calls
     assert calls[-3][0] == "begin_clip"
     assert calls[-3][1] == [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]
-    assert calls[-2][0] == "rect"
+    assert calls[-2][0] == "batch_primitives"
+    assert calls[-2][1] == [(1, 0.0, 0.0, 20.0, 20.0, 0.0, 0.0)]
     assert calls[-1] == ("end_clip",)
 
 

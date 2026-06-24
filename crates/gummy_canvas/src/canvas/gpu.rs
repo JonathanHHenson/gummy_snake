@@ -202,6 +202,27 @@ impl Canvas {
                         self.replay_triangle_on_cpu(&points, triangle[0].1, false);
                     }
                 }
+                crate::gpu::DrawCommand::RetainedTriangles {
+                    retained: crate::gpu::RetainedTriangleVertices { vertices, .. },
+                    blend_mode: _,
+                    clip_id,
+                } => {
+                    if *clip_id != 0 {
+                        return false;
+                    }
+                    for triangle in vertices.chunks_exact(3) {
+                        let points = [
+                            (triangle[0].0[0] as f64, triangle[0].0[1] as f64),
+                            (triangle[1].0[0] as f64, triangle[1].0[1] as f64),
+                            (triangle[2].0[0] as f64, triangle[2].0[1] as f64),
+                        ];
+                        self.replay_triangle_on_cpu(&points, triangle[0].1, false);
+                    }
+                }
+                crate::gpu::DrawCommand::PrimitiveInstances { .. }
+                | crate::gpu::DrawCommand::RetainedPrimitiveInstances { .. } => {
+                    return false;
+                }
                 crate::gpu::DrawCommand::Ellipse {
                     cx,
                     cy,
@@ -592,6 +613,7 @@ impl Canvas {
                 style.blend_mode_kind,
             );
             self.performance_counters.gpu_draws += 1;
+            self.performance_counters.native_draw_commands += 1;
             self.performance_counters.gpu_blend_commands += 1;
             self.performance_counters.gpu_region_effect_passes += 1;
             self.render_dirty = true;
@@ -626,6 +648,7 @@ impl Canvas {
                 crate::raster::gpu_color(color),
             );
             self.performance_counters.gpu_draws += 1;
+            self.performance_counters.native_draw_commands += 1;
             self.render_dirty = true;
             self.offscreen_dirty = true;
             self.pixels_stale = true;
@@ -653,6 +676,7 @@ impl Canvas {
                 blend_mode,
             );
             self.performance_counters.gpu_draws += 1;
+            self.performance_counters.native_draw_commands += 1;
             if blend_mode != BlendMode::Blend {
                 self.performance_counters.gpu_blend_commands += 1;
             }
@@ -672,6 +696,69 @@ impl Canvas {
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_triangles(vertices, blend_mode);
             self.performance_counters.gpu_draws += 1;
+            self.performance_counters.native_draw_commands += 1;
+            if blend_mode != BlendMode::Blend {
+                self.performance_counters.gpu_blend_commands += 1;
+            }
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_gpu_retained_triangles(
+        &mut self,
+        key: u64,
+        vertices: std::sync::Arc<Vec<([f32; 2], crate::gpu::GpuColor)>>,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_retained_triangles(key, vertices, blend_mode);
+            self.performance_counters.gpu_draws += 1;
+            self.performance_counters.native_draw_commands += 1;
+            if blend_mode != BlendMode::Blend {
+                self.performance_counters.gpu_blend_commands += 1;
+            }
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_gpu_primitive_instances(
+        &mut self,
+        instances: Vec<crate::gpu::PrimitiveInstance>,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_primitive_instances(instances, blend_mode);
+            self.performance_counters.gpu_draws += 1;
+            self.performance_counters.native_draw_commands += 1;
+            if blend_mode != BlendMode::Blend {
+                self.performance_counters.gpu_blend_commands += 1;
+            }
+            self.render_dirty = true;
+            self.offscreen_dirty = true;
+            self.pixels_stale = true;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_gpu_retained_primitive_instances(
+        &mut self,
+        key: u64,
+        instances: std::sync::Arc<Vec<crate::gpu::PrimitiveInstance>>,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_retained_primitive_instances(key, instances, blend_mode);
+            self.performance_counters.gpu_draws += 1;
+            self.performance_counters.native_draw_commands += 1;
             if blend_mode != BlendMode::Blend {
                 self.performance_counters.gpu_blend_commands += 1;
             }
@@ -696,6 +783,7 @@ impl Canvas {
             }
             gpu.draw_erase_triangles(vertices);
             self.performance_counters.gpu_draws += 1;
+            self.performance_counters.native_draw_commands += 1;
             self.render_dirty = true;
             self.offscreen_dirty = true;
             self.pixels_stale = true;

@@ -7,8 +7,8 @@ use crate::gpu::pipeline::{
     clip_bind_group_layout, create_blend_ellipse_pipeline, create_erase_pipeline,
     create_image_pipeline, create_image_pipeline_for_blend_mode, create_model_pipeline,
     create_pipeline, create_pipeline_for_blend_mode, create_pixel_prefix_pipeline,
-    create_textured_model_pipeline, model_bind_group_layout, pixel_prefix_bind_group_layout,
-    texture_bind_group_layout, viewport_bind_group_layout,
+    create_procedural_primitive_pipeline, create_textured_model_pipeline, model_bind_group_layout,
+    pixel_prefix_bind_group_layout, texture_bind_group_layout, viewport_bind_group_layout,
 };
 use crate::gpu::types::*;
 use crate::BlendMode;
@@ -298,6 +298,21 @@ impl GpuRenderer {
                 )
             })
             .collect();
+        let procedural_primitive_pipelines = [BlendMode::Blend, BlendMode::Add, BlendMode::Replace]
+            .into_iter()
+            .map(|mode| {
+                (
+                    mode,
+                    create_procedural_primitive_pipeline(
+                        &device,
+                        &bind_group_layout,
+                        &clip_bind_group_layout,
+                        wgpu::TextureFormat::Rgba8Unorm,
+                        mode,
+                    ),
+                )
+            })
+            .collect();
         let erase_pipeline = create_erase_pipeline(
             &device,
             &bind_group_layout,
@@ -428,6 +443,7 @@ impl GpuRenderer {
             texture_size,
             pipeline,
             primitive_pipelines,
+            procedural_primitive_pipelines,
             erase_pipeline,
             image_pipeline,
             image_pipelines,
@@ -479,14 +495,22 @@ impl GpuRenderer {
             image_staging: Vec::new(),
             primitive_vertex_buffer: None,
             primitive_vertex_capacity: 0,
+            procedural_primitive_buffer: None,
+            procedural_primitive_capacity: 0,
             erase_vertex_buffer: None,
             erase_vertex_capacity: 0,
             image_vertex_buffer: None,
             image_vertex_capacity: 0,
             vertex_buffer_allocations: 0,
             vertex_uploads: 0,
+            uploaded_vertex_bytes: 0,
             primitive_batches: 0,
             image_batches: 0,
+            encode_time_ms: 0.0,
+            retained_batch_cache_hits: 0,
+            retained_batch_cache_misses: 0,
+            retained_batch_reused_bytes: 0,
+            retained_batch_cache_evictions: 0,
             #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
             surface: None,
         };

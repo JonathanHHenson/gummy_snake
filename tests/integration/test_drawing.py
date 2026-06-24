@@ -52,6 +52,29 @@ def test_nested_style_contexts_render_distinct_fill_colors():
     assert pixel_at(30, 6) == (0, 0, 255, 255)
 
 
+def test_procedural_fill_primitive_batch_renders_non_empty_canvas():
+    def setup():
+        gs.create_canvas(64, 64)
+        gs.background(0)
+        gs.no_stroke()
+        gs.fill(255, 0, 0, 255)
+
+    def draw():
+        for index in range(24):
+            x = 8 + (index % 6) * 9
+            y = 8 + (index // 6) * 12
+            if index % 3 == 0:
+                gs.rect(x, y, 5, 7)
+            elif index % 3 == 1:
+                gs.circle(x + 3, y + 3, 7)
+            else:
+                gs.triangle(x, y, x + 7, y + 2, x + 2, y + 8)
+
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    pixels = context.load_pixel_bytes()
+    assert any(pixels[offset] == 255 for offset in range(0, len(pixels), 4))
+
+
 def test_transform_contexts_do_not_reuse_stale_fill_payloads():
     def setup():
         gs.create_canvas(720, 420)

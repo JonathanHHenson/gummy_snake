@@ -67,9 +67,10 @@ vertex-buffer allocations/uploads, texture uploads and cache hits, text cache
 hits/misses, pixel readbacks/uploads, GPU region-effect passes, presented frame
 counts, and CPU fallback counts. Every normal canvas benchmark scenario must
 average at least 240 FPS. High-count primitive and sprite stress variants use a
-60 FPS target for 10k draws and record larger 50k/100k scenes as optimization
-baselines. A below-threshold failure is an optimization signal, not a reason to
-loosen the benchmark.
+60 FPS target for 10k draws. The separate high-count primitive suite runs 10k,
+50k, and 100k static retained-batch scenes behind
+`--run-high-count-benchmarks -k high_count`. A below-threshold failure is an
+optimization signal, not a reason to loosen the benchmark.
 
 Use the suite when changing renderer hot paths, image upload/cache behavior,
 pixel readback/update behavior, text measurement, frame scheduling, or native

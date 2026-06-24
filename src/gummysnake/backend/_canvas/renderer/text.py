@@ -17,6 +17,8 @@ def _renderer(self: object) -> CanvasRendererHost:
 class CanvasRendererTextMixin:
     def text(self, value: str, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
         _renderer(self)._flush_line_batch_only()
+        _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_image_batch()
         if style.fill_color is None:
             return
         self._queue_text_batch([(value, x, y)], style, transform)
@@ -28,6 +30,8 @@ class CanvasRendererTextMixin:
         transform: Matrix2D,
     ) -> None:
         _renderer(self)._flush_line_batch_only()
+        _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_image_batch()
         if not items or style.fill_color is None:
             return
         self._queue_text_batch(items, style, transform)
@@ -52,6 +56,8 @@ class CanvasRendererTextMixin:
 
     def text_width(self, value: str, style: StyleState) -> float:
         _renderer(self)._flush_line_batch_only()
+        _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_image_batch()
         current = (
             getattr(_renderer(self)._require_canvas(), "text_width_current", None)
             if getattr(_renderer(self), "_rust_style_synced", True)
@@ -74,6 +80,8 @@ class CanvasRendererTextMixin:
 
     def text_ascent(self, style: StyleState) -> float:
         _renderer(self)._flush_line_batch_only()
+        _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_image_batch()
         current = (
             getattr(_renderer(self)._require_canvas(), "text_ascent_current", None)
             if getattr(_renderer(self), "_rust_style_synced", True)
@@ -94,6 +102,8 @@ class CanvasRendererTextMixin:
 
     def text_descent(self, style: StyleState) -> float:
         _renderer(self)._flush_line_batch_only()
+        _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_image_batch()
         current = (
             getattr(_renderer(self)._require_canvas(), "text_descent_current", None)
             if getattr(_renderer(self), "_rust_style_synced", True)

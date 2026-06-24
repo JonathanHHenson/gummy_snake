@@ -18,6 +18,36 @@ class PointLike(Protocol):
 
 
 CoordinatePair = Sequence[float] | PointLike
+_PRIMITIVE_RECT = 1
+_PRIMITIVE_TRIANGLE = 2
+_PRIMITIVE_ELLIPSE = 3
+
+
+def _queue_fill_primitive(context: Any, kind: int, coords: tuple[float, ...]) -> bool:
+    style = context.state.style
+    fill = style.fill_color
+    renderer = context.renderer
+    if (
+        fill is None
+        or style.stroke_color is not None
+        or style.erasing
+        or style.blend_mode != c.BLEND
+        or getattr(renderer, "_canvas", None) is None
+        or not callable(getattr(renderer._canvas, "batch_fill_primitives", None))
+    ):
+        return False
+    matrix = renderer._matrix_payload(context.state.transform.matrix)
+    if renderer._line_batch or renderer._text_batch:
+        renderer._flush_line_batch()
+    renderer._flush_image_batch()
+    if renderer._primitive_batch and (
+        renderer._primitive_batch_mode != "fill" or renderer._primitive_batch_matrix is not matrix
+    ):
+        renderer._flush_primitive_batch_only()
+    renderer._primitive_batch.append((kind, *coords, *fill.to_tuple()))
+    renderer._primitive_batch_matrix = matrix
+    renderer._primitive_batch_mode = "fill"
+    return True
 
 
 @overload
@@ -53,7 +83,24 @@ def line(*args: Any) -> None:
 
 
 def rect(x: float, y: float, w: float, h: float | None = None) -> None:
-    require_context().rect(x, y, w, h)
+    context = require_context()
+    if h is not None and context.state.style.rect_mode == c.CORNER:
+        if _queue_fill_primitive(
+            context,
+            _PRIMITIVE_RECT,
+            (float(x), float(y), float(w), float(h), 0.0, 0.0),
+        ):
+            return
+        context.renderer.rect(
+            float(x),
+            float(y),
+            float(w),
+            float(h),
+            context.state.style,
+            context.state.transform.matrix,
+        )
+        return
+    context.rect(x, y, w, h)
 
 
 def square(x: float, y: float, size: float) -> None:
@@ -65,7 +112,25 @@ def ellipse(x: float, y: float, w: float, h: float | None = None) -> None:
 
 
 def circle(x: float, y: float, diameter: float) -> None:
-    require_context().circle(x, y, diameter)
+    context = require_context()
+    if context.state.style.ellipse_mode == c.CENTER:
+        d = float(diameter)
+        if _queue_fill_primitive(
+            context,
+            _PRIMITIVE_ELLIPSE,
+            (float(x) - d / 2.0, float(y) - d / 2.0, d, d, 0.0, 0.0),
+        ):
+            return
+        context.renderer.ellipse(
+            float(x) - d / 2.0,
+            float(y) - d / 2.0,
+            d,
+            d,
+            context.state.style,
+            context.state.transform.matrix,
+        )
+        return
+    context.circle(x, y, diameter)
 
 
 @overload
@@ -82,7 +147,27 @@ def triangle(*coords: Any) -> None:
         require_context().triangle(*(value for point in points for value in point))
         return
     if len(coords) == 6:
-        require_context().triangle(*(float(cast(float, value)) for value in coords))
+        context = require_context()
+        values = (
+            float(cast(float, coords[0])),
+            float(cast(float, coords[1])),
+            float(cast(float, coords[2])),
+            float(cast(float, coords[3])),
+            float(cast(float, coords[4])),
+            float(cast(float, coords[5])),
+        )
+        if _queue_fill_primitive(context, _PRIMITIVE_TRIANGLE, values):
+            return
+        context.renderer.triangle(
+            values[0],
+            values[1],
+            values[2],
+            values[3],
+            values[4],
+            values[5],
+            context.state.style,
+            context.state.transform.matrix,
+        )
         return
     raise TypeError("triangle() requires three points or six coordinate values.")
 

@@ -21,6 +21,17 @@ pub(super) struct ImageVertex {
 }
 
 #[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct PrimitiveInstance {
+    pub p0: [f32; 2],
+    pub p1: [f32; 2],
+    pub p2: [f32; 2],
+    pub bounds: [f32; 4],
+    pub color: [f32; 4],
+    pub params: [f32; 4],
+}
+
+#[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct ModelVertex {
     pub position: [f32; 3],
@@ -95,11 +106,50 @@ impl GpuColor {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct RetainedTriangleVertices {
+    pub key: u64,
+    pub vertices: Arc<Vec<([f32; 2], GpuColor)>>,
+}
+
+impl PartialEq for RetainedTriangleVertices {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct RetainedPrimitiveInstances {
+    pub key: u64,
+    pub instances: Arc<Vec<PrimitiveInstance>>,
+}
+
+impl PartialEq for RetainedPrimitiveInstances {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum DrawCommand {
     Clear(GpuColor),
     Triangles {
         vertices: Vec<([f32; 2], GpuColor)>,
+        blend_mode: BlendMode,
+        clip_id: usize,
+    },
+    RetainedTriangles {
+        retained: RetainedTriangleVertices,
+        blend_mode: BlendMode,
+        clip_id: usize,
+    },
+    PrimitiveInstances {
+        instances: Vec<PrimitiveInstance>,
+        blend_mode: BlendMode,
+        clip_id: usize,
+    },
+    RetainedPrimitiveInstances {
+        retained: RetainedPrimitiveInstances,
         blend_mode: BlendMode,
         clip_id: usize,
     },
@@ -193,6 +243,7 @@ pub struct GpuRenderer {
     pub(super) texture_size: wgpu::Extent3d,
     pub(super) pipeline: wgpu::RenderPipeline,
     pub(super) primitive_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
+    pub(super) procedural_primitive_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) erase_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
@@ -239,14 +290,22 @@ pub struct GpuRenderer {
     pub(super) image_staging: Vec<ImageVertex>,
     pub(super) primitive_vertex_buffer: Option<wgpu::Buffer>,
     pub(super) primitive_vertex_capacity: usize,
+    pub(super) procedural_primitive_buffer: Option<wgpu::Buffer>,
+    pub(super) procedural_primitive_capacity: usize,
     pub(super) erase_vertex_buffer: Option<wgpu::Buffer>,
     pub(super) erase_vertex_capacity: usize,
     pub(super) image_vertex_buffer: Option<wgpu::Buffer>,
     pub(super) image_vertex_capacity: usize,
     pub(super) vertex_buffer_allocations: u64,
     pub(super) vertex_uploads: u64,
+    pub(super) uploaded_vertex_bytes: u64,
     pub(super) primitive_batches: u64,
     pub(super) image_batches: u64,
+    pub(super) encode_time_ms: f64,
+    pub(super) retained_batch_cache_hits: u64,
+    pub(super) retained_batch_cache_misses: u64,
+    pub(super) retained_batch_reused_bytes: u64,
+    pub(super) retained_batch_cache_evictions: u64,
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     pub(super) surface: Option<GpuSurface>,
 }

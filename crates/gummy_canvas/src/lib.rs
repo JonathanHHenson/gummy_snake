@@ -46,6 +46,7 @@ use runtime::{
 use std::collections::{HashMap, VecDeque};
 use std::f64::consts::PI;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 use text::{
     default_font_paths, render_text_line, text_ascent as measure_text_ascent,
@@ -67,7 +68,7 @@ const BLEND_MODE_SCREEN: &str = "screen";
 const IMAGE_CACHE_LIMIT: usize = 1024;
 const TEXTURE_CACHE_LIMIT: usize = 1024;
 const TEXT_CACHE_LIMIT: usize = 512;
-const CANVAS_ABI_VERSION: u32 = 9;
+const CANVAS_ABI_VERSION: u32 = 12;
 static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -660,6 +661,10 @@ struct Canvas {
     matrix_stack: Vec<Matrix>,
     performance_counters: PerformanceCounters,
     pending_3d_triangles: Vec<Pending3dTriangle>,
+    primitive_batch_cache_key: Option<u64>,
+    primitive_batch_cache_record_count: usize,
+    primitive_batch_cache_vertices: std::sync::Arc<Vec<([f32; 2], gpu::GpuColor)>>,
+    primitive_batch_cache_instances: std::sync::Arc<Vec<gpu::PrimitiveInstance>>,
 }
 
 #[derive(Clone, Copy, Debug)]

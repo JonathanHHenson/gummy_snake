@@ -87,7 +87,7 @@ class CanvasRendererPixelsMixin:
             return bytes(cast(Buffer | Sequence[int], pixels))
         pixels = cast(
             Buffer | Sequence[int],
-            _renderer(self)._call("pixel readback", _renderer(self)._require_canvas().load_pixels)
+            _renderer(self)._call("pixel readback", _renderer(self)._require_canvas().load_pixels),
         )
         return bytes(pixels)
 

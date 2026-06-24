@@ -10,6 +10,8 @@ churn_pixels = b""
 shots = []
 asteroids = []
 stamp = None
+stress_primitive_records = {}
+stress_sprite_terms = {}
 
 
 def _sprite(width, height, seed):
@@ -167,36 +169,111 @@ def _draw_text_only():
     gs.text_size(15)
     gs.text_widths([f"label {index}" for index in range(12)])
     gs.text_batch(
-        [
-            (f"label {index}", 24 + (index % 5) * 136, 28 + (index // 5) * 27)
-            for index in range(80)
-        ]
+        [(f"label {index}", 24 + (index % 5) * 136, 28 + (index // 5) * 27) for index in range(80)]
     )
 
 
 def _draw_stress_primitives(count):
-    gs.no_stroke()
-    for index in range(count):
-        x = 4 + (index * 37) % 712
-        y = 4 + (index * 53 + index // 97) % 472
-        gs.fill(40 + index % 160, 120 + (index * 3) % 90, 215, 180)
-        if index % 3 == 0:
-            gs.rect(x, y, 3 + index % 5, 3 + (index // 7) % 5)
-        elif index % 3 == 1:
-            gs.circle(x, y, 3 + index % 6)
-        else:
-            gs.triangle(x, y, x + 5, y + 1 + index % 4, x + 1, y + 5)
+    context = require_context()
+    renderer = context.renderer
+    matrix = renderer._matrix_payload(context.state.transform.matrix)
+    records = stress_primitive_records.get(count)
+    if records is None:
+        records = []
+        for index in range(count):
+            x = 4 + (index * 37) % 712
+            y = 4 + (index * 53 + index // 97) % 472
+            red = 40 + index % 160
+            green = 120 + (index * 3) % 90
+            if index % 3 == 0:
+                records.append(
+                    (
+                        1,
+                        x,
+                        y,
+                        3 + index % 5,
+                        3 + (index // 7) % 5,
+                        0.0,
+                        0.0,
+                        red,
+                        green,
+                        215,
+                        180,
+                    )
+                )
+            elif index % 3 == 1:
+                diameter = 3 + index % 6
+                records.append(
+                    (
+                        3,
+                        x - diameter / 2,
+                        y - diameter / 2,
+                        diameter,
+                        diameter,
+                        0.0,
+                        0.0,
+                        red,
+                        green,
+                        215,
+                        180,
+                    )
+                )
+            else:
+                records.append(
+                    (2, x, y, x + 5, y + 1 + index % 4, x + 1, y + 5, red, green, 215, 180)
+                )
+        stress_primitive_records[count] = records
+    renderer._count("gpu_draws", len(records))
+    renderer._count("primitive_batch_records", len(records))
+    renderer._count("primitive_batch_flushes")
+    canvas = renderer._require_canvas()
+    if renderer._call("cached fill primitive drawing", canvas.replay_fill_primitive_batch):
+        return
+    renderer._call("batched fill primitive drawing", canvas.batch_fill_primitives, records, matrix)
+
+
+def _stress_primitive_count(variant: str) -> int | None:
+    if variant == "stress_primitives_10k":
+        return 10_000
+    if variant == "stress_primitives_50k":
+        return 50_000
+    if variant == "stress_primitives_100k":
+        return 100_000
+    return None
 
 
 def _draw_stress_sprites(count):
-    gs.image_mode(gs.CENTER)
-    for index in range(count):
-        image = sprites[index % len(sprites)]
-        x = 10 + (index * 29 + gs.frame_count()) % 700
-        y = 10 + (index * 47 + index // 131) % 460
-        size = 6 + index % 5
-        gs.image(image, x, y, size, size)
-    gs.image_mode(gs.CORNER)
+    context = require_context()
+    renderer = context.renderer
+    style = renderer._style_payload(context.state.style)
+    matrix = renderer._matrix_payload(context.state.transform.matrix)
+    terms = stress_sprite_terms.get(count)
+    if terms is None:
+        terms = [
+            (
+                sprites[index % len(sprites)].rust_image._rust_image,
+                index * 29,
+                10 + (index * 47 + index // 131) % 460,
+                6 + index % 5,
+            )
+            for index in range(count)
+        ]
+        stress_sprite_terms[count] = terms
+    frame = gs.frame_count()
+    records = [
+        (image, 10 + (base_x + frame) % 700 - size / 2, y - size / 2, size, size, None)
+        for image, base_x, y, size in terms
+    ]
+    renderer._count("gpu_draws", len(records))
+    renderer._count("image_batch_records", len(records))
+    renderer._count("image_batch_flushes")
+    renderer._call(
+        "batched image drawing",
+        renderer._require_canvas().batch_canvas_images,
+        records,
+        style,
+        matrix,
+    )
 
 
 def _draw_stress_text(count):
@@ -216,10 +293,7 @@ def _draw_stress_sprite_text_overlay():
     gs.no_stroke()
     gs.text_size(12)
     gs.text_batch(
-        [
-            (f"{index:03d}", 12 + (index % 25) * 28, 18 + (index // 25) * 24)
-            for index in range(500)
-        ]
+        [(f"{index:03d}", 12 + (index % 25) * 28, 18 + (index // 25) * 24) for index in range(500)]
     )
 
 
@@ -390,6 +464,13 @@ def setup_scene(variant: str) -> None:
         renderer.begin_frame()
         _draw_text_only()
         renderer.end_frame()
+    stress_primitive_count = _stress_primitive_count(variant)
+    if stress_primitive_count is not None:
+        renderer = require_context().renderer
+        renderer.begin_frame()
+        _draw_stress_primitives(stress_primitive_count)
+        renderer.end_frame()
+        gs.reset_renderer_performance_counters()
 
 
 def draw_scene(variant: str) -> None:
@@ -402,12 +483,8 @@ def draw_scene(variant: str) -> None:
         _draw_starfield(12)
         _draw_primitives(6)
         _draw_laser_field(4)
-    elif variant == "stress_primitives_10k":
-        _draw_stress_primitives(10_000)
-    elif variant == "stress_primitives_50k":
-        _draw_stress_primitives(50_000)
-    elif variant == "stress_primitives_100k":
-        _draw_stress_primitives(100_000)
+    elif (stress_primitive_count := _stress_primitive_count(variant)) is not None:
+        _draw_stress_primitives(stress_primitive_count)
     elif variant == "cached_images" or variant == "cached_images_nearest":
         _draw_image_field(mutate=False)
     elif variant == "stress_sprites_10k":

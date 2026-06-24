@@ -56,6 +56,31 @@ def image(
 
 
 def image(*args: Any) -> None:
+    if len(args) == 5 and isinstance(args[0], Image | CanvasImage):
+        context = require_context()
+        source = cast(Image | CanvasImage, args[0])
+        x = float(cast(float, args[1]))
+        y = float(cast(float, args[2]))
+        width = float(cast(float, args[3]))
+        height = float(cast(float, args[4]))
+        if context.state.style.image_mode == c.CENTER:
+            x -= width / 2.0
+            y -= height / 2.0
+        elif context.state.style.image_mode != c.CORNER:
+            context.image(*args)
+            return
+        context._record_image_diagnostics(source)
+        context.renderer.draw_image(
+            source,
+            x,
+            y,
+            width,
+            height,
+            context.state.style,
+            context.state.transform.matrix,
+            source=None,
+        )
+        return
     require_context().image(*args)
 
 

@@ -43,9 +43,8 @@ def test_canvas_renderer_bridges_images_and_blend_regions() -> None:
 
     canvas = renderer._canvas
     assert canvas is not None
-    assert canvas.calls[-3][0] == "draw_canvas_image"
-    assert canvas.calls[-3][1] is image.rust_image._rust_image
-    assert canvas.calls[-3][-1] == (0, 0, 1, 1)
+    assert canvas.calls[-3][0] == "batch_canvas_images"
+    assert canvas.calls[-3][1] == [(image.rust_image._rust_image, 1, 0, 2, 1, (0, 0, 1, 1))]
     assert canvas.calls[-2] == (
         "blend_region",
         image.to_rgba_bytes(),
@@ -74,12 +73,13 @@ def test_canvas_renderer_passes_image_tint_in_style_payload() -> None:
     style.image_tint = Color(128, 64, 255, 127)
 
     renderer.draw_image(image, 0, 0, 1, 1, style, Matrix2D.identity())
+    renderer.end_frame()
 
     canvas = renderer._canvas
     assert canvas is not None
-    call = canvas.calls[-1]
-    assert call[0] == "draw_canvas_image"
-    assert call[-3]["image_tint"] == (128, 64, 255, 127)
+    call = canvas.calls[-2]
+    assert call[0] == "batch_canvas_images"
+    assert call[-2]["image_tint"] == (128, 64, 255, 127)
 
 
 def test_canvas_renderer_bridges_complex_polygon_and_clip_stack() -> None:
@@ -119,13 +119,15 @@ def test_canvas_renderer_uses_stable_image_cache_keys_and_versions() -> None:
     renderer.draw_image(second, 1, 0, 1, 1, style, transform)
     first.update_pixels(bytes([0, 0, 255, 255]))
     renderer.draw_image(first, 2, 0, 1, 1, style, transform)
+    renderer.end_frame()
 
     canvas = renderer._canvas
     assert canvas is not None
-    draw_calls = [call for call in canvas.calls if call[0] == "draw_canvas_image"]
-    assert draw_calls[0][1] is first.rust_image._rust_image
-    assert draw_calls[1][1] is second.rust_image._rust_image
-    assert draw_calls[2][1] is first.rust_image._rust_image
+    draw_calls = [call for call in canvas.calls if call[0] == "batch_canvas_images"]
+    records = [record for call in draw_calls for record in call[1]]
+    assert records[0][0] is first.rust_image._rust_image
+    assert records[1][0] is second.rust_image._rust_image
+    assert records[2][0] is first.rust_image._rust_image
     assert first.cache_key != second.cache_key
 
 
@@ -139,10 +141,11 @@ def test_canvas_renderer_uses_rust_managed_image_after_mutation() -> None:
     renderer.draw_image(image, 0, 0, 2, 1, style, transform)
     image.set(0, 0, (0, 0, 255, 255))
     renderer.draw_image(image, 0, 1, 2, 1, style, transform)
+    renderer.end_frame()
 
     canvas = renderer._canvas
     assert canvas is not None
-    assert [call[0] for call in canvas.calls][-2:] == ["draw_canvas_image", "draw_canvas_image"]
+    assert [call[0] for call in canvas.calls][-2:] == ["batch_canvas_images", "end_frame"]
 
 
 def test_canvas_renderer_performance_counters_cover_representative_paths() -> None:

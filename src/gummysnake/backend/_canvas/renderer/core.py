@@ -42,11 +42,19 @@ _PERFORMANCE_COUNTER_KEYS = (
     "direct_shape_finalizations",
     "shape_buffer_extractions",
     "pixel_payload_copies",
+    "primitive_batch_records",
+    "primitive_batch_flushes",
+    "primitive_batch_fallbacks",
+    "image_batch_records",
+    "image_batch_flushes",
+    "image_batch_fallbacks",
 )
 PerformanceCounterValue = int | dict[str, int]
 PerformanceCounters = dict[str, PerformanceCounterValue]
 TextMetricKey = tuple[str, str | None, int, int]
 MatrixPayload = tuple[float, float, float, float, float, float]
+PrimitiveBatchRecord = tuple[object, ...]
+ImageBatchRecord = tuple[object, float, float, float, float, tuple[int, int, int, int] | None]
 
 
 def color_payload(color: Color | None) -> tuple[int, int, int, int] | None:
@@ -105,10 +113,18 @@ class CanvasRendererCore:
         self._line_batch_style: dict[str, object] | None = None
         self._line_batch_matrix: MatrixPayload | None = None
         self._line_batch_current = False
+        self._primitive_batch: list[PrimitiveBatchRecord] = []
+        self._primitive_batch_style: dict[str, object] | None = None
+        self._primitive_batch_matrix: MatrixPayload | None = None
+        self._primitive_batch_current = False
+        self._primitive_batch_mode: str | None = None
         self._text_batch: list[tuple[str, float, float]] = []
         self._text_batch_style: dict[str, object] | None = None
         self._text_batch_matrix: MatrixPayload | None = None
         self._text_batch_current = False
+        self._image_batch: list[ImageBatchRecord] = []
+        self._image_batch_style: dict[str, object] | None = None
+        self._image_batch_matrix: MatrixPayload | None = None
         self._skip_canvas_end_frame = False
         self._clip_depth = 0
         self._performance_counters: dict[str, int] = dict.fromkeys(_PERFORMANCE_COUNTER_KEYS, 0)
@@ -186,7 +202,9 @@ class CanvasRendererCore:
         return payload
 
     def set_current_style(self, style: StyleState) -> None:
-        cast(CanvasRendererHost, self)._flush_line_batch()
+        host = cast(CanvasRendererHost, self)
+        host._flush_line_batch_only()
+        host._flush_text_batch()
         self._current_style_id = id(style)
         self._current_style_revision = style.revision
         self._current_style = style
@@ -386,6 +404,8 @@ class CanvasRendererCore:
     def end_frame(self) -> None:
         try:
             cast(CanvasRendererHost, self)._flush_line_batch_only()
+            cast(CanvasRendererHost, self)._flush_primitive_batch_only()
+            cast(CanvasRendererHost, self)._flush_image_batch()
             cast(CanvasRendererHost, self)._flush_text_batch(final=True)
             self.restore_clip_depth(0)
             if not self._skip_canvas_end_frame:

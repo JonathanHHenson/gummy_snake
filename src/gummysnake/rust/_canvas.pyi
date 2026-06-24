@@ -285,6 +285,21 @@ class Canvas:
         matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
     def batch_lines_current(self, lines: list[tuple[float, float, float, float]]) -> None: ...
+    def batch_primitives(
+        self,
+        records: list[tuple[int, float, float, float, float, float, float]],
+        style: dict[str, Any],
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None: ...
+    def batch_primitives_current(
+        self, records: list[tuple[int, float, float, float, float, float, float]]
+    ) -> None: ...
+    def batch_fill_primitives(
+        self,
+        records: list[tuple[int, float, float, float, float, float, float, int, int, int, int]],
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None: ...
+    def replay_fill_primitive_batch(self) -> bool: ...
     def polygon(
         self,
         points: list[tuple[float, float]],
@@ -292,9 +307,7 @@ class Canvas:
         matrix: tuple[float, float, float, float, float, float],
         close: bool = True,
     ) -> None: ...
-    def polygon_current(
-        self, points: list[tuple[float, float]], close: bool = True
-    ) -> None: ...
+    def polygon_current(self, points: list[tuple[float, float]], close: bool = True) -> None: ...
     def complex_polygon(
         self,
         outer: list[tuple[float, float]],
@@ -485,6 +498,14 @@ class Canvas:
         dw: float,
         dh: float,
         source: tuple[int, int, int, int] | None = None,
+    ) -> None: ...
+    def batch_canvas_images(
+        self,
+        records: list[
+            tuple[CanvasImage, float, float, float, float, tuple[int, int, int, int] | None]
+        ],
+        style: dict[str, Any],
+        matrix: tuple[float, float, float, float, float, float],
     ) -> None: ...
     def text(
         self,

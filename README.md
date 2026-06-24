@@ -101,6 +101,8 @@ async def preload() -> None:
   and shader objects. Built-in model and primitive draws use retained Rust/GPU
   buffers, GPU transforms/projection/depth, and built-in material shaders when
   GPU drawing is available.
+- Dense 2D scenes that rely on internal primitive and sprite batching rather
+  than one Python-to-Rust call per draw.
 - Small games and visual toys using the examples as starting points.
 
 Loaded images, models/meshes, and sounds keep Rust-managed asset handles behind
@@ -127,6 +129,11 @@ Small canvas `get()` and `set()` region operations use Rust region calls instead
 of reconstructing the full canvas as a Python image.
 For dense drawing loops, `gs.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
+Fill-only rectangles, triangles, circles, and axis-aligned ellipses can batch
+into compact Rust commands and use procedural GPU instance paths; unsupported
+transforms fall back to the general vertex path without changing public API
+behavior. Sprite-heavy loops can batch through the Rust image path, including an
+internal atlas path for ordered draws from a small texture set.
 Text-heavy overlays can use `text_batch()` and `text_widths()` to submit many
 labels or measurements with fewer Python calls while staying on the Rust/GPU
 text path.
@@ -201,9 +208,9 @@ metric. The canvas benchmark payload includes renderer metrics for draw counts,
 primitive/image batches, vertex uploads, texture uploads/reuse, text cache hits,
 pixel readbacks/uploads, GPU region effects, and presented/rendered frame counts.
 WEBGL frame-style benchmark scenarios use the same FPS floor.
-High-count primitive and sprite stress variants keep 60 FPS targets for 10k
-draws and record larger 50k/100k scenes as optimization baselines. Failures
-below those floors are intentional optimization signals.
+High-count primitive and sprite stress variants keep explicit 60 FPS gates for
+10k stress scenes, and the high-count primitive gate covers 10k, 50k, and 100k
+static retained-batch scenes behind `--run-high-count-benchmarks`.
 Model export benchmarks use a memory budget for streaming OBJ/STL output.
 Machine-specific baseline snapshots live in `tests/benchmark/baselines/`.
 

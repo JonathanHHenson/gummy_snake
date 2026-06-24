@@ -130,9 +130,7 @@ def _rasterize_face_payload_at(
             }
         payload.append(
             {
-                "points": [
-                    (float(x) - offset_x, float(y) - offset_y) for x, y in face["points"]
-                ],
+                "points": [(float(x) - offset_x, float(y) - offset_y) for x, y in face["points"]],
                 "color": face["color"],
                 "texcoords": face.get("texcoords"),
                 "texture": texture_payload,

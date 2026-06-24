@@ -19,13 +19,27 @@ class StyleContextMixin:
     def _mark_style_changed(self) -> None:
         self.state.style.mark_changed()
         sync_style = getattr(self.renderer, "set_current_style", None)
-        if callable(sync_style):
+        if callable(sync_style) and getattr(self.renderer, "renderer_mode", None) != c.P2D:
             sync_style(self.state.style)
 
     def _color_from_args(self, args: tuple[Any, ...]) -> Color:
         return Color.from_args(
             args, mode=self.state.color_mode.mode, ranges=self.state.color_mode.ranges
         )
+
+    def _rgb255_color_from_args(self, args: tuple[Any, ...]) -> Color | None:
+        if (
+            self.state.color_mode.mode != c.RGB
+            or self.state.color_mode.ranges != (255.0, 255.0, 255.0, 255.0)
+            or len(args) not in {3, 4}
+            or not all(isinstance(value, int | float) for value in args)
+        ):
+            return None
+        red = round(max(0.0, min(255.0, float(args[0]))))
+        green = round(max(0.0, min(255.0, float(args[1]))))
+        blue = round(max(0.0, min(255.0, float(args[2]))))
+        alpha = round(max(0.0, min(255.0, float(args[3])))) if len(args) == 4 else 255
+        return Color(int(red), int(green), int(blue), int(alpha))
 
     @overload
     def color(self, value: ColorValue, /) -> Color: ...
@@ -107,7 +121,9 @@ class StyleContextMixin:
     def fill(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
 
     def fill(self, *args: Any) -> None:
-        self.state.style.fill_color = self._color_from_args(args)
+        self.state.style.fill_color = self._rgb255_color_from_args(args) or self._color_from_args(
+            args
+        )
         self._mark_style_changed()
 
     def no_fill(self) -> None:
@@ -130,7 +146,9 @@ class StyleContextMixin:
     def stroke(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
 
     def stroke(self, *args: Any) -> None:
-        self.state.style.stroke_color = self._color_from_args(args)
+        self.state.style.stroke_color = self._rgb255_color_from_args(args) or self._color_from_args(
+            args
+        )
         self._mark_style_changed()
 
     def no_stroke(self) -> None:

@@ -37,6 +37,12 @@ The stable top-level counters are:
 | `direct_shape_finalizations` | Rust-owned `begin_shape()` buffers finalized directly into draw or clip operations. |
 | `shape_buffer_extractions` | Shape buffers extracted into Python lists for compatibility fallback paths. |
 | `pixel_payload_copies` | Pixel uploads that required Python list/sequence conversion before reaching the runtime. |
+| `primitive_batch_records` | Python-side simple primitive records flushed through the compact batch bridge. |
+| `primitive_batch_flushes` | Python-side compact primitive batch bridge calls. |
+| `primitive_batch_fallbacks` | Primitive records replayed through legacy per-shape calls because the native batch ABI was unavailable. |
+| `image_batch_records` | Python-side image records flushed through the compact image batch bridge. |
+| `image_batch_flushes` | Python-side compact image batch bridge calls. |
+| `image_batch_fallbacks` | Image records replayed through legacy per-image calls because the native batch ABI was unavailable. |
 
 When the installed Rust canvas exposes native counters, the Python report also
 contains a `native` dictionary. Treat that dictionary as diagnostic detail; use
@@ -44,15 +50,53 @@ the top-level keys in tests and docs.
 
 Native diagnostics may also include GPU render-loop counters:
 `gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`,
-and `gpu_image_batches`. Allocations should grow with peak frame demand rather
-than with every frame; uploads and batches track actual draw work.
+`gpu_uploaded_vertex_bytes`, `gpu_image_batches`, `gpu_encode_time_ms`,
+`gpu_present_time_ms`, `native_draw_commands`, `native_primitive_records`, and
+`native_primitive_batches`. Retained reuse diagnostics include
+`retained_batch_cache_hits`, `retained_batch_cache_misses`,
+`retained_batch_cache_evictions`, and `retained_batch_reused_bytes`.
+Allocations should grow with peak frame demand rather than with every frame;
+uploads and batches track actual draw work.
 
 Canvas benchmark subprocesses flatten the same native counters into their JSON
 `metrics` payload so interactive FPS samples can be correlated with renderer
-work. Normal interactive frames should keep `pixel_readbacks` at zero unless
-user code calls an explicit readback or export API. Sprite and text-heavy stress
+work. The flattened payload keeps `python_bridge_calls` and
+`native_bridge_calls` separate so adapter dispatch and Rust command ingest can
+be triaged independently. `python_draw_time_ms` measures sketch callback time
+inside the child process, separate from subprocess setup and window creation.
+Normal interactive frames should keep `pixel_readbacks` at zero unless user
+code calls an explicit readback or export API. Sprite and text-heavy stress
 scenes should show texture cache reuse and text cache reuse after their first
 unique layouts have been shaped.
+
+## Primitive Batch Boundaries
+
+The Python canvas adapter may queue simple `rect()`, `triangle()`, `ellipse()`,
+and `circle()` calls into compact primitive batches when a native
+`batch_primitives` ABI is available. Queues are ordered; switching between
+primitive, line, text, image, pixel, clip, background/clear, state stack,
+transform, resize, frame-end, present, close, 3D/model, or CPU fallback paths
+must flush pending batches before continuing.
+
+Fill-only compact primitive batches use the procedural GPU path when all
+records can be represented as rect, triangle, or axis-aligned ellipse
+instances. The shader expands each record to a quad on the GPU and applies
+analytic triangle or ellipse coverage in the fragment stage, avoiding per-frame
+CPU generation of rectangle vertices or 64-segment ellipse meshes. Rotated or
+sheared rectangles/ellipses keep the existing vertex fallback so transformed
+output remains correct.
+
+Image draws may similarly queue through `batch_canvas_images`. The Rust runtime
+can pack small compatible image batches into an internal atlas texture so
+alternating sprites from a small texture set remain ordered while avoiding one
+GPU image batch per sprite.
+
+Retained reuse is layered. Static compact primitive batches keep a retained
+native batch key and replay shared instance/vertex payloads after warmup.
+Static full-frame image or mixed image/primitive command streams are reused by
+the GPU renderer when the ordered command stream and clip generation are
+unchanged; dynamic image batches continue through the atlas/upload path and
+report texture and image batch counters normally.
 
 ## GPU Region Effects
 

@@ -26,6 +26,11 @@ pub(crate) struct PerformanceCounters {
     pub(crate) direct_shape_finalizations: u64,
     pub(crate) shape_buffer_extractions: u64,
     pub(crate) pixel_payload_copies: u64,
+    pub(crate) native_draw_commands: u64,
+    pub(crate) native_primitive_records: u64,
+    pub(crate) native_primitive_batches: u64,
+    pub(crate) gpu_encode_time_ms: f64,
+    pub(crate) gpu_present_time_ms: f64,
 }
 
 impl PerformanceCounters {
@@ -57,6 +62,11 @@ impl PerformanceCounters {
         )?;
         dict.set_item("shape_buffer_extractions", self.shape_buffer_extractions)?;
         dict.set_item("pixel_payload_copies", self.pixel_payload_copies)?;
+        dict.set_item("native_draw_commands", self.native_draw_commands)?;
+        dict.set_item("native_primitive_records", self.native_primitive_records)?;
+        dict.set_item("native_primitive_batches", self.native_primitive_batches)?;
+        dict.set_item("gpu_encode_time_ms", self.gpu_encode_time_ms)?;
+        dict.set_item("gpu_present_time_ms", self.gpu_present_time_ms)?;
         Ok(dict)
     }
 }
