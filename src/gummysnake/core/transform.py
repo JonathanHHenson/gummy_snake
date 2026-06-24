@@ -97,24 +97,45 @@ class Matrix2D:
         if not isinstance(other, Matrix2D):
             return NotImplemented
         multiply = getattr(self._handle, "multiply", None)
-        if not callable(multiply):
-            raise RuntimeError("The installed canvas runtime Matrix2D does not provide multiply().")
-        return Matrix2D(_handle=multiply(other._handle))
+        if callable(multiply):
+            return Matrix2D(_handle=multiply(other._handle))
+        a1, b1, c1, d1, e1, f1 = self.as_tuple()
+        a2, b2, c2, d2, e2, f2 = other.as_tuple()
+        return Matrix2D(
+            a1 * a2 + c1 * b2,
+            b1 * a2 + d1 * b2,
+            a1 * c2 + c1 * d2,
+            b1 * c2 + d1 * d2,
+            a1 * e2 + c1 * f2 + e1,
+            b1 * e2 + d1 * f2 + f1,
+        )
 
     def transform_point(self, x: float, y: float) -> tuple[float, float]:
         transform_point = getattr(self._handle, "transform_point", None)
-        if not callable(transform_point):
-            raise RuntimeError(
-                "The installed canvas runtime Matrix2D does not provide transform_point()."
-            )
-        point = cast(Sequence[float], transform_point(float(x), float(y)))
-        return (float(point[0]), float(point[1]))
+        if callable(transform_point):
+            point = cast(Sequence[float], transform_point(float(x), float(y)))
+            return (float(point[0]), float(point[1]))
+        a, b, c, d, e, f = self.as_tuple()
+        x = float(x)
+        y = float(y)
+        return (a * x + c * y + e, b * x + d * y + f)
 
     def inverse(self) -> Matrix2D:
         inverse = getattr(self._handle, "inverse", None)
-        if not callable(inverse):
-            raise RuntimeError("The installed canvas runtime Matrix2D does not provide inverse().")
-        return Matrix2D(_handle=inverse())
+        if callable(inverse):
+            return Matrix2D(_handle=inverse())
+        a, b, c, d, e, f = self.as_tuple()
+        determinant = a * d - b * c
+        if determinant == 0:
+            raise ValueError("Matrix is not invertible.")
+        return Matrix2D(
+            d / determinant,
+            -b / determinant,
+            -c / determinant,
+            a / determinant,
+            (c * f - d * e) / determinant,
+            (b * e - a * f) / determinant,
+        )
 
     def to_ndarray(self, *, shape: tuple[int, int] = (3, 3), copy: bool = True) -> Any:
         """Export this matrix as a NumPy ``ndarray``.
@@ -187,27 +208,51 @@ class Matrix2D:
     @classmethod
     def translation(cls, x: float, y: float) -> Matrix2D:
         matrix_type = _matrix_handle_type()
-        return cls(_handle=matrix_type.translation(float(x), float(y)))
+        translation = getattr(matrix_type, "translation", None)
+        if callable(translation):
+            return cls(_handle=translation(float(x), float(y)))
+        return cls(1.0, 0.0, 0.0, 1.0, float(x), float(y))
 
     @classmethod
     def rotation(cls, angle: float) -> Matrix2D:
         matrix_type = _matrix_handle_type()
-        return cls(_handle=matrix_type.rotation(float(angle)))
+        rotation = getattr(matrix_type, "rotation", None)
+        if callable(rotation):
+            return cls(_handle=rotation(float(angle)))
+        import math
+
+        cosine = math.cos(float(angle))
+        sine = math.sin(float(angle))
+        return cls(cosine, sine, -sine, cosine, 0.0, 0.0)
 
     @classmethod
     def scaling(cls, x: float, y: float | None = None) -> Matrix2D:
         matrix_type = _matrix_handle_type()
-        return cls(_handle=matrix_type.scaling(float(x), None if y is None else float(y)))
+        scaling = getattr(matrix_type, "scaling", None)
+        if callable(scaling):
+            return cls(_handle=scaling(float(x), None if y is None else float(y)))
+        scale_y = float(x) if y is None else float(y)
+        return cls(float(x), 0.0, 0.0, scale_y, 0.0, 0.0)
 
     @classmethod
     def shear_x(cls, angle: float) -> Matrix2D:
         matrix_type = _matrix_handle_type()
-        return cls(_handle=matrix_type.shear_x(float(angle)))
+        shear_x = getattr(matrix_type, "shear_x", None)
+        if callable(shear_x):
+            return cls(_handle=shear_x(float(angle)))
+        import math
+
+        return cls(1.0, 0.0, math.tan(float(angle)), 1.0, 0.0, 0.0)
 
     @classmethod
     def shear_y(cls, angle: float) -> Matrix2D:
         matrix_type = _matrix_handle_type()
-        return cls(_handle=matrix_type.shear_y(float(angle)))
+        shear_y = getattr(matrix_type, "shear_y", None)
+        if callable(shear_y):
+            return cls(_handle=shear_y(float(angle)))
+        import math
+
+        return cls(1.0, math.tan(float(angle)), 0.0, 1.0, 0.0, 0.0)
 
     def __iter__(self):
         return iter(self.as_tuple())

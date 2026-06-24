@@ -380,6 +380,7 @@ class CanvasRendererCore:
     def begin_frame(self) -> None:
         self._abort_frame_on_native_close = True
         self._skip_canvas_end_frame = False
+        self._pump_native_events_if_due(force=True)
         self._require_canvas().begin_frame()
 
     def end_frame(self) -> None:
