@@ -74,12 +74,12 @@ Important consequences:
 - `gummysnake.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
 - The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn after text/images must remain visible.
-- Direct glyphon GPU text is limited to ordered command streams where text can be encoded as a single contiguous glyphon text segment. If later text follows intervening primitives/images/effects, preserve draw order by using the Rust cached line-texture path for that later text rather than queuing multiple glyphon text passes that can corrupt earlier glyph atlas output.
+- Direct glyphon GPU text is limited to ordered command streams where text can be encoded as a single contiguous glyphon text segment. If later text follows intervening primitives/images/effects, preserve draw order by using the Rust cached line-texture path for that later text rather than queuing multiple glyphon text passes that can corrupt earlier glyph atlas output. Batched cached text-image fallback may atlas many cached line textures into ordered image batches; preserve cache hit/miss and texture upload diagnostics.
 - Text metrics and `text_bounds()` must use the same current Python style revision as subsequent drawing. Do not use Rust current-style metric fast paths when the Python `StyleState` object or revision has changed after native/window sync.
 - GPU render encoding owns reusable vertex buffers sized to frame demand. When changing primitive, erase, image, or text command encoding, preserve capacity-growth reuse and keep `gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`, and `gpu_image_batches` meaningful.
-- Compact fill-only primitive batches may use procedural GPU instance commands for rects, triangles, and axis-aligned ellipses/circles. Preserve retained batch replay, HiDPI scaling, clip/blend ordering, and fallback to vertex-expanded paths for unsupported transforms.
-- Ordered sprite batches may use the Rust image atlas path for small alternating texture sets. Static unchanged full-frame command streams may be retained and reused by the GPU renderer; dynamic image batches must still report texture/cache/upload counters accurately.
-- Current renderer performance paths include compact primitive/line/image batches, procedural fill-only primitive instances, retained static command-stream replay, skipped no-op pixel uploads, dirty `PixelBuffer` region uploads, direct Rust shape/clip finalization, `gs.fast()` hot-loop dispatch reduction, and retained GPU model buffers. Preserve these paths and their diagnostics when touching code from epics 238-245.
+- Compact primitive batches may include fill-only primitives, stroked/fill mixed primitive groups, and lines with per-record style and transform payloads. Procedural GPU instance commands should be used where practical for rects, triangles, and axis-aligned ellipses/circles. Preserve retained batch replay, HiDPI scaling, clip/blend ordering, and fallback to vertex-expanded paths for unsupported transforms.
+- Ordered sprite batches may carry per-record transforms, source rectangles, tint, sampling, and blend state and may use the Rust image atlas path for small alternating texture sets. Static unchanged full-frame command streams may be retained and reused by the GPU renderer; dynamic image batches must still report texture/cache/upload counters accurately.
+- Current renderer performance paths include compact mixed primitive/line/image batches, transformed sprite atlas batches, batched cached text-image atlas fallback, procedural fill-only primitive instances, retained static command-stream replay, skipped no-op pixel uploads, dirty `PixelBuffer` region uploads, direct Rust shape/clip finalization, `gs.fast()` hot-loop dispatch reduction, and retained GPU model buffers. Preserve these paths and their diagnostics when touching code from epics 238-250.
 - Fallback software-3D coordinates are logical canvas coordinates. Any direct GPU primitive fallback that consumes those coordinates must scale by `pixel_density()` before submitting physical vertices, or HiDPI/Retina scenes will appear smaller and farther away.
 - Unstroked model draws with Rust model handles should use the retained GPU model path when GPU drawing is available and avoid Python face dictionaries, CPU projection/sorting, and CPU shading. Stroked or unsupported model paths may fall back, but diagnostics should make that boundary visible.
 - Captured `begin_shape()` buffers live in Rust and should be finalized directly into Rust draw/clip commands. Avoid materializing `shape_vertices()` / `shape_contours()` Python lists on normal renderer paths.
@@ -399,9 +399,13 @@ Canvas backend benchmark scenarios measure native interactive presentation and
 must average at least 240 FPS. Headless/offscreen numbers are useful for export
 diagnostics, but they are not the runtime performance acceptance metric. Treat
 failures below the interactive floor as optimization work, not as flaky
-thresholds to loosen. Baseline snapshots live in `tests/benchmark/baselines/`;
-keep captured baseline values as measured and record whether they meet the
-240 FPS floor.
+thresholds to loosen. Recovered variants from epics 246-250 should retain margin
+where practical: dense primitives around 320 FPS mean and cached/transformed
+images, upload churn, sprite/text overlay, and mixed text/pixel scenes around
+300 FPS mean on the baseline machine class. Baseline snapshots live in
+`tests/benchmark/baselines/`; keep captured baseline values as measured and
+record whether they meet both the 240 FPS floor and any documented margin
+target.
 Model export benchmarks use a streaming memory budget rather than an FPS floor.
 API overhead benchmarks should compare global-mode, object-oriented sketch,
 context-direct, `fast()`, and renderer-direct dispatch paths.
@@ -411,14 +415,19 @@ unless the benchmark is explicitly measuring a memory budget instead of FPS.
 Renderer/runtime diagnostics should expose counters through public Python APIs
 such as `renderer_performance_counters()` rather than leaking unstable Rust
 details. Keep fallback-boundary benchmark scenes and
-`docs/contribute/runtime_diagnostics.md` aligned when renderer paths change.
+`docs/contribute/runtime_diagnostics.md` aligned when renderer paths change,
+especially `primitive_batch_records`, `primitive_batch_flushes`,
+`primitive_batch_max_records`, `image_batch_records`, `image_batch_flushes`, and
+`image_batch_max_records`.
 GPU region effects should stay ordered with pending draw commands and avoid CPU
 readback/upload in the GPU path; update `gpu_region_effect_passes` diagnostics
 when adding new region effects. Destination-sampling blend modes must not be
 enabled outside the ordered command encoder source/target snapshot path.
 Untransformed default-font text uses the Rust-owned glyphon/cosmic-text GPU
-path with cached shaped buffers and a glyph atlas; transformed/custom-font text
-may use the internal fallback until those cases are explicitly migrated.
+path with cached shaped buffers and a glyph atlas when ordering permits it;
+batched cached line-texture atlas fallback is the preferred ordered fallback for
+large overlays or later text segments. Transformed/custom-font text may use the
+internal fallback until those cases are explicitly migrated.
 Resource lifecycle stress tests are opt-in:
 
 ```sh

@@ -101,8 +101,8 @@ async def preload() -> None:
   and shader objects. Built-in model and primitive draws use retained Rust/GPU
   buffers, GPU transforms/projection/depth, and built-in material shaders when
   GPU drawing is available.
-- Dense 2D scenes that rely on internal primitive and sprite batching rather
-  than one Python-to-Rust call per draw.
+- Dense 2D scenes that rely on internal mixed primitive, line, sprite, and
+  text batching rather than one Python-to-Rust call per draw.
 - Small games and visual toys using the examples as starting points.
 
 Loaded images, models/meshes, and sounds keep Rust-managed asset handles behind
@@ -131,22 +131,26 @@ Python image.
 For dense drawing loops, `gs.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
 Fill-only rectangles, triangles, circles, axis-aligned ellipses, compatible line
-runs, and repeated image draws can batch into compact Rust commands. Supported
-primitive batches use procedural GPU instance paths; static unchanged command
+runs, and mixed stroked/fill primitive groups can batch into compact Rust
+commands with per-record style and transform data. Supported primitive batches
+use procedural GPU instance paths where possible; static unchanged command
 streams can be retained and reused; unsupported transforms fall back to the
 general vertex path without changing public API behavior. Sprite-heavy loops can
-batch through the Rust image path, including an internal atlas path for ordered
+batch through the Rust image path with per-sprite transforms, source rectangles,
+tint, sampling, and blend state, including an internal atlas path for ordered
 draws from a small texture set.
 Text-heavy overlays can use `text_batch()` and `text_widths()` to submit many
 labels or measurements with fewer Python calls while staying on the Rust-owned
 text path. The renderer keeps `text_width()`, ascent/descent, and
 `text_bounds()` consistent with the current style used for drawing, and it mixes
-GPU glyph-atlas text with cached line-texture fallback internally when that is
-needed to preserve ordered output around intervening shapes or images.
+GPU glyph-atlas text with batched cached line-texture atlas fallback internally
+when that is needed to preserve ordered output around intervening shapes or
+images.
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel
-conversion, upload, direct model/shape draw, GPU vertex-buffer, texture cache,
-GPU blend/region-effect passes, glyphon-backed text drawing, and CPU
-compositing fallback paths.
+conversion, upload, direct model/shape draw, primitive/image batch size and
+flush shape, GPU vertex-buffer, texture cache, GPU blend/region-effect passes,
+glyphon-backed text drawing, cached-text atlas fallback, and CPU compositing
+fallback paths.
 HiDPI/Retina rendering keeps sketch coordinates logical while physical pixel
 buffers and GPU vertices are scaled by `pixel_density()`.
 
@@ -210,15 +214,18 @@ uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 Canvas backend benchmark scenarios measure native interactive presentation and
 are expected to average at least 240 FPS. Headless/offscreen numbers are useful
 for export diagnostics, but they are not the runtime performance acceptance
-metric. The canvas benchmark payload includes renderer metrics for draw counts,
-primitive/image batches, vertex uploads, texture uploads/reuse, text cache hits,
-pixel readbacks/uploads, GPU region effects, and presented/rendered frame counts.
-WEBGL frame-style benchmark scenarios use the same FPS floor.
+The canvas benchmark payload includes renderer metrics for draw counts,
+primitive/image batch records, flushes, largest coalesced batch size, vertex
+uploads, texture uploads/reuse, text cache hits, pixel readbacks/uploads, GPU
+region effects, and presented/rendered frame counts. WEBGL frame-style benchmark
+scenarios use the same FPS floor.
 High-count primitive and sprite stress variants keep explicit 60 FPS gates for
 10k stress scenes, and the high-count primitive gate covers 10k, 50k, and 100k
 static retained-batch scenes behind `--run-high-count-benchmarks`.
 Model export benchmarks use a memory budget for streaming OBJ/STL output.
-Machine-specific baseline snapshots live in `tests/benchmark/baselines/`.
+Machine-specific baseline snapshots live in `tests/benchmark/baselines/`; keep
+captured values as measured and note both the required 240 FPS floor and the
+higher recovered-variant margin target when applicable.
 
 Long-running resource lifecycle checks are also opt-in:
 

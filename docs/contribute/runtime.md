@@ -256,12 +256,15 @@ style object and revision match the synced current style. Otherwise,
 `text_width()`, ascent/descent, and `text_bounds()` can diverge from subsequent
 `text()` rendering.
 
-The headless GPU text path uses glyphon for untransformed default-font text when
-all direct glyphon text commands can remain in a single contiguous ordered text
+The GPU text path uses glyphon for untransformed default-font text when all
+direct glyphon text commands can remain in a single contiguous ordered text
 segment. If later text follows intervening primitives, images, blend/effect
 passes, clips, or other command families, route that later text through the
 cached line-texture path so draw order is preserved without queuing multiple
-glyphon text passes against the same mutable atlas state.
+glyphon text passes against the same mutable atlas state. For large overlays or
+native interactive paths where direct glyphon text is not the selected ordered
+path, prefer the batched cached-text atlas fallback so cached line textures are
+grouped into image batches instead of uploaded/drawn one label at a time.
 
 `load_pixels()` remains the list-based pixel API. `load_pixel_bytes()`
 is the lower-copy readback path for effects that can work with bytes, and
@@ -282,14 +285,17 @@ buffer by design.
 
 ## GPU Command Ordering
 
-The 2D GPU renderer can mix primitive commands with image and text commands in a
-single frame. Text is rendered through the image/texture pipeline, while shapes
-such as `rect()` and `circle()` use the primitive pipeline. When changing command
-encoding, batching, or adding command families, flush any pending batch before
-switching pipelines and restore the expected pipeline and bind groups before
-continuing. In particular, primitives drawn after text/images must remain
-visible; `examples/05_interaction/lifecycle_controls.py` is a useful manual
-smoke test for that ordering.
+The 2D GPU renderer can mix primitive commands with image, text, pixel-effect,
+and blend/effect commands in a single frame. Text may use direct glyphon draws
+or cached line textures routed through the image/atlas pipeline, while shapes
+such as `rect()` and `circle()` use primitive pipelines. Python-side batching may
+coalesce mixed primitive records across local style/transform changes and image
+records across per-sprite transforms, but it must flush at true semantic
+ordering boundaries. When changing command encoding, batching, or adding command
+families, flush any pending batch before switching pipelines and restore the
+expected pipeline and bind groups before continuing. In particular, primitives
+drawn after text/images must remain visible; `examples/05_interaction/lifecycle_controls.py`
+and mixed sprite/text/pixel benchmark scenes are useful ordering smoke tests.
 
 ## WEBGL Runtime Status
 
@@ -298,7 +304,9 @@ runtime for OBJ parsing, primitive model generation, export, built-in material
 state, and fallback software rasterization. When GPU drawing is available,
 unstroked built-in primitive and loaded-model draws use retained GPU model
 buffers plus GPU transform/projection, depth testing, texture sampling, and
-built-in material shaders. Backend capabilities therefore distinguish:
+built-in material shaders. `examples/09_performance/lorenz_attractor_3d.py`
+exercises this retained model path with a generated tube mesh and animated
+camera/lights. Backend capabilities therefore distinguish:
 
 - `three_d`: WEBGL mode is accepted.
 - `software_three_d`: WEBGL compatibility and fallback software 3D paths are

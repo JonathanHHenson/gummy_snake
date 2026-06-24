@@ -38,11 +38,13 @@ The stable top-level counters are:
 | `shape_buffer_extractions` | Shape buffers extracted into Python lists for compatibility fallback paths. |
 | `pixel_payload_copies` | Pixel uploads that required Python list/sequence conversion before reaching the runtime. |
 | `pixel_noop_upload_skips` | Full-canvas byte payload uploads skipped because they were the exact fresh `load_pixel_bytes()` result. |
-| `primitive_batch_records` | Python-side simple primitive records flushed through the compact batch bridge. |
+| `primitive_batch_records` | Python-side primitive records flushed through compact fill, current-state, or mixed primitive batch bridges. |
 | `primitive_batch_flushes` | Python-side compact primitive batch bridge calls. |
+| `primitive_batch_max_records` | Largest primitive batch flushed in the current counter window; low values in dense scenes usually indicate accidental segmentation. |
 | `primitive_batch_fallbacks` | Primitive records replayed through legacy per-shape calls because the native batch ABI was unavailable. |
-| `image_batch_records` | Python-side image records flushed through the compact image batch bridge. |
+| `image_batch_records` | Python-side image records flushed through compact image batch bridges, including transformed sprite records. |
 | `image_batch_flushes` | Python-side compact image batch bridge calls. |
+| `image_batch_max_records` | Largest image batch flushed in the current counter window; sprite fields should usually coalesce into large batches. |
 | `image_batch_fallbacks` | Image records replayed through legacy per-image calls because the native batch ABI was unavailable. |
 
 When the installed Rust canvas exposes native counters, the Python report also
@@ -59,7 +61,10 @@ Native diagnostics may also include GPU render-loop counters:
 `retained_batch_cache_hits`, `retained_batch_cache_misses`,
 `retained_batch_cache_evictions`, and `retained_batch_reused_bytes`.
 Allocations should grow with peak frame demand rather than with every frame;
-uploads and batches track actual draw work.
+uploads and batches track actual draw work. Use max-record counters together
+with flush counters: a recovered dense primitive or sprite scene should show a
+small number of flushes and a large largest-batch value, not one flush per local
+style or transform change.
 
 Canvas benchmark subprocesses flatten the same native counters into their JSON
 `metrics` payload so interactive FPS samples can be correlated with renderer
@@ -75,26 +80,44 @@ unique layouts have been shaped.
 ## Primitive Batch Boundaries
 
 The Python canvas adapter may queue simple `rect()`, `triangle()`, `ellipse()`,
-and `circle()` calls into compact primitive batches when a native
-`batch_primitives` ABI is available. Queues are ordered; switching between
-primitive, line, text, image, pixel, clip, background/clear, state stack,
-transform, resize, frame-end, present, close, 3D/model, or CPU fallback paths
-must flush pending batches before continuing.
+`circle()`, and compatible `line()` calls into compact primitive batches when a
+native batch ABI is available. The current preferred path is a mixed primitive
+batch that carries each record's kind, coordinates, resolved style, and 2D
+affine transform so small local style/matrix changes do not force one bridge
+call per shape. Queues are ordered; switching between primitive, line, text,
+image, pixel, clip, background/clear, state stack, resize, frame-end, present,
+close, 3D/model, or CPU fallback paths must flush pending batches before
+continuing.
 
 Fill-only compact primitive batches use the procedural GPU path when all
 records can be represented as rect, triangle, or axis-aligned ellipse
 instances. The shader expands each record to a quad on the GPU and applies
 analytic triangle or ellipse coverage in the fragment stage, avoiding per-frame
-CPU generation of rectangle vertices or 64-segment ellipse meshes. Rotated or
-sheared rectangles/ellipses keep the existing vertex fallback so transformed
-output remains correct.
+CPU generation of rectangle vertices or 64-segment ellipse meshes. Mixed batches
+may combine fill-only, stroked, fill+stroke, and line records and use procedural
+instances where possible while falling back to vertex-expanded records for cases
+that require it. Rotated or sheared rectangles/ellipses keep the existing vertex
+fallback so transformed output remains correct.
 
-Image draws may similarly queue through `batch_canvas_images`. The Rust runtime
-can pack small compatible image batches into an internal atlas texture so
-alternating sprites from a small texture set remain ordered while avoiding one
-GPU image batch per sprite. Internal stress paths may use compact binary sprite
-records for repeated image handles and motion terms so dynamic sprite batches
-avoid per-sprite Python tuple allocation while preserving the public image API.
+Image draws may similarly queue through `batch_canvas_images_transformed` or the
+older matrix-grouped `batch_canvas_images` bridge. The transformed path carries
+each sprite's own affine matrix, destination rectangle, optional source
+rectangle, tint/sampling/blend style, and Rust image handle, so sketches that use
+`with pushed(): translate(); rotate(); image(...)` can still produce one large
+ordered batch. The Rust runtime can pack small compatible image batches into an
+internal atlas texture so alternating sprites from a small texture set remain
+ordered while avoiding one GPU image batch per sprite. Internal stress paths may
+use compact binary sprite records for repeated image handles and motion terms so
+dynamic sprite batches avoid per-sprite Python tuple allocation while preserving
+the public image API.
+
+Text batching is also layered. Direct glyphon/cosmic-text rendering is used for
+untransformed default-font text when ordering permits a contiguous text segment.
+Large overlays or later text after intervening images/primitives/effects should
+use the cached line-texture path, but those cached line images can now be packed
+into ordered atlas-backed image batches instead of one texture draw/upload per
+label. `text_widths()` should use the batch metric path for shared style rather
+than one bridge call per string.
 
 Retained reuse is layered. Static compact primitive batches keep a retained
 native batch key and replay shared instance/vertex payloads after warmup.
@@ -131,10 +154,10 @@ when the effect shape is supported by the GPU path.
 | `ADD` / `REPLACE` blend modes | Fixed-function GPU pipelines | Low synchronization pressure | Prefer these modes over destination-sampling modes in hot animation loops when they express the same visual result. |
 | Destination-sampling blend modes such as `MULTIPLY`, `SCREEN`, `DIFFERENCE`, `EXCLUSION`, `DARKEST`, and `LIGHTEST` on supported filled ellipses | Ordered GPU shader region pass | Extra render pass and canvas texture snapshot, but no CPU read/merge/upload | Keep shapes simple and unclipped when these modes are used in hot animation loops. |
 | `erase()` / `no_erase()` drawing | CPU compositing fallback | Requires alpha-modifying pixel work | Prefer normal alpha drawing unless erasure semantics are required. |
-| Loaded images drawn unchanged | Cached texture path | First draw uploads, later draws reuse | Reuse `Image` objects and avoid per-frame mutation. |
-| Mutated images drawn each frame | Texture upload path | Uploads changed image data | Batch mutations or draw with primitives when possible. |
-| Rotated/scaled images | GPU texture path when cached; CPU fallback when unsupported | First texture upload, then draw cost | Reuse images; avoid changing pixels while transforming. |
-| Text drawing and metrics | Glyphon-backed GPU text path for untransformed default-font text when direct text remains one contiguous ordered segment; cached line-texture fallback for later text after intervening primitives/images/effects; Rust metric cache, bulk text calls, and repeated clear+text frame reuse | First unique glyph/layout use is expensive; mixed text/primitive/text ordering may switch later text to the line-texture path to avoid multiple mutable glyphon atlas passes | Reuse text strings/styles, prefer `text_batch()` / `text_widths()` for dense overlays, and validate text before and after primitives/images when changing renderer batching. |
+| Loaded images drawn unchanged | Cached texture path with transformed image batching when sprites share compatible style | First draw uploads, later draws reuse; batches carry per-record transform/source data | Reuse `Image` objects and avoid per-frame mutation. |
+| Mutated images drawn each frame | Texture upload path within ordered image batches | Uploads changed image data while preserving batch shape for unchanged sprites | Batch mutations or draw with primitives when possible. |
+| Rotated/scaled images | GPU texture/atlas path when cached; CPU fallback when unsupported | First texture upload, then draw cost; transformed batches avoid one flush per local matrix | Reuse images; avoid changing pixels while transforming. |
+| Text drawing and metrics | Glyphon-backed GPU text path for untransformed default-font text when direct text remains one contiguous ordered segment; batched cached line-texture atlas fallback for later text or large overlays; Rust metric cache, bulk text calls, and repeated clear+text frame reuse | First unique glyph/layout use is expensive; mixed text/primitive/text ordering may switch later text to the line-texture atlas path to avoid multiple mutable glyphon atlas passes | Reuse text strings/styles, prefer `text_batch()` / `text_widths()` for dense overlays, and validate text before and after primitives/images when changing renderer batching. |
 | `load_pixels()` / `pixels()` | Readback plus list conversion | Synchronizes canvas data and allocates Python list | Use `load_pixel_bytes()` for bytes workflows. |
 | `load_pixel_bytes()` | Byte readback | Synchronizes canvas data but does not populate `context.pixels` | Keep data as `bytes`/`memoryview` and pass it back to bulk APIs when possible. |
 | `update_pixels()` | Full or dirty-region pixel upload | Buffer-like inputs reach Rust through the Python buffer protocol; list inputs are copied for compatibility | Use `bytes`, `bytearray`, `memoryview`, or the `PixelBuffer` returned by `load_pixels()`; prefer dirty row-aligned updates over full-canvas uploads. |

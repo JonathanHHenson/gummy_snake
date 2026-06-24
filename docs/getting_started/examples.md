@@ -15,6 +15,7 @@ Useful starting points:
 - `examples/05_interaction/input_state.py`
 - `examples/08_3d/webgl_scene.py`
 - `examples/09_performance/sixty_fps_load_showcase.py`
+- `examples/09_performance/nature_of_code_attractor.py`
 - `examples/09_performance/lorenz_attractor_3d.py`
 - `examples/games/asteroids.py`
 
@@ -23,7 +24,8 @@ Pythonic APIs: decorators, async loaders, property facades, and context
 managers.
 The performance examples are good starting points when you want to see dense
 public drawing loops using `gs.fast()`, internal primitive batching, sprite
-batching, or retained WEBGL model drawing while targeting 60 FPS.
+batching, Nature of Code-style particle forces, or retained WEBGL model drawing
+while targeting 60 FPS.
 
 Run an example interactively:
 

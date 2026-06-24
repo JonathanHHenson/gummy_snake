@@ -50,12 +50,14 @@ Use normal global-mode calls in simple sketches and setup code. Use local
 bindings or `gs.fast()` in loops that issue hundreds or thousands of primitive,
 image, or text-measurement calls per frame.
 
-Current optimized hot paths include compact primitive, line, and image batches;
-procedural GPU instances for supported fill-only primitives; retained replay for
-static unchanged command streams; direct Rust shape/clip finalization; and
-retained GPU model buffers for supported WEBGL draws. Preserve the public API
-shape while keeping these paths visible through renderer diagnostics when
-changing code from the renderer performance epics.
+Current optimized hot paths include compact line batches, mixed primitive
+batches with per-record style/transform data, transformed sprite/image atlas
+batches, batched cached-text atlas fallback for ordered overlays, procedural GPU
+instances for supported fill-only primitives, retained replay for static
+unchanged command streams, direct Rust shape/clip finalization, and retained GPU
+model buffers for supported WEBGL draws. Preserve the public API shape while
+keeping these paths visible through renderer diagnostics when changing code from
+the renderer performance epics.
 
 ## Pixels And Images
 

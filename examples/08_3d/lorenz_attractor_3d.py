@@ -131,7 +131,7 @@ def draw() -> None:
     eye_x = math.cos(orbit) * 430
     eye_z = math.sin(orbit) * 430
 
-    gs.camera(eye_x, -95, eye_z, 0, 0, 0, 0, 1, 0)
+    gs.camera(eye_x, 0, eye_z, 0, 0, 0, 0, 1, 0)
     gs.background(4, 7, 16)
     gs.ambient_light(38)
     gs.directional_light(135, 170, 255, -0.35, -0.65, -1.0)
@@ -141,11 +141,6 @@ def draw() -> None:
         gs.specular_material(96, 214, 244)
         gs.shininess(42)
         gs.model(ATTRACTOR)
-
-    with gs.pushed():
-        gs.translate(0, 150)
-        gs.ambient_material(18, 28, 45)
-        gs.plane(620, 180)
 
     save_once(ARGS, frame, gs.save_canvas)
 

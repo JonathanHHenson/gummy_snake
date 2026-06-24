@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 import sys
 from pathlib import Path
+from time import perf_counter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -18,6 +19,7 @@ PRIMITIVE_LAYERS = 6
 PRIMITIVES_PER_LAYER = 1_000
 SPRITE_COUNT = 800
 SPRITE_TYPES = 6
+FPS_SMOOTHING = 0.12
 
 OUTPUT = Path("examples/output/09_performance/sixty_fps_load_showcase.png")
 ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
@@ -25,6 +27,8 @@ ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
 primitive_layers: list[list[tuple[float, float, float]]] = []
 sprite_terms: list[tuple[int, float, float, float, float]] = []
 sprites: list[gs.Image] = []
+fps_last_time: float | None = None
+fps_value = float(TARGET_FPS)
 
 palette = [
     (74, 144, 226, 105),
@@ -54,6 +58,21 @@ def _make_sprite(seed: int, color: tuple[int, int, int]) -> gs.Image:
             alpha = int(255 * edge * sparkle)
             image.set(x, y, (*color, alpha))
     return image
+
+
+def _update_fps() -> float:
+    global fps_last_time, fps_value
+    now = perf_counter()
+    if fps_last_time is None:
+        fps_last_time = now
+        return fps_value
+    elapsed = now - fps_last_time
+    fps_last_time = now
+    if elapsed <= 0.0:
+        return fps_value
+    instant_fps = 1.0 / elapsed
+    fps_value += (instant_fps - fps_value) * FPS_SMOOTHING
+    return fps_value
 
 
 def _prepare_scene() -> None:
@@ -97,6 +116,7 @@ def setup() -> None:
 @gs.draw
 def draw() -> None:
     frame = gs.frame_count()
+    fps = _update_fps()
     draw_fast = gs.fast()
     gs.background(5, 8, 18)
     gs.no_stroke()
@@ -128,7 +148,7 @@ def draw() -> None:
         32,
     )
     gs.text(
-        f"frame {frame} | batched public drawing paths",
+        f"fps {fps:5.1f} | batched public drawing paths",
         24,
         HEIGHT - 24,
     )

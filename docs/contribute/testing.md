@@ -62,27 +62,33 @@ presentation is the runtime performance acceptance path. Headless/offscreen
 numbers are useful for export diagnostics, but they are not the canvas runtime
 performance standard. Each run reports frames per second plus the canvas size,
 pixel density, backend mode, Python version, platform, and renderer metrics.
-The metrics payload includes command/draw counts, primitive and image batches,
-vertex-buffer allocations/uploads, texture uploads and cache hits, text cache
-hits/misses, pixel readbacks/uploads, GPU region-effect passes, presented frame
-counts, and CPU fallback counts. Every normal canvas benchmark scenario must
-average at least 240 FPS. High-count primitive and sprite stress variants use a
-60 FPS stress target for explicitly named 10k/50k draw-count stress cases. The
-separate high-count primitive suite runs 10k, 50k, and 100k static retained-batch
-scenes behind `--run-high-count-benchmarks -k high_count`. A below-threshold
-failure is an optimization signal, not a reason to loosen the benchmark.
+The metrics payload includes command/draw counts, primitive and image batch
+records, flush counts, largest coalesced batch sizes, vertex-buffer
+allocations/uploads, texture uploads and cache hits, text cache hits/misses,
+pixel readbacks/uploads, GPU region-effect passes, presented frame counts, and
+CPU fallback counts. Every normal canvas benchmark scenario must average at
+least 240 FPS. Recovered regression variants from epics 246-250 should keep
+additional margin where practical: dense primitives around 320 FPS mean and
+cached/transformed images, upload churn, sprite/text overlays, and mixed
+text/pixel scenes around 300 FPS mean on the baseline machine class. High-count
+primitive and sprite stress variants use a 60 FPS stress target for explicitly
+named 10k/50k draw-count stress cases. The separate high-count primitive suite
+runs 10k, 50k, and 100k static retained-batch scenes behind
+`--run-high-count-benchmarks -k high_count`. A below-threshold failure is an
+optimization signal, not a reason to loosen the benchmark.
 
 Use the suite when changing renderer hot paths, image upload/cache behavior,
 pixel readback/update behavior, text measurement, frame scheduling, or native
 canvas packaging. The current scenarios cover sparse and dense primitive
-drawing, compact line and image batches, procedural fill-only primitive
-instances, retained static command-stream replay, 10k/50k/100k primitive stress
-scenes, cached image drawing with default linear and nearest sampling, 10k/50k
-sprite stress scenes, per-frame image upload churn, blend modes, erasing,
-transformed images, text, 1k label overlays, mixed sprite/text overlays, pixel
+drawing, compact line batches, mixed primitive batches, transformed image/sprite
+batches, procedural fill-only primitive instances, retained static command-stream
+replay, 10k/50k/100k primitive stress scenes, cached image drawing with default
+linear and nearest sampling, 10k/50k sprite stress scenes, per-frame image upload
+churn, blend modes, erasing, transformed images, text, 1k label overlays,
+ordered cached-text atlas fallback, mixed sprite/text overlays, pixel
 readback/upload, dirty-region pixel updates, no-op pixel upload skips, mixed
-text/pixel readback work, a deterministic game-style scene, and a software 3D
-prototype scene.
+text/pixel readback work, a deterministic game-style scene, and software/retained
+3D scenes.
 The mixed text/pixel benchmark intentionally exercises readback/update
 boundaries; keep bulk pixel mutations in Rust or a Rust/GPU region path instead
 of reintroducing Python per-pixel loops into the measured hot path.
@@ -116,9 +122,10 @@ its fallback boundaries.
 Checked-in baseline snapshots live in `tests/benchmark/baselines/` as TOML.
 Each baseline records the command, machine/configuration, commit, canvas size,
 pixel density, backend mode, frame count or iteration count, and whether GPU
-availability is known. Canvas baselines also record the required 240 FPS floor
-and whether each captured scenario met it. To compare an optimization branch,
-run the same command on the same machine, compare each scenario's mean/min/max
+availability is known. Canvas baselines also record the required 240 FPS floor,
+whether each captured scenario met it, and any documented margin target for
+recovered variants. To compare an optimization branch, run the same command on
+the same machine, compare each scenario's mean/min/max
 against the matching baseline, and describe material changes as percentages. Do
 not compare absolute FPS or nanosecond values across different machines, OS
 versions, Python versions, build modes, or power/thermal states.
