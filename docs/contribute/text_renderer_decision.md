@@ -20,6 +20,8 @@ The public Python API should not expose `glyphon` or `cosmic-text` types. Python
 continues to call `text()`, `text_width()`, `text_ascent()`, `text_descent()`,
 and font/style setters through `SketchContext` and `CanvasRenderer`; the Rust
 canvas runtime owns the layout cache, glyph atlas, metrics, and draw batches.
+Metrics and `text_bounds()` must always reflect the same Python style revision
+that subsequent `text()` drawing will use.
 
 ## Compared Options
 
@@ -35,12 +37,13 @@ canvas runtime owns the layout cache, glyph atlas, metrics, and draw batches.
    `wgpu 25` renderer.
 2. The GPU renderer owns the `FontSystem`, `SwashCache`, `TextAtlas`,
    `TextRenderer`, viewport, and shaped text buffer cache.
-3. Untransformed default-font text commands use glyphon batches that preserve
-   ordering with primitives, images, erase, blend shader passes, and region
-   effects.
+3. Untransformed default-font text commands use glyphon batches when they can be
+   encoded as a single contiguous ordered glyphon text segment.
 4. The existing cached line-texture path remains as the internal fallback for
-   custom font paths, transformed text, clips, erasing, and other unsupported
-   cases.
+   custom font paths, transformed text, clips, erasing, and later text that
+   follows intervening primitives, images, blend shader passes, or region
+   effects. This preserves draw order without queuing multiple glyphon text
+   passes that can mutate shared atlas/cache state before earlier passes render.
 5. Metrics remain Rust-owned and cached. Default text drawing and cached glyph
    rendering share the Rust runtime boundary, while future work can route all
    custom-font metrics through glyphon once custom font registration is wired.
@@ -52,7 +55,7 @@ Required validation for the migration:
 - deterministic headless render tests for alignment, baseline, multiline text,
   font size, font path/name fallback, and HiDPI scaling
 - Unicode shaping tests where suitable fonts are available in CI
-- ordering tests for text before and after primitives/images
+- ordering tests for text before primitives/images and later text after intervening primitives/images
 - `mixed_text_pixels` and `text_only` benchmark checks for reduced texture
   uploads and text/image batches
 - export/readback tests proving saved PNGs match the offscreen render target

@@ -249,6 +249,20 @@ Renderer diagnostics expose `text_cache_hits`, `text_cache_misses`,
 `text_cache_evictions`, and `text_measurements`. Dynamic counters or labels
 should increase misses and eventually evictions without unbounded cache growth.
 
+Text metrics must be measured with the same style revision that will be used for
+drawing. After native/window synchronization, Python may still mutate
+`StyleState`; do not use Rust current-style metric shortcuts unless the Python
+style object and revision match the synced current style. Otherwise,
+`text_width()`, ascent/descent, and `text_bounds()` can diverge from subsequent
+`text()` rendering.
+
+The headless GPU text path uses glyphon for untransformed default-font text when
+all direct glyphon text commands can remain in a single contiguous ordered text
+segment. If later text follows intervening primitives, images, blend/effect
+passes, clips, or other command families, route that later text through the
+cached line-texture path so draw order is preserved without queuing multiple
+glyphon text passes against the same mutable atlas state.
+
 `load_pixels()` remains the list-based pixel API. `load_pixel_bytes()`
 is the lower-copy readback path for effects that can work with bytes, and
 `update_pixels()` accepts buffer-like inputs such as `bytes`, `bytearray`, and

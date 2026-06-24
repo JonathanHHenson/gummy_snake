@@ -90,10 +90,13 @@ where observable draw order is preserved. Mixed primitive and image/text GPU
 commands must flush batches and restore the correct pipeline/bind groups when
 switching command families.
 Compact fill-only primitive batches may use procedural GPU instance commands
-for rects, triangles, and axis-aligned ellipses/circles. Unsupported transforms
-must keep the general vertex path. Ordered image batches may use atlas-backed
-GPU draws, and unchanged static command streams may be retained and reused
-across frames.
+for rects, triangles, and axis-aligned ellipses/circles. Compatible line runs
+and image runs may also batch through compact Rust records. Unsupported
+transforms must keep the general vertex path. Ordered image batches may use
+atlas-backed GPU draws, and unchanged static command streams may be retained and
+reused across frames. Text, primitives, images, pixel effects, and blend/effect
+passes may be segmented internally, but the segmentation must preserve visible
+draw order and keep primitives/images/text visible after family switches.
 
 The current canvas drawing boundary is stateful. `SketchContext` still validates
 Gummy Snake semantics and owns Python-facing conversion objects, but mutable
@@ -169,3 +172,9 @@ transform/projection, depth testing, texture sampling, and built-in material
 shading when GPU drawing is available. Fallback software-3D projected
 coordinates are logical canvas coordinates and must be scaled by pixel density
 before any direct GPU primitive fallback submission.
+
+Pixel update and shape paths are also part of the renderer boundary. Exact fresh
+pixel-byte re-uploads should be skipped, dirty `PixelBuffer` ranges should use
+bounded Rust region uploads where possible, and captured `begin_shape()` buffers
+should finalize directly into Rust draw/clip commands instead of being
+materialized as Python vertex lists on normal paths.

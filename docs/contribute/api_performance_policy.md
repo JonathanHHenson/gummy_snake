@@ -50,15 +50,23 @@ Use normal global-mode calls in simple sketches and setup code. Use local
 bindings or `gs.fast()` in loops that issue hundreds or thousands of primitive,
 image, or text-measurement calls per frame.
 
+Current optimized hot paths include compact primitive, line, and image batches;
+procedural GPU instances for supported fill-only primitives; retained replay for
+static unchanged command streams; direct Rust shape/clip finalization; and
+retained GPU model buffers for supported WEBGL draws. Preserve the public API
+shape while keeping these paths visible through renderer diagnostics when
+changing code from the renderer performance epics.
+
 ## Pixels And Images
 
 Prefer renderer-native drawing over full-canvas pixel workflows. Use
 `load_pixel_bytes()` for readback when a bytes-like RGBA buffer is sufficient.
 Use `update_pixels()` with `bytes`, `bytearray`, or `memoryview` for uploads;
 these route through the Rust canvas buffer-protocol path without first forcing a
-Python `bytes(...)` copy. The `PixelBuffer` returned by `load_pixels()` tracks a
-dirty byte range, and row-aligned changes can upload as a Rust region update
-instead of a full-canvas upload.
+Python `bytes(...)` copy. Re-uploading the exact fresh `load_pixel_bytes()`
+payload is a no-op and should be skipped by the runtime. The `PixelBuffer`
+returned by `load_pixels()` tracks a dirty byte range, and row-aligned changes
+can upload as a Rust region update instead of a full-canvas upload.
 Images are backed by Rust-managed `CanvasImage` handles. Mutating image pixels
 is supported and keeps storage in Rust, but repeated per-frame mutations should
 still be treated as texture-update work.
@@ -90,6 +98,8 @@ Counters use public terms:
 - `pixel_readback`: reading canvas pixels back to Python.
 - `pixel_list_conversion`: materializing or consuming Python pixel lists.
 - `pixel_upload`: sending a full pixel buffer to the canvas.
+- `pixel_noop_upload_skip`: skipping an exact fresh pixel-byte re-upload.
+- `pixel_region_upload`: sending a dirty `PixelBuffer` region instead of a full canvas.
 - `texture_upload`: drawing a new or changed Python `Image`.
 - `texture_cache_hit`: drawing an unchanged Python `Image` already seen.
 - `cpu_compositing_fallback`: using a canvas helper that copies pixels through

@@ -123,20 +123,26 @@ For pixel effects, `load_pixels()` returns a list-based pixel buffer and
 `load_pixel_bytes()` provides a bytes readback path; `update_pixels()` accepts
 lists and buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.
 Buffer-like uploads use the Rust canvas buffer-protocol path without an
-intermediate Python `bytes(...)` copy, and dirty row-aligned changes to the
-`PixelBuffer` returned by `load_pixels()` can upload as smaller Rust regions.
-Small canvas `get()` and `set()` region operations use Rust region calls instead
-of reconstructing the full canvas as a Python image.
+intermediate Python `bytes(...)` copy, exact no-op byte uploads are skipped, and
+dirty row-aligned changes to the `PixelBuffer` returned by `load_pixels()` can
+upload as smaller Rust regions. Small canvas `get()` and `set()` region
+operations use Rust region calls instead of reconstructing the full canvas as a
+Python image.
 For dense drawing loops, `gs.fast()` returns a frame-local facade that keeps
 public style/transform state while reducing global-mode dispatch overhead.
-Fill-only rectangles, triangles, circles, and axis-aligned ellipses can batch
-into compact Rust commands and use procedural GPU instance paths; unsupported
-transforms fall back to the general vertex path without changing public API
-behavior. Sprite-heavy loops can batch through the Rust image path, including an
-internal atlas path for ordered draws from a small texture set.
+Fill-only rectangles, triangles, circles, axis-aligned ellipses, compatible line
+runs, and repeated image draws can batch into compact Rust commands. Supported
+primitive batches use procedural GPU instance paths; static unchanged command
+streams can be retained and reused; unsupported transforms fall back to the
+general vertex path without changing public API behavior. Sprite-heavy loops can
+batch through the Rust image path, including an internal atlas path for ordered
+draws from a small texture set.
 Text-heavy overlays can use `text_batch()` and `text_widths()` to submit many
-labels or measurements with fewer Python calls while staying on the Rust/GPU
-text path.
+labels or measurements with fewer Python calls while staying on the Rust-owned
+text path. The renderer keeps `text_width()`, ascent/descent, and
+`text_bounds()` consistent with the current style used for drawing, and it mixes
+GPU glyph-atlas text with cached line-texture fallback internally when that is
+needed to preserve ordered output around intervening shapes or images.
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel
 conversion, upload, direct model/shape draw, GPU vertex-buffer, texture cache,
 GPU blend/region-effect passes, glyphon-backed text drawing, and CPU

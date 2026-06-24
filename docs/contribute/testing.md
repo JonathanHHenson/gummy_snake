@@ -75,11 +75,14 @@ failure is an optimization signal, not a reason to loosen the benchmark.
 Use the suite when changing renderer hot paths, image upload/cache behavior,
 pixel readback/update behavior, text measurement, frame scheduling, or native
 canvas packaging. The current scenarios cover sparse and dense primitive
-drawing, 10k/50k/100k primitive stress scenes, cached image drawing with default
-linear and nearest sampling, 10k/50k sprite stress scenes, per-frame image upload
-churn, blend modes, erasing, transformed images, text, 1k label overlays, mixed
-sprite/text overlays, pixel readback/upload, mixed text/pixel readback work, a
-deterministic game-style scene, and a software 3D prototype scene.
+drawing, compact line and image batches, procedural fill-only primitive
+instances, retained static command-stream replay, 10k/50k/100k primitive stress
+scenes, cached image drawing with default linear and nearest sampling, 10k/50k
+sprite stress scenes, per-frame image upload churn, blend modes, erasing,
+transformed images, text, 1k label overlays, mixed sprite/text overlays, pixel
+readback/upload, dirty-region pixel updates, no-op pixel upload skips, mixed
+text/pixel readback work, a deterministic game-style scene, and a software 3D
+prototype scene.
 The mixed text/pixel benchmark intentionally exercises readback/update
 boundaries; keep bulk pixel mutations in Rust or a Rust/GPU region path instead
 of reintroducing Python per-pixel loops into the measured hot path.
@@ -134,17 +137,20 @@ uv run pytest tests/stress --run-stress -q -s
 ```
 
 Run these before releases and when changing canvas resize, shutdown, image
-texture caching, text/font caching, pixel readback/upload, or CPU/GPU fallback
-boundaries. The current scenarios churn transient images, dynamic text, repeated
-pixel readback/upload, repeated resize, repeated close/recreate, and CPU
-fallback paths. They assert cache/counter behavior and basic state consistency;
-they are not FPS benchmarks.
+texture caching, text/font caching, pixel readback/upload, direct shape/clip
+finalization, or CPU/GPU fallback boundaries. The current scenarios churn
+transient images, dynamic text, repeated pixel readback/upload, repeated resize,
+repeated close/recreate, and CPU fallback paths. They assert cache/counter
+behavior and basic state consistency; they are not FPS benchmarks.
 
 ## Test Style
 
 Prefer deterministic tests:
 
 - Use bounded headless runs with `max_frames` for sketch behavior.
+- Include pixel-sampling regressions for renderer ordering bugs, especially text
+  before primitives/images followed by later text, primitives after text/images,
+  and HiDPI-sensitive fallback paths.
 - Use fake canvas modules or fake runtime objects for capability and event edge
   cases.
 - Assert public behavior instead of private implementation details when the

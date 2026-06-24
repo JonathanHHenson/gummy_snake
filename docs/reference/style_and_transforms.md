@@ -84,3 +84,11 @@ as native metadata without adding overhead when disabled.
 Use `text_batch()` and `text_widths()` for dense label overlays where many
 strings share the current style and transform. They keep the Python API
 Pythonic while reducing per-label dispatch overhead.
+
+Text metrics use the active text style at the time they are called. For example,
+`text_bounds(value, x, y)` returns bounds for the same size, font, and alignment
+state that a following `text(value, x, y)` call will use unless your sketch
+changes style in between. Headless and interactive rendering both preserve draw
+order when text is mixed with shapes or images; the renderer may choose a GPU
+text path or an internal cached line-texture fallback to keep the visible result
+consistent.

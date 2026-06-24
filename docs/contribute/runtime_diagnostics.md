@@ -134,7 +134,7 @@ when the effect shape is supported by the GPU path.
 | Loaded images drawn unchanged | Cached texture path | First draw uploads, later draws reuse | Reuse `Image` objects and avoid per-frame mutation. |
 | Mutated images drawn each frame | Texture upload path | Uploads changed image data | Batch mutations or draw with primitives when possible. |
 | Rotated/scaled images | GPU texture path when cached; CPU fallback when unsupported | First texture upload, then draw cost | Reuse images; avoid changing pixels while transforming. |
-| Text drawing and metrics | Glyphon-backed GPU text path for untransformed default-font text, with cached shaped buffers, a GPU glyph atlas, Rust metric cache, bulk text calls, and repeated clear+text frame reuse | First unique glyph/layout use is expensive; mixed text then primitive drawing exercises GPU pipeline switching | Reuse text strings/styles, prefer `text_batch()` / `text_widths()` for dense overlays, and validate primitives after text when changing renderer batching. |
+| Text drawing and metrics | Glyphon-backed GPU text path for untransformed default-font text when direct text remains one contiguous ordered segment; cached line-texture fallback for later text after intervening primitives/images/effects; Rust metric cache, bulk text calls, and repeated clear+text frame reuse | First unique glyph/layout use is expensive; mixed text/primitive/text ordering may switch later text to the line-texture path to avoid multiple mutable glyphon atlas passes | Reuse text strings/styles, prefer `text_batch()` / `text_widths()` for dense overlays, and validate text before and after primitives/images when changing renderer batching. |
 | `load_pixels()` / `pixels()` | Readback plus list conversion | Synchronizes canvas data and allocates Python list | Use `load_pixel_bytes()` for bytes workflows. |
 | `load_pixel_bytes()` | Byte readback | Synchronizes canvas data but does not populate `context.pixels` | Keep data as `bytes`/`memoryview` and pass it back to bulk APIs when possible. |
 | `update_pixels()` | Full or dirty-region pixel upload | Buffer-like inputs reach Rust through the Python buffer protocol; list inputs are copied for compatibility | Use `bytes`, `bytearray`, `memoryview`, or the `PixelBuffer` returned by `load_pixels()`; prefer dirty row-aligned updates over full-canvas uploads. |
@@ -176,9 +176,10 @@ Use a desktop build with native window support.
    ```
 
 3. Exercise `loop()`, `no_loop()`, `redraw()`, resize the SDL3 window if supported,
-   and move/press input devices for at least 30 seconds. Include a sketch that
-   draws text before primitives, such as `examples/05_interaction/lifecycle_controls.py`,
-   to validate mixed image/text and primitive GPU ordering.
+   and move/press input devices for at least 30 seconds. Include sketches that
+   draw text before primitives/images and then draw later text again, such as
+   `examples/04_text/typography_accessibility.py`, to validate mixed text and
+   primitive/image ordering.
 
 4. Inspect `frame_pacing_diagnostics()` after closing or through a debug print.
    Check that input remains responsive, close requests are observed, idle
