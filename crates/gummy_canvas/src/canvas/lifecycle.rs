@@ -292,7 +292,7 @@ impl Canvas {
 
         let should_close = runtime.should_close();
         let (logical_width, logical_height) = runtime.logical_size();
-        let pixel_density = self.pixel_density;
+        let pixel_density = runtime.display_density();
 
         if should_close {
             self.closed = true;

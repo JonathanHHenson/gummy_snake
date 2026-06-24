@@ -303,15 +303,27 @@ class FakeCanvas:
         text_size = cast(float, style["text_size"])
         return len(value) * float(text_size) * 0.5
 
+    def text_width_current(self, value: str) -> float:
+        self.calls.append(("text_width_current", value))
+        return len(value) * 6.0
+
     def text_ascent(self, style: dict[str, object]) -> float:
         self.calls.append(("text_ascent", style))
         text_size = cast(float, style["text_size"])
         return float(text_size) * 0.8
 
+    def text_ascent_current(self) -> float:
+        self.calls.append(("text_ascent_current",))
+        return 9.6
+
     def text_descent(self, style: dict[str, object]) -> float:
         self.calls.append(("text_descent", style))
         text_size = cast(float, style["text_size"])
         return float(text_size) * 0.2
+
+    def text_descent_current(self) -> float:
+        self.calls.append(("text_descent_current",))
+        return 2.4
 
     def load_pixels(self) -> bytes:
         return self.pixels

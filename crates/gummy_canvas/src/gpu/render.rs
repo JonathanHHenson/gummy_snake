@@ -361,6 +361,19 @@ impl GpuRenderer {
         &self.commands
     }
 
+    pub fn can_append_glyphon_text_command(&self) -> bool {
+        let mut saw_text = false;
+        for command in &self.commands {
+            match command {
+                DrawCommand::Clear(_) => {}
+                DrawCommand::Text { .. } => saw_text = true,
+                _ if saw_text => return false,
+                _ => {}
+            }
+        }
+        true
+    }
+
     pub fn render_loop_counters(&self) -> (u64, u64, u64, u64, u64, f64, u64, u64, u64, u64) {
         (
             self.vertex_buffer_allocations,
@@ -1648,6 +1661,31 @@ impl GpuRenderer {
         Some((x0, y0, x1 - x0, y1 - y0))
     }
     fn encode_text_pass(&mut self, encoder: &mut wgpu::CommandEncoder, commands: &[DrawCommand]) {
+        if !self.prepare_text_areas(commands) {
+            return;
+        }
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("gummy_canvas glyphon text pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.texture_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+        let _ = self
+            .text_renderer
+            .render(&self.text_atlas, &self.text_viewport, &mut pass);
+        drop(pass);
+        self.text_atlas.trim();
+    }
+
+    fn prepare_text_areas(&mut self, commands: &[DrawCommand]) -> bool {
         self.text_viewport.update(
             &self.queue,
             glyphon::Resolution {
@@ -1709,10 +1747,9 @@ impl GpuRenderer {
             });
         }
         if areas.is_empty() {
-            return;
+            return false;
         }
-        if self
-            .text_renderer
+        self.text_renderer
             .prepare(
                 &self.device,
                 &self.queue,
@@ -1722,29 +1759,7 @@ impl GpuRenderer {
                 areas,
                 &mut self.text_swash_cache,
             )
-            .is_err()
-        {
-            return;
-        }
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("gummy_canvas glyphon text pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &self.texture_view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        });
-        let _ = self
-            .text_renderer
-            .render(&self.text_atlas, &self.text_viewport, &mut pass);
-        drop(pass);
-        self.text_atlas.trim();
+            .is_ok()
     }
 
     fn primitive_pipeline(&self, blend_mode: BlendMode) -> &wgpu::RenderPipeline {

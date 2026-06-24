@@ -121,6 +121,41 @@ def test_transform_contexts_do_not_reuse_stale_fill_payloads():
             assert center == blended_fill(row, col)
 
 
+def test_text_before_later_primitive_and_centered_text_is_not_clipped():
+    background = (248, 245, 238)
+    blue = (36, 126, 180)
+
+    def setup():
+        gs.create_canvas(720, 360)
+
+    def draw():
+        gs.background(*background)
+        gs.no_stroke()
+        gs.fill(*blue)
+        gs.text_size(15)
+        gs.text("text_width: 182.8", 44, 210)
+
+        gs.text_align(gs.TextAlign.CENTER, gs.TextAlign.CENTER)
+        gs.fill(238)
+        gs.rect(485, 120, 170, 82)
+        gs.fill(28, 32, 42)
+        gs.text("CENTER", 570, 161)
+        gs.text_align(gs.LEFT, gs.BASELINE)
+
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    pixels = context.load_pixel_bytes()
+    width = context.width
+    prefix_pixels = []
+    for y in range(190, 220):
+        for x in range(44, 70):
+            offset = (y * width + x) * 4
+            red, green, blue_channel, alpha = pixels[offset : offset + 4]
+            if blue_channel > red and blue_channel > green and alpha > 0:
+                prefix_pixels.append((x, y))
+
+    assert prefix_pixels
+
+
 def test_custom_shape_and_bezier_render():
     def setup():
         gs.create_canvas(40, 40)

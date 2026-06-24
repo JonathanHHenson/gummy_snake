@@ -583,6 +583,10 @@ impl Canvas {
             && style.blend_mode_kind == BlendMode::Blend
             && style.text_font_path.is_none()
             && matrix == (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+            && self
+                .gpu
+                .as_ref()
+                .is_none_or(|gpu| gpu.can_append_glyphon_text_command())
     }
 
     pub(crate) fn draw_gpu_blend_ellipse(

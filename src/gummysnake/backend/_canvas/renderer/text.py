@@ -56,9 +56,12 @@ class CanvasRendererTextMixin:
         _renderer(self)._flush_line_batch_only()
         _renderer(self)._flush_primitive_batch_only()
         _renderer(self)._flush_image_batch()
+        renderer = _renderer(self)
         current = (
-            getattr(_renderer(self)._require_canvas(), "text_width_current", None)
-            if getattr(_renderer(self), "_rust_style_synced", True)
+            getattr(renderer._require_canvas(), "text_width_current", None)
+            if getattr(renderer, "_rust_style_synced", True)
+            and getattr(renderer, "_current_style_id", None) == id(style)
+            and getattr(renderer, "_current_style_revision", None) == style.revision
             else None
         )
         if callable(current):
@@ -80,9 +83,12 @@ class CanvasRendererTextMixin:
         _renderer(self)._flush_line_batch_only()
         _renderer(self)._flush_primitive_batch_only()
         _renderer(self)._flush_image_batch()
+        renderer = _renderer(self)
         current = (
-            getattr(_renderer(self)._require_canvas(), "text_ascent_current", None)
-            if getattr(_renderer(self), "_rust_style_synced", True)
+            getattr(renderer._require_canvas(), "text_ascent_current", None)
+            if getattr(renderer, "_rust_style_synced", True)
+            and getattr(renderer, "_current_style_id", None) == id(style)
+            and getattr(renderer, "_current_style_revision", None) == style.revision
             else None
         )
         if callable(current):
@@ -102,9 +108,12 @@ class CanvasRendererTextMixin:
         _renderer(self)._flush_line_batch_only()
         _renderer(self)._flush_primitive_batch_only()
         _renderer(self)._flush_image_batch()
+        renderer = _renderer(self)
         current = (
-            getattr(_renderer(self)._require_canvas(), "text_descent_current", None)
-            if getattr(_renderer(self), "_rust_style_synced", True)
+            getattr(renderer._require_canvas(), "text_descent_current", None)
+            if getattr(renderer, "_rust_style_synced", True)
+            and getattr(renderer, "_current_style_id", None) == id(style)
+            and getattr(renderer, "_current_style_revision", None) == style.revision
             else None
         )
         if callable(current):

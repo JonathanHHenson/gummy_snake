@@ -101,6 +101,35 @@ def test_canvas_renderer_converts_style_color_and_transform_payloads() -> None:
     assert call[4] is False
 
 
+def test_text_metrics_do_not_use_stale_current_style_after_native_sync() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    style = StyleState()
+    renderer.set_current_style(style)
+    style.text_size = 18.0
+    style.mark_changed()
+    renderer._rust_style_synced = True
+
+    width = renderer.text_width("bounds", style)
+    ascent = renderer.text_ascent(style)
+    descent = renderer.text_descent(style)
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    assert width == 54.0
+    assert ascent == 14.4
+    assert descent == 3.6
+    assert ("text_width_current", "bounds") not in canvas.calls
+    assert ("text_ascent_current",) not in canvas.calls
+    assert ("text_descent_current",) not in canvas.calls
+    assert canvas.calls[-3][0] == "text_width"
+    assert canvas.calls[-3][2]["text_size"] == 18.0
+    assert canvas.calls[-2][0] == "text_ascent"
+    assert canvas.calls[-2][1]["text_size"] == 18.0
+    assert canvas.calls[-1][0] == "text_descent"
+    assert canvas.calls[-1][1]["text_size"] == 18.0
+
+
 def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(8, 8)
