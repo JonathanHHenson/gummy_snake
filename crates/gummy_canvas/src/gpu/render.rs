@@ -347,16 +347,6 @@ impl GpuRenderer {
         clear
     }
 
-    #[allow(dead_code)]
-    pub fn has_pending_image_commands(&self) -> bool {
-        self.commands.iter().any(|command| {
-            matches!(
-                command,
-                DrawCommand::Image { .. } | DrawCommand::ImageBatch { .. }
-            )
-        })
-    }
-
     pub fn pending_commands(&self) -> &[DrawCommand] {
         &self.commands
     }

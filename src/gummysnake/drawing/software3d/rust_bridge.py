@@ -10,9 +10,15 @@ from gummysnake.drawing.renderer3d import (
     Light3D,
     Material3D,
     Model3D,
-    PerspectiveProjection,
     Projection3D,
     _model_rust_handle,
+)
+from gummysnake.drawing.software3d.payloads import (
+    camera_payload,
+    light_payloads,
+    material_payload,
+    model_transform_payload,
+    projection_payload,
 )
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -37,57 +43,11 @@ def rust_project_shade_faces(
     from gummysnake.rust.canvas import require_canvas_runtime
 
     runtime = require_canvas_runtime()
-    camera_payload = {
-        "eye": (camera.eye.x, camera.eye.y, camera.eye.z),
-        "target": (camera.target.x, camera.target.y, camera.target.z),
-        "up": (camera.up.x, camera.up.y, camera.up.z),
-    }
-    if isinstance(projection, PerspectiveProjection):
-        projection_payload: dict[str, Any] = {
-            "kind": "perspective",
-            "fov_y": projection.fov_y,
-            "aspect": projection.aspect,
-            "near": projection.near,
-            "far": projection.far,
-        }
-    else:
-        projection_payload = {
-            "kind": "orthographic",
-            "width": projection.width,
-            "height": projection.height,
-            "near": projection.near,
-            "far": projection.far,
-        }
-    material_payload = {
-        "base_color": base_material.base_color,
-        "emissive_color": base_material.emissive_color,
-        "specular_color": base_material.specular_color,
-        "shininess": base_material.shininess,
-    }
-    light_payloads = [
-        {
-            "kind": light.kind.value,
-            "color": light.color,
-            "intensity": light.intensity,
-            "position": None
-            if light.position is None
-            else (light.position.x, light.position.y, light.position.z),
-            "direction": None
-            if light.direction is None
-            else (light.direction.x, light.direction.y, light.direction.z),
-        }
-        for light in lights
-    ]
-    transform_payload: tuple[float, float, float, float, float, float] | None = None
-    if model_transform is not None and model_transform != Matrix2D.identity():
-        transform_payload = (
-            model_transform.a,
-            model_transform.b,
-            model_transform.c,
-            model_transform.d,
-            model_transform.e,
-            model_transform.f,
-        )
+    camera_data = camera_payload(camera)
+    projection_data = projection_payload(projection)
+    material_data = material_payload(base_material)
+    lights_data = light_payloads(lights)
+    transform_payload = model_transform_payload(model_transform)
 
     handle = _model_rust_handle(model)
     direct_project = getattr(runtime, "project_shade_model_handle", None)
@@ -96,12 +56,12 @@ def rust_project_shade_faces(
             return list(
                 direct_project(
                     handle,
-                    camera_payload,
-                    projection_payload,
+                    camera_data,
+                    projection_data,
                     viewport_width,
                     viewport_height,
-                    material_payload,
-                    light_payloads,
+                    material_data,
+                    lights_data,
                     normal_material,
                     cull_backfaces,
                     transform_payload,
@@ -153,12 +113,12 @@ def rust_project_shade_faces(
         return list(
             runtime.project_shade_faces(
                 meshes,
-                camera_payload,
-                projection_payload,
+                camera_data,
+                projection_data,
                 viewport_width,
                 viewport_height,
-                material_payload,
-                light_payloads,
+                material_data,
+                lights_data,
                 normal_material,
                 cull_backfaces,
             )

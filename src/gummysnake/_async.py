@@ -59,13 +59,33 @@ def call_maybe_async[T](callback: Callable[..., T | Awaitable[T]], *args: Any) -
 def call_maybe_async_with_optional_args[T](
     callback: Callable[..., T | Awaitable[T]], *args: Any
 ) -> T:
-    """Call callback with args, falling back to no args before awaiting."""
+    """Call callback with optional args without masking callback-internal TypeErrors."""
 
-    try:
+    accepts_args = _accepts_positional_args(callback, len(args)) if args else False
+    if accepts_args is True:
         value = callback(*args)
-    except TypeError:
+    elif accepts_args is False:
         value = callback()
+    else:
+        try:
+            value = callback(*args)
+        except TypeError:
+            value = callback()
     return resolve_maybe_awaitable(value)
+
+
+def _accepts_positional_args(callback: Callable[..., Any], count: int) -> bool | None:
+    try:
+        signature = inspect.signature(callback)
+    except (TypeError, ValueError):
+        return None
+    positional_capacity = 0
+    for parameter in signature.parameters.values():
+        if parameter.kind is parameter.VAR_POSITIONAL:
+            return True
+        if parameter.kind in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD):
+            positional_capacity += 1
+    return positional_capacity >= count
 
 
 async def run_blocking_io[T](callback: Callable[..., T], *args: Any, **kwargs: Any) -> T:

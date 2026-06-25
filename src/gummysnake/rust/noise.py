@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from gummysnake.rust.acceleration import accelerated
+from gummysnake.rust.acceleration import acceleration_provider
 from gummysnake.rust.validation import validate_noise_octaves
 
 
@@ -27,8 +27,9 @@ def noise_3d(
     octaves = int(octaves)
     falloff = float(falloff)
     validate_noise_octaves(octaves)
-    if prefer_accelerated and accelerated is not None:
-        return float(accelerated.noise3(x, y, z, seed, octaves, falloff))
+    provider = acceleration_provider(prefer_accelerated)
+    if provider is not None:
+        return float(provider.noise3(x, y, z, seed, octaves, falloff))
     return noise_3d_python(x, y, z, seed=seed, octaves=octaves, falloff=falloff)
 
 

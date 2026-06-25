@@ -1,4 +1,5 @@
 import math
+import random as py_random
 import runpy
 from pathlib import Path
 
@@ -143,6 +144,35 @@ def test_random_and_noise_are_seedable():
     sample = gs.noise(0.5, 0.25)
     gs.noise_seed(42)
     assert gs.noise(0.5, 0.25) == sample
+
+
+def test_random_seed_controls_all_gummy_snake_random_helpers_without_stdlib_mutation():
+    gs.random_seed(321)
+    first = (
+        gs.random(),
+        gs.random_gaussian(),
+        gs.shuffle([1, 2, 3, 4]),
+        gs.Vector.random_2d().tuple(),
+        gs.Vector.random_3d().tuple(),
+    )
+    gs.random_seed(321)
+    second = (
+        gs.random(),
+        gs.random_gaussian(),
+        gs.shuffle([1, 2, 3, 4]),
+        gs.Vector.random_2d().tuple(),
+        gs.Vector.random_3d().tuple(),
+    )
+    assert first == second
+
+    py_random.seed(2468)
+    expected = [py_random.random() for _ in range(3)]
+    py_random.seed(2468)
+    gs.random_seed(999)
+    gs.random()
+    gs.shuffle([1, 2, 3, 4])
+    gs.Vector.random_2d()
+    assert [py_random.random() for _ in range(3)] == expected
 
 
 def test_data_helpers_round_trip(tmp_path: Path):

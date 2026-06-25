@@ -16,6 +16,17 @@ _noise_octaves = 4
 _noise_falloff = 0.5
 
 
+def shared_rng() -> _random.Random:
+    """Return Gummy Snake's package-local RNG.
+
+    This is intentionally separate from Python's module-level ``random`` state so
+    ``random_seed()`` controls Gummy Snake helpers without mutating user code's
+    own RNGs.
+    """
+
+    return _random_generator
+
+
 def random_seed(seed: int | float | str | bytes | bytearray | None) -> None:
     _random_generator.seed(seed)
 

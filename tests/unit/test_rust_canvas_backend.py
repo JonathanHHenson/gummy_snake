@@ -226,13 +226,15 @@ def test_canvas_backend_frame_pacing_diagnostics_are_opt_in(
     assert reset["frames"] == 0
 
 
-def test_canvas_next_frame_delay_skips_missed_frames() -> None:
+def test_canvas_frame_time_advancement_skips_missed_frames() -> None:
     backend = CanvasBackend.__new__(CanvasBackend)
     backend._next_frame_time = 0.0
     interval = 1.0 / 60.0
 
-    first_delay = backend._next_frame_delay(0.002, interval)
-    delayed = backend._next_frame_delay(0.250, interval)
+    backend._advance_next_frame_time(0.002, interval)
+    first_delay = max(0.0, backend._next_frame_time - 0.002)
+    backend._advance_next_frame_time(0.250, interval)
+    delayed = max(0.0, backend._next_frame_time - 0.250)
 
     assert first_delay == interval - 0.002
     assert 0.0 < delayed <= interval

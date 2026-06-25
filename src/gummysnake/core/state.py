@@ -369,25 +369,11 @@ class InputState:
     def pointer_lock_mode(self, value: c.PointerLockMode | str) -> None:
         self._rust.pointer_lock_mode = c.PointerLockMode(str(value)).value
 
-    @property
-    def pressed_keys(self) -> InputState:
-        return self
+    def set_key_down(self, key_code: int, pressed: bool) -> None:
+        self._rust.set_key_down(int(key_code), bool(pressed))
 
-    @property
-    def pressed_codes(self) -> InputState:
-        return self
-
-    def add(self, value: int | str) -> None:
-        if isinstance(value, int):
-            self._rust.set_key_down(value, True)
-        else:
-            self._rust.set_code_down(value, True)
-
-    def discard(self, value: int | str) -> None:
-        if isinstance(value, int):
-            self._rust.set_key_down(value, False)
-        else:
-            self._rust.set_code_down(value, False)
+    def set_code_down(self, code: str, pressed: bool) -> None:
+        self._rust.set_code_down(str(code), bool(pressed))
 
     def update_mouse(
         self, x: float, y: float, *, dx: float | None = None, dy: float | None = None

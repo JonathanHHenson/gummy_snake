@@ -79,7 +79,10 @@ pixel list conversion, pixel upload, texture upload/cache hits, and CPU
 compositing fallback helpers such as canvas `get()`, `set()`, and `filter()`.
 Small canvas `get(x, y)`, `get(x, y, w, h)`, and `set(...)` operations route
 through Rust region APIs and avoid reconstructing a full Python `Image` for
-region work. Full-canvas `load_pixels()` remains a full physical-buffer readback.
+region work. Full-canvas `load_pixels()` remains a full physical-buffer readback
+and returns `gummysnake.pixels.PixelBuffer`, a mutable byte buffer that preserves
+list-like slice/equality behavior while tracking dirty regions for efficient
+`update_pixels()` uploads when supported by the runtime.
 
 Renderer/runtime counters are available separately:
 
@@ -113,8 +116,9 @@ timings.
 `save_frames()` writes a deterministic numbered sequence from the current canvas
 state. Patterns may use `{index}`, `{frame}`, or `{frame_count}` placeholders;
 without placeholders, files are named with a zero-padded suffix. `save_gif()`
-encodes captured frames as an animated GIF when the optional Pillow-backed media
-dependency is installed, otherwise it raises `BackendCapabilityError`.
+uses the Rust canvas runtime to encode an animated GIF from the current canvas
+image; `count` repeats that captured image and `duration` controls the total
+animation duration.
 
 ## Data and Text Assets
 

@@ -2,6 +2,7 @@ import pytest
 
 from gummysnake import Sketch
 from gummysnake.events.input_state import KeyboardEvent
+from gummysnake.plugins.base import LifecycleHookName
 
 
 class CounterSketch(Sketch):
@@ -29,6 +30,8 @@ def test_sketch_lifecycle_runs_in_order():
     assert context.width == 20
     assert context.height == 20
     assert context.frame_count == 3
+    assert sketch._running is False
+    assert context.backend._running is False
 
 
 def test_no_loop_prevents_draw_frames():
@@ -132,6 +135,100 @@ def test_async_event_callback_is_awaited():
     context.dispatch_keyboard_event(KeyboardEvent(key="a", key_code=65, type="key_pressed"))
 
     assert sketch.events == [("a", 65)]
+
+
+def test_draw_exception_runs_frame_cleanup_without_incrementing_frame_count():
+    class FailingDrawSketch(Sketch):
+        def __init__(self):
+            super().__init__()
+            self.cleanup: list[str] = []
+
+        def setup(self):
+            self.create_canvas(10, 10)
+            context = self.context
+            assert context is not None
+            original_renderer_end_frame = context.renderer.end_frame
+            original_context_end_frame = context.end_frame
+
+            def renderer_end_frame():
+                self.cleanup.append("renderer_end_frame")
+                original_renderer_end_frame()
+
+            def context_end_frame():
+                self.cleanup.append("context_end_frame")
+                original_context_end_frame()
+
+            context.renderer.end_frame = renderer_end_frame
+            context.end_frame = context_end_frame
+
+        def draw(self):
+            self.cleanup.append("draw")
+            raise RuntimeError("draw failed")
+
+    sketch = FailingDrawSketch()
+
+    with pytest.raises(RuntimeError, match="draw failed"):
+        sketch.run(max_frames=1)
+
+    assert sketch.cleanup == ["draw", "renderer_end_frame", "context_end_frame"]
+    assert sketch.context is not None
+    assert sketch.context.frame_count == 0
+    assert sketch._running is False
+    assert sketch.context.backend._running is False
+
+
+def test_after_draw_plugin_exception_runs_frame_cleanup_without_incrementing_frame_count(
+    monkeypatch,
+):
+    class FailingPluginHookSketch(Sketch):
+        def __init__(self):
+            super().__init__()
+            self.cleanup: list[str] = []
+
+        def setup(self):
+            self.create_canvas(10, 10)
+            context = self.context
+            assert context is not None
+            original_dispatch_lifecycle = context.plugins.dispatch_lifecycle
+            original_renderer_end_frame = context.renderer.end_frame
+            original_context_end_frame = context.end_frame
+
+            def dispatch_lifecycle(hook_name, context):
+                if hook_name is LifecycleHookName.AFTER_DRAW:
+                    self.cleanup.append("after_draw_hook")
+                    raise RuntimeError("plugin failed")
+                original_dispatch_lifecycle(hook_name, context)
+
+            def renderer_end_frame():
+                self.cleanup.append("renderer_end_frame")
+                original_renderer_end_frame()
+
+            def context_end_frame():
+                self.cleanup.append("context_end_frame")
+                original_context_end_frame()
+
+            monkeypatch.setattr(context.plugins, "dispatch_lifecycle", dispatch_lifecycle)
+            context.renderer.end_frame = renderer_end_frame
+            context.end_frame = context_end_frame
+
+        def draw(self):
+            self.cleanup.append("draw")
+
+    sketch = FailingPluginHookSketch()
+
+    with pytest.raises(RuntimeError, match="plugin failed"):
+        sketch.run(max_frames=1)
+
+    assert sketch.cleanup == [
+        "draw",
+        "after_draw_hook",
+        "renderer_end_frame",
+        "context_end_frame",
+    ]
+    assert sketch.context is not None
+    assert sketch.context.frame_count == 0
+    assert sketch._running is False
+    assert sketch.context.backend._running is False
 
 
 def test_async_event_callback_type_error_is_not_retried_without_event():

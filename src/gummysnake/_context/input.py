@@ -130,15 +130,9 @@ class InputContextMixin:
         if pressed is not None:
             self.state.input.key_is_pressed = pressed
         if event.key_code is not None and pressed is not None:
-            if pressed:
-                self.state.input.pressed_keys.add(event.key_code)
-            else:
-                self.state.input.pressed_keys.discard(event.key_code)
+            self.state.input.set_key_down(event.key_code, pressed)
         if event.code is not None and pressed is not None:
-            if pressed:
-                self.state.input.pressed_codes.add(event.code)
-            else:
-                self.state.input.pressed_codes.discard(event.code)
+            self.state.input.set_code_down(event.code, pressed)
 
     def dispatch_keyboard_event(self, event: KeyboardEvent) -> None:
         pressed = None

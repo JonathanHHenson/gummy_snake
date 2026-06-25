@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Buffer, Callable, Sequence
-from importlib import import_module
 from pathlib import Path
 from typing import Any, cast, overload
 
@@ -11,21 +10,23 @@ from gummysnake import constants as c
 from gummysnake._context.helpers import blend_args, copy_ints, rgba_bytes
 from gummysnake.assets.image import Image
 from gummysnake.core.color import Color
-from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.pixels import PixelBuffer
+from gummysnake.pixels._buffer import dirty_pixel_region
 
 
 class PixelContextMixin:
     renderer: Any
     state: Any
     backend: Any
-    pixels: Sequence[int]
+    pixels: Sequence[int] | Buffer
     _last_pixel_bytes: bytes | None
 
     def _record_performance_diagnostic(self, _name: str) -> None: ...
 
     def _mark_style_changed(self) -> None: ...
 
-    def load_pixels(self) -> list[int]:
+    def load_pixels(self) -> PixelBuffer:
         self._record_performance_diagnostic("pixel_readback")
         self._record_performance_diagnostic("pixel_list_conversion")
         pixels = self.renderer.load_pixels()
@@ -39,7 +40,6 @@ class PixelContextMixin:
         return pixels
 
     def update_pixels(self, pixels: Sequence[int] | Buffer | None = None) -> None:
-        self._record_performance_diagnostic("pixel_upload")
         if pixels is not None:
             if (
                 isinstance(pixels, memoryview)
@@ -62,15 +62,16 @@ class PixelContextMixin:
                     clear_dirty = getattr(pixels, "clear_dirty", None)
                     if callable(clear_dirty):
                         clear_dirty()
-                    self.pixels = pixels if isinstance(pixels, Sequence) else bytes(pixels)
+                    self.pixels = pixels
                     return
             if isinstance(pixels, Sequence) and not isinstance(
                 pixels, bytes | bytearray | memoryview
             ):
                 self._record_performance_diagnostic("pixel_list_conversion")
-            self.pixels = pixels if isinstance(pixels, Sequence) else bytes(pixels)
+            self.pixels = pixels
         if not self.pixels:
             self.load_pixels()
+        self._record_performance_diagnostic("pixel_upload")
         self.renderer.update_pixels(self.pixels)
 
     def _update_dirty_pixel_range(
@@ -78,49 +79,31 @@ class PixelContextMixin:
         pixels: Sequence[int] | Buffer,
         dirty: tuple[int, int],
     ) -> bool:
-        start, end = dirty
-        if end <= start:
-            return True
-        width = self.state.canvas.physical_width
-        height = self.state.canvas.physical_height
-        total = width * height * 4
-        pixel_data = cast(Any, pixels)
-        if width <= 0 or len(pixel_data) != total:
+        try:
+            buffer_length = len(cast(Any, pixels))
+        except TypeError:
             return False
-        start_pixel = max(0, start // 4)
-        end_pixel = min(width * height, (end + 3) // 4)
-        if end_pixel <= start_pixel:
+        region = dirty_pixel_region(
+            buffer_length,
+            int(self.state.canvas.physical_width),
+            int(self.state.canvas.physical_height),
+            dirty,
+        )
+        if not region.valid:
+            return False
+        if region.empty:
             return True
-        start_row, start_col = divmod(start_pixel, width)
-        end_row, end_col = divmod(end_pixel - 1, width)
-        payload = memoryview(cast(Buffer, pixels))
-        if start_row == end_row:
-            region_x = start_col
-            region_y = start_row
-            region_width = end_col - start_col + 1
-            byte_start = (start_row * width + start_col) * 4
-            byte_end = byte_start + region_width * 4
-            region = payload[byte_start:byte_end]
-            self.renderer.update_pixel_region(
-                region,
-                region_width,
-                1,
-                region_x,
-                region_y,
-                alpha_composite=False,
-            )
-            return True
-        region_y = start_row
-        region_height = end_row - start_row + 1
-        byte_start = start_row * width * 4
-        byte_end = (end_row + 1) * width * 4
-        region = payload[byte_start:byte_end]
+        try:
+            payload = memoryview(cast(Buffer, pixels))[region.byte_slice]
+        except TypeError:
+            return False
+        self._record_performance_diagnostic("pixel_region_upload")
         self.renderer.update_pixel_region(
-            region,
-            width,
-            region_height,
-            0,
-            region_y,
+            payload,
+            region.width,
+            region.height,
+            region.x,
+            region.y,
             alpha_composite=False,
         )
         return True
@@ -261,7 +244,7 @@ class PixelContextMixin:
         )
 
     def pixel_array(self) -> list[list[tuple[int, int, int, int]]]:
-        pixels = self.pixels or self.load_pixels()
+        pixels = cast(Sequence[int], self.pixels or self.load_pixels())
         width = self.state.canvas.physical_width
         rows: list[list[tuple[int, int, int, int]]] = []
         for row_start in range(0, len(pixels), width * 4):
@@ -354,13 +337,6 @@ class PixelContextMixin:
             output = output.with_suffix(".gif")
         if output.exists() and not overwrite:
             raise ArgumentValidationError(f"Refusing to overwrite existing file: {output!s}.")
-        try:
-            pil_image = import_module("PIL.Image")
-        except ImportError as exc:
-            raise BackendCapabilityError(
-                "save_gif() requires the optional media/image dependency that provides Pillow. "
-                "Install Gummy Snake with the media extra before exporting animated GIFs."
-            ) from exc
         if count <= 0:
             raise ArgumentValidationError("save_gif() count must be positive.")
         frame_duration_ms = int(
@@ -370,18 +346,8 @@ class PixelContextMixin:
                 else float(duration) * 1000.0 / count
             )
         )
-        pixels = self.load_pixel_bytes()
-        size = (self.state.canvas.physical_width, self.state.canvas.physical_height)
-        frame = cast(Any, pil_image).frombytes("RGBA", size, pixels)
-        frames = [frame.copy() for _ in range(count)]
         output.parent.mkdir(parents=True, exist_ok=True)
-        frames[0].save(
-            output,
-            save_all=True,
-            append_images=frames[1:],
-            duration=frame_duration_ms,
-            loop=0,
-        )
+        self.renderer.save_gif(output, count, frame_duration_ms)
         return output
 
     def blend_mode(self, mode: c.BlendMode) -> None:

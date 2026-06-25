@@ -31,6 +31,13 @@ _PERFORMANCE_DIAGNOSTIC_MESSAGES = {
         "Pixel upload: this operation sends a full RGBA buffer back to the canvas. "
         "Use bytes-like inputs for lower Python overhead."
     ),
+    "pixel_region_upload": (
+        "Pixel region upload: this operation sends only the dirty PixelBuffer region "
+        "back to the canvas."
+    ),
+    "pixel_noop_upload_skip": (
+        "Pixel upload skipped: the payload was the exact fresh load_pixel_bytes() result."
+    ),
     "texture_cache_hit": "Image texture cache hit: the image version was already seen.",
     "texture_upload": (
         "Texture upload/cache miss: the image was new or mutated since the last draw. "

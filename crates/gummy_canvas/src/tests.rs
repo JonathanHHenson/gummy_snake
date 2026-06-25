@@ -62,6 +62,21 @@ fn set_pixel_rgba_updates_one_pixel_and_ignores_out_of_bounds() {
 }
 
 #[test]
+fn canvas_save_gif_writes_gif_file() {
+    let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    canvas.background((10, 20, 30, 255));
+    let path =
+        std::env::temp_dir().join(format!("gummy_canvas_test_{}_save.gif", std::process::id()));
+    let path_string = path.to_string_lossy().to_string();
+
+    canvas.save_gif(&path_string, 2, 50).unwrap();
+
+    let bytes = std::fs::read(&path).unwrap();
+    assert!(bytes.starts_with(b"GIF"));
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn performance_counters_track_and_reset_runtime_paths() {
     let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
     canvas

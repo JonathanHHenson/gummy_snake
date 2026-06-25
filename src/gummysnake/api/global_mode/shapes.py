@@ -24,30 +24,10 @@ _PRIMITIVE_ELLIPSE = 3
 
 
 def _queue_fill_primitive(context: Any, kind: int, coords: tuple[float, ...]) -> bool:
-    style = context.state.style
-    fill = style.fill_color
-    renderer = context.renderer
-    if (
-        fill is None
-        or style.stroke_color is not None
-        or style.erasing
-        or style.blend_mode != c.BLEND
-        or getattr(renderer, "_canvas", None) is None
-        or not callable(getattr(renderer._canvas, "batch_fill_primitives", None))
-    ):
+    queue = getattr(context.renderer, "queue_fill_primitive_fast_path", None)
+    if not callable(queue):
         return False
-    matrix = renderer._matrix_payload(context.state.transform.matrix)
-    if renderer._line_batch or renderer._text_batch:
-        renderer._flush_line_batch()
-    renderer._flush_image_batch()
-    if renderer._primitive_batch and (
-        renderer._primitive_batch_mode != "fill" or renderer._primitive_batch_matrix is not matrix
-    ):
-        renderer._flush_primitive_batch_only()
-    renderer._primitive_batch.append((kind, *coords, *fill.to_tuple()))
-    renderer._primitive_batch_matrix = matrix
-    renderer._primitive_batch_mode = "fill"
-    return True
+    return bool(queue(kind, coords, context.state.style, context.state.transform.matrix))
 
 
 @overload

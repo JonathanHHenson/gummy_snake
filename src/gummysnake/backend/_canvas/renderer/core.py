@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
 from collections.abc import Callable
 from time import perf_counter
 from typing import Any, cast
 
 from gummysnake import constants as c
 from gummysnake.backend._canvas.renderer._protocols import CanvasRendererHost
+from gummysnake.backend._canvas.renderer.caches import LruCache
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
@@ -17,10 +17,10 @@ from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityErro
 _TEXT_METRIC_CACHE_LIMIT = 256
 _STYLE_PAYLOAD_CACHE_LIMIT = 256
 _MATRIX_PAYLOAD_CACHE_LIMIT = 256
-_IMAGE_VERSION_CACHE_LIMIT = 1024
 _NATIVE_EVENT_PUMP_INTERVAL_SECONDS = 1.0 / 60.0
 _PERFORMANCE_COUNTER_KEYS = (
     "gpu_draws",
+    "gpu_blend_commands",
     "gpu_region_effect_passes",
     "cpu_fallbacks",
     "pixel_readbacks",
@@ -109,8 +109,7 @@ class CanvasRendererCore:
         self.physical_height = 0
         self.pixel_density = 1.0
         self.renderer_mode: c.RendererMode = c.P2D
-        self._image_cache_versions: OrderedDict[int, int] = OrderedDict()
-        self._text_metric_cache: OrderedDict[TextMetricKey, float] = OrderedDict()
+        self._text_metric_cache = LruCache[TextMetricKey, float](_TEXT_METRIC_CACHE_LIMIT)
         self._style_payload_cache: dict[int, tuple[StyleState, int, dict[str, object]]] = {}
         self._style_payload_generation = 0
         self._matrix_payload_cache: dict[int, tuple[Matrix2D, MatrixPayload]] = {}
@@ -132,7 +131,6 @@ class CanvasRendererCore:
         self._text_batch: list[tuple[str, float, float]] = []
         self._text_batch_style: dict[str, object] | None = None
         self._text_batch_matrix: MatrixPayload | None = None
-        self._text_batch_current = False
         self._image_batch: list[ImageBatchRecord] = []
         self._image_batch_style: dict[str, object] | None = None
         self._image_batch_matrix: MatrixPayload | None = None
@@ -544,20 +542,11 @@ class CanvasRendererCore:
     ) -> float:
         cached = self._text_metric_cache.get(key)
         if cached is not None:
-            self._text_metric_cache.move_to_end(key)
             self._count("text_cache_hits")
             return cached
         self._count("text_cache_misses")
         self._count("text_measurements")
         value = float(self._call(operation, callback, *args))
-        self._text_metric_cache[key] = value
-        if len(self._text_metric_cache) > _TEXT_METRIC_CACHE_LIMIT:
-            self._text_metric_cache.popitem(last=False)
+        if self._text_metric_cache.set(key, value):
             self._count("text_cache_evictions")
         return value
-
-    def _remember_image_cache_version(self, image_key: int, version: int) -> None:
-        self._image_cache_versions[image_key] = version
-        self._image_cache_versions.move_to_end(image_key)
-        while len(self._image_cache_versions) > _IMAGE_VERSION_CACHE_LIMIT:
-            self._image_cache_versions.popitem(last=False)

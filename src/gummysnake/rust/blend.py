@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from gummysnake.rust.acceleration import accelerated
+from gummysnake.rust.acceleration import acceleration_provider
 from gummysnake.rust.validation import ByteBuffer, validate_same_length
 
 
@@ -17,8 +17,9 @@ def exclusion_blend_rgb(
     base_bytes = bytes(base)
     overlay_bytes = bytes(overlay)
     validate_same_length(base_bytes, overlay_bytes)
-    if prefer_accelerated and accelerated is not None:
-        return bytes(accelerated.exclusion_blend_rgb(base_bytes, overlay_bytes))
+    provider = acceleration_provider(prefer_accelerated)
+    if provider is not None:
+        return bytes(provider.exclusion_blend_rgb(base_bytes, overlay_bytes))
     return exclusion_blend_rgb_bytes(base_bytes, overlay_bytes)
 
 

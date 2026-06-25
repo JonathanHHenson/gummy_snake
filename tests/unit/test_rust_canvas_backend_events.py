@@ -311,9 +311,35 @@ def test_canvas_backend_dispatches_touch_events_with_logical_coordinates(
     assert (touch.x, touch.y) == (12, 3)
     assert (touch.previous_x, touch.previous_y) == (10, 5)
     assert touch.pressure == 0.75
+    assert touch.timestamp is None
 
     backend._dispatch_canvas_event(sketch, {"type": "touch_ended", "id": 7, "x": 24, "y": 6})
     assert sketch.context.touches == []
+
+
+def test_canvas_backend_dispatches_logical_touch_events_without_density_scaling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+
+    backend._dispatch_canvas_event(
+        sketch,
+        {
+            "type": "touch_started",
+            "id": 8,
+            "x": 20,
+            "y": 10,
+            "pressure": 0.25,
+            "phase": "started",
+            "timestamp": 1.25,
+            "coordinates": "logical",
+        },
+    )
+
+    assert sketch.context is not None
+    touch = sketch.context.touches[0]
+    assert (touch.x, touch.y) == (20, 10)
+    assert touch.timestamp == 1.25
 
 
 def test_canvas_backend_handles_resize_events(monkeypatch: pytest.MonkeyPatch) -> None:

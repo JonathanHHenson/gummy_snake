@@ -17,6 +17,15 @@ if TYPE_CHECKING:
     from gummysnake.sketch import Sketch
 
 _TEXTURE_LIMIT_RE = re.compile(r"GPU texture limit of (\d+)")
+_EVENT_HANDLER_NAMES: dict[str, str] = {
+    **dict.fromkeys(canvas_events.MOUSE_EVENT_TYPES, "_dispatch_mouse_canvas_event"),
+    **dict.fromkeys(canvas_events.KEYBOARD_EVENT_TYPES, "_dispatch_keyboard_canvas_event"),
+    **dict.fromkeys(canvas_events.TOUCH_EVENT_TYPES, "_dispatch_touch_canvas_event"),
+    "mouse_window_state": "_dispatch_mouse_window_state_event",
+    "resized": "_dispatch_resize_canvas_event",
+    "close": "_dispatch_close_canvas_event",
+    "closed": "_dispatch_close_canvas_event",
+}
 
 
 def _backend(self: object) -> CanvasBackendHost:
@@ -45,29 +54,45 @@ class CanvasBackendEventsMixin:
         context = _backend(self)._sketch_context(sketch)
         event_payload = canvas_events.event_mapping(payload)
         event_type = str(event_payload.get("type", ""))
-        if event_type in canvas_events.MOUSE_EVENT_TYPES:
-            context.dispatch_mouse_event(self._mouse_event(event_payload))
-            return
-        if event_type == "mouse_window_state":
-            context.update_mouse_inside_window(
-                canvas_events.bool_payload(event_payload, "inside_window", default=False)
-            )
-            return
-        if event_type in canvas_events.KEYBOARD_EVENT_TYPES:
-            context.dispatch_keyboard_event(self._keyboard_event(event_payload))
-            return
-        if event_type in canvas_events.TOUCH_EVENT_TYPES:
-            context.dispatch_touch_event(self._touch_event(event_payload, context))
-            return
-        if event_type == "resized":
-            self._handle_resize_event(event_payload)
-            context._sync_canvas_state()
-            return
-        if event_type in {"close", "closed"}:
-            sketch.stop()
-            _backend(self).stop()
-            return
-        raise BackendCapabilityError(f"Unsupported canvas runtime event type {event_type!r}.")
+        handler_name = _EVENT_HANDLER_NAMES.get(event_type)
+        if handler_name is None:
+            raise BackendCapabilityError(f"Unsupported canvas runtime event type {event_type!r}.")
+        handler = getattr(self, handler_name)
+        handler(sketch, context, event_payload)
+
+    def _dispatch_mouse_canvas_event(
+        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+    ) -> None:
+        context.dispatch_mouse_event(self._mouse_event(payload))
+
+    def _dispatch_mouse_window_state_event(
+        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+    ) -> None:
+        context.update_mouse_inside_window(
+            canvas_events.bool_payload(payload, "inside_window", default=False)
+        )
+
+    def _dispatch_keyboard_canvas_event(
+        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+    ) -> None:
+        context.dispatch_keyboard_event(self._keyboard_event(payload))
+
+    def _dispatch_touch_canvas_event(
+        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+    ) -> None:
+        context.dispatch_touch_event(self._touch_event(payload, context))
+
+    def _dispatch_resize_canvas_event(
+        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+    ) -> None:
+        self._handle_resize_event(payload)
+        context._sync_canvas_state()
+
+    def _dispatch_close_canvas_event(
+        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+    ) -> None:
+        sketch.stop()
+        _backend(self).stop()
 
     def _mouse_event(self, payload: Mapping[str, object]) -> MouseEvent:
         x = canvas_events.float_payload(payload, "x", default=0.0)

@@ -83,44 +83,23 @@ impl Canvas {
     ) -> PyResult<()> {
         validate_renderer(renderer)?;
         let (physical_width, physical_height) = physical_dimensions(width, height, pixel_density)?;
-        let unchanged = width == self.width
-            && height == self.height
-            && physical_width == self.physical_width
-            && physical_height == self.physical_height
-            && (pixel_density - self.pixel_density).abs() <= f64::EPSILON;
-        if unchanged {
+        if self.resize_unchanged(
+            width,
+            height,
+            pixel_density,
+            physical_width,
+            physical_height,
+        ) {
             return Ok(());
         }
-        if let Some(gpu) = self.gpu.as_mut() {
-            gpu.resize(physical_width, physical_height)
-                .map_err(PyValueError::new_err)?;
-            gpu.clear_transparent();
-            gpu.render();
-        }
-        self.width = width;
-        self.height = height;
-        self.pixel_density = pixel_density;
-        self.physical_width = physical_width;
-        self.physical_height = physical_height;
-        self.pixels = vec![0; physical_width * physical_height * 4];
-        self.present_pixels = vec![0; physical_width * physical_height];
-        self.render_dirty = false;
-        self.offscreen_dirty = false;
-        self.pixels_stale = false;
-        self.texture_stale = false;
-        self.last_reusable_text_frame_signature = None;
-        self.pending_reusable_text_frame_signature = None;
-        self.cpu_compositing_active = false;
-        self.image_text_active_this_frame = false;
-        self.cached_style_key = None;
-        self.cached_style = None;
-        self.clip_masks.clear();
-        self.clip_bounds.clear();
-        self.text_cache.clear();
-        self.text_cache_order.clear();
-        self.text_metric_cache.clear();
-        self.text_glyph_advance_cache.clear();
-        self.text_kern_cache.clear();
+        self.apply_resize_reset(
+            width,
+            height,
+            pixel_density,
+            physical_width,
+            physical_height,
+            true,
+        )?;
         if let Some(runtime) = self.runtime.as_mut() {
             runtime
                 .request_resize(width, height, pixel_density)
@@ -140,14 +119,50 @@ impl Canvas {
     ) -> PyResult<()> {
         validate_renderer(renderer)?;
         let (physical_width, physical_height) = physical_dimensions(width, height, pixel_density)?;
-        let unchanged = width == self.width
+        if self.resize_unchanged(
+            width,
+            height,
+            pixel_density,
+            physical_width,
+            physical_height,
+        ) {
+            return Ok(());
+        }
+        self.apply_resize_reset(
+            width,
+            height,
+            pixel_density,
+            physical_width,
+            physical_height,
+            false,
+        )?;
+        Ok(())
+    }
+
+    fn resize_unchanged(
+        &self,
+        width: i64,
+        height: i64,
+        pixel_density: f64,
+        physical_width: usize,
+        physical_height: usize,
+    ) -> bool {
+        width == self.width
             && height == self.height
             && physical_width == self.physical_width
             && physical_height == self.physical_height
-            && (pixel_density - self.pixel_density).abs() <= f64::EPSILON;
-        if unchanged {
-            return Ok(());
-        }
+            && (pixel_density - self.pixel_density).abs() <= f64::EPSILON
+    }
+
+    fn apply_resize_reset(
+        &mut self,
+        width: i64,
+        height: i64,
+        pixel_density: f64,
+        physical_width: usize,
+        physical_height: usize,
+        reset_image_text_active: bool,
+    ) -> PyResult<()> {
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.resize(physical_width, physical_height)
                 .map_err(PyValueError::new_err)?;
@@ -168,6 +183,9 @@ impl Canvas {
         self.last_reusable_text_frame_signature = None;
         self.pending_reusable_text_frame_signature = None;
         self.cpu_compositing_active = false;
+        if reset_image_text_active {
+            self.image_text_active_this_frame = false;
+        }
         self.cached_style_key = None;
         self.cached_style = None;
         self.clip_masks.clear();

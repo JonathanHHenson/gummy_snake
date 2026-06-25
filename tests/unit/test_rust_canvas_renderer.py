@@ -552,7 +552,9 @@ def test_canvas_renderer_forwards_captured_shape_without_python_extraction() -> 
     assert call[2]["fill"] == (10, 20, 30, 255)
     assert call[3] == (1.0, 0.0, 0.0, 1.0, 3, 4)
     assert call[4] is False
-    assert renderer.performance_counters()["shape_buffer_extractions"] == 0
+    counters = renderer.performance_counters()
+    assert counters["direct_shape_finalizations"] == 1
+    assert counters["shape_buffer_extractions"] == 0
 
 
 def test_canvas_renderer_forwards_captured_clip_without_python_extraction() -> None:
@@ -581,7 +583,9 @@ def test_canvas_renderer_forwards_captured_clip_without_python_extraction() -> N
     renderer.begin_clip_captured_shape(state, transform)
 
     assert canvas.calls[-1] == ("begin_clip_captured", state, (1.0, 0.0, 0.0, 1.0, 5, 6))
-    assert renderer.performance_counters()["shape_buffer_extractions"] == 0
+    counters = renderer.performance_counters()
+    assert counters["direct_shape_finalizations"] == 1
+    assert counters["shape_buffer_extractions"] == 0
 
 
 def test_canvas_renderer_batches_lines_with_mixed_primitives() -> None:

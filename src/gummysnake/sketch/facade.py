@@ -20,6 +20,7 @@ from gummysnake.drawing.renderer3d import (
     PerspectiveProjection,
     Shader3D,
 )
+from gummysnake.pixels import PixelBuffer
 
 Number = int | float
 ColorValue = Color | str
@@ -537,7 +538,7 @@ class SketchFacadeMixin:
     def frame_count(self) -> int:
         return self._ctx.frame_count
 
-    def load_pixels(self) -> list[int]:
+    def load_pixels(self) -> PixelBuffer:
         return self._ctx.load_pixels()
 
     def load_pixel_bytes(self) -> bytes:

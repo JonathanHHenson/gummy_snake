@@ -11,6 +11,7 @@ from gummysnake.api.current import require_context
 from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.assets.text import Font
 from gummysnake.core.color import Color
+from gummysnake.pixels import PixelBuffer
 
 
 class SupportsText(Protocol):
@@ -245,8 +246,8 @@ def grid_output() -> list[dict[str, str]]:
     return cast(list[dict[str, str]], _context_call("grid_output"))
 
 
-def load_pixels() -> list[int]:
-    return cast(list[int], _context_call("load_pixels"))
+def load_pixels() -> PixelBuffer:
+    return cast(PixelBuffer, _context_call("load_pixels"))
 
 
 def load_pixel_bytes() -> bytes:
@@ -255,7 +256,7 @@ def load_pixel_bytes() -> bytes:
 
 def pixels() -> Sequence[int]:
     context = require_context()
-    return context.pixels or context.load_pixels()
+    return cast(Sequence[int], context.pixels or context.load_pixels())
 
 
 def pixel_array() -> list[list[tuple[int, int, int, int]]]:

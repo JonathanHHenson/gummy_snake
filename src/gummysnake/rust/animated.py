@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from gummysnake.rust.acceleration import accelerated
+from gummysnake.rust.acceleration import acceleration_provider
 from gummysnake.rust.noise import noise_3d_python
 from gummysnake.rust.validation import validate_noise_octaves
 
@@ -34,9 +34,10 @@ def animated_noise_rgba(
     if density <= 0 or not math.isfinite(density):
         raise ValueError("density must be positive.")
     validate_noise_octaves(octaves)
-    if prefer_accelerated and accelerated is not None:
+    provider = acceleration_provider(prefer_accelerated)
+    if provider is not None:
         return bytes(
-            accelerated.animated_noise_rgba(width, height, density, time, seed, octaves, falloff)
+            provider.animated_noise_rgba(width, height, density, time, seed, octaves, falloff)
         )
     return animated_noise_rgba_bytes(
         width,

@@ -22,13 +22,8 @@ def _same_image_batch_style(
         return False
     ignored = {"_style_cache_key", "_style_revision"}
     return all(
-        current.get(key) == value
-        for key, value in next_style.items()
-        if key not in ignored
-    ) and all(
-        key in next_style or key in ignored
-        for key in current
-    )
+        current.get(key) == value for key, value in next_style.items() if key not in ignored
+    ) and all(key in next_style or key in ignored for key in current)
 
 
 class CanvasRendererImagesMixin:

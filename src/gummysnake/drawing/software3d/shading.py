@@ -12,12 +12,12 @@ from gummysnake.drawing.renderer3d import (
     Light3D,
     Material3D,
     Model3D,
-    PerspectiveProjection,
     Projection3D,
     Vec3,
 )
 from gummysnake.exceptions import ArgumentValidationError
 
+from .payloads import lights_cache_key, model_transform_cache_key, projection_cache_key
 from .projection import validate_projection
 from .rust_bridge import rust_project_shade_faces
 from .types import ProjectedFace, RGBAFloat, ShadedFace
@@ -52,6 +52,7 @@ def shade_model_faces(
         normal_material,
         cull_backfaces,
         cache_identity,
+        model_transform,
     )
     payload = _shaded_face_cache.get(cache_key)
     if payload is not None:
@@ -142,50 +143,22 @@ def shade_cache_key(
     normal_material: bool,
     cull_backfaces: bool,
     cache_identity: object | None = None,
+    model_transform: Matrix2D | None = None,
 ) -> tuple[object, ...]:
-    if isinstance(projection, PerspectiveProjection):
-        projection_key: tuple[object, ...] = (
-            "perspective",
-            projection.fov_y,
-            projection.aspect,
-            projection.near,
-            projection.far,
-        )
-    else:
-        projection_key = (
-            "orthographic",
-            projection.width,
-            projection.height,
-            projection.near,
-            projection.far,
-        )
-    lights_key = tuple(
-        (
-            light.kind.value,
-            light.color,
-            light.intensity,
-            None
-            if light.position is None
-            else (light.position.x, light.position.y, light.position.z),
-            None
-            if light.direction is None
-            else (light.direction.x, light.direction.y, light.direction.z),
-        )
-        for light in lights
-    )
     return (
         id(model) if cache_identity is None else cache_identity,
         camera,
-        projection_key,
+        projection_cache_key(projection),
         viewport_width,
         viewport_height,
         material.base_color,
         material.emissive_color,
         material.specular_color,
         material.shininess,
-        lights_key,
+        lights_cache_key(lights),
         normal_material,
         cull_backfaces,
+        model_transform_cache_key(model_transform),
     )
 
 

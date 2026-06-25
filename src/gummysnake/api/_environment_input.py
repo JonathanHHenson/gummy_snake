@@ -62,15 +62,25 @@ def display_height() -> int:
 
 
 def focused() -> bool:
+    """Return whether the sketch is focused.
+
+    The current canvas runtime exposes this as a portable compatibility helper:
+    headless and backend-agnostic sketches are considered focused.
+    """
+
     return True
 
 
 def cursor(_kind: str | None = None) -> None:
+    """Accept cursor changes as a portable no-op in the current canvas runtime."""
+
     # Cursor presentation is backend-owned; this is a safe no-op for portable sketches.
     return None
 
 
 def no_cursor() -> None:
+    """Accept cursor hiding as a portable no-op in the current canvas runtime."""
+
     # Cursor presentation is backend-owned; this is a safe no-op for portable sketches.
     return None
 

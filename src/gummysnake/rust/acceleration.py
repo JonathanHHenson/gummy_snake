@@ -45,10 +45,16 @@ else:
 accelerated = cast(AcceleratedModule | None, _loaded_accelerated)
 
 
+def acceleration_provider(prefer_accelerated: bool = True) -> AcceleratedModule | None:
+    """Return the active optional acceleration module when callers allow it."""
+
+    return accelerated if prefer_accelerated else None
+
+
 def is_acceleration_available() -> bool:
     """Return whether the optional compiled extension is active."""
 
-    return accelerated is not None
+    return acceleration_provider() is not None
 
 
 def acceleration_import_error() -> ImportError | None:
@@ -68,6 +74,7 @@ def health_check() -> str:
 __all__ = [
     "AcceleratedModule",
     "acceleration_import_error",
+    "acceleration_provider",
     "accelerated",
     "health_check",
     "is_acceleration_available",

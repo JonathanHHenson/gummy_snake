@@ -26,6 +26,13 @@ native window.
 - `request_pointer_lock()`
 - `exit_pointer_lock()`
 - `focused()`
+- `cursor(kind=None)`
+- `no_cursor()`
+
+`focused()` currently returns `True` as a portable canvas-runtime compatibility
+helper. `cursor()` and `no_cursor()` accept calls but are no-ops in the current
+backend-agnostic API; cursor presentation remains backend-owned until native
+runtime cursor capabilities are exposed.
 
 ## Property Facades
 

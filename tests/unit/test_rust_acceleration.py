@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from gummysnake.core import random as random_module
+from gummysnake.rust import acceleration as acceleration_module
 from gummysnake.rust import (
     animated_noise_rgba,
     benchmarks,
@@ -13,8 +14,7 @@ from gummysnake.rust import (
     noise_3d,
     noise_3d_python,
 )
-from gummysnake.rust import runtime as rust_runtime
-from gummysnake.rust.runtime import _accelerated as original_accelerated
+from gummysnake.rust.acceleration import accelerated as original_accelerated
 
 
 class FakeAccelerated:
@@ -65,7 +65,7 @@ def test_health_check_reports_fallback_or_extension() -> None:
 
 
 def test_wrappers_prefer_accelerated_module_when_available(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(rust_runtime, "_accelerated", FakeAccelerated())
+    monkeypatch.setattr(acceleration_module, "accelerated", FakeAccelerated())
 
     assert is_acceleration_available()
     assert health_check() == "fake-rust"
@@ -77,7 +77,7 @@ def test_wrappers_prefer_accelerated_module_when_available(monkeypatch: pytest.M
 
 
 def test_monkeypatch_restores_original_acceleration_module() -> None:
-    assert rust_runtime._accelerated is original_accelerated
+    assert acceleration_module.accelerated is original_accelerated
 
 
 def test_noise_acceleration_matches_python_reference_for_selected_samples() -> None:

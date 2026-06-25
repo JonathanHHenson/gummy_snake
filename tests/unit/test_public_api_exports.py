@@ -4,6 +4,16 @@ import inspect
 import re
 
 import gummysnake as gs
+import gummysnake.api.global_mode as global_mode
+from gummysnake.assets.image import ops as image_ops
+from gummysnake.drawing.software3d import transform_model
+from gummysnake.events.input_state import (
+    InputState,
+    KeyboardEvent,
+    MouseEvent,
+    TouchEvent,
+    TouchPoint,
+)
 
 _SNAKE_CASE_RE = re.compile(r"^[a-z_][a-z0-9_]*$|^[A-Z][A-Za-z0-9_]*$")
 
@@ -17,6 +27,23 @@ def test_public_function_exports_remain_snake_case_only():
                 char.islower() and next_char.isupper()
                 for char, next_char in zip(name, name[1:], strict=False)
             )
+
+
+def test_global_mode_all_exports_are_importable():
+    assert "text_batch" in global_mode.__all__
+    assert "text_widths" in global_mode.__all__
+    for name in global_mode.__all__:
+        assert hasattr(global_mode, name), name
+
+
+def test_cleanup_sensitive_compatibility_imports_remain_available():
+    assert callable(image_ops.resize_rgba)
+    assert callable(transform_model)
+    assert InputState is not None
+    assert MouseEvent is not None
+    assert KeyboardEvent is not None
+    assert TouchPoint is not None
+    assert TouchEvent is not None
 
 
 def test_removed_browser_and_p5_exports_are_absent():

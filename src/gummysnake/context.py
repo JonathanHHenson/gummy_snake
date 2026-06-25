@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Buffer, Sequence
 from typing import TYPE_CHECKING, Any
 
 from gummysnake._context.canvas import CanvasContextMixin
@@ -48,7 +48,7 @@ class SketchContext(
         self.plugins = plugins
         self.state = SketchState()
         self.state.input.touch_supported = bool(backend.capabilities.touch)
-        self.pixels: Sequence[int] = []
+        self.pixels: Sequence[int] | Buffer = []
         self._camera3d = Camera3D()
         self._projection3d: PerspectiveProjection | OrthographicProjection = PerspectiveProjection()
         self._lights3d: list[Light3D] = []

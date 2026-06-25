@@ -1,6 +1,35 @@
 use crate::*;
 
 impl Canvas {
+    fn mark_gpu_output_dirty(&mut self) {
+        self.render_dirty = true;
+        self.offscreen_dirty = true;
+        self.pixels_stale = true;
+    }
+
+    fn record_native_draw(&mut self) {
+        self.performance_counters.gpu_draws += 1;
+        self.performance_counters.native_draw_commands += 1;
+        self.mark_gpu_output_dirty();
+    }
+
+    fn record_native_draw_with_blend(&mut self, blend_mode: BlendMode) {
+        self.performance_counters.gpu_draws += 1;
+        self.performance_counters.native_draw_commands += 1;
+        if blend_mode != BlendMode::Blend {
+            self.performance_counters.gpu_blend_commands += 1;
+        }
+        self.mark_gpu_output_dirty();
+    }
+
+    fn record_native_region_effect_draw(&mut self) {
+        self.performance_counters.gpu_draws += 1;
+        self.performance_counters.native_draw_commands += 1;
+        self.performance_counters.gpu_blend_commands += 1;
+        self.performance_counters.gpu_region_effect_passes += 1;
+        self.mark_gpu_output_dirty();
+    }
+
     pub(crate) fn prepare_cpu_composite(&mut self) {
         self.flush_pending_3d_triangles();
         self.performance_counters.cpu_fallbacks += 1;
@@ -610,13 +639,7 @@ impl Canvas {
                 crate::raster::gpu_color(fill),
                 style.blend_mode_kind,
             );
-            self.performance_counters.gpu_draws += 1;
-            self.performance_counters.native_draw_commands += 1;
-            self.performance_counters.gpu_blend_commands += 1;
-            self.performance_counters.gpu_region_effect_passes += 1;
-            self.render_dirty = true;
-            self.offscreen_dirty = true;
-            self.pixels_stale = true;
+            self.record_native_region_effect_draw();
         }
         Ok(())
     }
@@ -645,11 +668,7 @@ impl Canvas {
                 line_height as f32,
                 crate::raster::gpu_color(color),
             );
-            self.performance_counters.gpu_draws += 1;
-            self.performance_counters.native_draw_commands += 1;
-            self.render_dirty = true;
-            self.offscreen_dirty = true;
-            self.pixels_stale = true;
+            self.record_native_draw();
         }
         Ok(())
     }
@@ -673,14 +692,7 @@ impl Canvas {
                 crate::raster::gpu_color(color),
                 blend_mode,
             );
-            self.performance_counters.gpu_draws += 1;
-            self.performance_counters.native_draw_commands += 1;
-            if blend_mode != BlendMode::Blend {
-                self.performance_counters.gpu_blend_commands += 1;
-            }
-            self.render_dirty = true;
-            self.offscreen_dirty = true;
-            self.pixels_stale = true;
+            self.record_native_draw_with_blend(blend_mode);
         }
         Ok(())
     }
@@ -693,14 +705,7 @@ impl Canvas {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_triangles(vertices, blend_mode);
-            self.performance_counters.gpu_draws += 1;
-            self.performance_counters.native_draw_commands += 1;
-            if blend_mode != BlendMode::Blend {
-                self.performance_counters.gpu_blend_commands += 1;
-            }
-            self.render_dirty = true;
-            self.offscreen_dirty = true;
-            self.pixels_stale = true;
+            self.record_native_draw_with_blend(blend_mode);
         }
         Ok(())
     }
@@ -714,14 +719,7 @@ impl Canvas {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_retained_triangles(key, vertices, blend_mode);
-            self.performance_counters.gpu_draws += 1;
-            self.performance_counters.native_draw_commands += 1;
-            if blend_mode != BlendMode::Blend {
-                self.performance_counters.gpu_blend_commands += 1;
-            }
-            self.render_dirty = true;
-            self.offscreen_dirty = true;
-            self.pixels_stale = true;
+            self.record_native_draw_with_blend(blend_mode);
         }
         Ok(())
     }
@@ -734,14 +732,7 @@ impl Canvas {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_primitive_instances(instances, blend_mode);
-            self.performance_counters.gpu_draws += 1;
-            self.performance_counters.native_draw_commands += 1;
-            if blend_mode != BlendMode::Blend {
-                self.performance_counters.gpu_blend_commands += 1;
-            }
-            self.render_dirty = true;
-            self.offscreen_dirty = true;
-            self.pixels_stale = true;
+            self.record_native_draw_with_blend(blend_mode);
         }
         Ok(())
     }
@@ -755,14 +746,7 @@ impl Canvas {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_retained_primitive_instances(key, instances, blend_mode);
-            self.performance_counters.gpu_draws += 1;
-            self.performance_counters.native_draw_commands += 1;
-            if blend_mode != BlendMode::Blend {
-                self.performance_counters.gpu_blend_commands += 1;
-            }
-            self.render_dirty = true;
-            self.offscreen_dirty = true;
-            self.pixels_stale = true;
+            self.record_native_draw_with_blend(blend_mode);
         }
         Ok(())
     }
@@ -780,11 +764,7 @@ impl Canvas {
                 color.a = 255;
             }
             gpu.draw_erase_triangles(vertices);
-            self.performance_counters.gpu_draws += 1;
-            self.performance_counters.native_draw_commands += 1;
-            self.render_dirty = true;
-            self.offscreen_dirty = true;
-            self.pixels_stale = true;
+            self.record_native_draw();
         }
         Ok(())
     }

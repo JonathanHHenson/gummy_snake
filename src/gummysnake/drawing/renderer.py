@@ -11,6 +11,7 @@ from gummysnake.assets.image import Image
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
+from gummysnake.pixels import PixelBuffer
 
 if TYPE_CHECKING:
     from gummysnake.assets.image import CanvasImage
@@ -164,7 +165,7 @@ class Renderer(Protocol):
 
     def text_descent(self, style: StyleState) -> float: ...
 
-    def load_pixels(self) -> list[int]: ...
+    def load_pixels(self) -> PixelBuffer: ...
 
     def load_pixel_bytes(self) -> bytes: ...
 

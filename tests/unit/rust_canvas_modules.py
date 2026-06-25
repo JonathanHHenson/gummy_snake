@@ -15,9 +15,9 @@ class TouchLike(Protocol):
     previous_x: float | None
     previous_y: float | None
     pressure: float | None
-    phase: str
-    timestamp: float
-    device: str
+    phase: str | None
+    timestamp: float | None
+    device: str | None
 
 
 class FakeSketchContextState:

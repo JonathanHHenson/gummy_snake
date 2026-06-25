@@ -14,7 +14,7 @@ math, random/noise helpers, and context managers such as `style()`,
 
 Convenience APIs preserve familiar Gummy Snake behavior even when they allocate or
 convert data. This includes global-mode dispatch, vector-like argument
-normalization, `load_pixels()` returning `list[int]`, `pixels()`, and
+normalization, `load_pixels()` returning `PixelBuffer`, `pixels()`, and
 `pixel_array()`. Document a faster Pythonic alternative when one exists.
 
 Advanced APIs are supported but may have backend-dependent costs. This includes

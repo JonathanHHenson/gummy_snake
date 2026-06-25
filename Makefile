@@ -14,7 +14,7 @@ test:
 	uv run pytest
 
 smoke:
-	uv run python examples/basic_shapes.py --headless --frames 1
+	uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1 --no-save
 
 build:
 	uv build

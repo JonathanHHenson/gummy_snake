@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 #[derive(Clone, Debug)]
 pub struct RuntimeEvent {
     pub event_type: &'static str,
@@ -168,7 +166,6 @@ impl RuntimeEvent {
         event.y = Some(y);
         event.phase = Some(phase);
         event.pressure = pressure;
-        event.timestamp = Some(Instant::now().elapsed().as_secs_f64());
         event
     }
 
@@ -183,5 +180,25 @@ impl RuntimeEvent {
         let mut event = Self::touch(event_type, touch_id, x, y, phase, pressure);
         event.coordinates = Some("logical");
         event
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RuntimeEvent;
+
+    #[test]
+    fn touch_timestamp_is_absent_when_runtime_has_no_defined_timestamp_policy() {
+        let event = RuntimeEvent::touch("touch_started", 1, 2.0, 3.0, "started", Some(0.5));
+
+        assert_eq!(event.timestamp, None);
+    }
+
+    #[test]
+    fn logical_touch_preserves_logical_coordinate_marker() {
+        let event = RuntimeEvent::logical_touch("touch_moved", 1, 2.0, 3.0, "moved", None);
+
+        assert_eq!(event.coordinates, Some("logical"));
+        assert_eq!(event.timestamp, None);
     }
 }

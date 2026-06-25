@@ -377,12 +377,6 @@ impl GpuRenderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let blend_ellipse_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas blend ellipse uniform"),
-            size: std::mem::size_of::<BlendEllipseUniform>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
         let texture_size = checked_texture_size(width, height, limits.max_texture_dimension_2d)?;
         let texture = create_offscreen_texture(&device, texture_size);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -397,13 +391,6 @@ impl GpuRenderer {
             &pixel_prefix_texture_view,
             &texture_sampler,
             &pixel_prefix_uniform_buffer,
-        );
-        let blend_ellipse_bind_group = create_pixel_prefix_bind_group(
-            &device,
-            &pixel_prefix_bind_group_layout,
-            &pixel_prefix_texture_view,
-            &texture_sampler,
-            &blend_ellipse_uniform_buffer,
         );
         let clip_texture = create_clip_texture(&device, &queue, 1, 1, &[255, 255, 255, 255]);
         let clip_texture_view = clip_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -457,11 +444,9 @@ impl GpuRenderer {
             model_uniform_capacity,
             pixel_prefix_bind_group_layout,
             pixel_prefix_uniform_buffer,
-            blend_ellipse_uniform_buffer,
             pixel_prefix_texture,
             pixel_prefix_texture_view,
             pixel_prefix_bind_group,
-            blend_ellipse_bind_group,
             image_bind_group_layout,
             clip_bind_group_layout,
             texture_bind_group_layout: present_texture_bind_group_layout,
@@ -560,13 +545,6 @@ impl GpuRenderer {
             &self.pixel_prefix_texture_view,
             &self.texture_sampler,
             &self.pixel_prefix_uniform_buffer,
-        );
-        self.blend_ellipse_bind_group = create_pixel_prefix_bind_group(
-            &self.device,
-            &self.pixel_prefix_bind_group_layout,
-            &self.pixel_prefix_texture_view,
-            &self.texture_sampler,
-            &self.blend_ellipse_uniform_buffer,
         );
         let viewport = ViewportUniform {
             size: [

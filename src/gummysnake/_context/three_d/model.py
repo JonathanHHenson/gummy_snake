@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, cast
 
 from gummysnake._context.three_d._protocols import ThreeDContextHost
@@ -21,6 +22,13 @@ from gummysnake.drawing.software3d import (
     ShadedFace,
     rasterize_face_payload_region,
     rasterize_faces_image_region,
+)
+from gummysnake.drawing.software3d.payloads import (
+    camera_payload,
+    light_payloads,
+    material_payload,
+    model_transform_payload,
+    projection_payload,
 )
 from gummysnake.drawing.software3d.rust_bridge import rust_project_shade_faces
 from gummysnake.drawing.software3d.shading import texture_image
@@ -105,6 +113,7 @@ class ThreeDModelMixin:
             cull_backfaces=True,
             model_transform=model_transform,
         )
+        self._count_renderer_counter("python_face_payloads", len(faces))
         screen_transform = Matrix2D.identity()
         if draw_fill:
             if texture is None and self._draw_shaded_faces_direct(faces):
@@ -128,47 +137,52 @@ class ThreeDModelMixin:
             ]
             self._stroke_3d_faces(shaded_faces, screen_transform)
 
+    def _rust_model_draw_resources(
+        self, model: Model3D, method_name: str
+    ) -> tuple[Any, Callable[..., Any]] | None:
+        handle = _model_rust_handle(model)
+        if handle is None:
+            return None
+        require_canvas = getattr(self.renderer, "_require_canvas", None)
+        if not callable(require_canvas):
+            return None
+        draw = getattr(require_canvas(), method_name, None)
+        if not callable(draw):
+            return None
+        flush_line_batch = getattr(self.renderer, "_flush_line_batch", None)
+        if callable(flush_line_batch):
+            flush_line_batch()
+        return handle, draw
+
+    def _count_renderer_counter(self, name: str, amount: int = 1) -> None:
+        count = getattr(self.renderer, "_count", None)
+        if callable(count):
+            count(name, amount)
+
     def _draw_model_shaded_direct(
         self,
         model: Model3D,
         material: Material3D,
         model_transform: Matrix2D | None,
     ) -> bool:
-        handle = _model_rust_handle(model)
-        if handle is None:
+        resources = self._rust_model_draw_resources(model, "draw_model_shaded")
+        if resources is None:
             return False
-        require_canvas = getattr(self.renderer, "_require_canvas", None)
-        flush_line_batch = getattr(self.renderer, "_flush_line_batch", None)
-        if not callable(require_canvas):
-            return False
-        canvas = require_canvas()
-        draw = getattr(canvas, "draw_model_shaded", None)
-        if not callable(draw):
-            return False
-        transform_payload: tuple[float, float, float, float, float, float] | None = None
-        if model_transform is not None and model_transform != Matrix2D.identity():
-            transform_payload = (
-                model_transform.a,
-                model_transform.b,
-                model_transform.c,
-                model_transform.d,
-                model_transform.e,
-                model_transform.f,
-            )
-        if callable(flush_line_batch):
-            flush_line_batch()
+        handle, draw = resources
+        transform_payload = model_transform_payload(model_transform)
         draw(
             handle,
-            self._camera_payload(),
-            self._projection_payload(),
+            camera_payload(self._camera3d),
+            projection_payload(self._projection3d),
             float(self.width),
             float(self.height),
-            self._material_payload(material),
-            self._light_payloads(),
+            material_payload(material),
+            light_payloads(self._lights3d),
             self._normal_material3d,
             True,
             transform_payload,
         )
+        self._count_renderer_counter("direct_model_draws")
         return True
 
     def _draw_model_textured_direct(
@@ -178,100 +192,33 @@ class ThreeDModelMixin:
         material: Material3D,
         model_transform: Matrix2D | None,
     ) -> bool:
-        handle = _model_rust_handle(model)
-        if handle is None:
-            return False
         rust_image = getattr(texture, "rust_image", None)
         rust_image = getattr(rust_image, "_rust_image", None)
         if rust_image is None:
             return False
-        require_canvas = getattr(self.renderer, "_require_canvas", None)
-        flush_line_batch = getattr(self.renderer, "_flush_line_batch", None)
-        if not callable(require_canvas):
+        resources = self._rust_model_draw_resources(model, "draw_model_textured")
+        if resources is None:
             return False
-        canvas = require_canvas()
-        draw = getattr(canvas, "draw_model_textured", None)
-        if not callable(draw):
-            return False
-        transform_payload: tuple[float, float, float, float, float, float] | None = None
-        if model_transform is not None and model_transform != Matrix2D.identity():
-            transform_payload = (
-                model_transform.a,
-                model_transform.b,
-                model_transform.c,
-                model_transform.d,
-                model_transform.e,
-                model_transform.f,
-            )
-        if callable(flush_line_batch):
-            flush_line_batch()
-        return bool(
+        handle, draw = resources
+        transform_payload = model_transform_payload(model_transform)
+        drawn = bool(
             draw(
                 handle,
                 rust_image,
-                self._camera_payload(),
-                self._projection_payload(),
+                camera_payload(self._camera3d),
+                projection_payload(self._projection3d),
                 float(self.width),
                 float(self.height),
-                self._material_payload(material),
-                self._light_payloads(),
+                material_payload(material),
+                light_payloads(self._lights3d),
                 self._normal_material3d,
                 True,
                 transform_payload,
             )
         )
-
-    def _camera_payload(self) -> dict[str, tuple[float, float, float]]:
-        return {
-            "eye": (self._camera3d.eye.x, self._camera3d.eye.y, self._camera3d.eye.z),
-            "target": (
-                self._camera3d.target.x,
-                self._camera3d.target.y,
-                self._camera3d.target.z,
-            ),
-            "up": (self._camera3d.up.x, self._camera3d.up.y, self._camera3d.up.z),
-        }
-
-    def _projection_payload(self) -> dict[str, Any]:
-        if isinstance(self._projection3d, PerspectiveProjection):
-            return {
-                "kind": "perspective",
-                "fov_y": self._projection3d.fov_y,
-                "aspect": self._projection3d.aspect,
-                "near": self._projection3d.near,
-                "far": self._projection3d.far,
-            }
-        return {
-            "kind": "orthographic",
-            "width": self._projection3d.width,
-            "height": self._projection3d.height,
-            "near": self._projection3d.near,
-            "far": self._projection3d.far,
-        }
-
-    def _material_payload(self, material: Material3D) -> dict[str, Any]:
-        return {
-            "base_color": material.base_color,
-            "emissive_color": material.emissive_color,
-            "specular_color": material.specular_color,
-            "shininess": material.shininess,
-        }
-
-    def _light_payloads(self) -> list[dict[str, Any]]:
-        return [
-            {
-                "kind": light.kind.value,
-                "color": light.color,
-                "intensity": light.intensity,
-                "position": None
-                if light.position is None
-                else (light.position.x, light.position.y, light.position.z),
-                "direction": None
-                if light.direction is None
-                else (light.direction.x, light.direction.y, light.direction.z),
-            }
-            for light in self._lights3d
-        ]
+        if drawn:
+            self._count_renderer_counter("direct_model_draws")
+        return drawn
 
     def _draw_shaded_faces_direct(self, faces: list[dict[str, Any]]) -> bool:
         require_canvas = getattr(self.renderer, "_require_canvas", None)

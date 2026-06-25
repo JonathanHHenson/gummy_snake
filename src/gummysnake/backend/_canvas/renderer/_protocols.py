@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -36,14 +35,12 @@ class CanvasRendererHost(Protocol):
     _text_batch: list[tuple[str, float, float]]
     _text_batch_style: dict[str, object] | None
     _text_batch_matrix: MatrixPayload | None
-    _text_batch_current: bool
     _image_batch: list[ImageBatchRecord]
     _image_batch_style: dict[str, object] | None
     _image_batch_matrix: MatrixPayload | None
     _skip_canvas_end_frame: bool
     _last_pixel_bytes: bytes | None
     _current_matrix_payload: MatrixPayload
-    _image_cache_versions: OrderedDict[int, int]
     _clip_depth: int
     physical_width: int
     physical_height: int
@@ -74,7 +71,6 @@ class CanvasRendererHost(Protocol):
     def apply_matrix(self, transform: Matrix2D) -> None: ...
     def reset_matrix(self) -> None: ...
     def end_clip(self) -> None: ...
-    def _remember_image_cache_version(self, image_key: int, version: int) -> None: ...
     def _cached_text_metric(
         self,
         key: TextMetricKey,

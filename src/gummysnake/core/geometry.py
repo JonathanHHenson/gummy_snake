@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-
 from gummysnake import constants as c
 
 
@@ -127,7 +125,3 @@ def flatten_quadratic(
         )
         for index in range(1, steps + 1)
     ]
-
-
-def as_points(values: Iterable[tuple[float, float]]) -> list[tuple[float, float]]:
-    return [(float(x), float(y)) for x, y in values]

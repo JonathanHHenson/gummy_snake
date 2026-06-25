@@ -39,10 +39,13 @@ class CanvasBackendRuntimeMixin:
 
     def _run_headless(self, sketch: Sketch, *, max_frames: int) -> None:
         _backend(self)._running = True
-        for _ in range(max(0, max_frames)):
-            if not _backend(self)._running:
-                break
-            self._draw_and_present(sketch)
+        try:
+            for _ in range(max(0, max_frames)):
+                if not _backend(self)._running:
+                    break
+                self._draw_and_present(sketch)
+        finally:
+            _backend(self)._running = False
 
     def _run_interactive(self, sketch: Sketch, *, max_frames: int | None = None) -> None:
         canvas = _backend(self).renderer.runtime_canvas()
@@ -156,10 +159,6 @@ class CanvasBackendRuntimeMixin:
         if callable(should_close):
             return bool(should_close())
         return False
-
-    def _next_frame_delay(self, now: float, interval: float) -> float:
-        self._advance_next_frame_time(now, interval)
-        return max(0.0, _backend(self)._next_frame_time - now)
 
     def _advance_next_frame_time(self, now: float, interval: float) -> None:
         _backend(self)._next_frame_time += interval

@@ -846,4 +846,12 @@ impl Canvas {
     pub(crate) fn save(&mut self, path: &str) -> PyResult<()> {
         self.save_impl(path)
     }
+    pub(crate) fn save_gif(
+        &mut self,
+        path: &str,
+        count: usize,
+        frame_duration_ms: u32,
+    ) -> PyResult<()> {
+        self.save_gif_impl(path, count, frame_duration_ms)
+    }
 }

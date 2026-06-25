@@ -50,12 +50,6 @@ pub(crate) struct CanvasModel3D {
 #[derive(Clone, Debug)]
 pub(crate) struct CanvasMesh3D {
     mesh: ObjModelData,
-    #[allow(dead_code)]
-    gpu_key: u64,
-    #[allow(dead_code)]
-    gpu_vertices: Vec<crate::gpu::ModelVertex>,
-    #[allow(dead_code)]
-    gpu_indices: Vec<u32>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -81,13 +75,7 @@ fn canvas_model_from_data(model: ObjModelData, source: &str) -> CanvasModel3D {
 }
 
 fn canvas_mesh_from_data(mesh: ObjModelData) -> CanvasMesh3D {
-    let (gpu_vertices, gpu_indices) = pack_model_gpu_triangles(&mesh);
-    CanvasMesh3D {
-        mesh,
-        gpu_key: NEXT_MODEL_KEY.fetch_add(1, Ordering::Relaxed),
-        gpu_vertices,
-        gpu_indices,
-    }
+    CanvasMesh3D { mesh }
 }
 
 fn pack_model_gpu_triangles(model: &ObjModelData) -> (Vec<crate::gpu::ModelVertex>, Vec<u32>) {

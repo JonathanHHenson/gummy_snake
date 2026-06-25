@@ -159,10 +159,12 @@ class CanvasRendererPrimitivesMixin:
             else None
         )
         if callable(draw):
+            _renderer(self)._count("direct_shape_finalizations")
             _renderer(self)._call("captured shape drawing", draw, state, close)
             return
         draw_explicit = getattr(_renderer(self)._require_canvas(), "draw_captured_shape", None)
         if callable(draw_explicit):
+            _renderer(self)._count("direct_shape_finalizations")
             _renderer(self)._call(
                 "captured shape drawing",
                 draw_explicit,
@@ -231,11 +233,13 @@ class CanvasRendererPrimitivesMixin:
             else None
         )
         if callable(current):
+            _renderer(self)._count("direct_shape_finalizations")
             _renderer(self)._call("captured clip creation", current, state)
             _renderer(self)._clip_depth += 1
             return
         begin_explicit = getattr(_renderer(self)._require_canvas(), "begin_clip_captured", None)
         if callable(begin_explicit):
+            _renderer(self)._count("direct_shape_finalizations")
             _renderer(self)._call(
                 "captured clip creation",
                 begin_explicit,
@@ -479,6 +483,43 @@ class CanvasRendererPrimitivesMixin:
         _renderer(self)._flush_image_batch()
         _renderer(self)._flush_text_batch()
 
+    def queue_fill_primitive_fast_path(
+        self,
+        kind: int,
+        coords: tuple[float, ...],
+        style: StyleState,
+        transform: Matrix2D,
+    ) -> bool:
+        """Queue a fill-only primitive into the compact Rust batch when available."""
+
+        renderer = _renderer(self)
+        fill_color = style.fill_color
+        canvas = getattr(renderer, "_canvas", None)
+        batch_fill = getattr(canvas, "batch_fill_primitives", None) if canvas is not None else None
+        if (
+            kind == _PRIMITIVE_LINE
+            or fill_color is None
+            or style.stroke_color is not None
+            or style.erasing
+            or style.blend_mode != c.BLEND
+            or not callable(batch_fill)
+        ):
+            return False
+
+        matrix_payload = renderer._matrix_payload(transform)
+        self._flush_batches_before_primitive_batch()
+        if renderer._primitive_batch and (
+            renderer._primitive_batch_mode != "fill"
+            or renderer._primitive_batch_matrix is not matrix_payload
+        ):
+            renderer._flush_primitive_batch_only()
+        renderer._primitive_batch.append((kind, *coords, *fill_color.to_tuple()))
+        renderer._primitive_batch_style = None
+        renderer._primitive_batch_matrix = matrix_payload
+        renderer._primitive_batch_current = False
+        renderer._primitive_batch_mode = "fill"
+        return True
+
     def _queue_primitive_batch(
         self,
         kind: int,
@@ -486,45 +527,15 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> bool:
+        if self.queue_fill_primitive_fast_path(kind, coords, style, transform):
+            return True
+
         renderer = _renderer(self)
         canvas = renderer._require_canvas()
         matrix_payload = renderer._matrix_payload(transform)
-        fill_only = (
-            style.fill_color is not None
-            and style.stroke_color is None
-            and not style.erasing
-            and style.blend_mode == c.BLEND
-        )
-        batch_fill = getattr(canvas, "batch_fill_primitives", None)
-        fill_color = style.fill_color
-        if (
-            kind != _PRIMITIVE_LINE
-            and fill_only
-            and fill_color is not None
-            and callable(batch_fill)
-        ):
-            if renderer._line_batch:
-                renderer._flush_line_batch_only()
-            if renderer._text_batch:
-                renderer._flush_text_batch()
-            renderer._flush_image_batch()
-            if renderer._primitive_batch and (
-                renderer._primitive_batch_mode != "fill"
-                or renderer._primitive_batch_matrix is not matrix_payload
-            ):
-                renderer._flush_primitive_batch_only()
-            renderer._primitive_batch.append((kind, *coords, *fill_color.to_tuple()))
-            renderer._primitive_batch_matrix = matrix_payload
-            renderer._primitive_batch_mode = "fill"
-            return True
-
         batch_mixed = getattr(canvas, "batch_primitives_mixed", None)
         if callable(batch_mixed):
-            if renderer._line_batch:
-                renderer._flush_line_batch_only()
-            if renderer._text_batch:
-                renderer._flush_text_batch()
-            renderer._flush_image_batch()
+            self._flush_batches_before_primitive_batch()
             if renderer._primitive_batch and renderer._primitive_batch_mode != "mixed":
                 renderer._flush_primitive_batch_only()
             renderer._primitive_batch.append(
@@ -539,11 +550,7 @@ class CanvasRendererPrimitivesMixin:
             else None
         )
         if callable(current):
-            if renderer._line_batch:
-                renderer._flush_line_batch_only()
-            if renderer._text_batch:
-                renderer._flush_text_batch()
-            renderer._flush_image_batch()
+            self._flush_batches_before_primitive_batch()
             if renderer._primitive_batch and not renderer._primitive_batch_current:
                 renderer._flush_primitive_batch_only()
             renderer._primitive_batch.append((kind, *coords))
@@ -555,11 +562,7 @@ class CanvasRendererPrimitivesMixin:
         if not callable(batch):
             return False
         style_payload = renderer._style_payload(style)
-        if renderer._line_batch:
-            renderer._flush_line_batch_only()
-        if renderer._text_batch:
-            renderer._flush_text_batch()
-        renderer._flush_image_batch()
+        self._flush_batches_before_primitive_batch()
         if renderer._primitive_batch and (
             renderer._primitive_batch_mode != "style"
             or renderer._primitive_batch_current
@@ -572,6 +575,14 @@ class CanvasRendererPrimitivesMixin:
         renderer._primitive_batch_matrix = matrix_payload
         renderer._primitive_batch_mode = "style"
         return True
+
+    def _flush_batches_before_primitive_batch(self) -> None:
+        renderer = _renderer(self)
+        if renderer._line_batch:
+            renderer._flush_line_batch_only()
+        if renderer._text_batch:
+            renderer._flush_text_batch()
+        renderer._flush_image_batch()
 
     def _flush_line_batch_only(self) -> None:
         if not _renderer(self)._line_batch:

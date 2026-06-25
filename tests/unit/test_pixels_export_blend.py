@@ -117,6 +117,23 @@ def test_save_canvas_adds_default_extension_and_validates_overwrite(tmp_path):
         context.save_canvas(output, overwrite=False)
 
 
+def test_save_gif_uses_canvas_runtime_and_preserves_public_contract(tmp_path):
+    def setup():
+        gs.create_canvas(2, 1)
+        gs.background(10, 20, 30)
+
+    context = gs.run(setup=setup, headless=True, max_frames=0)
+    output = context.save_gif(tmp_path / "anim", count=3, duration=1.2)
+
+    assert output == tmp_path / "anim.gif"
+    assert output.read_bytes().startswith(b"GIF")
+
+    with pytest.raises(ArgumentValidationError, match="count must be positive"):
+        context.save_gif(tmp_path / "bad.gif", count=0)
+    with pytest.raises(ArgumentValidationError, match="Refusing to overwrite"):
+        context.save_gif(output, overwrite=False)
+
+
 def test_save_frames_exports_numbered_sequence_and_callback(tmp_path):
     callback_results = []
 

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import random as _random
 from collections.abc import MutableSequence, Sequence
+
+from gummysnake.core.random import shared_rng
 
 
 def shuffle[T](values: Sequence[T], *, in_place: bool = False) -> list[T] | MutableSequence[T]:
-    """Shuffle values using Python's RNG.
+    """Shuffle values using Gummy Snake's RNG controlled by ``random_seed()``.
 
     By default this returns a shuffled list, matching Python expectations and
     avoiding mutation surprises. Pass ``in_place=True`` for mutable sequences.
@@ -16,10 +17,10 @@ def shuffle[T](values: Sequence[T], *, in_place: bool = False) -> list[T] | Muta
     if in_place:
         if not isinstance(values, MutableSequence):
             raise TypeError("shuffle(..., in_place=True) requires a mutable sequence.")
-        _random.shuffle(values)
+        shared_rng().shuffle(values)
         return values
     result = list(values)
-    _random.shuffle(result)
+    shared_rng().shuffle(result)
     return result
 
 

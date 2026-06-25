@@ -179,6 +179,18 @@ class InputState:
                 f"{c.TOUCH_STARTED}, {c.TOUCH_MOVED}, and {c.TOUCH_ENDED} events."
             )
 
+    def set_key_down(self, key_code: int, pressed: bool) -> None:
+        if pressed:
+            self.pressed_keys.add(key_code)
+        else:
+            self.pressed_keys.discard(key_code)
+
+    def set_code_down(self, code: str, pressed: bool) -> None:
+        if pressed:
+            self.pressed_codes.add(code)
+        else:
+            self.pressed_codes.discard(code)
+
     def key_is_down(self, key_code: int) -> bool:
         return key_code in self.pressed_keys
 

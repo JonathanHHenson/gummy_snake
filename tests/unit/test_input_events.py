@@ -7,7 +7,13 @@ from gummysnake.api.current import activate_context
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.core.vector import Vector
-from gummysnake.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
+from gummysnake.events.input_state import (
+    InputState,
+    KeyboardEvent,
+    MouseEvent,
+    TouchEvent,
+    TouchPoint,
+)
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from gummysnake.sketch import Sketch
@@ -79,6 +85,20 @@ def test_keyboard_state_key_is_down_and_typed_callback():
 
     context.dispatch_keyboard_event(KeyboardEvent(key="é", key_code=233, type="key_typed"))
     assert sketch.events == [("key_typed", "é")]
+
+
+def test_input_state_explicit_key_and_code_mutation_methods():
+    state = InputState()
+
+    state.set_key_down(65, True)
+    state.set_code_down("KeyA", True)
+    assert state.key_is_down(65) is True
+    assert state.code_is_down("KeyA") is True
+
+    state.set_key_down(65, False)
+    state.set_code_down("KeyA", False)
+    assert state.key_is_down(65) is False
+    assert state.code_is_down("KeyA") is False
 
 
 def test_keyboard_physical_code_repeat_and_string_queries():

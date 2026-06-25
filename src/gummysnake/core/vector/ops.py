@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import math
-import random as _random
 from collections.abc import Iterable
 from typing import Any, Self, cast
 
 from gummysnake import constants as c
 from gummysnake.core import math as gs_math
+from gummysnake.core.random import shared_rng
 from gummysnake.core.vector.common import (
     Number,
     _components,
@@ -262,11 +262,11 @@ class VectorOpsMixin:
     @staticmethod
     def random_2d() -> Any:
         vector = make_vector(0, 0, 0)
-        return vector.from_angle(_random.random() * math.tau)
+        return vector.from_angle(shared_rng().random() * math.tau)
 
     @staticmethod
     def random_3d() -> Any:
-        z = _random.uniform(-1.0, 1.0)
-        theta = _random.random() * math.tau
+        z = shared_rng().uniform(-1.0, 1.0)
+        theta = shared_rng().random() * math.tau
         radius = math.sqrt(1 - z * z)
         return make_vector(radius * math.cos(theta), radius * math.sin(theta), z)
