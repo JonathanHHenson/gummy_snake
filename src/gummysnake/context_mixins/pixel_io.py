@@ -8,9 +8,8 @@ from typing import Any, cast
 from gummysnake.assets.image import Image
 from gummysnake.context_mixins.helpers import copy_ints, rgba_bytes
 from gummysnake.core.color import Color
+from gummysnake.core.pixels import PixelBuffer, dirty_pixel_region
 from gummysnake.exceptions import ArgumentValidationError
-from gummysnake.pixels import PixelBuffer
-from gummysnake.pixels._buffer import dirty_pixel_region
 
 
 def load_pixels(ctx: Any) -> PixelBuffer:

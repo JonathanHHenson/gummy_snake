@@ -7,9 +7,8 @@ from typing import cast
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.core.pixels import PixelBuffer, dirty_pixel_region
 from gummysnake.exceptions import ArgumentValidationError
-from gummysnake.pixels import PixelBuffer
-from gummysnake.pixels._buffer import dirty_pixel_region
 
 
 def _renderer(self: object) -> CanvasRendererHost:

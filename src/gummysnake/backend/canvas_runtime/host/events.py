@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.backend.canvas_runtime import events as canvas_events
 from gummysnake.backend.canvas_runtime.host._protocols import CanvasBackendHost
-from gummysnake.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
+from gummysnake.core.input_events import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
 

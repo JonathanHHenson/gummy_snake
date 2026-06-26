@@ -410,7 +410,7 @@ from gummysnake.core.vector import (
     Vector,
     create_vector,
 )
-from gummysnake.events.input_state import (
+from gummysnake.core.input_events import (
     KeyboardEvent,
     MouseEvent,
     TouchEvent,

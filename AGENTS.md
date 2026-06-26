@@ -158,10 +158,8 @@ src/gummysnake/context_mixins/     SketchContext method mixins grouped by canvas
 src/gummysnake/assets/       image package (public Image class in image/core.py), text/font, data, model, shader, sound, and optional media helpers
 src/gummysnake/backend/     backend contracts, registry, thin canvas facade modules, and split canvas runtime internals under canvas_runtime/host/ and canvas_runtime/renderer/
 src/gummysnake/constants/    enum-backed public constants and compatibility aliases
-src/gummysnake/core/         color, geometry, math, random/noise, state, state_facades, transforms, data helpers, vectors
+src/gummysnake/core/         color, geometry, math, random/noise, pixels, input event dataclasses, state, state_facades, transforms, data helpers, vectors
 src/gummysnake/drawing/      renderer protocols, renderer3d package, software3d helpers, and retained prototype3d compatibility helpers
-src/gummysnake/events/       normalized mouse, keyboard, and touch input state
-src/gummysnake/pixels/       public pixel buffer helpers and exports
 src/gummysnake/plugins/      plugin interfaces and registry
 src/gummysnake/rust/         Python wrappers around PyO3 extensions and Rust-backed kernels
 src/gummysnake/sketch/       sketch lifecycle runtime, decorator builder, and explicit object-mode facade forwarding groups under sketch/facade_mixins/

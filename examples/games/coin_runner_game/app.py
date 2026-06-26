@@ -6,7 +6,7 @@ import argparse
 
 import gummysnake as gs
 from examples.common import example_parser, save_once
-from gummysnake.events.input_state import KeyboardEvent, MouseEvent
+from gummysnake.core.input_events import KeyboardEvent, MouseEvent
 
 from .constants import ASSETS, CANVAS_HEIGHT, CANVAS_WIDTH, GROUND_Y, GROUNDED_GRACE_FRAMES, OUTPUT
 from .helpers import key_name

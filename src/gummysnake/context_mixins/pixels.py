@@ -28,7 +28,7 @@ from gummysnake.context_mixins.pixel_io import (
 )
 from gummysnake.context_mixins.pixel_io import update_pixels as _update_pixels_impl
 from gummysnake.core.color import Color
-from gummysnake.pixels import PixelBuffer
+from gummysnake.core.pixels import PixelBuffer
 
 
 class PixelContextMixin:

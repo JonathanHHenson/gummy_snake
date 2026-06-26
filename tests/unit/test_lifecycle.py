@@ -1,7 +1,7 @@
 import pytest
 
 from gummysnake import Image, Sketch
-from gummysnake.events.input_state import KeyboardEvent
+from gummysnake.core.input_events import KeyboardEvent
 from gummysnake.plugins.base import LifecycleHookName
 
 

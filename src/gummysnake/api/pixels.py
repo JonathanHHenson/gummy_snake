@@ -10,7 +10,7 @@ from gummysnake import constants as c
 from gummysnake.api.current import require_context
 from gummysnake.assets.image import Image
 from gummysnake.core.color import Color
-from gummysnake.pixels import PixelBuffer
+from gummysnake.core.pixels import PixelBuffer
 
 
 def _context_call(name: str, *args: Any, **kwargs: Any) -> Any:

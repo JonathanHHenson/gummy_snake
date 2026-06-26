@@ -20,7 +20,7 @@ from gummysnake.plugins.base import (
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
-    from gummysnake.events.input_state import KeyboardEvent, MouseEvent, TouchEvent
+    from gummysnake.core.input_events import KeyboardEvent, MouseEvent, TouchEvent
     from gummysnake.sketch import Sketch
 
 

@@ -4,8 +4,8 @@ import pytest
 
 import gummysnake as gs
 from gummysnake.api.current import require_context
+from gummysnake.core.input_events import KeyboardEvent, MouseEvent
 from gummysnake.core.vector import Vector
-from gummysnake.events.input_state import KeyboardEvent, MouseEvent
 
 
 def test_global_mode_async_callbacks_are_awaited():

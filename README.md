@@ -119,8 +119,8 @@ bytes.
 Image-local resize, mask, filter, crop/copy, and alpha compositing delegate
 bulk byte work to the Rust canvas runtime while keeping the Python `Image`
 API and version semantics.
-For pixel effects, `load_pixels()` returns `gummysnake.pixels.PixelBuffer`, a
-mutable list-like RGBA byte buffer that tracks dirty regions;
+For pixel effects, `load_pixels()` returns `gummysnake.core.pixels.PixelBuffer`,
+a mutable list-like RGBA byte buffer that tracks dirty regions;
 `load_pixel_bytes()` provides a bytes readback path; and `update_pixels()`
 accepts lists, `PixelBuffer`, and buffer-like inputs such as `bytes`,
 `bytearray`, and `memoryview`. Buffer-like uploads use the Rust canvas

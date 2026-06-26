@@ -60,9 +60,10 @@ tile = img[x0:x1, y0:y1]
 Pixel buffers are physical RGBA buffers. When `pixel_density()` is greater than
 `1`, the physical pixel size is larger than the logical canvas size.
 
-`load_pixels()` returns `gummysnake.pixels.PixelBuffer`, a mutable list-like
-RGBA byte buffer that tracks dirty byte ranges. Use `load_pixel_bytes()` for
-performance-sensitive readback when a bytes-like RGBA buffer is enough.
+`load_pixels()` returns `gummysnake.core.pixels.PixelBuffer`, a mutable
+list-like RGBA byte buffer that tracks dirty byte ranges. Use
+`load_pixel_bytes()` for performance-sensitive readback when a bytes-like RGBA
+buffer is enough.
 `update_pixels()` accepts the `PixelBuffer` returned by `load_pixels()`, plain
 lists for compatibility, and efficient buffer-like inputs such as `bytes`,
 `bytearray`, and `memoryview`.
@@ -83,8 +84,8 @@ hits, and CPU compositing fallback helpers such as canvas `get()`, `set()`, and
 Small canvas `get(x, y)`, `get(x, y, w, h)`, and `set(...)` operations route
 through Rust region APIs and avoid reconstructing a full Python `Image` for
 region work. Full-canvas `load_pixels()` remains a full physical-buffer readback
-and returns `gummysnake.pixels.PixelBuffer`, a mutable byte buffer that preserves
-list-like slice/equality behavior while tracking dirty regions for efficient
+and returns `gummysnake.core.pixels.PixelBuffer`, a mutable byte buffer that
+preserves list-like slice/equality behavior while tracking dirty regions for efficient
 `update_pixels()` uploads when supported by the runtime.
 
 Renderer/runtime counters are available separately:

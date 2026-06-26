@@ -310,13 +310,12 @@ Use these rules of thumb:
   aliases.
 - `src/gummysnake/context.py`: `SketchContext` composition root and high-level
   runtime controller.
-- `src/gummysnake/core/`: color, geometry, math, random/noise, state,
-  `state_facades`, transforms, data helpers, and vector types.
+- `src/gummysnake/core/`: color, geometry, math, random/noise, pixel buffer
+  helpers (`core/pixels.py`), input event dataclasses (`core/input_events.py`),
+  state, `state_facades`, transforms, data helpers, and vector types.
 - `src/gummysnake/drawing/`: renderer protocols, the `renderer3d` package,
   `software3d` helpers, and retained `prototype3d` compatibility/prototype
   helpers.
-- `src/gummysnake/events/`: normalized mouse, keyboard, and touch input state.
-- `src/gummysnake/pixels/`: public pixel buffer helper exports.
 - `src/gummysnake/plugins/`: plugin interfaces and registry.
 - `src/gummysnake/rust/`: Python wrappers around PyO3 runtime modules and
   Rust-backed kernels.

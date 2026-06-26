@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 import gummysnake as gs
-from gummysnake.events.input_state import KeyboardEvent
+from gummysnake.core.input_events import KeyboardEvent
 
 from .constants import GROUND_TOP
 

@@ -5,7 +5,7 @@ import pytest
 from gummysnake import constants as c
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
-from gummysnake.events.input_state import KeyboardEvent
+from gummysnake.core.input_events import KeyboardEvent
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from tests.helpers.rust_canvas import FakeCanvas
 from tests.helpers.rust_canvas_context import (

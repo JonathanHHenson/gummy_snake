@@ -6,14 +6,14 @@ import re
 import gummysnake as gs
 import gummysnake.api.global_mode as global_mode
 from gummysnake.assets.image import ops as image_ops
-from gummysnake.drawing.software3d import transform_model
-from gummysnake.events.input_state import (
+from gummysnake.core.input_events import (
     InputState,
     KeyboardEvent,
     MouseEvent,
     TouchEvent,
     TouchPoint,
 )
+from gummysnake.drawing.software3d import transform_model
 
 _SNAKE_CASE_RE = re.compile(r"^[a-z_][a-z0-9_]*$|^[A-Z][A-Za-z0-9_]*$")
 

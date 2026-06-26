@@ -3,7 +3,7 @@ from typing import Any, cast
 import pytest
 
 import gummysnake as gs
-from gummysnake.events.input_state import KeyboardEvent, MouseEvent
+from gummysnake.core.input_events import KeyboardEvent, MouseEvent
 from gummysnake.plugins import Plugin, clear_plugins, install_plugin, list_plugins, uninstall_plugin
 from gummysnake.sketch import Sketch
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from gummysnake.pixels import PixelBuffer
-from gummysnake.pixels._buffer import dirty_pixel_region
+from gummysnake.core.pixels import PixelBuffer, dirty_pixel_region
 
 
 def test_pixel_buffer_preserves_list_like_slice_and_equality() -> None:

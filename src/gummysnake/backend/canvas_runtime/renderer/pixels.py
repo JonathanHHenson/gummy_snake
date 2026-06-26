@@ -18,8 +18,8 @@ from gummysnake.backend.canvas_runtime.renderer.pixel_uploads import (
 from gummysnake.backend.canvas_runtime.renderer.pixel_uploads import (
     upload_dirty_pixel_range as _upload_dirty_pixel_range_impl,
 )
+from gummysnake.core.pixels import PixelBuffer
 from gummysnake.exceptions import ArgumentValidationError
-from gummysnake.pixels import PixelBuffer
 
 
 def _renderer(self: object) -> CanvasRendererHost:

@@ -49,6 +49,20 @@ def test_structure_audit_reports_source_testing_package(tmp_path: Path) -> None:
     assert "source_testing_package" in _codes(tmp_path)
 
 
+def test_structure_audit_reports_obsolete_pixels_module_or_package(tmp_path: Path) -> None:
+    _write(tmp_path / "src/gummysnake/pixels.py")
+    _write(tmp_path / "src/gummysnake/pixels/__init__.py")
+
+    assert "obsolete_pixels_module" in _codes(tmp_path)
+
+
+def test_structure_audit_reports_obsolete_events_module_or_package(tmp_path: Path) -> None:
+    _write(tmp_path / "src/gummysnake/events.py")
+    _write(tmp_path / "src/gummysnake/events/__init__.py")
+
+    assert "obsolete_events_module" in _codes(tmp_path)
+
+
 def test_structure_audit_reports_stale_layout_references(tmp_path: Path) -> None:
     _write(tmp_path / "src/example/module.py", "from gummysnake.backend._canvas import helper\n")
 

@@ -7,7 +7,7 @@ from typing import Any
 from gummysnake import constants as c
 from gummysnake.api.current import activate_context
 from gummysnake.backend.canvas_runtime import events as canvas_events
-from gummysnake.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
+from gummysnake.core.input_events import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.plugins.base import EventHookName
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND

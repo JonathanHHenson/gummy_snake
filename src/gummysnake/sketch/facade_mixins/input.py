@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from gummysnake import constants as c
-from gummysnake.events.input_state import TouchPoint
+from gummysnake.core.input_events import TouchPoint
 from gummysnake.sketch.facade_mixins.base import SketchFacadeBaseMixin
 
 

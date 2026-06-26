@@ -60,6 +60,8 @@ STALE_TEXT_PATTERNS = {
     "rust_canvas_image_fakes": "use `tests.helpers.rust_canvas_image_kernels` instead",
     "rust_canvas_state_fakes": "use `tests.helpers.rust_canvas_state` instead",
     "webgl_helpers": "use `tests.helpers.webgl` instead",
+    "gummysnake.events.input_state": "use `gummysnake.core.input_events` instead",
+    "gummysnake.events.input_events": "use `gummysnake.core.input_events` instead",
 }
 DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_canvas/src/bindings.rs"),
@@ -191,6 +193,32 @@ def _audit_source_testing_package(repo_root: Path) -> list[StructureViolation]:
     return []
 
 
+def _audit_obsolete_source_packages(repo_root: Path) -> list[StructureViolation]:
+    violations: list[StructureViolation] = []
+    obsolete_paths = {
+        Path("src/gummysnake/pixels.py"): (
+            "obsolete_pixels_module",
+            "pixel buffer helpers belong in `src/gummysnake/core/pixels.py`",
+        ),
+        Path("src/gummysnake/pixels"): (
+            "obsolete_pixels_module",
+            "pixel buffer helpers belong in `src/gummysnake/core/pixels.py`",
+        ),
+        Path("src/gummysnake/events.py"): (
+            "obsolete_events_module",
+            "input event dataclasses belong in `src/gummysnake/core/input_events.py`",
+        ),
+        Path("src/gummysnake/events"): (
+            "obsolete_events_module",
+            "input event dataclasses belong in `src/gummysnake/core/input_events.py`",
+        ),
+    }
+    for relative_path, (code, message) in obsolete_paths.items():
+        if (repo_root / relative_path).exists():
+            violations.append(StructureViolation(code, relative_path, message))
+    return violations
+
+
 def _audit_stale_text_references(repo_root: Path) -> list[StructureViolation]:
     violations: list[StructureViolation] = []
     for path in _iter_text_files(repo_root):
@@ -257,6 +285,7 @@ def audit(repo_root: Path = Path(".")) -> list[StructureViolation]:
     violations: list[StructureViolation] = []
     violations.extend(_audit_python_sibling_packages(root))
     violations.extend(_audit_source_testing_package(root))
+    violations.extend(_audit_obsolete_source_packages(root))
     violations.extend(_audit_stale_text_references(root))
     violations.extend(_audit_generated_example_output_policy(repo_root))
     violations.extend(_audit_rust_hubs(root))

@@ -10,7 +10,7 @@ from gummysnake import constants as c
 from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.assets.text import Font
 from gummysnake.core.color import Color
-from gummysnake.pixels import PixelBuffer
+from gummysnake.core.pixels import PixelBuffer
 from gummysnake.sketch.facade_mixins.base import SketchFacadeBaseMixin, SupportsText
 
 

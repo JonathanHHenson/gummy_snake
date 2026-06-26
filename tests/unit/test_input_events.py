@@ -6,14 +6,14 @@ from gummysnake.api import input as environment_input
 from gummysnake.api.current import activate_context
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
-from gummysnake.core.vector import Vector
-from gummysnake.events.input_state import (
+from gummysnake.core.input_events import (
     InputState,
     KeyboardEvent,
     MouseEvent,
     TouchEvent,
     TouchPoint,
 )
+from gummysnake.core.vector import Vector
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from gummysnake.sketch import Sketch
