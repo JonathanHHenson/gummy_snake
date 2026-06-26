@@ -165,7 +165,6 @@ src/gummysnake/pixels/       public pixel buffer helpers and exports
 src/gummysnake/plugins/      plugin interfaces and registry
 src/gummysnake/rust/         Python wrappers around PyO3 extensions and Rust-backed kernels
 src/gummysnake/sketch/       sketch lifecycle runtime, decorator builder, and explicit object-mode facade forwarding groups under sketch/facade_mixins/
-src/gummysnake/testing/      package test resources and helpers
 ```
 
 Other important directories:

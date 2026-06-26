@@ -129,8 +129,10 @@ def test_load_model_preserves_rust_handle_and_materializes_meshes_lazily(tmp_pat
     assert handle.saved_stl == (str(stl_output), "demo")
 
 
-def test_load_model_supports_package_resources_and_normalize():
-    model = gs.load_model("triangle.obj", normalize=True, package="gummysnake.testing.resources")
+def test_load_model_supports_package_resources_and_normalize(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "fixtures"))
+
+    model = gs.load_model("triangle.obj", normalize=True, package="model_resources")
 
     mesh = model.meshes[0]
     xs = [vertex.x for vertex in mesh.vertices]
