@@ -73,7 +73,7 @@ Important consequences:
 - Normalize one-character SDL3 key names to lowercase before exposing them to Python so `KeyboardEvent.matches("l")` and similar lifecycle controls remain stable.
 - `gummysnake.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
-- The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn after text/images must remain visible.
+- The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn before and after text/images/effects must remain visible. The Rust encoder uses a local `RenderPassBatcher`; if special commands split a frame into multiple render-pass segments, reusable buffer offsets must advance across the whole command encoder so later vertex/image/model uploads do not overwrite data referenced by earlier passes.
 - Direct glyphon GPU text is limited to ordered command streams where text can be encoded as a single contiguous glyphon text segment. If later text follows intervening primitives/images/effects, preserve draw order by using the Rust cached line-texture path for that later text rather than queuing multiple glyphon text passes that can corrupt earlier glyph atlas output. Batched cached text-image fallback may atlas many cached line textures into ordered image batches; preserve cache hit/miss and texture upload diagnostics.
 - Text metrics and `text_bounds()` must use the same current Python style revision as subsequent drawing. Do not use Rust current-style metric fast paths when the Python `StyleState` object or revision has changed after native/window sync.
 - GPU render encoding owns reusable vertex buffers sized to frame demand. When changing primitive, erase, image, or text command encoding, preserve capacity-growth reuse and keep `gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`, and `gpu_image_batches` meaningful.
@@ -156,7 +156,7 @@ Important areas:
 src/gummysnake/api/          public API entry points, global-mode modules, current context/facade helpers
 src/gummysnake/_context/     SketchContext method mixins grouped by canvas, input, pixels, shapes, style, text, transforms, and 3D
 src/gummysnake/assets/       image package, text/font, data, model, shader, sound, and optional media helpers
-src/gummysnake/backend/     backend contracts, registry, canvas facade modules, and split canvas backend/renderer internals
+src/gummysnake/backend/     backend contracts, registry, canvas facade modules, and split canvas backend/renderer internals; renderer helpers include bridge, lifecycle, counters, caches, payloads, and batch state
 src/gummysnake/constants/    enum-backed public constants and compatibility aliases
 src/gummysnake/core/         color, geometry, math, random/noise, state, transforms, data helpers, vectors
 src/gummysnake/drawing/      renderer protocols plus software 3D prototype helpers
@@ -164,7 +164,7 @@ src/gummysnake/events/       normalized mouse, keyboard, and touch input state
 src/gummysnake/pixels/       public pixel buffer helpers and exports
 src/gummysnake/plugins/      plugin interfaces and registry
 src/gummysnake/rust/         Python wrappers around PyO3 extensions and Rust-backed kernels
-src/gummysnake/sketch/       sketch lifecycle runtime, decorator builder, and object-mode facade
+src/gummysnake/sketch/       sketch lifecycle runtime, decorator builder, and explicit object-mode facade forwarding groups under sketch/_facade/
 src/gummysnake/testing/      package test resources and helpers
 ```
 
@@ -181,7 +181,7 @@ docs/getting_started/ user learning path and first-sketch material
 docs/reference/      public API reference grouped by topic
 docs/contribute/     architecture, runtime, testing, and maintainer workflow
 .scratch/backlog/             TOML PBIs grouped by numbered epic
-crates/              Rust runtime and acceleration crates
+crates/              Rust runtime and acceleration crates; gummy_canvas canvas helpers include cache, dirty-state, image batch, text layout, and GPU render-pass batching modules
 ```
 
 Generated artifacts such as `__pycache__/`, compiled `.so` files, build directories, benchmark output, and example image output should not be committed unless the user explicitly asks.
@@ -253,7 +253,7 @@ Renderers own drawing concerns: canvas dimensions, primitives, transforms, image
 For the current implementation this means:
 
 - `src/gummysnake/backend/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backend/_canvas/backend/`.
-- `src/gummysnake/backend/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins in `src/gummysnake/backend/_canvas/renderer/`.
+- `src/gummysnake/backend/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins/helpers in `src/gummysnake/backend/_canvas/renderer/`; keep bridge, lifecycle, counters, cache, payload-builder, primitive batch-state, and drawing modules focused.
 - `CanvasRenderer` mirrors canvas dimensions for adapter compatibility,
   synchronizes Rust `SketchContextState` during resize/create, synchronizes
   Python facade style/transform changes into Rust current renderer state, and
@@ -270,7 +270,8 @@ Gummy Snake distinguishes logical canvas dimensions from physical backing-buffer
 - `display_density()` reports native display scale when available.
 - SDL3 pointer/touch events arrive in logical/window coordinates and must remain logical at the Python boundary.
 - `load_pixels()` and `update_pixels()` operate on physical top-left-oriented RGBA buffers.
-- `load_pixel_bytes()` is the lower-copy readback path for pixel workflows that do not need a list.
+- `load_pixels()` returns the public `PixelBuffer`, a mutable list-like RGBA byte buffer that tracks dirty byte ranges for efficient update paths.
+- `load_pixel_bytes()` is the lower-copy readback path for pixel workflows that do not need list-like mutation.
 - `update_pixels()` should pass `bytes`, `bytearray`, `memoryview`, and dirty `PixelBuffer` payloads through Rust buffer/region upload paths without forcing Python `bytes(...)` copies. List inputs remain compatibility paths and should be counted in diagnostics.
 
 Do not regress Retina/HiDPI behavior when changing runtime, renderer, pixels,
@@ -395,9 +396,12 @@ uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks --run
 The high-count test itself still gates progression: it skips 50k until 10k
 reaches at least 60 FPS, and skips 100k until 50k reaches at least 30 FPS.
 
-Canvas backend benchmark scenarios measure native interactive presentation and
-must average at least 240 FPS. Headless/offscreen numbers are useful for export
-diagnostics, but they are not the runtime performance acceptance metric. Treat
+Benchmark helpers for subprocess execution and JSON metric parsing live in
+`tests/benchmark/benchmark_helpers.py`; extend them instead of copying benchmark
+boilerplate. Canvas backend benchmark scenarios measure native interactive
+presentation and must average at least 240 FPS. Headless/offscreen numbers are
+useful for export diagnostics, but they are not the runtime performance
+acceptance metric. Treat
 failures below the interactive floor as optimization work, not as flaky
 thresholds to loosen. Recovered variants from epics 246-250 should retain margin
 where practical: dense primitives around 320 FPS mean and cached/transformed

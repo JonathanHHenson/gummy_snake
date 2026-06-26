@@ -181,9 +181,10 @@ must use that key rather than `id(image)` so Python object-id reuse cannot draw
 stale pixels. Image mutations increment `version` on the Rust handle while
 preserving the same cache key.
 
-The Rust canvas image and texture caches are bounded. If cache limits are
-changed, keep the lifecycle explicit and preserve tests that draw many transient
-images.
+The Rust canvas image and texture caches are bounded and are managed through
+small internal cache helpers in `crates/gummy_canvas/src/canvas/cache.rs`. If
+cache limits are changed, keep the lifecycle explicit, preserve hit/miss and
+upload counters, and preserve tests that draw many transient images.
 
 Image-local bulk operations are also canvas-owned. `Image.resize()`,
 `Image.mask()`, supported `Image.filter(...)` modes, crop/copy helpers, and
@@ -237,7 +238,10 @@ rasterization, and the texture keys used for GPU text presentation. The rendered
 text cache is bounded by entry count and evicts least-recently used entries
 before inserting new dynamic text. Eviction also drops the corresponding texture
 version bookkeeping so stale texture keys are not reused after a text cache
-entry is removed.
+entry is removed. Text cache policy lives in `canvas/cache.rs` and
+`canvas/text/cache.rs`; shared wrapping, alignment, baseline, and metric payload
+logic lives in `canvas/text/layout.rs` so draw and measurement paths stay
+consistent.
 
 The font cache is intentionally process-local to each canvas instance and keyed
 by font path. It is bounded by the number of distinct font files a sketch uses;
@@ -266,10 +270,13 @@ native interactive paths where direct glyphon text is not the selected ordered
 path, prefer the batched cached-text atlas fallback so cached line textures are
 grouped into image batches instead of uploaded/drawn one label at a time.
 
-`load_pixels()` remains the list-based pixel API. `load_pixel_bytes()`
-is the lower-copy readback path for effects that can work with bytes, and
-`update_pixels()` accepts buffer-like inputs such as `bytes`, `bytearray`, and
-`memoryview`.
+`load_pixels()` returns the public `PixelBuffer`, a mutable list-like RGBA byte
+buffer that preserves compatibility operations while tracking dirty byte ranges.
+`load_pixel_bytes()` is the lower-copy readback path for effects that can work
+with bytes, and `update_pixels()` accepts `PixelBuffer`, plain lists for
+compatibility, and buffer-like inputs such as `bytes`, `bytearray`, and
+`memoryview`. Dirty row-aligned `PixelBuffer` edits can upload through the Rust
+region path instead of forcing a full-canvas upload.
 
 Canvas region APIs use narrow Rust calls:
 
@@ -293,9 +300,14 @@ coalesce mixed primitive records across local style/transform changes and image
 records across per-sprite transforms, but it must flush at true semantic
 ordering boundaries. When changing command encoding, batching, or adding command
 families, flush any pending batch before switching pipelines and restore the
-expected pipeline and bind groups before continuing. In particular, primitives
-drawn after text/images must remain visible; `examples/05_interaction/lifecycle_controls.py`
-and mixed sprite/text/pixel benchmark scenes are useful ordering smoke tests.
+expected pipeline and bind groups before continuing. The ordered encoder uses a
+small local `RenderPassBatcher` in `crates/gummy_canvas/src/gpu/render.rs`; when
+special commands split a frame into multiple render-pass segments, reusable
+vertex/image/model-buffer offsets must advance across the whole command encoder
+so later `queue.write_buffer` calls cannot overwrite data referenced by earlier
+passes. In particular, primitives drawn before and after text/images/effects
+must remain visible; `examples/05_interaction/lifecycle_controls.py` and mixed
+sprite/text/pixel benchmark scenes are useful ordering smoke tests.
 
 ## WEBGL Runtime Status
 

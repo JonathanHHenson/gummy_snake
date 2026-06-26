@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from gummysnake.backend._canvas.renderer.batch_state import LineBatchState, PrimitiveBatchState
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
 
@@ -23,15 +24,8 @@ TextMetricKey = tuple[str, str | None, int, int]
 
 
 class CanvasRendererHost(Protocol):
-    _line_batch: list[tuple[float, float, float, float]]
-    _line_batch_style: dict[str, object] | None
-    _line_batch_matrix: MatrixPayload | None
-    _line_batch_current: bool
-    _primitive_batch: list[PrimitiveBatchRecord]
-    _primitive_batch_style: dict[str, object] | None
-    _primitive_batch_matrix: MatrixPayload | None
-    _primitive_batch_current: bool
-    _primitive_batch_mode: str | None
+    _line_batch_state: LineBatchState
+    _primitive_batch_state: PrimitiveBatchState
     _text_batch: list[tuple[str, float, float]]
     _text_batch_style: dict[str, object] | None
     _text_batch_matrix: MatrixPayload | None

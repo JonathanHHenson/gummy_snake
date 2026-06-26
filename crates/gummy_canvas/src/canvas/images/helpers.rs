@@ -133,36 +133,6 @@ impl Canvas {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn try_draw_gpu_image(
-        &mut self,
-        image_key: u64,
-        image: &CachedImage,
-        dx: f64,
-        dy: f64,
-        dw: f64,
-        dh: f64,
-        style: &Bound<'_, PyAny>,
-        matrix: Matrix,
-        source: Option<(i64, i64, i64, i64)>,
-    ) -> PyResult<bool> {
-        let style = self.cached_style(style)?;
-        self.try_draw_gpu_image_parts(
-            image_key,
-            image.version,
-            image.width,
-            image.height,
-            &image.pixels,
-            dx,
-            dy,
-            dw,
-            dh,
-            &style,
-            matrix,
-            source,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn try_draw_gpu_image_parts_for_payload(
         &mut self,
         image_key: u64,
@@ -230,7 +200,7 @@ impl Canvas {
             matrix_transform_point(image_to_canvas, sw as f64, sh as f64),
             matrix_transform_point(image_to_canvas, 0.0, sh as f64),
         ];
-        let texture_version = self.texture_cache_versions.get(&image_key).copied();
+        let texture_version = self.texture_cache_versions.version(image_key);
         if texture_version != Some(image_version) {
             self.performance_counters.texture_uploads += 1;
             self.evict_texture_cache_if_needed(image_key);
@@ -278,10 +248,7 @@ impl Canvas {
             if style.blend_mode_kind != BlendMode::Blend {
                 self.performance_counters.gpu_blend_commands += 1;
             }
-            self.render_dirty = true;
-            self.offscreen_dirty = true;
-            self.pixels_stale = true;
-            self.texture_stale = false;
+            self.mark_gpu_output_texture_current();
             return Ok(true);
         }
         Ok(false)

@@ -1,6 +1,6 @@
 import pytest
 
-from gummysnake import Sketch
+from gummysnake import Image, Sketch
 from gummysnake.events.input_state import KeyboardEvent
 from gummysnake.plugins.base import LifecycleHookName
 
@@ -115,6 +115,38 @@ def test_async_sketch_lifecycle_callbacks_are_awaited():
 
     assert sketch.calls == ["preload", "setup", "draw:0", "draw:1"]
     assert context.frame_count == 2
+
+
+def test_object_facade_forwards_grouped_media_style_transform_methods():
+    class FacadeSketch(Sketch):
+        def __init__(self):
+            super().__init__()
+            self.results: tuple[bool, float, float] | None = None
+
+        def setup(self):
+            self.create_canvas(12, 12)
+            self.frame_rate(120)
+
+        def draw(self):
+            sprite = Image(1, 1, bytes([255, 255, 255, 255]))
+            with self.style(fill=(255, 0, 0), stroke=None):
+                self.rect(0, 0, 4, 4)
+            with self.transform(translate=(1, 1), scale=1):
+                self.line(0, 0, 4, 4)
+            self.image(sprite, 2, 2, 1, 1)
+            self.text_size(14)
+            self.text("hi", 1, 10)
+            self.results = (self.text_width("hi") > 0, self.frame_rate(), self.delta_time)
+            self.no_loop()
+
+    sketch = FacadeSketch()
+    context = sketch.run(max_frames=3)
+
+    assert sketch.results is not None
+    assert sketch.results[0] is True
+    assert sketch.results[1] == 120
+    assert sketch.results[2] >= 0
+    assert context.frame_count == 1
 
 
 def test_async_event_callback_is_awaited():

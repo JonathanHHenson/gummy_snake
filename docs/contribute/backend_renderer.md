@@ -66,10 +66,12 @@ second time.
 
 `CanvasRenderer` is the adapter for drawing concerns. Its public composition root
 is `src/gummysnake/backend/canvas_renderer.py`; the refactored implementation
-lives in focused mixins under `src/gummysnake/backend/_canvas/renderer/` for
-core state/caches, primitives, images, pixels, and text. It should receive
-already validated Gummy Snake-level decisions from `SketchContext` and translate
-them into Rust canvas calls.
+lives in focused mixins and helpers under
+`src/gummysnake/backend/_canvas/renderer/` for bridge calls, lifecycle,
+counters, small caches, payload builders, primitive/line batch state,
+primitives, images, pixels, and text. It should receive already validated Gummy
+Snake-level decisions from `SketchContext` and translate them into Rust canvas
+calls.
 
 It is responsible for:
 
@@ -99,7 +101,11 @@ Unsupported transforms must keep the general vertex path. Unchanged static
 command streams may be retained and reused across frames. Text, primitives,
 images, pixel effects, and blend/effect passes may be segmented internally, but
 the segmentation must preserve visible draw order and keep primitives/images/text
-visible after family switches.
+visible after family switches. The Rust GPU encoder uses a local
+`RenderPassBatcher`; if a frame is split into multiple render-pass segments, its
+reusable buffer offsets must advance across the whole command encoder so later
+uploads do not overwrite vertices, image records, or model uniforms referenced by
+earlier passes.
 
 The current canvas drawing boundary is stateful. `SketchContext` still validates
 Gummy Snake semantics and owns Python-facing conversion objects, but mutable

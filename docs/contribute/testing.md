@@ -46,7 +46,9 @@ Use focused checks while developing, then broaden before handing off:
 ## Performance Benchmarks
 
 Runtime performance checks live under `tests/benchmark/` and are skipped unless
-explicitly requested:
+explicitly requested. Shared subprocess execution, JSON parsing, and metric
+summary helpers live in `tests/benchmark/benchmark_helpers.py`; add benchmark
+suites to that helper instead of copying child-process boilerplate:
 
 ```sh
 uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks

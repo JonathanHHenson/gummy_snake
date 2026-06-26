@@ -19,6 +19,21 @@ class FakeSketch:
         self.frames += 1
 
 
+def install_fake_canvas_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+    module: object | None = None,
+) -> object:
+    runtime = FakeCanvasModule() if module is None else module
+    monkeypatch.setattr(canvas_bridge, "_canvas", runtime)
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    return runtime
+
+
+def install_missing_canvas_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(canvas_bridge, "_canvas", None)
+    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", ImportError("missing _canvas"))
+
+
 class EventSketch(Sketch):
     def __init__(self) -> None:
         super().__init__()
@@ -44,8 +59,7 @@ class EventSketch(Sketch):
 
 
 def make_canvas_context(monkeypatch: pytest.MonkeyPatch) -> tuple[EventSketch, CanvasBackend]:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch)
     backend = CanvasBackend()
     sketch = EventSketch()
     context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)

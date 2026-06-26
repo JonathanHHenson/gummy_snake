@@ -1,29 +1,18 @@
+use super::layout::physical_font_size;
 use crate::runtime::style::parse_style;
 use crate::*;
+use ab_glyph::FontArc;
 use pyo3::types::PyDict;
 
 impl Canvas {
     pub(crate) fn evict_image_cache_if_needed(&mut self, incoming_key: u64) {
-        if self.image_cache.contains_key(&incoming_key)
-            || self.image_cache.len() < IMAGE_CACHE_LIMIT
-        {
-            return;
-        }
-        if let Some(evicted_key) = self.image_cache.keys().next().copied() {
-            self.image_cache.remove(&evicted_key);
-            self.texture_cache_versions.remove(&evicted_key);
+        if let Some(evicted_key) = self.image_cache.evict_if_needed(incoming_key) {
+            self.texture_cache_versions.remove(evicted_key);
         }
     }
 
     pub(crate) fn evict_texture_cache_if_needed(&mut self, incoming_key: u64) {
-        if self.texture_cache_versions.contains_key(&incoming_key)
-            || self.texture_cache_versions.len() < TEXTURE_CACHE_LIMIT
-        {
-            return;
-        }
-        if let Some(evicted_key) = self.texture_cache_versions.keys().next().copied() {
-            self.texture_cache_versions.remove(&evicted_key);
-        }
+        let _ = self.texture_cache_versions.evict_if_needed(incoming_key);
     }
 
     pub(crate) fn cached_style(&mut self, style: &Bound<'_, PyAny>) -> PyResult<Style> {
@@ -137,7 +126,7 @@ impl Canvas {
         fill: Rgba,
         style: &Style,
     ) -> PyResult<CachedText> {
-        let font_size = (style.text_size * self.pixel_density).round().max(1.0) as usize;
+        let font_size = physical_font_size(style, self.pixel_density);
         let font_key = style
             .text_font_path
             .clone()
@@ -146,7 +135,7 @@ impl Canvas {
             "{}|{}|{}:{}:{}:{}|{}",
             font_key, font_size, fill.r, fill.g, fill.b, fill.a, line
         );
-        if let Some(cached) = self.text_cache.get(&cache_key) {
+        if let Some(cached) = self.text_cache.get_line(&cache_key) {
             let cached = cached.clone();
             self.performance_counters.text_cache_hits += 1;
             self.touch_text_cache_key(&cache_key);
@@ -156,8 +145,7 @@ impl Canvas {
 
         let font = self.load_text_font(style)?;
         let rendered = render_text_line(line, &font, font_size, fill);
-        let texture_key = self.next_text_key;
-        self.next_text_key = self.next_text_key.saturating_add(1);
+        let texture_key = self.text_cache.next_texture_key();
         let cached = CachedText {
             texture_key,
             image: CachedImage {
@@ -172,7 +160,7 @@ impl Canvas {
         };
         self.evict_text_cache_if_needed();
         self.text_cache_order.push_back(cache_key.clone());
-        self.text_cache.insert(cache_key, cached.clone());
+        self.text_cache.insert_line(cache_key, cached.clone());
         Ok(cached)
     }
 
@@ -194,7 +182,7 @@ impl Canvas {
                 break;
             };
             if let Some(evicted) = self.text_cache.remove(&evicted_key) {
-                self.texture_cache_versions.remove(&evicted.texture_key);
+                self.texture_cache_versions.remove(evicted.texture_key);
                 self.performance_counters.text_cache_evictions += 1;
             }
         }
@@ -215,14 +203,14 @@ impl Canvas {
     }
 
     pub(crate) fn load_text_font_path(&mut self, path: &str) -> PyResult<FontArc> {
-        if let Some(font) = self.font_cache.get(path) {
+        if let Some(font) = self.text_cache.get_font(path) {
             return Ok(font.clone());
         }
         let bytes = std::fs::read(path)
             .map_err(|err| PyValueError::new_err(format!("Could not load font {path}: {err}")))?;
         let font = FontArc::try_from_vec(bytes)
             .map_err(|_| PyValueError::new_err(format!("Could not parse font {path}.")))?;
-        self.font_cache.insert(path.to_string(), font.clone());
+        self.text_cache.insert_font(path.to_string(), font.clone());
         Ok(font)
     }
 }

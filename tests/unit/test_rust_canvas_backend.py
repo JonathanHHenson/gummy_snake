@@ -3,9 +3,8 @@ from __future__ import annotations
 from typing import cast
 
 import pytest
-from rust_canvas_context_helpers import FakeSketch, make_canvas_context
+from rust_canvas_context_helpers import FakeSketch, install_fake_canvas_runtime, make_canvas_context
 from rust_canvas_modules import (
-    FakeCanvasModule,
     FakeCanvasModuleWithoutGpu,
     FakeCanvasModuleWithoutNativeWindow,
 )
@@ -13,7 +12,6 @@ from rust_canvas_modules import (
 from gummysnake import constants as c
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.exceptions import BackendCapabilityError
-from gummysnake.rust import canvas as canvas_bridge
 
 
 def test_canvas_backend_reports_implemented_capabilities() -> None:
@@ -53,8 +51,7 @@ def test_canvas_backend_reports_implemented_capabilities() -> None:
 def test_canvas_backend_enables_input_capabilities_when_native_runtime_is_available(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch)
 
     backend = CanvasBackend()
 
@@ -68,8 +65,7 @@ def test_canvas_backend_enables_input_capabilities_when_native_runtime_is_availa
 def test_canvas_backend_rejects_interactive_without_native_window_support(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModuleWithoutNativeWindow())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch, FakeCanvasModuleWithoutNativeWindow())
 
     backend = CanvasBackend(headless=False)
     backend.create_canvas(10, 10)
@@ -81,8 +77,7 @@ def test_canvas_backend_rejects_interactive_without_native_window_support(
 def test_canvas_backend_gpu_status_uses_runtime_canvas_diagnostic(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModuleWithoutGpu())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch, FakeCanvasModuleWithoutGpu())
 
     backend = CanvasBackend()
     assert "headless rendering can continue" in backend.gpu_status()
@@ -91,8 +86,7 @@ def test_canvas_backend_gpu_status_uses_runtime_canvas_diagnostic(
 def test_canvas_backend_runs_headless_frames_and_accepts_webgl(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch)
 
     backend = CanvasBackend()
     backend.create_canvas(10, 5, pixel_density=2)
@@ -113,8 +107,7 @@ def test_canvas_backend_runs_headless_frames_and_accepts_webgl(
 def test_canvas_backend_delegates_pointer_lock_to_runtime_canvas(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch)
 
     backend = CanvasBackend(headless=False)
     backend.create_canvas(10, 10)
@@ -133,8 +126,7 @@ def test_canvas_backend_delegates_pointer_lock_to_runtime_canvas(
 def test_canvas_backend_applies_pending_pointer_lock_mode_to_runtime_canvas(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch)
 
     backend = CanvasBackend()
     assert backend.pointer_lock_mode() == "clamped"
@@ -149,8 +141,7 @@ def test_canvas_backend_applies_pending_pointer_lock_mode_to_runtime_canvas(
 def test_canvas_backend_delegates_text_input_to_runtime_canvas(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch)
 
     backend = CanvasBackend(headless=False)
     backend.create_canvas(10, 10)
@@ -170,8 +161,7 @@ def test_canvas_backend_delegates_text_input_to_runtime_canvas(
 def test_canvas_backend_repeated_create_canvas_preserves_existing_pixel_density(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch)
     backend = CanvasBackend()
     backend.create_canvas(100, 50, pixel_density=2)
 
@@ -184,8 +174,7 @@ def test_canvas_backend_repeated_create_canvas_preserves_existing_pixel_density(
 def test_canvas_backend_headless_run_defaults_to_requested_frame_count(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch)
     backend = CanvasBackend()
     backend.create_canvas(8, 8)
     sketch = FakeSketch()

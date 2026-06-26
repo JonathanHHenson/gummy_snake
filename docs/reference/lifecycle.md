@@ -52,7 +52,10 @@ supported.
 
 ## Class Mode
 
-Subclass `gs.Sketch` when you prefer object-oriented sketches:
+Subclass `gs.Sketch` when you prefer object-oriented sketches. Common canvas,
+shape, style, transform, image, text, input, timing, and media helpers are
+available as explicit `self.*` forwarding methods rather than dynamic attribute
+magic:
 
 ```python
 import gummysnake as gs

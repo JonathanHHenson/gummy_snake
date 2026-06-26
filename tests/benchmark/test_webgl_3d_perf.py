@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import json
 import statistics
-import subprocess
 import sys
 import textwrap
 from dataclasses import dataclass
-from pathlib import Path
 
 import pytest
+from benchmark_helpers import run_json_subprocess
 
-ROOT = Path(__file__).resolve().parents[2]
 FRAMES = 90
 REPEATS = 2
 MIN_MEAN_FPS = 240.0
@@ -142,17 +140,10 @@ def _run_variant(variant: str) -> WebGLBenchmarkSummary:
     samples: list[float] = []
     metadata: dict[str, object] = {}
     for _ in range(REPEATS):
-        result = subprocess.run(
+        payload = run_json_subprocess(
             [sys.executable, "-c", CHILD_CODE, variant, str(FRAMES)],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
+            f"WEBGL benchmark variant {variant!r}",
         )
-        if result.returncode != 0:
-            detail = (result.stdout + result.stderr).strip()
-            raise AssertionError(f"WEBGL benchmark variant {variant!r} failed\n{detail}")
-        payload = json.loads([line for line in result.stdout.splitlines() if line.strip()][-1])
         samples.append(float(payload["fps"]))
         metadata = {
             "canvas_size": payload["canvas_size"],

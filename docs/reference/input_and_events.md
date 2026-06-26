@@ -109,7 +109,10 @@ Define callbacks on a function-mode sketch module or on a `Sketch` subclass:
 - `touch_ended(event)`
 - `touch_cancelled(event)`
 
-Callbacks may also be declared without an event parameter.
+Callbacks may also be declared without an event parameter. Dispatch is
+signature-aware for normal Python callables, so callbacks that accept an event get
+one and callbacks that accept no positional arguments are called without one;
+`TypeError` raised inside a callback still propagates as the callback error.
 
 Event objects expose Python-friendly helpers:
 
@@ -126,3 +129,10 @@ Event objects expose Python-friendly helpers:
 - `TouchPoint.position`
 - `TouchPoint.previous_position`
 - `TouchPoint.delta`
+- `TouchPoint.timestamp`
+- `TouchPoint.pressure`
+- `TouchPoint.phase`
+
+Touch timestamps are optional. The current SDL3-backed runtime leaves them as
+`None` unless a future runtime payload defines a stable timestamp policy; use
+frame timing helpers such as `millis()` when a sketch needs elapsed-time logic.

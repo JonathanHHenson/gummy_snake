@@ -60,10 +60,12 @@ tile = img[x0:x1, y0:y1]
 Pixel buffers are physical RGBA buffers. When `pixel_density()` is greater than
 `1`, the physical pixel size is larger than the logical canvas size.
 
-`load_pixels()` returns a `list[int]`. Use `load_pixel_bytes()`
-for performance-sensitive readback when a bytes-like RGBA buffer is enough.
-`update_pixels()` accepts the list returned by `load_pixels()` and efficient
-buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.
+`load_pixels()` returns `gummysnake.pixels.PixelBuffer`, a mutable list-like
+RGBA byte buffer that tracks dirty byte ranges. Use `load_pixel_bytes()` for
+performance-sensitive readback when a bytes-like RGBA buffer is enough.
+`update_pixels()` accepts the `PixelBuffer` returned by `load_pixels()`, plain
+lists for compatibility, and efficient buffer-like inputs such as `bytes`,
+`bytearray`, and `memoryview`.
 
 Performance diagnostics can be enabled when investigating slow pixel or image
 paths:
@@ -75,8 +77,9 @@ report = gs.performance_diagnostics()
 ```
 
 The report contains counters and short public-language messages for readback,
-pixel list conversion, pixel upload, texture upload/cache hits, and CPU
-compositing fallback helpers such as canvas `get()`, `set()`, and `filter()`.
+`PixelBuffer`/list compatibility conversion, pixel upload, texture upload/cache
+hits, and CPU compositing fallback helpers such as canvas `get()`, `set()`, and
+`filter()`.
 Small canvas `get(x, y)`, `get(x, y, w, h)`, and `set(...)` operations route
 through Rust region APIs and avoid reconstructing a full Python `Image` for
 region work. Full-canvas `load_pixels()` remains a full physical-buffer readback

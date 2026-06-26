@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from rust_canvas_context_helpers import EventSketch, make_canvas_context
+from rust_canvas_context_helpers import (
+    EventSketch,
+    install_fake_canvas_runtime,
+    make_canvas_context,
+)
 from rust_canvas_fakes import FakeCanvas
 from rust_canvas_modules import FakeCanvasModule
 
@@ -10,7 +14,6 @@ from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.events.input_state import KeyboardEvent
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
-from gummysnake.rust import canvas as canvas_bridge
 
 
 def test_canvas_backend_opens_interactive_window_and_reports_display_density(
@@ -139,8 +142,7 @@ def test_canvas_backend_unbounded_context_run_uses_interactive_runtime(
 def test_canvas_backend_explicit_headless_suppresses_unbounded_interactive_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch)
     backend = CanvasBackend(headless=True)
     sketch = EventSketch()
     context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
@@ -380,8 +382,7 @@ def test_canvas_backend_caps_oversized_interactive_resize_density(
     class LimitedTextureCanvasModule(FakeCanvasModule):
         Canvas = LimitedTextureCanvas
 
-    monkeypatch.setattr(canvas_bridge, "_canvas", LimitedTextureCanvasModule())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch, LimitedTextureCanvasModule())
     backend = CanvasBackend()
     sketch = EventSketch()
     context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)

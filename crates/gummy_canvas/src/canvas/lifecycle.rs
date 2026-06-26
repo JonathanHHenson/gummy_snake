@@ -36,15 +36,10 @@ impl Canvas {
                 b: 0,
                 a: 0,
             },
-            image_cache: HashMap::new(),
-            text_cache: HashMap::new(),
+            image_cache: ImageCache::default(),
+            text_cache: TextCache::default(),
             text_cache_order: VecDeque::new(),
-            text_metric_cache: HashMap::new(),
-            text_glyph_advance_cache: HashMap::new(),
-            text_kern_cache: HashMap::new(),
-            font_cache: HashMap::new(),
-            next_text_key: 1_u64 << 62,
-            texture_cache_versions: HashMap::new(),
+            texture_cache_versions: TextureCache::default(),
             clip_masks: Vec::new(),
             clip_bounds: Vec::new(),
             runtime: None,
@@ -176,13 +171,7 @@ impl Canvas {
         self.physical_height = physical_height;
         self.pixels = vec![0; physical_width * physical_height * 4];
         self.present_pixels = vec![0; physical_width * physical_height];
-        self.render_dirty = false;
-        self.offscreen_dirty = false;
-        self.pixels_stale = false;
-        self.texture_stale = false;
-        self.last_reusable_text_frame_signature = None;
-        self.pending_reusable_text_frame_signature = None;
-        self.cpu_compositing_active = false;
+        self.reset_render_sync_state();
         if reset_image_text_active {
             self.image_text_active_this_frame = false;
         }
@@ -190,11 +179,8 @@ impl Canvas {
         self.cached_style = None;
         self.clip_masks.clear();
         self.clip_bounds.clear();
-        self.text_cache.clear();
+        self.text_cache.clear_layout_entries();
         self.text_cache_order.clear();
-        self.text_metric_cache.clear();
-        self.text_glyph_advance_cache.clear();
-        self.text_kern_cache.clear();
         Ok(())
     }
 

@@ -1,4 +1,4 @@
-"""Object-oriented sketch convenience facade methods."""
+"""Explicit object-sketch facade mixin groups."""
 
 from __future__ import annotations
 
@@ -11,18 +11,13 @@ from gummysnake.sketch._facade.style import SketchFacadeStyleMixin
 from gummysnake.sketch._facade.three_d import SketchFacadeThreeDMixin
 from gummysnake.sketch._facade.transform import SketchFacadeTransformMixin
 
-
-class SketchFacadeMixin(
-    SketchFacadeCanvasMixin,
-    SketchFacadeStyleMixin,
-    SketchFacadeShapesMixin,
-    SketchFacadeThreeDMixin,
-    SketchFacadeTransformMixin,
-    SketchFacadeMediaMixin,
-    SketchFacadeInputMixin,
-    SketchFacadeBaseMixin,
-):
-    """Explicit object-mode forwards grouped by canvas, drawing, media, and input."""
-
-
-__all__ = ["SketchFacadeMixin"]
+__all__ = [
+    "SketchFacadeBaseMixin",
+    "SketchFacadeCanvasMixin",
+    "SketchFacadeInputMixin",
+    "SketchFacadeMediaMixin",
+    "SketchFacadeShapesMixin",
+    "SketchFacadeStyleMixin",
+    "SketchFacadeThreeDMixin",
+    "SketchFacadeTransformMixin",
+]

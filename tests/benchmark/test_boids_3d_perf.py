@@ -3,15 +3,13 @@ from __future__ import annotations
 import json
 import os
 import statistics
-import subprocess
 import sys
 import textwrap
 from dataclasses import dataclass
-from pathlib import Path
 
 import pytest
+from benchmark_helpers import run_json_subprocess
 
-ROOT = Path(__file__).resolve().parents[2]
 FRAMES = 120
 REPEATS = 1
 TARGET_FPS = 120.0
@@ -151,17 +149,10 @@ def _run_phase(
     samples: list[float] = []
     metadata: dict[str, object] = {}
     for _ in range(repeats):
-        result = subprocess.run(
+        payload = run_json_subprocess(
             [sys.executable, "-c", CHILD_CODE, phase, str(frames), BENCHMARK_MODE],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
+            f"boids benchmark phase {phase!r}",
         )
-        if result.returncode != 0:
-            detail = (result.stdout + result.stderr).strip()
-            raise AssertionError(f"boids benchmark phase {phase!r} failed\n{detail}")
-        payload = json.loads([line for line in result.stdout.splitlines() if line.strip()][-1])
         samples.append(float(payload["fps"]))
         metadata = {
             "backend_mode": payload["backend_mode"],

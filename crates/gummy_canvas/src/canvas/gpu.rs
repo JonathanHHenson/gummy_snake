@@ -1,12 +1,6 @@
 use crate::*;
 
 impl Canvas {
-    fn mark_gpu_output_dirty(&mut self) {
-        self.render_dirty = true;
-        self.offscreen_dirty = true;
-        self.pixels_stale = true;
-    }
-
     fn record_native_draw(&mut self) {
         self.performance_counters.gpu_draws += 1;
         self.performance_counters.native_draw_commands += 1;
@@ -67,10 +61,7 @@ impl Canvas {
 
     pub(crate) fn upload_cpu_pixels(&mut self) -> PyResult<()> {
         self.performance_counters.pixel_uploads += 1;
-        self.render_dirty = true;
-        self.offscreen_dirty = false;
-        self.pixels_stale = false;
-        self.texture_stale = true;
+        self.mark_cpu_pixels_uploaded();
         Ok(())
     }
 
@@ -131,20 +122,14 @@ impl Canvas {
                     if let Some(gpu) = self.gpu.as_mut() {
                         gpu.begin_frame();
                     }
-                    self.render_dirty = false;
-                    self.offscreen_dirty = false;
-                    self.pixels_stale = false;
-                    self.texture_stale = false;
+                    self.mark_render_clean();
                 }
                 Err(err) => {
                     self.gpu_error = Some(err);
                     if let Some(gpu) = self.gpu.as_mut() {
                         gpu.begin_frame();
                     }
-                    self.render_dirty = false;
-                    self.offscreen_dirty = false;
-                    self.pixels_stale = false;
-                    self.texture_stale = false;
+                    self.mark_render_clean();
                 }
             }
             return;
@@ -157,10 +142,7 @@ impl Canvas {
         self.performance_counters.gpu_frames_rendered += 1;
         gpu.begin_frame();
         self.last_reusable_text_frame_signature = reusable_text_frame_signature;
-        self.render_dirty = false;
-        self.offscreen_dirty = false;
-        self.pixels_stale = true;
-        self.texture_stale = false;
+        self.mark_gpu_rendered_without_readback();
     }
 
     pub(crate) fn read_gpu_pixels(&mut self) {

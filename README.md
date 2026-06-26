@@ -119,12 +119,13 @@ bytes.
 Image-local resize, mask, filter, crop/copy, and alpha compositing delegate
 bulk byte work to the Rust canvas runtime while keeping the Python `Image`
 API and version semantics.
-For pixel effects, `load_pixels()` returns a list-based pixel buffer and
-`load_pixel_bytes()` provides a bytes readback path; `update_pixels()` accepts
-lists and buffer-like inputs such as `bytes`, `bytearray`, and `memoryview`.
-Buffer-like uploads use the Rust canvas buffer-protocol path without an
-intermediate Python `bytes(...)` copy, exact no-op byte uploads are skipped, and
-dirty row-aligned changes to the `PixelBuffer` returned by `load_pixels()` can
+For pixel effects, `load_pixels()` returns `gummysnake.pixels.PixelBuffer`, a
+mutable list-like RGBA byte buffer that tracks dirty regions;
+`load_pixel_bytes()` provides a bytes readback path; and `update_pixels()`
+accepts lists, `PixelBuffer`, and buffer-like inputs such as `bytes`,
+`bytearray`, and `memoryview`. Buffer-like uploads use the Rust canvas
+buffer-protocol path without an intermediate Python `bytes(...)` copy, exact
+no-op byte uploads are skipped, and dirty row-aligned `PixelBuffer` changes can
 upload as smaller Rust regions. Small canvas `get()` and `set()` region
 operations use Rust region calls instead of reconstructing the full canvas as a
 Python image.
@@ -180,13 +181,16 @@ uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features ex
 
 The refactored Python package is split by responsibility: public API modules in
 `src/gummysnake/api/`, `SketchContext` mixins in `src/gummysnake/_context/`,
-lifecycle code in `src/gummysnake/sketch/`, enum-backed constants in
-`src/gummysnake/constants/`, and thin canvas backend/renderer facades over the
-implementation modules in `src/gummysnake/backend/_canvas/`. The native desktop
-runtime itself lives in `crates/gummy_canvas`, owns sketch context state, canvas
-draw state, and command construction, and uses SDL3 for windowing, resizing, and
-input event collection. Python keeps the public API, callbacks, plugin hooks,
-and friendly wrapper objects.
+lifecycle code and object-mode facade groups in `src/gummysnake/sketch/`,
+enum-backed constants in `src/gummysnake/constants/`, and thin canvas
+backend/renderer facades over the implementation modules in
+`src/gummysnake/backend/_canvas/`. The renderer internals are grouped around
+bridge calls, lifecycle, counters, caches, payload builders, and
+primitive/image/text/pixel drawing. The native desktop runtime itself lives in
+`crates/gummy_canvas`, owns sketch context state, canvas draw state, command
+construction, cache/dirty-state helpers, and GPU render-pass batching, and uses
+SDL3 for windowing, resizing, and input event collection. Python keeps the
+public API, callbacks, plugin hooks, and friendly wrapper objects.
 
 The contributor documentation explains the architecture, lifecycle, testing
 workflow, and release shape in more detail:
@@ -214,7 +218,7 @@ uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 Canvas backend benchmark scenarios measure native interactive presentation and
 are expected to average at least 240 FPS. Headless/offscreen numbers are useful
 for export diagnostics, but they are not the runtime performance acceptance
-The canvas benchmark payload includes renderer metrics for draw counts,
+metric. The canvas benchmark payload includes renderer metrics for draw counts,
 primitive/image batch records, flushes, largest coalesced batch size, vertex
 uploads, texture uploads/reuse, text cache hits, pixel readbacks/uploads, GPU
 region effects, and presented/rendered frame counts. WEBGL frame-style benchmark

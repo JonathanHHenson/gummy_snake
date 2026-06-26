@@ -1,10 +1,14 @@
-use super::images::{BatchCanvasImage, BatchUniqueImage, IMAGE_ATLAS_MAX_UNIQUE_IMAGES};
+use super::images::{
+    BatchCanvasImage, BatchUniqueImage, ImageBatchBuilder, IMAGE_ATLAS_MAX_UNIQUE_IMAGES,
+};
 use crate::runtime::style::*;
 use crate::*;
 use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
-use std::collections::HashMap;
 
 mod cache;
+mod layout;
+
+use layout::{layout_cached_text_line, layout_gpu_text_line, physical_font_size, text_lines};
 
 impl Canvas {
     pub(crate) fn text_impl(
@@ -107,78 +111,51 @@ impl Canvas {
             return Ok(false);
         }
         let fill = parsed_style.fill.expect("fill was checked");
-        let mut unique_images = Vec::<BatchUniqueImage>::new();
-        let mut unique_indices = HashMap::<(u64, u64), usize>::new();
-        let mut records = Vec::<BatchCanvasImage>::new();
+        let mut batch = ImageBatchBuilder::with_record_capacity(items.len());
         let mut drew_any = false;
 
         for (value, x, y) in items {
-            let lines: Vec<&str> = if value.is_empty() {
-                vec![""]
-            } else {
-                value.split('\n').collect()
-            };
-            for (line_index, line) in lines.iter().enumerate() {
+            for (line_index, line) in text_lines(value).enumerate() {
                 let cached = self.cached_text_line(line, fill, parsed_style)?;
-                if cached.image.width == 0 || cached.image.height == 0 {
+                let Some(layout) = layout_cached_text_line(
+                    &cached,
+                    *x,
+                    *y,
+                    line_index,
+                    parsed_style,
+                    self.pixel_density,
+                ) else {
                     continue;
-                }
-                let width = cached.image.width as f64 / self.pixel_density;
-                let height = cached.image.height as f64 / self.pixel_density;
-                let mut dx = *x;
-                let mut dy = *y + line_index as f64 * parsed_style.text_leading;
-                if parsed_style.text_align_x == "center" {
-                    dx -= width / 2.0;
-                } else if parsed_style.text_align_x == "right" {
-                    dx -= width;
-                }
-                if parsed_style.text_align_y == "center" {
-                    dy -= height / 2.0;
-                } else if parsed_style.text_align_y == "bottom" {
-                    dy -= height;
-                } else if parsed_style.text_align_y == "baseline" {
-                    dy -= cached.ascent / self.pixel_density;
-                }
-                dx += cached.bbox_left as f64 / self.pixel_density;
-                dy += cached.bbox_top as f64 / self.pixel_density;
+                };
 
                 let unique_key = (cached.texture_key, cached.image.version);
-                if !unique_indices.contains_key(&unique_key)
-                    && unique_images.len() >= IMAGE_ATLAS_MAX_UNIQUE_IMAGES
+                if !batch.contains_unique(unique_key)
+                    && batch.unique_len() >= IMAGE_ATLAS_MAX_UNIQUE_IMAGES
                 {
-                    if self.draw_cached_text_image_batch(&unique_images, &records, parsed_style)? {
+                    if self.draw_cached_text_image_batch(
+                        batch.unique_images(),
+                        batch.records(),
+                        parsed_style,
+                    )? {
                         drew_any = true;
                     }
-                    unique_images.clear();
-                    unique_indices.clear();
-                    records.clear();
+                    batch.clear();
                 }
-                let unique_index = if let Some(index) = unique_indices.get(&unique_key) {
-                    *index
-                } else {
-                    let index = unique_images.len();
-                    unique_images.push(BatchUniqueImage {
-                        key: cached.texture_key,
-                        version: cached.image.version,
-                        width: cached.image.width,
-                        height: cached.image.height,
-                        pixels: cached.image.pixels.clone(),
-                    });
-                    unique_indices.insert(unique_key, index);
-                    index
-                };
-                records.push(BatchCanvasImage {
-                    unique_index,
-                    dx,
-                    dy,
-                    dw: width,
-                    dh: height,
-                    source: None,
+                batch.push_cached_text_image(
+                    &cached,
+                    layout.dx,
+                    layout.dy,
+                    layout.width,
+                    layout.height,
                     matrix,
-                });
+                );
             }
         }
-        if self.draw_cached_text_image_batch(&unique_images, &records, parsed_style)? {
+        if self.draw_cached_text_image_batch(
+            batch.unique_images(),
+            batch.records(),
+            parsed_style,
+        )? {
             drew_any = true;
         }
         Ok(drew_any)
@@ -196,37 +173,7 @@ impl Canvas {
         if self.try_draw_gpu_image_atlas_batch(unique_images, records, parsed_style)? {
             return Ok(true);
         }
-        for record in records {
-            let image = &unique_images[record.unique_index];
-            if self.try_draw_gpu_image_parts(
-                image.key,
-                image.version,
-                image.width,
-                image.height,
-                &image.pixels,
-                record.dx,
-                record.dy,
-                record.dw,
-                record.dh,
-                parsed_style,
-                record.matrix,
-                record.source,
-            )? {
-                continue;
-            }
-            self.draw_image_pixels_with_style(
-                &image.pixels,
-                image.width,
-                image.height,
-                record.dx,
-                record.dy,
-                record.dw,
-                record.dh,
-                parsed_style,
-                record.matrix,
-                record.source,
-            )?;
-        }
+        self.draw_image_batch_records(unique_images, records, parsed_style, false, true)?;
         Ok(true)
     }
 
@@ -307,73 +254,45 @@ impl Canvas {
             return Err(PyValueError::new_err("text_leading must be positive."));
         }
 
-        let lines: Vec<&str> = if value.is_empty() {
-            vec![""]
-        } else {
-            value.split('\n').collect()
-        };
-        for (line_index, line) in lines.iter().enumerate() {
+        for (line_index, line) in text_lines(value).enumerate() {
             if self.can_draw_gpu_text(parsed_style, matrix) {
-                let font_size = (parsed_style.text_size * self.pixel_density)
-                    .round()
-                    .max(1.0) as usize;
+                let font_size = physical_font_size(parsed_style, self.pixel_density);
                 let metrics = self.cached_text_metrics(line, parsed_style, font_size)?;
-                if metrics.width <= 0.0 {
+                let Some(layout) = layout_gpu_text_line(
+                    metrics,
+                    x,
+                    y,
+                    line_index,
+                    parsed_style,
+                    font_size,
+                    self.pixel_density,
+                ) else {
                     continue;
-                }
-                let width = metrics.width / self.pixel_density;
-                let height =
-                    (metrics.ascent + metrics.descent).max(font_size as f64) / self.pixel_density;
-                let mut dx = x;
-                let mut dy = y + line_index as f64 * parsed_style.text_leading;
-                if parsed_style.text_align_x == "center" {
-                    dx -= width / 2.0;
-                } else if parsed_style.text_align_x == "right" {
-                    dx -= width;
-                }
-                if parsed_style.text_align_y == "center" {
-                    dy -= height / 2.0;
-                } else if parsed_style.text_align_y == "bottom" {
-                    dy -= height;
-                } else if parsed_style.text_align_y == "baseline" {
-                    dy -= metrics.ascent / self.pixel_density;
-                }
+                };
                 self.draw_gpu_text(
                     line,
-                    dx * self.pixel_density,
-                    dy * self.pixel_density,
-                    (width * self.pixel_density + font_size as f64).max(1.0),
-                    (height * self.pixel_density + font_size as f64 * 0.5)
-                        .max(parsed_style.text_leading),
+                    layout.dx * self.pixel_density,
+                    layout.dy * self.pixel_density,
+                    layout.draw_width,
+                    layout.draw_height,
                     font_size as f64,
-                    (parsed_style.text_leading * self.pixel_density).max(font_size as f64),
+                    layout.line_height,
                     fill,
                 )?;
                 continue;
             }
             self.image_text_active_this_frame = true;
-            let cached = self.cached_text_line(line, fill, &parsed_style)?;
-            if cached.image.width == 0 || cached.image.height == 0 {
+            let cached = self.cached_text_line(line, fill, parsed_style)?;
+            let Some(layout) = layout_cached_text_line(
+                &cached,
+                x,
+                y,
+                line_index,
+                parsed_style,
+                self.pixel_density,
+            ) else {
                 continue;
-            }
-            let width = cached.image.width as f64 / self.pixel_density;
-            let height = cached.image.height as f64 / self.pixel_density;
-            let mut dx = x;
-            let mut dy = y + line_index as f64 * parsed_style.text_leading;
-            if parsed_style.text_align_x == "center" {
-                dx -= width / 2.0;
-            } else if parsed_style.text_align_x == "right" {
-                dx -= width;
-            }
-            if parsed_style.text_align_y == "center" {
-                dy -= height / 2.0;
-            } else if parsed_style.text_align_y == "bottom" {
-                dy -= height;
-            } else if parsed_style.text_align_y == "baseline" {
-                dy -= cached.ascent / self.pixel_density;
-            }
-            dx += cached.bbox_left as f64 / self.pixel_density;
-            dy += cached.bbox_top as f64 / self.pixel_density;
+            };
 
             if self.try_draw_gpu_image_parts(
                 cached.texture_key,
@@ -381,10 +300,10 @@ impl Canvas {
                 cached.image.width,
                 cached.image.height,
                 &cached.image.pixels,
-                dx,
-                dy,
-                width,
-                height,
+                layout.dx,
+                layout.dy,
+                layout.width,
+                layout.height,
                 parsed_style,
                 matrix,
                 None,
@@ -395,10 +314,10 @@ impl Canvas {
                 &cached.image.pixels,
                 cached.image.width,
                 cached.image.height,
-                dx,
-                dy,
-                width,
-                height,
+                layout.dx,
+                layout.dy,
+                layout.width,
+                layout.height,
                 parsed_style,
                 matrix,
                 None,
@@ -431,10 +350,8 @@ impl Canvas {
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
         }
-        let font_size = (parsed_style.text_size * self.pixel_density)
-            .round()
-            .max(1.0) as usize;
-        let metrics = self.cached_text_metrics(value, &parsed_style, font_size)?;
+        let font_size = physical_font_size(parsed_style, self.pixel_density);
+        let metrics = self.cached_text_metrics(value, parsed_style, font_size)?;
         Ok(metrics.width / self.pixel_density)
     }
 
@@ -444,9 +361,7 @@ impl Canvas {
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
         }
-        let font_size = (parsed_style.text_size * self.pixel_density)
-            .round()
-            .max(1.0) as usize;
+        let font_size = physical_font_size(&parsed_style, self.pixel_density);
         let metrics = self.cached_text_metrics("", &parsed_style, font_size)?;
         Ok(metrics.ascent / self.pixel_density)
     }
@@ -457,9 +372,7 @@ impl Canvas {
         if parsed_style.text_size <= 0.0 || !parsed_style.text_size.is_finite() {
             return Err(PyValueError::new_err("text_size must be positive."));
         }
-        let font_size = (parsed_style.text_size * self.pixel_density)
-            .round()
-            .max(1.0) as usize;
+        let font_size = physical_font_size(&parsed_style, self.pixel_density);
         let metrics = self.cached_text_metrics("", &parsed_style, font_size)?;
         Ok(metrics.descent / self.pixel_density)
     }
@@ -471,7 +384,7 @@ impl Canvas {
         font_size: usize,
     ) -> PyResult<CachedTextMetrics> {
         let cache_key = self.text_metric_cache_key(value, parsed_style, font_size);
-        if let Some(metrics) = self.text_metric_cache.get(&cache_key) {
+        if let Some(metrics) = self.text_cache.get_metrics(&cache_key) {
             self.performance_counters.text_cache_hits += 1;
             return Ok(*metrics);
         }
@@ -483,7 +396,7 @@ impl Canvas {
             ascent: measure_text_ascent(&font, font_size),
             descent: measure_text_descent(&font, font_size),
         };
-        self.text_metric_cache.insert(cache_key, metrics);
+        self.text_cache.insert_metrics(cache_key, metrics);
         Ok(metrics)
     }
 
@@ -517,22 +430,22 @@ impl Canvas {
             for ch in line.chars() {
                 let glyph_key = (cache_font_key.clone(), font_size, ch);
                 let (glyph_id, advance) =
-                    if let Some(cached) = self.text_glyph_advance_cache.get(&glyph_key) {
+                    if let Some(cached) = self.text_cache.get_glyph_advance(&glyph_key) {
                         *cached
                     } else {
                         let glyph_id = scaled_font.glyph_id(ch);
                         let advance = scaled_font.h_advance(glyph_id);
-                        self.text_glyph_advance_cache
-                            .insert(glyph_key, (glyph_id, advance));
+                        self.text_cache
+                            .insert_glyph_advance(glyph_key, (glyph_id, advance));
                         (glyph_id, advance)
                     };
                 if let Some(previous_id) = previous {
                     let kern_key = (cache_font_key.clone(), font_size, previous_id, glyph_id);
-                    caret += if let Some(kern) = self.text_kern_cache.get(&kern_key) {
+                    caret += if let Some(kern) = self.text_cache.get_kern(&kern_key) {
                         *kern
                     } else {
                         let kern = scaled_font.kern(previous_id, glyph_id);
-                        self.text_kern_cache.insert(kern_key, kern);
+                        self.text_cache.insert_kern(kern_key, kern);
                         kern
                     };
                 }

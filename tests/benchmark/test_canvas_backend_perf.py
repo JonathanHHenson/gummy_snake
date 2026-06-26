@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import json
 import statistics
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from benchmark_helpers import run_json_subprocess
 
-ROOT = Path(__file__).resolve().parents[2]
 CHILD_RUNNER = Path(__file__).with_name("canvas_backend_perf_child.py")
 FRAMES = 120
 REPEATS = 2
@@ -72,18 +71,10 @@ def _run_variant(
     samples: list[float] = []
     metadata: dict[str, object] = {}
     for _ in range(repeats):
-        result = subprocess.run(
+        payload = run_json_subprocess(
             [sys.executable, str(CHILD_RUNNER), variant, str(frames), mode],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=False,
+            f"benchmark variant {variant!r}",
         )
-        if result.returncode != 0:
-            detail = (result.stdout + result.stderr).strip()
-            raise AssertionError(f"benchmark variant {variant!r} failed\n{detail}")
-        stdout_lines = [line for line in result.stdout.splitlines() if line.strip()]
-        payload = json.loads(stdout_lines[-1])
         if payload.get("skipped"):
             pytest.skip(str(payload["reason"]))
         samples.append(float(payload["fps"]))

@@ -20,7 +20,7 @@ mod bindings;
 #[allow(unused_imports)]
 pub(crate) use bindings::{health_check, native_window_available};
 
-use ab_glyph::{FontArc, GlyphId};
+use canvas::cache::{ImageCache, TextCache, TextureCache};
 use images::{
     alpha_composite_rgba_region, apply_rgba_mask, convert_media_frame_to_rgba,
     crop_rgba_with_padding, filter_rgba, replace_rgba_region, resize_rgba_nearest,
@@ -43,7 +43,7 @@ use runtime::{
     native_window_available as runtime_native_window_available, InteractiveRuntime,
     DEFAULT_POINTER_LOCK_MODE,
 };
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::f64::consts::PI;
 use std::fs;
 use std::hash::{Hash, Hasher};
@@ -630,15 +630,10 @@ struct Canvas {
     pixels: Vec<u8>,
     present_pixels: Vec<u32>,
     erase_color: Rgba,
-    image_cache: HashMap<u64, CachedImage>,
-    text_cache: HashMap<String, CachedText>,
+    image_cache: ImageCache,
+    text_cache: TextCache,
     text_cache_order: VecDeque<String>,
-    text_metric_cache: HashMap<String, CachedTextMetrics>,
-    text_glyph_advance_cache: HashMap<(String, usize, char), (GlyphId, f32)>,
-    text_kern_cache: HashMap<(String, usize, GlyphId, GlyphId), f32>,
-    font_cache: HashMap<String, FontArc>,
-    next_text_key: u64,
-    texture_cache_versions: HashMap<u64, u64>,
+    texture_cache_versions: TextureCache,
     clip_masks: Vec<Vec<bool>>,
     clip_bounds: Vec<(usize, usize, usize, usize)>,
     runtime: Option<InteractiveRuntime>,

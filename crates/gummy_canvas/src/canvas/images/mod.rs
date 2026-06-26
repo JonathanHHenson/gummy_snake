@@ -1,28 +1,11 @@
 use crate::*;
 
+mod batch;
 mod helpers;
 
-pub(crate) const IMAGE_ATLAS_MAX_UNIQUE_IMAGES: usize = 128;
-
-pub(crate) struct BatchCanvasImage {
-    pub(crate) unique_index: usize,
-    pub(crate) dx: f64,
-    pub(crate) dy: f64,
-    pub(crate) dw: f64,
-    pub(crate) dh: f64,
-    pub(crate) source: Option<(i64, i64, i64, i64)>,
-    pub(crate) matrix: Matrix,
-}
-
-pub(crate) struct BatchUniqueImage {
-    pub(crate) key: u64,
-    pub(crate) version: u64,
-    pub(crate) width: usize,
-    pub(crate) height: usize,
-    pub(crate) pixels: Vec<u8>,
-}
-
-const MOTION_SPRITE_RECORD_SIZE: usize = 16;
+pub(crate) use batch::{
+    BatchCanvasImage, BatchUniqueImage, ImageBatchBuilder, IMAGE_ATLAS_MAX_UNIQUE_IMAGES,
+};
 
 impl Canvas {
     pub(crate) fn draw_image_impl(
@@ -95,47 +78,31 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
-        let needs_upload = self
-            .image_cache
-            .get(&image_key)
-            .map(|cached| {
-                cached.version != image_version
-                    || cached.width != image_width
-                    || cached.height != image_height
-            })
-            .unwrap_or(true);
-        if needs_upload {
-            self.performance_counters.image_cache_misses += 1;
-            let pixels = image_pixels.ok_or_else(|| {
-                PyValueError::new_err(
-                    "Image pixels are required the first time an image/version is drawn.",
-                )
-            })?;
-            validate_rgba_buffer(pixels.len(), image_width, image_height)?;
-            self.evict_image_cache_if_needed(image_key);
-            self.image_cache.insert(
-                image_key,
-                CachedImage {
-                    version: image_version,
-                    width: image_width,
-                    height: image_height,
-                    pixels,
-                },
-            );
-        } else {
-            self.performance_counters.image_cache_hits += 1;
+        let cached = self.ensure_cached_image_for_draw(
+            image_key,
+            image_version,
+            image_pixels,
+            image_width,
+            image_height,
+        )?;
+        let style = self.cached_style(style)?;
+        if self.try_draw_gpu_image_parts(
+            image_key,
+            cached.version,
+            cached.width,
+            cached.height,
+            &cached.pixels,
+            dx,
+            dy,
+            dw,
+            dh,
+            &style,
+            matrix,
+            source,
+        )? {
+            return Ok(());
         }
-        if let Some(cached) = self.image_cache.get(&image_key).cloned() {
-            if self.try_draw_gpu_image(image_key, &cached, dx, dy, dw, dh, style, matrix, source)? {
-                return Ok(());
-            }
-        }
-        let cached = self
-            .image_cache
-            .get(&image_key)
-            .ok_or_else(|| PyValueError::new_err("Cached image is not available."))?
-            .clone();
-        self.draw_image_pixels(
+        self.draw_image_pixels_with_style(
             &cached.pixels,
             cached.width,
             cached.height,
@@ -143,7 +110,7 @@ impl Canvas {
             dy,
             dw,
             dh,
-            style,
+            &style,
             matrix,
             source,
         )
@@ -165,16 +132,55 @@ impl Canvas {
     ) -> PyResult<()> {
         let style = self.current_style.clone();
         let matrix = self.current_matrix;
-        let needs_upload = self
+        let cached = self.ensure_cached_image_for_draw(
+            image_key,
+            image_version,
+            image_pixels,
+            image_width,
+            image_height,
+        )?;
+        if self.try_draw_gpu_image_parts(
+            image_key,
+            cached.version,
+            cached.width,
+            cached.height,
+            &cached.pixels,
+            dx,
+            dy,
+            dw,
+            dh,
+            &style,
+            matrix,
+            source,
+        )? {
+            return Ok(());
+        }
+        self.draw_image_pixels_with_style(
+            &cached.pixels,
+            cached.width,
+            cached.height,
+            dx,
+            dy,
+            dw,
+            dh,
+            &style,
+            matrix,
+            source,
+        )
+    }
+
+    fn ensure_cached_image_for_draw(
+        &mut self,
+        image_key: u64,
+        image_version: u64,
+        image_pixels: Option<Vec<u8>>,
+        image_width: usize,
+        image_height: usize,
+    ) -> PyResult<CachedImage> {
+        if self
             .image_cache
-            .get(&image_key)
-            .map(|cached| {
-                cached.version != image_version
-                    || cached.width != image_width
-                    || cached.height != image_height
-            })
-            .unwrap_or(true);
-        if needs_upload {
+            .needs_update(image_key, image_version, image_width, image_height)
+        {
             self.performance_counters.image_cache_misses += 1;
             let pixels = image_pixels.ok_or_else(|| {
                 PyValueError::new_err(
@@ -195,38 +201,88 @@ impl Canvas {
         } else {
             self.performance_counters.image_cache_hits += 1;
         }
-        if let Some(cached) = self.image_cache.get(&image_key).cloned() {
-            if self.try_draw_gpu_image_parts(
+        self.image_cache
+            .get(image_key)
+            .cloned()
+            .ok_or_else(|| PyValueError::new_err("Cached image is not available."))
+    }
+
+    fn cache_canvas_image_payload(
+        &mut self,
+        image_key: u64,
+        image_version: u64,
+        image_width: usize,
+        image_height: usize,
+        image_pixels: &[u8],
+    ) {
+        if self
+            .image_cache
+            .needs_update(image_key, image_version, image_width, image_height)
+        {
+            self.evict_image_cache_if_needed(image_key);
+            self.image_cache.insert(
                 image_key,
-                cached.version,
-                cached.width,
-                cached.height,
-                &cached.pixels,
-                dx,
-                dy,
-                dw,
-                dh,
-                &style,
-                matrix,
-                source,
-            )? {
-                return Ok(());
+                CachedImage {
+                    version: image_version,
+                    width: image_width,
+                    height: image_height,
+                    pixels: image_pixels.to_vec(),
+                },
+            );
+        }
+    }
+
+    pub(crate) fn draw_image_batch_records(
+        &mut self,
+        unique_images: &[BatchUniqueImage],
+        records: &[BatchCanvasImage],
+        style: &Style,
+        cache_images: bool,
+        try_individual_gpu: bool,
+    ) -> PyResult<()> {
+        for record in records {
+            let image = &unique_images[record.unique_index];
+            if cache_images {
+                self.cache_canvas_image_payload(
+                    image.key,
+                    image.version,
+                    image.width,
+                    image.height,
+                    &image.pixels,
+                );
+            }
+            if try_individual_gpu
+                && self.try_draw_gpu_image_parts(
+                    image.key,
+                    image.version,
+                    image.width,
+                    image.height,
+                    &image.pixels,
+                    record.dx,
+                    record.dy,
+                    record.dw,
+                    record.dh,
+                    style,
+                    record.matrix,
+                    record.source,
+                )?
+            {
+                continue;
             }
             self.draw_image_pixels_with_style(
-                &cached.pixels,
-                cached.width,
-                cached.height,
-                dx,
-                dy,
-                dw,
-                dh,
-                &style,
-                matrix,
-                source,
-            )
-        } else {
-            Err(PyValueError::new_err("Cached image is not available."))
+                &image.pixels,
+                image.width,
+                image.height,
+                record.dx,
+                record.dy,
+                record.dw,
+                record.dh,
+                style,
+                record.matrix,
+                record.source,
+            )?;
         }
+        Ok(())
     }
 
     pub(crate) fn draw_canvas_image_impl(
@@ -240,27 +296,13 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
-        let needs_cache = self
-            .image_cache
-            .get(&image.key)
-            .map(|cached| {
-                cached.version != image.version
-                    || cached.width != image.width
-                    || cached.height != image.height
-            })
-            .unwrap_or(true);
-        if needs_cache {
-            self.evict_image_cache_if_needed(image.key);
-            self.image_cache.insert(
-                image.key,
-                CachedImage {
-                    version: image.version,
-                    width: image.width,
-                    height: image.height,
-                    pixels: image.pixels.clone(),
-                },
-            );
-        }
+        self.cache_canvas_image_payload(
+            image.key,
+            image.version,
+            image.width,
+            image.height,
+            &image.pixels,
+        );
         if self.try_draw_gpu_image_parts_for_payload(
             image.key,
             image.version,
@@ -303,27 +345,13 @@ impl Canvas {
     ) -> PyResult<()> {
         let style = self.current_style.clone();
         let matrix = self.current_matrix;
-        let needs_cache = self
-            .image_cache
-            .get(&image.key)
-            .map(|cached| {
-                cached.version != image.version
-                    || cached.width != image.width
-                    || cached.height != image.height
-            })
-            .unwrap_or(true);
-        if needs_cache {
-            self.evict_image_cache_if_needed(image.key);
-            self.image_cache.insert(
-                image.key,
-                CachedImage {
-                    version: image.version,
-                    width: image.width,
-                    height: image.height,
-                    pixels: image.pixels.clone(),
-                },
-            );
-        }
+        self.cache_canvas_image_payload(
+            image.key,
+            image.version,
+            image.width,
+            image.height,
+            &image.pixels,
+        );
         if self.try_draw_gpu_image_parts(
             image.key,
             image.version,
@@ -361,106 +389,12 @@ impl Canvas {
         matrix: Matrix,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
-        let sequence = records.downcast::<PyList>()?;
-        let mut unique_images = Vec::<BatchUniqueImage>::new();
-        let mut unique_indices = HashMap::<(u64, u64), usize>::new();
-        let mut parsed_records = Vec::<BatchCanvasImage>::with_capacity(sequence.len());
-        for item in sequence.iter() {
-            let record = item.downcast::<PyTuple>()?;
-            if record.len() != 6 {
-                return Err(PyValueError::new_err(
-                    "Image batch records must contain image, dx, dy, dw, dh, and source.",
-                ));
-            }
-            let image = record.get_item(0)?.extract::<PyRef<'_, CanvasImage>>()?;
-            let dx = record.get_item(1)?.extract::<f64>()?;
-            let dy = record.get_item(2)?.extract::<f64>()?;
-            let dw = record.get_item(3)?.extract::<f64>()?;
-            let dh = record.get_item(4)?.extract::<f64>()?;
-            let source = record
-                .get_item(5)?
-                .extract::<Option<(i64, i64, i64, i64)>>()?;
-            let unique_key = (image.key, image.version);
-            let unique_index = if let Some(index) = unique_indices.get(&unique_key) {
-                *index
-            } else {
-                let index = unique_images.len();
-                unique_images.push(BatchUniqueImage {
-                    key: image.key,
-                    version: image.version,
-                    width: image.width,
-                    height: image.height,
-                    pixels: image.pixels.clone(),
-                });
-                unique_indices.insert(unique_key, index);
-                index
-            };
-            parsed_records.push(BatchCanvasImage {
-                unique_index,
-                dx,
-                dy,
-                dw,
-                dh,
-                source,
-                matrix,
-            });
-        }
-        if self.try_draw_gpu_image_atlas_batch(&unique_images, &parsed_records, &style)? {
+        let batch = ImageBatchBuilder::parse_canvas_records(records, matrix)?;
+        if self.try_draw_gpu_image_atlas_batch(batch.unique_images(), batch.records(), &style)? {
             return Ok(());
         }
-        for record in parsed_records {
-            let image = &unique_images[record.unique_index];
-            let needs_cache = self
-                .image_cache
-                .get(&image.key)
-                .map(|cached| {
-                    cached.version != image.version
-                        || cached.width != image.width
-                        || cached.height != image.height
-                })
-                .unwrap_or(true);
-            if needs_cache {
-                self.evict_image_cache_if_needed(image.key);
-                self.image_cache.insert(
-                    image.key,
-                    CachedImage {
-                        version: image.version,
-                        width: image.width,
-                        height: image.height,
-                        pixels: image.pixels.clone(),
-                    },
-                );
-            }
-            if self.try_draw_gpu_image_parts(
-                image.key,
-                image.version,
-                image.width,
-                image.height,
-                &image.pixels,
-                record.dx,
-                record.dy,
-                record.dw,
-                record.dh,
-                &style,
-                record.matrix,
-                record.source,
-            )? {
-                continue;
-            }
-            self.draw_image_pixels_with_style(
-                &image.pixels,
-                image.width,
-                image.height,
-                record.dx,
-                record.dy,
-                record.dw,
-                record.dh,
-                &style,
-                record.matrix,
-                record.source,
-            )?;
-        }
-        Ok(())
+        let (unique_images, records) = batch.into_parts();
+        self.draw_image_batch_records(&unique_images, &records, &style, true, true)
     }
 
     pub(crate) fn batch_canvas_images_transformed_impl(
@@ -469,86 +403,12 @@ impl Canvas {
         style: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
         let style = self.cached_style(style)?;
-        let sequence = records.downcast::<PyList>()?;
-        let mut unique_images = Vec::<BatchUniqueImage>::new();
-        let mut unique_indices = HashMap::<(u64, u64), usize>::new();
-        let mut parsed_records = Vec::<BatchCanvasImage>::with_capacity(sequence.len());
-        for item in sequence.iter() {
-            let record = item.downcast::<PyTuple>()?;
-            if record.len() != 7 {
-                return Err(PyValueError::new_err(
-                    "Transformed image batch records must contain image, dx, dy, dw, dh, source, and matrix.",
-                ));
-            }
-            let image = record.get_item(0)?.extract::<PyRef<'_, CanvasImage>>()?;
-            let dx = record.get_item(1)?.extract::<f64>()?;
-            let dy = record.get_item(2)?.extract::<f64>()?;
-            let dw = record.get_item(3)?.extract::<f64>()?;
-            let dh = record.get_item(4)?.extract::<f64>()?;
-            let source = record
-                .get_item(5)?
-                .extract::<Option<(i64, i64, i64, i64)>>()?;
-            let matrix = record.get_item(6)?.extract::<Matrix>()?;
-            let unique_key = (image.key, image.version);
-            let unique_index = if let Some(index) = unique_indices.get(&unique_key) {
-                *index
-            } else {
-                let index = unique_images.len();
-                unique_images.push(BatchUniqueImage {
-                    key: image.key,
-                    version: image.version,
-                    width: image.width,
-                    height: image.height,
-                    pixels: image.pixels.clone(),
-                });
-                unique_indices.insert(unique_key, index);
-                index
-            };
-            parsed_records.push(BatchCanvasImage {
-                unique_index,
-                dx,
-                dy,
-                dw,
-                dh,
-                source,
-                matrix,
-            });
-        }
-        if self.try_draw_gpu_image_atlas_batch(&unique_images, &parsed_records, &style)? {
+        let batch = ImageBatchBuilder::parse_transformed_canvas_records(records)?;
+        if self.try_draw_gpu_image_atlas_batch(batch.unique_images(), batch.records(), &style)? {
             return Ok(());
         }
-        for record in parsed_records {
-            let image = &unique_images[record.unique_index];
-            if self.try_draw_gpu_image_parts(
-                image.key,
-                image.version,
-                image.width,
-                image.height,
-                &image.pixels,
-                record.dx,
-                record.dy,
-                record.dw,
-                record.dh,
-                &style,
-                record.matrix,
-                record.source,
-            )? {
-                continue;
-            }
-            self.draw_image_pixels_with_style(
-                &image.pixels,
-                image.width,
-                image.height,
-                record.dx,
-                record.dy,
-                record.dw,
-                record.dh,
-                &style,
-                record.matrix,
-                record.source,
-            )?;
-        }
-        Ok(())
+        let (unique_images, records) = batch.into_parts();
+        self.draw_image_batch_records(&unique_images, &records, &style, false, true)
     }
 
     pub(crate) fn batch_canvas_image_motion_terms_impl(
@@ -559,70 +419,16 @@ impl Canvas {
         style: &Bound<'_, PyAny>,
         matrix: Matrix,
     ) -> PyResult<()> {
-        if records.len() % MOTION_SPRITE_RECORD_SIZE != 0 {
-            return Err(PyValueError::new_err(
-                "Compact sprite records must be 16-byte little-endian records.",
-            ));
-        }
         let style = self.cached_style(style)?;
-        let unique_images = images
-            .iter()
-            .map(|image| BatchUniqueImage {
-                key: image.key,
-                version: image.version,
-                width: image.width,
-                height: image.height,
-                pixels: image.pixels.clone(),
-            })
-            .collect::<Vec<_>>();
-        let mut parsed_records = Vec::with_capacity(records.len() / MOTION_SPRITE_RECORD_SIZE);
-        for record in records.chunks_exact(MOTION_SPRITE_RECORD_SIZE) {
-            let image_index =
-                u32::from_le_bytes([record[0], record[1], record[2], record[3]]) as usize;
-            if image_index >= unique_images.len() {
-                return Err(PyValueError::new_err(
-                    "Compact sprite record references an out-of-range image index.",
-                ));
-            }
-            let base_x = f32::from_le_bytes([record[4], record[5], record[6], record[7]]) as f64;
-            let y = f32::from_le_bytes([record[8], record[9], record[10], record[11]]) as f64;
-            let size = f32::from_le_bytes([record[12], record[13], record[14], record[15]]) as f64;
-            if size <= 0.0 {
-                continue;
-            }
-            let x = 10.0 + (base_x + frame as f64).rem_euclid(700.0) - size / 2.0;
-            parsed_records.push(BatchCanvasImage {
-                unique_index: image_index,
-                dx: x,
-                dy: y - size / 2.0,
-                dw: size,
-                dh: size,
-                source: None,
-                matrix,
-            });
-        }
-        if parsed_records.is_empty() {
+        let batch = ImageBatchBuilder::parse_motion_records(records, &images, frame, matrix)?;
+        if batch.is_empty() {
             return Ok(());
         }
-        if self.try_draw_gpu_image_atlas_batch(&unique_images, &parsed_records, &style)? {
+        if self.try_draw_gpu_image_atlas_batch(batch.unique_images(), batch.records(), &style)? {
             return Ok(());
         }
-        for record in parsed_records {
-            let image = &unique_images[record.unique_index];
-            self.draw_image_pixels_with_style(
-                &image.pixels,
-                image.width,
-                image.height,
-                record.dx,
-                record.dy,
-                record.dw,
-                record.dh,
-                &style,
-                record.matrix,
-                None,
-            )?;
-        }
-        Ok(())
+        let (unique_images, records) = batch.into_parts();
+        self.draw_image_batch_records(&unique_images, &records, &style, false, false)
     }
 
     pub(crate) fn try_draw_gpu_image_atlas_batch(
@@ -662,7 +468,7 @@ impl Canvas {
             atlas_x_offsets.push(next_x);
             next_x += image.width;
         }
-        if self.texture_cache_versions.get(&atlas_key).copied() != Some(atlas_version) {
+        if self.texture_cache_versions.version(atlas_key) != Some(atlas_version) {
             self.performance_counters.texture_uploads += 1;
             let mut atlas_pixels = vec![0u8; atlas_width * atlas_height * 4];
             for (image, x_offset) in images.iter().zip(atlas_x_offsets.iter().copied()) {
@@ -786,10 +592,7 @@ impl Canvas {
             linear_sampling,
             style.blend_mode_kind,
         );
-        self.render_dirty = true;
-        self.offscreen_dirty = true;
-        self.pixels_stale = true;
-        self.texture_stale = false;
+        self.mark_gpu_output_texture_current();
         Ok(true)
     }
 }

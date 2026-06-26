@@ -1169,10 +1169,7 @@ impl Canvas {
                     gpu.draw_model(key, index_count, uniform);
                     self.performance_counters.direct_model_draws += 1;
                     self.performance_counters.gpu_draws += 1;
-                    self.render_dirty = true;
-                    self.offscreen_dirty = true;
-                    self.pixels_stale = true;
-                    self.texture_stale = false;
+                    self.mark_gpu_output_texture_current();
                     return Ok(());
                 }
             }
@@ -1246,10 +1243,7 @@ impl Canvas {
                     gpu.draw_textured_model(key, image.key, index_count, uniform, linear_sampling);
                     self.performance_counters.direct_model_draws += 1;
                     self.performance_counters.gpu_draws += 1;
-                    self.render_dirty = true;
-                    self.offscreen_dirty = true;
-                    self.pixels_stale = true;
-                    self.texture_stale = false;
+                    self.mark_gpu_output_texture_current();
                     return Ok(true);
                 }
             }
@@ -1293,10 +1287,7 @@ impl Canvas {
         }
         self.performance_counters.direct_model_draws += 1;
         self.performance_counters.gpu_draws += 1;
-        self.render_dirty = true;
-        self.offscreen_dirty = true;
-        self.pixels_stale = true;
-        self.texture_stale = false;
+        self.mark_gpu_output_texture_current();
         Ok(true)
     }
 
@@ -1347,7 +1338,7 @@ impl Canvas {
     }
 
     fn ensure_gpu_canvas_image_texture(&mut self, image: &CanvasImage) -> PyResult<()> {
-        let texture_version = self.texture_cache_versions.get(&image.key).copied();
+        let texture_version = self.texture_cache_versions.version(image.key);
         if texture_version == Some(image.version) {
             self.performance_counters.texture_cache_hits += 1;
             return Ok(());

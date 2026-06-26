@@ -162,10 +162,7 @@ impl Canvas {
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.begin_frame();
         }
-        self.render_dirty = true;
-        self.offscreen_dirty = false;
-        self.pixels_stale = false;
-        self.texture_stale = true;
+        self.mark_cpu_pixels_uploaded();
         Ok(())
     }
 
@@ -190,10 +187,7 @@ impl Canvas {
         let color = [rgba.0, rgba.1, rgba.2, rgba.3];
         self.pixels[offset..offset + 4].copy_from_slice(&color);
         self.present_pixels[pixel_index] = rgba_to_present_pixel(&color);
-        self.render_dirty = true;
-        self.offscreen_dirty = false;
-        self.pixels_stale = false;
-        self.texture_stale = true;
+        self.mark_cpu_pixels_uploaded();
         Ok(())
     }
 
@@ -295,10 +289,7 @@ impl Canvas {
                     i32::from(green_delta),
                 );
                 self.performance_counters.gpu_region_effect_passes += 1;
-                self.render_dirty = true;
-                self.offscreen_dirty = true;
-                self.pixels_stale = true;
-                self.texture_stale = false;
+                self.mark_gpu_output_texture_current();
                 return Ok(());
             }
         }

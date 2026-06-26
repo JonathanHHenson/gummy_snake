@@ -26,6 +26,10 @@ Use Python built-ins and the standard `math` module for simple numeric operation
 - `noise_seed(seed)`
 - `noise_detail(octaves, falloff=None)`
 
+`random_seed(seed)` controls Gummy Snake's sketch RNG used by `random()` and
+`random_gaussian()`; it does not mutate Python's standard-library `random`
+module. Use `noise_seed(seed)` separately for deterministic noise.
+
 ## Vectors
 
 - `create_vector(x=0, y=0, z=0)`

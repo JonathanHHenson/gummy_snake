@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from rust_canvas_context_helpers import install_fake_canvas_runtime, install_missing_canvas_runtime
 from rust_canvas_modules import (
     FakeCanvasModule,
     FakeCanvasModuleWithBadAbi,
@@ -10,7 +11,6 @@ from rust_canvas_modules import (
 )
 
 from gummysnake.exceptions import BackendCapabilityError
-from gummysnake.rust import canvas as canvas_bridge
 from gummysnake.rust.canvas import (
     EXPECTED_CANVAS_ABI_VERSION,
     canvas_abi_version,
@@ -35,9 +35,7 @@ def test_canvas_health_check_reports_required_runtime() -> None:
 
 
 def test_canvas_wrapper_uses_loaded_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake = FakeCanvasModule()
-    monkeypatch.setattr(canvas_bridge, "_canvas", fake)
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    fake = install_fake_canvas_runtime(monkeypatch)
 
     assert is_canvas_runtime_available()
     assert canvas_health_check() == "fake-canvas"
@@ -51,8 +49,7 @@ def test_canvas_wrapper_uses_loaded_runtime(monkeypatch: pytest.MonkeyPatch) -> 
 def test_canvas_wrapper_raises_capability_error_when_runtime_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", None)
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", ImportError("missing _canvas"))
+    install_missing_canvas_runtime(monkeypatch)
 
     with pytest.raises(BackendCapabilityError, match="gummysnake.rust._canvas"):
         require_canvas_runtime()
@@ -64,8 +61,7 @@ def test_canvas_wrapper_rejects_runtime_missing_asset_classes(
     class MissingAssetClasses(FakeCanvasModule):
         CanvasSound = None
 
-    monkeypatch.setattr(canvas_bridge, "_canvas", MissingAssetClasses())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch, MissingAssetClasses())
 
     with pytest.raises(BackendCapabilityError, match="CanvasSound"):
         require_canvas_runtime()
@@ -77,8 +73,7 @@ def test_canvas_wrapper_rejects_runtime_missing_asset_functions(
     runtime = FakeCanvasModule()
     monkeypatch.setattr(runtime, "parse_obj_model_handle", None)
 
-    monkeypatch.setattr(canvas_bridge, "_canvas", runtime)
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch, runtime)
 
     with pytest.raises(BackendCapabilityError, match="parse_obj_model_handle"):
         require_canvas_runtime()
@@ -97,8 +92,7 @@ def test_canvas_wrapper_rejects_incompatible_or_unhealthy_runtimes(
     module: object,
     message: str,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", module)
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch, module)
 
     with pytest.raises(BackendCapabilityError, match=message):
         require_canvas_runtime()
@@ -107,8 +101,7 @@ def test_canvas_wrapper_rejects_incompatible_or_unhealthy_runtimes(
 def test_canvas_gpu_status_explains_cpu_continuation_when_gpu_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(canvas_bridge, "_canvas", FakeCanvasModuleWithoutGpu())
-    monkeypatch.setattr(canvas_bridge, "_CANVAS_IMPORT_ERROR", None)
+    install_fake_canvas_runtime(monkeypatch, FakeCanvasModuleWithoutGpu())
 
     assert canvas_gpu_available() is False
     assert "headless rendering can continue" in canvas_gpu_status()

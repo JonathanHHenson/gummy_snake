@@ -1,4 +1,6 @@
+pub(crate) mod cache;
 mod curves;
+mod dirty;
 mod gpu;
 mod images;
 mod lifecycle;
