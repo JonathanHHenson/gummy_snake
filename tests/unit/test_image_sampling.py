@@ -1,9 +1,10 @@
+from collections.abc import Sequence
 from typing import cast
 
 import gummysnake as gs
 
 
-def _rgba_at(pixels: list[int], width: int, x: int, y: int) -> tuple[int, int, int, int]:
+def _rgba_at(pixels: Sequence[int], width: int, x: int, y: int) -> tuple[int, int, int, int]:
     offset = (y * width + x) * 4
     return cast(tuple[int, int, int, int], tuple(pixels[offset : offset + 4]))
 

@@ -1,10 +1,11 @@
 import math
+from collections.abc import Sequence
 
 import gummysnake as gs
 
 
 def _alpha_bbox(
-    pixels: list[int], width: int, *, threshold: int = 128
+    pixels: Sequence[int], width: int, *, threshold: int = 128
 ) -> tuple[int, int, int, int]:
     xs: list[int] = []
     ys: list[int] = []
