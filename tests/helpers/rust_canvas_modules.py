@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from rust_canvas_asset_fakes import (
+from gummysnake.rust.canvas import EXPECTED_CANVAS_ABI_VERSION
+from tests.helpers.rust_canvas import FakeCanvas
+from tests.helpers.rust_canvas_assets import (
     FakeRustImage,
     FakeRustMatrix2D,
     FakeRustMesh3D,
     FakeRustModel3D,
     FakeRustSound,
 )
-from rust_canvas_fakes import FakeCanvas
-from rust_canvas_state_fakes import FakeSketchContextState
-
-from gummysnake.rust.canvas import EXPECTED_CANVAS_ABI_VERSION
+from tests.helpers.rust_canvas_state import FakeSketchContextState
 
 
 class FakeCanvasModule:

@@ -20,3 +20,12 @@ Update docs when changing:
 
 Use Mermaid diagrams in contributor docs when a workflow or ownership boundary
 is easier to understand visually.
+
+When docs mention source paths or package layout, run:
+
+```sh
+uv run python scripts/structure_audit.py
+```
+
+The audit catches stale renamed package paths and helps keep contributor docs in
+sync with the current layout taxonomy.

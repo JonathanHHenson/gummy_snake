@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 import pytest
-from rust_canvas_context_helpers import (
-    EventSketch,
-    install_fake_canvas_runtime,
-    make_canvas_context,
-)
-from rust_canvas_fakes import FakeCanvas
-from rust_canvas_modules import FakeCanvasModule
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.events.input_state import KeyboardEvent
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
+from tests.helpers.rust_canvas import FakeCanvas
+from tests.helpers.rust_canvas_context import (
+    EventSketch,
+    install_fake_canvas_runtime,
+    make_canvas_context,
+)
+from tests.helpers.rust_canvas_modules import FakeCanvasModule
 
 
 def test_canvas_backend_dispatches_default_physical_mouse_events_as_logical(

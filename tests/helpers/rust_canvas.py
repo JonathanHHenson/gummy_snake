@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
-from rust_canvas_image_fakes import FakeCanvasImageKernelsMixin
+from tests.helpers.rust_canvas_image_kernels import FakeCanvasImageKernelsMixin
 
 
 class FakeCanvas(FakeCanvasImageKernelsMixin):

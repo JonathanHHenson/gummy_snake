@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from rust_canvas_modules import FakeCanvasModule
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas_renderer import CanvasRenderer
@@ -9,6 +8,7 @@ from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import ArgumentValidationError
+from tests.helpers.rust_canvas_modules import FakeCanvasModule
 
 
 def test_canvas_renderer_allocates_and_mirrors_dimensions() -> None:

@@ -3,8 +3,6 @@ from __future__ import annotations
 from typing import cast
 
 import pytest
-from rust_canvas_context_helpers import make_canvas_context
-from rust_canvas_modules import FakeCanvasModule
 
 from gummysnake.backend.canvas_renderer import CanvasRenderer
 from gummysnake.backend.canvas_runtime.renderer.pixels import PixelBuffer
@@ -12,6 +10,8 @@ from gummysnake.context import SketchContext
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
+from tests.helpers.rust_canvas_context import make_canvas_context
+from tests.helpers.rust_canvas_modules import FakeCanvasModule
 
 
 def test_canvas_renderer_set_pixel_rgba_uses_fast_bridge() -> None:

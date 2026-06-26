@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from gummysnake.api import _environment_input as environment_input
+from gummysnake.api import input as environment_input
 from gummysnake.api.current import activate_context
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext

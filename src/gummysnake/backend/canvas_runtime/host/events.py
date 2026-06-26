@@ -8,7 +8,7 @@ from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.backend.canvas_runtime import events as canvas_events
-from gummysnake.backend.canvas_runtime.backend._protocols import CanvasBackendHost
+from gummysnake.backend.canvas_runtime.host._protocols import CanvasBackendHost
 from gummysnake.events.input_state import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND

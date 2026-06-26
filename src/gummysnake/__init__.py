@@ -1,28 +1,40 @@
 """Gummy Snake public API."""
 
-from gummysnake.api.advanced import (
+from gummysnake.api.media import (
+    create_capture,
+    create_capture_async,
+    create_video,
+    create_video_async,
+)
+from gummysnake.api.models import (
+    load_model,
+    load_model_async,
+    save_obj,
+    save_stl,
+)
+from gummysnake.api.shaders import (
+    create_shader,
+    load_shader,
+    load_shader_async,
+    reset_shader,
+    shader,
+)
+from gummysnake.api.sound import (
+    create_audio,
+    load_sound,
+    load_sound_async,
+)
+from gummysnake.api.three_d import (
     ambient_light,
     ambient_material,
     box,
     camera,
     cone,
-    create_audio,
     create_camera,
-    create_capture,
-    create_capture_async,
     create_model,
-    create_shader,
-    create_video,
-    create_video_async,
     cylinder,
     directional_light,
     ellipsoid,
-    load_model,
-    load_model_async,
-    load_shader,
-    load_shader_async,
-    load_sound,
-    load_sound_async,
     model,
     normal_material,
     orbit_control,
@@ -30,10 +42,6 @@ from gummysnake.api.advanced import (
     perspective,
     plane,
     point_light,
-    reset_shader,
-    save_obj,
-    save_stl,
-    shader,
     shininess,
     specular_material,
     sphere,

@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import pytest
-from rust_canvas_context_helpers import (
-    EventSketch,
-    install_fake_canvas_runtime,
-    make_canvas_context,
-)
 
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
+from tests.helpers.rust_canvas_context import (
+    EventSketch,
+    install_fake_canvas_runtime,
+    make_canvas_context,
+)
 
 
 def test_canvas_backend_opens_interactive_window_and_reports_display_density(

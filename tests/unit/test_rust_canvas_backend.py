@@ -3,15 +3,19 @@ from __future__ import annotations
 from typing import cast
 
 import pytest
-from rust_canvas_context_helpers import FakeSketch, install_fake_canvas_runtime, make_canvas_context
-from rust_canvas_modules import (
-    FakeCanvasModuleWithoutGpu,
-    FakeCanvasModuleWithoutNativeWindow,
-)
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.exceptions import BackendCapabilityError
+from tests.helpers.rust_canvas_context import (
+    FakeSketch,
+    install_fake_canvas_runtime,
+    make_canvas_context,
+)
+from tests.helpers.rust_canvas_modules import (
+    FakeCanvasModuleWithoutGpu,
+    FakeCanvasModuleWithoutNativeWindow,
+)
 
 
 def test_canvas_backend_reports_implemented_capabilities() -> None:

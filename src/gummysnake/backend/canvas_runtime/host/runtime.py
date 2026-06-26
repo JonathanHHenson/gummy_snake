@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.backend.canvas_runtime.backend._protocols import CanvasBackendHost
+from gummysnake.backend.canvas_runtime.host._protocols import CanvasBackendHost
 from gummysnake.exceptions import BackendCapabilityError, CanvasClosedError
 
 if TYPE_CHECKING:

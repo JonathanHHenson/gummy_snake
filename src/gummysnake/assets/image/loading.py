@@ -6,7 +6,7 @@ from pathlib import Path
 
 from gummysnake.assets._paths import resolve_asset_path
 from gummysnake.assets.image.canvas import CanvasImage
-from gummysnake.assets.image.model import Image
+from gummysnake.assets.image.core import Image
 from gummysnake.exceptions import ArgumentValidationError
 
 

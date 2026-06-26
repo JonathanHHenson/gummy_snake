@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
-from rust_canvas_modules import FakeCanvasModule, FakeRustImage
-
 from gummysnake import Image
 from gummysnake import constants as c
 from gummysnake.assets.image import CanvasImage
@@ -12,6 +10,7 @@ from gummysnake.backend.canvas_renderer import CanvasRenderer
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
+from tests.helpers.rust_canvas_modules import FakeCanvasModule, FakeRustImage
 
 
 def test_canvas_renderer_pixels_and_save_round_trip(tmp_path: Path) -> None:

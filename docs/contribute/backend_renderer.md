@@ -39,7 +39,7 @@ flowchart LR
 
 `CanvasBackend` is the adapter for runtime concerns. Its public composition root
 is `src/gummysnake/backend/canvas.py`; the refactored implementation lives in
-focused mixins under `src/gummysnake/backend/canvas_runtime/backend/` for runtime,
+focused mixins under `src/gummysnake/backend/canvas_runtime/host/` for runtime,
 events, and frame pacing behavior. It does not decide Gummy Snake API naming
 policy and should not contain drawing semantics such as how `rect_mode()`
 changes a rectangle.
@@ -57,8 +57,9 @@ It is responsible for:
 - stopping and closing renderer resources
 
 Most changes to `CanvasBackend` should be covered by contract tests or focused
-unit tests with fake canvas modules/events. SDL3 pointer/touch events are already
-logical window coordinates, so backend normalization must respect
+unit tests with fake canvas modules/events from `tests/helpers/`. SDL3
+pointer/touch events are already logical window coordinates, so backend
+normalization must respect
 `coordinates = "logical"` payloads and avoid applying pixel-density scaling a
 second time.
 
@@ -145,9 +146,9 @@ Use these examples when deciding where code belongs:
 | Change how `rect_mode(CENTER)` computes coordinates | `SketchContext` or geometry helpers |
 | Add a new Rust primitive call | `src/gummysnake/backend/canvas_runtime/renderer/primitives.py` and `crates/gummy_canvas`, preferably as a stateful `*_current` operation |
 | Improve missing runtime or ABI error text | `gummysnake.rust.canvas` |
-| Poll a new native input event | `src/gummysnake/backend/canvas_runtime/backend/events.py` and Rust SDL3 event support |
+| Poll a new native input event | `src/gummysnake/backend/canvas_runtime/host/events.py` and Rust SDL3 event support |
 | Add a new pixel export format | `src/gummysnake/backend/canvas_runtime/renderer/pixels.py` and `crates/gummy_canvas` |
-| Change frame scheduling | `src/gummysnake/backend/canvas_runtime/backend/pacing.py` or `runtime.py` and lifecycle tests |
+| Change frame scheduling | `src/gummysnake/backend/canvas_runtime/host/pacing.py` or `runtime.py` and lifecycle tests |
 | Change GPU command batching or pipeline switching | `crates/gummy_canvas/src/gpu/` plus render-order regression tests |
 
 ## Data Flow For A Draw Call

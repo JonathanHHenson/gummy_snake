@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import cast
 
 import pytest
-from rust_canvas_context_helpers import make_canvas_context
 
 from gummysnake import constants as c
 from gummysnake.context import SketchContext
+from tests.helpers.rust_canvas_context import make_canvas_context
 
 
 def test_canvas_context_style_cache_invalidation_respects_push_pop(
@@ -90,12 +90,11 @@ def test_canvas_context_triangle_batches_before_quad_direct_shape_bridge(
 
 
 def test_canvas_renderer_batches_simple_primitives_until_order_boundary() -> None:
-    from rust_canvas_modules import FakeCanvasModule
-
     from gummysnake.backend.canvas_renderer import CanvasRenderer
     from gummysnake.core.color import Color
     from gummysnake.core.state import StyleState
     from gummysnake.core.transform import Matrix2D
+    from tests.helpers.rust_canvas_modules import FakeCanvasModule
 
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(20, 20)

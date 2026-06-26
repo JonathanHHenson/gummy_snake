@@ -94,13 +94,18 @@ Read [Testing and CI](testing.md) before adding tests or changing workflows.
 
 ## Refactored Source Layout
 
-- `src/gummysnake/api/`: public entry points, split global-mode modules, current context, and facades.
+- `src/gummysnake/api/`: public entry points grouped by topic, split global-mode modules, current context helpers, and compatibility facades.
 - `src/gummysnake/context_mixins/`: `SketchContext` behavior mixins grouped by API area.
-- `src/gummysnake/sketch/`: lifecycle runtime, decorator builder, and object-mode facade.
+- `src/gummysnake/sketch/`: lifecycle runtime, decorator builder, and object-mode facade mixins.
 - `src/gummysnake/constants/`: enum-backed public constants and aliases.
+- `src/gummysnake/assets/`: image/text/data/model/shader/sound/media wrappers; `assets/image/core.py` owns the public `Image` class.
 - `src/gummysnake/backend/canvas.py` and `canvas_renderer.py`: public facade classes.
-- `src/gummysnake/backend/canvas_runtime/`: internal canvas backend and renderer mixins.
+- `src/gummysnake/backend/canvas_runtime/host/`: backend/runtime, event, and frame-pacing implementation mixins.
+- `src/gummysnake/backend/canvas_runtime/renderer/`: renderer bridge, lifecycle, cache, payload, batch-state, and drawing implementation helpers.
+- `src/gummysnake/drawing/`: renderer protocols, `renderer3d` package, `software3d` helpers, and retained prototype helpers.
 - `src/gummysnake/rust/`: Python wrappers around PyO3 modules and Rust-backed kernels.
+- `tests/helpers/` and `tests/fixtures/`: shared test support and package/file fixtures.
+- `scripts/source_size_audit.py` and `scripts/structure_audit.py`: lightweight layout guardrails for refactors.
 
 ## Local Commands
 

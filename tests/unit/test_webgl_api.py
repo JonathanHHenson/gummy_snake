@@ -3,13 +3,6 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from webgl_helpers import (
-    FakeCanvas3DBackend,
-    FakeUpgradeableCanvasBackend,
-    _camera_radius,
-    _WebGLSketch,
-    make_context,
-)
 
 import gummysnake as gs
 from gummysnake.backend.canvas import CanvasBackend
@@ -22,6 +15,13 @@ from gummysnake.exceptions import (
     ShaderUniformError,
 )
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
+from tests.helpers.webgl import (
+    FakeCanvas3DBackend,
+    FakeUpgradeableCanvasBackend,
+    _camera_radius,
+    _WebGLSketch,
+    make_context,
+)
 
 
 def test_canvas_backend_reports_software_webgl_separately_from_native_acceleration():

@@ -153,13 +153,13 @@ src/gummysnake/
 Important areas:
 
 ```text
-src/gummysnake/api/          public API entry points, global-mode modules, current context/facade helpers
+src/gummysnake/api/          public API entry points grouped by topic (lifecycle, environment, timing, input, images, pixels, text, compositing, media, models, shaders, sound, three_d), global-mode modules, current context helpers, and compatibility facades
 src/gummysnake/context_mixins/     SketchContext method mixins grouped by canvas, input, pixels, shapes, style, text, transforms, and 3D
-src/gummysnake/assets/       image package, text/font, data, model, shader, sound, and optional media helpers
-src/gummysnake/backend/     backend contracts, registry, canvas facade modules, and split canvas backend/renderer internals; renderer helpers include bridge, lifecycle, counters, caches, payloads, and batch state
+src/gummysnake/assets/       image package (public Image class in image/core.py), text/font, data, model, shader, sound, and optional media helpers
+src/gummysnake/backend/     backend contracts, registry, thin canvas facade modules, and split canvas runtime internals under canvas_runtime/host/ and canvas_runtime/renderer/
 src/gummysnake/constants/    enum-backed public constants and compatibility aliases
-src/gummysnake/core/         color, geometry, math, random/noise, state, transforms, data helpers, vectors
-src/gummysnake/drawing/      renderer protocols plus software 3D prototype helpers
+src/gummysnake/core/         color, geometry, math, random/noise, state, state_facades, transforms, data helpers, vectors
+src/gummysnake/drawing/      renderer protocols, renderer3d package, software3d helpers, and retained prototype3d compatibility helpers
 src/gummysnake/events/       normalized mouse, keyboard, and touch input state
 src/gummysnake/pixels/       public pixel buffer helpers and exports
 src/gummysnake/plugins/      plugin interfaces and registry
@@ -175,7 +175,10 @@ tests/contracts/     backend and renderer contract behavior
 tests/golden/        deterministic render comparisons
 tests/integration/   end-to-end sketch/rendering behavior
 tests/benchmark/     opt-in performance tests
-examples/            runnable sketches and smoke-test entry points
+tests/stress/        opt-in resource lifecycle stress tests
+tests/helpers/       shared fake canvas runtimes, renderer fakes, and WebGL test helpers
+tests/fixtures/      package-resource and file fixtures used by tests
+examples/            runnable sketches and smoke-test entry points; generated output belongs under ignored examples/output/
 docs/getting_started/ user learning path and first-sketch material
 docs/reference/      public API reference grouped by topic
 docs/contribute/     architecture, runtime, testing, and maintainer workflow
@@ -183,7 +186,14 @@ docs/contribute/     architecture, runtime, testing, and maintainer workflow
 crates/              Rust runtime and acceleration crates; gummy_canvas canvas helpers include cache, dirty-state, image batch, text layout, and GPU render-pass batching modules
 ```
 
-Generated artifacts such as `__pycache__/`, compiled `.so` files, build directories, benchmark output, and example image output should not be committed unless the user explicitly asks.
+Generated artifacts such as `__pycache__/`, compiled `.so` files, build directories, benchmark output, and example image/data output should not be committed unless the user explicitly asks.
+
+Naming conventions:
+
+- Python implementation packages should use descriptive names rather than adjacent `name.py` plus `_name/` packages. Use `context_mixins` and `facade_mixins` only for actual mixin groups, `facades` for compatibility/export/property-forwarding surfaces, and `canvas_runtime/host` or `canvas_runtime/renderer` for backend/runtime implementation groups.
+- Public 3D docs/API use `three_d` where a Python identifier is needed. Existing compatibility modules such as `drawing/renderer3d` and `drawing/software3d` keep their names because they are import paths and type names already used by tests/users.
+- Rust may use same-stem `foo.rs` hub files with `foo/` child modules when the hub is an intentional module declaration/re-export boundary. Keep the documented hub list in `scripts/structure_audit.py` and contributor docs in sync if adding new hubs.
+- Run `uv run python scripts/structure_audit.py` after source-layout reorganizations to catch stale package names, source test fixtures, generated output policy drift, and confusing Python module/package siblings.
 
 ## Architecture Principles
 
@@ -251,7 +261,7 @@ Renderers own drawing concerns: canvas dimensions, primitives, transforms, image
 
 For the current implementation this means:
 
-- `src/gummysnake/backend/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backend/canvas_runtime/backend/`.
+- `src/gummysnake/backend/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backend/canvas_runtime/host/`.
 - `src/gummysnake/backend/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins/helpers in `src/gummysnake/backend/canvas_runtime/renderer/`; keep bridge, lifecycle, counters, cache, payload-builder, primitive batch-state, and drawing modules focused.
 - `CanvasRenderer` mirrors canvas dimensions for adapter compatibility,
   synchronizes Rust `SketchContextState` during resize/create, synchronizes
@@ -349,6 +359,8 @@ Also run when relevant:
 ```sh
 uv run mypy src
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
+uv run python scripts/source_size_audit.py
+uv run python scripts/structure_audit.py
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
 uv run python scripts/bump_version.py --check
 uv build

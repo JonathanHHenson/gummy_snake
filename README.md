@@ -171,6 +171,8 @@ uv sync --dev
 uv run ruff check .
 uv run mypy src
 uv run pytest
+uv run python scripts/source_size_audit.py
+uv run python scripts/structure_audit.py
 ```
 
 The canvas runtime is a required PyO3 module for development/source installs:
@@ -179,14 +181,19 @@ The canvas runtime is a required PyO3 module for development/source installs:
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 ```
 
-The refactored Python package is split by responsibility: public API modules in
-`src/gummysnake/api/`, `SketchContext` mixins in `src/gummysnake/context_mixins/`,
-lifecycle code and object-mode facade groups in `src/gummysnake/sketch/`,
-enum-backed constants in `src/gummysnake/constants/`, and thin canvas
-backend/renderer facades over the implementation modules in
-`src/gummysnake/backend/canvas_runtime/`. The renderer internals are grouped around
-bridge calls, lifecycle, counters, caches, payload builders, and
-primitive/image/text/pixel drawing. The native desktop runtime itself lives in
+The refactored Python package is split by responsibility: user-facing wrapper
+functions live in topic modules under `src/gummysnake/api/` (for example
+`lifecycle.py`, `input.py`, `images.py`, `pixels.py`, `text.py`, `models.py`,
+`shaders.py`, `sound.py`, `media.py`, and `three_d.py`), `SketchContext` mixins
+live in `src/gummysnake/context_mixins/`, lifecycle code and object-mode facade
+groups live in `src/gummysnake/sketch/`, enum-backed constants live in
+`src/gummysnake/constants/`, and thin canvas backend/renderer facades delegate to
+`src/gummysnake/backend/canvas_runtime/host/` and
+`src/gummysnake/backend/canvas_runtime/renderer/`. The renderer internals are
+grouped around bridge calls, lifecycle, counters, caches, payload builders, and
+primitive/image/text/pixel drawing. Shared test fakes live in `tests/helpers/`,
+fixtures live in `tests/fixtures/`, and generated example output stays under the
+gitignored `examples/output/` tree. The native desktop runtime itself lives in
 `crates/gummy_canvas`, owns sketch context state, canvas draw state, command
 construction, cache/dirty-state helpers, and GPU render-pass batching, and uses
 SDL3 for windowing, resizing, and input event collection. Python keeps the

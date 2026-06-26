@@ -1,14 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from rust_canvas_context_helpers import install_fake_canvas_runtime, install_missing_canvas_runtime
-from rust_canvas_modules import (
-    FakeCanvasModule,
-    FakeCanvasModuleWithBadAbi,
-    FakeCanvasModuleWithHealthFailure,
-    FakeCanvasModuleWithoutAbi,
-    FakeCanvasModuleWithoutGpu,
-)
 
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust.canvas import (
@@ -21,6 +13,17 @@ from gummysnake.rust.canvas import (
     canvas_native_window_available,
     is_canvas_runtime_available,
     require_canvas_runtime,
+)
+from tests.helpers.rust_canvas_context import (
+    install_fake_canvas_runtime,
+    install_missing_canvas_runtime,
+)
+from tests.helpers.rust_canvas_modules import (
+    FakeCanvasModule,
+    FakeCanvasModuleWithBadAbi,
+    FakeCanvasModuleWithHealthFailure,
+    FakeCanvasModuleWithoutAbi,
+    FakeCanvasModuleWithoutGpu,
 )
 
 

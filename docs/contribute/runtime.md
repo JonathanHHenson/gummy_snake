@@ -54,6 +54,22 @@ sequenceDiagram
 The key point is that the backend does not call `setup()` or `draw()` directly.
 `Sketch` owns callback order; `CanvasBackend` owns runtime execution.
 
+Runtime implementation files follow that ownership split:
+
+- `src/gummysnake/sketch/` owns lifecycle dispatch and decorator/object-mode
+  sketch plumbing.
+- `src/gummysnake/context.py` and `src/gummysnake/context_mixins/` own Gummy
+  Snake semantics, validation, plugin hooks, and Python-facing state facades.
+- `src/gummysnake/backend/canvas_runtime/host/` owns backend runtime behavior:
+  headless vs interactive execution, native window capability checks, event
+  polling/normalization, pacing, and shutdown.
+- `src/gummysnake/backend/canvas_runtime/renderer/` owns Python-to-Rust renderer
+  translation: canvas resize/create, style/transform sync, caches, payload
+  builders, primitive/image/text/pixel forwarding, and renderer counters.
+- `crates/gummy_canvas/src/` owns the Rust canvas runtime, SDL3 integration,
+  draw-command construction, batching, assets, pixels, text, export, and GPU/raster
+  rendering.
+
 ## Frame Order
 
 ```mermaid

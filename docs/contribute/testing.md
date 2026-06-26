@@ -8,6 +8,8 @@ Use the smallest checks that cover the change.
 uv run ruff check .
 uv run mypy src
 uv run pytest
+uv run python scripts/source_size_audit.py
+uv run python scripts/structure_audit.py
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
 ```
@@ -32,6 +34,7 @@ Use focused checks while developing, then broaden before handing off:
 | WEBGL or fallback 3D path behavior | focused integration tests plus `tests/benchmark/test_webgl_3d_perf.py --run-benchmarks` when hot paths change |
 | Long-running resource lifecycle behavior | `uv run pytest tests/stress --run-stress -q -s` |
 | Documentation only | link/path review; no full test suite required unless commands changed |
+| Source layout, package naming, or file splits | `uv run python scripts/structure_audit.py` plus `uv run python scripts/source_size_audit.py` |
 | CI workflow changes | local command equivalence where practical |
 
 ## Test Placement
@@ -42,6 +45,27 @@ Use focused checks while developing, then broaden before handing off:
 - `tests/integration/`: end-to-end sketch behavior.
 - `tests/benchmark/`: opt-in performance tests.
 - `tests/stress/`: opt-in long-running resource lifecycle tests.
+- `tests/helpers/`: shared fake canvas modules, renderer fakes, WebGL helpers,
+  and other reusable test support that should not live under one specific test
+  category.
+- `tests/fixtures/`: package-resource and file fixtures used by tests. Do not put
+  test-only fixtures under `src/gummysnake`.
+
+## Structure Guardrails
+
+Run these after source-layout changes and before broad validation on refactor
+branches:
+
+```sh
+uv run python scripts/source_size_audit.py
+uv run python scripts/structure_audit.py
+```
+
+`source_size_audit.py` reports implementation files over the 300-line threshold
+while excluding import/export barrels. `structure_audit.py` catches confusing
+Python module/package sibling patterns, source-package test fixtures, stale
+renamed layout references, missing generated-output ignore policy, and
+undocumented Rust same-stem hub files.
 
 ## Performance Benchmarks
 

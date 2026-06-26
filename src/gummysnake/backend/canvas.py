@@ -9,9 +9,9 @@ from dataclasses import replace
 from gummysnake import constants as c
 from gummysnake.backend.base import BackendCapabilities
 from gummysnake.backend.canvas_renderer import CanvasRenderer
-from gummysnake.backend.canvas_runtime.backend.events import CanvasBackendEventsMixin
-from gummysnake.backend.canvas_runtime.backend.pacing import CanvasBackendPacingMixin
-from gummysnake.backend.canvas_runtime.backend.runtime import CanvasBackendRuntimeMixin
+from gummysnake.backend.canvas_runtime.host.events import CanvasBackendEventsMixin
+from gummysnake.backend.canvas_runtime.host.pacing import CanvasBackendPacingMixin
+from gummysnake.backend.canvas_runtime.host.runtime import CanvasBackendRuntimeMixin
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust import canvas as canvas_bridge
 

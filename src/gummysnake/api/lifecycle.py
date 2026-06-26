@@ -118,3 +118,13 @@ def run(
         headless=headless,
     )
     return sketch.run(max_frames=max_frames)
+
+
+__all__ = [
+    "sketch",
+    "preload",
+    "setup",
+    "draw",
+    "on",
+    "run",
+]
