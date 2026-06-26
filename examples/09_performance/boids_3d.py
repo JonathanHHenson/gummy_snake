@@ -8,17 +8,36 @@ plain Python, then renders each flock as one lightweight dynamic 3D mesh.
 
 from __future__ import annotations
 
+import importlib.util
 import math
 import random
 import sys
 from pathlib import Path
 from time import perf_counter
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import gummysnake as gs
 from examples.common import example_parser, save_once
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D, Vec3
+
+
+def _load_boids_helpers() -> Any:
+    path = Path(__file__).with_name("boids_3d_helpers.py")
+    spec = importlib.util.spec_from_file_location("boids_3d_helpers", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load boids helper module from {path!s}.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_boids_helpers = _load_boids_helpers()
+cross = _boids_helpers.cross
+length = _boids_helpers.length
+limit_vector = _boids_helpers.limit_vector
+set_magnitude = _boids_helpers.set_magnitude
 
 WIDTH = 960
 HEIGHT = 540
@@ -75,45 +94,6 @@ def _update_fps() -> float:
         return fps_value
     fps_value += (1.0 / elapsed - fps_value) * FPS_SMOOTHING
     return fps_value
-
-
-def _length(x: float, y: float, z: float) -> float:
-    return math.sqrt(x * x + y * y + z * z)
-
-
-def _limit_vector(
-    x: float,
-    y: float,
-    z: float,
-    maximum: float,
-) -> tuple[float, float, float]:
-    length = _length(x, y, z)
-    if length <= maximum or length <= 1e-9:
-        return (x, y, z)
-    scale = maximum / length
-    return (x * scale, y * scale, z * scale)
-
-
-def _set_magnitude(
-    x: float,
-    y: float,
-    z: float,
-    magnitude: float,
-) -> tuple[float, float, float]:
-    length = _length(x, y, z)
-    if length <= 1e-9:
-        return (magnitude, 0.0, 0.0)
-    scale = magnitude / length
-    return (x * scale, y * scale, z * scale)
-
-
-def _cross(
-    left: tuple[float, float, float],
-    right: tuple[float, float, float],
-) -> tuple[float, float, float]:
-    ax, ay, az = left
-    bx, by, bz = right
-    return (ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx)
 
 
 def _prepare_boids() -> None:
@@ -174,8 +154,8 @@ def _steer_toward(
     velocity_z: float,
     speed: float = MAX_SPEED,
 ) -> tuple[float, float, float]:
-    desired_x, desired_y, desired_z = _set_magnitude(desired_x, desired_y, desired_z, speed)
-    return _limit_vector(
+    desired_x, desired_y, desired_z = set_magnitude(desired_x, desired_y, desired_z, speed)
+    return limit_vector(
         desired_x - velocity_x,
         desired_y - velocity_y,
         desired_z - velocity_z,
@@ -257,10 +237,10 @@ def _update_boid(index: int) -> None:
     if abs(z) > WORLD_Z * 0.5 - BOUND_MARGIN:
         force_z -= math.copysign(BOUND_FORCE, z)
 
-    vx, vy, vz = _limit_vector(vx + force_x, vy + force_y, vz + force_z, MAX_SPEED)
-    speed = _length(vx, vy, vz)
+    vx, vy, vz = limit_vector(vx + force_x, vy + force_y, vz + force_z, MAX_SPEED)
+    speed = length(vx, vy, vz)
     if speed < MIN_SPEED:
-        vx, vy, vz = _set_magnitude(vx, vy, vz, MIN_SPEED)
+        vx, vy, vz = set_magnitude(vx, vy, vz, MIN_SPEED)
 
     positions_x[index] = x + vx
     positions_y[index] = y + vy
@@ -279,10 +259,10 @@ def _append_boid(
     x = positions_x[index]
     y = positions_y[index]
     z = positions_z[index]
-    forward = _set_magnitude(velocities_x[index], velocities_y[index], velocities_z[index], 1.0)
+    forward = set_magnitude(velocities_x[index], velocities_y[index], velocities_z[index], 1.0)
     reference = (0.0, 1.0, 0.0) if abs(forward[1]) < 0.9 else (1.0, 0.0, 0.0)
-    right = _set_magnitude(*_cross(forward, reference), magnitude=1.0)
-    up = _set_magnitude(*_cross(right, forward), magnitude=1.0)
+    right = set_magnitude(*cross(forward, reference), magnitude=1.0)
+    up = set_magnitude(*cross(right, forward), magnitude=1.0)
     length = 12.0
     width = 5.0
     height = 4.2

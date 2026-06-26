@@ -1,3 +1,5 @@
+pub(crate) type Transform2D = (f64, f64, f64, f64, f64, f64);
+
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Vec3d {
     pub(super) x: f64,

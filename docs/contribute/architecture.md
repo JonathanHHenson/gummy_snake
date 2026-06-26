@@ -66,13 +66,13 @@ The runtime has a small set of objects that appear in most changes:
 
 | Object | File | Responsibility |
 | --- | --- | --- |
-| `Sketch` | `src/gummysnake/sketch/runtime.py` plus explicit forwarding groups in `src/gummysnake/sketch/_facade/` | Owns lifecycle ordering, callback dispatch, and the run loop entry point for object-mode sketches. Re-exported from `src/gummysnake/sketch/__init__.py`. |
+| `Sketch` | `src/gummysnake/sketch/runtime.py` plus explicit forwarding groups in `src/gummysnake/sketch/facade_mixins/` | Owns lifecycle ordering, callback dispatch, and the run loop entry point for object-mode sketches. Re-exported from `src/gummysnake/sketch/__init__.py`. |
 | `FunctionSketch` | `src/gummysnake/sketch/runtime.py` | Wraps module-level `setup()`, `draw()`, and event callbacks so function-mode sketches use the same lifecycle as object-mode sketches. |
 | `SketchBuilder` | `src/gummysnake/sketch/runtime.py` | Stores decorator-registered callbacks for `@gs.setup`, `@gs.draw`, and `@gs.on(...)` sketches. |
-| `SketchContext` | `src/gummysnake/context.py` plus `src/gummysnake/_context/` mixins | Runtime controller for one sketch. It validates high-level Gummy Snake operations, calls plugins, updates Rust-owned context state through Python facades, and sends drawing work to the renderer. |
+| `SketchContext` | `src/gummysnake/context.py` plus `src/gummysnake/context_mixins/` mixins | Runtime controller for one sketch. It validates high-level Gummy Snake operations, calls plugins, updates Rust-owned context state through Python facades, and sends drawing work to the renderer. |
 | `SketchState` | `src/gummysnake/core/state.py` | Compatibility facade for one sketch. Canvas lifecycle, timing, loop flags, input snapshots, and shape-building buffers read/write the Rust `SketchContextState`; Python still keeps API conversion state such as color mode and style objects used at the public boundary. |
-| `CanvasBackend` | `src/gummysnake/backend/canvas.py` plus `src/gummysnake/backend/_canvas/backend/` mixins | Runtime adapter. It chooses headless vs interactive execution, opens native windows when supported, schedules frames, and dispatches input events. |
-| `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/_canvas/renderer/` mixins/helpers | Drawing adapter. It mirrors canvas dimensions, synchronizes Python facade state mutations into Rust current state, and forwards drawing requests to the Rust canvas runtime. Bridge, lifecycle, counters, caches, payload builders, and batch state live in focused internal modules. |
+| `CanvasBackend` | `src/gummysnake/backend/canvas.py` plus `src/gummysnake/backend/canvas_runtime/backend/` mixins | Runtime adapter. It chooses headless vs interactive execution, opens native windows when supported, schedules frames, and dispatches input events. |
+| `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/canvas_runtime/renderer/` mixins/helpers | Drawing adapter. It mirrors canvas dimensions, synchronizes Python facade state mutations into Rust current state, and forwards drawing requests to the Rust canvas runtime. Bridge, lifecycle, counters, caches, payload builders, and batch state live in focused internal modules. |
 | `gummysnake.rust.canvas` | `src/gummysnake/rust/canvas.py` | Import, ABI validation, health-check, and capability wrapper for the PyO3 runtime module. It turns missing native support into clear Gummy Snake errors. |
 | `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime and renderer implementation. |
 
@@ -280,10 +280,10 @@ Use these rules of thumb:
 - Add one-frame temporary values to `SketchContext` when they are not part of
   the public Gummy Snake state model.
 - Change `CanvasRenderer` or its mixins in
-  `src/gummysnake/backend/_canvas/renderer/` when the Python side already knows
+  `src/gummysnake/backend/canvas_runtime/renderer/` when the Python side already knows
   what should be drawn and only needs to translate the request for Rust.
 - Change `CanvasBackend` or its mixins in
-  `src/gummysnake/backend/_canvas/backend/` when the behavior is about windows,
+  `src/gummysnake/backend/canvas_runtime/backend/` when the behavior is about windows,
   scheduling, headless vs interactive mode, event polling, or shutdown.
 - Change `gummysnake.rust.canvas` when import/capability errors need to be clearer.
 - Change `crates/gummy_canvas` when the renderer/runtime itself lacks a primitive,
@@ -292,9 +292,9 @@ Use these rules of thumb:
 ## Source Map
 
 - `src/gummysnake/api/`: public entry points, split global-mode modules, current-context access, and facade helpers.
-- `src/gummysnake/_context/`: method mixins that compose `SketchContext` by concern: canvas, input, images, pixels, shapes, style, text, transforms, and 3D.
+- `src/gummysnake/context_mixins/`: method mixins that compose `SketchContext` by concern: canvas, input, images, pixels, shapes, style, text, transforms, and 3D.
 - `src/gummysnake/assets/`: image package, text/font helpers, data/model/shader/sound assets, and optional media helpers.
-- `src/gummysnake/backend/`: backend contracts, registry, public canvas facade classes, and nested canvas implementation mixins. Renderer internals under `backend/_canvas/renderer/` are split into bridge, lifecycle, counters, caches, payload builders, primitive batch state, and drawing concern modules.
+- `src/gummysnake/backend/`: backend contracts, registry, public canvas facade classes, and nested canvas implementation mixins. Renderer internals under `backend/canvas_runtime/renderer/` are split into bridge, lifecycle, counters, caches, payload builders, primitive batch state, and drawing concern modules.
 - `src/gummysnake/constants/`: enum-backed public constants and compatibility aliases.
 - `src/gummysnake/context.py`: `SketchContext` composition root and high-level runtime controller.
 - `src/gummysnake/core/`: color, geometry, math, random/noise, state, transforms, data helpers, and vector types.
@@ -303,7 +303,7 @@ Use these rules of thumb:
 - `src/gummysnake/pixels/`: public pixel buffer helper exports.
 - `src/gummysnake/plugins/`: plugin interfaces and registry.
 - `src/gummysnake/rust/`: Python wrappers around PyO3 runtime modules and Rust-backed kernels.
-- `src/gummysnake/sketch/`: sketch lifecycle runtime, decorator builder, and object-mode facade. Object-mode forwarding methods are grouped explicitly under `src/gummysnake/sketch/_facade/` instead of using dynamic forwarding magic.
+- `src/gummysnake/sketch/`: sketch lifecycle runtime, decorator builder, and object-mode facade. Object-mode forwarding methods are grouped explicitly under `src/gummysnake/sketch/facade_mixins/` instead of using dynamic forwarding magic.
 - `crates/gummy_canvas/`: required canvas runtime. Canvas helpers include cache policy (`canvas/cache.rs`), dirty/render flag helpers (`canvas/dirty.rs`), image batch parsing (`canvas/images/batch.rs`), text layout helpers (`canvas/text/layout.rs`), and local GPU render-pass batching (`gpu/render.rs`).
 - `crates/gummy_accel/`: optional acceleration extension.
 

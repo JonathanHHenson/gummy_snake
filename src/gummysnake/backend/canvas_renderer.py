@@ -2,32 +2,32 @@
 
 from __future__ import annotations
 
-from gummysnake.backend._canvas.renderer.core import (
+from gummysnake.backend.canvas_runtime.renderer.core import (
     CanvasRendererCore,
     PerformanceCounters,
 )
-from gummysnake.backend._canvas.renderer.core import (
+from gummysnake.backend.canvas_runtime.renderer.core import (
     MatrixPayload as _MatrixPayload,
 )
-from gummysnake.backend._canvas.renderer.core import (
+from gummysnake.backend.canvas_runtime.renderer.core import (
     TextMetricKey as _TextMetricKey,
 )
-from gummysnake.backend._canvas.renderer.core import (
+from gummysnake.backend.canvas_runtime.renderer.core import (
     color_payload as _color_payload,
 )
-from gummysnake.backend._canvas.renderer.core import (
+from gummysnake.backend.canvas_runtime.renderer.core import (
     matrix_payload as _matrix_payload,
 )
-from gummysnake.backend._canvas.renderer.core import (
+from gummysnake.backend.canvas_runtime.renderer.core import (
     style_payload as _style_payload,
 )
-from gummysnake.backend._canvas.renderer.core import (
+from gummysnake.backend.canvas_runtime.renderer.core import (
     text_metric_key as _text_metric_key,
 )
-from gummysnake.backend._canvas.renderer.images import CanvasRendererImagesMixin
-from gummysnake.backend._canvas.renderer.pixels import CanvasRendererPixelsMixin
-from gummysnake.backend._canvas.renderer.primitives import CanvasRendererPrimitivesMixin
-from gummysnake.backend._canvas.renderer.text import CanvasRendererTextMixin
+from gummysnake.backend.canvas_runtime.renderer.images import CanvasRendererImagesMixin
+from gummysnake.backend.canvas_runtime.renderer.pixels import CanvasRendererPixelsMixin
+from gummysnake.backend.canvas_runtime.renderer.primitives import CanvasRendererPrimitivesMixin
+from gummysnake.backend.canvas_runtime.renderer.text import CanvasRendererTextMixin
 
 
 class CanvasRenderer(

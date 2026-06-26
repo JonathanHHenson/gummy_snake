@@ -7,6 +7,8 @@ from types import ModuleType
 from typing import Any, cast
 
 BENCHMARK_DIR = Path(__file__).resolve().parents[1] / "benchmark"
+if str(BENCHMARK_DIR) not in sys.path:
+    sys.path.insert(0, str(BENCHMARK_DIR))
 
 
 def _load_benchmark_module(name: str) -> ModuleType:

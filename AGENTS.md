@@ -154,7 +154,7 @@ Important areas:
 
 ```text
 src/gummysnake/api/          public API entry points, global-mode modules, current context/facade helpers
-src/gummysnake/_context/     SketchContext method mixins grouped by canvas, input, pixels, shapes, style, text, transforms, and 3D
+src/gummysnake/context_mixins/     SketchContext method mixins grouped by canvas, input, pixels, shapes, style, text, transforms, and 3D
 src/gummysnake/assets/       image package, text/font, data, model, shader, sound, and optional media helpers
 src/gummysnake/backend/     backend contracts, registry, canvas facade modules, and split canvas backend/renderer internals; renderer helpers include bridge, lifecycle, counters, caches, payloads, and batch state
 src/gummysnake/constants/    enum-backed public constants and compatibility aliases
@@ -164,7 +164,7 @@ src/gummysnake/events/       normalized mouse, keyboard, and touch input state
 src/gummysnake/pixels/       public pixel buffer helpers and exports
 src/gummysnake/plugins/      plugin interfaces and registry
 src/gummysnake/rust/         Python wrappers around PyO3 extensions and Rust-backed kernels
-src/gummysnake/sketch/       sketch lifecycle runtime, decorator builder, and explicit object-mode facade forwarding groups under sketch/_facade/
+src/gummysnake/sketch/       sketch lifecycle runtime, decorator builder, and explicit object-mode facade forwarding groups under sketch/facade_mixins/
 src/gummysnake/testing/      package test resources and helpers
 ```
 
@@ -252,8 +252,8 @@ Renderers own drawing concerns: canvas dimensions, primitives, transforms, image
 
 For the current implementation this means:
 
-- `src/gummysnake/backend/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backend/_canvas/backend/`.
-- `src/gummysnake/backend/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins/helpers in `src/gummysnake/backend/_canvas/renderer/`; keep bridge, lifecycle, counters, cache, payload-builder, primitive batch-state, and drawing modules focused.
+- `src/gummysnake/backend/canvas.py` stays a thin public `CanvasBackend` composition layer around lifecycle/runtime/event mixins in `src/gummysnake/backend/canvas_runtime/backend/`.
+- `src/gummysnake/backend/canvas_renderer.py` stays a thin public `CanvasRenderer` composition layer around drawing mixins/helpers in `src/gummysnake/backend/canvas_runtime/renderer/`; keep bridge, lifecycle, counters, cache, payload-builder, primitive batch-state, and drawing modules focused.
 - `CanvasRenderer` mirrors canvas dimensions for adapter compatibility,
   synchronizes Rust `SketchContextState` during resize/create, synchronizes
   Python facade style/transform changes into Rust current renderer state, and

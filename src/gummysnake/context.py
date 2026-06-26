@@ -5,15 +5,15 @@ from __future__ import annotations
 from collections.abc import Buffer, Sequence
 from typing import TYPE_CHECKING, Any
 
-from gummysnake._context.canvas import CanvasContextMixin
-from gummysnake._context.images import ImageContextMixin
-from gummysnake._context.input import InputContextMixin
-from gummysnake._context.pixels import PixelContextMixin
-from gummysnake._context.shapes import ShapeContextMixin
-from gummysnake._context.style import StyleContextMixin
-from gummysnake._context.text import TextContextMixin
-from gummysnake._context.three_d import ThreeDContextMixin
-from gummysnake._context.transform import TransformContextMixin
+from gummysnake.context_mixins.canvas import CanvasContextMixin
+from gummysnake.context_mixins.images import ImageContextMixin
+from gummysnake.context_mixins.input import InputContextMixin
+from gummysnake.context_mixins.pixels import PixelContextMixin
+from gummysnake.context_mixins.shapes import ShapeContextMixin
+from gummysnake.context_mixins.style import StyleContextMixin
+from gummysnake.context_mixins.text import TextContextMixin
+from gummysnake.context_mixins.three_d import ThreeDContextMixin
+from gummysnake.context_mixins.transform import TransformContextMixin
 from gummysnake.core.state import SketchState
 from gummysnake.drawing.renderer3d import (
     Camera3D,

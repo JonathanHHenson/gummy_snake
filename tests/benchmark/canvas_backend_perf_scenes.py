@@ -1,481 +1,97 @@
 from __future__ import annotations
 
 import math
-import struct
+
+from canvas_backend_perf_scene_core import (
+    draw_blend_modes,
+    draw_erasing,
+    draw_image_field,
+    draw_laser_field,
+    draw_mixed_text_pixels,
+    draw_pixel_readback_upload,
+    draw_primitives,
+    draw_starfield,
+    draw_text_only,
+    draw_transformed_images,
+    reset_asteroids,
+    sprite,
+)
+from canvas_backend_perf_scene_showcase import (
+    draw_asteroids_scene,
+    draw_contours_clipping_tint,
+    draw_webgl_3d,
+)
+from canvas_backend_perf_scene_state import SceneState
+from canvas_backend_perf_scene_stress import (
+    draw_stress_primitives,
+    draw_stress_sprite_text_overlay,
+    draw_stress_sprites,
+    draw_stress_text,
+    stress_primitive_count,
+)
 
 import gummysnake as gs
 from gummysnake.api.current import require_context
 
-sprites = []
-churn_pixels = b""
-shots = []
-asteroids = []
-stamp = None
-stress_primitive_records = {}
-stress_sprite_terms = {}
-stress_sprite_payloads = {}
-stress_overlay_labels = None
+_STATE = SceneState()
+
+sprites = _STATE.sprites
+churn_pixels = _STATE.churn_pixels
+shots = _STATE.shots
+asteroids = _STATE.asteroids
+stamp = _STATE.stamp
+stress_primitive_records = _STATE.stress_primitive_records
+stress_sprite_terms = _STATE.stress_sprite_terms
+stress_sprite_payloads = _STATE.stress_sprite_payloads
+stress_overlay_labels = _STATE.stress_overlay_labels
 
 
-def _sprite(width, height, seed):
-    pixels = bytearray(width * height * 4)
-    cx = (width - 1) / 2
-    cy = (height - 1) / 2
-    radius = min(width, height) / 2
-    for y in range(height):
-        for x in range(width):
-            offset = (y * width + x) * 4
-            distance = math.hypot(x - cx, y - cy)
-            if distance > radius:
-                pixels[offset : offset + 4] = b"\x00\x00\x00\x00"
-                continue
-            pixels[offset] = (seed * 41 + x * 5) % 256
-            pixels[offset + 1] = (seed * 67 + y * 7) % 256
-            pixels[offset + 2] = 160 + (x + y + seed) % 80
-            pixels[offset + 3] = 255
-    return gs.Image(width, height, bytes(pixels))
+def _sync_state_from_exports() -> None:
+    _STATE.sprites = sprites
+    _STATE.churn_pixels = churn_pixels
+    _STATE.shots = shots
+    _STATE.asteroids = asteroids
+    _STATE.stamp = stamp
+    _STATE.stress_primitive_records = stress_primitive_records
+    _STATE.stress_sprite_terms = stress_sprite_terms
+    _STATE.stress_sprite_payloads = stress_sprite_payloads
+    _STATE.stress_overlay_labels = stress_overlay_labels
 
 
-def _reset_asteroids():
-    global shots, asteroids
-    shots = [
-        [360.0, 240.0, math.cos(index * 0.62) * 8.5, math.sin(index * 0.62) * 8.5, index]
-        for index in range(14)
-    ]
-    asteroids = [
-        [
-            60.0 + (index * 101) % 610,
-            50.0 + (index * 71) % 380,
-            math.cos(index * 1.7) * (0.8 + index % 3 * 0.22),
-            math.sin(index * 1.7) * (0.8 + index % 3 * 0.22),
-            24.0 + (index % 4) * 9.0,
-            index * 0.37,
-        ]
-        for index in range(18)
-    ]
+def _sync_exports_from_state() -> None:
+    global sprites, churn_pixels, shots, asteroids, stamp
+    global \
+        stress_primitive_records, \
+        stress_sprite_terms, \
+        stress_sprite_payloads, \
+        stress_overlay_labels
+    sprites = _STATE.sprites
+    churn_pixels = _STATE.churn_pixels
+    shots = _STATE.shots
+    asteroids = _STATE.asteroids
+    stamp = _STATE.stamp
+    stress_primitive_records = _STATE.stress_primitive_records
+    stress_sprite_terms = _STATE.stress_sprite_terms
+    stress_sprite_payloads = _STATE.stress_sprite_payloads
+    stress_overlay_labels = _STATE.stress_overlay_labels
 
 
-def _draw_starfield(count):
-    gs.no_stroke()
-    for index in range(count):
-        x = (index * 97 + gs.frame_count() * (index % 4 + 1)) % 720
-        y = (index * 53 + index * index) % 480
-        alpha = 110 + (index % 4) * 35
-        gs.fill(190, 220, 255, alpha)
-        gs.circle(x, y, 1 + index % 3)
+def _sprite(width: int, height: int, seed: int):
+    return sprite(gs, width, height, seed)
 
 
-def _draw_primitives(count):
-    for index in range(count):
-        x = 90 + (index * 83) % 520
-        y = 80 + (index * 59) % 280
-        with gs.pushed():
-            gs.translate(x, y)
-            gs.rotate(index * 0.18 + gs.frame_count() * 0.01)
-            gs.no_fill()
-            gs.stroke(180, 190, 210)
-            gs.stroke_weight(2.5)
-            gs.ellipse(-18, -14, 52, 64)
-            gs.stroke(170, 225, 255, 255)
-            gs.fill(36, 116, 220, 245)
-            gs.triangle(0, -24, -20, 20, 0, 6)
-            gs.triangle(0, -24, 0, 6, 20, 20)
-
-
-def _draw_laser_field(count):
-    gs.no_fill()
-    gs.stroke(100, 200, 255, 240)
-    gs.stroke_weight(3)
-    for index in range(count):
-        sx = 80 + (index * 41) % 560
-        sy = 60 + (index * 67) % 360
-        with gs.pushed():
-            gs.translate(sx, sy)
-            gs.rotate(math.pi / 4 + index * 0.1)
-            gs.line(0, -18, 0, 18)
-
-
-def _draw_image_field(*, mutate):
-    global churn_pixels
-    gs.image_mode(gs.CENTER)
-    for index in range(96):
-        image = sprites[index % len(sprites)]
-        if mutate and index == 0:
-            image.update_pixels(churn_pixels)
-        x = 34 + (index * 61 + gs.frame_count() * 3) % 660
-        y = 34 + (index * 43 + index * index) % 410
-        size = 20 + index % 5 * 5
-        with gs.pushed():
-            gs.translate(x, y)
-            gs.rotate(index * 0.13 + gs.frame_count() * 0.012)
-            gs.image(image, 0, 0, size, size)
-
-
-def _draw_mixed_text_pixels():
-    gs.background(11, 18, 28)
-    _draw_starfield(24)
-    _draw_primitives(8)
-    _draw_image_field(mutate=False)
-    require_context().renderer.adjust_pixel_prefix(1024, 16, 3, 7)
-    gs.fill(240)
-    gs.no_stroke()
-    gs.text_size(16)
-    frame = gs.frame_count()
-    width_labels = [f"score {index} frame {frame}" for index in range(18)]
-    gs.text_widths(width_labels)
-    gs.text_batch([(f"score {index * 125}", 28, 36 + index * 22) for index in range(18)])
-
-
-def _draw_blend_modes():
-    modes = [gs.BLEND, gs.ADD, gs.MULTIPLY, gs.SCREEN, gs.DIFFERENCE, gs.EXCLUSION]
-    gs.no_stroke()
-    for index in range(72):
-        gs.blend_mode(modes[index % len(modes)])
-        gs.fill(50 + index % 120, 120 + index % 80, 220, 180)
-        x = 30 + (index * 53 + gs.frame_count() * 2) % 660
-        y = 30 + (index * 47 + index * index) % 420
-        gs.circle(x, y, 28 + index % 4 * 6)
-    gs.blend_mode(gs.BLEND)
-
-
-def _draw_erasing():
-    gs.no_stroke()
-    gs.fill(80, 150, 240, 230)
-    for index in range(80):
-        x = 28 + (index * 41) % 670
-        y = 32 + (index * 67) % 410
-        gs.circle(x, y, 30)
-    gs.erase()
-    gs.fill(255)
-    for index in range(34):
-        x = 30 + (index * 71 + gs.frame_count() * 3) % 660
-        y = 30 + (index * 43) % 410
-        gs.rect(x, y, 26, 18)
-    gs.no_erase()
-
-
-def _draw_transformed_images():
-    gs.image_mode(gs.CENTER)
-    for index in range(96):
-        image = sprites[index % len(sprites)]
-        x = 34 + (index * 61 + gs.frame_count() * 3) % 660
-        y = 34 + (index * 43 + index * index) % 410
-        with gs.pushed():
-            gs.translate(x, y)
-            gs.rotate(index * 0.17 + gs.frame_count() * 0.014)
-            gs.scale(0.7 + (index % 5) * 0.18)
-            gs.image(image, 0, 0, 34, 34)
-
-
-def _draw_text_only():
-    gs.fill(235)
-    gs.no_stroke()
-    gs.text_size(15)
-    gs.text_widths([f"label {index}" for index in range(12)])
-    gs.text_batch(
-        [(f"label {index}", 24 + (index % 5) * 136, 28 + (index // 5) * 27) for index in range(80)]
-    )
-
-
-def _draw_stress_primitives(count):
-    context = require_context()
-    renderer = context.renderer
-    matrix = renderer._matrix_payload(context.state.transform.matrix)
-    records = stress_primitive_records.get(count)
-    if records is None:
-        records = []
-        for index in range(count):
-            x = 4 + (index * 37) % 712
-            y = 4 + (index * 53 + index // 97) % 472
-            red = 40 + index % 160
-            green = 120 + (index * 3) % 90
-            if index % 3 == 0:
-                records.append(
-                    (
-                        1,
-                        x,
-                        y,
-                        3 + index % 5,
-                        3 + (index // 7) % 5,
-                        0.0,
-                        0.0,
-                        red,
-                        green,
-                        215,
-                        180,
-                    )
-                )
-            elif index % 3 == 1:
-                diameter = 3 + index % 6
-                records.append(
-                    (
-                        3,
-                        x - diameter / 2,
-                        y - diameter / 2,
-                        diameter,
-                        diameter,
-                        0.0,
-                        0.0,
-                        red,
-                        green,
-                        215,
-                        180,
-                    )
-                )
-            else:
-                records.append(
-                    (2, x, y, x + 5, y + 1 + index % 4, x + 1, y + 5, red, green, 215, 180)
-                )
-        stress_primitive_records[count] = records
-    renderer._count("gpu_draws", len(records))
-    renderer._count("primitive_batch_records", len(records))
-    renderer._count("primitive_batch_flushes")
-    canvas = renderer._require_canvas()
-    if renderer._call("cached fill primitive drawing", canvas.replay_fill_primitive_batch):
-        return
-    renderer._call("batched fill primitive drawing", canvas.batch_fill_primitives, records, matrix)
+def _reset_asteroids() -> None:
+    _sync_state_from_exports()
+    reset_asteroids(_STATE)
+    _sync_exports_from_state()
 
 
 def _stress_primitive_count(variant: str) -> int | None:
-    if variant == "stress_primitives_10k":
-        return 10_000
-    if variant == "stress_primitives_50k":
-        return 50_000
-    if variant == "stress_primitives_100k":
-        return 100_000
-    return None
-
-
-def _draw_stress_sprites(count):
-    context = require_context()
-    renderer = context.renderer
-    style = renderer._style_payload(context.state.style)
-    matrix = renderer._matrix_payload(context.state.transform.matrix)
-    canvas = renderer._require_canvas()
-    compact = getattr(canvas, "batch_canvas_image_motion_terms", None)
-    if callable(compact):
-        payload = stress_sprite_payloads.get(count)
-        if payload is None:
-            payload_buffer = bytearray(count * 16)
-            for index in range(count):
-                struct.pack_into(
-                    "<Ifff",
-                    payload_buffer,
-                    index * 16,
-                    index % len(sprites),
-                    float(index * 29),
-                    float(10 + (index * 47 + index // 131) % 460),
-                    float(6 + index % 5),
-                )
-            payload = bytes(payload_buffer)
-            stress_sprite_payloads[count] = payload
-        renderer._count("gpu_draws", count)
-        renderer._count("image_batch_records", count)
-        renderer._count("image_batch_flushes")
-        renderer._call(
-            "compact batched image drawing",
-            compact,
-            payload,
-            [sprite.rust_image._rust_image for sprite in sprites],
-            gs.frame_count(),
-            style,
-            matrix,
-        )
-        return
-    terms = stress_sprite_terms.get(count)
-    if terms is None:
-        terms = [
-            (
-                sprites[index % len(sprites)].rust_image._rust_image,
-                index * 29,
-                10 + (index * 47 + index // 131) % 460,
-                6 + index % 5,
-            )
-            for index in range(count)
-        ]
-        stress_sprite_terms[count] = terms
-    frame = gs.frame_count()
-    records = [
-        (image, 10 + (base_x + frame) % 700 - size / 2, y - size / 2, size, size, None)
-        for image, base_x, y, size in terms
-    ]
-    renderer._count("gpu_draws", len(records))
-    renderer._count("image_batch_records", len(records))
-    renderer._count("image_batch_flushes")
-    renderer._call(
-        "batched image drawing",
-        canvas.batch_canvas_images,
-        records,
-        style,
-        matrix,
-    )
-
-
-def _draw_stress_text(count):
-    gs.fill(235)
-    gs.no_stroke()
-    gs.text_size(10)
-    labels = [
-        (f"L{index % 100}", 8 + (index % 40) * 18, 14 + (index // 40) * 18)
-        for index in range(count)
-    ]
-    gs.text_batch(labels)
-
-
-def _draw_stress_sprite_text_overlay():
-    global stress_overlay_labels
-    _draw_stress_sprites(10_000)
-    gs.fill(248)
-    gs.no_stroke()
-    gs.text_size(12)
-    if stress_overlay_labels is None:
-        stress_overlay_labels = [
-            (f"{index:03d}", 12 + (index % 25) * 28, 18 + (index // 25) * 24)
-            for index in range(500)
-        ]
-    gs.text_batch(stress_overlay_labels)
-
-
-def _draw_pixel_readback_upload():
-    _draw_starfield(24)
-    pixels = gs.load_pixel_bytes()
-    gs.update_pixels(memoryview(pixels))
-
-
-def _draw_asteroids_scene():
-    gs.image_mode(gs.CENTER)
-    gs.background(7, 10, 22)
-    _draw_starfield(96)
-    for shot in shots:
-        shot[0] = (shot[0] + shot[2]) % 720
-        shot[1] = (shot[1] + shot[3]) % 480
-        gs.stroke(120, 220, 255)
-        gs.stroke_weight(3)
-        gs.line(shot[0], shot[1], shot[0] - shot[2] * 2.2, shot[1] - shot[3] * 2.2)
-    for asteroid in asteroids:
-        asteroid[0] = (asteroid[0] + asteroid[2]) % 720
-        asteroid[1] = (asteroid[1] + asteroid[3]) % 480
-        asteroid[5] += 0.025
-        with gs.pushed():
-            gs.translate(asteroid[0], asteroid[1])
-            gs.rotate(asteroid[5])
-            gs.image(
-                sprites[int(asteroid[4]) % len(sprites)],
-                0,
-                0,
-                asteroid[4] * 2,
-                asteroid[4] * 2,
-            )
-            gs.no_fill()
-            gs.stroke(190, 200, 220, 170)
-            gs.stroke_weight(2)
-            gs.circle(0, 0, asteroid[4] * 2.2)
-    with gs.pushed():
-        gs.translate(360, 240)
-        gs.rotate(-math.pi / 2 + math.sin(gs.frame_count() * 0.04) * 0.7)
-        gs.image(sprites[0], 0, 0, 88, 64)
-        gs.stroke(90, 180, 255)
-        gs.line(0, 0, 56, 0)
-    gs.fill(245)
-    gs.no_stroke()
-    gs.text_size(18)
-    gs.text(f"wave 4   shots {len(shots)}   rocks {len(asteroids)}", 24, 34)
-
-
-def _draw_webgl_3d():
-    gs.background(10, 14, 28)
-    gs.ambient_light(45)
-    gs.directional_light(255, 244, 230, -0.45, -0.7, -1.0)
-    gs.point_light(100, 180, 255, 160, -130, 220)
-
-    with gs.pushed():
-        gs.translate(-185, 0)
-        gs.rotate(gs.frame_count() * 0.035)
-        gs.specular_material(240, 150, 90)
-        gs.shininess(18)
-        gs.box(120)
-
-    with gs.pushed():
-        gs.translate(25, 8)
-        gs.normal_material()
-        gs.sphere(78, 28, 18)
-
-    with gs.pushed():
-        gs.translate(225, 24)
-        gs.texture(sprites[0])
-        gs.rotate(-0.35)
-        gs.plane(135, 135)
-
-    with gs.pushed():
-        gs.translate(0, 155)
-        gs.ambient_material(44, 62, 92)
-        gs.plane(650, 160)
-
-
-def _star(cx, cy, outer, inner, points):
-    for i in range(points * 2):
-        radius = outer if i % 2 == 0 else inner
-        angle = -math.pi / 2 + i * math.pi / points
-        gs.vertex(cx + math.cos(angle) * radius, cy + math.sin(angle) * radius)
-
-
-def _draw_contours_clipping_tint():
-    gs.background(250, 248, 242)
-
-    gs.no_stroke()
-    gs.fill(244, 188, 67)
-    gs.circle(150, 180, 82)
-    gs.fill(42, 87, 143)
-    with gs.shape(gs.CLOSE):
-        _star(150, 180, 112, 54, 7)
-        with gs.contour():
-            for i in range(28):
-                angle = -math.tau * i / 28
-                gs.vertex(150 + math.cos(angle) * 38, 180 + math.sin(angle) * 38)
-
-    with gs.clip_path():
-        for i in range(36):
-            angle = math.tau * i / 36
-            wave = 18 * math.sin(angle * 3 + gs.frame_count() * 0.08)
-            gs.vertex(
-                430 + math.cos(angle) * (142 + wave),
-                186 + math.sin(angle) * (96 + wave),
-            )
-    gs.background(238, 242, 232)
-    gs.no_stroke()
-    for row in range(8):
-        for col in range(11):
-            gs.fill(40 + col * 16, 104 + row * 10, 174, 210)
-            gs.rect(294 + col * 29, 82 + row * 29, 22, 22)
-    gs.end_clip()
-
-    gs.no_fill()
-    gs.stroke(32, 45, 63)
-    gs.stroke_weight(3)
-    with gs.shape(gs.CLOSE):
-        for i in range(36):
-            angle = math.tau * i / 36
-            gs.vertex(430 + math.cos(angle) * 142, 186 + math.sin(angle) * 96)
-
-    assert stamp is not None
-    gs.image_mode(gs.CENTER)
-    for i, color in enumerate([(227, 88, 75, 230), (45, 150, 112, 220), (247, 183, 60, 210)]):
-        gs.tint(*color)
-        gs.image(stamp, 610, 128 + i * 58, 62, 62)
-    gs.no_tint()
-    gs.image(stamp, 690, 186, 72, 72)
-    gs.image_mode(gs.CORNER)
-
-    gs.no_stroke()
-    gs.fill(30, 34, 44)
-    gs.text_size(16)
-    gs.text("contour hole", 92, 330)
-    gs.text("path clipping", 378, 330)
-    gs.text("image tint", 598, 330)
+    return stress_primitive_count(variant)
 
 
 def setup_scene(variant: str) -> None:
-    global sprites, churn_pixels, stamp
+    _sync_state_from_exports()
     renderer = gs.WEBGL if variant == "webgl_3d" else gs.P2D
     if variant == "contours_clipping_tint":
         gs.create_canvas(760, 430, renderer)
@@ -486,73 +102,77 @@ def setup_scene(variant: str) -> None:
         gs.no_stroke()
         gs.camera(0, -60, 470, 0, 20, 0, 0, 1, 0)
         gs.perspective(math.pi / 3, 720 / 480, 0.1, 4000)
-    sprites = [_sprite(48, 48, seed) for seed in range(5)]
-    churn_pixels = _sprite(48, 48, 99).to_rgba_bytes()
-    stamp = gs.create_image(42, 42)
-    for y in range(stamp.height):
-        for x in range(stamp.width):
-            dx = x - stamp.width / 2
-            dy = y - stamp.height / 2
+    _STATE.sprites = [_sprite(48, 48, seed) for seed in range(5)]
+    _STATE.churn_pixels = _sprite(48, 48, 99).to_rgba_bytes()
+    _STATE.stamp = gs.create_image(42, 42)
+    for y in range(_STATE.stamp.height):
+        for x in range(_STATE.stamp.width):
+            dx = x - _STATE.stamp.width / 2
+            dy = y - _STATE.stamp.height / 2
             alpha = max(0, min(255, int(255 - math.hypot(dx, dy) * 9)))
-            stamp.set(x, y, (255, 255, 255, alpha))
+            _STATE.stamp.set(x, y, (255, 255, 255, alpha))
     if variant == "cached_images_nearest":
         gs.no_smooth()
+    _sync_exports_from_state()
     _reset_asteroids()
     if variant == "text_only":
         renderer = require_context().renderer
         renderer.begin_frame()
-        _draw_text_only()
+        draw_text_only(gs)
         renderer.end_frame()
-    stress_primitive_count = _stress_primitive_count(variant)
-    if stress_primitive_count is not None:
+    primitive_count = stress_primitive_count(variant)
+    if primitive_count is not None:
         renderer = require_context().renderer
         renderer.begin_frame()
-        _draw_stress_primitives(stress_primitive_count)
+        draw_stress_primitives(gs, require_context, _STATE, primitive_count)
         renderer.end_frame()
         gs.reset_renderer_performance_counters()
+    _sync_exports_from_state()
 
 
 def draw_scene(variant: str) -> None:
+    _sync_state_from_exports()
     gs.background(8, 13, 32)
     if variant == "dense_primitives":
-        _draw_starfield(72)
-        _draw_primitives(28)
-        _draw_laser_field(16)
+        draw_starfield(gs, 72)
+        draw_primitives(gs, 28)
+        draw_laser_field(gs, 16)
     elif variant == "sparse_primitives":
-        _draw_starfield(12)
-        _draw_primitives(6)
-        _draw_laser_field(4)
-    elif (stress_primitive_count := _stress_primitive_count(variant)) is not None:
-        _draw_stress_primitives(stress_primitive_count)
+        draw_starfield(gs, 12)
+        draw_primitives(gs, 6)
+        draw_laser_field(gs, 4)
+    elif (primitive_count := stress_primitive_count(variant)) is not None:
+        draw_stress_primitives(gs, require_context, _STATE, primitive_count)
     elif variant == "cached_images" or variant == "cached_images_nearest":
-        _draw_image_field(mutate=False)
+        draw_image_field(gs, _STATE, mutate=False)
     elif variant == "stress_sprites_10k":
-        _draw_stress_sprites(10_000)
+        draw_stress_sprites(gs, require_context, _STATE, 10_000)
     elif variant == "stress_sprites_50k":
-        _draw_stress_sprites(50_000)
+        draw_stress_sprites(gs, require_context, _STATE, 50_000)
     elif variant == "image_upload_churn":
-        _draw_image_field(mutate=True)
+        draw_image_field(gs, _STATE, mutate=True)
     elif variant == "blend_modes":
-        _draw_blend_modes()
+        draw_blend_modes(gs)
     elif variant == "erasing":
-        _draw_erasing()
+        draw_erasing(gs)
     elif variant == "transformed_images":
-        _draw_transformed_images()
+        draw_transformed_images(gs, _STATE)
     elif variant == "text_only":
-        _draw_text_only()
+        draw_text_only(gs)
     elif variant == "stress_text_1k":
-        _draw_stress_text(1_000)
+        draw_stress_text(gs, 1_000)
     elif variant == "stress_sprite_text_overlay":
-        _draw_stress_sprite_text_overlay()
+        draw_stress_sprite_text_overlay(gs, require_context, _STATE)
     elif variant == "pixel_readback_upload":
-        _draw_pixel_readback_upload()
+        draw_pixel_readback_upload(gs)
     elif variant == "mixed_text_pixels":
-        _draw_mixed_text_pixels()
+        draw_mixed_text_pixels(gs, require_context, _STATE)
     elif variant == "contours_clipping_tint":
-        _draw_contours_clipping_tint()
+        draw_contours_clipping_tint(gs, _STATE)
     elif variant == "asteroids_scene":
-        _draw_asteroids_scene()
+        draw_asteroids_scene(gs, _STATE)
     elif variant == "webgl_3d":
-        _draw_webgl_3d()
+        draw_webgl_3d(gs, _STATE)
     else:
         raise ValueError(f"unknown benchmark variant: {variant}")
+    _sync_exports_from_state()

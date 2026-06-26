@@ -1,4 +1,5 @@
 use crate::*;
+
 #[pymethods]
 impl Canvas {
     #[new]

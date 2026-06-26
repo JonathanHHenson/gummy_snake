@@ -180,11 +180,11 @@ uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features ex
 ```
 
 The refactored Python package is split by responsibility: public API modules in
-`src/gummysnake/api/`, `SketchContext` mixins in `src/gummysnake/_context/`,
+`src/gummysnake/api/`, `SketchContext` mixins in `src/gummysnake/context_mixins/`,
 lifecycle code and object-mode facade groups in `src/gummysnake/sketch/`,
 enum-backed constants in `src/gummysnake/constants/`, and thin canvas
 backend/renderer facades over the implementation modules in
-`src/gummysnake/backend/_canvas/`. The renderer internals are grouped around
+`src/gummysnake/backend/canvas_runtime/`. The renderer internals are grouped around
 bridge calls, lifecycle, counters, caches, payload builders, and
 primitive/image/text/pixel drawing. The native desktop runtime itself lives in
 `crates/gummy_canvas`, owns sketch context state, canvas draw state, command
