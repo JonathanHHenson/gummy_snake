@@ -71,6 +71,9 @@ def run(
     touch_moved: Callable[..., None] | None = None,
     touch_ended: Callable[..., None] | None = None,
     touch_cancelled: Callable[..., None] | None = None,
+    device_moved: Callable[..., None] | None = None,
+    device_turned: Callable[..., None] | None = None,
+    device_shaken: Callable[..., None] | None = None,
     headless: bool | None = None,
     max_frames: int | None = None,
 ) -> SketchContext:
@@ -93,6 +96,9 @@ def run(
         "touch_moved": touch_moved,
         "touch_ended": touch_ended,
         "touch_cancelled": touch_cancelled,
+        "device_moved": device_moved,
+        "device_turned": device_turned,
+        "device_shaken": device_shaken,
     }
     event_callbacks: dict[str, Callable[..., Any]] = {}
     decorated_event_callbacks = decorated.event_callbacks if decorated is not None else {}

@@ -114,6 +114,46 @@ class TouchEvent:
 
 
 @dataclass(slots=True)
+class MotionEvent:
+    acceleration_x: float = 0.0
+    acceleration_y: float = 0.0
+    acceleration_z: float = 0.0
+    rotation_x: float = 0.0
+    rotation_y: float = 0.0
+    rotation_z: float = 0.0
+    orientation: str = "unknown"
+    previous_acceleration_x: float = 0.0
+    previous_acceleration_y: float = 0.0
+    previous_acceleration_z: float = 0.0
+    previous_rotation_x: float = 0.0
+    previous_rotation_y: float = 0.0
+    previous_rotation_z: float = 0.0
+    turn_axis: str | None = None
+    timestamp: float | None = None
+    type: str = "motion"
+
+    @property
+    def acceleration(self) -> Vector:
+        return Vector(self.acceleration_x, self.acceleration_y, self.acceleration_z)
+
+    @property
+    def previous_acceleration(self) -> Vector:
+        return Vector(
+            self.previous_acceleration_x,
+            self.previous_acceleration_y,
+            self.previous_acceleration_z,
+        )
+
+    @property
+    def rotation(self) -> Vector:
+        return Vector(self.rotation_x, self.rotation_y, self.rotation_z)
+
+    @property
+    def previous_rotation(self) -> Vector:
+        return Vector(self.previous_rotation_x, self.previous_rotation_y, self.previous_rotation_z)
+
+
+@dataclass(slots=True)
 class InputState:
     mouse_x: float = 0.0
     mouse_y: float = 0.0
@@ -136,6 +176,77 @@ class InputState:
     touch_supported: bool = False
     pointer_locked: bool = False
     pointer_lock_mode: c.PointerLockMode = c.CLAMPED
+    acceleration_x: float = 0.0
+    acceleration_y: float = 0.0
+    acceleration_z: float = 0.0
+    previous_acceleration_x: float = 0.0
+    previous_acceleration_y: float = 0.0
+    previous_acceleration_z: float = 0.0
+    rotation_x: float = 0.0
+    rotation_y: float = 0.0
+    rotation_z: float = 0.0
+    previous_rotation_x: float = 0.0
+    previous_rotation_y: float = 0.0
+    previous_rotation_z: float = 0.0
+    device_orientation: str = "unknown"
+    turn_axis: str | None = None
+    move_threshold: float = 0.5
+    shake_threshold: float = 30.0
+
+    def update_motion(
+        self,
+        *,
+        acceleration_x: float | None = None,
+        acceleration_y: float | None = None,
+        acceleration_z: float | None = None,
+        rotation_x: float | None = None,
+        rotation_y: float | None = None,
+        rotation_z: float | None = None,
+        orientation: str | None = None,
+    ) -> MotionEvent:
+        self.previous_acceleration_x = self.acceleration_x
+        self.previous_acceleration_y = self.acceleration_y
+        self.previous_acceleration_z = self.acceleration_z
+        self.previous_rotation_x = self.rotation_x
+        self.previous_rotation_y = self.rotation_y
+        self.previous_rotation_z = self.rotation_z
+        if acceleration_x is not None:
+            self.acceleration_x = float(acceleration_x)
+        if acceleration_y is not None:
+            self.acceleration_y = float(acceleration_y)
+        if acceleration_z is not None:
+            self.acceleration_z = float(acceleration_z)
+        if rotation_x is not None:
+            self.rotation_x = float(rotation_x)
+        if rotation_y is not None:
+            self.rotation_y = float(rotation_y)
+        if rotation_z is not None:
+            self.rotation_z = float(rotation_z)
+        if orientation is not None:
+            self.device_orientation = str(orientation)
+        deltas = {
+            "x": abs(self.rotation_x - self.previous_rotation_x),
+            "y": abs(self.rotation_y - self.previous_rotation_y),
+            "z": abs(self.rotation_z - self.previous_rotation_z),
+        }
+        axis, amount = max(deltas.items(), key=lambda item: item[1])
+        self.turn_axis = axis if amount >= self.move_threshold else None
+        return MotionEvent(
+            acceleration_x=self.acceleration_x,
+            acceleration_y=self.acceleration_y,
+            acceleration_z=self.acceleration_z,
+            rotation_x=self.rotation_x,
+            rotation_y=self.rotation_y,
+            rotation_z=self.rotation_z,
+            orientation=self.device_orientation,
+            previous_acceleration_x=self.previous_acceleration_x,
+            previous_acceleration_y=self.previous_acceleration_y,
+            previous_acceleration_z=self.previous_acceleration_z,
+            previous_rotation_x=self.previous_rotation_x,
+            previous_rotation_y=self.previous_rotation_y,
+            previous_rotation_z=self.previous_rotation_z,
+            turn_axis=self.turn_axis,
+        )
 
     def update_mouse(
         self, x: float, y: float, *, dx: float | None = None, dy: float | None = None

@@ -140,6 +140,13 @@ animation duration.
 - `load_sound(path)`
 - `load_sound_async(path)`
 - `create_audio(...)`
+- `create_amplitude(source=None, smoothing=0.0)`
+- `create_fft(source=None, bins=1024, smoothing=0.0)`
+- `create_oscillator(waveform="sine", frequency=440.0, amplitude=1.0)`
+- `create_envelope(attack=0.01, decay=0.1, sustain=0.7, release=0.2)`
+- `create_filter(filter_type="lowpass", frequency=1000.0, resonance=0.0)`
+- `create_audio_in(sample_rate=44100)`
+- `get_audio_context()`
 - `create_capture(...)`
 - `create_capture_async(...)`
 - `create_video(...)`
@@ -148,21 +155,64 @@ animation duration.
 `load_sound()` returns the public `Sound` wrapper with a Rust-managed
 `CanvasSound` handle attached. Sound bytes and duration metadata stay in the
 canvas runtime until code asks for Python bytes with `sound.to_bytes()`, while
-Python keeps the current friendly `play()`, `pause()`, `stop()`, `volume()`,
-`rate()`, and `pan()` controls.
+Python keeps the current friendly `play()`, `pause()`, `stop()`, `close()`,
+`loop()`, `no_loop()`, `looping(...)`, `seek(seconds)`, `time()`, `is_playing()`,
+`is_paused()`, `volume()`, `rate()`, and `pan()` controls. Playback uses an
+available platform player (`afplay`, `paplay`, `aplay`, or `ffplay`) when
+present; otherwise `play()` raises a Gummy Snake capability error while metadata
+and bytes remain usable.
 
-Audio analysis, synthesis, Web Audio contexts, oscillator/envelope/filter APIs,
-and microphone/audio capture are not public APIs yet. They remain deferred until
-native backends, deterministic DSP tests, and capability reporting are in place.
+Audio analysis and synthesis are deterministic, headless-safe Pythonic helpers.
+`AudioBuffer` stores sample tuples, `Amplitude` computes RMS levels, `FFT`
+returns fixed-size waveforms and spectra, `Oscillator` can generate sample
+buffers or `Sound` objects, `Envelope` applies ADSR curves, `AudioFilter`
+processes low-pass/high-pass buffers, and `AudioInput` is an explicit input
+buffer for tests and audio-reactive sketches. Gummy Snake does not expose Web
+Audio node graphs or browser audio contexts.
 
-Some media helpers require installing the `media` extra.
-Decoded grayscale, BGR, and BGRA frames are converted to Gummy Snake RGBA image buffers
+Video and capture helpers require installing the `media` extra. Decoded
+grayscale, BGR, and BGRA frames are converted to Gummy Snake RGBA image buffers
 by the Rust canvas runtime once the optional media dependency supplies a
 contiguous frame buffer.
 
-`create_capture()` currently covers native video/camera capture through the
-optional media backend. Browser permission APIs and DOM media elements are not
-exposed.
+`create_video()` returns a `Video` with explicit `play()`, `pause()`, `stop()`,
+`loop()`, `no_loop()`, `looping(...)`, `seek(seconds)`, `time()`, `speed(...)`,
+`read()`, `current_frame()`, and `close()` methods. `speed()` records the
+intended playback rate for clock-driven integrations; explicit `read()` calls
+still pull one decoded frame at a time. `read()` returns a Gummy Snake `Image`,
+so video frames can be passed to `image()` and to texture-capable 3D paths like
+other images.
+
+`create_capture()` covers native video/camera capture through the optional media
+backend and deterministic audio input through `AudioInput`. Use
+`create_capture("audio")` for a started audio input stream and
+`create_capture("audio+video")` / `"video+audio"` for `AudioVideoCapture`, a
+composite object exposing `.video`, `.audio`, frame reads, audio reads, and
+shared lifecycle methods. Browser permission APIs and DOM media elements are not
+exposed; camera access can still fail in headless or privacy-restricted
+environments with a package-specific capability error.
+
+## Offscreen Graphics, Framebuffers, and Compute
+
+- `create_graphics(width, height, renderer=gs.P2D, pixel_density=None)`
+- `create_framebuffer(width, height, renderer=gs.P2D, pixel_density=None, depth=True)`
+- `webgpu_context()`
+- `create_storage_buffer(data_or_size, dtype="float")`
+- `update_storage_buffer(buffer, data, offset=0)`
+- `read_storage_buffer(buffer)`
+- `create_compute_shader(callback=None, source=None, label=None)`
+- `dispatch_compute(shader, x, y=1, z=1, **buffers)`
+
+`Graphics` is an offscreen canvas with isolated style, transform, pixel, and 3D
+state. Draw into it with normal canvas methods such as `background()`, `rect()`,
+`image()`, and `model()`, then use `snapshot()`, `to_rgba_bytes()`, `save()`, or
+`image(graphics, x, y)` on another canvas. `remove()` releases the offscreen
+backend. `Framebuffer` extends `Graphics` with depth metadata for render-target
+workflows.
+
+The `WEBGPU` compute helpers are deterministic and safe in headless runs. They
+provide explicit storage buffers plus callback-backed compute dispatch without
+exposing browser WebGPU contexts or JavaScript shader objects.
 
 3D asset helpers also include awaitable variants:
 

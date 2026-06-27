@@ -12,16 +12,22 @@ Useful starting points:
 - `examples/02_drawing/pixels_and_export.py`
 - `examples/03_assets/data_files.py`
 - `examples/03_assets/images_and_sprites.py`
+- `examples/03_assets/audio_analysis_synthesis.py`
+- `examples/03_assets/offscreen_graphics_compute.py`
 - `examples/05_interaction/input_state.py`
+- `examples/05_interaction/sensors_environment.py`
 - `examples/08_3d/webgl_scene.py`
+- `examples/08_3d/advanced_webgpu_geometry.py`
 - `examples/09_performance/sixty_fps_load_showcase.py`
 - `examples/09_performance/nature_of_code_attractor.py`
-- `examples/09_performance/lorenz_attractor_3d.py`
+- `examples/08_3d/lorenz_attractor_3d.py`
 - `examples/games/asteroids.py`
 
 The first sketch, asset, interaction, and transform examples show the preferred
 Pythonic APIs: decorators, async loaders, property facades, and context
-managers.
+managers. The feature demos also cover audio analysis/synthesis, deterministic
+sensor input, environment state, offscreen graphics, framebuffers,
+storage-buffer compute, and advanced WEBGL/WEBGPU-style 3D APIs.
 The performance examples are good starting points when you want to see dense
 public drawing loops using `gs.fast()`, internal primitive batching, sprite
 batching, Nature of Code-style particle forces, or retained WEBGL model drawing

@@ -1,5 +1,20 @@
 """Asset helpers for images, fonts, media, and lightweight data files."""
 
+from gummysnake.assets.audio import (
+    FFT,
+    Amplitude,
+    AudioBuffer,
+    AudioFilter,
+    AudioInput,
+    Envelope,
+    Oscillator,
+    create_amplitude,
+    create_audio_in,
+    create_envelope,
+    create_fft,
+    create_filter,
+    create_oscillator,
+)
 from gummysnake.assets.data import (
     Writer,
     create_writer,
@@ -10,22 +25,71 @@ from gummysnake.assets.data import (
     save_json,
     save_strings,
 )
+from gummysnake.assets.gpu import (
+    ComputeShader,
+    StorageBuffer,
+    create_compute_shader,
+    create_storage_buffer,
+    dispatch_compute,
+    read_storage_buffer,
+    update_storage_buffer,
+    webgpu_context,
+)
+from gummysnake.assets.graphics import Framebuffer, Graphics, create_framebuffer, create_graphics
 from gummysnake.assets.image import CanvasImage, Image, create_image, load_image
-from gummysnake.assets.media import Capture, Video, create_capture, create_video
-from gummysnake.assets.sound import CanvasSound, Sound
+from gummysnake.assets.media import (
+    AudioVideoCapture,
+    Capture,
+    Video,
+    create_capture,
+    create_capture_async,
+    create_video,
+    create_video_async,
+)
+from gummysnake.assets.sound import CanvasSound, Sound, load_sound, load_sound_async
 from gummysnake.assets.text import DEFAULT_FONT, Font, load_font
 
 __all__ = [
+    "Amplitude",
+    "AudioBuffer",
+    "AudioFilter",
+    "AudioInput",
+    "Envelope",
+    "FFT",
+    "Oscillator",
+    "Graphics",
+    "Framebuffer",
+    "StorageBuffer",
+    "ComputeShader",
+    "create_graphics",
+    "create_framebuffer",
+    "webgpu_context",
+    "create_storage_buffer",
+    "update_storage_buffer",
+    "read_storage_buffer",
+    "create_compute_shader",
+    "dispatch_compute",
+    "create_amplitude",
+    "create_audio_in",
+    "create_envelope",
+    "create_fft",
+    "create_filter",
+    "create_oscillator",
     "Image",
     "CanvasImage",
     "create_image",
     "load_image",
     "Video",
     "Capture",
+    "AudioVideoCapture",
     "create_video",
+    "create_video_async",
     "create_capture",
+    "create_capture_async",
     "CanvasSound",
     "Sound",
+    "load_sound",
+    "load_sound_async",
     "Font",
     "DEFAULT_FONT",
     "load_font",

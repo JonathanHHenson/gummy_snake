@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
+from gummysnake.assets.audio import AudioInput, create_audio_in
 from gummysnake.assets.image import Image
 from gummysnake.assets.media.cv2 import (
     capture_is_open as _capture_is_open,
@@ -22,7 +23,6 @@ from gummysnake.assets.media.frame import frame_to_image as _frame_to_image
 from gummysnake.exceptions import (
     ArgumentValidationError,
     BackendCapabilityError,
-    UnsupportedFeatureError,
 )
 
 _VIDEO_KINDS = {"video", "camera"}
@@ -109,6 +109,7 @@ class Video(_FrameStreamBase):
         )
         self._path = path
         self._loop = False
+        self._speed = 1.0
 
     @property
     def path(self) -> Path:
@@ -141,6 +142,26 @@ class Video(_FrameStreamBase):
         if value is not None:
             self._loop = bool(value)
         return self._loop
+
+    def loop(self) -> None:
+        self.looping(True)
+        self.play()
+
+    def no_loop(self) -> None:
+        self.looping(False)
+
+    def speed(self, value: float | None = None) -> float:
+        if value is not None:
+            if value <= 0:
+                raise ArgumentValidationError("Video.speed() must be positive.")
+            self._speed = float(value)
+        return self._speed
+
+    def time(self) -> float | None:
+        milliseconds = self._get_prop("CAP_PROP_POS_MSEC")
+        if milliseconds is None:
+            return None
+        return float(milliseconds) / 1000.0
 
     def seek(self, seconds: float) -> None:
         self._ensure_open()
@@ -209,6 +230,62 @@ class Capture(_FrameStreamBase):
         return image.copy()
 
 
+class AudioVideoCapture:
+    """Combined camera and audio-input capture stream.
+
+    Video frames are provided by the same native camera path as ``Capture``;
+    audio samples are supplied by the headless-safe ``AudioInput`` object so
+    analysis and audio-reactive sketches can share one capture handle.
+    """
+
+    def __init__(self, video: Capture, audio: AudioInput) -> None:
+        self.video = video
+        self.audio = audio
+
+    @property
+    def width(self) -> int:
+        return self.video.width
+
+    @property
+    def height(self) -> int:
+        return self.video.height
+
+    @property
+    def device(self) -> int | str:
+        return self.video.device
+
+    @property
+    def is_playing(self) -> bool:
+        return self.video.is_playing and self.audio.is_started
+
+    def play(self) -> None:
+        self.video.play()
+        self.audio.start()
+
+    def pause(self) -> None:
+        self.video.pause()
+        self.audio.stop()
+
+    def stop(self) -> None:
+        self.pause()
+
+    def read(self) -> Image | None:
+        return self.video.read()
+
+    def current_frame(self) -> Image | None:
+        return self.video.current_frame()
+
+    def read_audio(self, count: int | None = None):
+        return self.audio.read(count)
+
+    def push_audio_samples(self, samples: list[float] | tuple[float, ...]) -> None:
+        self.audio.push_samples(samples)
+
+    def close(self) -> None:
+        self.video.close()
+        self.audio.stop()
+
+
 def create_video(path: str | Path) -> Video:
     video_path = Path(path).expanduser()
     if not video_path.exists():
@@ -231,14 +308,17 @@ def create_capture(
     device: int | str = 0,
     width: int | None = None,
     height: int | None = None,
-) -> Capture:
+) -> Capture | AudioInput | AudioVideoCapture:
     normalized_kind = kind.lower()
-    if normalized_kind in _AUDIO_KINDS or normalized_kind in _AUDIO_VIDEO_KINDS:
-        raise UnsupportedFeatureError(
-            "create_capture microphone input is still deferred in Gummy Snake. "
-            "The current staged capture API only supports camera/video capture because "
-            "microphone access needs separate permission, device, and buffering work."
-        )
+    if normalized_kind in _AUDIO_KINDS:
+        audio = create_audio_in()
+        audio.start()
+        return audio
+    if normalized_kind in _AUDIO_VIDEO_KINDS:
+        video = create_capture("video", device=device, width=width, height=height)
+        audio = create_audio_in()
+        audio.start()
+        return AudioVideoCapture(cast(Capture, video), audio)
     if normalized_kind not in _VIDEO_KINDS:
         raise ArgumentValidationError(
             "create_capture() currently supports only kind='video' or kind='camera'."
@@ -262,13 +342,14 @@ async def create_capture_async(
     device: int | str = 0,
     width: int | None = None,
     height: int | None = None,
-) -> Capture:
+) -> Capture | AudioInput | AudioVideoCapture:
     return create_capture(kind, device=device, width=width, height=height)
 
 
 __all__ = [
     "Video",
     "Capture",
+    "AudioVideoCapture",
     "create_video",
     "create_video_async",
     "create_capture",

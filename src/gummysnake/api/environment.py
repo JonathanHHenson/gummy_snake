@@ -23,6 +23,23 @@ def display_height() -> int:
     return round(context.height * context.display_density())
 
 
+def fullscreen(value: bool | None = None) -> bool:
+    """Get or set fullscreen intent for the active sketch.
+
+    Headless runs store the requested state deterministically. Interactive
+    backends may additionally apply it through a native ``set_fullscreen`` hook.
+    """
+
+    context = require_context()
+    if value is not None:
+        requested = bool(value)
+        callback = getattr(context.backend, "set_fullscreen", None)
+        if callable(callback):
+            requested = bool(callback(requested))
+        context._fullscreen = requested
+    return bool(context._fullscreen)
+
+
 def focused() -> bool:
     """Return whether the sketch is focused.
 
@@ -30,21 +47,34 @@ def focused() -> bool:
     headless and backend-agnostic sketches are considered focused.
     """
 
-    return True
+    context = require_context()
+    callback = getattr(context.backend, "focused", None)
+    if callable(callback):
+        context._focused = bool(callback())
+    return bool(context._focused)
 
 
-def cursor(_kind: str | None = None) -> None:
-    """Accept cursor changes as a portable no-op in the current canvas runtime."""
+def cursor(kind: str | None = None) -> str | None:
+    """Get or set the active cursor kind for the current sketch."""
 
-    # Cursor presentation is backend-owned; this is a safe no-op for portable sketches.
-    return None
+    context = require_context()
+    if kind is not None:
+        context._cursor_kind = str(kind)
+        context._cursor_visible = True
+        callback = getattr(context.backend, "set_cursor", None)
+        if callable(callback):
+            callback(context._cursor_kind)
+    return context._cursor_kind
 
 
 def no_cursor() -> None:
-    """Accept cursor hiding as a portable no-op in the current canvas runtime."""
+    """Hide the cursor for the active sketch when the backend supports it."""
 
-    # Cursor presentation is backend-owned; this is a safe no-op for portable sketches.
-    return None
+    context = require_context()
+    context._cursor_visible = False
+    callback = getattr(context.backend, "set_cursor_visible", None)
+    if callable(callback):
+        callback(False)
 
 
 __all__ = [
@@ -52,6 +82,7 @@ __all__ = [
     "window_height",
     "display_width",
     "display_height",
+    "fullscreen",
     "focused",
     "cursor",
     "no_cursor",

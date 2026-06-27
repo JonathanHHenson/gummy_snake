@@ -28,8 +28,10 @@ class ThreeDContextHost(Protocol):
         self,
         *,
         base_color: tuple[float, float, float, float] | None = None,
+        emissive_color: tuple[float, float, float, float] | None = None,
         specular_color: tuple[float, float, float, float] | None = None,
         shininess: float | None = None,
+        metalness: float | None = None,
         texture: MaterialTextureArgument = None,
     ) -> Material3D: ...
     def _effective_3d_material(self) -> Material3D: ...

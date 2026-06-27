@@ -22,17 +22,29 @@ native window.
 - `stop_text_input()`
 - `is_text_input_active()`
 - `touches()`
+- `acceleration_x()`, `acceleration_y()`, `acceleration_z()`
+- `p_acceleration_x()`, `p_acceleration_y()`, `p_acceleration_z()`
+- `rotation_x()`, `rotation_y()`, `rotation_z()`
+- `p_rotation_x()`, `p_rotation_y()`, `p_rotation_z()`
+- `device_orientation()`
+- `turn_axis()`
+- `set_move_threshold(value)`
+- `set_shake_threshold(value)`
+- `inject_sensor_sample(...)`
 - `pointer_lock_mode(mode=None)`
 - `request_pointer_lock()`
 - `exit_pointer_lock()`
 - `focused()`
+- `fullscreen(value=None)`
 - `cursor(kind=None)`
 - `no_cursor()`
 
-`focused()` currently returns `True` as a portable canvas-runtime compatibility
-helper. `cursor()` and `no_cursor()` accept calls but are no-ops in the current
-backend-agnostic API; cursor presentation remains backend-owned until native
-runtime cursor capabilities are exposed.
+`focused()` reads a native backend focus hook when available and otherwise
+returns the portable headless state. `fullscreen(value=None)` stores fullscreen
+intent deterministically in headless runs and applies it through a native backend
+hook when one exists. `cursor(kind=None)` gets/sets the current cursor kind,
+while `no_cursor()` records hidden-cursor intent and forwards to capable native
+backends.
 
 ## Property Facades
 
@@ -79,6 +91,12 @@ ready to collect text, and call `stop_text_input()` when text entry should end.
 Regular `key_pressed` and `key_released` callbacks continue to run regardless of
 text input state.
 
+Sensor state is deterministic in headless and desktop runs. Native providers can
+feed samples into the same state contract; tests and simulations can call
+`inject_sensor_sample(acceleration_x=..., rotation_z=..., orientation=...)` to
+update acceleration/rotation/orientation and dispatch device callbacks based on
+the configured move/shake thresholds.
+
 Pointer lock is available only when the native canvas backend reports support.
 Unsupported runtimes raise `BackendCapabilityError` with runtime/rebuild
 guidance.
@@ -108,6 +126,9 @@ Define callbacks on a function-mode sketch module or on a `Sketch` subclass:
 - `touch_moved(event)`
 - `touch_ended(event)`
 - `touch_cancelled(event)`
+- `device_moved(event)`
+- `device_turned(event)`
+- `device_shaken(event)`
 
 Callbacks may also be declared without an event parameter. Dispatch is
 signature-aware for normal Python callables, so callbacks that accept an event get
@@ -132,6 +153,17 @@ Event objects expose Python-friendly helpers:
 - `TouchPoint.timestamp`
 - `TouchPoint.pressure`
 - `TouchPoint.phase`
+- `MotionEvent.acceleration`
+- `MotionEvent.previous_acceleration`
+- `MotionEvent.rotation`
+- `MotionEvent.previous_rotation`
+- `MotionEvent.orientation`
+- `MotionEvent.turn_axis`
+
+`MotionEvent` values are emitted for injected or native sensor samples. Units are
+provider-defined; deterministic tests should inject the exact values their sketch
+expects and configure thresholds explicitly with `set_move_threshold()` and
+`set_shake_threshold()`.
 
 Touch timestamps are optional. The current SDL3-backed runtime leaves them as
 `None` unless a future runtime payload defines a stable timestamp policy; use

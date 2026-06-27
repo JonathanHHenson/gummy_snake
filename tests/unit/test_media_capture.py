@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 import gummysnake as gs
-from gummysnake import BackendCapabilityError, UnsupportedFeatureError
+from gummysnake import BackendCapabilityError
 from gummysnake.assets.image import create_image
 from gummysnake.assets.media import frame as media_frame_module
 from gummysnake.assets.media import streams as media_streams_module
@@ -89,6 +89,9 @@ def test_create_video_wraps_optional_opencv_capture(monkeypatch, tmp_path: Path)
     assert clip.fps == 10.0
     assert clip.frame_count == 25
     assert clip.duration == 2.5
+    assert clip.speed() == 1.0
+    assert clip.speed(1.25) == 1.25
+    assert clip.time() == 0.0
 
     clip.play()
     frame = clip.read()
@@ -101,17 +104,26 @@ def test_create_video_wraps_optional_opencv_capture(monkeypatch, tmp_path: Path)
     assert cached is not None
     assert cached.width == 2
 
-    clip.looping(True)
-    clip.play()
+    clip.loop()
     looped = clip.read()
     assert looped is not None
     assert fake_capture.set_calls[-1] == (_FakeCV2.CAP_PROP_POS_MSEC, 0.0)
+
+    clip.no_loop()
+    assert clip.looping() is False
 
     clip.stop()
     assert fake_capture.set_calls[-1] == (_FakeCV2.CAP_PROP_POS_MSEC, 0.0)
 
     clip.close()
     assert fake_capture.released is True
+
+
+def test_assets_package_exports_async_media_helpers():
+    import gummysnake.assets as assets
+
+    assert assets.create_video_async is media_streams_module.create_video_async
+    assert assets.create_capture_async is media_streams_module.create_capture_async
 
 
 def test_create_capture_wraps_camera_with_explicit_lifecycle(monkeypatch):
@@ -122,6 +134,7 @@ def test_create_capture_wraps_camera_with_explicit_lifecycle(monkeypatch):
     monkeypatch.setattr(media_streams_module, "_frame_to_image", lambda _frame: create_image(4, 5))
 
     camera = gs.create_capture("video", device=2, width=640, height=480)
+    assert isinstance(camera, gs.Capture)
     frame = camera.read()
 
     assert frame is not None
@@ -140,9 +153,38 @@ def test_create_capture_wraps_camera_with_explicit_lifecycle(monkeypatch):
     assert fake_capture.released is True
 
 
-def test_create_capture_audio_input_remains_explicitly_deferred():
-    with pytest.raises(UnsupportedFeatureError, match="microphone input is still deferred"):
-        gs.create_capture("audio")
+def test_create_capture_audio_input_starts_headless_safe_stream():
+    audio = gs.create_capture("audio")
+
+    assert isinstance(audio, gs.AudioInput)
+    assert audio.is_started is True
+    audio.push_samples([0.25, -0.25])
+    assert audio.read().samples == (0.25, -0.25)
+
+
+def test_create_capture_audio_video_returns_composite_stream(monkeypatch):
+    fake_capture = _FakeVideoCapture(0, frames=[(True, object())])
+    fake_cv2 = _FakeCV2([fake_capture])
+
+    monkeypatch.setattr(media_streams_module, "_load_cv2_module", lambda: fake_cv2)
+    monkeypatch.setattr(media_streams_module, "_frame_to_image", lambda _frame: create_image(6, 7))
+
+    stream = gs.create_capture("audio+video", device=3)
+
+    assert isinstance(stream, gs.AudioVideoCapture)
+    assert stream.device == 3
+    assert stream.audio.is_started is True
+    frame = stream.read()
+    assert frame is not None
+    assert frame.width == 6
+    stream.push_audio_samples((0.1, 0.2))
+    assert stream.read_audio().samples == (0.1, 0.2)
+    stream.pause()
+    assert stream.audio.is_started is False
+    stream.play()
+    assert stream.audio.is_started is True
+    stream.close()
+    assert fake_capture.released is True
 
 
 def test_media_apis_fail_predictably_without_optional_dependency(monkeypatch, tmp_path: Path):

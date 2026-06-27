@@ -7,7 +7,13 @@ from typing import Any
 from gummysnake import constants as c
 from gummysnake.api.current import activate_context
 from gummysnake.backend.canvas_runtime import events as canvas_events
-from gummysnake.core.input_events import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
+from gummysnake.core.input_events import (
+    KeyboardEvent,
+    MotionEvent,
+    MouseEvent,
+    TouchEvent,
+    TouchPoint,
+)
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.plugins.base import EventHookName
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
@@ -155,6 +161,62 @@ class InputContextMixin:
             self.plugins.dispatch_event(EventHookName.ON_TOUCH_EVENT, self, event)
             self.sketch._dispatch_callback(event.type, event)
 
+    def dispatch_motion_event(self, event: MotionEvent) -> None:
+        with activate_context(self):
+            self.sketch._dispatch_callback(event.type, event)
+
+    def update_sensor_sample(
+        self,
+        *,
+        acceleration_x: float | None = None,
+        acceleration_y: float | None = None,
+        acceleration_z: float | None = None,
+        rotation_x: float | None = None,
+        rotation_y: float | None = None,
+        rotation_z: float | None = None,
+        orientation: str | None = None,
+    ) -> MotionEvent:
+        previous_acceleration = (
+            self.state.input.acceleration_x,
+            self.state.input.acceleration_y,
+            self.state.input.acceleration_z,
+        )
+        event = self.state.input.update_motion(
+            acceleration_x=acceleration_x,
+            acceleration_y=acceleration_y,
+            acceleration_z=acceleration_z,
+            rotation_x=rotation_x,
+            rotation_y=rotation_y,
+            rotation_z=rotation_z,
+            orientation=orientation,
+        )
+        moved = (
+            _motion_distance(
+                event.acceleration_x - previous_acceleration[0],
+                event.acceleration_y - previous_acceleration[1],
+                event.acceleration_z - previous_acceleration[2],
+            )
+            >= self.state.input.move_threshold
+        )
+        shaken = (
+            _motion_distance(event.acceleration_x, event.acceleration_y, event.acceleration_z)
+            >= self.state.input.shake_threshold
+        )
+        turned = event.turn_axis is not None
+        if moved:
+            self.dispatch_motion_event(_motion_event_with_type(event, "device_moved"))
+        if turned:
+            self.dispatch_motion_event(_motion_event_with_type(event, "device_turned"))
+        if shaken:
+            self.dispatch_motion_event(_motion_event_with_type(event, "device_shaken"))
+        return event
+
+    def set_move_threshold(self, value: float) -> None:
+        self.state.input.move_threshold = max(0.0, float(value))
+
+    def set_shake_threshold(self, value: float) -> None:
+        self.state.input.shake_threshold = max(0.0, float(value))
+
     def key_is_down(self, key_code: int | str) -> bool:
         if isinstance(key_code, str):
             normalized = canvas_events.normalize_key_code(key_code, key_code)
@@ -238,3 +300,28 @@ class InputContextMixin:
         locked = not bool(callback())
         self.state.input.pointer_locked = locked
         return not locked
+
+
+def _motion_distance(x: float, y: float, z: float) -> float:
+    return (x * x + y * y + z * z) ** 0.5
+
+
+def _motion_event_with_type(event: MotionEvent, event_type: str) -> MotionEvent:
+    return MotionEvent(
+        acceleration_x=event.acceleration_x,
+        acceleration_y=event.acceleration_y,
+        acceleration_z=event.acceleration_z,
+        rotation_x=event.rotation_x,
+        rotation_y=event.rotation_y,
+        rotation_z=event.rotation_z,
+        orientation=event.orientation,
+        previous_acceleration_x=event.previous_acceleration_x,
+        previous_acceleration_y=event.previous_acceleration_y,
+        previous_acceleration_z=event.previous_acceleration_z,
+        previous_rotation_x=event.previous_rotation_x,
+        previous_rotation_y=event.previous_rotation_y,
+        previous_rotation_z=event.previous_rotation_z,
+        turn_axis=event.turn_axis,
+        timestamp=event.timestamp,
+        type=event_type,
+    )

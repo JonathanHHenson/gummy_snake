@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 from typing import Any
 
 from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.renderer3d import (
     Camera3D,
+    FrustumProjection,
     Light3D,
+    LightKind,
     Material3D,
     PerspectiveProjection,
     Projection3D,
@@ -36,6 +39,17 @@ def projection_payload(projection: Projection3D) -> dict[str, Any]:
             "kind": "perspective",
             "fov_y": projection.fov_y,
             "aspect": projection.aspect,
+            "near": projection.near,
+            "far": projection.far,
+        }
+    if isinstance(projection, FrustumProjection):
+        height = projection.top - projection.bottom
+        width = projection.right - projection.left
+        fov_y = math.degrees(2.0 * math.atan2(height / 2.0, projection.near))
+        return {
+            "kind": "perspective",
+            "fov_y": fov_y,
+            "aspect": width / height if height != 0 else None,
             "near": projection.near,
             "far": projection.far,
         }
@@ -73,16 +87,24 @@ def material_payload(material: Material3D) -> dict[str, Any]:
         "emissive_color": material.emissive_color,
         "specular_color": material.specular_color,
         "shininess": material.shininess,
+        "metalness": material.metalness,
     }
 
 
 def light_payload(light: Light3D) -> dict[str, Any]:
+    # The current Rust software 3D shader handles ambient/directional/point lights.
+    # Spot and image lights are projected into compatible payloads while preserving
+    # richer Python state for capability reporting and future native paths.
+    payload_kind = "point" if light.kind in {LightKind.SPOT, LightKind.IMAGE} else light.kind.value
     return {
-        "kind": light.kind.value,
+        "kind": payload_kind,
         "color": light.color,
         "intensity": light.intensity,
         "position": None if light.position is None else vec3_payload(light.position),
         "direction": None if light.direction is None else vec3_payload(light.direction),
+        "angle": light.angle,
+        "concentration": light.concentration,
+        "falloff": light.falloff,
     }
 
 
@@ -98,6 +120,10 @@ def lights_cache_key(lights: Iterable[Light3D]) -> tuple[object, ...]:
             light.intensity,
             None if light.position is None else vec3_payload(light.position),
             None if light.direction is None else vec3_payload(light.direction),
+            light.angle,
+            light.concentration,
+            light.falloff,
+            id(light.source) if light.source is not None else None,
         )
         for light in lights
     )

@@ -62,6 +62,9 @@ class CallbackEventName(StrEnum):
     TOUCH_MOVED = "touch_moved"
     TOUCH_ENDED = "touch_ended"
     TOUCH_CANCELLED = "touch_cancelled"
+    DEVICE_MOVED = "device_moved"
+    DEVICE_TURNED = "device_turned"
+    DEVICE_SHAKEN = "device_shaken"
 
 
 __all__ = [

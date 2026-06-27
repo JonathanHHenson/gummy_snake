@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast, overload
 
+from gummysnake import constants as c
 from gummysnake.assets.image import Image
 from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
 from gummysnake.core.color import Color
@@ -35,6 +36,11 @@ class ThreeDMaterialMixin:
     backend: Any
     renderer: Any
     _lights3d: list[Light3D]
+    _light_falloff3d: tuple[float, float, float]
+    _specular_color3d: tuple[float, float, float, float]
+    _texture_mode3d: c.TextureCoordinateMode | None
+    _texture_wrap3d: tuple[c.TextureWrapMode, c.TextureWrapMode] | None
+    _panorama3d: object | None
     _material3d: Material3D | None
     _normal_material3d: bool
     _shader3d: Shader3D | None
@@ -58,6 +64,16 @@ class ThreeDMaterialMixin:
         _three_d(self)._require_webgl_mode("ambient_light")
         color = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
         self._lights3d.append(Light3D(kind=LightKind.AMBIENT, color=color))
+
+    def lights(self) -> None:
+        _three_d(self)._require_webgl_mode("lights")
+        self.no_lights()
+        self.ambient_light(128)
+        self.directional_light(255, 0, 0, -1)
+
+    def no_lights(self) -> None:
+        _three_d(self)._require_webgl_mode("no_lights")
+        self._lights3d = []
 
     @overload
     def directional_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None: ...
@@ -136,8 +152,55 @@ class ThreeDMaterialMixin:
                 kind=LightKind.POINT,
                 color=_three_d(self)._color_to_rgba(color),
                 position=Vec3(float(tail[0]), float(tail[1]), float(tail[2])),
+                falloff=self._light_falloff3d,
             )
         )
+
+    def spot_light(self, *args: Any) -> None:
+        _three_d(self)._require_webgl_mode("spot_light")
+        try:
+            color, tail = _three_d(self)._split_color_args(args, tail_count=8)
+        except ArgumentValidationError:
+            color, tail = _three_d(self)._split_color_args(args, tail_count=7)
+            tail = (*tail, 1.0)
+        self._lights3d.append(
+            Light3D(
+                kind=LightKind.SPOT,
+                color=_three_d(self)._color_to_rgba(color),
+                position=Vec3(float(tail[0]), float(tail[1]), float(tail[2])),
+                direction=Vec3(float(tail[3]), float(tail[4]), float(tail[5])),
+                angle=float(tail[6]),
+                concentration=float(tail[7]),
+                falloff=self._light_falloff3d,
+            )
+        )
+
+    def image_light(self, image: Image, intensity: float = 1.0) -> None:
+        _three_d(self)._require_webgl_mode("image_light")
+        if not isinstance(image, Image):
+            raise ArgumentValidationError("image_light() requires a Gummy Snake Image object.")
+        self._lights3d.append(
+            Light3D(kind=LightKind.IMAGE, intensity=float(intensity), source=image)
+        )
+
+    def panorama(self, image: Image | None = None) -> Image | None:
+        _three_d(self)._require_webgl_mode("panorama")
+        if image is not None and not isinstance(image, Image):
+            raise ArgumentValidationError("panorama() requires a Gummy Snake Image object.")
+        if image is not None:
+            self._panorama3d = image
+        return cast(Image | None, self._panorama3d)
+
+    def light_falloff(self, constant: float, linear: float, quadratic: float) -> None:
+        _three_d(self)._require_webgl_mode("light_falloff")
+        if constant < 0 or linear < 0 or quadratic < 0:
+            raise ArgumentValidationError("light_falloff() values cannot be negative.")
+        self._light_falloff3d = (float(constant), float(linear), float(quadratic))
+
+    def specular_color(self, *args: Any) -> None:
+        _three_d(self)._require_webgl_mode("specular_color")
+        self._specular_color3d = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
+        self._material3d = _three_d(self)._replace_material(specular_color=self._specular_color3d)
 
     def normal_material(self) -> None:
         _three_d(self)._require_webgl_mode("normal_material")
@@ -185,7 +248,7 @@ class ThreeDMaterialMixin:
         _three_d(self)._require_webgl_mode("specular_material")
         color = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
         self._material3d = _three_d(self)._replace_material(
-            base_color=color, specular_color=color, texture=None
+            base_color=color, specular_color=self._specular_color3d, texture=None
         )
         self._normal_material3d = False
 
@@ -195,12 +258,54 @@ class ThreeDMaterialMixin:
             raise ArgumentValidationError("shininess() must be positive.")
         self._material3d = _three_d(self)._replace_material(shininess=float(value))
 
+    def emissive_material(self, *args: Any) -> None:
+        _three_d(self)._require_webgl_mode("emissive_material")
+        emissive = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
+        self._material3d = _three_d(self)._replace_material(
+            base_color=emissive, emissive_color=emissive, texture=None
+        )
+        self._normal_material3d = False
+
+    def metalness(self, value: float) -> None:
+        _three_d(self)._require_webgl_mode("metalness")
+        if not 0.0 <= value <= 1.0:
+            raise ArgumentValidationError("metalness() must be between 0 and 1.")
+        self._material3d = _three_d(self)._replace_material(metalness=float(value))
+
+    def texture_mode(
+        self, mode: c.TextureCoordinateMode | str | None = None
+    ) -> c.TextureCoordinateMode:
+        _three_d(self)._require_webgl_mode("texture_mode")
+        if mode is not None:
+            self._texture_mode3d = c.TextureCoordinateMode(mode)
+        return self._texture_mode3d or c.NORMALIZED
+
+    def texture_wrap(
+        self,
+        wrap_x: c.TextureWrapMode | str | None = None,
+        wrap_y: c.TextureWrapMode | str | None = None,
+    ) -> tuple[c.TextureWrapMode, c.TextureWrapMode]:
+        _three_d(self)._require_webgl_mode("texture_wrap")
+        if wrap_x is not None:
+            x_mode = c.TextureWrapMode(wrap_x)
+            y_mode = x_mode if wrap_y is None else c.TextureWrapMode(wrap_y)
+            self._texture_wrap3d = (x_mode, y_mode)
+        return self._texture_wrap3d or (c.CLAMP, c.CLAMP)
+
     def texture(self, image: Image) -> None:
         _three_d(self)._require_webgl_mode("texture")
         if not isinstance(image, Image):
             raise ArgumentValidationError("texture() requires a Gummy Snake Image object.")
+        wrap_x, wrap_y = self.texture_wrap()
         self._material3d = _three_d(self)._replace_material(
-            texture=Texture3D(source=image, width=image.width, height=image.height)
+            texture=Texture3D(
+                source=image,
+                width=image.width,
+                height=image.height,
+                coordinate_mode=self.texture_mode(),
+                wrap_x=wrap_x,
+                wrap_y=wrap_y,
+            )
         )
         self._normal_material3d = False
 

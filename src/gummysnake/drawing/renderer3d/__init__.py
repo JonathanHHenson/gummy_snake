@@ -20,6 +20,7 @@ from gummysnake.drawing.renderer3d.shader import Shader3D, ShaderUniformValue
 from gummysnake.drawing.renderer3d.types import (
     RGBA,
     Camera3D,
+    FrustumProjection,
     Matrix4,
     OrthographicProjection,
     PerspectiveProjection,
@@ -35,6 +36,7 @@ __all__ = [
     "Matrix4",
     "Mesh3D",
     "Model3D",
+    "FrustumProjection",
     "OrthographicProjection",
     "PerspectiveProjection",
     "Projection3D",

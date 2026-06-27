@@ -55,6 +55,7 @@ class CanvasContextMixin:
     _frame_scroll_x: float
     _frame_scroll_y: float
     _lights3d: list[Any]
+    _lights3d_style_stack: list[list[Any]]
     _performance_diagnostics_enabled: bool
     _performance_diagnostic_counts: dict[str, int]
     _performance_diagnostic_messages: list[str]
@@ -92,16 +93,16 @@ class CanvasContextMixin:
         *,
         pixel_density: float | None = None,
     ) -> None:
-        if renderer not in {c.P2D, c.WEBGL}:
+        if renderer not in {c.P2D, c.WEBGL, c.WEBGPU}:
             raise ArgumentValidationError(f"Unsupported renderer {renderer!r}.")
-        if renderer == c.WEBGL and not self.backend.capabilities.three_d:
+        if renderer in {c.WEBGL, c.WEBGPU} and not self.backend.capabilities.three_d:
             raise BackendCapabilityError(
-                f"Backend {self.backend.name!r} does not support renderer={c.WEBGL!r}."
+                f"Backend {self.backend.name!r} does not support renderer={renderer!r}."
             )
         self.backend.create_canvas(int(width), int(height), pixel_density, renderer=renderer)
         self.renderer = self.backend.renderer
         self.state.canvas.renderer = renderer
-        if renderer == c.WEBGL:
+        if renderer in {c.WEBGL, c.WEBGPU}:
             cast(SketchContextHost, self)._reset_3d_state()
         self._sync_canvas_state()
         sync_style = getattr(self.renderer, "set_current_style", None)
@@ -213,8 +214,9 @@ class CanvasContextMixin:
             self._performance_diagnostic_messages.append(message)
 
     def begin_frame(self) -> None:
-        if self.state.canvas.renderer == c.WEBGL:
+        if self.state.canvas.renderer in {c.WEBGL, c.WEBGPU}:
             self._lights3d = []
+            self._lights3d_style_stack = []
 
     def end_frame(self) -> None:
         self._frame_mouse_dx = 0.0

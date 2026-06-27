@@ -9,10 +9,12 @@ from gummysnake.assets.image import Image
 from gummysnake.core.color import Color
 from gummysnake.drawing.renderer3d import (
     Camera3D,
+    FrustumProjection,
     Mesh3D,
     Model3D,
     OrthographicProjection,
     PerspectiveProjection,
+    Vec3,
 )
 
 Number = int | float
@@ -73,6 +75,22 @@ def camera(*args: Any) -> Camera3D:
     return require_context().camera(*args)
 
 
+def set_camera(camera_value: Camera3D) -> Camera3D:
+    return require_context().set_camera(camera_value)
+
+
+def roll(angle: Number) -> Camera3D:
+    return require_context().roll(angle)
+
+
+def world_to_screen(x: Number, y: Number, z: Number) -> tuple[float, float, float]:
+    return require_context().world_to_screen(x, y, z)
+
+
+def screen_to_world(x: Number, y: Number, depth: Number = 0.0) -> Vec3:
+    return require_context().screen_to_world(x, y, depth)
+
+
 @overload
 def perspective() -> PerspectiveProjection: ...
 
@@ -115,6 +133,17 @@ def ortho(
 
 def ortho(*args: Any) -> OrthographicProjection:
     return require_context().ortho(*args)
+
+
+def frustum(
+    left: Number,
+    right: Number,
+    bottom: Number,
+    top: Number,
+    near: Number = 0.1,
+    far: Number = 10_000.0,
+) -> FrustumProjection:
+    return require_context().frustum(left, right, bottom, top, near, far)
 
 
 @overload
@@ -161,6 +190,14 @@ def ambient_light(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
 
 def ambient_light(*args: Any) -> None:
     cast(Any, require_context()).ambient_light(*args)
+
+
+def lights() -> None:
+    require_context().lights()
+
+
+def no_lights() -> None:
+    require_context().no_lights()
 
 
 @overload
@@ -231,6 +268,26 @@ def point_light(*args: Any) -> None:
     cast(Any, require_context()).point_light(*args)
 
 
+def spot_light(*args: Any) -> None:
+    cast(Any, require_context()).spot_light(*args)
+
+
+def image_light(image: Image, intensity: float = 1.0) -> None:
+    require_context().image_light(image, intensity)
+
+
+def panorama(image: Image | None = None) -> Image | None:
+    return require_context().panorama(image)
+
+
+def light_falloff(constant: float, linear: float, quadratic: float) -> None:
+    require_context().light_falloff(constant, linear, quadratic)
+
+
+def specular_color(*args: Any) -> None:
+    cast(Any, require_context()).specular_color(*args)
+
+
 def normal_material() -> None:
     require_context().normal_material()
 
@@ -285,6 +342,22 @@ def specular_material(*args: Any) -> None:
 
 def shininess(value: float) -> None:
     require_context().shininess(value)
+
+
+def emissive_material(*args: Any) -> None:
+    cast(Any, require_context()).emissive_material(*args)
+
+
+def metalness(value: float) -> None:
+    require_context().metalness(value)
+
+
+def texture_mode(mode: Any = None) -> Any:
+    return require_context().texture_mode(mode)
+
+
+def texture_wrap(wrap_x: Any = None, wrap_y: Any = None) -> Any:
+    return require_context().texture_wrap(wrap_x, wrap_y)
 
 
 def texture(image: Image) -> None:
@@ -351,6 +424,30 @@ def create_model(mesh: Mesh3D | Model3D) -> Model3D:
     return require_context().create_model(mesh)
 
 
+def normal(x: float, y: float, z: float) -> None:
+    require_context().normal(x, y, z)
+
+
+def vertex_property(name: str, value: object) -> None:
+    require_context().vertex_property(name, value)
+
+
+def build_geometry(callback: Any) -> Model3D:
+    return require_context().build_geometry(callback)
+
+
+def free_geometry(model_value: Model3D) -> None:
+    require_context().free_geometry(model_value)
+
+
+def flip_u(mesh_or_model: Mesh3D | Model3D) -> Mesh3D | Model3D:
+    return require_context().flip_u(mesh_or_model)
+
+
+def flip_v(mesh_or_model: Mesh3D | Model3D) -> Mesh3D | Model3D:
+    return require_context().flip_v(mesh_or_model)
+
+
 def model(shape: Mesh3D | Model3D) -> None:
     require_context().model(shape)
 
@@ -358,16 +455,32 @@ def model(shape: Mesh3D | Model3D) -> None:
 __all__ = [
     "create_camera",
     "camera",
+    "set_camera",
+    "roll",
+    "world_to_screen",
+    "screen_to_world",
     "perspective",
+    "frustum",
     "ortho",
     "orbit_control",
     "ambient_light",
+    "lights",
+    "no_lights",
     "directional_light",
     "point_light",
+    "spot_light",
+    "image_light",
+    "panorama",
+    "light_falloff",
+    "specular_color",
     "normal_material",
     "ambient_material",
     "specular_material",
     "shininess",
+    "emissive_material",
+    "metalness",
+    "texture_mode",
+    "texture_wrap",
     "texture",
     "plane",
     "box",
@@ -377,5 +490,11 @@ __all__ = [
     "cone",
     "torus",
     "create_model",
+    "normal",
+    "vertex_property",
+    "build_geometry",
+    "free_geometry",
+    "flip_u",
+    "flip_v",
     "model",
 ]

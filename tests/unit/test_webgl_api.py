@@ -90,6 +90,100 @@ def test_shader_object_helpers_copy_and_modify():
     assert modified.uniforms["time"] == 1.5
 
 
+def test_camera_projection_helpers_round_trip_screen_coordinates():
+    context = make_context()
+    camera = context.create_camera()
+    moved = camera.move(10, 0, 0).look_at(10, 0, 0)
+
+    assert context.set_camera(moved) is moved
+    rolled = context.roll(0.1)
+    assert rolled.up != moved.up
+
+    projection = context.frustum(-1, 1, -1, 1, 1, 100)
+    assert projection.near == 1
+    screen_x, screen_y, depth = context.world_to_screen(10, 0, 450)
+    world = context.screen_to_world(screen_x, screen_y, depth)
+
+    assert screen_x == pytest.approx(context.width / 2)
+    assert screen_y == pytest.approx(context.height / 2)
+    assert world.x == pytest.approx(10)
+    assert world.z == pytest.approx(450)
+
+
+def test_webgpu_renderer_mode_is_accepted_for_canvas_and_3d_apis():
+    sketch = _WebGLSketch()
+    backend = FakeCanvas3DBackend()
+    context = SketchContext(sketch, backend, plugins=GLOBAL_PLUGIN_REGISTRY)
+    sketch.context = context
+
+    context.create_canvas(32, 32, renderer=gs.WEBGPU)
+    context.lights()
+    context.model(Model3D(meshes=()))
+
+    assert context.state.canvas.renderer == gs.WEBGPU
+    assert any(name == "draw_model" for name, _value in backend.renderer.calls)
+
+
+def test_light_state_is_restored_by_push_pop():
+    context = make_context()
+
+    context.ambient_light(20)
+    outer_lights = list(context._lights3d)
+    context.push()
+    context.point_light(255, 1, 2, 3)
+    assert len(context._lights3d) == 2
+
+    context.pop()
+
+    assert context._lights3d == outer_lights
+
+
+def test_lights_materials_and_texture_modes_update_3d_state():
+    context = make_context()
+    image = gs.create_image(2, 2)
+
+    context.lights()
+    assert len(context._lights3d) == 2
+    context.no_lights()
+    assert context._lights3d == []
+    context.light_falloff(1, 0.5, 0.25)
+    context.spot_light(255, 1, 2, 3, 0, 0, -1, 0.5, 2)
+    context.image_light(image, intensity=0.25)
+    assert context._lights3d[-1].intensity == 0.25
+    assert context.panorama(image) is image
+
+    context.specular_color(255, 0, 0)
+    context.emissive_material(0, 255, 0)
+    context.metalness(0.75)
+    context.texture_mode(gs.IMAGE)
+    context.texture_wrap(gs.REPEAT, gs.MIRROR)
+    context.texture(image)
+
+    material = context._effective_3d_material()
+    assert material.metalness == pytest.approx(0.75)
+    assert material.texture is not None
+    assert material.texture.coordinate_mode == gs.IMAGE
+    assert material.texture.wrap_x == gs.REPEAT
+    assert material.texture.wrap_y == gs.MIRROR
+
+
+def test_build_geometry_and_uv_helpers_capture_primitive_models():
+    context = make_context()
+
+    model = context.build_geometry(lambda: context.box(10))
+    assert isinstance(model, Model3D)
+    assert model.meshes
+
+    flipped = context.flip_u(model)
+    assert isinstance(flipped, Model3D)
+    context.normal(0, 1, 0)
+    context.vertex_property("weight", 0.5)
+    assert context._current_3d_normal == (0.0, 1.0, 0.0)
+    assert context._current_vertex_properties["weight"] == 0.5
+    context.free_geometry(model)
+    assert model.meshes
+
+
 def test_texture_requires_gummy_snake_image_and_material_apis_clear_bound_texture():
     context = make_context()
 

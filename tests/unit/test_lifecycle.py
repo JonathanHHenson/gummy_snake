@@ -117,6 +117,24 @@ def test_async_sketch_lifecycle_callbacks_are_awaited():
     assert context.frame_count == 2
 
 
+def test_object_facade_exposes_current_3d_model_and_shader_forwards():
+    sketch = Sketch()
+    for name in (
+        "ellipsoid",
+        "cylinder",
+        "cone",
+        "torus",
+        "create_model",
+        "load_model",
+        "load_model_async",
+        "save_obj",
+        "save_stl",
+        "load_shader_async",
+        "set_shader_uniform",
+    ):
+        assert hasattr(sketch, name), name
+
+
 def test_object_facade_forwards_grouped_media_style_transform_methods():
     class FacadeSketch(Sketch):
         def __init__(self):

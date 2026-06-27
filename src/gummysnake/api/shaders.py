@@ -8,7 +8,7 @@ from gummysnake.api.current import require_context
 from gummysnake.assets.shader import create_shader as _create_shader
 from gummysnake.assets.shader import load_shader as _load_shader
 from gummysnake.assets.shader import load_shader_async as _load_shader_async
-from gummysnake.drawing.renderer3d import Shader3D
+from gummysnake.drawing.renderer3d import Shader3D, ShaderUniformValue
 
 
 def load_shader(vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
@@ -31,10 +31,15 @@ def reset_shader() -> None:
     require_context().reset_shader()
 
 
+def set_shader_uniform(name: str, value: ShaderUniformValue) -> None:
+    require_context().set_shader_uniform(name, value)
+
+
 __all__ = [
     "load_shader",
     "load_shader_async",
     "create_shader",
     "shader",
     "reset_shader",
+    "set_shader_uniform",
 ]

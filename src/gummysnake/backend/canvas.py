@@ -212,9 +212,9 @@ class CanvasBackend(
         time.sleep(delay)
 
     def _ensure_supported_renderer(self, renderer: c.RendererMode) -> None:
-        if renderer not in {c.P2D, c.WEBGL}:
+        if renderer not in {c.P2D, c.WEBGL, c.WEBGPU}:
             raise BackendCapabilityError(
-                "The experimental 'canvas' backend currently implements only P2D and WEBGL "
+                "The canvas backend implements P2D, WEBGL, and WEBGPU-compatible "
                 f"renderers, got {renderer!r}."
             )
 

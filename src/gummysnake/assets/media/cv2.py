@@ -45,7 +45,7 @@ def load_cv2_module() -> Any:
     except Exception as exc:  # pragma: no cover - import failure depends on environment
         raise BackendCapabilityError(
             "Video playback/capture requires the optional media extra. Install it with "
-            "`uv add --optional media opencv-python-headless` or `pip install Gummy Snake[media]`."
+            '`uv sync --extra media` for this project or `pip install "gummy-snake[media]"`.'
         ) from exc
 
 

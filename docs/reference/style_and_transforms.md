@@ -75,11 +75,10 @@ transform calls manually.
 - `describe_element(name, text)`
 
 `describe()` and `describe_element()` record native accessibility metadata on
-the active sketch context. They do not create DOM nodes. Headless tests can read
-the metadata deterministically with `text_output()` and `grid_output()`, and
-native windows may surface it through backend hooks as those capabilities are
-added. Automatic shape summaries remain deferred until they can be implemented
-as native metadata without adding overhead when disabled.
+the active sketch context. They validate non-empty labels/descriptions, replace
+repeated labels deterministically, and do not create DOM nodes. Headless tests
+can read the metadata with `text_output()` and `grid_output()`; native windows
+can surface the same explicit metadata through backend hooks.
 
 Use `text_batch()` and `text_widths()` for dense label overlays where many
 strings share the current style and transform. They keep the Python API

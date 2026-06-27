@@ -9,6 +9,7 @@ from gummysnake.assets.image import ops as image_ops
 from gummysnake.core.input_events import (
     InputState,
     KeyboardEvent,
+    MotionEvent,
     MouseEvent,
     TouchEvent,
     TouchPoint,
@@ -44,6 +45,7 @@ def test_cleanup_sensitive_compatibility_imports_remain_available():
     assert KeyboardEvent is not None
     assert TouchPoint is not None
     assert TouchEvent is not None
+    assert MotionEvent is not None
 
 
 def test_removed_browser_and_p5_exports_are_absent():
@@ -73,20 +75,48 @@ def test_removed_browser_and_p5_exports_are_absent():
         "get_url_path",
         "get_url_params",
         "local_storage",
-        "acceleration_x",
-        "rotation_z",
         "orientation_y",
         "device_moved",
+        "no_canvas",
+        "debug_mode",
+        "no_debug_mode",
+        "amplitude",
+        "fft",
+        "waveform",
+        "spectrum",
+        "set_attributes",
+        "webgl_version",
+        "clear_depth",
+        "drawing_context",
+        "device_turned",
+        "device_shaken",
+    }
+
+    for name in removed_names:
+        assert not hasattr(gs, name), name
+        assert name not in gs.__all__
+
+
+def test_epic_202_219_public_exports_are_available():
+    expected_constants = {
+        "WEBGPU",
+        "IMAGE",
+        "NORMALIZED",
+        "CLAMP",
+        "REPEAT",
+        "MIRROR",
+        "DEVICE_MOVED",
+        "DEVICE_TURNED",
+        "DEVICE_SHAKEN",
+    }
+    expected_global_apis = {
         "create_graphics",
         "create_framebuffer",
-        "no_canvas",
         "frustum",
         "set_camera",
         "roll",
         "screen_to_world",
         "world_to_screen",
-        "debug_mode",
-        "no_debug_mode",
         "lights",
         "no_lights",
         "spot_light",
@@ -98,39 +128,47 @@ def test_removed_browser_and_p5_exports_are_absent():
         "metalness",
         "texture_mode",
         "texture_wrap",
-        "webgpu_context",
-        "create_compute_shader",
-        "create_audio_in",
-        "amplitude",
-        "create_amplitude",
-        "fft",
-        "create_fft",
-        "waveform",
-        "spectrum",
-        "create_oscillator",
-        "create_envelope",
-        "create_filter",
-        "get_audio_context",
-        "set_attributes",
-        "webgl_version",
-        "clear_depth",
-        "drawing_context",
-        "create_storage_buffer",
-        "update_storage_buffer",
-        "read_storage_buffer",
-        "dispatch_compute",
-        "set_move_threshold",
-        "set_shake_threshold",
-        "device_turned",
-        "device_shaken",
         "normal",
         "vertex_property",
         "build_geometry",
         "free_geometry",
         "flip_u",
         "flip_v",
+        "create_amplitude",
+        "create_fft",
+        "create_oscillator",
+        "create_envelope",
+        "create_filter",
+        "create_audio_in",
+        "get_audio_context",
+        "webgpu_context",
+        "create_storage_buffer",
+        "update_storage_buffer",
+        "read_storage_buffer",
+        "create_compute_shader",
+        "dispatch_compute",
+        "acceleration_x",
+        "rotation_z",
+        "device_orientation",
+        "turn_axis",
+        "set_move_threshold",
+        "set_shake_threshold",
+        "inject_sensor_sample",
     }
+    for name in expected_constants:
+        assert hasattr(gs, name), name
+        assert name in gs.__all__, name
+    for name in expected_global_apis:
+        assert hasattr(gs, name), name
+        assert name in gs.__all__, name
+        assert hasattr(global_mode, name), name
+        assert name in global_mode.__all__, name
 
-    for name in removed_names:
-        assert not hasattr(gs, name), name
-        assert name not in gs.__all__
+
+def test_media_wrapper_types_are_top_level_exports():
+    assert gs.Video.__name__ == "Video"
+    assert gs.Capture.__name__ == "Capture"
+    assert gs.AudioVideoCapture.__name__ == "AudioVideoCapture"
+    assert "Video" in gs.__all__
+    assert "Capture" in gs.__all__
+    assert "AudioVideoCapture" in gs.__all__

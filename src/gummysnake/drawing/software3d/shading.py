@@ -155,6 +155,7 @@ def shade_cache_key(
         material.emissive_color,
         material.specular_color,
         material.shininess,
+        material.metalness,
         lights_cache_key(lights),
         normal_material,
         cull_backfaces,

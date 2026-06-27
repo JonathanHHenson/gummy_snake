@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from gummysnake.constants.renderer import TextureCoordinateMode, TextureWrapMode
 from gummysnake.drawing.renderer3d.types import RGBA, Vec3
 
 
@@ -14,6 +15,8 @@ class LightKind(StrEnum):
     AMBIENT = "ambient"
     DIRECTIONAL = "directional"
     POINT = "point"
+    SPOT = "spot"
+    IMAGE = "image"
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +28,10 @@ class Light3D:
     intensity: float = 1.0
     position: Vec3 | None = None
     direction: Vec3 | None = None
+    angle: float | None = None
+    concentration: float | None = None
+    falloff: tuple[float, float, float] | None = None
+    source: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +41,9 @@ class Texture3D:
     source: object
     width: int | None = None
     height: int | None = None
+    coordinate_mode: TextureCoordinateMode = TextureCoordinateMode.NORMALIZED
+    wrap_x: TextureWrapMode = TextureWrapMode.CLAMP
+    wrap_y: TextureWrapMode = TextureWrapMode.CLAMP
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,4 +54,5 @@ class Material3D:
     emissive_color: RGBA = (0.0, 0.0, 0.0, 1.0)
     specular_color: RGBA = (1.0, 1.0, 1.0, 1.0)
     shininess: float = 32.0
+    metalness: float = 0.0
     texture: Texture3D | None = None

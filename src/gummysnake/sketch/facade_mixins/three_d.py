@@ -6,13 +6,19 @@ from pathlib import Path
 from typing import Any, cast, overload
 
 from gummysnake.assets.image import Image
+from gummysnake.assets.model import load_model as _load_model
+from gummysnake.assets.model import load_model_async as _load_model_async
+from gummysnake.assets.shader import load_shader_async as _load_shader_async
 from gummysnake.drawing.renderer3d import (
     Camera3D,
+    FrustumProjection,
     Mesh3D,
     Model3D,
     OrthographicProjection,
     PerspectiveProjection,
     Shader3D,
+    ShaderUniformValue,
+    Vec3,
 )
 from gummysnake.sketch.facade_mixins.base import ColorValue, Number, SketchFacadeBaseMixin
 
@@ -66,6 +72,18 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     def camera(self, *args: Any) -> Camera3D:
         return self._ctx.camera(*args)
 
+    def set_camera(self, camera: Camera3D) -> Camera3D:
+        return self._ctx.set_camera(camera)
+
+    def roll(self, angle: Number) -> Camera3D:
+        return self._ctx.roll(angle)
+
+    def world_to_screen(self, x: Number, y: Number, z: Number) -> tuple[float, float, float]:
+        return self._ctx.world_to_screen(x, y, z)
+
+    def screen_to_world(self, x: Number, y: Number, depth: Number = 0.0) -> Vec3:
+        return self._ctx.screen_to_world(x, y, depth)
+
     @overload
     def perspective(self) -> PerspectiveProjection: ...
 
@@ -102,6 +120,17 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     def ortho(self, *args: Any) -> OrthographicProjection:
         return self._ctx.ortho(*args)
 
+    def frustum(
+        self,
+        left: Number,
+        right: Number,
+        bottom: Number,
+        top: Number,
+        near: Number = 0.1,
+        far: Number = 10_000.0,
+    ) -> FrustumProjection:
+        return self._ctx.frustum(left, right, bottom, top, near, far)
+
     @overload
     def orbit_control(self) -> Camera3D: ...
 
@@ -136,6 +165,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def ambient_light(self, *args: Any) -> None:
         cast(Any, self._ctx).ambient_light(*args)
+
+    def lights(self) -> None:
+        self._ctx.lights()
+
+    def no_lights(self) -> None:
+        self._ctx.no_lights()
 
     @overload
     def directional_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None: ...
@@ -201,6 +236,21 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     def point_light(self, *args: Any) -> None:
         cast(Any, self._ctx).point_light(*args)
 
+    def spot_light(self, *args: Any) -> None:
+        cast(Any, self._ctx).spot_light(*args)
+
+    def image_light(self, image: Image, intensity: float = 1.0) -> None:
+        self._ctx.image_light(image, intensity)
+
+    def panorama(self, image: Image | None = None) -> Image | None:
+        return self._ctx.panorama(image)
+
+    def light_falloff(self, constant: float, linear: float, quadratic: float) -> None:
+        self._ctx.light_falloff(constant, linear, quadratic)
+
+    def specular_color(self, *args: Any) -> None:
+        cast(Any, self._ctx).specular_color(*args)
+
     def normal_material(self) -> None:
         self._ctx.normal_material()
 
@@ -243,6 +293,18 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     def shininess(self, value: float) -> None:
         self._ctx.shininess(value)
 
+    def emissive_material(self, *args: Any) -> None:
+        cast(Any, self._ctx).emissive_material(*args)
+
+    def metalness(self, value: float) -> None:
+        self._ctx.metalness(value)
+
+    def texture_mode(self, mode: Any = None) -> Any:
+        return self._ctx.texture_mode(mode)
+
+    def texture_wrap(self, wrap_x: Any = None, wrap_y: Any = None) -> Any:
+        return self._ctx.texture_wrap(wrap_x, wrap_y)
+
     def texture(self, image: Image) -> None:
         self._ctx.texture(image)
 
@@ -255,11 +317,97 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     def sphere(self, radius: float, detail_x: int = 24, detail_y: int = 16) -> None:
         self._ctx.sphere(radius, detail_x, detail_y)
 
+    def ellipsoid(
+        self,
+        radius_x: float,
+        radius_y: float | None = None,
+        radius_z: float | None = None,
+        detail_x: int = 24,
+        detail_y: int = 16,
+    ) -> None:
+        self._ctx.ellipsoid(radius_x, radius_y, radius_z, detail_x, detail_y)
+
+    def cylinder(
+        self,
+        radius: float,
+        height: float,
+        detail_x: int = 24,
+        detail_y: int = 1,
+        *,
+        bottom_cap: bool = True,
+        top_cap: bool = True,
+    ) -> None:
+        self._ctx.cylinder(
+            radius, height, detail_x, detail_y, bottom_cap=bottom_cap, top_cap=top_cap
+        )
+
+    def cone(
+        self,
+        radius: float,
+        height: float,
+        detail_x: int = 24,
+        detail_y: int = 1,
+        *,
+        cap: bool = True,
+    ) -> None:
+        self._ctx.cone(radius, height, detail_x, detail_y, cap=cap)
+
+    def torus(
+        self,
+        radius: float,
+        tube_radius: float | None = None,
+        detail_x: int = 24,
+        detail_y: int = 12,
+    ) -> None:
+        self._ctx.torus(radius, tube_radius, detail_x, detail_y)
+
+    def create_model(self, mesh: Mesh3D | Model3D) -> Model3D:
+        return self._ctx.create_model(mesh)
+
+    def normal(self, x: float, y: float, z: float) -> None:
+        self._ctx.normal(x, y, z)
+
+    def vertex_property(self, name: str, value: object) -> None:
+        self._ctx.vertex_property(name, value)
+
+    def build_geometry(self, callback: Any) -> Model3D:
+        return self._ctx.build_geometry(callback)
+
+    def free_geometry(self, model_value: Model3D) -> None:
+        self._ctx.free_geometry(model_value)
+
+    def flip_u(self, mesh_or_model: Mesh3D | Model3D) -> Mesh3D | Model3D:
+        return self._ctx.flip_u(mesh_or_model)
+
+    def flip_v(self, mesh_or_model: Mesh3D | Model3D) -> Mesh3D | Model3D:
+        return self._ctx.flip_v(mesh_or_model)
+
+    def load_model(
+        self, path: str | Path, normalize: bool = False, *, package: str | None = None
+    ) -> Model3D:
+        return _load_model(path, normalize, package=package)
+
+    async def load_model_async(
+        self, path: str | Path, normalize: bool = False, *, package: str | None = None
+    ) -> Model3D:
+        return await _load_model_async(path, normalize, package=package)
+
     def model(self, shape: Mesh3D | Model3D) -> None:
         self._ctx.model(shape)
 
+    def save_obj(self, model_value: Model3D, path: str | Path) -> Path:
+        return self._ctx.save_obj(model_value, path)
+
+    def save_stl(self, model_value: Model3D, path: str | Path) -> Path:
+        return self._ctx.save_stl(model_value, path)
+
     def load_shader(self, vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
         return self._ctx.load_shader(vertex_path, fragment_path)
+
+    async def load_shader_async(
+        self, vertex_path: str | Path, fragment_path: str | Path
+    ) -> Shader3D:
+        return await _load_shader_async(vertex_path, fragment_path)
 
     def create_shader(self, vertex_source: str, fragment_source: str) -> Shader3D:
         return self._ctx.create_shader(vertex_source, fragment_source)
@@ -269,3 +417,6 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def reset_shader(self) -> None:
         self._ctx.reset_shader()
+
+    def set_shader_uniform(self, name: str, value: ShaderUniformValue) -> None:
+        self._ctx.set_shader_uniform(name, value)

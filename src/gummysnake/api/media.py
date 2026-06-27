@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gummysnake.assets.media import Capture, Video
+from gummysnake.assets.audio import AudioInput
+from gummysnake.assets.media import AudioVideoCapture, Capture, Video
 from gummysnake.assets.media import create_capture as _create_capture
 from gummysnake.assets.media import create_capture_async as _create_capture_async
 from gummysnake.assets.media import create_video as _create_video
@@ -25,7 +26,7 @@ def create_capture(
     device: int | str = 0,
     width: int | None = None,
     height: int | None = None,
-) -> Capture:
+) -> Capture | AudioInput | AudioVideoCapture:
     return _create_capture(kind, device=device, width=width, height=height)
 
 
@@ -35,11 +36,14 @@ async def create_capture_async(
     device: int | str = 0,
     width: int | None = None,
     height: int | None = None,
-) -> Capture:
+) -> Capture | AudioInput | AudioVideoCapture:
     return await _create_capture_async(kind, device=device, width=width, height=height)
 
 
 __all__ = [
+    "Video",
+    "Capture",
+    "AudioVideoCapture",
     "create_video",
     "create_video_async",
     "create_capture",

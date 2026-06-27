@@ -15,7 +15,9 @@ The enum classes are also public for type annotations and introspection:
 | `StrokeJoin` | `MITER`, `BEVEL`, `ROUND` |
 | `TextAlign` | `LEFT`, `RIGHT`, `CENTER`, `TOP`, `BOTTOM`, `BASELINE` |
 | `TextStyle` | `NORMAL`, `ITALIC`, `BOLD`, `BOLDITALIC` |
-| `RendererMode` | `P2D`, `WEBGL` |
+| `RendererMode` | `P2D`, `WEBGL`, `WEBGPU` |
+| `TextureCoordinateMode` | `IMAGE`, `NORMALIZED` |
+| `TextureWrapMode` | `CLAMP`, `REPEAT`, `MIRROR` |
 | `BlendMode` | `BLEND`, `ADD`, `DARKEST`, `LIGHTEST`, `DIFFERENCE`, `EXCLUSION`, `MULTIPLY`, `SCREEN`, `REPLACE` |
 | `ImageSampling` | `LINEAR`, `NEAREST` |
 | `ImageFilter` | `THRESHOLD`, `GRAY`, `INVERT`, `BLUR`, `POSTERIZE`, `ERODE`, `DILATE` |
@@ -23,7 +25,7 @@ The enum classes are also public for type annotations and introspection:
 | `PointerLockMode` | `CLAMPED`, `UNCLAMPED`, `FIXED` |
 | `KeyCode` | `BACKSPACE`, `TAB`, `ENTER`, `ESCAPE`, `SHIFT`, `CONTROL`, `ALT`, `UP_ARROW`, `DOWN_ARROW`, `LEFT_ARROW`, `RIGHT_ARROW` |
 | `TouchEventName` | `TOUCH_STARTED`, `TOUCH_MOVED`, `TOUCH_ENDED` |
-| `CallbackEventName` | `MOUSE_MOVED`, `MOUSE_DRAGGED`, `MOUSE_PRESSED`, `MOUSE_RELEASED`, `MOUSE_CLICKED`, `MOUSE_DOUBLE_CLICKED`, `MOUSE_WHEEL`, `KEY_PRESSED`, `KEY_RELEASED`, `KEY_TYPED`, `TOUCH_STARTED`, `TOUCH_MOVED`, `TOUCH_ENDED`, `TOUCH_CANCELLED` |
+| `CallbackEventName` | `MOUSE_MOVED`, `MOUSE_DRAGGED`, `MOUSE_PRESSED`, `MOUSE_RELEASED`, `MOUSE_CLICKED`, `MOUSE_DOUBLE_CLICKED`, `MOUSE_WHEEL`, `KEY_PRESSED`, `KEY_RELEASED`, `KEY_TYPED`, `TOUCH_STARTED`, `TOUCH_MOVED`, `TOUCH_ENDED`, `TOUCH_CANCELLED`, `DEVICE_MOVED`, `DEVICE_TURNED`, `DEVICE_SHAKEN` |
 
 Example:
 

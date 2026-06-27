@@ -107,7 +107,10 @@ def test_environment_helpers():
         assert gs.display_width() >= 10
         assert gs.display_height() >= 12
         assert gs.focused() is True
-        gs.cursor()
+        assert gs.fullscreen() is False
+        assert gs.fullscreen(True) is True
+        assert gs.fullscreen(False) is False
+        assert gs.cursor("crosshair") == "crosshair"
         gs.no_cursor()
 
     gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
@@ -131,6 +134,20 @@ def test_accessibility_helpers_store_native_metadata():
         {"label": "circle", "description": "A small circle"},
     ]
     assert context.grid_output() == context.text_output()
+
+
+def test_accessibility_descriptions_validate_and_replace_duplicate_labels():
+    def setup():
+        gs.create_canvas(10, 10)
+        gs.describe("First", label="status")
+        gs.describe("Second", label="status")
+        with pytest.raises(ArgumentValidationError, match="description cannot be empty"):
+            gs.describe("   ")
+        with pytest.raises(ArgumentValidationError, match="label cannot be empty"):
+            gs.describe("Valid", label=" ")
+
+    context = gs.run(setup=setup, headless=True, max_frames=0)
+    assert context.text_output() == [{"label": "status", "description": "Second"}]
 
 
 def test_image_sampling_api():
@@ -168,6 +185,106 @@ def test_fast_draw_scope_composes_with_style_and_transform_contexts():
 
     assert pixel_at(0, 0) == [0, 0, 0, 255]
     assert pixel_at(4, 0) == [255, 0, 0, 255]
+
+
+def test_offscreen_graphics_framebuffer_and_compute_helpers():
+    graphics = gs.create_graphics(4, 4)
+    graphics.background(0, 0, 255)
+    assert graphics.width == 4
+    assert graphics.height == 4
+    assert len(graphics.to_rgba_bytes()) == 4 * 4 * 4
+
+    framebuffer = gs.create_framebuffer(2, 3, depth=True)
+    assert framebuffer.depth is True
+    assert framebuffer.width == 2
+    framebuffer.remove()
+    graphics.remove()
+
+    buffer = gs.create_storage_buffer([1, 2, 3], dtype="int")
+
+    def increment(global_id, buffers):
+        index = global_id[0]
+        current = buffers["values"].read()[index]
+        buffers["values"].update([current + 10], offset=index)
+
+    shader = gs.create_compute_shader(increment, label="increment")
+    gs.dispatch_compute(shader, 3, values=buffer)
+
+    assert gs.read_storage_buffer(buffer) == (11, 12, 13)
+    assert gs.webgpu_context()["compute_shaders"] is True
+
+
+def test_device_sensor_sample_updates_state_and_dispatches_callbacks():
+    events = []
+
+    def setup():
+        gs.create_canvas(4, 4)
+        gs.set_move_threshold(0.1)
+        gs.set_shake_threshold(1.0)
+
+    def on_moved(event):
+        events.append((event.type, event.acceleration_x))
+
+    def on_turned(event):
+        events.append((event.type, event.turn_axis))
+
+    def on_shaken(event):
+        events.append((event.type, event.acceleration_x))
+
+    context = gs.run(
+        setup=setup,
+        device_moved=on_moved,
+        device_turned=on_turned,
+        device_shaken=on_shaken,
+        headless=True,
+        max_frames=0,
+    )
+
+    event = context.update_sensor_sample(
+        acceleration_x=2.0, rotation_z=1.0, orientation="landscape"
+    )
+
+    assert event.acceleration_x == 2.0
+    assert context.state.input.device_orientation == "landscape"
+    assert context.state.input.turn_axis == "z"
+    assert events == [("device_moved", 2.0), ("device_turned", "z"), ("device_shaken", 2.0)]
+
+
+def test_object_mode_facade_exposes_advanced_epic_helpers():
+    class AdvancedSketch(gs.Sketch):
+        def setup(self):
+            self.create_canvas(8, 8, renderer=gs.WEBGPU)
+            buffer = self.create_storage_buffer([1, 2], dtype="int")
+            shader = self.create_compute_shader(
+                lambda gid, buffers: buffers["values"].update(
+                    [buffers["values"].read()[gid[0]] * 2], offset=gid[0]
+                )
+            )
+            self.dispatch_compute(shader, 2, values=buffer)
+            assert self.read_storage_buffer(buffer) == (2, 4)
+            assert self.webgpu_context()["storage_buffers"] is True
+
+            graphics = self.create_graphics(2, 2)
+            graphics.background(255)
+            assert graphics.width == 2
+            graphics.remove()
+
+            audio = self.create_audio_in()
+            audio.push_samples([0.5])
+            assert self.create_amplitude(audio.read()).analyze() == pytest.approx(0.5)
+            assert self.get_audio_context()["analysis"] is True
+
+            self.set_move_threshold(0.1)
+            self.inject_sensor_sample(rotation_x=0.2, orientation="portrait")
+            assert self.turn_axis == "x"
+            assert self.device_orientation == "portrait"
+
+            self.lights()
+            model = self.build_geometry(lambda: self.box(2))
+            assert model.meshes
+            self.free_geometry(model)
+
+    AdvancedSketch(headless=True).run(max_frames=0)
 
 
 def test_fast_draw_scope_is_available_on_object_oriented_sketches():

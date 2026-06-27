@@ -332,9 +332,9 @@ runtime for OBJ parsing, primitive model generation, export, built-in material
 state, and fallback software rasterization. When GPU drawing is available,
 unstroked built-in primitive and loaded-model draws use retained GPU model
 buffers plus GPU transform/projection, depth testing, texture sampling, and
-built-in material shaders. `examples/09_performance/lorenz_attractor_3d.py`
-exercises this retained model path with a generated tube mesh and animated
-camera/lights. Backend capabilities therefore distinguish:
+built-in material shaders. `examples/08_3d/lorenz_attractor_3d.py` exercises
+3D model generation with a tube mesh and animated camera/lights. Backend
+capabilities therefore distinguish:
 
 - `three_d`: WEBGL mode is accepted.
 - `software_three_d`: WEBGL compatibility and fallback software 3D paths are
@@ -378,8 +378,8 @@ can disagree.
   can continue while native presentation or GPU acceleration may be unavailable
   or slower.
 - Unsupported renderer names should raise `ArgumentValidationError`.
-- Requesting `WEBGL` on a backend without 3D support should raise
-  `BackendCapabilityError`.
+- Requesting `WEBGL` or `WEBGPU` canvas rendering on a backend without 3D support
+  should raise `BackendCapabilityError`.
 - Built-in GPU model pipelines should not imply `native_shaders` or broad
   native 3D feature support.
 - Pixel operations should report capability problems explicitly instead of

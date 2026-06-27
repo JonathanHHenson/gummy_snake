@@ -6,6 +6,7 @@ import math
 
 from gummysnake.drawing.renderer3d import (
     Camera3D,
+    FrustumProjection,
     OrthographicProjection,
     PerspectiveProjection,
     Projection3D,
@@ -29,6 +30,8 @@ def project_camera_point(
 ) -> ScreenPoint | None:
     if isinstance(projection, PerspectiveProjection):
         return _project_perspective(point, projection, viewport_width, viewport_height)
+    if isinstance(projection, FrustumProjection):
+        return _project_frustum(point, projection, viewport_width, viewport_height)
     return _project_orthographic(point, projection, viewport_width, viewport_height)
 
 
@@ -50,6 +53,11 @@ def validate_projection(projection: Projection3D) -> None:
             raise ArgumentValidationError("perspective fov_y must be between 0 and 180 degrees.")
         if projection.aspect is not None and projection.aspect <= 0:
             raise ArgumentValidationError("perspective aspect must be positive when provided.")
+    elif isinstance(projection, FrustumProjection):
+        if projection.left >= projection.right:
+            raise ArgumentValidationError("frustum left must be less than right.")
+        if projection.bottom >= projection.top:
+            raise ArgumentValidationError("frustum bottom must be less than top.")
     elif projection.width <= 0 or projection.height <= 0:
         raise ArgumentValidationError("orthographic width and height must be positive.")
 
@@ -71,6 +79,23 @@ def _project_perspective(
     if scale_x == 0:
         return None
     return _ndc_to_screen(point.x / scale_x, point.y / scale_y, viewport_width, viewport_height)
+
+
+def _project_frustum(
+    point: Vec3,
+    projection: FrustumProjection,
+    viewport_width: float,
+    viewport_height: float,
+) -> ScreenPoint | None:
+    if not visible(point, projection):
+        return None
+    if point.z == 0:
+        return None
+    x_near = point.x * projection.near / point.z
+    y_near = point.y * projection.near / point.z
+    x_ndc = ((x_near - projection.left) / (projection.right - projection.left)) * 2.0 - 1.0
+    y_ndc = ((y_near - projection.bottom) / (projection.top - projection.bottom)) * 2.0 - 1.0
+    return _ndc_to_screen(x_ndc, y_ndc, viewport_width, viewport_height)
 
 
 def _project_orthographic(

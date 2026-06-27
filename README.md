@@ -31,8 +31,7 @@ fallback for canvas-owned behavior. Local development builds compile SDL3 from
 source/static through Rust when native interactive support is enabled, so no
 separate system SDL3 install is normally required.
 
-Install optional media helpers when you need camera, video, or sound-related
-extras:
+Install optional media helpers when you need camera or video frame sources:
 
 ```sh
 pip install "gummy-snake[media]"

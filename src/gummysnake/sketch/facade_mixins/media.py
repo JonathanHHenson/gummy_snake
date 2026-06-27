@@ -7,7 +7,55 @@ from pathlib import Path
 from typing import Any, Literal, TypedDict, Unpack, cast, overload
 
 from gummysnake import constants as c
+from gummysnake.api.sound import get_audio_context as _get_audio_context
+from gummysnake.assets.audio import (
+    FFT,
+    Amplitude,
+    AudioBuffer,
+    AudioFilter,
+    AudioInput,
+    Envelope,
+    Oscillator,
+)
+from gummysnake.assets.audio import (
+    create_amplitude as _create_amplitude,
+)
+from gummysnake.assets.audio import (
+    create_audio_in as _create_audio_in,
+)
+from gummysnake.assets.audio import (
+    create_envelope as _create_envelope,
+)
+from gummysnake.assets.audio import (
+    create_fft as _create_fft,
+)
+from gummysnake.assets.audio import (
+    create_filter as _create_filter,
+)
+from gummysnake.assets.audio import (
+    create_oscillator as _create_oscillator,
+)
 from gummysnake.assets.image import CanvasImage, Image
+from gummysnake.assets.media import (
+    AudioVideoCapture,
+    Capture,
+    Video,
+)
+from gummysnake.assets.media import (
+    create_capture as _create_capture,
+)
+from gummysnake.assets.media import (
+    create_capture_async as _create_capture_async,
+)
+from gummysnake.assets.media import (
+    create_video as _create_video,
+)
+from gummysnake.assets.media import (
+    create_video_async as _create_video_async,
+)
+from gummysnake.assets.sound import Sound
+from gummysnake.assets.sound import load_sound as _load_sound
+from gummysnake.assets.sound import load_sound_async as _load_sound_async
 from gummysnake.assets.text import Font
 from gummysnake.core.color import Color
 from gummysnake.core.pixels import PixelBuffer
@@ -24,6 +72,76 @@ type PixelValue = Color | tuple[int, int, int] | tuple[int, int, int, int] | Ima
 
 
 class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
+    def create_video(self, path: str | Path) -> Video:
+        return _create_video(path)
+
+    async def create_video_async(self, path: str | Path) -> Video:
+        return await _create_video_async(path)
+
+    def create_capture(
+        self,
+        kind: str = "video",
+        *,
+        device: int | str = 0,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> Capture | AudioInput | AudioVideoCapture:
+        return _create_capture(kind, device=device, width=width, height=height)
+
+    async def create_capture_async(
+        self,
+        kind: str = "video",
+        *,
+        device: int | str = 0,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> Capture | AudioInput | AudioVideoCapture:
+        return await _create_capture_async(kind, device=device, width=width, height=height)
+
+    def load_sound(self, path: str | Path) -> Sound:
+        return _load_sound(path)
+
+    async def load_sound_async(self, path: str | Path) -> Sound:
+        return await _load_sound_async(path)
+
+    def create_audio(self, path: str | Path) -> Sound:
+        return _load_sound(path)
+
+    def create_amplitude(
+        self, source: Sound | AudioBuffer | Sequence[float] | None = None, *, smoothing: float = 0.0
+    ) -> Amplitude:
+        return _create_amplitude(source, smoothing=smoothing)
+
+    def create_fft(
+        self,
+        source: Sound | AudioBuffer | Sequence[float] | None = None,
+        *,
+        bins: int = 1024,
+        smoothing: float = 0.0,
+    ) -> FFT:
+        return _create_fft(source, bins=bins, smoothing=smoothing)
+
+    def create_oscillator(
+        self, waveform: str = "sine", *, frequency: float = 440.0, amplitude: float = 1.0
+    ) -> Oscillator:
+        return _create_oscillator(cast(Any, waveform), frequency=frequency, amplitude=amplitude)
+
+    def create_envelope(
+        self, attack: float = 0.01, decay: float = 0.1, sustain: float = 0.7, release: float = 0.2
+    ) -> Envelope:
+        return _create_envelope(attack=attack, decay=decay, sustain=sustain, release=release)
+
+    def create_filter(
+        self, filter_type: str = "lowpass", *, frequency: float = 1_000.0, resonance: float = 0.0
+    ) -> AudioFilter:
+        return _create_filter(cast(Any, filter_type), frequency=frequency, resonance=resonance)
+
+    def create_audio_in(self, *, sample_rate: int = 44_100) -> AudioInput:
+        return _create_audio_in(sample_rate=sample_rate)
+
+    def get_audio_context(self) -> dict[str, object]:
+        return _get_audio_context()
+
     @overload
     def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None: ...
 

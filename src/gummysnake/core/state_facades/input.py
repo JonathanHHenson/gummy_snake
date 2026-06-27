@@ -5,16 +5,67 @@ from __future__ import annotations
 from typing import Any
 
 from gummysnake import constants as c
-from gummysnake.core.input_events import TouchPoint
+from gummysnake.core.input_events import MotionEvent, TouchPoint
 
 
 class InputState:
     """Compatibility facade for Rust-owned input snapshots."""
 
-    __slots__ = ("_rust",)
+    acceleration_x: float
+    acceleration_y: float
+    acceleration_z: float
+    previous_acceleration_x: float
+    previous_acceleration_y: float
+    previous_acceleration_z: float
+    rotation_x: float
+    rotation_y: float
+    rotation_z: float
+    previous_rotation_x: float
+    previous_rotation_y: float
+    previous_rotation_z: float
+    device_orientation: str
+    turn_axis: str | None
+    move_threshold: float
+    shake_threshold: float
+
+    __slots__ = (
+        "_rust",
+        "acceleration_x",
+        "acceleration_y",
+        "acceleration_z",
+        "previous_acceleration_x",
+        "previous_acceleration_y",
+        "previous_acceleration_z",
+        "rotation_x",
+        "rotation_y",
+        "rotation_z",
+        "previous_rotation_x",
+        "previous_rotation_y",
+        "previous_rotation_z",
+        "device_orientation",
+        "turn_axis",
+        "move_threshold",
+        "shake_threshold",
+    )
 
     def __init__(self, rust_state: Any) -> None:
         self._rust = rust_state
+        self.acceleration_x = 0.0
+        self.acceleration_y = 0.0
+        self.acceleration_z = 0.0
+        self.previous_acceleration_x = 0.0
+        self.previous_acceleration_y = 0.0
+        self.previous_acceleration_z = 0.0
+        self.rotation_x = 0.0
+        self.rotation_y = 0.0
+        self.rotation_z = 0.0
+        self.previous_rotation_x = 0.0
+        self.previous_rotation_y = 0.0
+        self.previous_rotation_z = 0.0
+        self.device_orientation = "unknown"
+        self.turn_axis = None
+        self.move_threshold = 0.5
+        self.shake_threshold = 30.0
 
     @property
     def mouse_x(self) -> float:
@@ -166,6 +217,61 @@ class InputState:
 
     def update_touches(self, touches: list[TouchPoint]) -> None:
         self._rust.update_touches(touches)
+
+    def update_motion(
+        self,
+        *,
+        acceleration_x: float | None = None,
+        acceleration_y: float | None = None,
+        acceleration_z: float | None = None,
+        rotation_x: float | None = None,
+        rotation_y: float | None = None,
+        rotation_z: float | None = None,
+        orientation: str | None = None,
+    ) -> MotionEvent:
+        self.previous_acceleration_x = self.acceleration_x
+        self.previous_acceleration_y = self.acceleration_y
+        self.previous_acceleration_z = self.acceleration_z
+        self.previous_rotation_x = self.rotation_x
+        self.previous_rotation_y = self.rotation_y
+        self.previous_rotation_z = self.rotation_z
+        if acceleration_x is not None:
+            self.acceleration_x = float(acceleration_x)
+        if acceleration_y is not None:
+            self.acceleration_y = float(acceleration_y)
+        if acceleration_z is not None:
+            self.acceleration_z = float(acceleration_z)
+        if rotation_x is not None:
+            self.rotation_x = float(rotation_x)
+        if rotation_y is not None:
+            self.rotation_y = float(rotation_y)
+        if rotation_z is not None:
+            self.rotation_z = float(rotation_z)
+        if orientation is not None:
+            self.device_orientation = str(orientation)
+        deltas = {
+            "x": abs(self.rotation_x - self.previous_rotation_x),
+            "y": abs(self.rotation_y - self.previous_rotation_y),
+            "z": abs(self.rotation_z - self.previous_rotation_z),
+        }
+        axis, amount = max(deltas.items(), key=lambda item: item[1])
+        self.turn_axis = axis if amount >= self.move_threshold else None
+        return MotionEvent(
+            acceleration_x=self.acceleration_x,
+            acceleration_y=self.acceleration_y,
+            acceleration_z=self.acceleration_z,
+            rotation_x=self.rotation_x,
+            rotation_y=self.rotation_y,
+            rotation_z=self.rotation_z,
+            orientation=self.device_orientation,
+            previous_acceleration_x=self.previous_acceleration_x,
+            previous_acceleration_y=self.previous_acceleration_y,
+            previous_acceleration_z=self.previous_acceleration_z,
+            previous_rotation_x=self.previous_rotation_x,
+            previous_rotation_y=self.previous_rotation_y,
+            previous_rotation_z=self.previous_rotation_z,
+            turn_axis=self.turn_axis,
+        )
 
     def require_touch_supported(self) -> None:
         if not self.touch_supported:

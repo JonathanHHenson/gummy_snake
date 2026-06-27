@@ -20,7 +20,14 @@ from gummysnake.constants.input import (
     PointerLockMode,
     TouchEventName,
 )
-from gummysnake.constants.renderer import BlendMode, ImageFilter, ImageSampling, RendererMode
+from gummysnake.constants.renderer import (
+    BlendMode,
+    ImageFilter,
+    ImageSampling,
+    RendererMode,
+    TextureCoordinateMode,
+    TextureWrapMode,
+)
 
 CORNER = ShapeMode.CORNER
 CORNERS = ShapeMode.CORNERS
@@ -58,6 +65,12 @@ BOLD = TextStyle.BOLD
 BOLDITALIC = TextStyle.BOLDITALIC
 P2D = RendererMode.P2D
 WEBGL = RendererMode.WEBGL
+WEBGPU = RendererMode.WEBGPU
+IMAGE = TextureCoordinateMode.IMAGE
+NORMALIZED = TextureCoordinateMode.NORMALIZED
+CLAMP = TextureWrapMode.CLAMP
+REPEAT = TextureWrapMode.REPEAT
+MIRROR = TextureWrapMode.MIRROR
 BLEND = BlendMode.BLEND
 ADD = BlendMode.ADD
 DARKEST = BlendMode.DARKEST
@@ -109,6 +122,9 @@ KEY_PRESSED = CallbackEventName.KEY_PRESSED
 KEY_RELEASED = CallbackEventName.KEY_RELEASED
 KEY_TYPED = CallbackEventName.KEY_TYPED
 TOUCH_CANCELLED = CallbackEventName.TOUCH_CANCELLED
+DEVICE_MOVED = CallbackEventName.DEVICE_MOVED
+DEVICE_TURNED = CallbackEventName.DEVICE_TURNED
+DEVICE_SHAKEN = CallbackEventName.DEVICE_SHAKEN
 
 __all__ = [
     "CORNER",
@@ -147,6 +163,12 @@ __all__ = [
     "BOLDITALIC",
     "P2D",
     "WEBGL",
+    "WEBGPU",
+    "IMAGE",
+    "NORMALIZED",
+    "CLAMP",
+    "REPEAT",
+    "MIRROR",
     "BLEND",
     "ADD",
     "DARKEST",
@@ -198,4 +220,7 @@ __all__ = [
     "KEY_RELEASED",
     "KEY_TYPED",
     "TOUCH_CANCELLED",
+    "DEVICE_MOVED",
+    "DEVICE_TURNED",
+    "DEVICE_SHAKEN",
 ]

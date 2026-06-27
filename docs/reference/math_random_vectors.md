@@ -14,6 +14,7 @@
 - `sin(angle)`, `cos(angle)`, `tan(angle)`
 - `asin(value)`, `acos(value)`, `atan(value)`, `atan2(y, x)`
 - `sq(value)`, `fract(value)`
+- `min_value(...)`, `max_value(...)`
 
 Use Python built-ins and the standard `math` module for simple numeric operations such as `abs`, `round`, `ceil`, `floor`, `sqrt`, `pow`, `exp`, and `log`.
 
@@ -45,6 +46,15 @@ projection = velocity @ normal
 rounded = round(position, 2)
 ```
 
-## Formatting and Conversion
+## Data Helpers
 
-Use Python-native formatting and conversion APIs such as `bool`, `int`, `float`, `str`, `chr`, `ord`, `hex`, f-strings, `format`, `str.split`, and `re.split`.
+- `shuffle(sequence, in_place=False)` returns a shuffled list by default. Pass
+  `in_place=True` to shuffle a mutable sequence in place.
+
+## Formatting, Conversion, and Date/Time
+
+Use Python-native formatting and conversion APIs such as `bool`, `int`, `float`,
+`str`, `chr`, `ord`, `hex`, f-strings, `format`, `str.split`, and `re.split`.
+Use the standard `datetime`, `time`, and `zoneinfo` modules for calendar and
+local-time behavior; Gummy Snake keeps frame-relative timing in `millis()` and
+`delta_time`.

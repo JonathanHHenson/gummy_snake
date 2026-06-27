@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable, Sequence
 from typing import Any, cast
 
@@ -198,6 +199,122 @@ class Mesh3D:
         assert self._face_offsets is not None
         return _readonly_numpy_array(self._face_offsets, dtype="int64", copy=copy)
 
+    @property
+    def bounding_box(self) -> tuple[Vec3, Vec3]:
+        vertices = self.vertices
+        if not vertices:
+            origin = Vec3(0.0, 0.0, 0.0)
+            return origin, origin
+        return (
+            Vec3(
+                min(vertex.x for vertex in vertices),
+                min(vertex.y for vertex in vertices),
+                min(vertex.z for vertex in vertices),
+            ),
+            Vec3(
+                max(vertex.x for vertex in vertices),
+                max(vertex.y for vertex in vertices),
+                max(vertex.z for vertex in vertices),
+            ),
+        )
+
+    def edges(self) -> tuple[tuple[int, int], ...]:
+        edges: set[tuple[int, int]] = set()
+        for face in self.faces:
+            if len(face) < 2:
+                continue
+            for start, end in zip(face, (*face[1:], face[0]), strict=True):
+                edges.add((min(start, end), max(start, end)))
+        return tuple(sorted(edges))
+
+    def normalized(self, size: float = 1.0) -> Mesh3D:
+        min_corner, max_corner = self.bounding_box
+        center = Vec3(
+            (min_corner.x + max_corner.x) / 2.0,
+            (min_corner.y + max_corner.y) / 2.0,
+            (min_corner.z + max_corner.z) / 2.0,
+        )
+        extent = max(
+            max_corner.x - min_corner.x,
+            max_corner.y - min_corner.y,
+            max_corner.z - min_corner.z,
+            1e-12,
+        )
+        scale = float(size) / extent
+        return Mesh3D(
+            vertices=tuple(
+                Vec3(
+                    (vertex.x - center.x) * scale,
+                    (vertex.y - center.y) * scale,
+                    (vertex.z - center.z) * scale,
+                )
+                for vertex in self.vertices
+            ),
+            faces=self.faces,
+            normals=self.normals,
+            texcoords=self.texcoords,
+            material=self.material,
+        )
+
+    def flip_u(self) -> Mesh3D:
+        return self.with_texcoords(tuple((1.0 - u, v) for u, v in self.texcoords))
+
+    def flip_v(self) -> Mesh3D:
+        return self.with_texcoords(tuple((u, 1.0 - v) for u, v in self.texcoords))
+
+    def with_texcoords(self, texcoords: Sequence[Sequence[float]]) -> Mesh3D:
+        return Mesh3D(
+            vertices=self.vertices,
+            faces=self.faces,
+            normals=self.normals,
+            texcoords=texcoords,
+            material=self.material,
+        )
+
+    def compute_face_normals(self) -> tuple[Vec3, ...]:
+        normals: list[Vec3] = []
+        vertices = self.vertices
+        for face in self.faces:
+            if len(face) < 3:
+                normals.append(Vec3(0.0, 0.0, 1.0))
+                continue
+            a, b, c = vertices[face[0]], vertices[face[1]], vertices[face[2]]
+            normals.append(_normalize(_cross(_sub(b, a), _sub(c, a))))
+        return tuple(normals)
+
+    def with_computed_normals(self) -> Mesh3D:
+        face_normals = self.compute_face_normals()
+        vertex_normals = [Vec3(0.0, 0.0, 0.0) for _ in self.vertices]
+        counts = [0 for _ in self.vertices]
+        for face, normal in zip(self.faces, face_normals, strict=True):
+            for index in face:
+                vertex_normals[index] = Vec3(
+                    vertex_normals[index].x + normal.x,
+                    vertex_normals[index].y + normal.y,
+                    vertex_normals[index].z + normal.z,
+                )
+                counts[index] += 1
+        averaged = tuple(
+            _normalize(
+                Vec3(
+                    n.x / max(1, counts[index]),
+                    n.y / max(1, counts[index]),
+                    n.z / max(1, counts[index]),
+                )
+            )
+            for index, n in enumerate(vertex_normals)
+        )
+        return Mesh3D(
+            vertices=self.vertices,
+            faces=self.faces,
+            normals=averaged,
+            texcoords=self.texcoords,
+            material=self.material,
+        )
+
+    def clear_colors(self) -> Mesh3D:
+        return self
+
     def to_python(self) -> dict[str, object]:
         return {
             "vertices": self.vertices,
@@ -205,6 +322,8 @@ class Mesh3D:
             "normals": self.normals,
             "texcoords": self.texcoords,
             "material": self.material,
+            "bounding_box": self.bounding_box,
+            "edges": self.edges(),
         }
 
     def __repr__(self) -> str:
@@ -315,6 +434,25 @@ def _validate_face_buffers(
         raise ValueError("Mesh3D face offsets must be sorted.")
     if any(index < 0 or index >= vertex_count for index in indices):
         raise ValueError("Mesh3D face indices must reference existing vertices.")
+
+
+def _sub(a: Vec3, b: Vec3) -> Vec3:
+    return Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
+
+
+def _cross(a: Vec3, b: Vec3) -> Vec3:
+    return Vec3(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x,
+    )
+
+
+def _normalize(value: Vec3) -> Vec3:
+    length = math.sqrt(value.x * value.x + value.y * value.y + value.z * value.z)
+    if length == 0.0:
+        return Vec3(0.0, 0.0, 1.0)
+    return Vec3(value.x / length, value.y / length, value.z / length)
 
 
 def _mesh_rust_handle(mesh: Mesh3D) -> Any | None:

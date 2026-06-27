@@ -10,6 +10,22 @@ class RendererMode(StrEnum):
 
     P2D = "p2d"
     WEBGL = "webgl"
+    WEBGPU = "webgpu"
+
+
+class TextureCoordinateMode(StrEnum):
+    """Coordinate interpretation for 3D texture UVs."""
+
+    IMAGE = "image"
+    NORMALIZED = "normalized"
+
+
+class TextureWrapMode(StrEnum):
+    """Texture coordinate wrapping modes."""
+
+    CLAMP = "clamp"
+    REPEAT = "repeat"
+    MIRROR = "mirror"
 
 
 class BlendMode(StrEnum):
@@ -45,4 +61,11 @@ class ImageFilter(StrEnum):
     DILATE = "dilate"
 
 
-__all__ = ["BlendMode", "ImageFilter", "ImageSampling", "RendererMode"]
+__all__ = [
+    "BlendMode",
+    "ImageFilter",
+    "ImageSampling",
+    "RendererMode",
+    "TextureCoordinateMode",
+    "TextureWrapMode",
+]

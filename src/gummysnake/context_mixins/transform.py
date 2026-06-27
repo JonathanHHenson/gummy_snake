@@ -15,8 +15,10 @@ from gummysnake.exceptions import ArgumentValidationError
 class TransformContextMixin:
     renderer: Any
     state: Any
+    _lights3d: list[Any]
     _material3d: Any
     _normal_material3d: bool
+    _lights3d_style_stack: list[list[Any]]
     _material3d_style_stack: list[tuple[Any, bool]]
 
     def _set_transform_matrix(self, matrix: Matrix2D, *, sync_renderer: bool = True) -> None:
@@ -42,6 +44,7 @@ class TransformContextMixin:
             )
         )
         self._material3d_style_stack.append((self._material3d, self._normal_material3d))
+        self._lights3d_style_stack.append(list(self._lights3d))
 
     def pop(self) -> None:
         if not self.state.stack:
@@ -61,6 +64,7 @@ class TransformContextMixin:
             sync_matrix(self.state.transform.matrix)
         self.renderer.restore_clip_depth(entry.clip_depth)
         self._material3d, self._normal_material3d = self._material3d_style_stack.pop()
+        self._lights3d = self._lights3d_style_stack.pop()
 
     def translate(self, x: float, y: float) -> None:
         translate = getattr(self.renderer, "translate", None)

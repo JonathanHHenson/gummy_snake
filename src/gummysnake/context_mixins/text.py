@@ -195,7 +195,18 @@ class TextContextMixin:
         }
 
     def describe(self, description: SupportsText, *, label: str = "canvas") -> dict[str, str]:
-        entry = {"label": str(label), "description": str(description)}
+        label_text = str(label).strip()
+        description_text = str(description).strip()
+        if not label_text:
+            raise ArgumentValidationError("describe() label cannot be empty.")
+        if not description_text:
+            raise ArgumentValidationError("describe() description cannot be empty.")
+
+        entry = {"label": label_text, "description": description_text}
+        for index, existing in enumerate(self._accessibility_descriptions):
+            if existing["label"] == label_text:
+                self._accessibility_descriptions[index] = entry
+                return entry
         self._accessibility_descriptions.append(entry)
         return entry
 

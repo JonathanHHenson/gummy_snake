@@ -1,3 +1,4 @@
+import struct
 from pathlib import Path
 
 import pytest
@@ -127,6 +128,53 @@ def test_load_model_preserves_rust_handle_and_materializes_meshes_lazily(tmp_pat
 
     assert handle.saved_obj == str(obj_output)
     assert handle.saved_stl == (str(stl_output), "demo")
+
+
+def test_load_model_supports_ascii_and_binary_stl(tmp_path: Path):
+    ascii_path = tmp_path / "triangle_ascii.stl"
+    ascii_path.write_text(
+        """solid demo
+  facet normal 0 0 1
+    outer loop
+      vertex 0 0 0
+      vertex 1 0 0
+      vertex 0 1 0
+    endloop
+  endfacet
+endsolid demo
+""",
+        encoding="utf-8",
+    )
+
+    ascii_model = gs.load_model(ascii_path)
+    assert ascii_model.meshes[0].faces == ((0, 1, 2),)
+    assert ascii_model.meshes[0].normals[0].z == pytest.approx(1.0)
+
+    binary_path = tmp_path / "triangle_binary.stl"
+    header = b"binary triangle".ljust(80, b" ")
+    triangle = struct.pack(
+        "<ffffffffffffH",
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0,
+    )
+    binary_path.write_bytes(header + struct.pack("<I", 1) + triangle)
+
+    binary_model = gs.load_model(binary_path)
+    mesh = binary_model.meshes[0]
+    assert len(mesh.vertices) == 3
+    assert mesh.faces == ((0, 1, 2),)
+    assert mesh.normals[0].z == pytest.approx(1.0)
 
 
 def test_load_model_supports_package_resources_and_normalize(monkeypatch: pytest.MonkeyPatch):

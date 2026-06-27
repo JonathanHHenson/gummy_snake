@@ -9,6 +9,7 @@ from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
 from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.renderer3d import (
     Camera3D,
+    FrustumProjection,
     Light3D,
     Material3D,
     Mesh3D,
@@ -43,8 +44,9 @@ class ThreeDModelMixin:
     renderer: Any
     state: Any
     _camera3d: Camera3D
-    _projection3d: PerspectiveProjection | OrthographicProjection
+    _projection3d: PerspectiveProjection | OrthographicProjection | FrustumProjection
     _lights3d: list[Light3D]
+    _geometry_build_models: list[Model3D] | None
     _material3d: Material3D | None
     _normal_material3d: bool
     _shader3d: Shader3D | None
@@ -65,6 +67,10 @@ class ThreeDModelMixin:
             model = shape
         else:
             raise ArgumentValidationError("model() requires a Mesh3D or Model3D value.")
+
+        if self._geometry_build_models is not None:
+            self._geometry_build_models.append(model)
+            return
 
         native_renderer = self.renderer if getattr(self.renderer, "three_d", False) else None
         if native_renderer is not None:

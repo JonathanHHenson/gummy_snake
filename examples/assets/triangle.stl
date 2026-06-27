@@ -1,0 +1,9 @@
+solid gummy_triangle
+  facet normal 0 0 1
+    outer loop
+      vertex -1 -0.75 0
+      vertex 1 -0.75 0
+      vertex 0 1 0
+    endloop
+  endfacet
+endsolid gummy_triangle

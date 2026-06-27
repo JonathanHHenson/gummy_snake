@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from gummysnake.assets.media.streams import (
+    AudioVideoCapture,
     Capture,
     Video,
     create_capture,
@@ -14,6 +15,7 @@ from gummysnake.assets.media.streams import (
 __all__ = [
     "Video",
     "Capture",
+    "AudioVideoCapture",
     "create_video",
     "create_video_async",
     "create_capture",

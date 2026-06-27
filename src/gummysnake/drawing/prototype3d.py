@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from gummysnake.drawing.renderer3d import (
     Camera3D,
+    FrustumProjection,
     Mesh3D,
     Model3D,
     OrthographicProjection,
@@ -112,6 +113,8 @@ def _project_point(
     camera_point = _camera_space(point, camera)
     if isinstance(projection, PerspectiveProjection):
         return _project_perspective(camera_point, projection, viewport_width, viewport_height)
+    if isinstance(projection, FrustumProjection):
+        return _project_frustum(camera_point, projection, viewport_width, viewport_height)
     return _project_orthographic(camera_point, projection, viewport_width, viewport_height)
 
 
@@ -129,6 +132,21 @@ def _project_perspective(
     scale_x = scale_y * aspect
     x_ndc = point.x / scale_x
     y_ndc = point.y / scale_y
+    return _ndc_to_screen(x_ndc, y_ndc, viewport_width, viewport_height)
+
+
+def _project_frustum(
+    point: Vec3,
+    projection: FrustumProjection,
+    viewport_width: float,
+    viewport_height: float,
+) -> ScreenPoint | None:
+    if point.z < projection.near or point.z > projection.far or point.z == 0:
+        return None
+    x_near = point.x * projection.near / point.z
+    y_near = point.y * projection.near / point.z
+    x_ndc = ((x_near - projection.left) / (projection.right - projection.left)) * 2.0 - 1.0
+    y_ndc = ((y_near - projection.bottom) / (projection.top - projection.bottom)) * 2.0 - 1.0
     return _ndc_to_screen(x_ndc, y_ndc, viewport_width, viewport_height)
 
 
@@ -174,9 +192,13 @@ def _validate_projection(projection: Projection3D) -> None:
             raise ValueError("perspective fov_y must be between 0 and 180 degrees.")
         if projection.aspect is not None and projection.aspect <= 0:
             raise ValueError("perspective aspect must be positive when provided.")
-    else:
-        if projection.width <= 0 or projection.height <= 0:
-            raise ValueError("orthographic width and height must be positive.")
+    elif isinstance(projection, FrustumProjection):
+        if projection.left >= projection.right:
+            raise ValueError("frustum left must be less than right.")
+        if projection.bottom >= projection.top:
+            raise ValueError("frustum bottom must be less than top.")
+    elif projection.width <= 0 or projection.height <= 0:
+        raise ValueError("orthographic width and height must be positive.")
 
 
 def _sub(a: Vec3, b: Vec3) -> Vec3:

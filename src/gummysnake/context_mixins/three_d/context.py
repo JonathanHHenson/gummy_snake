@@ -14,6 +14,7 @@ from gummysnake.context_mixins.three_d.primitives import ThreeDPrimitivesMixin
 from gummysnake.core.color import Color
 from gummysnake.drawing.renderer3d import (
     Camera3D,
+    FrustumProjection,
     Light3D,
     Material3D,
     OrthographicProjection,
@@ -44,8 +45,12 @@ class ThreeDContextMixin(
 
     state: Any
     _camera3d: Camera3D
-    _projection3d: PerspectiveProjection | OrthographicProjection
+    _projection3d: PerspectiveProjection | OrthographicProjection | FrustumProjection
     _lights3d: list[Light3D]
+    _light_falloff3d: tuple[float, float, float]
+    _specular_color3d: tuple[float, float, float, float]
+    _texture_mode3d: c.TextureCoordinateMode | None
+    _texture_wrap3d: tuple[c.TextureWrapMode, c.TextureWrapMode] | None
     _material3d: Material3D | None
     _normal_material3d: bool
     _material3d_style_stack: list[tuple[Material3D | None, bool]]
@@ -74,15 +79,20 @@ class ThreeDContextMixin(
         raise NotImplementedError
 
     def _require_webgl_mode(self, api_name: str) -> None:
-        if self.state.canvas.renderer != c.WEBGL:
+        if self.state.canvas.renderer not in {c.WEBGL, c.WEBGPU}:
             raise BackendCapabilityError(
-                f"{api_name}() requires create_canvas(..., renderer={c.WEBGL!r})."
+                f"{api_name}() requires create_canvas(..., renderer={c.WEBGL!r} or {c.WEBGPU!r})."
             )
 
     def _reset_3d_state(self) -> None:
         self._camera3d = Camera3D()
         self._projection3d = PerspectiveProjection()
         self._lights3d = []
+        self._light_falloff3d = (1.0, 0.0, 0.0)
+        self._specular_color3d = (1.0, 1.0, 1.0, 1.0)
+        self._texture_mode3d = c.NORMALIZED
+        self._texture_wrap3d = (c.CLAMP, c.CLAMP)
+        self._panorama3d = None
         self._material3d = None
         self._normal_material3d = False
         self._material3d_style_stack = []
@@ -102,16 +112,19 @@ class ThreeDContextMixin(
         self,
         *,
         base_color: tuple[float, float, float, float] | None = None,
+        emissive_color: tuple[float, float, float, float] | None = None,
         specular_color: tuple[float, float, float, float] | None = None,
         shininess: float | None = None,
+        metalness: float | None = None,
         texture: Texture3D | None | MaterialUnset = _MATERIAL_UNSET,
     ) -> Material3D:
         current = self._effective_3d_material()
         return Material3D(
             base_color=current.base_color if base_color is None else base_color,
-            emissive_color=current.emissive_color,
+            emissive_color=current.emissive_color if emissive_color is None else emissive_color,
             specular_color=current.specular_color if specular_color is None else specular_color,
             shininess=current.shininess if shininess is None else shininess,
+            metalness=current.metalness if metalness is None else metalness,
             texture=current.texture
             if texture is _MATERIAL_UNSET
             else cast(Texture3D | None, texture),
