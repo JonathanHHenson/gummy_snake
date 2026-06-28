@@ -44,6 +44,13 @@ impl GpuRenderer {
             + (self.image_vertex_capacity * std::mem::size_of::<ImageVertex>())) as u64
     }
 
+    pub fn invalidate_retained_render_cache(&mut self) {
+        if !self.previous_render_commands.is_empty() {
+            self.previous_render_commands.clear();
+            self.retained_batch_cache_evictions += 1;
+        }
+    }
+
     pub fn only_pending_clear(&self) -> Option<GpuColor> {
         let mut clear = None;
         for command in &self.commands {

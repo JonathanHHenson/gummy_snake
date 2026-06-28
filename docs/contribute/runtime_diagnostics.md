@@ -53,13 +53,19 @@ the top-level keys in tests and docs.
 
 Native diagnostics may also include GPU render-loop counters:
 `gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`,
-`gpu_uploaded_vertex_bytes`, `gpu_image_batches`, `gpu_encode_time_ms`,
-`gpu_present_time_ms`, `native_draw_commands`, `native_primitive_records`, and
-`native_primitive_batches`. Pixel pipeline diagnostics include `gpu_pixel_readbacks`,
-`pixel_bytes_created`, `pixel_noop_upload_skips`, `pixel_full_uploads`, and
-`pixel_region_uploads`. Retained reuse diagnostics include
-`retained_batch_cache_hits`, `retained_batch_cache_misses`,
-`retained_batch_cache_evictions`, and `retained_batch_reused_bytes`.
+`gpu_uploaded_vertex_bytes`, `gpu_image_batches`, `gpu_encode_time_ms`, and
+`gpu_present_time_ms`. Native command-stream diagnostics include
+`native_draw_commands`, `native_triangle_commands`, `native_ellipse_commands`,
+`native_image_commands`, `native_text_commands`, `native_model_commands`,
+`native_erase_commands`, `native_region_effect_commands`,
+`native_primitive_instance_commands`, `native_staged_primitive_vertices`,
+`native_staged_image_vertices`, `native_primitive_records`,
+`native_primitive_batches`, and `native_command_ingest_time_ms`. Pixel pipeline
+diagnostics include `gpu_pixel_readbacks`, `pixel_bytes_created`,
+`pixel_noop_upload_skips`, `pixel_full_uploads`, and `pixel_region_uploads`.
+Retained reuse diagnostics include `retained_batch_cache_hits`,
+`retained_batch_cache_misses`, `retained_batch_cache_evictions`, and
+`retained_batch_reused_bytes`.
 Allocations should grow with peak frame demand rather than with every frame;
 uploads and batches track actual draw work. Use max-record counters together
 with flush counters: a recovered dense primitive or sprite scene should show a
@@ -123,8 +129,10 @@ Retained reuse is layered. Static compact primitive batches keep a retained
 native batch key and replay shared instance/vertex payloads after warmup.
 Static full-frame image or mixed image/primitive command streams are reused by
 the GPU renderer when the ordered command stream and clip generation are
-unchanged; dynamic image batches continue through the atlas/upload path and
-report texture and image batch counters normally.
+unchanged; resize and pixel-density changes invalidate that retained replay and
+increment eviction diagnostics when a previous retained stream existed. Dynamic
+image batches continue through the atlas/upload path and report texture and
+image batch counters normally.
 
 ## GPU Region Effects
 

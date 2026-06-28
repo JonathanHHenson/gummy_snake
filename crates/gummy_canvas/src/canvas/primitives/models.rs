@@ -83,9 +83,7 @@ impl Canvas {
                         .ensure_model_mesh(key, vertices, indices)
                         .map_err(PyValueError::new_err)?;
                     gpu.draw_model(key, index_count, uniform);
-                    self.performance_counters.direct_model_draws += 1;
-                    self.performance_counters.gpu_draws += 1;
-                    self.mark_gpu_output_texture_current();
+                    self.record_native_model_draw();
                     return Ok(());
                 }
             }
@@ -157,9 +155,7 @@ impl Canvas {
                         .ensure_model_mesh(key, vertices, indices)
                         .map_err(PyValueError::new_err)?;
                     gpu.draw_textured_model(key, image.key, index_count, uniform, linear_sampling);
-                    self.performance_counters.direct_model_draws += 1;
-                    self.performance_counters.gpu_draws += 1;
-                    self.mark_gpu_output_texture_current();
+                    self.record_native_model_draw();
                     return Ok(true);
                 }
             }
@@ -201,9 +197,7 @@ impl Canvas {
             ];
             gpu.draw_image(image.key, vertices, linear_sampling, blend_mode);
         }
-        self.performance_counters.direct_model_draws += 1;
-        self.performance_counters.gpu_draws += 1;
-        self.mark_gpu_output_texture_current();
+        self.record_native_model_draw();
         Ok(true)
     }
 

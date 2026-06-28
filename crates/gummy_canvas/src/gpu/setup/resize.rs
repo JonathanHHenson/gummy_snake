@@ -21,7 +21,7 @@ impl GpuRenderer {
             .pixel_prefix_texture
             .create_view(&wgpu::TextureViewDescriptor::default());
         self.text_buffers.clear();
-        self.previous_render_commands.clear();
+        self.invalidate_retained_render_cache();
         self.pixel_prefix_bind_group = create_pixel_prefix_bind_group(
             &self.device,
             &self.pixel_prefix_bind_group_layout,

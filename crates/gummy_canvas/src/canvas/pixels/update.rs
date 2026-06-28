@@ -161,8 +161,7 @@ impl Canvas {
                     i32::from(red_delta),
                     i32::from(green_delta),
                 );
-                self.performance_counters.gpu_region_effect_passes += 1;
-                self.mark_gpu_output_texture_current();
+                self.record_native_region_effect_draw(false);
                 return Ok(());
             }
         }

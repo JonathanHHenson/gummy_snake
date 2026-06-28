@@ -35,6 +35,7 @@ impl Canvas {
         if records.is_empty() {
             return Ok(());
         }
+        let ingest_start = std::time::Instant::now();
         ensure_supported_style(style)?;
         self.performance_counters.native_primitive_batches += 1;
         self.performance_counters.native_primitive_records += records.len() as u64;
@@ -53,6 +54,8 @@ impl Canvas {
                 }
             }
         }
+        self.performance_counters.native_command_ingest_time_ms +=
+            ingest_start.elapsed().as_secs_f64() * 1000.0;
         Ok(())
     }
 
@@ -64,6 +67,7 @@ impl Canvas {
         if sequence.is_empty() {
             return Ok(());
         }
+        let ingest_start = std::time::Instant::now();
         self.performance_counters.native_primitive_batches += 1;
         self.performance_counters.native_primitive_records += sequence.len() as u64;
         for item in sequence.iter() {
@@ -98,6 +102,8 @@ impl Canvas {
                 }
             }
         }
+        self.performance_counters.native_command_ingest_time_ms +=
+            ingest_start.elapsed().as_secs_f64() * 1000.0;
         Ok(())
     }
 }

@@ -24,7 +24,7 @@ impl Canvas {
                 line_height as f32,
                 crate::raster::gpu_color(color),
             );
-            self.record_native_draw();
+            self.record_native_text_draw();
         }
         Ok(())
     }
@@ -48,7 +48,7 @@ impl Canvas {
                 crate::raster::gpu_color(color),
                 blend_mode,
             );
-            self.record_native_draw_with_blend(blend_mode);
+            self.record_native_ellipse_draw(blend_mode);
         }
         Ok(())
     }
@@ -60,8 +60,9 @@ impl Canvas {
     ) -> PyResult<()> {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
+            let vertex_count = vertices.len();
             gpu.draw_triangles(vertices, blend_mode);
-            self.record_native_draw_with_blend(blend_mode);
+            self.record_native_triangle_draw(blend_mode, vertex_count);
         }
         Ok(())
     }
@@ -74,8 +75,9 @@ impl Canvas {
     ) -> PyResult<()> {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
+            let vertex_count = vertices.len();
             gpu.draw_retained_triangles(key, vertices, blend_mode);
-            self.record_native_draw_with_blend(blend_mode);
+            self.record_native_triangle_draw(blend_mode, vertex_count);
         }
         Ok(())
     }
@@ -88,7 +90,7 @@ impl Canvas {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_primitive_instances(instances, blend_mode);
-            self.record_native_draw_with_blend(blend_mode);
+            self.record_native_primitive_instance_draw(blend_mode);
         }
         Ok(())
     }
@@ -102,7 +104,7 @@ impl Canvas {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.draw_retained_primitive_instances(key, instances, blend_mode);
-            self.record_native_draw_with_blend(blend_mode);
+            self.record_native_primitive_instance_draw(blend_mode);
         }
         Ok(())
     }
@@ -119,8 +121,9 @@ impl Canvas {
                 color.b = self.erase_color.b;
                 color.a = 255;
             }
+            let vertex_count = vertices.len();
             gpu.draw_erase_triangles(vertices);
-            self.record_native_draw();
+            self.record_native_erase_draw(vertex_count);
         }
         Ok(())
     }

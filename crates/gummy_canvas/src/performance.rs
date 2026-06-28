@@ -32,8 +32,19 @@ pub(crate) struct PerformanceCounters {
     pub(crate) shape_buffer_extractions: u64,
     pub(crate) pixel_payload_copies: u64,
     pub(crate) native_draw_commands: u64,
+    pub(crate) native_triangle_commands: u64,
+    pub(crate) native_ellipse_commands: u64,
+    pub(crate) native_image_commands: u64,
+    pub(crate) native_text_commands: u64,
+    pub(crate) native_model_commands: u64,
+    pub(crate) native_erase_commands: u64,
+    pub(crate) native_region_effect_commands: u64,
+    pub(crate) native_primitive_instance_commands: u64,
+    pub(crate) native_staged_primitive_vertices: u64,
+    pub(crate) native_staged_image_vertices: u64,
     pub(crate) native_primitive_records: u64,
     pub(crate) native_primitive_batches: u64,
+    pub(crate) native_command_ingest_time_ms: f64,
     pub(crate) gpu_encode_time_ms: f64,
     pub(crate) gpu_present_time_ms: f64,
 }
@@ -73,8 +84,34 @@ impl PerformanceCounters {
         dict.set_item("shape_buffer_extractions", self.shape_buffer_extractions)?;
         dict.set_item("pixel_payload_copies", self.pixel_payload_copies)?;
         dict.set_item("native_draw_commands", self.native_draw_commands)?;
+        dict.set_item("native_triangle_commands", self.native_triangle_commands)?;
+        dict.set_item("native_ellipse_commands", self.native_ellipse_commands)?;
+        dict.set_item("native_image_commands", self.native_image_commands)?;
+        dict.set_item("native_text_commands", self.native_text_commands)?;
+        dict.set_item("native_model_commands", self.native_model_commands)?;
+        dict.set_item("native_erase_commands", self.native_erase_commands)?;
+        dict.set_item(
+            "native_region_effect_commands",
+            self.native_region_effect_commands,
+        )?;
+        dict.set_item(
+            "native_primitive_instance_commands",
+            self.native_primitive_instance_commands,
+        )?;
+        dict.set_item(
+            "native_staged_primitive_vertices",
+            self.native_staged_primitive_vertices,
+        )?;
+        dict.set_item(
+            "native_staged_image_vertices",
+            self.native_staged_image_vertices,
+        )?;
         dict.set_item("native_primitive_records", self.native_primitive_records)?;
         dict.set_item("native_primitive_batches", self.native_primitive_batches)?;
+        dict.set_item(
+            "native_command_ingest_time_ms",
+            self.native_command_ingest_time_ms,
+        )?;
         dict.set_item("gpu_encode_time_ms", self.gpu_encode_time_ms)?;
         dict.set_item("gpu_present_time_ms", self.gpu_present_time_ms)?;
         Ok(dict)

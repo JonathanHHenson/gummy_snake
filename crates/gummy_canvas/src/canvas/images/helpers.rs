@@ -244,11 +244,7 @@ impl Canvas {
                 return Ok(false);
             };
             gpu.draw_image(image_key, vertices, linear_sampling, style.blend_mode_kind);
-            self.performance_counters.gpu_draws += 1;
-            if style.blend_mode_kind != BlendMode::Blend {
-                self.performance_counters.gpu_blend_commands += 1;
-            }
-            self.mark_gpu_output_texture_current();
+            self.record_native_image_draw(style.blend_mode_kind, vertices.len());
             return Ok(true);
         }
         Ok(false)

@@ -273,7 +273,7 @@ impl Canvas {
                 crate::raster::gpu_color(fill),
                 style.blend_mode_kind,
             );
-            self.record_native_region_effect_draw();
+            self.record_native_region_effect_draw(true);
         }
         Ok(())
     }

@@ -41,8 +41,19 @@ def test_canvas_benchmark_metrics_flatten_native_counters() -> None:
                 "gpu_primitive_batches": 4,
                 "gpu_image_batches": 2,
                 "native_draw_commands": 6,
+                "native_triangle_commands": 3,
+                "native_ellipse_commands": 1,
+                "native_image_commands": 2,
+                "native_text_commands": 4,
+                "native_model_commands": 1,
+                "native_erase_commands": 1,
+                "native_region_effect_commands": 1,
+                "native_primitive_instance_commands": 2,
+                "native_staged_primitive_vertices": 18,
+                "native_staged_image_vertices": 12,
                 "native_primitive_records": 5,
                 "native_primitive_batches": 1,
+                "native_command_ingest_time_ms": 1.25,
                 "texture_cache_hits": 7,
                 "text_cache_hits": 5,
                 "frames_presented": 8,
@@ -61,8 +72,19 @@ def test_canvas_benchmark_metrics_flatten_native_counters() -> None:
     assert metrics["python_bridge_calls"] == 11
     assert metrics["native_bridge_calls"] == 2
     assert metrics["native_draw_commands"] == 6
+    assert metrics["native_triangle_commands"] == 3
+    assert metrics["native_ellipse_commands"] == 1
+    assert metrics["native_image_commands"] == 2
+    assert metrics["native_text_commands"] == 4
+    assert metrics["native_model_commands"] == 1
+    assert metrics["native_erase_commands"] == 1
+    assert metrics["native_region_effect_commands"] == 1
+    assert metrics["native_primitive_instance_commands"] == 2
+    assert metrics["native_staged_primitive_vertices"] == 18
+    assert metrics["native_staged_image_vertices"] == 12
     assert metrics["native_primitive_records"] == 5
     assert metrics["native_primitive_batches"] == 1
+    assert metrics["native_command_ingest_time_ms"] == 1.25
 
 
 def test_canvas_benchmark_stress_variants_are_registered(monkeypatch) -> None:

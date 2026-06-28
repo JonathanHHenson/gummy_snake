@@ -38,7 +38,8 @@ _PERFORMANCE_COUNTER_KEYS = (
     "image_batch_max_records",
     "image_batch_fallbacks",
 )
-PerformanceCounterValue = int | dict[str, int]
+NativePerformanceCounterValue = int | float
+PerformanceCounterValue = int | float | dict[str, NativePerformanceCounterValue]
 PerformanceCounters = dict[str, PerformanceCounterValue]
 
 
@@ -51,10 +52,10 @@ class CanvasRendererCounterMixin:
 
     def performance_counters(self) -> PerformanceCounters:
         """Performance counters.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `PerformanceCounters`.
         """
@@ -65,7 +66,7 @@ class CanvasRendererCounterMixin:
             native = callback()
             if isinstance(native, dict):
                 counters["native"] = {
-                    str(key): int(value)
+                    str(key): value
                     for key, value in native.items()
                     if isinstance(value, int | float)
                 }
@@ -73,10 +74,10 @@ class CanvasRendererCounterMixin:
 
     def reset_performance_counters(self) -> None:
         """Reset performance counters.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """

@@ -37,13 +37,55 @@ class StyleState:
     text_align_y: c.TextAlign = c.BASELINE
     text_leading: float = 14.0
     revision: int = 0
+    _fill_rgba_source: Color | None = field(init=False, default=None, repr=False)
+    _fill_rgba: tuple[int, int, int, int] | None = field(init=False, default=None, repr=False)
+    _stroke_rgba_source: Color | None = field(init=False, default=None, repr=False)
+    _stroke_rgba: tuple[int, int, int, int] | None = field(init=False, default=None, repr=False)
+    _image_tint_rgba_source: Color | None = field(init=False, default=None, repr=False)
+    _image_tint_rgba: tuple[int, int, int, int] | None = field(init=False, default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        self._refresh_packed_rgba()
+
+    @staticmethod
+    def _color_rgba(color: Color | None) -> tuple[int, int, int, int] | None:
+        return None if color is None else (color.r, color.g, color.b, color.a)
+
+    def _refresh_packed_rgba(self) -> None:
+        self._fill_rgba_source = self.fill_color
+        self._fill_rgba = self._color_rgba(self.fill_color)
+        self._stroke_rgba_source = self.stroke_color
+        self._stroke_rgba = self._color_rgba(self.stroke_color)
+        self._image_tint_rgba_source = self.image_tint
+        self._image_tint_rgba = self._color_rgba(self.image_tint)
+
+    @property
+    def fill_rgba(self) -> tuple[int, int, int, int] | None:
+        if self._fill_rgba_source is not self.fill_color:
+            self._fill_rgba_source = self.fill_color
+            self._fill_rgba = self._color_rgba(self.fill_color)
+        return self._fill_rgba
+
+    @property
+    def stroke_rgba(self) -> tuple[int, int, int, int] | None:
+        if self._stroke_rgba_source is not self.stroke_color:
+            self._stroke_rgba_source = self.stroke_color
+            self._stroke_rgba = self._color_rgba(self.stroke_color)
+        return self._stroke_rgba
+
+    @property
+    def image_tint_rgba(self) -> tuple[int, int, int, int] | None:
+        if self._image_tint_rgba_source is not self.image_tint:
+            self._image_tint_rgba_source = self.image_tint
+            self._image_tint_rgba = self._color_rgba(self.image_tint)
+        return self._image_tint_rgba
 
     def copy(self) -> StyleState:
         """Copy.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `StyleState`.
         """
@@ -71,13 +113,14 @@ class StyleState:
 
     def mark_changed(self) -> None:
         """Mark changed.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
+        self._refresh_packed_rgba()
         self.revision += 1
 
 
@@ -88,10 +131,10 @@ class TransformState:
 
     def set_matrix(self, matrix: Matrix2D) -> None:
         """Set matrix.
-        
+
         Args:
             matrix: The matrix value. Expected type: `Matrix2D`.
-        
+
         Returns:
             None.
         """

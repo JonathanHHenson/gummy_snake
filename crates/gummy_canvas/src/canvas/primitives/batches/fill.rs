@@ -12,6 +12,7 @@ impl Canvas {
         if records.is_empty() {
             return Ok(());
         }
+        let ingest_start = std::time::Instant::now();
         self.performance_counters.native_primitive_batches += 1;
         self.performance_counters.native_primitive_records += records.len() as u64;
         if self.gpu.is_some() && !self.cpu_compositing_active {
@@ -36,6 +37,8 @@ impl Canvas {
                         BlendMode::Blend,
                     )?;
                 }
+                self.performance_counters.native_command_ingest_time_ms +=
+                    ingest_start.elapsed().as_secs_f64() * 1000.0;
                 return Ok(());
             }
             if let Some(instances) = fill_primitive_batch_instances(
@@ -50,6 +53,8 @@ impl Canvas {
                 self.primitive_batch_cache_vertices = Arc::new(Vec::new());
                 self.primitive_batch_cache_instances = Arc::new(instances.clone());
                 self.draw_gpu_primitive_instances(instances, BlendMode::Blend)?;
+                self.performance_counters.native_command_ingest_time_ms +=
+                    ingest_start.elapsed().as_secs_f64() * 1000.0;
                 return Ok(());
             }
             let mut vertices = Vec::with_capacity(records.len() * 6);
@@ -118,6 +123,8 @@ impl Canvas {
             self.primitive_batch_cache_vertices = Arc::new(vertices.clone());
             self.primitive_batch_cache_instances = Arc::new(Vec::new());
             self.draw_gpu_triangles(vertices, BlendMode::Blend)?;
+            self.performance_counters.native_command_ingest_time_ms +=
+                ingest_start.elapsed().as_secs_f64() * 1000.0;
             return Ok(());
         }
         let mut style = self.current_style.clone();
@@ -145,6 +152,8 @@ impl Canvas {
                 }
             }
         }
+        self.performance_counters.native_command_ingest_time_ms +=
+            ingest_start.elapsed().as_secs_f64() * 1000.0;
         Ok(())
     }
 
@@ -157,6 +166,7 @@ impl Canvas {
         if self.gpu.is_none() || self.cpu_compositing_active {
             return Ok(false);
         }
+        let ingest_start = std::time::Instant::now();
         self.performance_counters.native_primitive_batches += 1;
         self.performance_counters.native_primitive_records +=
             self.primitive_batch_cache_record_count as u64;
@@ -176,6 +186,8 @@ impl Canvas {
                 BlendMode::Blend,
             )?;
         }
+        self.performance_counters.native_command_ingest_time_ms +=
+            ingest_start.elapsed().as_secs_f64() * 1000.0;
         Ok(true)
     }
 }

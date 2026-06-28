@@ -21,10 +21,10 @@ def _renderer(self: object) -> CanvasRendererHost:
 
 def flush_line_batch(self: object) -> None:
     """Flush line batch.
-    
+
     Args:
         None.
-    
+
     Returns:
         None.
     """
@@ -42,25 +42,25 @@ def queue_fill_primitive_fast_path(
     transform: Matrix2D,
 ) -> bool:
     """Queue a fill-only primitive into the compact Rust batch when available.
-    
+
     Args:
         kind: The kind value. Expected type: `int`.
         coords: The coords value. Expected type: `tuple[float, ...]`.
         style: The style value. Expected type: `StyleState`.
         transform: The transform value. Expected type: `Matrix2D`.
-    
+
     Returns:
         The return value. Type: `bool`.
     """
 
     renderer = _renderer(self)
-    fill_color = style.fill_color
+    fill_color = style.fill_rgba
     canvas = getattr(renderer, "_canvas", None)
     batch_fill = getattr(canvas, "batch_fill_primitives", None) if canvas is not None else None
     if (
         kind == _PRIMITIVE_LINE
         or fill_color is None
-        or style.stroke_color is not None
+        or style.stroke_rgba is not None
         or style.erasing
         or style.blend_mode != c.BLEND
         or not callable(batch_fill)
@@ -72,9 +72,7 @@ def queue_fill_primitive_fast_path(
     primitive_batch = renderer._primitive_batch_state
     if primitive_batch.has_records() and not primitive_batch.matches_fill(matrix_payload):
         renderer._flush_primitive_batch_only()
-    renderer._primitive_batch_state.append_fill(
-        (kind, *coords, *fill_color.to_tuple()), matrix_payload
-    )
+    renderer._primitive_batch_state.append_fill((kind, *coords, *fill_color), matrix_payload)
     return True
 
 
@@ -86,13 +84,13 @@ def queue_primitive_batch(
     transform: Matrix2D,
 ) -> bool:
     """Queue primitive batch.
-    
+
     Args:
         kind: The kind value. Expected type: `int`.
         coords: The coords value. Expected type: `tuple[float, float, float, float, float, float]`.
         style: The style value. Expected type: `StyleState`.
         transform: The transform value. Expected type: `Matrix2D`.
-    
+
     Returns:
         The return value. Type: `bool`.
     """
@@ -143,10 +141,10 @@ def queue_primitive_batch(
 
 def flush_batches_before_primitive_batch(self: object) -> None:
     """Flush batches before primitive batch.
-    
+
     Args:
         None.
-    
+
     Returns:
         None.
     """
@@ -160,10 +158,10 @@ def flush_batches_before_primitive_batch(self: object) -> None:
 
 def flush_line_batch_only(self: object) -> None:
     """Flush line batch only.
-    
+
     Args:
         None.
-    
+
     Returns:
         None.
     """
@@ -202,10 +200,10 @@ def flush_line_batch_only(self: object) -> None:
 
 def flush_primitive_batch_only(self: object) -> None:
     """Flush primitive batch only.
-    
+
     Args:
         None.
-    
+
     Returns:
         None.
     """

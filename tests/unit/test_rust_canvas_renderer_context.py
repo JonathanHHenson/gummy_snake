@@ -120,6 +120,42 @@ def test_canvas_renderer_batches_simple_primitives_until_order_boundary() -> Non
     assert renderer.performance_counters()["primitive_batch_records"] == 3
 
 
+def test_canvas_renderer_flushes_primitive_batch_before_image_pixel_and_background() -> None:
+    from gummysnake.assets.image import Image
+    from gummysnake.backend.canvas_renderer import CanvasRenderer
+    from gummysnake.core.color import Color
+    from gummysnake.core.state import StyleState
+    from gummysnake.core.transform import Matrix2D
+    from tests.helpers.rust_canvas_modules import FakeCanvasModule
+
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(20, 20)
+    style = StyleState(fill_color=Color(255, 0, 0, 255), stroke_color=None)
+    image_style = StyleState(fill_color=None, stroke_color=None)
+    transform = Matrix2D.identity()
+    image = Image(1, 1, bytes([255, 255, 255, 255]))
+
+    renderer.rect(1, 2, 3, 4, style, transform)
+    renderer.draw_image(image, 0, 0, 1, 1, image_style, transform)
+    renderer.rect(5, 6, 7, 8, style, transform)
+    renderer.load_pixel_region(0, 0, 1, 1)
+    renderer.rect(9, 10, 2, 2, style, transform)
+    renderer.background(Color(0, 0, 0, 255))
+    renderer.end_frame()
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    calls = canvas.calls
+    first_primitive = next(call for call in calls if call[0] == "batch_fill_primitives")
+    image_batch = next(call for call in calls if call[0] == "batch_canvas_images")
+    readback = next(call for call in calls if call[0] == "load_pixel_region")
+    background_call = next(call for call in calls if call[0] == "background")
+    assert calls.index(first_primitive) < calls.index(image_batch)
+    assert calls.index(image_batch) < calls.index(readback)
+    assert calls.index(readback) < calls.index(background_call)
+    assert [call[0] for call in calls].count("batch_fill_primitives") == 3
+
+
 def test_canvas_context_shape_context_manager_draws_on_exit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

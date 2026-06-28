@@ -157,12 +157,19 @@ impl Canvas {
         let Some(gpu) = self.gpu.as_mut() else {
             return Ok(false);
         };
+        let vertex_count = batch_vertices.len();
         gpu.draw_image_batch(
             atlas_key,
             batch_vertices,
             linear_sampling,
             style.blend_mode_kind,
         );
+        self.performance_counters.native_draw_commands += 1;
+        self.performance_counters.native_image_commands += 1;
+        self.performance_counters.native_staged_image_vertices += vertex_count as u64;
+        if style.blend_mode_kind != BlendMode::Blend {
+            self.performance_counters.gpu_blend_commands += 1;
+        }
         self.mark_gpu_output_texture_current();
         Ok(true)
     }
