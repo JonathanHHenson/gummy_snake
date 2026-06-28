@@ -9,7 +9,14 @@ from gummysnake.backend.canvas import CanvasBackend
 
 
 def canvas_default_eligibility() -> tuple[bool, str]:
-    """Return whether the required canvas runtime can be constructed."""
+    """Return whether the required canvas runtime can be constructed.
+    
+    Args:
+        None.
+    
+    Returns:
+        The return value. Type: `tuple[bool, str]`.
+    """
 
     from gummysnake.rust import canvas as canvas_bridge
 
@@ -20,4 +27,12 @@ def canvas_default_eligibility() -> tuple[bool, str]:
 
 
 def create_backend(*, headless: bool | None = None) -> Backend:
+    """Create backend.
+    
+    Args:
+        headless: The headless value. Expected type: `bool | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `Backend`.
+    """
     return cast(Backend, CanvasBackend(headless=headless))

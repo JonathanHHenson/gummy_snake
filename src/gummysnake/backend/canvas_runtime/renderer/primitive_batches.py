@@ -20,6 +20,14 @@ def _renderer(self: object) -> CanvasRendererHost:
 
 
 def flush_line_batch(self: object) -> None:
+    """Flush line batch.
+    
+    Args:
+        None.
+    
+    Returns:
+        None.
+    """
     _renderer(self)._flush_line_batch_only()
     _renderer(self)._flush_primitive_batch_only()
     _renderer(self)._flush_image_batch()
@@ -33,7 +41,17 @@ def queue_fill_primitive_fast_path(
     style: StyleState,
     transform: Matrix2D,
 ) -> bool:
-    """Queue a fill-only primitive into the compact Rust batch when available."""
+    """Queue a fill-only primitive into the compact Rust batch when available.
+    
+    Args:
+        kind: The kind value. Expected type: `int`.
+        coords: The coords value. Expected type: `tuple[float, ...]`.
+        style: The style value. Expected type: `StyleState`.
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        The return value. Type: `bool`.
+    """
 
     renderer = _renderer(self)
     fill_color = style.fill_color
@@ -67,6 +85,17 @@ def queue_primitive_batch(
     style: StyleState,
     transform: Matrix2D,
 ) -> bool:
+    """Queue primitive batch.
+    
+    Args:
+        kind: The kind value. Expected type: `int`.
+        coords: The coords value. Expected type: `tuple[float, float, float, float, float, float]`.
+        style: The style value. Expected type: `StyleState`.
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        The return value. Type: `bool`.
+    """
     if self.queue_fill_primitive_fast_path(kind, coords, style, transform):
         return True
 
@@ -113,6 +142,14 @@ def queue_primitive_batch(
 
 
 def flush_batches_before_primitive_batch(self: object) -> None:
+    """Flush batches before primitive batch.
+    
+    Args:
+        None.
+    
+    Returns:
+        None.
+    """
     renderer = _renderer(self)
     if renderer._line_batch_state.has_records():
         renderer._flush_line_batch_only()
@@ -122,6 +159,14 @@ def flush_batches_before_primitive_batch(self: object) -> None:
 
 
 def flush_line_batch_only(self: object) -> None:
+    """Flush line batch only.
+    
+    Args:
+        None.
+    
+    Returns:
+        None.
+    """
     renderer = _renderer(self)
     if not renderer._line_batch_state.has_records():
         return
@@ -156,6 +201,14 @@ def flush_line_batch_only(self: object) -> None:
 
 
 def flush_primitive_batch_only(self: object) -> None:
+    """Flush primitive batch only.
+    
+    Args:
+        None.
+    
+    Returns:
+        None.
+    """
     renderer = _renderer(self)
     if not renderer._primitive_batch_state.has_records():
         return

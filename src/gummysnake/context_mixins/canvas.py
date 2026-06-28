@@ -63,26 +63,74 @@ class CanvasContextMixin:
 
     @property
     def width(self) -> int:
+        """Width.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `int`.
+        """
         return self.state.canvas.width
 
     @property
     def height(self) -> int:
+        """Height.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `int`.
+        """
         return self.state.canvas.height
 
     @property
     def frame_count(self) -> int:
+        """Frame count.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `int`.
+        """
         return self.state.timing.frame_count
 
     @property
     def delta_time(self) -> float:
+        """Delta time.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         return self.state.timing.delta_time
 
     @property
     def mouse_x(self) -> float:
+        """Mouse x.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         return self.state.input.mouse_x
 
     @property
     def mouse_y(self) -> float:
+        """Mouse y.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         return self.state.input.mouse_y
 
     def create_canvas(
@@ -93,6 +141,18 @@ class CanvasContextMixin:
         *,
         pixel_density: float | None = None,
     ) -> None:
+        """Create canvas.
+        
+        Args:
+            width: The width value. Expected type: `int`.
+            height: The height value. Expected type: `int`.
+            renderer: The renderer value. Expected type: `c.RendererMode`. Defaults to `c.P2D`.
+            pixel_density: The pixel density value. Expected type: `float | None`. Defaults to
+                `None`.
+        
+        Returns:
+            None.
+        """
         if renderer not in {c.P2D, c.WEBGL, c.WEBGPU}:
             raise ArgumentValidationError(f"Unsupported renderer {renderer!r}.")
         if renderer in {c.WEBGL, c.WEBGPU} and not self.backend.capabilities.three_d:
@@ -114,6 +174,17 @@ class CanvasContextMixin:
         self.state.canvas.created = True
 
     def resize_canvas(self, width: int, height: int, *, pixel_density: float | None = None) -> None:
+        """Resize canvas.
+        
+        Args:
+            width: The width value. Expected type: `int`.
+            height: The height value. Expected type: `int`.
+            pixel_density: The pixel density value. Expected type: `float | None`. Defaults to
+                `None`.
+        
+        Returns:
+            None.
+        """
         density = self.state.canvas.pixel_density if pixel_density is None else pixel_density
         self.backend.resize_canvas(
             int(width), int(height), float(density), renderer=self.state.canvas.renderer
@@ -129,6 +200,14 @@ class CanvasContextMixin:
         self.state.canvas.created = True
 
     def ensure_canvas(self) -> None:
+        """Ensure canvas.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         if not self.state.canvas.created:
             self.create_canvas(
                 self.state.canvas.width,
@@ -137,6 +216,14 @@ class CanvasContextMixin:
             )
 
     def pixel_density(self, value: float | None = None) -> float:
+        """Pixel density.
+        
+        Args:
+            value: The value value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         if value is None:
             return self.state.canvas.pixel_density
         if value <= 0:
@@ -145,22 +232,63 @@ class CanvasContextMixin:
         return self.state.canvas.pixel_density
 
     def display_density(self) -> float:
+        """Display density.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         return self.backend.display_density()
 
     def fast(self) -> FastDrawScope:
+        """Fast.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `FastDrawScope`.
+        """
         return FastDrawScope(cast("SketchContext", self))
 
     def enable_performance_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
+        """Enable performance diagnostics.
+        
+        Args:
+            enabled: The enabled value. Expected type: `bool`. Defaults to `True`.
+            reset: The reset value. Expected type: `bool`. Defaults to `True`.
+        
+        Returns:
+            None.
+        """
         self._performance_diagnostics_enabled = bool(enabled)
         if reset:
             self.reset_performance_diagnostics()
 
     def reset_performance_diagnostics(self) -> None:
+        """Reset performance diagnostics.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self._performance_diagnostic_counts.clear()
         self._performance_diagnostic_messages.clear()
         self._performance_diagnostic_image_versions.clear()
 
     def performance_diagnostics(self) -> dict[str, Any]:
+        """Performance diagnostics.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `dict[str, Any]`.
+        """
         return {
             "enabled": self._performance_diagnostics_enabled,
             "counters": dict(self._performance_diagnostic_counts),
@@ -169,6 +297,14 @@ class CanvasContextMixin:
         }
 
     def renderer_performance_counters(self) -> dict[str, Any]:
+        """Renderer performance counters.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `dict[str, Any]`.
+        """
         callback = getattr(self.renderer, "performance_counters", None)
         if callable(callback):
             counters = callback()
@@ -177,16 +313,41 @@ class CanvasContextMixin:
         return {}
 
     def reset_renderer_performance_counters(self) -> None:
+        """Reset renderer performance counters.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         callback = getattr(self.renderer, "reset_performance_counters", None)
         if callable(callback):
             callback()
 
     def enable_frame_pacing_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
+        """Enable frame pacing diagnostics.
+        
+        Args:
+            enabled: The enabled value. Expected type: `bool`. Defaults to `True`.
+            reset: The reset value. Expected type: `bool`. Defaults to `True`.
+        
+        Returns:
+            None.
+        """
         callback = getattr(self.backend, "enable_frame_pacing_diagnostics", None)
         if callable(callback):
             callback(enabled, reset=reset)
 
     def frame_pacing_diagnostics(self) -> dict[str, Any]:
+        """Frame pacing diagnostics.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `dict[str, Any]`.
+        """
         callback = getattr(self.backend, "frame_pacing_diagnostics", None)
         if callable(callback):
             report = callback()
@@ -195,6 +356,14 @@ class CanvasContextMixin:
         return {}
 
     def reset_frame_pacing_diagnostics(self) -> None:
+        """Reset frame pacing diagnostics.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         callback = getattr(self.backend, "reset_frame_pacing_diagnostics", None)
         if callable(callback):
             callback()
@@ -214,11 +383,27 @@ class CanvasContextMixin:
             self._performance_diagnostic_messages.append(message)
 
     def begin_frame(self) -> None:
+        """Begin frame.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         if self.state.canvas.renderer in {c.WEBGL, c.WEBGPU}:
             self._lights3d = []
             self._lights3d_style_stack = []
 
     def end_frame(self) -> None:
+        """End frame.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self._frame_mouse_dx = 0.0
         self._frame_mouse_dy = 0.0
         self._frame_scroll_x = 0.0
@@ -236,6 +421,14 @@ class CanvasContextMixin:
         )
 
     def frame_rate(self, value: float | None = None) -> float:
+        """Frame rate.
+        
+        Args:
+            value: The value value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("frame_rate() must be positive.")
@@ -243,16 +436,56 @@ class CanvasContextMixin:
         return self.state.timing.target_frame_rate
 
     def millis(self) -> float:
+        """Millis.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         return self.state.timing.millis()
 
     def no_loop(self) -> None:
+        """No loop.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self.state.looping = False
 
     def loop(self) -> None:
+        """Loop.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self.state.looping = True
 
     def redraw(self) -> None:
+        """Redraw.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self.state.redraw_requested = True
 
     def is_looping(self) -> bool:
+        """Is looping.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `bool`.
+        """
         return self.state.looping

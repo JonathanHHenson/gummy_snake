@@ -8,12 +8,12 @@ from pathlib import Path
 
 def resolve_asset_path(path: str | Path) -> Path:
     """Resolve an asset path relative to the calling sketch when possible.
-
-    Relative asset paths are first checked as-is. If they do not exist, the
-    resolver walks back the call stack to find the first frame outside the
-    ``gummysnake`` package and interprets the path relative to that module's directory.
-    This keeps sketch-local asset references working even when the process is
-    launched from a different working directory.
+    
+    Args:
+        path: The path value. Expected type: `str | Path`.
+    
+    Returns:
+        The return value. Type: `Path`.
     """
 
     asset_path = Path(path)

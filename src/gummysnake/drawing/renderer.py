@@ -44,7 +44,21 @@ class Renderer(Protocol):
         y2: float,
         style: StyleState,
         transform: Matrix2D,
-    ) -> None: ...
+    ) -> None:
+        """Line.
+        
+        Args:
+            x1: The x1 value. Expected type: `float`.
+            y1: The y1 value. Expected type: `float`.
+            x2: The x2 value. Expected type: `float`.
+            y2: The y2 value. Expected type: `float`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def polygon(
         self,
@@ -53,7 +67,19 @@ class Renderer(Protocol):
         transform: Matrix2D,
         *,
         close: bool = True,
-    ) -> None: ...
+    ) -> None:
+        """Polygon.
+        
+        Args:
+            points: The points value. Expected type: `list[tuple[float, float]]`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+            close: The close value. Expected type: `bool`. Defaults to `True`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def complex_polygon(
         self,
@@ -63,14 +89,38 @@ class Renderer(Protocol):
         transform: Matrix2D,
         *,
         close: bool = True,
-    ) -> None: ...
+    ) -> None:
+        """Complex polygon.
+        
+        Args:
+            outer: The outer value. Expected type: `list[tuple[float, float]]`.
+            contours: The contours value. Expected type: `list[list[tuple[float, float]]]`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+            close: The close value. Expected type: `bool`. Defaults to `True`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def begin_clip(
         self,
         outer: list[tuple[float, float]],
         contours: list[list[tuple[float, float]]],
         transform: Matrix2D,
-    ) -> None: ...
+    ) -> None:
+        """Begin clip.
+        
+        Args:
+            outer: The outer value. Expected type: `list[tuple[float, float]]`.
+            contours: The contours value. Expected type: `list[list[tuple[float, float]]]`.
+            transform: The transform value. Expected type: `Matrix2D`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def end_clip(self) -> None: ...
 
@@ -86,7 +136,21 @@ class Renderer(Protocol):
         height: float,
         style: StyleState,
         transform: Matrix2D,
-    ) -> None: ...
+    ) -> None:
+        """Rect.
+        
+        Args:
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+            width: The width value. Expected type: `float`.
+            height: The height value. Expected type: `float`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def triangle(
         self,
@@ -98,7 +162,23 @@ class Renderer(Protocol):
         y3: float,
         style: StyleState,
         transform: Matrix2D,
-    ) -> None: ...
+    ) -> None:
+        """Triangle.
+        
+        Args:
+            x1: The x1 value. Expected type: `float`.
+            y1: The y1 value. Expected type: `float`.
+            x2: The x2 value. Expected type: `float`.
+            y2: The y2 value. Expected type: `float`.
+            x3: The x3 value. Expected type: `float`.
+            y3: The y3 value. Expected type: `float`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def quad(
         self,
@@ -112,7 +192,25 @@ class Renderer(Protocol):
         y4: float,
         style: StyleState,
         transform: Matrix2D,
-    ) -> None: ...
+    ) -> None:
+        """Quad.
+        
+        Args:
+            x1: The x1 value. Expected type: `float`.
+            y1: The y1 value. Expected type: `float`.
+            x2: The x2 value. Expected type: `float`.
+            y2: The y2 value. Expected type: `float`.
+            x3: The x3 value. Expected type: `float`.
+            y3: The y3 value. Expected type: `float`.
+            x4: The x4 value. Expected type: `float`.
+            y4: The y4 value. Expected type: `float`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def ellipse(
         self,
@@ -122,7 +220,21 @@ class Renderer(Protocol):
         height: float,
         style: StyleState,
         transform: Matrix2D,
-    ) -> None: ...
+    ) -> None:
+        """Ellipse.
+        
+        Args:
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+            width: The width value. Expected type: `float`.
+            height: The height value. Expected type: `float`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def arc(
         self,
@@ -135,7 +247,24 @@ class Renderer(Protocol):
         mode: c.ArcMode,
         style: StyleState,
         transform: Matrix2D,
-    ) -> None: ...
+    ) -> None:
+        """Arc.
+        
+        Args:
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+            width: The width value. Expected type: `float`.
+            height: The height value. Expected type: `float`.
+            start: The start value. Expected type: `float`.
+            stop: The stop value. Expected type: `float`.
+            mode: The mode value. Expected type: `c.ArcMode`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def draw_image(
         self,
@@ -148,7 +277,24 @@ class Renderer(Protocol):
         transform: Matrix2D,
         *,
         source: tuple[int, int, int, int] | None = None,
-    ) -> None: ...
+    ) -> None:
+        """Draw image.
+        
+        Args:
+            image: The image value. Expected type: `Image | CanvasImage`.
+            dx: The dx value. Expected type: `float`.
+            dy: The dy value. Expected type: `float`.
+            dw: The dw value. Expected type: `float`.
+            dh: The dh value. Expected type: `float`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+            source: The source value. Expected type: `tuple[int, int, int, int] | None`. Defaults to
+                `None`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def text(
         self,
@@ -157,7 +303,20 @@ class Renderer(Protocol):
         y: float,
         style: StyleState,
         transform: Matrix2D,
-    ) -> None: ...
+    ) -> None:
+        """Text.
+        
+        Args:
+            value: The value value. Expected type: `str`.
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+            style: The style value. Expected type: `StyleState`.
+            transform: The transform value. Expected type: `Matrix2D`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def text_width(self, value: str, style: StyleState) -> float: ...
 
@@ -182,7 +341,21 @@ class Renderer(Protocol):
         y: int,
         *,
         alpha_composite: bool = True,
-    ) -> None: ...
+    ) -> None:
+        """Update pixel region.
+        
+        Args:
+            pixels: The pixels value. Expected type: `Sequence[int] | Buffer`.
+            width: The width value. Expected type: `int`.
+            height: The height value. Expected type: `int`.
+            x: The x value. Expected type: `int`.
+            y: The y value. Expected type: `int`.
+            alpha_composite: The alpha composite value. Expected type: `bool`. Defaults to `True`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def filter_pixels(self, mode: c.ImageFilter, value: float | None = None) -> None: ...
 
@@ -192,6 +365,18 @@ class Renderer(Protocol):
         source: tuple[int, int, int, int],
         destination: tuple[int, int, int, int],
         mode: c.BlendMode,
-    ) -> None: ...
+    ) -> None:
+        """Blend region.
+        
+        Args:
+            source_image: The source image value. Expected type: `object | None`.
+            source: The source value. Expected type: `tuple[int, int, int, int]`.
+            destination: The destination value. Expected type: `tuple[int, int, int, int]`.
+            mode: The mode value. Expected type: `c.BlendMode`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def save(self, path: str | Path) -> None: ...

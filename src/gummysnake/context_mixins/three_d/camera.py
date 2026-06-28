@@ -33,17 +33,51 @@ class ThreeDCameraMixin:
 
     @property
     def width(self) -> int:
+        """Width.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `int`.
+        """
         raise NotImplementedError
 
     @property
     def height(self) -> int:
+        """Height.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `int`.
+        """
         raise NotImplementedError
 
     @overload
-    def create_camera(self) -> Camera3D: ...
+    def create_camera(self) -> Camera3D:
+        """Overload accepting no camera, an existing camera, or camera basis values.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     @overload
-    def create_camera(self, camera: Camera3D, /) -> Camera3D: ...
+    def create_camera(self, camera: Camera3D, /) -> Camera3D:
+        """Overload accepting no camera, an existing camera, or camera basis values.
+        
+        Args:
+            camera: The camera value. Expected type: `Camera3D`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     @overload
     def create_camera(
@@ -58,16 +92,59 @@ class ThreeDCameraMixin:
         up_y: Number,
         up_z: Number,
         /,
-    ) -> Camera3D: ...
+    ) -> Camera3D:
+        """Overload accepting no camera, an existing camera, or camera basis values.
+        
+        Args:
+            eye_x: The eye x value. Expected type: `Number`.
+            eye_y: The eye y value. Expected type: `Number`.
+            eye_z: The eye z value. Expected type: `Number`.
+            center_x: The center x value. Expected type: `Number`.
+            center_y: The center y value. Expected type: `Number`.
+            center_z: The center z value. Expected type: `Number`.
+            up_x: The up x value. Expected type: `Number`.
+            up_y: The up y value. Expected type: `Number`.
+            up_z: The up z value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     def create_camera(self, *args: Any) -> Camera3D:
+        """Create camera.
+        
+        Args:
+            *args: Additional positional arguments. Expected type: `Any`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
         return self.camera(*args)
 
     @overload
-    def camera(self) -> Camera3D: ...
+    def camera(self) -> Camera3D:
+        """Overload accepting no camera, an existing camera, or camera basis values.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     @overload
-    def camera(self, camera: Camera3D, /) -> Camera3D: ...
+    def camera(self, camera: Camera3D, /) -> Camera3D:
+        """Overload accepting no camera, an existing camera, or camera basis values.
+        
+        Args:
+            camera: The camera value. Expected type: `Camera3D`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     @overload
     def camera(
@@ -82,9 +159,34 @@ class ThreeDCameraMixin:
         up_y: Number,
         up_z: Number,
         /,
-    ) -> Camera3D: ...
+    ) -> Camera3D:
+        """Overload accepting no camera, an existing camera, or camera basis values.
+        
+        Args:
+            eye_x: The eye x value. Expected type: `Number`.
+            eye_y: The eye y value. Expected type: `Number`.
+            eye_z: The eye z value. Expected type: `Number`.
+            center_x: The center x value. Expected type: `Number`.
+            center_y: The center y value. Expected type: `Number`.
+            center_z: The center z value. Expected type: `Number`.
+            up_x: The up x value. Expected type: `Number`.
+            up_y: The up y value. Expected type: `Number`.
+            up_z: The up z value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     def camera(self, *args: Any) -> Camera3D:
+        """Camera.
+        
+        Args:
+            *args: Additional positional arguments. Expected type: `Any`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
         _three_d(self)._require_webgl_mode("camera")
         if len(args) == 0:
             camera = Camera3D()
@@ -105,6 +207,14 @@ class ThreeDCameraMixin:
         return camera
 
     def set_camera(self, camera: Camera3D) -> Camera3D:
+        """Set camera.
+        
+        Args:
+            camera: The camera value. Expected type: `Camera3D`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
         _three_d(self)._require_webgl_mode("set_camera")
         if not isinstance(camera, Camera3D):
             raise ArgumentValidationError("set_camera() requires a Camera3D value.")
@@ -112,6 +222,14 @@ class ThreeDCameraMixin:
         return camera
 
     def roll(self, angle: Number) -> Camera3D:
+        """Roll.
+        
+        Args:
+            angle: The angle value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
         _three_d(self)._require_webgl_mode("roll")
         radians = _three_d(self)._angle(float(angle))
         forward, _right, true_up = _camera_basis(self._camera3d)
@@ -120,25 +238,84 @@ class ThreeDCameraMixin:
         return self._camera3d
 
     @overload
-    def perspective(self) -> PerspectiveProjection: ...
+    def perspective(self) -> PerspectiveProjection:
+        """Overload accepting optional perspective projection values.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `PerspectiveProjection`.
+        """
+        ...
 
     @overload
-    def perspective(self, fov: Number, /) -> PerspectiveProjection: ...
+    def perspective(self, fov: Number, /) -> PerspectiveProjection:
+        """Overload accepting optional perspective projection values.
+        
+        Args:
+            fov: The fov value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `PerspectiveProjection`.
+        """
+        ...
 
     @overload
-    def perspective(self, fov: Number, aspect: Number, /) -> PerspectiveProjection: ...
+    def perspective(self, fov: Number, aspect: Number, /) -> PerspectiveProjection:
+        """Overload accepting optional perspective projection values.
+        
+        Args:
+            fov: The fov value. Expected type: `Number`.
+            aspect: The aspect value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `PerspectiveProjection`.
+        """
+        ...
 
     @overload
     def perspective(
         self, fov: Number, aspect: Number, near: Number, /
-    ) -> PerspectiveProjection: ...
+    ) -> PerspectiveProjection:
+        """Overload accepting optional perspective projection values.
+        
+        Args:
+            fov: The fov value. Expected type: `Number`.
+            aspect: The aspect value. Expected type: `Number`.
+            near: The near value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `PerspectiveProjection`.
+        """
+        ...
 
     @overload
     def perspective(
         self, fov: Number, aspect: Number, near: Number, far: Number, /
-    ) -> PerspectiveProjection: ...
+    ) -> PerspectiveProjection:
+        """Overload accepting optional perspective projection values.
+        
+        Args:
+            fov: The fov value. Expected type: `Number`.
+            aspect: The aspect value. Expected type: `Number`.
+            near: The near value. Expected type: `Number`.
+            far: The far value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `PerspectiveProjection`.
+        """
+        ...
 
     def perspective(self, *args: Any) -> PerspectiveProjection:
+        """Perspective.
+        
+        Args:
+            *args: Additional positional arguments. Expected type: `Any`.
+        
+        Returns:
+            The return value. Type: `PerspectiveProjection`.
+        """
         _three_d(self)._require_webgl_mode("perspective")
         if len(args) > 4 or not all(isinstance(value, int | float) for value in args):
             raise ArgumentValidationError(
@@ -156,17 +333,56 @@ class ThreeDCameraMixin:
         return projection
 
     @overload
-    def ortho(self) -> OrthographicProjection: ...
+    def ortho(self) -> OrthographicProjection:
+        """Overload accepting optional orthographic projection values.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `OrthographicProjection`.
+        """
+        ...
 
     @overload
-    def ortho(self, width: Number, height: Number, /) -> OrthographicProjection: ...
+    def ortho(self, width: Number, height: Number, /) -> OrthographicProjection:
+        """Overload accepting optional orthographic projection values.
+        
+        Args:
+            width: The width value. Expected type: `Number`.
+            height: The height value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `OrthographicProjection`.
+        """
+        ...
 
     @overload
     def ortho(
         self, width: Number, height: Number, near: Number, far: Number, /
-    ) -> OrthographicProjection: ...
+    ) -> OrthographicProjection:
+        """Overload accepting optional orthographic projection values.
+        
+        Args:
+            width: The width value. Expected type: `Number`.
+            height: The height value. Expected type: `Number`.
+            near: The near value. Expected type: `Number`.
+            far: The far value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `OrthographicProjection`.
+        """
+        ...
 
     def ortho(self, *args: Any) -> OrthographicProjection:
+        """Ortho.
+        
+        Args:
+            *args: Additional positional arguments. Expected type: `Any`.
+        
+        Returns:
+            The return value. Type: `OrthographicProjection`.
+        """
         _three_d(self)._require_webgl_mode("ortho")
         if len(args) not in {0, 2, 4} or not all(isinstance(value, int | float) for value in args):
             raise ArgumentValidationError(
@@ -192,6 +408,19 @@ class ThreeDCameraMixin:
         near: Number = 0.1,
         far: Number = 10_000.0,
     ) -> FrustumProjection:
+        """Frustum.
+        
+        Args:
+            left: The left value. Expected type: `Number`.
+            right: The right value. Expected type: `Number`.
+            bottom: The bottom value. Expected type: `Number`.
+            top: The top value. Expected type: `Number`.
+            near: The near value. Expected type: `Number`. Defaults to `0.1`.
+            far: The far value. Expected type: `Number`. Defaults to `10000.0`.
+        
+        Returns:
+            The return value. Type: `FrustumProjection`.
+        """
         _three_d(self)._require_webgl_mode("frustum")
         projection = FrustumProjection(
             left=float(left),
@@ -209,6 +438,16 @@ class ThreeDCameraMixin:
         return projection
 
     def world_to_screen(self, x: Number, y: Number, z: Number) -> tuple[float, float, float]:
+        """World to screen.
+        
+        Args:
+            x: The x value. Expected type: `Number`.
+            y: The y value. Expected type: `Number`.
+            z: The z value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `tuple[float, float, float]`.
+        """
         _three_d(self)._require_webgl_mode("world_to_screen")
         camera_point = _world_to_camera(Vec3(float(x), float(y), float(z)), self._camera3d)
         projection = self._projection3d
@@ -238,6 +477,16 @@ class ThreeDCameraMixin:
         return (screen_x, screen_y, depth)
 
     def screen_to_world(self, x: Number, y: Number, depth: Number = 0.0) -> Vec3:
+        """Screen to world.
+        
+        Args:
+            x: The x value. Expected type: `Number`.
+            y: The y value. Expected type: `Number`.
+            depth: The depth value. Expected type: `Number`. Defaults to `0.0`.
+        
+        Returns:
+            The return value. Type: `Vec3`.
+        """
         _three_d(self)._require_webgl_mode("screen_to_world")
         x_ndc = (float(x) / max(1.0, float(self.width))) * 2.0 - 1.0
         y_ndc = 1.0 - (float(y) / max(1.0, float(self.height))) * 2.0
@@ -268,20 +517,67 @@ class ThreeDCameraMixin:
         return _camera_to_world(camera_point, self._camera3d)
 
     @overload
-    def orbit_control(self) -> Camera3D: ...
+    def orbit_control(self) -> Camera3D:
+        """Overload accepting optional orbit-control sensitivities.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     @overload
-    def orbit_control(self, sensitivity_x: Number, /) -> Camera3D: ...
+    def orbit_control(self, sensitivity_x: Number, /) -> Camera3D:
+        """Overload accepting optional orbit-control sensitivities.
+        
+        Args:
+            sensitivity_x: The sensitivity x value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     @overload
-    def orbit_control(self, sensitivity_x: Number, sensitivity_y: Number, /) -> Camera3D: ...
+    def orbit_control(self, sensitivity_x: Number, sensitivity_y: Number, /) -> Camera3D:
+        """Overload accepting optional orbit-control sensitivities.
+        
+        Args:
+            sensitivity_x: The sensitivity x value. Expected type: `Number`.
+            sensitivity_y: The sensitivity y value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     @overload
     def orbit_control(
         self, sensitivity_x: Number, sensitivity_y: Number, sensitivity_z: Number, /
-    ) -> Camera3D: ...
+    ) -> Camera3D:
+        """Overload accepting optional orbit-control sensitivities.
+        
+        Args:
+            sensitivity_x: The sensitivity x value. Expected type: `Number`.
+            sensitivity_y: The sensitivity y value. Expected type: `Number`.
+            sensitivity_z: The sensitivity z value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
+        ...
 
     def orbit_control(self, *args: Any) -> Camera3D:
+        """Orbit control.
+        
+        Args:
+            *args: Additional positional arguments. Expected type: `Any`.
+        
+        Returns:
+            The return value. Type: `Camera3D`.
+        """
         _three_d(self)._require_webgl_mode("orbit_control")
         if len(args) > 3 or not all(isinstance(value, int | float) for value in args):
             raise ArgumentValidationError(

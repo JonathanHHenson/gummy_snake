@@ -33,6 +33,14 @@ class TransformContextMixin:
                 remember(matrix)
 
     def push(self) -> None:
+        """Push.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         push_state = getattr(self.renderer, "push_canvas_state", None)
         if callable(push_state):
             push_state()
@@ -47,6 +55,14 @@ class TransformContextMixin:
         self._lights3d_style_stack.append(list(self._lights3d))
 
     def pop(self) -> None:
+        """Pop.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         if not self.state.stack:
             raise ArgumentValidationError("pop() called without matching push().")
         entry = self.state.stack.pop()
@@ -67,6 +83,15 @@ class TransformContextMixin:
         self._lights3d = self._lights3d_style_stack.pop()
 
     def translate(self, x: float, y: float) -> None:
+        """Translate.
+        
+        Args:
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         translate = getattr(self.renderer, "translate", None)
         if callable(translate):
             translate(float(x), float(y))
@@ -76,6 +101,14 @@ class TransformContextMixin:
         )
 
     def rotate(self, angle: float) -> None:
+        """Rotate.
+        
+        Args:
+            angle: The angle value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         radians = self._angle(angle)
         rotate = getattr(self.renderer, "rotate", None)
         if callable(rotate):
@@ -86,6 +119,15 @@ class TransformContextMixin:
         )
 
     def scale(self, x: float, y: float | None = None) -> None:
+        """Scale.
+        
+        Args:
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            None.
+        """
         scale = getattr(self.renderer, "scale", None)
         if callable(scale):
             scale(float(x), None if y is None else float(y))
@@ -97,6 +139,14 @@ class TransformContextMixin:
         )
 
     def shear_x(self, angle: float) -> None:
+        """Shear x.
+        
+        Args:
+            angle: The angle value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         radians = self._angle(angle)
         shear_x = getattr(self.renderer, "shear_x", None)
         if callable(shear_x):
@@ -107,6 +157,14 @@ class TransformContextMixin:
         )
 
     def shear_y(self, angle: float) -> None:
+        """Shear y.
+        
+        Args:
+            angle: The angle value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         radians = self._angle(angle)
         shear_y = getattr(self.renderer, "shear_y", None)
         if callable(shear_y):
@@ -117,6 +175,19 @@ class TransformContextMixin:
         )
 
     def apply_matrix(self, a: float, b: float, cc: float, d: float, e: float, f: float) -> None:
+        """Apply matrix.
+        
+        Args:
+            a: The a value. Expected type: `float`.
+            b: The b value. Expected type: `float`.
+            cc: The cc value. Expected type: `float`.
+            d: The d value. Expected type: `float`.
+            e: The e value. Expected type: `float`.
+            f: The f value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         matrix = Matrix2D(a, b, cc, d, e, f)
         apply_matrix = getattr(self.renderer, "apply_matrix", None)
         if callable(apply_matrix):
@@ -127,12 +198,28 @@ class TransformContextMixin:
         )
 
     def reset_matrix(self) -> None:
+        """Reset matrix.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         reset_matrix = getattr(self.renderer, "reset_matrix", None)
         if callable(reset_matrix):
             reset_matrix()
         self._set_transform_matrix(Matrix2D.identity(), sync_renderer=False)
 
     def angle_mode(self, mode: c.AngleMode) -> None:
+        """Angle mode.
+        
+        Args:
+            mode: The mode value. Expected type: `c.AngleMode`.
+        
+        Returns:
+            None.
+        """
         if mode not in {c.RADIANS, c.DEGREES}:
             raise ArgumentValidationError(f"Unsupported angle mode {mode!r}.")
         self.angle_mode_value = mode

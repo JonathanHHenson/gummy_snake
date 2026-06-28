@@ -50,30 +50,86 @@ class _FrameStreamBase:
 
     @property
     def width(self) -> int:
+        """Return the stream frame width.
+
+        Args:
+            None.
+
+        Returns:
+            The frame width in pixels.
+        """
         return int(self._get_prop("CAP_PROP_FRAME_WIDTH") or 0)
 
     @property
     def height(self) -> int:
+        """Return the stream frame height.
+
+        Args:
+            None.
+
+        Returns:
+            The frame height in pixels.
+        """
         return int(self._get_prop("CAP_PROP_FRAME_HEIGHT") or 0)
 
     @property
     def is_playing(self) -> bool:
+        """Return whether this stream is actively advancing frames.
+
+        Args:
+            None.
+
+        Returns:
+            True when playback/capture is active, otherwise False.
+        """
         return self._playing
 
     def play(self) -> None:
+        """Start advancing frames for this stream.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self._ensure_open()
         self._playing = True
 
     def pause(self) -> None:
+        """Pause frame advancement for this stream.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self._ensure_open()
         self._playing = False
 
     def current_frame(self) -> Image | None:
+        """Return a copy of the most recently decoded frame.
+
+        Args:
+            None.
+
+        Returns:
+            The cached frame image, or None if no frame has been read yet.
+        """
         if self._last_frame is None:
             return None
         return self._last_frame.copy()
 
     def close(self) -> None:
+        """Release the underlying stream resource.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         if self._closed:
             return
         _release_capture(self._capture)
@@ -101,6 +157,7 @@ class Video(_FrameStreamBase):
     """File-backed video stream with explicit frame-reading semantics."""
 
     def __init__(self, capture: Any, *, path: Path, cv2_module: Any) -> None:
+        """Create a file-backed video stream from an OpenCV capture object."""
         super().__init__(
             capture,
             cv2_module=cv2_module,
@@ -113,20 +170,52 @@ class Video(_FrameStreamBase):
 
     @property
     def path(self) -> Path:
+        """Return the asset path.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `Path`.
+        """
         return self._path
 
     @property
     def fps(self) -> float | None:
+        """Fps for this Video.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `float | None`.
+        """
         fps = float(self._get_prop("CAP_PROP_FPS") or 0.0)
         return fps if fps > 0 else None
 
     @property
     def frame_count(self) -> int | None:
+        """Frame count for this Video.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `int | None`.
+        """
         count = int(self._get_prop("CAP_PROP_FRAME_COUNT") or 0)
         return count if count > 0 else None
 
     @property
     def duration(self) -> float | None:
+        """Return this Video's duration.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `float | None`.
+        """
         fps = self.fps
         frame_count = self.frame_count
         if fps is None or frame_count is None:
@@ -134,23 +223,63 @@ class Video(_FrameStreamBase):
         return frame_count / fps
 
     def stop(self) -> None:
+        """Stop this Video.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self._ensure_open()
         self._playing = False
         self.seek(0.0)
 
     def looping(self, value: bool | None = None) -> bool:
+        """Looping for this Video.
+
+        Args:
+            value: The value value. Expected type: `bool | None`. Defaults to `None`.
+
+        Returns:
+            The return value. Type: `bool`.
+        """
         if value is not None:
             self._loop = bool(value)
         return self._loop
 
     def loop(self) -> None:
+        """Loop this Video.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self.looping(True)
         self.play()
 
     def no_loop(self) -> None:
+        """Disable loop for subsequent operations.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self.looping(False)
 
     def speed(self, value: float | None = None) -> float:
+        """Speed for this Video.
+
+        Args:
+            value: The value value. Expected type: `float | None`. Defaults to `None`.
+
+        Returns:
+            The return value. Type: `float`.
+        """
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("Video.speed() must be positive.")
@@ -158,12 +287,28 @@ class Video(_FrameStreamBase):
         return self._speed
 
     def time(self) -> float | None:
+        """Time for this Video.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `float | None`.
+        """
         milliseconds = self._get_prop("CAP_PROP_POS_MSEC")
         if milliseconds is None:
             return None
         return float(milliseconds) / 1000.0
 
     def seek(self, seconds: float) -> None:
+        """Seek for this Video.
+
+        Args:
+            seconds: The seconds value. Expected type: `float`.
+
+        Returns:
+            None.
+        """
         self._ensure_open()
         if seconds < 0:
             raise ArgumentValidationError("Video.seek() cannot be negative.")
@@ -175,6 +320,14 @@ class Video(_FrameStreamBase):
         self._last_frame = None
 
     def read(self) -> Image | None:
+        """Read for this Video.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `Image | None`.
+        """
         self._ensure_open()
         if not self._playing and self._last_frame is not None:
             return self._last_frame.copy()
@@ -203,6 +356,7 @@ class Capture(_FrameStreamBase):
     """Camera capture stream with explicit lifecycle and frame reads."""
 
     def __init__(self, capture: Any, *, device: int | str, cv2_module: Any) -> None:
+        """Create a camera capture stream from an OpenCV capture object."""
         super().__init__(
             capture,
             cv2_module=cv2_module,
@@ -213,9 +367,25 @@ class Capture(_FrameStreamBase):
 
     @property
     def device(self) -> int | str:
+        """Device for this Capture.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `int | str`.
+        """
         return self._device
 
     def read(self) -> Image | None:
+        """Read for this Capture.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `Image | None`.
+        """
         self._ensure_open()
         if not self._playing and self._last_frame is not None:
             return self._last_frame.copy()
@@ -239,54 +409,159 @@ class AudioVideoCapture:
     """
 
     def __init__(self, video: Capture, audio: AudioInput) -> None:
+        """Create a combined capture object from video and audio streams."""
         self.video = video
         self.audio = audio
 
     @property
     def width(self) -> int:
+        """Return this AudioVideoCapture's width.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `int`.
+        """
         return self.video.width
 
     @property
     def height(self) -> int:
+        """Return this AudioVideoCapture's height.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `int`.
+        """
         return self.video.height
 
     @property
     def device(self) -> int | str:
+        """Device for this AudioVideoCapture.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `int | str`.
+        """
         return self.video.device
 
     @property
     def is_playing(self) -> bool:
+        """Return whether playing is active.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `bool`.
+        """
         return self.video.is_playing and self.audio.is_started
 
     def play(self) -> None:
+        """Start playback for this object.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self.video.play()
         self.audio.start()
 
     def pause(self) -> None:
+        """Pause playback for this object.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self.video.pause()
         self.audio.stop()
 
     def stop(self) -> None:
+        """Stop this AudioVideoCapture.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self.pause()
 
     def read(self) -> Image | None:
+        """Read for this AudioVideoCapture.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `Image | None`.
+        """
         return self.video.read()
 
     def current_frame(self) -> Image | None:
+        """Current frame for this AudioVideoCapture.
+
+        Args:
+            None.
+
+        Returns:
+            The return value. Type: `Image | None`.
+        """
         return self.video.current_frame()
 
     def read_audio(self, count: int | None = None):
+        """Read audio for this AudioVideoCapture.
+
+        Args:
+            count: The count value. Expected type: `int | None`. Defaults to `None`.
+
+        Returns:
+            The return value.
+        """
         return self.audio.read(count)
 
     def push_audio_samples(self, samples: list[float] | tuple[float, ...]) -> None:
+        """Replace the buffered audio samples for this combined capture.
+
+        Args:
+            samples: The samples value. Expected type: `list[float] | tuple[float, ...]`.
+
+        Returns:
+            None.
+        """
         self.audio.push_samples(samples)
 
     def close(self) -> None:
+        """Close this AudioVideoCapture.
+
+        Args:
+            None.
+
+        Returns:
+            None.
+        """
         self.video.close()
         self.audio.stop()
 
 
 def create_video(path: str | Path) -> Video:
+    """Create and return a video value.
+
+    Args:
+        path: The path value. Expected type: `str | Path`.
+
+    Returns:
+        The return value. Type: `Video`.
+    """
     video_path = Path(path).expanduser()
     if not video_path.exists():
         raise ArgumentValidationError(f"Video file does not exist: {video_path!s}.")
@@ -299,6 +574,14 @@ def create_video(path: str | Path) -> Video:
 
 
 async def create_video_async(path: str | Path) -> Video:
+    """Create and return a video async value.
+
+    Args:
+        path: The path value. Expected type: `str | Path`.
+
+    Returns:
+        The return value. Type: `Video`.
+    """
     return create_video(path)
 
 
@@ -309,6 +592,17 @@ def create_capture(
     width: int | None = None,
     height: int | None = None,
 ) -> Capture | AudioInput | AudioVideoCapture:
+    """Create and return a capture value.
+
+    Args:
+        kind: The kind value. Expected type: `str`. Defaults to `'video'`.
+        device: The device value. Expected type: `int | str`. Defaults to `0`.
+        width: The width value. Expected type: `int | None`. Defaults to `None`.
+        height: The height value. Expected type: `int | None`. Defaults to `None`.
+
+    Returns:
+        The return value. Type: `Capture | AudioInput | AudioVideoCapture`.
+    """
     normalized_kind = kind.lower()
     if normalized_kind in _AUDIO_KINDS:
         audio = create_audio_in()
@@ -343,6 +637,17 @@ async def create_capture_async(
     width: int | None = None,
     height: int | None = None,
 ) -> Capture | AudioInput | AudioVideoCapture:
+    """Create and return a capture async value.
+
+    Args:
+        kind: The kind value. Expected type: `str`. Defaults to `'video'`.
+        device: The device value. Expected type: `int | str`. Defaults to `0`.
+        width: The width value. Expected type: `int | None`. Defaults to `None`.
+        height: The height value. Expected type: `int | None`. Defaults to `None`.
+
+    Returns:
+        The return value. Type: `Capture | AudioInput | AudioVideoCapture`.
+    """
     return create_capture(kind, device=device, width=width, height=height)
 
 

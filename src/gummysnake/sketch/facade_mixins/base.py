@@ -12,10 +12,12 @@ ColorValue = Color | str
 
 
 class SupportsText(Protocol):
+    """Public SupportsText value."""
     def __str__(self) -> str: ...
 
 
 class SketchFacadeBaseMixin:
+    """Public SketchFacadeBaseMixin value."""
     context: SketchContext | None
 
     @property

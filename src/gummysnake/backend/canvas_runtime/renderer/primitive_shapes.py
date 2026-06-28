@@ -22,6 +22,14 @@ def _renderer(self: object) -> CanvasRendererHost:
 
 
 def background(self: object, color: Color) -> None:
+    """Background.
+    
+    Args:
+        color: The color value. Expected type: `Color`.
+    
+    Returns:
+        None.
+    """
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     _renderer(self)._call(
@@ -30,12 +38,31 @@ def background(self: object, color: Color) -> None:
 
 
 def clear(self: object) -> None:
+    """Clear.
+    
+    Args:
+        None.
+    
+    Returns:
+        None.
+    """
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     _renderer(self)._call("canvas clearing", _renderer(self)._require_canvas().clear)
 
 
 def point(self: object, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
+    """Point.
+    
+    Args:
+        x: The x value. Expected type: `float`.
+        y: The y value. Expected type: `float`.
+        style: The style value. Expected type: `StyleState`.
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        None.
+    """
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     current = (
@@ -65,6 +92,19 @@ def line(
     style: StyleState,
     transform: Matrix2D,
 ) -> None:
+    """Line.
+    
+    Args:
+        x1: The x1 value. Expected type: `float`.
+        y1: The y1 value. Expected type: `float`.
+        x2: The x2 value. Expected type: `float`.
+        y2: The y2 value. Expected type: `float`.
+        style: The style value. Expected type: `StyleState`.
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        None.
+    """
     if self._queue_primitive_batch(
         _PRIMITIVE_LINE,
         (x1, y1, x2, y2, 0.0, 0.0),
@@ -101,6 +141,19 @@ def rect(
     style: StyleState,
     transform: Matrix2D,
 ) -> None:
+    """Rect.
+    
+    Args:
+        x: The x value. Expected type: `float`.
+        y: The y value. Expected type: `float`.
+        width: The width value. Expected type: `float`.
+        height: The height value. Expected type: `float`.
+        style: The style value. Expected type: `StyleState`.
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        None.
+    """
     if self._queue_primitive_batch(
         _PRIMITIVE_RECT,
         (x, y, width, height, 0.0, 0.0),
@@ -148,6 +201,21 @@ def triangle(
     style: StyleState,
     transform: Matrix2D,
 ) -> None:
+    """Triangle.
+    
+    Args:
+        x1: The x1 value. Expected type: `float`.
+        y1: The y1 value. Expected type: `float`.
+        x2: The x2 value. Expected type: `float`.
+        y2: The y2 value. Expected type: `float`.
+        x3: The x3 value. Expected type: `float`.
+        y3: The y3 value. Expected type: `float`.
+        style: The style value. Expected type: `StyleState`.
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        None.
+    """
     if self._queue_primitive_batch(
         _PRIMITIVE_TRIANGLE,
         (x1, y1, x2, y2, x3, y3),
@@ -197,6 +265,23 @@ def quad(
     style: StyleState,
     transform: Matrix2D,
 ) -> None:
+    """Quad.
+    
+    Args:
+        x1: The x1 value. Expected type: `float`.
+        y1: The y1 value. Expected type: `float`.
+        x2: The x2 value. Expected type: `float`.
+        y2: The y2 value. Expected type: `float`.
+        x3: The x3 value. Expected type: `float`.
+        y3: The y3 value. Expected type: `float`.
+        x4: The x4 value. Expected type: `float`.
+        y4: The y4 value. Expected type: `float`.
+        style: The style value. Expected type: `StyleState`.
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        None.
+    """
     _renderer(self)._flush_line_batch()
     current = (
         getattr(_renderer(self)._require_canvas(), "quad_current", None)
@@ -237,6 +322,19 @@ def ellipse(
     style: StyleState,
     transform: Matrix2D,
 ) -> None:
+    """Ellipse.
+    
+    Args:
+        x: The x value. Expected type: `float`.
+        y: The y value. Expected type: `float`.
+        width: The width value. Expected type: `float`.
+        height: The height value. Expected type: `float`.
+        style: The style value. Expected type: `StyleState`.
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        None.
+    """
     if self._queue_primitive_batch(
         _PRIMITIVE_ELLIPSE,
         (x, y, width, height, 0.0, 0.0),
@@ -278,6 +376,22 @@ def arc(
     style: StyleState,
     transform: Matrix2D,
 ) -> None:
+    """Arc.
+    
+    Args:
+        x: The x value. Expected type: `float`.
+        y: The y value. Expected type: `float`.
+        width: The width value. Expected type: `float`.
+        height: The height value. Expected type: `float`.
+        start: The start value. Expected type: `float`.
+        stop: The stop value. Expected type: `float`.
+        mode: The mode value. Expected type: `c.ArcMode`.
+        style: The style value. Expected type: `StyleState`.
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        None.
+    """
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     current = (

@@ -14,6 +14,14 @@ def _context_call(name: str, *args: Any, **kwargs: Any) -> Any:
 
 
 def blend_mode(mode: c.BlendMode) -> None:
+    """Blend mode using the active compositing context.
+    
+    Args:
+        mode: The mode value. Expected type: `c.BlendMode`.
+    
+    Returns:
+        None.
+    """
     _context_call("blend_mode", mode)
 
 
@@ -29,7 +37,24 @@ def blend(
     dh: int,
     mode: c.BlendMode,
     /,
-) -> None: ...
+) -> None:
+    """Overload signature for blend().
+    
+    Args:
+        sx: The sx value. Expected type: `int`.
+        sy: The sy value. Expected type: `int`.
+        sw: The sw value. Expected type: `int`.
+        sh: The sh value. Expected type: `int`.
+        dx: The dx value. Expected type: `int`.
+        dy: The dy value. Expected type: `int`.
+        dw: The dw value. Expected type: `int`.
+        dh: The dh value. Expected type: `int`.
+        mode: The mode value. Expected type: `c.BlendMode`.
+    
+    Returns:
+        None.
+    """
+    ...
 
 
 @overload
@@ -45,18 +70,60 @@ def blend(
     dh: int,
     mode: c.BlendMode,
     /,
-) -> None: ...
+) -> None:
+    """Overload signature for blend().
+    
+    Args:
+        image: The image value. Expected type: `Image`.
+        sx: The sx value. Expected type: `int`.
+        sy: The sy value. Expected type: `int`.
+        sw: The sw value. Expected type: `int`.
+        sh: The sh value. Expected type: `int`.
+        dx: The dx value. Expected type: `int`.
+        dy: The dy value. Expected type: `int`.
+        dw: The dw value. Expected type: `int`.
+        dh: The dh value. Expected type: `int`.
+        mode: The mode value. Expected type: `c.BlendMode`.
+    
+    Returns:
+        None.
+    """
+    ...
 
 
 def blend(*args: Any) -> None:
+    """Blend using the active compositing context.
+    
+    Args:
+        *args: Additional positional arguments. Expected type: `Any`.
+    
+    Returns:
+        None.
+    """
     _context_call("blend", *args)
 
 
 def erase() -> None:
+    """Erase using the active compositing context.
+    
+    Args:
+        None.
+    
+    Returns:
+        None.
+    """
     _context_call("erase")
 
 
 def no_erase() -> None:
+    """Disable erase for subsequent operations.
+    
+    Args:
+        None.
+    
+    Returns:
+        None.
+    """
     _context_call("no_erase")
 
 

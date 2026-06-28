@@ -19,6 +19,7 @@ from gummysnake.core.vector.common import (
 
 
 class VectorOpsMixin:
+    """Public VectorOpsMixin value."""
     x: float
     y: float
     z: float
@@ -30,6 +31,17 @@ class VectorOpsMixin:
         other: object | Iterable[Number] | Number | None = None,
         z: Number | None = None,
     ) -> Self:
+        """Add for this VectorOpsMixin.
+        
+        Args:
+            value: The value value. Expected type: `object | Iterable[Number] | Number`.
+            other: The other value. Expected type: `object | Iterable[Number] | Number | None`.
+                Defaults to `None`.
+            z: The z value. Expected type: `Number | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         target = make_vector(value) if self is None else self
         if self is None and other is None:
             raise TypeError("Vector.add() requires two vectors when called as a class helper.")
@@ -47,6 +59,17 @@ class VectorOpsMixin:
         other: object | Iterable[Number] | Number | None = None,
         z: Number | None = None,
     ) -> Self:
+        """Sub for this VectorOpsMixin.
+        
+        Args:
+            value: The value value. Expected type: `object | Iterable[Number] | Number`.
+            other: The other value. Expected type: `object | Iterable[Number] | Number | None`.
+                Defaults to `None`.
+            z: The z value. Expected type: `Number | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         target = make_vector(value) if self is None else self
         if self is None and other is None:
             raise TypeError("Vector.sub() requires two vectors when called as a class helper.")
@@ -61,6 +84,16 @@ class VectorOpsMixin:
     def mult(
         self, vector_or_value: object | Iterable[Number] | Number, value: Number | None = None
     ) -> Self:
+        """Mult for this VectorOpsMixin.
+        
+        Args:
+            vector_or_value: The vector or value value. Expected type: `object | Iterable[Number] |
+                Number`.
+            value: The value value. Expected type: `Number | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         target = make_vector(vector_or_value) if self is None else self
         factor = vector_or_value if self is not None else value
         if factor is None:
@@ -74,6 +107,16 @@ class VectorOpsMixin:
     def div(
         self, vector_or_value: object | Iterable[Number] | Number, value: Number | None = None
     ) -> Self:
+        """Div for this VectorOpsMixin.
+        
+        Args:
+            vector_or_value: The vector or value value. Expected type: `object | Iterable[Number] |
+                Number`.
+            value: The value value. Expected type: `Number | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         target = make_vector(vector_or_value) if self is None else self
         divisor = vector_or_value if self is not None else value
         if divisor is None:
@@ -87,9 +130,25 @@ class VectorOpsMixin:
         return target
 
     def heading(self) -> float:
+        """Heading for this VectorOpsMixin.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         return gs_math.atan2(self.y, self.x)
 
     def set_heading(self, angle: Number) -> Self:
+        """Set the heading value.
+        
+        Args:
+            angle: The angle value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         magnitude = cast(_VectorFullOps, self).mag()
         radians = gs_math.radians(angle) if gs_math.get_angle_mode() == c.DEGREES else float(angle)
         self.x = math.cos(radians) * magnitude
@@ -97,6 +156,14 @@ class VectorOpsMixin:
         return self
 
     def rotate(self, angle: Number) -> Self:
+        """Rotate the active drawing transform.
+        
+        Args:
+            angle: The angle value. Expected type: `Number`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         radians = gs_math.radians(angle) if gs_math.get_angle_mode() == c.DEGREES else float(angle)
         cosine = math.cos(radians)
         sine = math.sin(radians)
@@ -110,6 +177,17 @@ class VectorOpsMixin:
         other: object | Iterable[Number] | Number | None = None,
         z: Number | None = None,
     ) -> float:
+        """Dot for this VectorOpsMixin.
+        
+        Args:
+            value: The value value. Expected type: `object | Iterable[Number] | Number`.
+            other: The other value. Expected type: `object | Iterable[Number] | Number | None`.
+                Defaults to `None`.
+            z: The z value. Expected type: `Number | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         target = make_vector(value) if self is None else self
         if self is None and other is None:
             raise TypeError("Vector.dot() requires two vectors when called as a class helper.")
@@ -120,6 +198,16 @@ class VectorOpsMixin:
     def angle_between(
         self, value: object | Iterable[Number], other: object | Iterable[Number] | None = None
     ) -> float:
+        """Angle between for this VectorOpsMixin.
+        
+        Args:
+            value: The value value. Expected type: `object | Iterable[Number]`.
+            other: The other value. Expected type: `object | Iterable[Number] | None`. Defaults to
+                `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         target = make_vector(value) if self is None else self
         if self is None and other is None:
             raise TypeError(
@@ -137,6 +225,16 @@ class VectorOpsMixin:
     def cross(
         self, value: object | Iterable[Number], other: object | Iterable[Number] | None = None
     ) -> Self:
+        """Cross for this VectorOpsMixin.
+        
+        Args:
+            value: The value value. Expected type: `object | Iterable[Number]`.
+            other: The other value. Expected type: `object | Iterable[Number] | None`. Defaults to
+                `None`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         target = make_vector(value) if self is None else self
         if self is None and other is None:
             raise TypeError("Vector.cross() requires two vectors when called as a class helper.")
@@ -152,6 +250,16 @@ class VectorOpsMixin:
     def dist(
         self, value: object | Iterable[Number], other: object | Iterable[Number] | None = None
     ) -> float:
+        """Dist for this VectorOpsMixin.
+        
+        Args:
+            value: The value value. Expected type: `object | Iterable[Number]`.
+            other: The other value. Expected type: `object | Iterable[Number] | None`. Defaults to
+                `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         target = make_vector(value) if self is None else self
         if self is None and other is None:
             raise TypeError("Vector.dist() requires two vectors when called as a class helper.")
@@ -165,6 +273,16 @@ class VectorOpsMixin:
         other: object | Iterable[Number] | Number,
         amount: Number | None = None,
     ) -> Self:
+        """Lerp for this VectorOpsMixin.
+        
+        Args:
+            value: The value value. Expected type: `object | Iterable[Number]`.
+            other: The other value. Expected type: `object | Iterable[Number] | Number`.
+            amount: The amount value. Expected type: `Number | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         target = make_vector(value) if self is None else self
         if self is None and amount is None:
             raise TypeError("Vector.lerp() requires an amount when called as a class helper.")
@@ -183,6 +301,16 @@ class VectorOpsMixin:
         other: object | Iterable[Number] | Number,
         amount: Number | None = None,
     ) -> Self:
+        """Slerp for this VectorOpsMixin.
+        
+        Args:
+            value: The value value. Expected type: `object | Iterable[Number]`.
+            other: The other value. Expected type: `object | Iterable[Number] | Number`.
+            amount: The amount value. Expected type: `Number | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         target = make_vector(value) if self is None else self
         if self is None and amount is None:
             raise TypeError("Vector.slerp() requires an amount when called as a class helper.")
@@ -203,6 +331,14 @@ class VectorOpsMixin:
         return cast(Self, target_ops.set(direction.mult(gs_math.lerp(start_mag, end_mag, t))))
 
     def reflect(self, normal: object | Iterable[Number]) -> Self:
+        """Reflect for this VectorOpsMixin.
+        
+        Args:
+            normal: The normal value. Expected type: `object | Iterable[Number]`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         vector_type = cast("type[Any]", type(self))
         n = vector_type(normal).normalize()
         return self.sub(n.mult(2 * self.dot(n)))
@@ -242,11 +378,30 @@ class VectorOpsMixin:
 
     @staticmethod
     def from_angle(angle: Number, length: Number = 1) -> Any:
+        """From angle for this VectorOpsMixin.
+        
+        Args:
+            angle: The angle value. Expected type: `Number`.
+            length: The length value. Expected type: `Number`. Defaults to `1`.
+        
+        Returns:
+            The return value. Type: `Any`.
+        """
         radians = gs_math.radians(angle) if gs_math.get_angle_mode() == c.DEGREES else float(angle)
         return make_vector(math.cos(radians) * float(length), math.sin(radians) * float(length), 0)
 
     @staticmethod
     def from_angles(theta: Number, phi: Number, length: Number = 1) -> Any:
+        """From angles for this VectorOpsMixin.
+        
+        Args:
+            theta: The theta value. Expected type: `Number`.
+            phi: The phi value. Expected type: `Number`.
+            length: The length value. Expected type: `Number`. Defaults to `1`.
+        
+        Returns:
+            The return value. Type: `Any`.
+        """
         theta_radians = (
             gs_math.radians(theta) if gs_math.get_angle_mode() == c.DEGREES else float(theta)
         )
@@ -261,11 +416,27 @@ class VectorOpsMixin:
 
     @staticmethod
     def random_2d() -> Any:
+        """Random 2d for this VectorOpsMixin.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Any`.
+        """
         vector = make_vector(0, 0, 0)
         return vector.from_angle(shared_rng().random() * math.tau)
 
     @staticmethod
     def random_3d() -> Any:
+        """Random 3d for this VectorOpsMixin.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Any`.
+        """
         z = shared_rng().uniform(-1.0, 1.0)
         theta = shared_rng().random() * math.tau
         radius = math.sqrt(1 - z * z)

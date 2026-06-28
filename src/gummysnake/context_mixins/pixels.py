@@ -43,12 +43,37 @@ class PixelContextMixin:
     def _mark_style_changed(self) -> None: ...
 
     def load_pixels(self) -> PixelBuffer:
+        """Load pixels.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `PixelBuffer`.
+        """
         return _load_pixels_impl(self)
 
     def load_pixel_bytes(self) -> bytes:
+        """Load pixel bytes.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `bytes`.
+        """
         return _load_pixel_bytes_impl(self)
 
     def update_pixels(self, pixels: Sequence[int] | Buffer | None = None) -> None:
+        """Update pixels.
+        
+        Args:
+            pixels: The pixels value. Expected type: `Sequence[int] | Buffer | None`. Defaults to
+                `None`.
+        
+        Returns:
+            None.
+        """
         _update_pixels_impl(self, pixels)
 
     def _update_dirty_pixel_range(
@@ -59,17 +84,59 @@ class PixelContextMixin:
         return _update_dirty_pixel_range_impl(self, pixels, dirty)
 
     @overload
-    def get(self) -> Image: ...
+    def get(self) -> Image:
+        """Overload selecting full-image, pixel, or region read behavior.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     @overload
-    def get(self, x: int, y: int) -> Color: ...
+    def get(self, x: int, y: int) -> Color:
+        """Overload selecting full-image, pixel, or region read behavior.
+        
+        Args:
+            x: The x value. Expected type: `int`.
+            y: The y value. Expected type: `int`.
+        
+        Returns:
+            The return value. Type: `Color`.
+        """
+        ...
 
     @overload
-    def get(self, x: int, y: int, w: int, h: int) -> Image: ...
+    def get(self, x: int, y: int, w: int, h: int) -> Image:
+        """Overload selecting full-image, pixel, or region read behavior.
+        
+        Args:
+            x: The x value. Expected type: `int`.
+            y: The y value. Expected type: `int`.
+            w: The w value. Expected type: `int`.
+            h: The h value. Expected type: `int`.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     def get(
         self, x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None
     ) -> Color | Image:
+        """Get.
+        
+        Args:
+            x: The x value. Expected type: `int | None`. Defaults to `None`.
+            y: The y value. Expected type: `int | None`. Defaults to `None`.
+            w: The w value. Expected type: `int | None`. Defaults to `None`.
+            h: The h value. Expected type: `int | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `Color | Image`.
+        """
         return _get_pixel_impl(self, x, y, w, h)
 
     def set(
@@ -78,18 +145,66 @@ class PixelContextMixin:
         y: int,
         value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
     ) -> None:
+        """Set.
+        
+        Args:
+            x: The x value. Expected type: `int`.
+            y: The y value. Expected type: `int`.
+            value: The value value. Expected type: `Color | tuple[int, int, int] | tuple[int, int,
+                int, int] | Image`.
+        
+        Returns:
+            None.
+        """
         _set_pixel_impl(self, x, y, value)
 
     @overload
-    def copy(self) -> Image: ...
+    def copy(self) -> Image:
+        """Overload selecting full-image, region, or scaled-region copy behavior.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     @overload
-    def copy(self, sx: int, sy: int, sw: int, sh: int, /) -> Image: ...
+    def copy(self, sx: int, sy: int, sw: int, sh: int, /) -> Image:
+        """Overload selecting full-image, region, or scaled-region copy behavior.
+        
+        Args:
+            sx: The sx value. Expected type: `int`.
+            sy: The sy value. Expected type: `int`.
+            sw: The sw value. Expected type: `int`.
+            sh: The sh value. Expected type: `int`.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     @overload
     def copy(
         self, sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /
-    ) -> None: ...
+    ) -> None:
+        """Overload selecting full-image, region, or scaled-region copy behavior.
+        
+        Args:
+            sx: The sx value. Expected type: `int`.
+            sy: The sy value. Expected type: `int`.
+            sw: The sw value. Expected type: `int`.
+            sh: The sh value. Expected type: `int`.
+            dx: The dx value. Expected type: `int`.
+            dy: The dy value. Expected type: `int`.
+            dw: The dw value. Expected type: `int`.
+            dh: The dh value. Expected type: `int`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     @overload
     def copy(
@@ -104,18 +219,60 @@ class PixelContextMixin:
         dw: int,
         dh: int,
         /,
-    ) -> None: ...
+    ) -> None:
+        """Overload selecting full-image, region, or scaled-region copy behavior.
+        
+        Args:
+            image: The image value. Expected type: `Image`.
+            sx: The sx value. Expected type: `int`.
+            sy: The sy value. Expected type: `int`.
+            sw: The sw value. Expected type: `int`.
+            sh: The sh value. Expected type: `int`.
+            dx: The dx value. Expected type: `int`.
+            dy: The dy value. Expected type: `int`.
+            dw: The dw value. Expected type: `int`.
+            dh: The dh value. Expected type: `int`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def copy(self, *args: Any) -> Image | None:
+        """Copy.
+        
+        Args:
+            *args: Additional positional arguments. Expected type: `Any`.
+        
+        Returns:
+            The return value. Type: `Image | None`.
+        """
         return _copy_pixels_impl(self, *args)
 
     def filter(self, mode: c.ImageFilter, value: float | None = None) -> None:
+        """Filter.
+        
+        Args:
+            mode: The mode value. Expected type: `c.ImageFilter`.
+            value: The value value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            None.
+        """
         _filter_pixels_impl(self, mode, value)
 
     def _canvas_image(self) -> Image:
         return _canvas_image_impl(self)
 
     def pixel_array(self) -> list[list[tuple[int, int, int, int]]]:
+        """Pixel array.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `list[list[tuple[int, int, int, int]]]`.
+        """
         return _pixel_array_impl(self)
 
     def save_canvas(
@@ -125,6 +282,16 @@ class PixelContextMixin:
         extension: str | None = None,
         overwrite: bool = True,
     ) -> Path:
+        """Save canvas.
+        
+        Args:
+            path: The path value. Expected type: `str | Path`.
+            extension: The extension value. Expected type: `str | None`. Defaults to `None`.
+            overwrite: The overwrite value. Expected type: `bool`. Defaults to `True`.
+        
+        Returns:
+            The return value. Type: `Path`.
+        """
         return _save_canvas_impl(self, path, extension=extension, overwrite=overwrite)
 
     def save_frames(
@@ -137,6 +304,20 @@ class PixelContextMixin:
         callback: Callable[[list[dict[str, object]]], object] | None = None,
         overwrite: bool = True,
     ) -> list[dict[str, object]]:
+        """Save frames.
+        
+        Args:
+            path_pattern: The path pattern value. Expected type: `str | Path`.
+            extension: The extension value. Expected type: `str`. Defaults to `'png'`.
+            count: The count value. Expected type: `int`. Defaults to `1`.
+            duration: The duration value. Expected type: `float | None`. Defaults to `None`.
+            callback: The callback value. Expected type: `Callable[[list[dict[str, object]]],
+                object] | None`. Defaults to `None`.
+            overwrite: The overwrite value. Expected type: `bool`. Defaults to `True`.
+        
+        Returns:
+            The return value. Type: `list[dict[str, object]]`.
+        """
         return _save_frames_impl(
             self,
             path_pattern,
@@ -155,9 +336,28 @@ class PixelContextMixin:
         duration: float | None = None,
         overwrite: bool = True,
     ) -> Path:
+        """Save gif.
+        
+        Args:
+            path: The path value. Expected type: `str | Path`.
+            count: The count value. Expected type: `int`. Defaults to `1`.
+            duration: The duration value. Expected type: `float | None`. Defaults to `None`.
+            overwrite: The overwrite value. Expected type: `bool`. Defaults to `True`.
+        
+        Returns:
+            The return value. Type: `Path`.
+        """
         return _save_gif_impl(self, path, count=count, duration=duration, overwrite=overwrite)
 
     def blend_mode(self, mode: c.BlendMode) -> None:
+        """Blend mode.
+        
+        Args:
+            mode: The mode value. Expected type: `c.BlendMode`.
+        
+        Returns:
+            None.
+        """
         _blend_mode_impl(self, mode)
 
     @overload
@@ -173,7 +373,24 @@ class PixelContextMixin:
         dh: int,
         mode: c.BlendMode,
         /,
-    ) -> None: ...
+    ) -> None:
+        """Overload signature for blend().
+        
+        Args:
+            sx: The sx value. Expected type: `int`.
+            sy: The sy value. Expected type: `int`.
+            sw: The sw value. Expected type: `int`.
+            sh: The sh value. Expected type: `int`.
+            dx: The dx value. Expected type: `int`.
+            dy: The dy value. Expected type: `int`.
+            dw: The dw value. Expected type: `int`.
+            dh: The dh value. Expected type: `int`.
+            mode: The mode value. Expected type: `c.BlendMode`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     @overload
     def blend(
@@ -189,13 +406,55 @@ class PixelContextMixin:
         dh: int,
         mode: c.BlendMode,
         /,
-    ) -> None: ...
+    ) -> None:
+        """Overload signature for blend().
+        
+        Args:
+            image: The image value. Expected type: `Image`.
+            sx: The sx value. Expected type: `int`.
+            sy: The sy value. Expected type: `int`.
+            sw: The sw value. Expected type: `int`.
+            sh: The sh value. Expected type: `int`.
+            dx: The dx value. Expected type: `int`.
+            dy: The dy value. Expected type: `int`.
+            dw: The dw value. Expected type: `int`.
+            dh: The dh value. Expected type: `int`.
+            mode: The mode value. Expected type: `c.BlendMode`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def blend(self, *args: Any) -> None:
+        """Blend.
+        
+        Args:
+            *args: Additional positional arguments. Expected type: `Any`.
+        
+        Returns:
+            None.
+        """
         _blend_impl(self, *args)
 
     def erase(self) -> None:
+        """Erase.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         _erase_impl(self)
 
     def no_erase(self) -> None:
+        """No erase.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         _no_erase_impl(self)

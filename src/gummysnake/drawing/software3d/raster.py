@@ -14,6 +14,16 @@ from .types import ShadedFace
 def rasterize_faces_image(
     faces: list[ShadedFace], *, viewport_width: float, viewport_height: float
 ) -> CanvasImage:
+    """Rasterize faces image.
+    
+    Args:
+        faces: The faces value. Expected type: `list[ShadedFace]`.
+        viewport_width: The viewport width value. Expected type: `float`.
+        viewport_height: The viewport height value. Expected type: `float`.
+    
+    Returns:
+        The return value. Type: `CanvasImage`.
+    """
     width = max(1, int(math.ceil(viewport_width)))
     height = max(1, int(math.ceil(viewport_height)))
     return _rasterize_faces_image_at(faces, width=width, height=height, offset_x=0, offset_y=0)
@@ -22,6 +32,16 @@ def rasterize_faces_image(
 def rasterize_faces_image_region(
     faces: list[ShadedFace], *, viewport_width: float, viewport_height: float
 ) -> tuple[CanvasImage, int, int]:
+    """Rasterize faces image region.
+    
+    Args:
+        faces: The faces value. Expected type: `list[ShadedFace]`.
+        viewport_width: The viewport width value. Expected type: `float`.
+        viewport_height: The viewport height value. Expected type: `float`.
+    
+    Returns:
+        The return value. Type: `tuple[CanvasImage, int, int]`.
+    """
     if not faces:
         return CanvasImage(1, 1), 0, 0
     min_x = min(x for face in faces for x, _ in face.points)
@@ -54,6 +74,17 @@ def rasterize_face_payload_region(
     viewport_height: float,
     texture: CanvasImage | None = None,
 ) -> tuple[CanvasImage, int, int]:
+    """Rasterize face payload region.
+    
+    Args:
+        faces: The faces value. Expected type: `list[dict[str, Any]]`.
+        viewport_width: The viewport width value. Expected type: `float`.
+        viewport_height: The viewport height value. Expected type: `float`.
+        texture: The texture value. Expected type: `CanvasImage | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `tuple[CanvasImage, int, int]`.
+    """
     if not faces:
         return CanvasImage(1, 1), 0, 0
     min_x = min(float(x) for face in faces for x, _ in face["points"])

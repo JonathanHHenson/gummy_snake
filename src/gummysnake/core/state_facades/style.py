@@ -39,6 +39,14 @@ class StyleState:
     revision: int = 0
 
     def copy(self) -> StyleState:
+        """Copy.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `StyleState`.
+        """
         return StyleState(
             fill_color=self.fill_color,
             stroke_color=self.stroke_color,
@@ -62,6 +70,14 @@ class StyleState:
         )
 
     def mark_changed(self) -> None:
+        """Mark changed.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self.revision += 1
 
 
@@ -71,6 +87,14 @@ class TransformState:
     revision: int = 0
 
     def set_matrix(self, matrix: Matrix2D) -> None:
+        """Set matrix.
+        
+        Args:
+            matrix: The matrix value. Expected type: `Matrix2D`.
+        
+        Returns:
+            None.
+        """
         self.matrix = matrix
         self.revision += 1
 

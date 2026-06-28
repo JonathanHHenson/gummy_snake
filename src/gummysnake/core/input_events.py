@@ -13,6 +13,7 @@ _SPACE_KEY_NAMES = {"space", "spacebar"}
 
 @dataclass(slots=True)
 class MouseEvent:
+    """Public MouseEvent value."""
     x: float
     y: float
     button: str | None = None
@@ -31,31 +32,72 @@ class MouseEvent:
 
     @property
     def position(self) -> Vector:
+        """Return the position vector for this event.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector`.
+        """
         return Vector(self.x, self.y)
 
     @property
     def delta(self) -> Vector:
+        """Return the movement delta for this event.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector`.
+        """
         return Vector(self.dx, self.dy)
 
     @property
     def previous_position(self) -> Vector | None:
+        """Return the previous position vector for this event, if available.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector | None`.
+        """
         if self.previous_x is None or self.previous_y is None:
             return None
         return Vector(self.previous_x, self.previous_y)
 
     @property
     def window_position(self) -> Vector | None:
+        """Return the window position vector for this event, if available.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector | None`.
+        """
         if self.window_x is None or self.window_y is None:
             return None
         return Vector(self.window_x, self.window_y)
 
     @property
     def scroll(self) -> Vector:
+        """Return the scroll delta vector for this event.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector`.
+        """
         return Vector(self.scroll_x, self.scroll_y)
 
 
 @dataclass(slots=True)
 class KeyboardEvent:
+    """Public KeyboardEvent value."""
     key: str | None = None
     key_code: int | None = None
     code: str | None = None
@@ -65,6 +107,14 @@ class KeyboardEvent:
     type: str = "keyboard"
 
     def matches(self, value: str | int) -> bool:
+        """Return whether this keyboard event matches a key or code.
+        
+        Args:
+            value: The value value. Expected type: `str | int`.
+        
+        Returns:
+            The return value. Type: `bool`.
+        """
         if isinstance(value, int):
             return self.key_code == value
         if self.key == value:
@@ -78,6 +128,7 @@ class KeyboardEvent:
 
 @dataclass(slots=True)
 class TouchPoint:
+    """Public TouchPoint value."""
     id: int
     x: float
     y: float
@@ -90,16 +141,40 @@ class TouchPoint:
 
     @property
     def position(self) -> Vector:
+        """Return the position vector for this event.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector`.
+        """
         return Vector(self.x, self.y)
 
     @property
     def previous_position(self) -> Vector | None:
+        """Return the previous position vector for this event, if available.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector | None`.
+        """
         if self.previous_x is None or self.previous_y is None:
             return None
         return Vector(self.previous_x, self.previous_y)
 
     @property
     def delta(self) -> Vector | None:
+        """Return the movement delta for this event.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector | None`.
+        """
         previous = self.previous_position
         if previous is None:
             return None
@@ -108,6 +183,7 @@ class TouchPoint:
 
 @dataclass(slots=True)
 class TouchEvent:
+    """Public TouchEvent value."""
     touches: list[TouchPoint] = field(default_factory=list)
     changed_touches: list[TouchPoint] = field(default_factory=list)
     type: str = "touch"
@@ -115,6 +191,7 @@ class TouchEvent:
 
 @dataclass(slots=True)
 class MotionEvent:
+    """Public MotionEvent value."""
     acceleration_x: float = 0.0
     acceleration_y: float = 0.0
     acceleration_z: float = 0.0
@@ -134,10 +211,26 @@ class MotionEvent:
 
     @property
     def acceleration(self) -> Vector:
+        """Return the acceleration vector for this motion event.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector`.
+        """
         return Vector(self.acceleration_x, self.acceleration_y, self.acceleration_z)
 
     @property
     def previous_acceleration(self) -> Vector:
+        """Return the previous acceleration vector for this motion event.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector`.
+        """
         return Vector(
             self.previous_acceleration_x,
             self.previous_acceleration_y,
@@ -146,15 +239,32 @@ class MotionEvent:
 
     @property
     def rotation(self) -> Vector:
+        """Return the rotation vector for this motion event.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector`.
+        """
         return Vector(self.rotation_x, self.rotation_y, self.rotation_z)
 
     @property
     def previous_rotation(self) -> Vector:
+        """Return the previous rotation vector for this motion event.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Vector`.
+        """
         return Vector(self.previous_rotation_x, self.previous_rotation_y, self.previous_rotation_z)
 
 
 @dataclass(slots=True)
 class InputState:
+    """Public InputState value."""
     mouse_x: float = 0.0
     mouse_y: float = 0.0
     previous_mouse_x: float = 0.0
@@ -204,6 +314,23 @@ class InputState:
         rotation_z: float | None = None,
         orientation: str | None = None,
     ) -> MotionEvent:
+        """Update motion for this InputState.
+        
+        Args:
+            acceleration_x: The acceleration x value. Expected type: `float | None`. Defaults to
+                `None`.
+            acceleration_y: The acceleration y value. Expected type: `float | None`. Defaults to
+                `None`.
+            acceleration_z: The acceleration z value. Expected type: `float | None`. Defaults to
+                `None`.
+            rotation_x: The rotation x value. Expected type: `float | None`. Defaults to `None`.
+            rotation_y: The rotation y value. Expected type: `float | None`. Defaults to `None`.
+            rotation_z: The rotation z value. Expected type: `float | None`. Defaults to `None`.
+            orientation: The orientation value. Expected type: `str | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `MotionEvent`.
+        """
         self.previous_acceleration_x = self.acceleration_x
         self.previous_acceleration_y = self.acceleration_y
         self.previous_acceleration_z = self.acceleration_z
@@ -251,6 +378,17 @@ class InputState:
     def update_mouse(
         self, x: float, y: float, *, dx: float | None = None, dy: float | None = None
     ) -> None:
+        """Update mouse for this InputState.
+        
+        Args:
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+            dx: The dx value. Expected type: `float | None`. Defaults to `None`.
+            dy: The dy value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            None.
+        """
         self.previous_mouse_x = self.mouse_x
         self.previous_mouse_y = self.mouse_y
         self.mouse_x = x
@@ -259,6 +397,14 @@ class InputState:
         self.moved_y = self.mouse_y - self.previous_mouse_y if dy is None else dy
 
     def update_touches(self, touches: list[TouchPoint]) -> None:
+        """Update touches for this InputState.
+        
+        Args:
+            touches: The touches value. Expected type: `list[TouchPoint]`.
+        
+        Returns:
+            None.
+        """
         previous = {touch.id: touch for touch in self.touches}
         updated: list[TouchPoint] = []
         for touch in touches:
@@ -283,6 +429,14 @@ class InputState:
         self.touches = updated
 
     def require_touch_supported(self) -> None:
+        """Require touch supported for this InputState.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         if not self.touch_supported:
             raise BackendCapabilityError(
                 "Touch input is not supported by the active backend yet. "
@@ -291,19 +445,53 @@ class InputState:
             )
 
     def set_key_down(self, key_code: int, pressed: bool) -> None:
+        """Set the key down value.
+        
+        Args:
+            key_code: The key code value. Expected type: `int`.
+            pressed: The pressed value. Expected type: `bool`.
+        
+        Returns:
+            None.
+        """
         if pressed:
             self.pressed_keys.add(key_code)
         else:
             self.pressed_keys.discard(key_code)
 
     def set_code_down(self, code: str, pressed: bool) -> None:
+        """Set the code down value.
+        
+        Args:
+            code: The code value. Expected type: `str`.
+            pressed: The pressed value. Expected type: `bool`.
+        
+        Returns:
+            None.
+        """
         if pressed:
             self.pressed_codes.add(code)
         else:
             self.pressed_codes.discard(code)
 
     def key_is_down(self, key_code: int) -> bool:
+        """Key is down for this InputState.
+        
+        Args:
+            key_code: The key code value. Expected type: `int`.
+        
+        Returns:
+            The return value. Type: `bool`.
+        """
         return key_code in self.pressed_keys
 
     def code_is_down(self, code: str) -> bool:
+        """Code is down for this InputState.
+        
+        Args:
+            code: The code value. Expected type: `str`.
+        
+        Returns:
+            The return value. Type: `bool`.
+        """
         return code in self.pressed_codes

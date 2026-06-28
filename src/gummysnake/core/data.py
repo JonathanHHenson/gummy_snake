@@ -9,9 +9,13 @@ from gummysnake.core.random import shared_rng
 
 def shuffle[T](values: Sequence[T], *, in_place: bool = False) -> list[T] | MutableSequence[T]:
     """Shuffle values using Gummy Snake's RNG controlled by ``random_seed()``.
-
-    By default this returns a shuffled list, matching Python expectations and
-    avoiding mutation surprises. Pass ``in_place=True`` for mutable sequences.
+    
+    Args:
+        values: The values value. Expected type: `Sequence[T]`.
+        in_place: The in place value. Expected type: `bool`. Defaults to `False`.
+    
+    Returns:
+        The return value. Type: `list[T] | MutableSequence[T]`.
     """
 
     if in_place:

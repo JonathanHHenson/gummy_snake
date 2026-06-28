@@ -16,12 +16,36 @@ class ImageContextMixin:
     _performance_diagnostic_image_versions: dict[int, int]
 
     @overload
-    def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None: ...
+    def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None:
+        """Overload signature for image().
+        
+        Args:
+            image: The image value. Expected type: `Image | CanvasImage`.
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     @overload
     def image(
         self, image: Image | CanvasImage, x: float, y: float, width: float, height: float, /
-    ) -> None: ...
+    ) -> None:
+        """Overload signature for image().
+        
+        Args:
+            image: The image value. Expected type: `Image | CanvasImage`.
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+            width: The width value. Expected type: `float`.
+            height: The height value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     @overload
     def image(
@@ -36,9 +60,37 @@ class ImageContextMixin:
         sw: float,
         sh: float,
         /,
-    ) -> None: ...
+    ) -> None:
+        """Overload signature for image().
+        
+        Args:
+            image: The image value. Expected type: `Image | CanvasImage`.
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+            width: The width value. Expected type: `float`.
+            height: The height value. Expected type: `float`.
+            sx: The sx value. Expected type: `float`.
+            sy: The sy value. Expected type: `float`.
+            sw: The sw value. Expected type: `float`.
+            sh: The sh value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
+        ...
 
     def image(self, image: Image | CanvasImage, x: float, y: float, *args: float) -> None:
+        """Image.
+        
+        Args:
+            image: The image value. Expected type: `Image | CanvasImage`.
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+            *args: Additional positional arguments. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         self._draw_image_fast(image, x, y, *args)
 
     def _draw_image_fast(

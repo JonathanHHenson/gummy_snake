@@ -16,10 +16,26 @@ _ACTIVE_CONTEXT: ContextVar[Any | None] = ContextVar("gummysnake_active_context"
 
 
 def get_active_context() -> SketchContext | None:
+    """Get active context.
+    
+    Args:
+        None.
+    
+    Returns:
+        The return value. Type: `SketchContext | None`.
+    """
     return cast("SketchContext | None", _ACTIVE_CONTEXT.get())
 
 
 def require_context() -> SketchContext:
+    """Require context.
+    
+    Args:
+        None.
+    
+    Returns:
+        The return value. Type: `SketchContext`.
+    """
     context = get_active_context()
     if context is None:
         raise ContextError(
@@ -31,6 +47,14 @@ def require_context() -> SketchContext:
 
 @contextmanager
 def activate_context(context: Any) -> Generator[None]:
+    """Activate context.
+    
+    Args:
+        context: The context value. Expected type: `Any`.
+    
+    Returns:
+        The return value. Type: `Generator[None]`.
+    """
     token = _ACTIVE_CONTEXT.set(context)
     try:
         yield

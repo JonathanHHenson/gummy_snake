@@ -28,6 +28,14 @@ class BlendArgs(NamedTuple):
 
 
 def coerce_int(value: Any) -> int:
+    """Coerce int.
+    
+    Args:
+        value: The value value. Expected type: `Any`.
+    
+    Returns:
+        The return value. Type: `int`.
+    """
     if isinstance(value, str | int | float):
         return int(value)
     raise ArgumentValidationError(
@@ -36,6 +44,14 @@ def coerce_int(value: Any) -> int:
 
 
 def rgba_bytes(value: Color | Sequence[int]) -> bytes:
+    """Rgba bytes.
+    
+    Args:
+        value: The value value. Expected type: `Color | Sequence[int]`.
+    
+    Returns:
+        The return value. Type: `bytes`.
+    """
     rgba = value.to_tuple() if isinstance(value, Color) else tuple(value)
     if len(rgba) == 3:
         rgba = (*rgba, 255)
@@ -52,6 +68,18 @@ def image_draw_args(
     *,
     image_mode: c.ShapeMode,
 ) -> ImageDrawArgs:
+    """Image draw args.
+    
+    Args:
+        image: The image value. Expected type: `Image | CanvasImage`.
+        x: The x value. Expected type: `float`.
+        y: The y value. Expected type: `float`.
+        args: The positional arguments value. Expected type: `tuple[float, ...]`.
+        image_mode: The image mode value. Expected type: `c.ShapeMode`.
+    
+    Returns:
+        The return value. Type: `ImageDrawArgs`.
+    """
     if not isinstance(image, Image | CanvasImage):
         raise ArgumentValidationError("image() requires a Gummy Snake Image or CanvasImage object.")
     source: tuple[int, int, int, int] | None
@@ -85,6 +113,16 @@ def blend_args(
     *,
     backend_name: str,
 ) -> BlendArgs:
+    """Blend args.
+    
+    Args:
+        args: The positional arguments value. Expected type: `tuple[Any, ...]`.
+        supported_modes: The supported modes value. Expected type: `Container[c.BlendMode]`.
+        backend_name: The backend name value. Expected type: `str`.
+    
+    Returns:
+        The return value. Type: `BlendArgs`.
+    """
     if len(args) == 9:
         source_image = None
         sx, sy, sw, sh, dx, dy, dw, dh, mode = args
@@ -111,4 +149,12 @@ def blend_args(
 
 
 def copy_ints(values: tuple[Any, ...]) -> tuple[int, ...]:
+    """Copy ints.
+    
+    Args:
+        values: The values value. Expected type: `tuple[Any, ...]`.
+    
+    Returns:
+        The return value. Type: `tuple[int, ...]`.
+    """
     return tuple(int(value) for value in values)

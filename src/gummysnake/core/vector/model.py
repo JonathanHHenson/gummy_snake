@@ -13,17 +13,42 @@ from gummysnake.core.vector.ops import VectorOpsMixin
 
 @dataclass(slots=True)
 class Vector(VectorBasicMixin, VectorOpsMixin):
+    """Public Vector value for Gummy Snake vector features."""
+
     x: float = 0.0
     y: float = 0.0
     z: float = 0.0
 
     @overload
-    def __init__(self, x: Number = 0, y: Number = 0, z: Number = 0) -> None: ...
+    def __init__(self, x: Number = 0, y: Number = 0, z: Number = 0) -> None:
+        """Create a vector from numeric components.
+
+        Args:
+            x: The x component. Defaults to 0.
+            y: The y component. Defaults to 0.
+            z: The z component. Defaults to 0.
+
+        Returns:
+            None.
+        """
+        ...
 
     @overload
-    def __init__(self, x: Iterable[Number], y: Number = 0, z: Number = 0) -> None: ...
+    def __init__(self, x: Iterable[Number], y: Number = 0, z: Number = 0) -> None:
+        """Create a vector from an iterable of components.
+
+        Args:
+            x: Iterable containing two or three numeric components.
+            y: Ignored unless x is treated as a scalar. Defaults to 0.
+            z: Ignored unless x is treated as a scalar. Defaults to 0.
+
+        Returns:
+            None.
+        """
+        ...
 
     def __init__(self, x: Number | Iterable[Number] = 0, y: Number = 0, z: Number = 0) -> None:
+        """Create a vector from numeric components or an iterable of components."""
         if not isinstance(x, int | float) and y == 0 and z == 0:
             self.x, self.y, self.z = _components(x)
         else:
@@ -37,14 +62,46 @@ register_vector_type(Vector)
 
 
 @overload
-def create_vector(x: Number = 0, y: Number = 0, z: Number = 0) -> Vector: ...
+def create_vector(x: Number = 0, y: Number = 0, z: Number = 0) -> Vector:
+    """Overload accepting vector components or an iterable of components.
+
+    Args:
+        x: The x value. Expected type: `Number`. Defaults to `0`.
+        y: The y value. Expected type: `Number`. Defaults to `0`.
+        z: The z value. Expected type: `Number`. Defaults to `0`.
+
+    Returns:
+        The return value. Type: `Vector`.
+    """
+    ...
 
 
 @overload
-def create_vector(x: Iterable[Number], y: Number = 0, z: Number = 0) -> Vector: ...
+def create_vector(x: Iterable[Number], y: Number = 0, z: Number = 0) -> Vector:
+    """Overload accepting vector components or an iterable of components.
+
+    Args:
+        x: The x value. Expected type: `Iterable[Number]`.
+        y: The y value. Expected type: `Number`. Defaults to `0`.
+        z: The z value. Expected type: `Number`. Defaults to `0`.
+
+    Returns:
+        The return value. Type: `Vector`.
+    """
+    ...
 
 
 def create_vector(x: Number | Iterable[Number] = 0, y: Number = 0, z: Number = 0) -> Vector:
+    """Create and return a vector value.
+
+    Args:
+        x: The x value. Expected type: `Number | Iterable[Number]`. Defaults to `0`.
+        y: The y value. Expected type: `Number`. Defaults to `0`.
+        z: The z value. Expected type: `Number`. Defaults to `0`.
+
+    Returns:
+        The return value. Type: `Vector`.
+    """
     return Vector(x, y, z)
 
 

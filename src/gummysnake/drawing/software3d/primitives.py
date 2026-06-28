@@ -33,6 +33,14 @@ def _rust_primitive_model(function_name: str, *args: object) -> Model3D:
 
 
 def clear_primitive_model_cache() -> None:
+    """Clear primitive model cache.
+    
+    Args:
+        None.
+    
+    Returns:
+        None.
+    """
     for fn in (
         plane_model,
         box_model,
@@ -46,6 +54,14 @@ def clear_primitive_model_cache() -> None:
 
 
 def primitive_model_cache_info() -> dict[str, Any]:
+    """Primitive model cache info.
+    
+    Args:
+        None.
+    
+    Returns:
+        The return value. Type: `dict[str, Any]`.
+    """
     return {
         "plane": cast(_CachedModelFactory, plane_model).cache_info(),
         "box": cast(_CachedModelFactory, box_model).cache_info(),
@@ -59,16 +75,45 @@ def primitive_model_cache_info() -> dict[str, Any]:
 
 @lru_cache(maxsize=_MESH_CACHE_SIZE)
 def plane_model(width: float, height: float | None = None) -> Model3D:
+    """Plane model.
+    
+    Args:
+        width: The width value. Expected type: `float`.
+        height: The height value. Expected type: `float | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
+    """
     return _rust_primitive_model("create_plane_model_handle", width, height)
 
 
 @lru_cache(maxsize=_MESH_CACHE_SIZE)
 def box_model(width: float, height: float | None = None, depth: float | None = None) -> Model3D:
+    """Box model.
+    
+    Args:
+        width: The width value. Expected type: `float`.
+        height: The height value. Expected type: `float | None`. Defaults to `None`.
+        depth: The depth value. Expected type: `float | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
+    """
     return _rust_primitive_model("create_box_model_handle", width, height, depth)
 
 
 @lru_cache(maxsize=_MESH_CACHE_SIZE)
 def sphere_model(radius: float, detail_x: int = 24, detail_y: int = 16) -> Model3D:
+    """Sphere model.
+    
+    Args:
+        radius: The radius value. Expected type: `float`.
+        detail_x: The detail x value. Expected type: `int`. Defaults to `24`.
+        detail_y: The detail y value. Expected type: `int`. Defaults to `16`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
+    """
     return _rust_primitive_model("create_sphere_model_handle", radius, detail_x, detail_y)
 
 
@@ -80,6 +125,18 @@ def ellipsoid_model(
     detail_x: int = 24,
     detail_y: int = 16,
 ) -> Model3D:
+    """Ellipsoid model.
+    
+    Args:
+        radius_x: The radius x value. Expected type: `float`.
+        radius_y: The radius y value. Expected type: `float | None`. Defaults to `None`.
+        radius_z: The radius z value. Expected type: `float | None`. Defaults to `None`.
+        detail_x: The detail x value. Expected type: `int`. Defaults to `24`.
+        detail_y: The detail y value. Expected type: `int`. Defaults to `16`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
+    """
     return _rust_primitive_model(
         "create_ellipsoid_model_handle", radius_x, radius_y, radius_z, detail_x, detail_y
     )
@@ -95,6 +152,19 @@ def cylinder_model(
     bottom_cap: bool = True,
     top_cap: bool = True,
 ) -> Model3D:
+    """Cylinder model.
+    
+    Args:
+        radius: The radius value. Expected type: `float`.
+        height: The height value. Expected type: `float`.
+        detail_x: The detail x value. Expected type: `int`. Defaults to `24`.
+        detail_y: The detail y value. Expected type: `int`. Defaults to `1`.
+        bottom_cap: The bottom cap value. Expected type: `bool`. Defaults to `True`.
+        top_cap: The top cap value. Expected type: `bool`. Defaults to `True`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
+    """
     return _rust_primitive_model(
         "create_cylinder_model_handle", radius, height, detail_x, detail_y, bottom_cap, top_cap
     )
@@ -104,6 +174,18 @@ def cylinder_model(
 def cone_model(
     radius: float, height: float, detail_x: int = 24, detail_y: int = 1, *, cap: bool = True
 ) -> Model3D:
+    """Cone model.
+    
+    Args:
+        radius: The radius value. Expected type: `float`.
+        height: The height value. Expected type: `float`.
+        detail_x: The detail x value. Expected type: `int`. Defaults to `24`.
+        detail_y: The detail y value. Expected type: `int`. Defaults to `1`.
+        cap: The cap value. Expected type: `bool`. Defaults to `True`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
+    """
     return _rust_primitive_model(
         "create_cone_model_handle", radius, height, detail_x, detail_y, cap
     )
@@ -113,6 +195,17 @@ def cone_model(
 def torus_model(
     radius: float, tube_radius: float | None = None, detail_x: int = 24, detail_y: int = 12
 ) -> Model3D:
+    """Torus model.
+    
+    Args:
+        radius: The radius value. Expected type: `float`.
+        tube_radius: The tube radius value. Expected type: `float | None`. Defaults to `None`.
+        detail_x: The detail x value. Expected type: `int`. Defaults to `24`.
+        detail_y: The detail y value. Expected type: `int`. Defaults to `12`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
+    """
     return _rust_primitive_model(
         "create_torus_model_handle", radius, tube_radius, detail_x, detail_y
     )

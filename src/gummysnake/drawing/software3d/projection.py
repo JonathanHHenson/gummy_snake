@@ -19,6 +19,15 @@ from .types import ScreenPoint
 
 
 def visible(point: Vec3, projection: Projection3D) -> bool:
+    """Visible.
+    
+    Args:
+        point: The point value. Expected type: `Vec3`.
+        projection: The projection value. Expected type: `Projection3D`.
+    
+    Returns:
+        The return value. Type: `bool`.
+    """
     return projection.near <= point.z <= projection.far
 
 
@@ -28,6 +37,17 @@ def project_camera_point(
     viewport_width: float,
     viewport_height: float,
 ) -> ScreenPoint | None:
+    """Project camera point.
+    
+    Args:
+        point: The point value. Expected type: `Vec3`.
+        projection: The projection value. Expected type: `Projection3D`.
+        viewport_width: The viewport width value. Expected type: `float`.
+        viewport_height: The viewport height value. Expected type: `float`.
+    
+    Returns:
+        The return value. Type: `ScreenPoint | None`.
+    """
     if isinstance(projection, PerspectiveProjection):
         return _project_perspective(point, projection, viewport_width, viewport_height)
     if isinstance(projection, FrustumProjection):
@@ -36,6 +56,15 @@ def project_camera_point(
 
 
 def camera_space(point: Vec3, camera: Camera3D) -> Vec3:
+    """Camera space.
+    
+    Args:
+        point: The point value. Expected type: `Vec3`.
+        camera: The camera value. Expected type: `Camera3D`.
+    
+    Returns:
+        The return value. Type: `Vec3`.
+    """
     forward = normalize(sub(camera.target, camera.eye))
     right = normalize(cross(forward, camera.up))
     true_up = cross(right, forward)
@@ -44,6 +73,14 @@ def camera_space(point: Vec3, camera: Camera3D) -> Vec3:
 
 
 def validate_projection(projection: Projection3D) -> None:
+    """Validate projection.
+    
+    Args:
+        projection: The projection value. Expected type: `Projection3D`.
+    
+    Returns:
+        None.
+    """
     if projection.near <= 0:
         raise ArgumentValidationError("projection near plane must be positive.")
     if projection.far <= projection.near:

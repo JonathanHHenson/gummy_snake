@@ -19,14 +19,32 @@ FilterType = Literal["lowpass", "highpass"]
 
 @dataclass(frozen=True, slots=True)
 class AudioBuffer:
+    """Public buffer object for AudioBuffer data."""
+
     samples: tuple[float, ...]
     sample_rate: int = 44_100
 
     @property
     def duration(self) -> float:
+        """Return this AudioBuffer's duration.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         return len(self.samples) / float(self.sample_rate)
 
     def to_sound(self, path: str | Path = "generated.wav") -> Sound:
+        """Return this AudioBuffer converted to sound.
+        
+        Args:
+            path: The path value. Expected type: `str | Path`. Defaults to `'generated.wav'`.
+        
+        Returns:
+            The return value. Type: `Sound`.
+        """
         payload = _wav_bytes(self.samples, sample_rate=self.sample_rate)
         return Sound(_MemorySoundSource(payload, duration=self.duration), path=Path(path))
 
@@ -46,28 +64,69 @@ class Amplitude:
     def __init__(
         self, source: Sound | AudioBuffer | Sequence[float] | None = None, *, smoothing: float = 0.0
     ) -> None:
+        """Create an RMS amplitude analyzer for an optional audio source."""
         self._source = source
         self._smoothing = _unit_interval(smoothing, "smoothing")
         self._level = 0.0
 
     def set_input(self, source: Sound | AudioBuffer | Sequence[float] | None) -> None:
+        """Set the input value.
+        
+        Args:
+            source: The source value. Expected type: `Sound | AudioBuffer | Sequence[float] | None`.
+        
+        Returns:
+            None.
+        """
         self._source = source
 
     def smoothing(self, value: float | None = None) -> float:
+        """Smoothing for this Amplitude.
+        
+        Args:
+            value: The value value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         if value is not None:
             self._smoothing = _unit_interval(value, "smoothing")
         return self._smoothing
 
     def analyze(self, samples: Sequence[float] | None = None) -> float:
+        """Analyze for this Amplitude.
+        
+        Args:
+            samples: The samples value. Expected type: `Sequence[float] | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         data = _samples_from_source(samples if samples is not None else self._source)
         raw = 0.0 if not data else math.sqrt(sum(sample * sample for sample in data) / len(data))
         self._level = self._level * self._smoothing + raw * (1.0 - self._smoothing)
         return self._level
 
     def level(self, samples: Sequence[float] | None = None) -> float:
+        """Level for this Amplitude.
+        
+        Args:
+            samples: The samples value. Expected type: `Sequence[float] | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         return self.analyze(samples)
 
     def get_level(self) -> float:
+        """Return the current level value.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         return self._level
 
 
@@ -81,6 +140,7 @@ class FFT:
         bins: int = 1024,
         smoothing: float = 0.0,
     ) -> None:
+        """Create a deterministic FFT analyzer for an optional audio source."""
         if bins <= 0:
             raise ArgumentValidationError("FFT bins must be positive.")
         self._source = source
@@ -89,9 +149,25 @@ class FFT:
         self._spectrum = tuple(0.0 for _ in range(self._bins))
 
     def set_input(self, source: Sound | AudioBuffer | Sequence[float] | None) -> None:
+        """Set the input value.
+        
+        Args:
+            source: The source value. Expected type: `Sound | AudioBuffer | Sequence[float] | None`.
+        
+        Returns:
+            None.
+        """
         self._source = source
 
     def waveform(self, samples: Sequence[float] | None = None) -> tuple[float, ...]:
+        """Waveform for this FFT.
+        
+        Args:
+            samples: The samples value. Expected type: `Sequence[float] | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `tuple[float, ...]`.
+        """
         data = list(_samples_from_source(samples if samples is not None else self._source))
         target = self._bins * 2
         if len(data) >= target:
@@ -99,6 +175,14 @@ class FFT:
         return tuple(data + [0.0] * (target - len(data)))
 
     def spectrum(self, samples: Sequence[float] | None = None) -> tuple[float, ...]:
+        """Spectrum for this FFT.
+        
+        Args:
+            samples: The samples value. Expected type: `Sequence[float] | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `tuple[float, ...]`.
+        """
         wave_samples = self.waveform(samples)
         n = len(wave_samples)
         magnitudes: list[float] = []
@@ -117,6 +201,14 @@ class FFT:
         return self._spectrum
 
     def analyze(self, samples: Sequence[float] | None = None) -> tuple[float, ...]:
+        """Analyze for this FFT.
+        
+        Args:
+            samples: The samples value. Expected type: `Sequence[float] | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `tuple[float, ...]`.
+        """
         return self.spectrum(samples)
 
 
@@ -126,6 +218,7 @@ class Oscillator:
     def __init__(
         self, waveform: WaveformName = "sine", *, frequency: float = 440.0, amplitude: float = 1.0
     ) -> None:
+        """Create an oscillator with the requested waveform, frequency, and amplitude."""
         if waveform not in {"sine", "square", "triangle", "sawtooth"}:
             raise ArgumentValidationError("Unsupported oscillator waveform.")
         if frequency <= 0:
@@ -137,12 +230,36 @@ class Oscillator:
         self.phase = 0.0
 
     def start(self) -> None:
+        """Start for this Oscillator.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self.is_started = True
 
     def stop(self) -> None:
+        """Stop this Oscillator.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self.is_started = False
 
     def freq(self, value: float | None = None) -> float:
+        """Freq for this Oscillator.
+        
+        Args:
+            value: The value value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("Oscillator frequency must be positive.")
@@ -150,11 +267,28 @@ class Oscillator:
         return self.frequency
 
     def amp(self, value: float | None = None) -> float:
+        """Amp for this Oscillator.
+        
+        Args:
+            value: The value value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         if value is not None:
             self.amplitude = _unit_interval(value, "amplitude")
         return self.amplitude
 
     def sample(self, duration: float, *, sample_rate: int = 44_100) -> AudioBuffer:
+        """Sample for this Oscillator.
+        
+        Args:
+            duration: The duration value. Expected type: `float`.
+            sample_rate: The sample rate value. Expected type: `int`. Defaults to `44100`.
+        
+        Returns:
+            The return value. Type: `AudioBuffer`.
+        """
         if duration < 0:
             raise ArgumentValidationError("Oscillator sample duration cannot be negative.")
         count = int(round(duration * sample_rate))
@@ -166,6 +300,15 @@ class Oscillator:
         return AudioBuffer(tuple(samples), sample_rate=sample_rate)
 
     def to_sound(self, duration: float, *, sample_rate: int = 44_100) -> Sound:
+        """Return this Oscillator converted to sound.
+        
+        Args:
+            duration: The duration value. Expected type: `float`.
+            sample_rate: The sample rate value. Expected type: `int`. Defaults to `44100`.
+        
+        Returns:
+            The return value. Type: `Sound`.
+        """
         return self.sample(duration, sample_rate=sample_rate).to_sound()
 
     def _value_at_phase(self, phase: float) -> float:
@@ -180,6 +323,8 @@ class Oscillator:
 
 @dataclass(slots=True)
 class Envelope:
+    """Public Envelope value for Gummy Snake audio features."""
+
     attack: float = 0.01
     decay: float = 0.1
     sustain: float = 0.7
@@ -191,6 +336,17 @@ class Envelope:
         self.sustain = _unit_interval(self.sustain, "sustain")
 
     def set_adsr(self, attack: float, decay: float, sustain: float, release: float) -> None:
+        """Set the adsr value.
+        
+        Args:
+            attack: The attack value. Expected type: `float`.
+            decay: The decay value. Expected type: `float`.
+            sustain: The sustain value. Expected type: `float`.
+            release: The release value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         self.attack = float(attack)
         self.decay = float(decay)
         self.sustain = float(sustain)
@@ -198,6 +354,16 @@ class Envelope:
         self.__post_init__()
 
     def value_at(self, time_seconds: float, *, gate_duration: float | None = None) -> float:
+        """Value at for this Envelope.
+        
+        Args:
+            time_seconds: The time seconds value. Expected type: `float`.
+            gate_duration: The gate duration value. Expected type: `float | None`. Defaults to
+                `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         t = max(0.0, float(time_seconds))
         if self.attack > 0 and t < self.attack:
             return t / self.attack
@@ -212,6 +378,16 @@ class Envelope:
         return max(0.0, self.sustain * (1.0 - release_t / self.release))
 
     def apply(self, buffer: AudioBuffer, *, gate_duration: float | None = None) -> AudioBuffer:
+        """Apply for this Envelope.
+        
+        Args:
+            buffer: The buffer value. Expected type: `AudioBuffer`.
+            gate_duration: The gate duration value. Expected type: `float | None`. Defaults to
+                `None`.
+        
+        Returns:
+            The return value. Type: `AudioBuffer`.
+        """
         return AudioBuffer(
             tuple(
                 sample * self.value_at(index / buffer.sample_rate, gate_duration=gate_duration)
@@ -222,6 +398,8 @@ class Envelope:
 
 
 class AudioFilter:
+    """Public AudioFilter value for Gummy Snake audio features."""
+
     def __init__(
         self,
         filter_type: FilterType = "lowpass",
@@ -229,6 +407,7 @@ class AudioFilter:
         frequency: float = 1_000.0,
         resonance: float = 0.0,
     ) -> None:
+        """Create a simple deterministic low-pass or high-pass audio filter."""
         if filter_type not in {"lowpass", "highpass"}:
             raise ArgumentValidationError("create_filter() supports 'lowpass' and 'highpass'.")
         if frequency <= 0:
@@ -240,6 +419,15 @@ class AudioFilter:
     def process(
         self, buffer: AudioBuffer | Sequence[float], *, sample_rate: int = 44_100
     ) -> AudioBuffer:
+        """Process samples through this audio filter.
+        
+        Args:
+            buffer: The buffer value. Expected type: `AudioBuffer | Sequence[float]`.
+            sample_rate: The sample rate value. Expected type: `int`. Defaults to `44100`.
+        
+        Returns:
+            The return value. Type: `AudioBuffer`.
+        """
         source = (
             buffer
             if isinstance(buffer, AudioBuffer)
@@ -271,22 +459,55 @@ class AudioInput:
     """
 
     def __init__(self, *, sample_rate: int = 44_100) -> None:
+        """Create a headless-safe audio input buffer at the given sample rate."""
         self.sample_rate = int(sample_rate)
         self.is_started = False
         self._buffer = AudioBuffer((), sample_rate=self.sample_rate)
 
     def start(self) -> None:
+        """Start for this AudioInput.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self.is_started = True
 
     def stop(self) -> None:
+        """Stop this AudioInput.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self.is_started = False
 
     def push_samples(self, samples: Sequence[float]) -> None:
+        """Replace the buffered audio input samples.
+        
+        Args:
+            samples: The samples value. Expected type: `Sequence[float]`.
+        
+        Returns:
+            None.
+        """
         self._buffer = AudioBuffer(
             tuple(float(sample) for sample in samples), sample_rate=self.sample_rate
         )
 
     def read(self, count: int | None = None) -> AudioBuffer:
+        """Read for this AudioInput.
+        
+        Args:
+            count: The count value. Expected type: `int | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `AudioBuffer`.
+        """
         if count is None:
             return self._buffer
         samples = self._buffer.samples[: max(0, int(count))]
@@ -296,6 +517,16 @@ class AudioInput:
 def create_amplitude(
     source: Sound | AudioBuffer | Sequence[float] | None = None, *, smoothing: float = 0.0
 ) -> Amplitude:
+    """Create and return a amplitude value.
+    
+    Args:
+        source: The source value. Expected type: `Sound | AudioBuffer | Sequence[float] | None`.
+            Defaults to `None`.
+        smoothing: The smoothing value. Expected type: `float`. Defaults to `0.0`.
+    
+    Returns:
+        The return value. Type: `Amplitude`.
+    """
     return Amplitude(source, smoothing=smoothing)
 
 
@@ -305,28 +536,78 @@ def create_fft(
     bins: int = 1024,
     smoothing: float = 0.0,
 ) -> FFT:
+    """Create and return a fft value.
+    
+    Args:
+        source: The source value. Expected type: `Sound | AudioBuffer | Sequence[float] | None`.
+            Defaults to `None`.
+        bins: The bins value. Expected type: `int`. Defaults to `1024`.
+        smoothing: The smoothing value. Expected type: `float`. Defaults to `0.0`.
+    
+    Returns:
+        The return value. Type: `FFT`.
+    """
     return FFT(source, bins=bins, smoothing=smoothing)
 
 
 def create_oscillator(
     waveform: WaveformName = "sine", *, frequency: float = 440.0, amplitude: float = 1.0
 ) -> Oscillator:
+    """Create and return a oscillator value.
+    
+    Args:
+        waveform: The waveform value. Expected type: `WaveformName`. Defaults to `'sine'`.
+        frequency: The frequency value. Expected type: `float`. Defaults to `440.0`.
+        amplitude: The amplitude value. Expected type: `float`. Defaults to `1.0`.
+    
+    Returns:
+        The return value. Type: `Oscillator`.
+    """
     return Oscillator(waveform, frequency=frequency, amplitude=amplitude)
 
 
 def create_envelope(
     attack: float = 0.01, decay: float = 0.1, sustain: float = 0.7, release: float = 0.2
 ) -> Envelope:
+    """Create and return a envelope value.
+    
+    Args:
+        attack: The attack value. Expected type: `float`. Defaults to `0.01`.
+        decay: The decay value. Expected type: `float`. Defaults to `0.1`.
+        sustain: The sustain value. Expected type: `float`. Defaults to `0.7`.
+        release: The release value. Expected type: `float`. Defaults to `0.2`.
+    
+    Returns:
+        The return value. Type: `Envelope`.
+    """
     return Envelope(attack=attack, decay=decay, sustain=sustain, release=release)
 
 
 def create_filter(
     filter_type: FilterType = "lowpass", *, frequency: float = 1_000.0, resonance: float = 0.0
 ) -> AudioFilter:
+    """Create and return a filter value.
+    
+    Args:
+        filter_type: The filter type value. Expected type: `FilterType`. Defaults to `'lowpass'`.
+        frequency: The frequency value. Expected type: `float`. Defaults to `1000.0`.
+        resonance: The resonance value. Expected type: `float`. Defaults to `0.0`.
+    
+    Returns:
+        The return value. Type: `AudioFilter`.
+    """
     return AudioFilter(filter_type, frequency=frequency, resonance=resonance)
 
 
 def create_audio_in(*, sample_rate: int = 44_100) -> AudioInput:
+    """Create and return a audio in value.
+    
+    Args:
+        sample_rate: The sample rate value. Expected type: `int`. Defaults to `44100`.
+    
+    Returns:
+        The return value. Type: `AudioInput`.
+    """
     return AudioInput(sample_rate=sample_rate)
 
 

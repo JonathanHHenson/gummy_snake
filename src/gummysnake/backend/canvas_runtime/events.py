@@ -66,6 +66,14 @@ MOUSE_BUTTONS = {
 
 
 def event_mapping(payload: object) -> Mapping[str, object]:
+    """Event mapping.
+    
+    Args:
+        payload: The payload value. Expected type: `object`.
+    
+    Returns:
+        The return value. Type: `Mapping[str, object]`.
+    """
     if isinstance(payload, Mapping):
         return cast(Mapping[str, object], payload)
     as_dict = getattr(payload, "as_dict", None)
@@ -82,6 +90,16 @@ def float_payload(
     *,
     default: float | None = None,
 ) -> float:
+    """Float payload.
+    
+    Args:
+        payload: The payload value. Expected type: `Mapping[str, object]`.
+        key: The key value. Expected type: `str`.
+        default: The default value. Expected type: `float | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `float`.
+    """
     value: Any = payload.get(key, default)
     if value is None:
         raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
@@ -94,6 +112,16 @@ def int_payload(
     *,
     default: int | None = None,
 ) -> int:
+    """Int payload.
+    
+    Args:
+        payload: The payload value. Expected type: `Mapping[str, object]`.
+        key: The key value. Expected type: `str`.
+        default: The default value. Expected type: `int | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `int`.
+    """
     value: Any = payload.get(key, default)
     if value is None:
         raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
@@ -106,6 +134,16 @@ def bool_payload(
     *,
     default: bool | None = None,
 ) -> bool:
+    """Bool payload.
+    
+    Args:
+        payload: The payload value. Expected type: `Mapping[str, object]`.
+        key: The key value. Expected type: `str`.
+        default: The default value. Expected type: `bool | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `bool`.
+    """
     value: Any = payload.get(key, default)
     if value is None:
         raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
@@ -113,20 +151,52 @@ def bool_payload(
 
 
 def optional_int(value: object) -> int | None:
+    """Optional int.
+    
+    Args:
+        value: The value value. Expected type: `object`.
+    
+    Returns:
+        The return value. Type: `int | None`.
+    """
     raw_value: Any = value
     return None if raw_value is None else int(raw_value)
 
 
 def optional_float(value: object) -> float | None:
+    """Optional float.
+    
+    Args:
+        value: The value value. Expected type: `object`.
+    
+    Returns:
+        The return value. Type: `float | None`.
+    """
     raw_value: Any = value
     return None if raw_value is None else float(raw_value)
 
 
 def optional_bool(value: object) -> bool | None:
+    """Optional bool.
+    
+    Args:
+        value: The value value. Expected type: `object`.
+    
+    Returns:
+        The return value. Type: `bool | None`.
+    """
     return None if value is None else bool_value(value)
 
 
 def bool_value(value: object) -> bool:
+    """Bool value.
+    
+    Args:
+        value: The value value. Expected type: `object`.
+    
+    Returns:
+        The return value. Type: `bool`.
+    """
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -135,6 +205,14 @@ def bool_value(value: object) -> bool:
 
 
 def normalize_mouse_button(button: object) -> str | None:
+    """Normalize mouse button.
+    
+    Args:
+        button: The button value. Expected type: `object`.
+    
+    Returns:
+        The return value. Type: `str | None`.
+    """
     if button is None:
         return None
     normalized = MOUSE_BUTTONS.get(button)
@@ -144,6 +222,15 @@ def normalize_mouse_button(button: object) -> str | None:
 
 
 def normalize_key_code(key_code: object, key: str | None = None) -> int | None:
+    """Normalize key code.
+    
+    Args:
+        key_code: The key code value. Expected type: `object`.
+        key: The key value. Expected type: `str | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `int | None`.
+    """
     if key_code is None:
         if key is not None and len(key) == 1:
             return ord(key)

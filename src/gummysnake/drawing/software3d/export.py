@@ -25,6 +25,15 @@ def _write_chunked(stream: TextIO, lines: Iterable[str]) -> None:
 
 
 def save_obj(model: Model3D, path: str | Path) -> Path:
+    """Save obj.
+    
+    Args:
+        model: The model value. Expected type: `Model3D`.
+        path: The path value. Expected type: `str | Path`.
+    
+    Returns:
+        The return value. Type: `Path`.
+    """
     output = Path(path)
     handle = _model_rust_handle(model)
     if handle is not None:
@@ -54,6 +63,16 @@ def save_obj(model: Model3D, path: str | Path) -> Path:
 
 
 def save_stl(model: Model3D, path: str | Path, *, name: str = "gummy_snake_model") -> Path:
+    """Save stl.
+    
+    Args:
+        model: The model value. Expected type: `Model3D`.
+        path: The path value. Expected type: `str | Path`.
+        name: The name value. Expected type: `str`. Defaults to `'gummy_snake_model'`.
+    
+    Returns:
+        The return value. Type: `Path`.
+    """
     output = Path(path)
     handle = _model_rust_handle(model)
     if handle is not None:

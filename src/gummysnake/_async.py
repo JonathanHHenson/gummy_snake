@@ -12,7 +12,14 @@ from typing import Any, cast
 
 
 def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
-    """Run an awaitable to completion from gummysnake's synchronous runtime paths."""
+    """Run an awaitable to completion from gummysnake's synchronous runtime paths.
+    
+    Args:
+        awaitable: The awaitable value. Expected type: `Awaitable[T]`.
+    
+    Returns:
+        The return value. Type: `T`.
+    """
 
     try:
         asyncio.get_running_loop()
@@ -39,7 +46,14 @@ def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
 
 
 def resolve_maybe_awaitable[T](value: T | Awaitable[T]) -> T:
-    """Return a value, awaiting it first when a callback returned an awaitable."""
+    """Return a value, awaiting it first when a callback returned an awaitable.
+    
+    Args:
+        value: The value value. Expected type: `T | Awaitable[T]`.
+    
+    Returns:
+        The return value. Type: `T`.
+    """
 
     if inspect.isawaitable(value):
         return run_awaitable_blocking(cast(Awaitable[T], value))
@@ -51,7 +65,15 @@ async def _await_value[T](awaitable: Awaitable[T]) -> T:
 
 
 def call_maybe_async[T](callback: Callable[..., T | Awaitable[T]], *args: Any) -> T:
-    """Call a Gummy Snake callback and await its result when needed."""
+    """Call a Gummy Snake callback and await its result when needed.
+    
+    Args:
+        callback: The callback value. Expected type: `Callable[..., T | Awaitable[T]]`.
+        *args: Additional positional arguments. Expected type: `Any`.
+    
+    Returns:
+        The return value. Type: `T`.
+    """
 
     return resolve_maybe_awaitable(callback(*args))
 
@@ -59,7 +81,15 @@ def call_maybe_async[T](callback: Callable[..., T | Awaitable[T]], *args: Any) -
 def call_maybe_async_with_optional_args[T](
     callback: Callable[..., T | Awaitable[T]], *args: Any
 ) -> T:
-    """Call callback with optional args without masking callback-internal TypeErrors."""
+    """Call callback with optional args without masking callback-internal TypeErrors.
+    
+    Args:
+        callback: The callback value. Expected type: `Callable[..., T | Awaitable[T]]`.
+        *args: Additional positional arguments. Expected type: `Any`.
+    
+    Returns:
+        The return value. Type: `T`.
+    """
 
     accepts_args = _accepts_positional_args(callback, len(args)) if args else False
     if accepts_args is True:
@@ -89,7 +119,16 @@ def _accepts_positional_args(callback: Callable[..., Any], count: int) -> bool |
 
 
 async def run_blocking_io[T](callback: Callable[..., T], *args: Any, **kwargs: Any) -> T:
-    """Run blocking IO without copying active Gummy Snake contextvars to the worker thread."""
+    """Run blocking IO without copying active Gummy Snake contextvars to the worker thread.
+    
+    Args:
+        callback: The callback value. Expected type: `Callable[..., T]`.
+        *args: Additional positional arguments. Expected type: `Any`.
+        **kwargs: Additional keyword arguments. Expected type: `Any`.
+    
+    Returns:
+        The return value. Type: `T`.
+    """
 
     loop = asyncio.get_running_loop()
     call = partial(callback, *args, **kwargs)

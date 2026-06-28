@@ -8,10 +8,21 @@ from gummysnake.exceptions import ArgumentValidationError
 
 
 class ImageSource(Protocol):
+    """Protocol for image-like sources that expose dimensions and RGBA bytes."""
+
     width: int
     height: int
 
-    def tobytes(self) -> bytes: ...
+    def tobytes(self) -> bytes:
+        """Return this image source as packed RGBA bytes.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `bytes`.
+        """
+        ...
 
 
 class _ByteSourceCallback(Protocol):
@@ -23,6 +34,16 @@ def coerce_image_source(
     height: int | None,
     pixels: bytes | bytearray | None,
 ) -> tuple[int, int, bytes]:
+    """Coerce image source using the active image context.
+    
+    Args:
+        width: The width value. Expected type: `int | ImageSource`.
+        height: The height value. Expected type: `int | None`.
+        pixels: The pixels value. Expected type: `bytes | bytearray | None`.
+    
+    Returns:
+        The return value. Type: `tuple[int, int, bytes]`.
+    """
     if isinstance(width, int):
         if height is None:
             raise ArgumentValidationError("Image height is required.")

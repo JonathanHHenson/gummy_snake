@@ -50,6 +50,14 @@ class CanvasRendererCounterMixin:
         self._performance_counters = dict.fromkeys(_PERFORMANCE_COUNTER_KEYS, 0)
 
     def performance_counters(self) -> PerformanceCounters:
+        """Performance counters.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `PerformanceCounters`.
+        """
         counters: PerformanceCounters = dict(self._performance_counters)
         canvas = self._canvas
         callback = getattr(canvas, "performance_counters", None) if canvas is not None else None
@@ -64,6 +72,14 @@ class CanvasRendererCounterMixin:
         return counters
 
     def reset_performance_counters(self) -> None:
+        """Reset performance counters.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self._init_performance_counters()
         canvas = self._canvas
         callback = (

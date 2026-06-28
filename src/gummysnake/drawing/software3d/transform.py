@@ -9,7 +9,15 @@ from gummysnake.drawing.renderer3d import Mesh3D, Model3D
 
 
 def transform_model(model: Model3D, matrix: Matrix2D) -> Model3D:
-    """Apply the active sketch transform to model coordinates before projection."""
+    """Apply the active sketch transform to model coordinates before projection.
+    
+    Args:
+        model: The model value. Expected type: `Model3D`.
+        matrix: The matrix value. Expected type: `Matrix2D`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
+    """
 
     if matrix == Matrix2D.identity():
         return model

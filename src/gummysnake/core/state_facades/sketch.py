@@ -45,20 +45,60 @@ class SketchState:
 
     @property
     def looping(self) -> bool:
+        """Looping.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `bool`.
+        """
         return bool(self._rust.looping)
 
     @looping.setter
     def looping(self, value: bool) -> None:
+        """Looping.
+        
+        Args:
+            value: The value value. Expected type: `bool`.
+        
+        Returns:
+            None.
+        """
         self._rust.looping = bool(value)
 
     @property
     def redraw_requested(self) -> bool:
+        """Redraw requested.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `bool`.
+        """
         return bool(self._rust.redraw_requested)
 
     @redraw_requested.setter
     def redraw_requested(self, value: bool) -> None:
+        """Redraw requested.
+        
+        Args:
+            value: The value value. Expected type: `bool`.
+        
+        Returns:
+            None.
+        """
         self._rust.redraw_requested = bool(value)
 
     @property
     def rust(self) -> Any:
+        """Rust.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Any`.
+        """
         return self._rust

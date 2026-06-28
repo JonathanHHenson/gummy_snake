@@ -17,11 +17,28 @@ class CanvasBackendPacingMixin:
     _last_present_time: float | None
 
     def enable_frame_pacing_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
+        """Enable frame pacing diagnostics.
+        
+        Args:
+            enabled: The enabled value. Expected type: `bool`. Defaults to `True`.
+            reset: The reset value. Expected type: `bool`. Defaults to `True`.
+        
+        Returns:
+            None.
+        """
         self._frame_pacing_enabled = bool(enabled)
         if reset:
             self.reset_frame_pacing_diagnostics()
 
     def reset_frame_pacing_diagnostics(self) -> None:
+        """Reset frame pacing diagnostics.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         enabled = self._frame_pacing_enabled
         self._frame_pacing = {
             "enabled": enabled,
@@ -43,6 +60,14 @@ class CanvasBackendPacingMixin:
         self._last_present_time = None
 
     def frame_pacing_diagnostics(self) -> dict[str, float | int | bool | None]:
+        """Frame pacing diagnostics.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `dict[str, float | int | bool | None]`.
+        """
         report = dict(self._frame_pacing)
         frames = _pacing_int(report.get("frames"))
         event_polls = _pacing_int(report.get("event_polls"))

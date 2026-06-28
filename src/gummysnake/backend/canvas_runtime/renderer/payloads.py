@@ -19,10 +19,26 @@ MatrixPayload = tuple[float, float, float, float, float, float]
 
 
 def color_payload(color: Color | None) -> tuple[int, int, int, int] | None:
+    """Color payload.
+    
+    Args:
+        color: The color value. Expected type: `Color | None`.
+    
+    Returns:
+        The return value. Type: `tuple[int, int, int, int] | None`.
+    """
     return None if color is None else color.to_tuple()
 
 
 def style_payload(style: StyleState) -> dict[str, object]:
+    """Style payload.
+    
+    Args:
+        style: The style value. Expected type: `StyleState`.
+    
+    Returns:
+        The return value. Type: `dict[str, object]`.
+    """
     return {
         "fill": color_payload(style.fill_color),
         "stroke": color_payload(style.stroke_color),
@@ -42,10 +58,28 @@ def style_payload(style: StyleState) -> dict[str, object]:
 
 
 def matrix_payload(transform: Matrix2D) -> MatrixPayload:
+    """Matrix payload.
+    
+    Args:
+        transform: The transform value. Expected type: `Matrix2D`.
+    
+    Returns:
+        The return value. Type: `MatrixPayload`.
+    """
     return transform.as_tuple()
 
 
 def text_metric_key(kind: str, style: StyleState, value: str | None = None) -> TextMetricKey:
+    """Text metric key.
+    
+    Args:
+        kind: The kind value. Expected type: `str`.
+        style: The style value. Expected type: `StyleState`.
+        value: The value value. Expected type: `str | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `TextMetricKey`.
+    """
     return (kind, value, id(style), style.revision)
 
 

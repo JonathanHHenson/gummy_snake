@@ -32,6 +32,14 @@ class Model3D:
 
     @property
     def meshes(self) -> tuple[Mesh3D, ...]:
+        """Meshes.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `tuple[Mesh3D, ...]`.
+        """
         if self._meshes is None:
             self._meshes = self._materialize_rust_meshes()
         return self._meshes

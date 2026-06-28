@@ -31,6 +31,7 @@ class Image(ImageDeferredMixin):
         height: int | None = None,
         pixels: bytes | bytearray | None = None,
     ) -> None:
+        """Create an image from dimensions, encoded/source data, or a canvas handle."""
         if isinstance(width, CanvasImage):
             self._rust_image = width
             return
@@ -44,45 +45,143 @@ class Image(ImageDeferredMixin):
 
     @classmethod
     def from_rust_image(cls, image: CanvasImage) -> Self:
+        """From rust image for this Image.
+        
+        Args:
+            image: The image value. Expected type: `CanvasImage`.
+        
+        Returns:
+            The return value. Type: `Self`.
+        """
         return cls(image)
 
     @property
     def width(self) -> int:
+        """Return this Image's width.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `int`.
+        """
         return self._rust_image.width
 
     @property
     def height(self) -> int:
+        """Return this Image's height.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `int`.
+        """
         return self._rust_image.height
 
     @property
     def version(self) -> int:
+        """Version for this Image.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `int`.
+        """
         return self._rust_image.version
 
     @property
     def cache_key(self) -> int:
+        """Cache key for this Image.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `int`.
+        """
         return self._rust_image.cache_key
 
     @property
     def rust_image(self) -> CanvasImage:
+        """Rust image for this Image.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `CanvasImage`.
+        """
         return self._rust_image
 
     def to_rgba_bytes(self) -> bytes:
+        """Return this Image converted to rgba bytes.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `bytes`.
+        """
         return self._rust_image.to_rgba_bytes()
 
     def tobytes(self) -> bytes:
+        """Tobytes for this Image.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `bytes`.
+        """
         return self.to_rgba_bytes()
 
     @property
     def pixels(self) -> list[int]:
+        """Return pixels as a flat RGBA byte-value list.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `list[int]`.
+        """
         return list(self.to_rgba_bytes())
 
     @overload
-    def __getitem__(self, key: tuple[int, int]) -> Color: ...
+    def __getitem__(self, key: tuple[int, int]) -> Color:
+        """Overload signature for   getitem  ().
+        
+        Args:
+            key: The key value. Expected type: `tuple[int, int]`.
+        
+        Returns:
+            The return value. Type: `Color`.
+        """
+        ...
 
     @overload
-    def __getitem__(self, key: tuple[slice, slice]) -> Image: ...
+    def __getitem__(self, key: tuple[slice, slice]) -> Image:
+        """Overload signature for   getitem  ().
+        
+        Args:
+            key: The key value. Expected type: `tuple[slice, slice]`.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     def __getitem__(self, key: tuple[int, int] | tuple[slice, slice]) -> Color | Image:
+        """Return an item from this value by index or key.
+        
+        Args:
+            key: The key value. Expected type: `tuple[int, int] | tuple[slice, slice]`.
+        
+        Returns:
+            The return value. Type: `Color | Image`.
+        """
         if not isinstance(key, tuple) or len(key) != 2:
             raise TypeError("Image indices must be (x, y) or (x_slice, y_slice).")
         x_key, y_key = key
@@ -99,6 +198,16 @@ class Image(ImageDeferredMixin):
         key: tuple[int, int],
         value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
     ) -> None:
+        """Set an item in this value by index or key.
+        
+        Args:
+            key: The key value. Expected type: `tuple[int, int]`.
+            value: The value value. Expected type: `Color | tuple[int, int, int] | tuple[int, int,
+                int, int] | Image`.
+        
+        Returns:
+            None.
+        """
         if not isinstance(key, tuple) or len(key) != 2:
             raise TypeError("Image assignment indices must be (x, y).")
         x_key, y_key = key
@@ -107,9 +216,26 @@ class Image(ImageDeferredMixin):
         self.set(int(cast(int, x_key)), int(cast(int, y_key)), value)
 
     def load_pixels(self) -> list[int]:
+        """Load and return pixels.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `list[int]`.
+        """
         return self.pixels
 
     def update_pixels(self, pixels: Buffer | list[int] | tuple[int, ...] | None = None) -> None:
+        """Update pixels for this Image.
+        
+        Args:
+            pixels: The pixels value. Expected type: `Buffer | list[int] | tuple[int, ...] | None`.
+                Defaults to `None`.
+        
+        Returns:
+            None.
+        """
         if pixels is None:
             return
         try:
@@ -126,6 +252,14 @@ class Image(ImageDeferredMixin):
         self._rust_image.replace_rgba_bytes(payload)
 
     def pixel_density(self, value: float | None = None) -> float:
+        """Return or validate this image pixel-density setting.
+        
+        Args:
+            value: The value value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `float`.
+        """
         if value is None or value == 1:
             return 1.0
         raise UnsupportedFeatureError(
@@ -134,17 +268,62 @@ class Image(ImageDeferredMixin):
         )
 
     @overload
-    def copy(self) -> Image: ...
+    def copy(self) -> Image:
+        """Overload selecting full-image, region, or scaled-region copy behavior.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     @overload
-    def copy(self, sx: int, sy: int, sw: int, sh: int, /) -> Image: ...
+    def copy(self, sx: int, sy: int, sw: int, sh: int, /) -> Image:
+        """Overload selecting full-image, region, or scaled-region copy behavior.
+        
+        Args:
+            sx: The sx value. Expected type: `int`.
+            sy: The sy value. Expected type: `int`.
+            sw: The sw value. Expected type: `int`.
+            sh: The sh value. Expected type: `int`.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     @overload
     def copy(
         self, sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /
-    ) -> Image: ...
+    ) -> Image:
+        """Overload selecting full-image, region, or scaled-region copy behavior.
+        
+        Args:
+            sx: The sx value. Expected type: `int`.
+            sy: The sy value. Expected type: `int`.
+            sw: The sw value. Expected type: `int`.
+            sh: The sh value. Expected type: `int`.
+            dx: The dx value. Expected type: `int`.
+            dy: The dy value. Expected type: `int`.
+            dw: The dw value. Expected type: `int`.
+            dh: The dh value. Expected type: `int`.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     def copy(self, *args: int) -> Image:
+        """Copy for this Image.
+        
+        Args:
+            *args: Additional positional arguments. Expected type: `int`.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
         if not args:
             return Image(self._rust_image.copy())
         if len(args) == 4:
@@ -157,17 +336,59 @@ class Image(ImageDeferredMixin):
         raise ArgumentValidationError("Image.copy() accepts 0, 4, or 8 integer arguments.")
 
     @overload
-    def get(self) -> Image: ...
+    def get(self) -> Image:
+        """Overload selecting full-image, pixel, or region read behavior.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     @overload
-    def get(self, x: int, y: int) -> Color: ...
+    def get(self, x: int, y: int) -> Color:
+        """Overload selecting full-image, pixel, or region read behavior.
+        
+        Args:
+            x: The x value. Expected type: `int`.
+            y: The y value. Expected type: `int`.
+        
+        Returns:
+            The return value. Type: `Color`.
+        """
+        ...
 
     @overload
-    def get(self, x: int, y: int, w: int, h: int) -> Image: ...
+    def get(self, x: int, y: int, w: int, h: int) -> Image:
+        """Overload selecting full-image, pixel, or region read behavior.
+        
+        Args:
+            x: The x value. Expected type: `int`.
+            y: The y value. Expected type: `int`.
+            w: The w value. Expected type: `int`.
+            h: The h value. Expected type: `int`.
+        
+        Returns:
+            The return value. Type: `Image`.
+        """
+        ...
 
     def get(
         self, x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None
     ) -> Color | Image:
+        """Get for this Image.
+        
+        Args:
+            x: The x value. Expected type: `int | None`. Defaults to `None`.
+            y: The y value. Expected type: `int | None`. Defaults to `None`.
+            w: The w value. Expected type: `int | None`. Defaults to `None`.
+            h: The h value. Expected type: `int | None`. Defaults to `None`.
+        
+        Returns:
+            The return value. Type: `Color | Image`.
+        """
         if x is None and y is None:
             return self.copy()
         if x is None or y is None:
@@ -184,6 +405,17 @@ class Image(ImageDeferredMixin):
         y: int,
         value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
     ) -> None:
+        """Set for this Image.
+        
+        Args:
+            x: The x value. Expected type: `int`.
+            y: The y value. Expected type: `int`.
+            value: The value value. Expected type: `Color | tuple[int, int, int] | tuple[int, int,
+                int, int] | Image`.
+        
+        Returns:
+            None.
+        """
         if isinstance(value, Image):
             self._rust_image.alpha_composite(value._rust_image, int(x), int(y))
             return
@@ -193,6 +425,15 @@ class Image(ImageDeferredMixin):
         self._put_pixel(int(x), int(y), cast(tuple[int, int, int, int], rgba))
 
     def resize(self, width: int, height: int) -> None:
+        """Resize for this Image.
+        
+        Args:
+            width: The width value. Expected type: `int`.
+            height: The height value. Expected type: `int`.
+        
+        Returns:
+            None.
+        """
         target_width = self.width if width == 0 else int(width)
         target_height = self.height if height == 0 else int(height)
         if width == 0 and height != 0:
@@ -206,9 +447,26 @@ class Image(ImageDeferredMixin):
         self._rust_image.resize(target_width, target_height)
 
     def mask(self, mask_image: Image) -> None:
+        """Mask for this Image.
+        
+        Args:
+            mask_image: The mask image value. Expected type: `Image`.
+        
+        Returns:
+            None.
+        """
         self._rust_image.mask(mask_image._rust_image)
 
     def filter(self, mode: c.ImageFilter, value: float | None = None) -> None:
+        """Filter for this Image.
+        
+        Args:
+            mode: The mode value. Expected type: `c.ImageFilter`.
+            value: The value value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            None.
+        """
         normalized = mode.value
         if normalized not in {
             c.GRAY,
@@ -223,6 +481,14 @@ class Image(ImageDeferredMixin):
         self._rust_image.filter(normalized, value)
 
     def save(self, path: str | Path) -> None:
+        """Save for this Image.
+        
+        Args:
+            path: The path value. Expected type: `str | Path`.
+        
+        Returns:
+            None.
+        """
         self._rust_image.save(path)
 
     def _crop(self, sx: int, sy: int, sw: int, sh: int) -> Image:

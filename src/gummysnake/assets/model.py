@@ -18,10 +18,14 @@ def load_model(
     package: str | None = None,
 ) -> Model3D:
     """Load a Wavefront OBJ asset into backend-neutral mesh data.
-
-    The first milestone supports local filesystem paths and importable package
-    resources. OBJ material libraries are ignored for now, and only geometry,
-    optional vertex normals, and optional texture coordinates are loaded.
+    
+    Args:
+        path: The path value. Expected type: `str | Path`.
+        normalize: The normalize value. Expected type: `bool`. Defaults to `False`.
+        package: The package value. Expected type: `str | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
     """
 
     source_path = Path(str(path))
@@ -38,6 +42,16 @@ async def load_model_async(
     *,
     package: str | None = None,
 ) -> Model3D:
+    """Load and return a model asynchronously.
+    
+    Args:
+        path: The path value. Expected type: `str | Path`.
+        normalize: The normalize value. Expected type: `bool`. Defaults to `False`.
+        package: The package value. Expected type: `str | None`. Defaults to `None`.
+    
+    Returns:
+        The return value. Type: `Model3D`.
+    """
     return load_model(path, normalize, package=package)
 
 

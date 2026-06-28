@@ -20,14 +20,39 @@ from gummysnake.sketch.facade_mixins.base import SketchFacadeBaseMixin
 
 
 class SketchFacadeTransformMixin(SketchFacadeBaseMixin):
+    """Public SketchFacadeTransformMixin value."""
     def push(self) -> None:
+        """Push the current style and transform state.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self._ctx.push()
 
     def pop(self) -> None:
+        """Restore the most recently pushed style and transform state.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self._ctx.pop()
 
     @contextmanager
     def pushed(self) -> Generator[None]:
+        """Temporarily push style and transform state in a context manager.
+        
+        Args:
+            None.
+        
+        Returns:
+            The return value. Type: `Generator[None]`.
+        """
         self.push()
         try:
             yield
@@ -48,6 +73,30 @@ class SketchFacadeTransformMixin(SketchFacadeBaseMixin):
         image_mode: c.ShapeMode | None = None,
         blend_mode: c.BlendMode | None = None,
     ) -> Generator[None]:
+        """Temporarily override drawing style in a context manager.
+        
+        Args:
+            fill: The fill value. Expected type: `ColorArgument | None | Unset`. Defaults to
+                `_UNSET`.
+            stroke: The stroke value. Expected type: `ColorArgument | None | Unset`. Defaults to
+                `_UNSET`.
+            stroke_weight: The stroke weight value. Expected type: `float | None`. Defaults to
+                `None`.
+            stroke_cap: The stroke cap value. Expected type: `c.StrokeCap | None`. Defaults to
+                `None`.
+            stroke_join: The stroke join value. Expected type: `c.StrokeJoin | None`. Defaults to
+                `None`.
+            rect_mode: The rect mode value. Expected type: `c.ShapeMode | None`. Defaults to `None`.
+            ellipse_mode: The ellipse mode value. Expected type: `c.ShapeMode | None`. Defaults to
+                `None`.
+            image_mode: The image mode value. Expected type: `c.ShapeMode | None`. Defaults to
+                `None`.
+            blend_mode: The blend mode value. Expected type: `c.BlendMode | None`. Defaults to
+                `None`.
+        
+        Returns:
+            The return value. Type: `Generator[None]`.
+        """
         self.push()
         try:
             if fill is None:
@@ -84,6 +133,17 @@ class SketchFacadeTransformMixin(SketchFacadeBaseMixin):
         rotate: float | None = None,
         scale: ScaleArgument | Unset = _UNSET,
     ) -> Generator[None]:
+        """Temporarily apply transform changes in a context manager.
+        
+        Args:
+            translate: The translate value. Expected type: `CoordinatePair | Unset`. Defaults to
+                `_UNSET`.
+            rotate: The rotate value. Expected type: `float | None`. Defaults to `None`.
+            scale: The scale value. Expected type: `ScaleArgument | Unset`. Defaults to `_UNSET`.
+        
+        Returns:
+            The return value. Type: `Generator[None]`.
+        """
         self.push()
         try:
             if translate is not _UNSET:
@@ -102,25 +162,96 @@ class SketchFacadeTransformMixin(SketchFacadeBaseMixin):
             self.pop()
 
     def translate(self, x: float, y: float) -> None:
+        """Translate the active drawing transform.
+        
+        Args:
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         self._ctx.translate(x, y)
 
     def rotate(self, angle: float) -> None:
+        """Rotate the active drawing transform.
+        
+        Args:
+            angle: The angle value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         self._ctx.rotate(angle)
 
     def scale(self, x: float, y: float | None = None) -> None:
+        """Scale the active drawing transform.
+        
+        Args:
+            x: The x value. Expected type: `float`.
+            y: The y value. Expected type: `float | None`. Defaults to `None`.
+        
+        Returns:
+            None.
+        """
         self._ctx.scale(x, y)
 
     def shear_x(self, angle: float) -> None:
+        """Shear the active transform along the x axis.
+        
+        Args:
+            angle: The angle value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         self._ctx.shear_x(angle)
 
     def shear_y(self, angle: float) -> None:
+        """Shear the active transform along the y axis.
+        
+        Args:
+            angle: The angle value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         self._ctx.shear_y(angle)
 
     def apply_matrix(self, a: float, b: float, cc: float, d: float, e: float, f: float) -> None:
+        """Compose the active transform with a 2D affine matrix.
+        
+        Args:
+            a: The a value. Expected type: `float`.
+            b: The b value. Expected type: `float`.
+            cc: The cc value. Expected type: `float`.
+            d: The d value. Expected type: `float`.
+            e: The e value. Expected type: `float`.
+            f: The f value. Expected type: `float`.
+        
+        Returns:
+            None.
+        """
         self._ctx.apply_matrix(a, b, cc, d, e, f)
 
     def reset_matrix(self) -> None:
+        """Reset the active drawing transform to identity.
+        
+        Args:
+            None.
+        
+        Returns:
+            None.
+        """
         self._ctx.reset_matrix()
 
     def angle_mode(self, mode: c.AngleMode) -> None:
+        """Set whether angles are interpreted as radians or degrees.
+        
+        Args:
+            mode: The mode value. Expected type: `c.AngleMode`.
+        
+        Returns:
+            None.
+        """
         self._ctx.angle_mode(mode)
