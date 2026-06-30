@@ -1,7 +1,9 @@
+mod ecs;
 mod health;
 mod image_ops;
 mod models;
 
+use ecs::*;
 pub(crate) use health::{canvas_abi_version, gpu_available, health_check, native_window_available};
 use image_ops::*;
 use models::*;
@@ -13,6 +15,8 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(canvas_abi_version, m)?)?;
     m.add_function(wrap_pyfunction!(native_window_available, m)?)?;
     m.add_function(wrap_pyfunction!(gpu_available, m)?)?;
+    m.add_function(wrap_pyfunction!(ecs_abi_version, m)?)?;
+    m.add_function(wrap_pyfunction!(ecs_health_check, m)?)?;
     m.add_function(wrap_pyfunction!(image_resize_rgba, m)?)?;
     m.add_function(wrap_pyfunction!(image_crop_rgba, m)?)?;
     m.add_function(wrap_pyfunction!(image_alpha_composite_rgba, m)?)?;
@@ -37,6 +41,8 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Canvas>()?;
     m.add_class::<CanvasImage>()?;
     m.add_class::<CanvasSound>()?;
+    m.add_class::<PyEcsWorld>()?;
+    m.add_class::<PyEcsSpatialIndexRegistry>()?;
     m.add_class::<sketch_state::SketchContextState>()?;
     m.add_class::<software3d::CanvasModel3D>()?;
     m.add_class::<software3d::CanvasMesh3D>()?;

@@ -27,10 +27,10 @@ class Sketch(SketchFacadeMixin):
 
     def preload(self) -> object:
         """Run preload lifecycle work for this sketch.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `object`.
         """
@@ -38,10 +38,10 @@ class Sketch(SketchFacadeMixin):
 
     def setup(self) -> object:
         """Run setup lifecycle work for this sketch.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `object`.
         """
@@ -49,10 +49,10 @@ class Sketch(SketchFacadeMixin):
 
     def draw(self) -> object:
         """Run one draw lifecycle step for this sketch.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `object`.
         """
@@ -65,11 +65,11 @@ class Sketch(SketchFacadeMixin):
         max_frames: int | None = None,
     ) -> SketchContext:
         """Run this sketch using its configured backend.
-        
+
         Args:
             headless: The headless value. Expected type: `bool | None`. Defaults to `None`.
             max_frames: The max frames value. Expected type: `int | None`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `SketchContext`.
         """
@@ -97,10 +97,10 @@ class Sketch(SketchFacadeMixin):
 
     def stop(self) -> None:
         """Stop this sketch and backend.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -121,6 +121,9 @@ class Sketch(SketchFacadeMixin):
         frame_completed = False
         try:
             with activate_context(context):
+                context.plugins.dispatch_lifecycle(LifecycleHookName.BEFORE_ECS, context)
+                context.run_ecs_pre_draw()
+                context.plugins.dispatch_lifecycle(LifecycleHookName.AFTER_ECS, context)
                 context.plugins.dispatch_lifecycle(LifecycleHookName.BEFORE_DRAW, context)
                 call_maybe_async(self.draw)
                 context.plugins.dispatch_lifecycle(LifecycleHookName.AFTER_DRAW, context)
@@ -158,10 +161,10 @@ class FunctionSketch(Sketch):
 
     def preload(self) -> object:
         """Run preload lifecycle work for this sketch.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `object`.
         """
@@ -171,10 +174,10 @@ class FunctionSketch(Sketch):
 
     def setup(self) -> object:
         """Run setup lifecycle work for this sketch.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `object`.
         """
@@ -184,10 +187,10 @@ class FunctionSketch(Sketch):
 
     def draw(self) -> object:
         """Run one draw lifecycle step for this sketch.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `object`.
         """
@@ -216,10 +219,10 @@ class SketchBuilder:
     @property
     def preload_callback(self) -> Callable[[], Any] | None:
         """Preload callback for this SketchBuilder.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Callable[[], Any] | None`.
         """
@@ -228,10 +231,10 @@ class SketchBuilder:
     @property
     def setup_callback(self) -> Callable[[], Any] | None:
         """Setup callback for this SketchBuilder.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Callable[[], Any] | None`.
         """
@@ -240,10 +243,10 @@ class SketchBuilder:
     @property
     def draw_callback(self) -> Callable[[], Any] | None:
         """Draw callback for this SketchBuilder.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Callable[[], Any] | None`.
         """
@@ -252,10 +255,10 @@ class SketchBuilder:
     @property
     def event_callbacks(self) -> dict[str, Callable[..., Any]]:
         """Event callbacks for this SketchBuilder.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `dict[str, Callable[..., Any]]`.
         """
@@ -263,10 +266,10 @@ class SketchBuilder:
 
     def preload[F: Callable[[], Any]](self, callback: F) -> F:
         """Run preload lifecycle work for this sketch.
-        
+
         Args:
             callback: The callback value. Expected type: `F`.
-        
+
         Returns:
             The return value. Type: `F`.
         """
@@ -275,10 +278,10 @@ class SketchBuilder:
 
     def setup[F: Callable[[], Any]](self, callback: F) -> F:
         """Run setup lifecycle work for this sketch.
-        
+
         Args:
             callback: The callback value. Expected type: `F`.
-        
+
         Returns:
             The return value. Type: `F`.
         """
@@ -287,10 +290,10 @@ class SketchBuilder:
 
     def draw[F: Callable[[], Any]](self, callback: F) -> F:
         """Run one draw lifecycle step for this sketch.
-        
+
         Args:
             callback: The callback value. Expected type: `F`.
-        
+
         Returns:
             The return value. Type: `F`.
         """
@@ -301,11 +304,11 @@ class SketchBuilder:
         self, event_name: str | c.CallbackEventName | c.TouchEventName
     ) -> Callable[[F], F]:
         """On for this SketchBuilder.
-        
+
         Args:
             event_name: The event name value. Expected type: `str | c.CallbackEventName |
                 c.TouchEventName`.
-        
+
         Returns:
             The return value. Type: `Callable[[F], F]`.
         """
@@ -324,10 +327,10 @@ class SketchBuilder:
 
     def to_sketch(self, *, headless: bool | None = None) -> FunctionSketch:
         """To sketch for this SketchBuilder.
-        
+
         Args:
             headless: The headless value. Expected type: `bool | None`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `FunctionSketch`.
         """
@@ -346,11 +349,11 @@ class SketchBuilder:
         max_frames: int | None = None,
     ) -> SketchContext:
         """Run this sketch using its configured backend.
-        
+
         Args:
             headless: The headless value. Expected type: `bool | None`. Defaults to `None`.
             max_frames: The max frames value. Expected type: `int | None`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `SketchContext`.
         """

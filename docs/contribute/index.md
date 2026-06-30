@@ -6,11 +6,13 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 - [Backend and renderer boundaries](backend_renderer.md)
 - [Runtime model](runtime.md)
 - [Runtime diagnostics](runtime_diagnostics.md)
+- [ECS debugging and performance triage](ecs_debugging.md)
 - [Build capabilities](build_capabilities.md)
 - [Feature scope decisions](feature_scope_decisions.md)
 - [API performance policy](api_performance_policy.md)
 - [Text renderer decision](text_renderer_decision.md)
 - [Native 3D renderer plan](native_3d_plan.md)
+- [ECS release checklist](ecs_release_checklist.md)
 - [Testing and CI](testing.md)
 - [Documentation workflow](documentation.md)
 
@@ -78,6 +80,9 @@ native user shader execution.
 
 Read [Runtime diagnostics](runtime_diagnostics.md) when changing renderer
 counters, fallback boundaries, benchmark scenes, or interactive frame pacing.
+Read [ECS debugging and performance triage](ecs_debugging.md) before changing
+ECS explain output, diagnostics, strict-mode behavior, UDF execution, or spatial
+fallback boundaries.
 
 Read [Build capabilities](build_capabilities.md) when changing packaging,
 runtime import checks, cargo features, optional extras, or runtime capability

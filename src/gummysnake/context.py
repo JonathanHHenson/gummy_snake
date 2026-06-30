@@ -6,6 +6,7 @@ from collections.abc import Buffer, Sequence
 from typing import TYPE_CHECKING, Any
 
 from gummysnake.context_mixins.canvas import CanvasContextMixin
+from gummysnake.context_mixins.ecs import EcsContextMixin
 from gummysnake.context_mixins.images import ImageContextMixin
 from gummysnake.context_mixins.input import InputContextMixin
 from gummysnake.context_mixins.pixels import PixelContextMixin
@@ -25,12 +26,14 @@ from gummysnake.drawing.renderer3d import (
     PerspectiveProjection,
     Shader3D,
 )
+from gummysnake.ecs.world import EcsWorld
 
 if TYPE_CHECKING:
     from gummysnake.plugins.registry import PluginRegistry
 
 
 class SketchContext(
+    EcsContextMixin,
     CanvasContextMixin,
     StyleContextMixin,
     TransformContextMixin,
@@ -49,6 +52,7 @@ class SketchContext(
         self.renderer = backend.renderer
         self.plugins = plugins
         self.state = SketchState()
+        self.ecs = EcsWorld(self)
         self.state.input.touch_supported = bool(backend.capabilities.touch)
         self.pixels: Sequence[int] | Buffer = []
         self._camera3d = Camera3D()

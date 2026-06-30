@@ -37,6 +37,27 @@ with gs.transform(translate=(200, 100), rotate=0.5):
 `push()` / `pop()` and `with gs.pushed():` are also available when you need
 manual control over the full drawing state stack.
 
+## Entity Component Systems
+
+For larger sketches and game-like simulations, `gummysnake.ecs` lets you store
+state as dataclass components and run decorated systems before drawing:
+
+```python
+@dataclass
+class Position:
+    x: float
+    y: float
+
+
+@ecs.system
+def drift(body: ecs.Query[Position]) -> ecs.Action:
+    return ecs.set(body[Position].x, body[Position].x + 1)
+```
+
+ECS systems run before `before_draw` and `draw()`, and can use resources, typed
+events, grouped aggregates, vector/list columns, and generic spatial relations.
+See `docs/reference/ecs.md` and `examples/10_ecs/` for complete examples.
+
 ## Headless Runs
 
 Headless runs use the same Rust canvas runtime, but draw offscreen for tests,

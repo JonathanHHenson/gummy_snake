@@ -1,0 +1,51 @@
+[baseline]
+id = "2026-06-30_ecs_mvp_local_macos_arm64"
+captured_at = "2026-06-30"
+git_commit = "working-tree"
+machine = "local-macos-arm64"
+os = "macOS arm64"
+platform = "macOS-26.5.1-arm64-arm-64bit"
+python = "3.12.11"
+notes = '''
+Initial ECS MVP baseline captured from the Python compatibility executor with the
+Rust gummy_ecs storage/bridge crate available. These numbers are for regression
+tracking while Rust physical plan execution is still in progress; do not treat
+boids or spatial aggregate numbers here as the final Rust-accelerated target.
+Spatial hash-grid fallback counters were zero for the captured smoke scenario.
+'''
+
+[ecs_storage_query_suite]
+command = "custom measurement matching tests/benchmark/test_ecs_perf.py storage/query scenario"
+entity_count = 2000
+samples = 5
+storage_entities_per_second = 132980.86
+status = "passed"
+
+[ecs_scheduler_suite]
+command = "custom measurement matching tests/benchmark/test_ecs_perf.py scheduler scenario"
+entity_count = 2000
+samples = 5
+scheduler_entities_per_second = 71464.37
+status = "passed"
+
+[ecs_spatial_hash_grid_suite]
+command = "custom measurement matching tests/benchmark/test_ecs_perf.py spatial hash-grid scenario"
+entity_count = 1024
+samples = 3
+spatial_hash_grid_fps = 10.93
+spatial_indexes_built_last_frame = 1
+spatial_fallbacks = 0
+status = "passed"
+
+[boids_3d_ecs_spatial_simulation]
+command = "GUMMY_BOIDS_BENCHMARK_FRAMES=1 uv run pytest tests/benchmark/test_boids_3d_perf.py -q -k simulation --run-benchmarks -s"
+frames = 1
+repeats = 1
+boid_count = 1200
+mean_fps = 0.99
+min_fps = 0.99
+max_fps = 0.99
+spatial_indexes_built = 1
+spatial_fallbacks = 0
+meets_120_fps_target = false
+status = "measured_not_target"

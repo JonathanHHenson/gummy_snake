@@ -83,9 +83,35 @@ code calls an explicit readback or export API. Sprite and text-heavy stress
 scenes should show texture cache reuse and text cache reuse after their first
 unique layouts have been shaped.
 
+## ECS Diagnostics
+
+Use `ecs_diagnostics()` after ECS frames to inspect scheduler, ambiguity,
+resource/event, and spatial behavior:
+
+```python
+gs.reset_ecs_diagnostics()
+# run frames
+report = gs.ecs_diagnostics()
+```
+
+Stable public counters include system registration/enabled counts, schedule
+rebuilds, pre-draw run timing, ambiguity warnings/suppressions, UDF calls,
+change-filter checks, event queues, resource counts, spatial index builds,
+candidate/exact row counts, deduplicated self-pairs, nested-loop fallback rows,
+and spatial fallback counts. The Rust bridge also exposes core storage counters
+such as entity generation reuse, archetype moves, staged commands, query cache
+hits/misses/refreshes/invalidations, matched archetypes, and matched rows.
+
+When debugging a system, start with `system.explain()` to inspect the action tree
+and relation/aggregate shape, then compare diagnostics before and after a small
+bounded run. Ambiguity counters indicate deterministic last-write-wins fallback;
+strict mode turns those into plan errors. Spatial fallback counters indicate the
+Python compatibility executor used exact fallback for a requested algorithm or
+that the physical Rust backend is not yet wired for that public plan shape.
+
 ## Primitive Batch Boundaries
 
-The Python canvas adapter may queue simple `rect()`, `triangle()`, `ellipse()`,
+The Python canvas adapter may queue simple `rect()`, `triangle()`, `ellipse()`, 
 `circle()`, and compatible `line()` calls into compact primitive batches when a
 native batch ABI is available. The current preferred path is a mixed primitive
 batch that carries each record's kind, coordinates, resolved style, and 2D

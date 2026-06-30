@@ -1,0 +1,127 @@
+# ECS Debugging and Performance Triage
+
+Use this guide when changing or diagnosing `gummysnake.ecs` behavior. The ECS public API is Pythonic, but the implementation is split between Python plan construction/compatibility execution and Rust storage/bridge primitives.
+
+## First checks
+
+1. Reproduce with the smallest deterministic world possible.
+2. Call `system.explain()` before running frames to inspect the logical action tree.
+3. Run one bounded ECS frame and inspect `gs.ecs_diagnostics()` or `world.diagnostics()`.
+4. If spatial relations are involved, check both fallback counters and candidate/exact row counts.
+5. Turn on strict mode when investigating ambiguous writes:
+
+   ```python
+   gs.configure_ecs(strict=True)
+   ```
+
+Strict mode raises on duplicate write ambiguity and overlapping `do_in_parallel()` write sets. With strict mode off, behavior remains deterministic by using last-write-wins or serial fallback where required; warnings can be suppressed with `warn_on_ambiguity=False`, but diagnostics still count the event.
+
+## Explain output
+
+`@ecs.system` functions expose `explain()`:
+
+```python
+print(move_system.explain())
+```
+
+Use it to verify:
+
+- the action tree shape (`do_in_order`, `do_in_parallel`, `when_chain`, `otherwise`, `for_each`),
+- target fields and value expressions for `ecs.set(...)`,
+- branch conditions for `when(...)`,
+- UDF and event action boundaries,
+- spatial relation descriptors, including relation name, algorithm, dimensions, origin/target query aliases, predicates, pair policy, and fallback policy.
+
+The explain output is intended to be stable enough for tests and user debugging. Avoid exposing unstable Rust internal IDs in public explain strings unless they are explicitly labelled debug-only.
+
+## Diagnostics counters
+
+Common ECS counters:
+
+| Counter | Meaning |
+| --- | --- |
+| `ecs_systems_registered` / `ecs_systems_enabled` | Current scheduler surface. |
+| `ecs_schedule_rebuilds` | Systems or system sets changed schedule state. |
+| `ecs_pre_draw_runs` | ECS phases run before draw. |
+| `ecs_rows_updated` | Component field writes performed by systems or APIs. |
+| `ecs_structural_commands_applied` | Component/tag structural mutations. |
+| `ecs_ambiguity_warnings` | Deterministic ambiguity detected in non-strict mode. |
+| `ecs_ambiguity_warnings_suppressed` | Ambiguity logs suppressed while diagnostics stayed active. |
+| `ecs_strict_mode_errors` | Ambiguity rejected in strict mode. |
+| `ecs_udf_calls` | Python UDF action calls; these are flexibility escape hatches, not accelerated hot loops. |
+| `ecs_change_detection_refreshes` | Change-tracking snapshot refreshes. |
+
+Rust core/bridge counters include entity generation reuse, schema counts, query cache refreshes, matched archetypes/rows, resources, and event queue totals where the installed runtime exposes them.
+
+## Spatial diagnostics
+
+Spatial relation diagnostics are essential for performance triage:
+
+| Counter | Meaning |
+| --- | --- |
+| `ecs_spatial_indexes_registered` | Active cached spatial index descriptors in the current world. |
+| `ecs_spatial_indexes_built` / `ecs_spatial_index_rebuilds` | Index build count. Rebuilds are expected after movement or structural changes. |
+| `ecs_spatial_index_cache_hits` / `ecs_spatial_index_cache_misses` | Index reuse within an ECS frame. |
+| `ecs_spatial_relation_cache_hits` / `ecs_spatial_relation_cache_misses` | Relation result reuse for repeated aggregate expressions. |
+| `ecs_spatial_aggregate_cache_hits` / `ecs_spatial_aggregate_cache_misses` | Aggregate result reuse. |
+| `ecs_spatial_candidate_rows` | Broad-phase candidates before exact filtering. |
+| `ecs_spatial_exact_rows` | Rows that passed exact filtering. |
+| `ecs_spatial_false_positive_rows` | Candidates rejected by exact radius/AABB filtering. |
+| `ecs_spatial_deduplicated_pairs` | Pairs skipped by `pair_policy="unique_unordered"`. |
+| `ecs_spatial_index_fallbacks` / `ecs_spatial_unsupported_algorithm` | Exact fallback used because the requested public plan shape is not accelerated in the compatibility executor. |
+| `ecs_spatial_nested_loop_rows` | Rows scanned by exact fallback. |
+
+For accelerated benchmark claims, assert fallback counters are zero for the scenario under test. If fallback is expected, label the benchmark or example as compatibility/fallback work rather than Rust-accelerated execution.
+
+The Rust spatial backend trait also exposes `SpatialMemoryStats` for backend-level tests and future diagnostics. Use it to check record/vector capacity reuse, bucket capacity, tree node counts, and overflow-list pressure when changing hash-grid, tree, or Hilbert implementations.
+
+## Common failures
+
+### Python boolean operators in plans
+
+Python `and`, `or`, `not`, and chained comparisons cannot build lazy ECS expressions. Use bitwise operators:
+
+```python
+inside = (left <= actor[Position].x) & (actor[Position].x <= right)
+```
+
+A `TypeError` mentioning lazy query-plan values usually means a system used a Python boolean operator accidentally.
+
+### Duplicate writes from joins
+
+A condition that references multiple query parameters creates a join from context. If multiple joined rows write the same target, non-strict mode warns and uses deterministic last-write-wins. Prefer a grouped aggregate when the intent is one decision per entity:
+
+```python
+on_platform = contact_condition.group_by(platform).any()
+return ecs.when(on_platform).do(ecs.set(platform.ctx[Velocity].dx, 3.0))
+```
+
+### Spatial fallback
+
+If diagnostics show `ecs_spatial_index_fallbacks`, inspect `system.explain()` for the relation descriptor and algorithm. In the Python compatibility executor, `HashGrid` is the accelerated public path. Tree and Hilbert backends exist in the Rust core, but public physical-plan execution must be wired before those algorithms can be claimed as accelerated from Python system plans.
+
+Use `allow_fallback=False` on performance-critical relations to fail fast rather than silently scanning all target rows.
+
+### Stale entity handles
+
+`Entity` values are generational handles. `StaleEntityError` means the entity was despawned, reused, or belongs to a different world. Prefer storing tags/components or re-querying by component/tag when data can outlive a frame.
+
+### UDF performance
+
+`@ecs.udf` is intentionally flexible and may perform side effects or call external APIs. It executes Python code and should not be used to claim Rust acceleration. If a UDF is doing pure component math in a hot loop, consider expressing it with ECS actions, resources, events, `for_each`, or a generic spatial relation.
+
+## Validation commands
+
+For ECS changes, start focused and then broaden:
+
+```sh
+uv run ruff check src/gummysnake/ecs tests/unit/test_ecs.py
+uv run mypy src/gummysnake/ecs
+uv run pytest tests/unit/test_ecs.py -q
+cargo test --manifest-path crates/gummy_ecs/Cargo.toml
+cargo test --manifest-path crates/gummy_canvas/Cargo.toml
+uv run pytest tests/benchmark/test_ecs_perf.py -q --run-benchmarks
+uv run pytest tests/stress/test_ecs_spatial_lifecycle_stress.py -q --run-stress
+```
+
+Run `uv run pytest` and the ECS release checklist before handoff when public API, docs, examples, or bridge code changed.

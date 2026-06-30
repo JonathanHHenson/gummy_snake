@@ -18,6 +18,8 @@ class LifecycleHookName(StrEnum):
     BEFORE_PRELOAD = "before_preload"
     BEFORE_SETUP = "before_setup"
     AFTER_SETUP = "after_setup"
+    BEFORE_ECS = "before_ecs"
+    AFTER_ECS = "after_ecs"
     BEFORE_DRAW = "before_draw"
     AFTER_DRAW = "after_draw"
 
@@ -71,10 +73,10 @@ class Plugin:
 
     def install(self, registry: PluginRegistry) -> None:
         """Install.
-        
+
         Args:
             registry: The registry value. Expected type: `PluginRegistry`.
-        
+
         Returns:
             None.
         """
@@ -82,10 +84,10 @@ class Plugin:
 
     def uninstall(self, registry: PluginRegistry) -> None:
         """Uninstall.
-        
+
         Args:
             registry: The registry value. Expected type: `PluginRegistry`.
-        
+
         Returns:
             None.
         """
@@ -93,10 +95,10 @@ class Plugin:
 
     def before_preload(self, context: SketchContext) -> None:
         """Before preload.
-        
+
         Args:
             context: The context value. Expected type: `SketchContext`.
-        
+
         Returns:
             None.
         """
@@ -104,10 +106,10 @@ class Plugin:
 
     def before_setup(self, context: SketchContext) -> None:
         """Before setup.
-        
+
         Args:
             context: The context value. Expected type: `SketchContext`.
-        
+
         Returns:
             None.
         """
@@ -115,10 +117,32 @@ class Plugin:
 
     def after_setup(self, context: SketchContext) -> None:
         """After setup.
-        
+
         Args:
             context: The context value. Expected type: `SketchContext`.
-        
+
+        Returns:
+            None.
+        """
+        del context
+
+    def before_ecs(self, context: SketchContext) -> None:
+        """Before ECS systems run.
+
+        Args:
+            context: The context value. Expected type: `SketchContext`.
+
+        Returns:
+            None.
+        """
+        del context
+
+    def after_ecs(self, context: SketchContext) -> None:
+        """After ECS systems run.
+
+        Args:
+            context: The context value. Expected type: `SketchContext`.
+
         Returns:
             None.
         """
@@ -126,10 +150,10 @@ class Plugin:
 
     def before_draw(self, context: SketchContext) -> None:
         """Before draw.
-        
+
         Args:
             context: The context value. Expected type: `SketchContext`.
-        
+
         Returns:
             None.
         """
@@ -137,10 +161,10 @@ class Plugin:
 
     def after_draw(self, context: SketchContext) -> None:
         """After draw.
-        
+
         Args:
             context: The context value. Expected type: `SketchContext`.
-        
+
         Returns:
             None.
         """
@@ -150,11 +174,11 @@ class Plugin:
         self, context: SketchContext, event: MouseEvent | KeyboardEvent | TouchEvent
     ) -> None:
         """On event.
-        
+
         Args:
             context: The context value. Expected type: `SketchContext`.
             event: The event value. Expected type: `MouseEvent | KeyboardEvent | TouchEvent`.
-        
+
         Returns:
             None.
         """
@@ -162,11 +186,11 @@ class Plugin:
 
     def on_mouse_event(self, context: SketchContext, event: MouseEvent) -> None:
         """On mouse event.
-        
+
         Args:
             context: The context value. Expected type: `SketchContext`.
             event: The event value. Expected type: `MouseEvent`.
-        
+
         Returns:
             None.
         """
@@ -174,11 +198,11 @@ class Plugin:
 
     def on_keyboard_event(self, context: SketchContext, event: KeyboardEvent) -> None:
         """On keyboard event.
-        
+
         Args:
             context: The context value. Expected type: `SketchContext`.
             event: The event value. Expected type: `KeyboardEvent`.
-        
+
         Returns:
             None.
         """
@@ -186,11 +210,11 @@ class Plugin:
 
     def on_touch_event(self, context: SketchContext, event: TouchEvent) -> None:
         """On touch event.
-        
+
         Args:
             context: The context value. Expected type: `SketchContext`.
             event: The event value. Expected type: `TouchEvent`.
-        
+
         Returns:
             None.
         """

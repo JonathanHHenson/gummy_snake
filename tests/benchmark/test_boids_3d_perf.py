@@ -10,8 +10,8 @@ from dataclasses import dataclass
 import pytest
 from benchmark_helpers import run_json_subprocess
 
-FRAMES = 120
-REPEATS = 1
+FRAMES = int(os.environ.get("GUMMY_BOIDS_BENCHMARK_FRAMES", "3"))
+REPEATS = int(os.environ.get("GUMMY_BOIDS_BENCHMARK_REPEATS", "1"))
 TARGET_FPS = 120.0
 PHASES = ("full", "simulation", "mesh")
 BENCHMARK_MODE = os.environ.get("GUMMY_BOIDS_BENCHMARK_MODE", "headless")
@@ -47,12 +47,10 @@ CHILD_CODE = textwrap.dedent(
             return {}
 
     if phase == "simulation":
-        boids._prepare_boids()
+        world = boids._prepare_boids_world()
         start = time.perf_counter()
         for _ in range(frames):
-            boids._rebuild_grid()
-            for index in range(boids.BOID_COUNT):
-                boids._update_boid(index)
+            world.run_pre_draw_systems()
         elapsed = time.perf_counter() - start
         payload = {
             "phase": phase,
@@ -60,18 +58,19 @@ CHILD_CODE = textwrap.dedent(
             "elapsed": elapsed,
             "fps": frames / max(elapsed, 1e-9),
             "target_fps": 120.0,
-            "backend_mode": "none",
+            "backend_mode": "ecs-world",
             "boid_count": boids.BOID_COUNT,
             "python": platform.python_version(),
             "platform": platform.platform(),
-            "metrics": {},
+            "metrics": {"ecs": world.diagnostics()},
         }
     elif phase == "mesh":
-        boids._prepare_boids()
+        world = boids._prepare_boids_world(add_system=False)
+        state_buckets = boids._bucket_states(boids._boid_states_from_world(world))
         start = time.perf_counter()
         for _ in range(frames):
-            for indices in boids.bucket_indices:
-                boids._flock_model(indices)
+            for bucket_states in state_buckets:
+                boids._flock_model(bucket_states)
         elapsed = time.perf_counter() - start
         payload = {
             "phase": phase,
@@ -79,14 +78,14 @@ CHILD_CODE = textwrap.dedent(
             "elapsed": elapsed,
             "fps": frames / max(elapsed, 1e-9),
             "target_fps": 120.0,
-            "backend_mode": "none",
+            "backend_mode": "ecs-world",
             "boid_count": boids.BOID_COUNT,
             "python": platform.python_version(),
             "platform": platform.platform(),
-            "metrics": {},
+            "metrics": {"ecs": world.diagnostics()},
         }
     elif phase == "full":
-        state = {"start": 0.0, "metrics": {}}
+        state = {"start": 0.0, "metrics": {}, "ecs_metrics": {}}
 
         def setup() -> None:
             boids.setup()
@@ -97,6 +96,7 @@ CHILD_CODE = textwrap.dedent(
             boids.draw()
             if boids.gs.frame_count() == frames - 1:
                 state["metrics"] = _renderer_counters()
+                state["ecs_metrics"] = boids.gs.ecs_diagnostics()
 
         boids.gs.run(setup=setup, draw=draw, headless=headless, max_frames=frames)
         elapsed = time.perf_counter() - state["start"]
@@ -110,7 +110,7 @@ CHILD_CODE = textwrap.dedent(
             "boid_count": boids.BOID_COUNT,
             "python": platform.python_version(),
             "platform": platform.platform(),
-            "metrics": state["metrics"],
+            "metrics": {"renderer": state["metrics"], "ecs": state["ecs_metrics"]},
         }
     else:
         raise ValueError(f"unknown boids benchmark phase: {phase}")

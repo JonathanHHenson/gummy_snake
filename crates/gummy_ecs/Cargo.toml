@@ -1,0 +1,12 @@
+[package]
+name = "gummy_ecs"
+version = "0.7.1"
+edition = "2021"
+publish = false
+
+[lib]
+name = "gummy_ecs"
+path = "src/lib.rs"
+
+[dependencies]
+rayon = "1.10"
