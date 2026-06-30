@@ -70,10 +70,11 @@ class Velocity2D:
     xy: Annotated[tuple[float, float], ecs_t.Vec2F32]
 ```
 
-The Python compatibility executor stores these as normal dataclass list/tuple
-values while preserving explicit schema markers for the Rust column runtime. The
-Rust ECS core has typed scalar, fixed vector, and variable list column families
-for accelerated storage paths.
+Rust owns canonical entity, component, tag, resource, and event storage. Python
+uses dataclasses to declare schemas and to pass initial component/resource values,
+then exposes lightweight Rust-backed entity/resource views for draw code and UDF
+boundaries. Normal ECS systems execute against Rust-owned columns without a
+persistent Python data mirror.
 
 ## Resources
 
@@ -129,7 +130,7 @@ gs.remove_system(movement)
 ```
 
 `before=[...]` and `after=[...]` references are topologically sorted with stable
-fallback ordering; dependency cycles raise `SystemPlanError`. Python `run_if`
+tie-break ordering; dependency cycles raise `SystemPlanError`. Python `run_if`
 callbacks are evaluated once per frame/system on the lifecycle path and are not
 per-row accelerated work. Decorated systems expose `system.explain()` for a
 readable action-tree summary that includes branch conditions, set-value
@@ -138,6 +139,16 @@ expressions, and spatial relation descriptors useful in tests and diagnostics.
 Systems run every drawn frame after frame state is updated and before plugin
 `before_draw` hooks and user `draw()`. Plugins can observe ECS with
 `before_ecs(context)` and `after_ecs(context)` hooks.
+
+Non-UDF systems are serialized into the Rust ECS physical executor automatically.
+This includes `set`, serial `do_in_order`, snapshot `do_in_parallel`,
+`when`/`otherwise` chains, arithmetic/comparison/math expressions, query and
+resource field reads/writes, `for_each` over list/event sources, `ecs.dt()`,
+`ecs.key_is_down(...)`, `exists(...)`, grouped aggregates, change-detection
+filters, typed ECS events, and spatial relation aggregates/metadata. Unsupported
+non-UDF plan nodes raise `SystemPlanError` instead of executing a Python fallback.
+Explicit `@ecs.udf` actions and iterable UDF sources are the only ECS plan pieces
+that execute Python at runtime.
 
 ## Actions
 
@@ -255,12 +266,11 @@ For self-collision broad phase, pass `pair_policy="unique_unordered"` to
 and `B-A`.
 
 `Quadtree`, `Octree`, and `HilbertCurve` config objects are accepted as explicit
-algorithm requests. In the current Python compatibility executor, non-hash-grid
-requests use exact linear fallback with diagnostics and a normal ECS ambiguity
-warning unless `allow_fallback=False` or strict mode rejects the plan. The Rust
-ECS core exposes deterministic hash-grid, quadtree, octree, and 2D Hilbert-curve
-backends behind the same trait so the physical executor can accelerate those
-algorithms without changing public query results.
+algorithm requests. Hash-grid, quadtree, octree, and 2D Hilbert-curve relations
+serialize into the Rust physical executor behind a shared spatial trait, so
+systems can switch algorithms without changing public query results. The legacy
+`allow_fallback` keyword is accepted for source compatibility but scheduled ECS
+systems do not use Python spatial fallback execution.
 
 ## Change detection
 
@@ -348,8 +358,10 @@ gs.configure_ecs(warn_on_ambiguity=False)
 Strict mode raises on ambiguous duplicate writes or overlapping
 `do_in_parallel()` writes. With strict mode off, execution stays deterministic and
 warnings can be suppressed while diagnostics still count the ambiguity. Diagnostics
-also count schedule rebuilds, run-condition skips, spatial index builds, candidate
-rows, exact rows, false positives, fallback counts, and nested-loop fallback rows.
+also count schedule rebuilds, run-condition skips, Rust compiled physical plan
+handles, Rust physical plan compiles and runs, UDF calls, spatial index builds,
+candidate rows, exact rows, false positives, deduplicated spatial pairs, and
+per-algorithm spatial index builds.
 
 Inspect counters with:
 

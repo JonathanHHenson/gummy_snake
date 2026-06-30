@@ -11,6 +11,7 @@ pub mod diagnostics;
 pub mod entity;
 pub mod error;
 pub mod event;
+pub mod execution;
 pub mod hilbert;
 pub mod plan;
 pub mod query;
@@ -29,10 +30,12 @@ pub use diagnostics::Diagnostics;
 pub use entity::{Entity, EntityAllocator};
 pub use error::{EcsError, Result};
 pub use event::{EventRecord, EventStore};
+pub use execution::{ExecutionReport, ExecutionWrite};
 pub use hilbert::HilbertIndex;
 pub use plan::{
     compile_bridge_plan, validate_plan, ActionNode, BridgePlanPayload, BridgeQueryPayload,
-    ExprNode, PhysicalPlan, PhysicalQuery, PlanCache, BRIDGE_PLAN_VERSION,
+    ExprNode, PhysicalPlan, PhysicalPlanHandle, PhysicalQuery, PlanCache, SpatialAlgorithmNode,
+    SpatialBoundsExprNode, SpatialRelationNode, BRIDGE_PLAN_VERSION,
 };
 pub use query::{CachedQuery, QueryFilter, QuerySnapshot, QueryTerm};
 pub use resource::ResourceStore;
@@ -53,10 +56,10 @@ pub use spatial_registry::{
 pub use tree_spatial::{OctreeIndex, QuadtreeIndex};
 pub use world::World;
 
-pub const ECS_ABI_VERSION: u32 = 1;
+pub const ECS_ABI_VERSION: u32 = 2;
 
 pub fn health_check() -> &'static str {
-    "gummy-ecs 1"
+    "gummy-ecs 2"
 }
 
 #[cfg(test)]

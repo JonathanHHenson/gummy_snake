@@ -69,60 +69,16 @@ class DefaultAction(Action):
     event_value: object | None = None
 
     def execute(self, world: EcsWorld, contexts: list[dict[object, Any]]) -> None:
-        if self.kind == "set":
-            if self.target is None or self.value is None:
-                raise SystemExecutionError("Malformed ECS set action.")
-            targets_seen: builtins.set[tuple[int, type[Any], str] | tuple[str, type[Any], str]] = (
-                builtins.set()
-            )
-            queries = expression_queries(self.value)
-            if isinstance(self.target.source, QueryProxy):
-                queries.add(self.target.source)
-            previous_defer_spatial = world._defer_spatial_invalidation
-            previous_spatial_invalidated = world._spatial_invalidated_deferred
-            world._defer_spatial_invalidation = True
-            world._spatial_invalidated_deferred = False
-            try:
-                for base_ctx in contexts:
-                    for ctx in world.iter_join_contexts_for_queries(base_ctx, queries):
-                        key = world.write_key(self.target, ctx)
-                        if key in targets_seen:
-                            world.record_ambiguity(
-                                f"ECS action writes {self.target.component_type.__name__}."
-                                f"{self.target.field_name} more than once in one joined context; "
-                                "deterministic last-write-wins is used. "
-                                "Consider group_by(...).any()."
-                            )
-                        targets_seen.add(key)
-                        self.target.set_value(ctx, world, self.value.eval(ctx, world))
-            finally:
-                invalidated = world._spatial_invalidated_deferred
-                world._defer_spatial_invalidation = previous_defer_spatial
-                world._spatial_invalidated_deferred = previous_spatial_invalidated or invalidated
-                if invalidated and not previous_defer_spatial:
-                    world._spatial_invalidated_deferred = previous_spatial_invalidated
-                    world._invalidate_spatial_indexes()
-            return
-        if self.kind == "sequence":
-            for child in self.children:
-                child.execute(world, contexts)
-            return
-        if self.kind == "parallel":
-            world.execute_parallel_children(self.children, contexts)
-            return
+        del contexts
         if self.kind == "udf":
             if self.udf is None:
                 raise SystemExecutionError("Malformed ECS UDF action.")
             self.udf.execute_action(world, self.udf_args)
             return
-        if self.kind == "emit_event":
-            if self.event_writer is None or self.event_value is None:
-                raise SystemExecutionError("Malformed ECS emit_event action.")
-            world.emit_event(self.event_value, expected_type=self.event_writer.event_type)
-            return
-        if self.kind == "noop":
-            return
-        raise SystemExecutionError(f"Unsupported ECS action kind {self.kind!r}.")
+        raise SystemExecutionError(
+            "Non-UDF ECS actions must execute through the Rust physical executor; "
+            f"Python execution for action kind {self.kind!r} is disabled."
+        )
 
 
 @dataclass
@@ -139,24 +95,11 @@ class WhenAction(Action):
         return _OtherwiseBranchBuilder(self)
 
     def execute(self, world: EcsWorld, contexts: list[dict[object, Any]]) -> None:
-        remaining = list(contexts)
-        for condition, action in self.branches:
-            matched: list[dict[object, Any]] = []
-            next_remaining: list[dict[object, Any]] = []
-            for ctx in remaining:
-                expanded = world.expand_context_for_condition(ctx, condition)
-                branch_matches = [
-                    joined for joined in expanded if bool(condition.eval(joined, world))
-                ]
-                if branch_matches:
-                    matched.extend(branch_matches)
-                else:
-                    next_remaining.append(ctx)
-            if matched:
-                action.execute(world, matched)
-            remaining = next_remaining
-        if self.otherwise_action is not None and remaining:
-            self.otherwise_action.execute(world, remaining)
+        del world, contexts
+        raise SystemExecutionError(
+            "Conditional ECS actions must execute through the Rust physical executor; "
+            "Python execution is disabled."
+        )
 
 
 @dataclass
@@ -166,10 +109,11 @@ class ForEachAction(Action):
     mode: str = "sequence"
 
     def execute(self, world: EcsWorld, contexts: list[dict[object, Any]]) -> None:
-        for source_ctx, item in self.source.iter_items(world, contexts):
-            loop_ctx = dict(source_ctx)
-            loop_ctx[cast(Any, self.source).item] = item
-            self.body.execute(world, [loop_ctx])
+        del world, contexts
+        raise SystemExecutionError(
+            "for_each ECS actions must execute through the Rust physical executor; "
+            "Python execution is disabled."
+        )
 
 
 @dataclass(frozen=True, eq=False)
@@ -592,13 +536,6 @@ def _explain_spatial_relation(relation: object) -> str:
     dimensions = getattr(relation, "dimensions", "?")
     origin = getattr(getattr(relation, "origin", None), "name", "?")
     target = getattr(getattr(relation, "item", None), "name", "?")
-    fallback = getattr(relation, "allow_fallback", None)
-    if fallback is False:
-        fallback_text = "reject"
-    elif fallback is True:
-        fallback_text = "allow"
-    else:
-        fallback_text = "strict-dependent"
     predicates: list[str] = []
     if getattr(relation, "radius", None) is not None:
         predicates.append("radius")
@@ -612,7 +549,7 @@ def _explain_spatial_relation(relation: object) -> str:
         "spatial_relation "
         f"name={name} algorithm={kind} dimensions={dimensions} "
         f"origin={origin} target={target} predicates={predicate_text} "
-        f"pair_policy={pair_policy} fallback={fallback_text}"
+        f"pair_policy={pair_policy}"
     )
 
 

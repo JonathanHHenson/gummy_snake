@@ -10,11 +10,21 @@ pub struct EventRecord {
     pub payload: EcsValue,
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EventStore {
     queues: HashMap<String, Vec<EventRecord>>,
     next_sequence: u64,
     retention_frames: u64,
+}
+
+impl Default for EventStore {
+    fn default() -> Self {
+        Self {
+            queues: HashMap::new(),
+            next_sequence: 0,
+            retention_frames: 1,
+        }
+    }
 }
 
 impl EventStore {

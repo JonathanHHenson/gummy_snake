@@ -1,5 +1,8 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use crate::column::EcsValue;
+use crate::entity::Entity;
 use crate::error::{EcsError, Result};
 use crate::query::{QueryFilter, QueryTerm};
 use crate::scheduler::{AccessKey, AccessSummary};
@@ -11,6 +14,40 @@ pub const BRIDGE_PLAN_VERSION: u32 = 1;
 pub struct PhysicalQuery {
     pub name: String,
     pub filter: QueryFilter,
+    pub allowed_entities: Option<Vec<Entity>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpatialBoundsExprNode {
+    pub minimum: Vec<usize>,
+    pub maximum: Vec<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpatialAlgorithmNode {
+    pub kind: String,
+    pub dimensions: u8,
+    pub cell_size: Option<f64>,
+    pub bounds: Option<Vec<f64>>,
+    pub capacity: Option<usize>,
+    pub bits: Option<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpatialRelationNode {
+    pub id: String,
+    pub index_id: String,
+    pub origin_query: String,
+    pub item_query: String,
+    pub origin_position: Vec<usize>,
+    pub target_position: Vec<usize>,
+    pub radius: Option<usize>,
+    pub origin_bounds: Option<SpatialBoundsExprNode>,
+    pub target_bounds: Option<SpatialBoundsExprNode>,
+    pub algorithm: SpatialAlgorithmNode,
+    pub include_self: bool,
+    pub pair_policy: String,
+    pub exact_filter: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -19,6 +56,7 @@ pub enum ExprNode {
     LiteralI64(i64),
     LiteralBool(bool),
     LiteralString(String),
+    LiteralValue(EcsValue),
     Field {
         query: String,
         component: String,
@@ -27,6 +65,13 @@ pub enum ExprNode {
     ResourceField {
         resource: String,
         field: String,
+    },
+    Attribute {
+        input: usize,
+        attribute: String,
+    },
+    EventStream {
+        event_type: String,
     },
     InputState {
         name: String,
@@ -58,6 +103,18 @@ pub enum ExprNode {
         relation: usize,
         group_query: Option<String>,
         value: Option<usize>,
+        default: Option<usize>,
+    },
+    SpatialMetadata {
+        relation: SpatialRelationNode,
+        kind: String,
+        axis: Option<usize>,
+    },
+    SpatialAggregate {
+        kind: String,
+        relation: SpatialRelationNode,
+        value: Option<usize>,
+        default: Option<usize>,
     },
 }
 
@@ -106,6 +163,7 @@ pub struct PhysicalPlan {
 pub struct BridgeQueryPayload {
     pub name: String,
     pub terms: Vec<QueryTerm>,
+    pub allowed_entities: Option<Vec<Entity>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,9 +176,21 @@ pub struct BridgePlanPayload {
     pub root_action: usize,
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+pub type PhysicalPlanHandle = u64;
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct PlanCache {
-    compiled: HashMap<u64, PhysicalPlan>,
+    compiled: HashMap<PhysicalPlanHandle, Arc<PhysicalPlan>>,
+    next_handle: PhysicalPlanHandle,
+}
+
+impl Default for PlanCache {
+    fn default() -> Self {
+        Self {
+            compiled: HashMap::new(),
+            next_handle: 1,
+        }
+    }
 }
 
 impl PlanCache {
@@ -128,14 +198,20 @@ impl PlanCache {
         Self::default()
     }
 
-    pub fn insert(&mut self, fingerprint: u64, plan: PhysicalPlan) -> Result<()> {
+    pub fn insert(&mut self, plan: PhysicalPlan) -> Result<PhysicalPlanHandle> {
         validate_plan(&plan)?;
-        self.compiled.insert(fingerprint, plan);
-        Ok(())
+        let handle = self.next_handle;
+        self.next_handle = self.next_handle.saturating_add(1).max(1);
+        self.compiled.insert(handle, Arc::new(plan));
+        Ok(handle)
     }
 
-    pub fn get(&self, fingerprint: u64) -> Option<&PhysicalPlan> {
-        self.compiled.get(&fingerprint)
+    pub fn get(&self, handle: PhysicalPlanHandle) -> Option<Arc<PhysicalPlan>> {
+        self.compiled.get(&handle).cloned()
+    }
+
+    pub fn remove(&mut self, handle: PhysicalPlanHandle) -> Option<Arc<PhysicalPlan>> {
+        self.compiled.remove(&handle)
     }
 
     pub fn len(&self) -> usize {
@@ -157,6 +233,7 @@ pub fn compile_bridge_plan(
             payload.version
         )));
     }
+    let payload = optimize_bridge_payload(payload);
     let schema_fingerprint = schemas.fingerprint();
     if let Some(expected) = payload.schema_fingerprint {
         if expected != schema_fingerprint {
@@ -184,6 +261,7 @@ pub fn compile_bridge_plan(
         queries.push(PhysicalQuery {
             name: query.name,
             filter: QueryFilter::new(query.terms),
+            allowed_entities: query.allowed_entities,
         });
     }
 
@@ -197,9 +275,229 @@ pub fn compile_bridge_plan(
         access: AccessSummary::default(),
     };
     validate_plan_with_schemas(&plan, schemas)?;
-    let mut plan = plan;
+    let mut plan = optimize_physical_plan(plan)?;
+    validate_plan_with_schemas(&plan, schemas)?;
     plan.access = infer_access_summary(&plan)?;
     Ok(plan)
+}
+
+fn optimize_bridge_payload(mut payload: BridgePlanPayload) -> BridgePlanPayload {
+    for query in &mut payload.queries {
+        query.terms.sort();
+        query.terms.dedup();
+        if let Some(allowed) = &mut query.allowed_entities {
+            allowed.sort_by_key(|entity| entity.raw());
+            allowed.dedup_by_key(|entity| entity.raw());
+        }
+    }
+    payload
+}
+
+fn optimize_physical_plan(mut plan: PhysicalPlan) -> Result<PhysicalPlan> {
+    fold_constant_expressions(&mut plan.expressions)?;
+    simplify_actions(&mut plan.actions, plan.root_action)?;
+    Ok(plan)
+}
+
+fn fold_constant_expressions(expressions: &mut [ExprNode]) -> Result<()> {
+    for index in 0..expressions.len() {
+        let folded = match expressions[index].clone() {
+            ExprNode::Unary { op, input } => literal_expr_value(expressions.get(input))
+                .map(|value| fold_unary_literal(&op, value))
+                .transpose()?,
+            ExprNode::Binary { op, left, right } => {
+                match (
+                    literal_expr_value(expressions.get(left)),
+                    literal_expr_value(expressions.get(right)),
+                ) {
+                    (Some(left), Some(right)) => Some(fold_binary_literal(&op, left, right)?),
+                    _ => None,
+                }
+            }
+            ExprNode::Attribute { input, attribute } => literal_expr_value(expressions.get(input))
+                .and_then(|value| fold_attribute_literal(value, &attribute)),
+            _ => None,
+        };
+        if let Some(value) = folded {
+            expressions[index] = expr_from_value(value);
+        }
+    }
+    Ok(())
+}
+
+fn literal_expr_value(expr: Option<&ExprNode>) -> Option<EcsValue> {
+    match expr? {
+        ExprNode::LiteralF64(value) => Some(EcsValue::F64(*value)),
+        ExprNode::LiteralI64(value) => Some(EcsValue::I64(*value)),
+        ExprNode::LiteralBool(value) => Some(EcsValue::Bool(*value)),
+        ExprNode::LiteralString(value) => Some(EcsValue::String(value.clone())),
+        ExprNode::LiteralValue(value) => Some(value.clone()),
+        _ => None,
+    }
+}
+
+fn expr_from_value(value: EcsValue) -> ExprNode {
+    match value {
+        EcsValue::F64(value) => ExprNode::LiteralF64(value),
+        EcsValue::I64(value) => ExprNode::LiteralI64(value),
+        EcsValue::Bool(value) => ExprNode::LiteralBool(value),
+        EcsValue::String(value) => ExprNode::LiteralString(value),
+        value => ExprNode::LiteralValue(value),
+    }
+}
+
+fn fold_unary_literal(op: &str, value: EcsValue) -> Result<EcsValue> {
+    match op {
+        "not" => Ok(EcsValue::Bool(!truthy_literal(&value)?)),
+        "neg" | "-" => Ok(EcsValue::F64(-numeric_literal_f64(&value)?)),
+        "pos" | "+" => Ok(EcsValue::F64(numeric_literal_f64(&value)?)),
+        "abs" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.abs())),
+        "sqrt" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.sqrt())),
+        "sin" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.sin())),
+        "cos" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.cos())),
+        "floor" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.floor())),
+        "ceil" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.ceil())),
+        _ => Err(EcsError::InvalidPlan(format!(
+            "cannot constant-fold unsupported unary op {op}"
+        ))),
+    }
+}
+
+fn fold_binary_literal(op: &str, left: EcsValue, right: EcsValue) -> Result<EcsValue> {
+    match op {
+        "and" => Ok(EcsValue::Bool(
+            truthy_literal(&left)? && truthy_literal(&right)?,
+        )),
+        "or" => Ok(EcsValue::Bool(
+            truthy_literal(&left)? || truthy_literal(&right)?,
+        )),
+        "add" | "+" => Ok(EcsValue::F64(
+            numeric_literal_f64(&left)? + numeric_literal_f64(&right)?,
+        )),
+        "sub" | "-" => Ok(EcsValue::F64(
+            numeric_literal_f64(&left)? - numeric_literal_f64(&right)?,
+        )),
+        "mul" | "*" => Ok(EcsValue::F64(
+            numeric_literal_f64(&left)? * numeric_literal_f64(&right)?,
+        )),
+        "truediv" | "/" => Ok(EcsValue::F64(
+            numeric_literal_f64(&left)? / numeric_literal_f64(&right)?,
+        )),
+        "floordiv" | "//" => Ok(EcsValue::F64(
+            (numeric_literal_f64(&left)? / numeric_literal_f64(&right)?).floor(),
+        )),
+        "mod" | "%" => Ok(EcsValue::F64(
+            numeric_literal_f64(&left)? % numeric_literal_f64(&right)?,
+        )),
+        "pow" | "**" => Ok(EcsValue::F64(
+            numeric_literal_f64(&left)?.powf(numeric_literal_f64(&right)?),
+        )),
+        "lt" | "<" => Ok(EcsValue::Bool(
+            numeric_literal_f64(&left)? < numeric_literal_f64(&right)?,
+        )),
+        "le" | "<=" => Ok(EcsValue::Bool(
+            numeric_literal_f64(&left)? <= numeric_literal_f64(&right)?,
+        )),
+        "gt" | ">" => Ok(EcsValue::Bool(
+            numeric_literal_f64(&left)? > numeric_literal_f64(&right)?,
+        )),
+        "ge" | ">=" => Ok(EcsValue::Bool(
+            numeric_literal_f64(&left)? >= numeric_literal_f64(&right)?,
+        )),
+        "eq" | "==" => Ok(EcsValue::Bool(left == right)),
+        "ne" | "!=" => Ok(EcsValue::Bool(left != right)),
+        "min" => Ok(EcsValue::F64(
+            numeric_literal_f64(&left)?.min(numeric_literal_f64(&right)?),
+        )),
+        "max" => Ok(EcsValue::F64(
+            numeric_literal_f64(&left)?.max(numeric_literal_f64(&right)?),
+        )),
+        _ => Err(EcsError::InvalidPlan(format!(
+            "cannot constant-fold unsupported binary op {op}"
+        ))),
+    }
+}
+
+fn fold_attribute_literal(value: EcsValue, attribute: &str) -> Option<EcsValue> {
+    match (value, attribute) {
+        (EcsValue::Struct(fields), name) => fields.get(name).cloned(),
+        (EcsValue::Vec2F64(value), "x") => Some(EcsValue::F64(value[0])),
+        (EcsValue::Vec2F64(value), "y") => Some(EcsValue::F64(value[1])),
+        (EcsValue::Vec3F64(value), "x") => Some(EcsValue::F64(value[0])),
+        (EcsValue::Vec3F64(value), "y") => Some(EcsValue::F64(value[1])),
+        (EcsValue::Vec3F64(value), "z") => Some(EcsValue::F64(value[2])),
+        _ => None,
+    }
+}
+
+fn numeric_literal_f64(value: &EcsValue) -> Result<f64> {
+    match value {
+        EcsValue::F64(value) => Ok(*value),
+        EcsValue::I64(value) => Ok(*value as f64),
+        EcsValue::U64(value) => Ok(*value as f64),
+        EcsValue::Bool(value) => Ok(if *value { 1.0 } else { 0.0 }),
+        other => Err(EcsError::InvalidPlan(format!(
+            "cannot constant-fold non-numeric literal {}",
+            other.kind_name()
+        ))),
+    }
+}
+
+fn truthy_literal(value: &EcsValue) -> Result<bool> {
+    match value {
+        EcsValue::Bool(value) => Ok(*value),
+        EcsValue::I64(value) => Ok(*value != 0),
+        EcsValue::U64(value) => Ok(*value != 0),
+        EcsValue::F64(value) => Ok(*value != 0.0),
+        other => Err(EcsError::InvalidPlan(format!(
+            "cannot constant-fold boolean op for literal {}",
+            other.kind_name()
+        ))),
+    }
+}
+
+fn simplify_actions(actions: &mut [ActionNode], root_action: usize) -> Result<()> {
+    for index in 0..actions.len() {
+        let simplified = match actions[index].clone() {
+            ActionNode::Sequence(children) => {
+                let children = children
+                    .into_iter()
+                    .filter(|child| !matches!(actions.get(*child), Some(ActionNode::Noop)))
+                    .collect::<Vec<_>>();
+                match children.as_slice() {
+                    [] => Some(ActionNode::Noop),
+                    [child] if index != root_action => actions.get(*child).cloned(),
+                    _ => Some(ActionNode::Sequence(children)),
+                }
+            }
+            ActionNode::Parallel(children) => {
+                let children = children
+                    .into_iter()
+                    .filter(|child| !matches!(actions.get(*child), Some(ActionNode::Noop)))
+                    .collect::<Vec<_>>();
+                match children.as_slice() {
+                    [] => Some(ActionNode::Noop),
+                    [child] if index != root_action => actions.get(*child).cloned(),
+                    _ => Some(ActionNode::Parallel(children)),
+                }
+            }
+            ActionNode::When {
+                condition,
+                then_action,
+                otherwise_action,
+            } => Some(ActionNode::When {
+                condition,
+                then_action,
+                otherwise_action: otherwise_action
+                    .filter(|child| !matches!(actions.get(*child), Some(ActionNode::Noop))),
+            }),
+            _ => None,
+        };
+        if let Some(action) = simplified {
+            actions[index] = action;
+        }
+    }
+    Ok(())
 }
 
 pub fn validate_plan(plan: &PhysicalPlan) -> Result<()> {
@@ -262,6 +560,17 @@ pub fn validate_plan_with_schemas(plan: &PhysicalPlan, schemas: &SchemaRegistry)
                     }
                 }
             }
+            ExprNode::SpatialMetadata { relation, .. }
+            | ExprNode::SpatialAggregate { relation, .. } => {
+                validate_spatial_relation_queries(relation, &query_names)?;
+            }
+            ExprNode::EventStream { event_type } => {
+                if event_type.is_empty() {
+                    return Err(EcsError::InvalidPlan(
+                        "event stream type cannot be empty".to_string(),
+                    ));
+                }
+            }
             _ => {}
         }
     }
@@ -291,6 +600,35 @@ fn validate_query_terms(terms: &[QueryTerm], schemas: &SchemaRegistry) -> Result
                 }
             }
         }
+    }
+    Ok(())
+}
+
+fn validate_spatial_relation_queries(
+    relation: &SpatialRelationNode,
+    query_names: &std::collections::BTreeSet<&str>,
+) -> Result<()> {
+    if !query_names.contains(relation.origin_query.as_str()) {
+        return Err(EcsError::InvalidPlan(format!(
+            "unknown spatial origin query {}",
+            relation.origin_query
+        )));
+    }
+    if !query_names.contains(relation.item_query.as_str()) {
+        return Err(EcsError::InvalidPlan(format!(
+            "unknown spatial item query {}",
+            relation.item_query
+        )));
+    }
+    if relation.id.is_empty() || relation.index_id.is_empty() {
+        return Err(EcsError::InvalidPlan(
+            "spatial relation id and index id cannot be empty".to_string(),
+        ));
+    }
+    if relation.algorithm.dimensions != 2 && relation.algorithm.dimensions != 3 {
+        return Err(EcsError::InvalidPlan(
+            "spatial algorithm dimensions must be 2 or 3".to_string(),
+        ));
     }
     Ok(())
 }
@@ -373,6 +711,7 @@ fn validate_plan_shape(plan: &PhysicalPlan) -> Result<()> {
     for expr in &plan.expressions {
         match expr {
             ExprNode::Unary { input, .. } => validate_expr_index(plan, *input)?,
+            ExprNode::Attribute { input, .. } => validate_expr_index(plan, *input)?,
             ExprNode::Binary { left, right, .. } => {
                 validate_expr_index(plan, *left)?;
                 validate_expr_index(plan, *right)?;
@@ -381,11 +720,34 @@ fn validate_plan_shape(plan: &PhysicalPlan) -> Result<()> {
                 validate_expr_index(plan, *predicate)?;
             }
             ExprNode::Aggregate {
-                relation, value, ..
+                relation,
+                value,
+                default,
+                ..
             } => {
                 validate_expr_index(plan, *relation)?;
                 if let Some(value) = value {
                     validate_expr_index(plan, *value)?;
+                }
+                if let Some(default) = default {
+                    validate_expr_index(plan, *default)?;
+                }
+            }
+            ExprNode::SpatialMetadata { relation, .. } => {
+                validate_spatial_relation_expr_indexes(plan, relation)?;
+            }
+            ExprNode::SpatialAggregate {
+                relation,
+                value,
+                default,
+                ..
+            } => {
+                validate_spatial_relation_expr_indexes(plan, relation)?;
+                if let Some(value) = value {
+                    validate_expr_index(plan, *value)?;
+                }
+                if let Some(default) = default {
+                    validate_expr_index(plan, *default)?;
                 }
             }
             _ => {}
@@ -402,6 +764,35 @@ fn validate_expr_index(plan: &PhysicalPlan, index: usize) -> Result<()> {
     } else {
         Ok(())
     }
+}
+
+fn validate_spatial_relation_expr_indexes(
+    plan: &PhysicalPlan,
+    relation: &SpatialRelationNode,
+) -> Result<()> {
+    for index in relation
+        .origin_position
+        .iter()
+        .chain(relation.target_position.iter())
+    {
+        validate_expr_index(plan, *index)?;
+    }
+    if let Some(radius) = relation.radius {
+        validate_expr_index(plan, radius)?;
+    }
+    for bounds in relation
+        .origin_bounds
+        .iter()
+        .chain(relation.target_bounds.iter())
+    {
+        for index in bounds.minimum.iter().chain(bounds.maximum.iter()) {
+            validate_expr_index(plan, *index)?;
+        }
+    }
+    if let Some(exact_filter) = relation.exact_filter {
+        validate_expr_index(plan, exact_filter)?;
+    }
+    Ok(())
 }
 
 fn validate_action_index(plan: &PhysicalPlan, index: usize) -> Result<()> {
@@ -490,6 +881,39 @@ fn collect_write_target(
     }
 }
 
+fn collect_spatial_relation_reads(
+    plan: &PhysicalPlan,
+    relation: &SpatialRelationNode,
+    access: &mut AccessSummary,
+) -> Result<()> {
+    access
+        .reads
+        .insert(AccessKey::Hidden(format!("spatial:{}", relation.index_id)));
+    for index in relation
+        .origin_position
+        .iter()
+        .chain(relation.target_position.iter())
+    {
+        collect_expr_reads(plan, *index, access)?;
+    }
+    if let Some(radius) = relation.radius {
+        collect_expr_reads(plan, radius, access)?;
+    }
+    for bounds in relation
+        .origin_bounds
+        .iter()
+        .chain(relation.target_bounds.iter())
+    {
+        for index in bounds.minimum.iter().chain(bounds.maximum.iter()) {
+            collect_expr_reads(plan, *index, access)?;
+        }
+    }
+    if let Some(exact_filter) = relation.exact_filter {
+        collect_expr_reads(plan, exact_filter, access)?;
+    }
+    Ok(())
+}
+
 fn collect_expr_reads(
     plan: &PhysicalPlan,
     expr_index: usize,
@@ -503,6 +927,7 @@ fn collect_expr_reads(
             access.reads.insert(AccessKey::Resource(resource.clone()));
         }
         ExprNode::Unary { input, .. } => collect_expr_reads(plan, *input, access)?,
+        ExprNode::Attribute { input, .. } => collect_expr_reads(plan, *input, access)?,
         ExprNode::Binary { left, right, .. } => {
             collect_expr_reads(plan, *left, access)?;
             collect_expr_reads(plan, *right, access)?;
@@ -511,11 +936,17 @@ fn collect_expr_reads(
             collect_expr_reads(plan, *predicate, access)?;
         }
         ExprNode::Aggregate {
-            relation, value, ..
+            relation,
+            value,
+            default,
+            ..
         } => {
             collect_expr_reads(plan, *relation, access)?;
             if let Some(value) = value {
                 collect_expr_reads(plan, *value, access)?;
+            }
+            if let Some(default) = default {
+                collect_expr_reads(plan, *default, access)?;
             }
         }
         ExprNode::InputState { name, .. } => {
@@ -523,10 +954,31 @@ fn collect_expr_reads(
                 .reads
                 .insert(AccessKey::Hidden(format!("input:{name}")));
         }
+        ExprNode::EventStream { event_type } => {
+            access.reads.insert(AccessKey::Event(event_type.clone()));
+        }
+        ExprNode::SpatialMetadata { relation, .. } => {
+            collect_spatial_relation_reads(plan, relation, access)?;
+        }
+        ExprNode::SpatialAggregate {
+            relation,
+            value,
+            default,
+            ..
+        } => {
+            collect_spatial_relation_reads(plan, relation, access)?;
+            if let Some(value) = value {
+                collect_expr_reads(plan, *value, access)?;
+            }
+            if let Some(default) = default {
+                collect_expr_reads(plan, *default, access)?;
+            }
+        }
         ExprNode::LiteralF64(_)
         | ExprNode::LiteralI64(_)
         | ExprNode::LiteralBool(_)
         | ExprNode::LiteralString(_)
+        | ExprNode::LiteralValue(_)
         | ExprNode::ForEachItem { .. } => {}
     }
     Ok(())
@@ -575,8 +1027,10 @@ mod tests {
             access: AccessSummary::default(),
         };
         let mut cache = PlanCache::new();
-        cache.insert(1, plan).unwrap();
+        let handle = cache.insert(plan).unwrap();
+        assert_eq!(handle, 1);
         assert_eq!(cache.len(), 1);
+        assert!(cache.get(handle).is_some());
     }
 
     #[test]
@@ -591,6 +1045,7 @@ mod tests {
                     QueryTerm::WithComponent("Position".to_string()),
                     QueryTerm::WithTag("Hero".to_string()),
                 ],
+                allowed_entities: None,
             }],
             expressions: vec![
                 ExprNode::Field {

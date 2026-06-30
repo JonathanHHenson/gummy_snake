@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use gummy_ecs::{
     health_check as ecs_core_health_check, AccessKey, ActionNode, BridgePlanPayload,
-    BridgeQueryPayload, ComponentRow, ComponentSchema, EcsValue, Entity, ExprNode, FieldSchema,
-    QueryFilter, QueryTerm, SpatialAlgorithmKind, SpatialIndexDescriptor, SpatialIndexRegistry,
-    StorageType, World, ECS_ABI_VERSION,
+    BridgeQueryPayload, ComponentRow, ComponentSchema, EcsValue, Entity, ExecutionReport,
+    ExecutionWrite, ExprNode, FieldSchema, PhysicalPlan, QueryFilter, QueryTerm,
+    SpatialAlgorithmKind, SpatialAlgorithmNode, SpatialBoundsExprNode, SpatialIndexDescriptor,
+    SpatialIndexRegistry, SpatialRelationNode, StorageType, World, ECS_ABI_VERSION,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -47,8 +50,15 @@ fn py_to_ecs_value(value: &Bound<'_, PyAny>) -> PyResult<EcsValue> {
         }
         return Ok(EcsValue::List(values));
     }
+    if let Ok(dict) = value.downcast::<PyDict>() {
+        let mut fields = HashMap::new();
+        for (key, value) in dict.iter() {
+            fields.insert(key.extract::<String>()?, py_to_ecs_value(&value)?);
+        }
+        return Ok(EcsValue::Struct(fields));
+    }
     Err(PyValueError::new_err(
-        "unsupported ECS value; expected bool, int, float, str, tuple[float, ...], or list",
+        "unsupported ECS value; expected bool, int, float, str, tuple[float, ...], list, or dict",
     ))
 }
 
@@ -69,6 +79,13 @@ fn ecs_value_to_py(py: Python<'_>, value: &EcsValue) -> PyResult<PyObject> {
                 .map(|value| ecs_value_to_py(py, value))
                 .collect::<PyResult<Vec<_>>>()?;
             Ok(PyList::new_bound(py, items).into_py(py))
+        }
+        EcsValue::Struct(fields) => {
+            let dict = PyDict::new_bound(py);
+            for (key, value) in fields {
+                dict.set_item(key, ecs_value_to_py(py, value)?)?;
+            }
+            Ok(dict.into_py(py))
         }
     }
 }
@@ -137,6 +154,129 @@ fn parse_usize_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<usize
         .collect::<PyResult<Vec<_>>>()
 }
 
+fn parse_f64_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<f64>> {
+    let list = value.downcast::<PyList>().map_err(|_| {
+        PyValueError::new_err(format!("ECS bridge plan field '{field}' must be a list"))
+    })?;
+    list.iter()
+        .map(|item| item.extract::<f64>())
+        .collect::<PyResult<Vec<_>>>()
+}
+
+fn parse_entity_payload(value: Bound<'_, PyAny>) -> PyResult<Entity> {
+    if let Ok(tuple) = value.downcast::<PyTuple>() {
+        if tuple.len() != 2 {
+            return Err(PyValueError::new_err(
+                "ECS entity handle tuples must contain (index, generation)",
+            ));
+        }
+        return Ok(Entity {
+            index: tuple.get_item(0)?.extract::<u32>()?,
+            generation: tuple.get_item(1)?.extract::<u32>()?,
+        });
+    }
+    if let Ok(list) = value.downcast::<PyList>() {
+        if list.len() != 2 {
+            return Err(PyValueError::new_err(
+                "ECS entity handle lists must contain [index, generation]",
+            ));
+        }
+        return Ok(Entity {
+            index: list.get_item(0)?.extract::<u32>()?,
+            generation: list.get_item(1)?.extract::<u32>()?,
+        });
+    }
+    let dict = value
+        .downcast::<PyDict>()
+        .map_err(|_| PyValueError::new_err("ECS entity handles must be tuples, lists, or dicts"))?;
+    Ok(Entity {
+        index: get_required(dict, "index")?.extract::<u32>()?,
+        generation: get_required(dict, "generation")?.extract::<u32>()?,
+    })
+}
+
+fn parse_entity_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<Entity>> {
+    let list = value.downcast::<PyList>().map_err(|_| {
+        PyValueError::new_err(format!("ECS bridge plan field '{field}' must be a list"))
+    })?;
+    list.iter()
+        .map(parse_entity_payload)
+        .collect::<PyResult<Vec<_>>>()
+}
+
+fn parse_spatial_bounds_expr(value: Bound<'_, PyAny>) -> PyResult<SpatialBoundsExprNode> {
+    let dict = value
+        .downcast::<PyDict>()
+        .map_err(|_| PyValueError::new_err("ECS spatial bounds nodes must be dicts"))?;
+    Ok(SpatialBoundsExprNode {
+        minimum: parse_usize_list(&get_required(dict, "minimum")?, "minimum")?,
+        maximum: parse_usize_list(&get_required(dict, "maximum")?, "maximum")?,
+    })
+}
+
+fn parse_spatial_algorithm_node(value: Bound<'_, PyAny>) -> PyResult<SpatialAlgorithmNode> {
+    let dict = value
+        .downcast::<PyDict>()
+        .map_err(|_| PyValueError::new_err("ECS spatial algorithm nodes must be dicts"))?;
+    Ok(SpatialAlgorithmNode {
+        kind: get_required(dict, "kind")?.extract::<String>()?,
+        dimensions: get_required(dict, "dimensions")?.extract::<u8>()?,
+        cell_size: get_optional(dict, "cell_size")?
+            .map(|value| value.extract::<f64>())
+            .transpose()?,
+        bounds: get_optional(dict, "bounds")?
+            .map(|value| parse_f64_list(&value, "bounds"))
+            .transpose()?,
+        capacity: get_optional(dict, "capacity")?
+            .map(|value| value.extract::<usize>())
+            .transpose()?,
+        bits: get_optional(dict, "bits")?
+            .map(|value| value.extract::<u8>())
+            .transpose()?,
+    })
+}
+
+fn parse_spatial_relation_node(value: Bound<'_, PyAny>) -> PyResult<SpatialRelationNode> {
+    let dict = value
+        .downcast::<PyDict>()
+        .map_err(|_| PyValueError::new_err("ECS spatial relation nodes must be dicts"))?;
+    Ok(SpatialRelationNode {
+        id: get_required(dict, "id")?.extract::<String>()?,
+        index_id: get_required(dict, "index_id")?.extract::<String>()?,
+        origin_query: get_required(dict, "origin_query")?.extract::<String>()?,
+        item_query: get_required(dict, "item_query")?.extract::<String>()?,
+        origin_position: parse_usize_list(
+            &get_required(dict, "origin_position")?,
+            "origin_position",
+        )?,
+        target_position: parse_usize_list(
+            &get_required(dict, "target_position")?,
+            "target_position",
+        )?,
+        radius: get_optional(dict, "radius")?
+            .map(|value| value.extract::<usize>())
+            .transpose()?,
+        origin_bounds: get_optional(dict, "origin_bounds")?
+            .map(parse_spatial_bounds_expr)
+            .transpose()?,
+        target_bounds: get_optional(dict, "target_bounds")?
+            .map(parse_spatial_bounds_expr)
+            .transpose()?,
+        algorithm: parse_spatial_algorithm_node(get_required(dict, "algorithm")?)?,
+        include_self: get_optional(dict, "include_self")?
+            .map(|value| value.extract::<bool>())
+            .transpose()?
+            .unwrap_or(false),
+        pair_policy: get_optional(dict, "pair_policy")?
+            .map(|value| value.extract::<String>())
+            .transpose()?
+            .unwrap_or_else(|| "all".to_string()),
+        exact_filter: get_optional(dict, "exact_filter")?
+            .map(|value| value.extract::<usize>())
+            .transpose()?,
+    })
+}
+
 fn parse_query_term(value: Bound<'_, PyAny>) -> PyResult<QueryTerm> {
     let (kind, name) = if let Ok(tuple) = value.downcast::<PyTuple>() {
         if tuple.len() != 2 {
@@ -184,7 +324,14 @@ fn parse_query_payload(value: Bound<'_, PyAny>) -> PyResult<BridgeQueryPayload> 
     for item in terms_list.iter() {
         terms.push(parse_query_term(item)?);
     }
-    Ok(BridgeQueryPayload { name, terms })
+    let allowed_entities = get_optional(dict, "allowed_entities")?
+        .map(|value| parse_entity_list(&value, "allowed_entities"))
+        .transpose()?;
+    Ok(BridgeQueryPayload {
+        name,
+        terms,
+        allowed_entities,
+    })
 }
 
 fn parse_expr_node(value: Bound<'_, PyAny>) -> PyResult<ExprNode> {
@@ -205,6 +352,9 @@ fn parse_expr_node(value: Bound<'_, PyAny>) -> PyResult<ExprNode> {
         "literal_string" | "string" => Ok(ExprNode::LiteralString(
             get_required(dict, "value")?.extract::<String>()?,
         )),
+        "literal_value" | "value" => Ok(ExprNode::LiteralValue(py_to_ecs_value(&get_required(
+            dict, "value",
+        )?)?)),
         "field" => Ok(ExprNode::Field {
             query: get_required(dict, "query")?.extract::<String>()?,
             component: get_required(dict, "component")?.extract::<String>()?,
@@ -213,6 +363,13 @@ fn parse_expr_node(value: Bound<'_, PyAny>) -> PyResult<ExprNode> {
         "resource_field" => Ok(ExprNode::ResourceField {
             resource: get_required(dict, "resource")?.extract::<String>()?,
             field: get_required(dict, "field")?.extract::<String>()?,
+        }),
+        "attribute" => Ok(ExprNode::Attribute {
+            input: get_required(dict, "input")?.extract::<usize>()?,
+            attribute: get_required(dict, "attribute")?.extract::<String>()?,
+        }),
+        "event_stream" => Ok(ExprNode::EventStream {
+            event_type: get_required(dict, "event_type")?.extract::<String>()?,
         }),
         "input_state" => Ok(ExprNode::InputState {
             name: get_required(dict, "name")?.extract::<String>()?,
@@ -248,6 +405,26 @@ fn parse_expr_node(value: Bound<'_, PyAny>) -> PyResult<ExprNode> {
                 .map(|value| value.extract::<String>())
                 .transpose()?,
             value: get_optional(dict, "value")?
+                .map(|value| value.extract::<usize>())
+                .transpose()?,
+            default: get_optional(dict, "default")?
+                .map(|value| value.extract::<usize>())
+                .transpose()?,
+        }),
+        "spatial_metadata" => Ok(ExprNode::SpatialMetadata {
+            relation: parse_spatial_relation_node(get_required(dict, "relation")?)?,
+            kind: get_required(dict, "metadata")?.extract::<String>()?,
+            axis: get_optional(dict, "axis")?
+                .map(|value| value.extract::<usize>())
+                .transpose()?,
+        }),
+        "spatial_aggregate" => Ok(ExprNode::SpatialAggregate {
+            kind: get_required(dict, "aggregate")?.extract::<String>()?,
+            relation: parse_spatial_relation_node(get_required(dict, "relation")?)?,
+            value: get_optional(dict, "value")?
+                .map(|value| value.extract::<usize>())
+                .transpose()?,
+            default: get_optional(dict, "default")?
                 .map(|value| value.extract::<usize>())
                 .transpose()?,
         }),
@@ -352,6 +529,117 @@ fn access_key_name(key: &AccessKey) -> String {
         AccessKey::Event(name) => format!("event:{name}"),
         AccessKey::Hidden(name) => format!("hidden:{name}"),
     }
+}
+
+fn physical_plan_summary_to_dict<'py>(
+    py: Python<'py>,
+    plan: &PhysicalPlan,
+) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item("version", plan.version)?;
+    dict.set_item("schema_fingerprint", plan.schema_fingerprint)?;
+    dict.set_item("query_count", plan.queries.len())?;
+    dict.set_item("expression_count", plan.expressions.len())?;
+    dict.set_item("action_count", plan.actions.len())?;
+    dict.set_item("root_action", plan.root_action)?;
+    let access = PyDict::new_bound(py);
+    access.set_item(
+        "reads",
+        plan.access
+            .reads
+            .iter()
+            .map(access_key_name)
+            .collect::<Vec<_>>(),
+    )?;
+    access.set_item(
+        "writes",
+        plan.access
+            .writes
+            .iter()
+            .map(access_key_name)
+            .collect::<Vec<_>>(),
+    )?;
+    access.set_item("structural", plan.access.structural)?;
+    dict.set_item("access", access)?;
+    Ok(dict)
+}
+
+fn execution_report_to_dict<'py>(
+    py: Python<'py>,
+    report: &ExecutionReport,
+) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item("rows_scanned", report.rows_scanned)?;
+    dict.set_item("fields_written", report.fields_written)?;
+    dict.set_item("resource_fields_written", report.resource_fields_written)?;
+    dict.set_item("events_emitted", report.events_emitted)?;
+    dict.set_item("duplicate_writes", report.duplicate_writes)?;
+    dict.set_item("spatial_indexes_built", report.spatial_indexes_built)?;
+    dict.set_item("spatial_candidate_rows", report.spatial_candidate_rows)?;
+    dict.set_item("spatial_exact_rows", report.spatial_exact_rows)?;
+    dict.set_item(
+        "spatial_false_positive_rows",
+        report.spatial_false_positive_rows,
+    )?;
+    dict.set_item(
+        "spatial_deduplicated_pairs",
+        report.spatial_deduplicated_pairs,
+    )?;
+    dict.set_item(
+        "spatial_algorithm_hash_grid",
+        report.spatial_algorithm_hash_grid,
+    )?;
+    dict.set_item(
+        "spatial_algorithm_quadtree",
+        report.spatial_algorithm_quadtree,
+    )?;
+    dict.set_item("spatial_algorithm_octree", report.spatial_algorithm_octree)?;
+    dict.set_item(
+        "spatial_algorithm_hilbert_curve",
+        report.spatial_algorithm_hilbert_curve,
+    )?;
+    let component_writes = PyList::empty_bound(py);
+    let resource_writes = PyList::empty_bound(py);
+    for write in &report.writes {
+        match write {
+            ExecutionWrite::ComponentField {
+                entity,
+                component,
+                field,
+                value,
+            } => {
+                let item = PyDict::new_bound(py);
+                item.set_item("index", entity.index)?;
+                item.set_item("generation", entity.generation)?;
+                item.set_item("component", component)?;
+                item.set_item("field", field)?;
+                item.set_item("value", ecs_value_to_py(py, value)?)?;
+                component_writes.append(item)?;
+            }
+            ExecutionWrite::ResourceField {
+                resource,
+                field,
+                value,
+            } => {
+                let item = PyDict::new_bound(py);
+                item.set_item("resource", resource)?;
+                item.set_item("field", field)?;
+                item.set_item("value", ecs_value_to_py(py, value)?)?;
+                resource_writes.append(item)?;
+            }
+        }
+    }
+    let events = PyList::empty_bound(py);
+    for event in &report.events {
+        let item = PyDict::new_bound(py);
+        item.set_item("event_type", &event.event_type)?;
+        item.set_item("payload", ecs_value_to_py(py, &event.payload)?)?;
+        events.append(item)?;
+    }
+    dict.set_item("component_writes", component_writes)?;
+    dict.set_item("resource_writes", resource_writes)?;
+    dict.set_item("events", events)?;
+    Ok(dict)
 }
 
 #[pyfunction]
@@ -506,7 +794,7 @@ impl PyEcsWorld {
     }
 
     fn compile_bridge_plan<'py>(
-        &self,
+        &mut self,
         py: Python<'py>,
         payload: &Bound<'_, PyDict>,
     ) -> PyResult<Bound<'py, PyDict>> {
@@ -515,33 +803,58 @@ impl PyEcsWorld {
             .world
             .compile_bridge_plan(payload)
             .map_err(|err| PyValueError::new_err(err.to_string()))?;
-        let dict = PyDict::new_bound(py);
-        dict.set_item("version", plan.version)?;
-        dict.set_item("schema_fingerprint", plan.schema_fingerprint)?;
-        dict.set_item("query_count", plan.queries.len())?;
-        dict.set_item("expression_count", plan.expressions.len())?;
-        dict.set_item("action_count", plan.actions.len())?;
-        dict.set_item("root_action", plan.root_action)?;
-        let access = PyDict::new_bound(py);
-        access.set_item(
-            "reads",
-            plan.access
-                .reads
-                .iter()
-                .map(access_key_name)
-                .collect::<Vec<_>>(),
-        )?;
-        access.set_item(
-            "writes",
-            plan.access
-                .writes
-                .iter()
-                .map(access_key_name)
-                .collect::<Vec<_>>(),
-        )?;
-        access.set_item("structural", plan.access.structural)?;
-        dict.set_item("access", access)?;
+        let dict = physical_plan_summary_to_dict(py, &plan)?;
+        let handle = self
+            .world
+            .store_compiled_plan(plan)
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        dict.set_item("handle", handle)?;
         Ok(dict)
+    }
+
+    fn execute_compiled_plan<'py>(
+        &mut self,
+        py: Python<'py>,
+        handle: u64,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let report = self
+            .world
+            .execute_compiled_plan(handle)
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        execution_report_to_dict(py, &report)
+    }
+
+    fn release_compiled_plan(&mut self, handle: u64) -> bool {
+        self.world.release_compiled_plan(handle)
+    }
+
+    fn compiled_plan_count(&self) -> usize {
+        self.world.compiled_plan_count()
+    }
+
+    #[pyo3(signature = (name, value, code=None))]
+    fn set_input_state(
+        &mut self,
+        name: String,
+        value: &Bound<'_, PyAny>,
+        code: Option<i64>,
+    ) -> PyResult<()> {
+        self.world
+            .set_input_state(name, code, py_to_ecs_value(value)?);
+        Ok(())
+    }
+
+    fn execute_bridge_plan<'py>(
+        &mut self,
+        py: Python<'py>,
+        payload: &Bound<'_, PyDict>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let payload = parse_bridge_plan_payload(payload)?;
+        let report = self
+            .world
+            .execute_bridge_plan(payload)
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        execution_report_to_dict(py, &report)
     }
 
     fn archetype_count(&self) -> usize {

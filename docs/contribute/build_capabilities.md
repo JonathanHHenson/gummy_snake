@@ -11,7 +11,7 @@ Use this matrix when validating local builds, wheels, and release candidates.
 | Media helpers | Optional extra | Python package extra `media` | import/use media helpers | `uv sync --extra media --dev` plus media-specific examples |
 | Optional acceleration | Optional | `crates/gummy_accel` PyO3 module `gummysnake.rust._accelerated` | `gummysnake.rust.is_acceleration_available()` | `uv run pytest tests/unit/test_rust_acceleration.py` |
 | WEBGL path | Required for accepted `WEBGL` mode | Rust-owned model handles, fallback software 3D paths, and built-in retained GPU model pipelines when GPU drawing is available | backend flags `three_d=True`, `software_three_d=True`, `native_three_d=False`, `native_shaders=False` | `uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks -q -s` |
-| ECS runtime | Required for Rust ECS acceleration paths; Python compatibility ECS remains available for public API coverage | `crates/gummy_ecs` linked into `crates/gummy_canvas`, exposed through `gummysnake.rust._canvas` | `gummysnake.rust.ecs.ecs_abi_version()` and `gummysnake.rust.ecs.require_ecs_runtime()` validate the ECS ABI and bridge classes | `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` plus `uv run pytest tests/unit/test_ecs.py -q` |
+| ECS runtime | Required for ECS system storage and physical execution; only explicit Python UDF bodies execute outside Rust | `crates/gummy_ecs` linked into `crates/gummy_canvas`, exposed through `gummysnake.rust._canvas` | `gummysnake.rust.ecs.ecs_abi_version()` and `gummysnake.rust.ecs.require_ecs_runtime()` validate the ECS ABI and bridge classes | `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` plus `uv run pytest tests/unit/test_ecs.py -q` |
 
 ## Compatibility Marker
 

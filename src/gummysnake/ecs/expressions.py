@@ -340,6 +340,9 @@ class FieldExpression(Expression):
         if isinstance(self.source, QueryProxy):
             entity = ctx[self.source]
             setattr(entity[self.component_type], self.field_name, value)
+            world._sync_component_field_to_rust(
+                entity.entity, self.component_type, self.field_name, value
+            )
             world._note_field_update(entity.entity, self.component_type)
             return
         if not self.source.mutable:
@@ -351,6 +354,7 @@ class FieldExpression(Expression):
             )
         resource = world.get_resource(self.component_type)
         setattr(resource, self.field_name, value)
+        world._sync_resource_field_to_rust(self.component_type, self.field_name, value)
         world._note_resource_update()
 
 

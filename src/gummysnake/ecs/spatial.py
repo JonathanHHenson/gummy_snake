@@ -1,11 +1,8 @@
 """Generic ECS spatial relation APIs.
 
-The public API models spatial work as lazy relations over ECS query rows. The
-Python compatibility executor accelerates hash-grid relations and reports visible
-fallback diagnostics for tree/Hilbert requests until those public plan shapes are
-wired to the Rust physical executor. The Rust ECS core already includes hash-grid,
-quadtree, octree, and 2D Hilbert backend primitives behind the shared spatial
-trait.
+The public API models spatial work as lazy relations over ECS query rows. Scheduled
+systems serialize these relations into Rust physical plans, where hash-grid,
+quadtree, octree, and 2D Hilbert backends execute behind the shared spatial trait.
 """
 
 from __future__ import annotations
@@ -657,23 +654,10 @@ def _get_or_build_index(relation: SpatialRelation, world: EcsWorld) -> _SpatialI
         index: _SpatialIndex = _HashGridIndex(relation, records, algorithm.cell_size)
         world._diagnostics["ecs_spatial_algorithm_hash_grid"] += 1
     else:
-        if relation.allow_fallback is False or (relation.allow_fallback is None and world.strict):
-            raise SystemPlanError(
-                f"Spatial algorithm {algorithm.kind!r} is not accelerated in this runtime yet. "
-                "Use HashGrid or allow_fallback=True for exact linear execution."
-            )
-        world._diagnostics["ecs_spatial_index_fallbacks"] += 1
-        world._diagnostics["ecs_spatial_unsupported_algorithm"] += 1
-        world._diagnostics["ecs_spatial_nested_loop_rows"] += len(records)
-        fallback_message = (
-            f"ECS spatial algorithm {algorithm.kind!r} is not accelerated in this runtime; "
-            "exact linear fallback is used."
+        raise SystemPlanError(
+            f"Spatial algorithm {algorithm.kind!r} cannot be evaluated by the legacy Python "
+            "spatial expression evaluator. Scheduled ECS systems execute this algorithm in Rust."
         )
-        if not world.strict:
-            world.record_ambiguity(fallback_message)
-        else:
-            world._messages.append(fallback_message)
-        index = _SpatialIndex(relation, records)
     cache[key] = index
     world._diagnostics["ecs_spatial_indexes_registered"] = len(cache)
     world._diagnostics["ecs_spatial_indexes_built"] += 1

@@ -1,20 +1,20 @@
 # ECS Debugging and Performance Triage
 
-Use this guide when changing or diagnosing `gummysnake.ecs` behavior. The ECS public API is Pythonic, but the implementation is split between Python plan construction/compatibility execution and Rust storage/bridge primitives.
+Use this guide when changing or diagnosing `gummysnake.ecs` behavior. The ECS public API is Pythonic, while system plans execute in Rust physical storage/execution paths except for explicit `@ecs.udf` Python boundaries.
 
 ## First checks
 
 1. Reproduce with the smallest deterministic world possible.
 2. Call `system.explain()` before running frames to inspect the logical action tree.
 3. Run one bounded ECS frame and inspect `gs.ecs_diagnostics()` or `world.diagnostics()`.
-4. If spatial relations are involved, check both fallback counters and candidate/exact row counts.
+4. If spatial relations are involved, check candidate/exact row counts, deduplicated pairs, and per-algorithm spatial index counters.
 5. Turn on strict mode when investigating ambiguous writes:
 
    ```python
    gs.configure_ecs(strict=True)
    ```
 
-Strict mode raises on duplicate write ambiguity and overlapping `do_in_parallel()` write sets. With strict mode off, behavior remains deterministic by using last-write-wins or serial fallback where required; warnings can be suppressed with `warn_on_ambiguity=False`, but diagnostics still count the event.
+Strict mode raises on duplicate write ambiguity and overlapping `do_in_parallel()` write sets. With strict mode off, behavior remains deterministic by using last-write-wins where duplicate writes occur; warnings can be suppressed with `warn_on_ambiguity=False`, but diagnostics still count the event.
 
 ## Explain output
 
@@ -30,7 +30,7 @@ Use it to verify:
 - target fields and value expressions for `ecs.set(...)`,
 - branch conditions for `when(...)`,
 - UDF and event action boundaries,
-- spatial relation descriptors, including relation name, algorithm, dimensions, origin/target query aliases, predicates, pair policy, and fallback policy.
+- spatial relation descriptors, including relation name, algorithm, dimensions, origin/target query aliases, predicates, and pair policy.
 
 The explain output is intended to be stable enough for tests and user debugging. Avoid exposing unstable Rust internal IDs in public explain strings unless they are explicitly labelled debug-only.
 
@@ -43,13 +43,14 @@ Common ECS counters:
 | `ecs_systems_registered` / `ecs_systems_enabled` | Current scheduler surface. |
 | `ecs_schedule_rebuilds` | Systems or system sets changed schedule state. |
 | `ecs_pre_draw_runs` | ECS phases run before draw. |
+| `ecs_rust_compiled_plans` | Rust-owned compiled physical plan handles currently cached by the world. |
 | `ecs_rows_updated` | Component field writes performed by systems or APIs. |
 | `ecs_structural_commands_applied` | Component/tag structural mutations. |
 | `ecs_ambiguity_warnings` | Deterministic ambiguity detected in non-strict mode. |
 | `ecs_ambiguity_warnings_suppressed` | Ambiguity logs suppressed while diagnostics stayed active. |
 | `ecs_strict_mode_errors` | Ambiguity rejected in strict mode. |
-| `ecs_udf_calls` | Python UDF action calls; these are flexibility escape hatches, not accelerated hot loops. |
-| `ecs_change_detection_refreshes` | Change-tracking snapshot refreshes. |
+| `ecs_udf_calls` | Python UDF action or iterable-source calls; these are flexibility escape hatches, not accelerated hot loops. |
+| `ecs_change_detection_refreshes` | Change-tracking frame refreshes; component values remain Rust-owned and are not snapshotted in Python. |
 
 Rust core/bridge counters include entity generation reuse, schema counts, query cache refreshes, matched archetypes/rows, resources, and event queue totals where the installed runtime exposes them.
 
@@ -68,10 +69,9 @@ Spatial relation diagnostics are essential for performance triage:
 | `ecs_spatial_exact_rows` | Rows that passed exact filtering. |
 | `ecs_spatial_false_positive_rows` | Candidates rejected by exact radius/AABB filtering. |
 | `ecs_spatial_deduplicated_pairs` | Pairs skipped by `pair_policy="unique_unordered"`. |
-| `ecs_spatial_index_fallbacks` / `ecs_spatial_unsupported_algorithm` | Exact fallback used because the requested public plan shape is not accelerated in the compatibility executor. |
-| `ecs_spatial_nested_loop_rows` | Rows scanned by exact fallback. |
+| `ecs_spatial_algorithm_hash_grid` / `ecs_spatial_algorithm_quadtree` / `ecs_spatial_algorithm_octree` / `ecs_spatial_algorithm_hilbert_curve` | Rust spatial index builds by backend. |
 
-For accelerated benchmark claims, assert fallback counters are zero for the scenario under test. If fallback is expected, label the benchmark or example as compatibility/fallback work rather than Rust-accelerated execution.
+For accelerated benchmark claims, assert `ecs_physical_system_runs` is non-zero, `ecs_udf_calls` is zero for the hot path, and spatial candidate/exact row counts match the intended relation shape.
 
 The Rust spatial backend trait also exposes `SpatialMemoryStats` for backend-level tests and future diagnostics. Use it to check record/vector capacity reuse, bucket capacity, tree node counts, and overflow-list pressure when changing hash-grid, tree, or Hilbert implementations.
 
@@ -96,11 +96,9 @@ on_platform = contact_condition.group_by(platform).any()
 return ecs.when(on_platform).do(ecs.set(platform.ctx[Velocity].dx, 3.0))
 ```
 
-### Spatial fallback
+### Unsupported Rust physical nodes
 
-If diagnostics show `ecs_spatial_index_fallbacks`, inspect `system.explain()` for the relation descriptor and algorithm. In the Python compatibility executor, `HashGrid` is the accelerated public path. Tree and Hilbert backends exist in the Rust core, but public physical-plan execution must be wired before those algorithms can be claimed as accelerated from Python system plans.
-
-Use `allow_fallback=False` on performance-critical relations to fail fast rather than silently scanning all target rows.
+Non-UDF plan nodes should serialize to Rust physical execution. If a system raises `SystemPlanError` during compilation, inspect `system.explain()` and either express the operation with supported ECS actions/expressions or isolate the Python-only work in an explicit `@ecs.udf` boundary.
 
 ### Stale entity handles
 

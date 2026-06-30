@@ -7,7 +7,9 @@ use crate::diagnostics::Diagnostics;
 use crate::entity::{Entity, EntityAllocator};
 use crate::error::{EcsError, Result};
 use crate::event::{EventRecord, EventStore};
-use crate::plan::{compile_bridge_plan, BridgePlanPayload, PhysicalPlan};
+use crate::plan::{
+    compile_bridge_plan, BridgePlanPayload, PhysicalPlan, PhysicalPlanHandle, PlanCache,
+};
 use crate::query::{CachedQuery, QueryFilter, QuerySnapshot};
 use crate::resource::ResourceStore;
 use crate::schema::{ComponentSchema, SchemaRegistry};
@@ -31,6 +33,8 @@ pub struct World {
     filtered_query_cache: HashMap<QueryFilter, CachedQuery>,
     resources: ResourceStore,
     events: EventStore,
+    compiled_plans: PlanCache,
+    input_states: HashMap<(String, Option<i64>), EcsValue>,
     current_frame: u64,
     diagnostics: Diagnostics,
 }
@@ -104,6 +108,41 @@ impl World {
 
     pub fn compile_bridge_plan(&self, payload: BridgePlanPayload) -> Result<PhysicalPlan> {
         compile_bridge_plan(payload, &self.schemas)
+    }
+
+    pub fn store_compiled_plan(&mut self, plan: PhysicalPlan) -> Result<PhysicalPlanHandle> {
+        self.compiled_plans.insert(plan)
+    }
+
+    pub fn compile_bridge_plan_handle(
+        &mut self,
+        payload: BridgePlanPayload,
+    ) -> Result<PhysicalPlanHandle> {
+        let plan = self.compile_bridge_plan(payload)?;
+        self.store_compiled_plan(plan)
+    }
+
+    pub(crate) fn compiled_plan(
+        &self,
+        handle: PhysicalPlanHandle,
+    ) -> Option<std::sync::Arc<PhysicalPlan>> {
+        self.compiled_plans.get(handle)
+    }
+
+    pub fn release_compiled_plan(&mut self, handle: PhysicalPlanHandle) -> bool {
+        self.compiled_plans.remove(handle).is_some()
+    }
+
+    pub fn compiled_plan_count(&self) -> usize {
+        self.compiled_plans.len()
+    }
+
+    pub fn set_input_state(&mut self, name: impl Into<String>, code: Option<i64>, value: EcsValue) {
+        self.input_states.insert((name.into(), code), value);
+    }
+
+    pub(crate) fn input_state(&self, name: &str, code: Option<i64>) -> Option<EcsValue> {
+        self.input_states.get(&(name.to_string(), code)).cloned()
     }
 
     pub fn archetype_count(&self) -> usize {
@@ -253,6 +292,7 @@ impl World {
         field: &str,
         value: EcsValue,
     ) -> Result<()> {
+        let value = self.coerce_value_for_component_field(component, field, value)?;
         let location = self.location(entity)?;
         self.archetypes[location.archetype].set_field(location.row, component, field, value)
     }
@@ -263,6 +303,8 @@ impl World {
     }
 
     pub fn insert_resource(&mut self, name: impl Into<String>, value: ComponentRow) -> Result<()> {
+        let name = name.into();
+        let value = self.coerce_component_row(&name, value)?;
         self.resources.insert(&self.schemas, name, value)
     }
 
@@ -275,6 +317,7 @@ impl World {
     }
 
     pub fn set_resource_field(&mut self, name: &str, field: &str, value: EcsValue) -> Result<()> {
+        let value = self.coerce_value_for_component_field(name, field, value)?;
         self.resources.set_field(name, field, value)
     }
 

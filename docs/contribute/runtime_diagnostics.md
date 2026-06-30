@@ -95,19 +95,22 @@ report = gs.ecs_diagnostics()
 ```
 
 Stable public counters include system registration/enabled counts, schedule
-rebuilds, pre-draw run timing, ambiguity warnings/suppressions, UDF calls,
+rebuilds, pre-draw run timing, Rust compiled-plan handle counts, Rust
+physical-plan compiles/runs, physical rows scanned and fields written, ambiguity
+warnings/suppressions, UDF calls,
 change-filter checks, event queues, resource counts, spatial index builds,
-candidate/exact row counts, deduplicated self-pairs, nested-loop fallback rows,
-and spatial fallback counts. The Rust bridge also exposes core storage counters
-such as entity generation reuse, archetype moves, staged commands, query cache
-hits/misses/refreshes/invalidations, matched archetypes, and matched rows.
+candidate/exact row counts, deduplicated self-pairs, false-positive rows, and
+per-algorithm spatial index builds. The Rust bridge also exposes core storage
+counters such as entity generation reuse, archetype moves, staged commands, query
+cache hits/misses/refreshes/invalidations, matched archetypes, and matched rows.
 
 When debugging a system, start with `system.explain()` to inspect the action tree
 and relation/aggregate shape, then compare diagnostics before and after a small
-bounded run. Ambiguity counters indicate deterministic last-write-wins fallback;
-strict mode turns those into plan errors. Spatial fallback counters indicate the
-Python compatibility executor used exact fallback for a requested algorithm or
-that the physical Rust backend is not yet wired for that public plan shape.
+bounded run. Ambiguity counters indicate deterministic last-write-wins behavior;
+strict mode turns those into plan errors. Unsupported non-UDF plan nodes should
+raise during Rust physical-plan compilation rather than running a Python fallback.
+Python constructs logical plans and explicit UDF boundaries; Rust owns canonical
+ECS storage and compiled physical execution.
 
 ## Primitive Batch Boundaries
 

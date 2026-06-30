@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::error::{EcsError, Result};
 use crate::schema::StorageType;
 
@@ -13,6 +15,7 @@ pub enum EcsValue {
     Vec3F32([f32; 3]),
     Vec3F64([f64; 3]),
     List(Vec<EcsValue>),
+    Struct(HashMap<String, EcsValue>),
 }
 
 impl EcsValue {
@@ -28,6 +31,7 @@ impl EcsValue {
             Self::Vec3F32(_) => "Vec3F32",
             Self::Vec3F64(_) => "Vec3F64",
             Self::List(_) => "List",
+            Self::Struct(_) => "Struct",
         }
     }
 }

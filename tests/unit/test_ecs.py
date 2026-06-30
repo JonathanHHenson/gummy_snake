@@ -90,11 +90,60 @@ def test_rust_ecs_bridge_compiles_plan_payload() -> None:
 
     summary = world.compile_bridge_plan(payload)
 
+    assert isinstance(summary["handle"], int)
+    assert summary["handle"] > 0
+    assert world.compiled_plan_count() == 1
     assert summary["query_count"] == 1
     assert summary["expression_count"] == 3
     assert summary["action_count"] == 1
     assert summary["access"]["reads"] == ["component:Position", "resource:Clock"]
     assert summary["access"]["writes"] == ["component:Position"]
+
+
+def test_rust_ecs_bridge_executes_plan_payload() -> None:
+    world = rust_ecs.create_ecs_world()
+    world.register_schema("Position", [("x", "Float64"), ("y", "Float64")])
+    world.register_schema("Velocity", [("dx", "Float64"), ("dy", "Float64")])
+    index, generation = world.allocate_entity()
+    world.add_component_default(index, generation, "Position")
+    world.add_component_default(index, generation, "Velocity")
+    world.set_field(index, generation, "Position", "x", 2.0)
+    world.set_field(index, generation, "Velocity", "dx", 3.0)
+    payload = {
+        "version": 1,
+        "schema_fingerprint": world.schema_fingerprint(),
+        "queries": [
+            {
+                "name": "entity",
+                "terms": [
+                    ("with_component", "Position"),
+                    ("with_component", "Velocity"),
+                ],
+            }
+        ],
+        "expressions": [
+            {"kind": "field", "query": "entity", "component": "Position", "field": "x"},
+            {"kind": "field", "query": "entity", "component": "Velocity", "field": "dx"},
+            {"kind": "binary", "op": "add", "left": 0, "right": 1},
+        ],
+        "actions": [{"kind": "set_field", "target": 0, "value": 2}],
+        "root_action": 0,
+    }
+
+    summary = world.compile_bridge_plan(payload)
+    report = world.execute_compiled_plan(summary["handle"])
+
+    assert world.get_field(index, generation, "Position", "x") == 5.0
+    assert report["fields_written"] == 1
+    assert report["component_writes"] == [
+        {
+            "index": index,
+            "generation": generation,
+            "component": "Position",
+            "field": "x",
+            "value": 5.0,
+        }
+    ]
 
 
 def test_rust_ecs_wrapper_validates_abi_and_spatial_registry(
@@ -188,6 +237,48 @@ def test_resources_and_system_resource_mutation() -> None:
     world.remove_resource(Counter)
     with pytest.raises(KeyError):
         world.get_resource(Counter)
+
+
+def test_supported_system_executes_in_rust_and_reads_rust_backed_views() -> None:
+    world = EcsWorld()
+    world.add_entity(Position(1, 0), Velocity(3, 0))
+
+    @ecs.system
+    def move(entity: ecs.Query[Position, Velocity]) -> ecs.Action:
+        return ecs.set(entity[Position].x, entity[Position].x + entity[Velocity].dx)
+
+    world.add_system(move)
+    world.run_pre_draw_systems()
+
+    entity = world.get_entity(Position, Velocity)
+    assert entity[Position].x == 4
+    diagnostics = world.diagnostics()
+    assert diagnostics["ecs_physical_system_runs"] == 1
+    assert diagnostics.get("ecs_python_fallback_system_runs", 0) == 0
+    assert diagnostics["ecs_physical_fields_written"] == 1
+
+
+def test_supported_when_and_resource_system_execute_in_rust() -> None:
+    world = EcsWorld()
+    world.add_entity(Position(2, 0))
+    world.set_resource(Counter(1))
+
+    @ecs.system
+    def branch(entity: ecs.Query[Position], counter: ecs.ResMut[Counter]) -> ecs.Action:
+        return (
+            ecs.when(entity[Position].x > 1)
+            .do(ecs.set(counter[Counter].value, counter[Counter].value + 2))
+            .otherwise()
+            .do(ecs.set(counter[Counter].value, 0))
+        )
+
+    world.add_system(branch)
+    world.run_pre_draw_systems()
+
+    assert world.get_resource(Counter).value == 3
+    diagnostics = world.diagnostics()
+    assert diagnostics["ecs_physical_system_runs"] == 1
+    assert diagnostics["ecs_physical_resource_fields_written"] == 1
 
 
 def test_system_do_in_order_when_otherwise_and_dt_expression() -> None:
@@ -359,7 +450,9 @@ def test_udf_action_and_for_each_iterable_source() -> None:
 
     assert world.get_entity(Position)[Position].x == 6
     assert world.get_resource(Counter).value == 3
-    assert world.diagnostics()["ecs_udf_calls"] == 1
+    diagnostics = world.diagnostics()
+    assert diagnostics["ecs_udf_calls"] == 2
+    assert diagnostics.get("ecs_python_fallback_system_runs", 0) == 0
 
 
 def test_system_plan_explain_describes_action_tree() -> None:
@@ -404,7 +497,7 @@ def test_system_plan_explain_describes_spatial_relations() -> None:
     assert "algorithm=hash_grid" in explanation
     assert "dimensions=2" in explanation
     assert "origin=entity" in explanation
-    assert "fallback=reject" in explanation
+    assert "pair_policy=all" in explanation
 
 
 def test_system_must_return_action_not_plan() -> None:
@@ -517,7 +610,7 @@ def test_spatial_hash_neighbors_and_join_aggregates() -> None:
     assert diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
 
 
-def test_spatial_fallback_policy_warns_suppresses_and_strict_errors() -> None:
+def test_spatial_tree_algorithms_execute_in_rust_without_fallbacks() -> None:
     @ecs.system
     def tree_system(entity: ecs.Query[Position]) -> ecs.Action:
         pos = ecs.spatial.point2(entity[Position].x, entity[Position].y)
@@ -529,45 +622,25 @@ def test_spatial_fallback_policy_warns_suppresses_and_strict_errors() -> None:
         )
         return ecs.set(entity[Position].y, relation.count())
 
-    warning_world = EcsWorld()
-    warning_world.add_entity(Position(0, 0))
-    warning_world.add_system(tree_system)
-    with pytest.warns(RuntimeWarning, match="spatial algorithm"):
-        warning_world.run_pre_draw_systems()
-    assert warning_world.diagnostics()["ecs_spatial_index_fallbacks"] == 1
-
-    quiet_world = EcsWorld()
-    quiet_world.configure(warn_on_ambiguity=False)
-    quiet_world.add_entity(Position(0, 0))
-    quiet_world.add_system(tree_system)
-    quiet_world.run_pre_draw_systems()
-    assert quiet_world.diagnostics()["ecs_ambiguity_warnings_suppressed"] == 1
+    world = EcsWorld()
+    world.add_entity(Position(0, 0))
+    world.add_system(tree_system)
+    world.run_pre_draw_systems()
+    diagnostics = world.diagnostics()
+    assert diagnostics["ecs_physical_system_runs"] == 1
+    assert diagnostics["ecs_spatial_algorithm_quadtree"] == 1
+    assert diagnostics["ecs_spatial_indexes_built"] == 1
+    assert diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
+    assert diagnostics.get("ecs_python_fallback_system_runs", 0) == 0
 
     strict_world = EcsWorld()
     strict_world.configure(strict=True)
     strict_world.add_entity(Position(0, 0))
     strict_world.add_system(tree_system)
-    with pytest.raises(SystemPlanError, match="not accelerated"):
-        strict_world.run_pre_draw_systems()
-
-    @ecs.system
-    def allowed_tree_system(entity: ecs.Query[Position]) -> ecs.Action:
-        pos = ecs.spatial.point2(entity[Position].x, entity[Position].y)
-        relation = ecs.spatial.neighbors(
-            entity,
-            position=pos,
-            radius=4.0,
-            algorithm=ecs.spatial.Quadtree(ecs.spatial.Bounds2D(-10, -10, 10, 10)),
-            allow_fallback=True,
-        )
-        return ecs.set(entity[Position].y, relation.count())
-
-    strict_allowed_world = EcsWorld()
-    strict_allowed_world.configure(strict=True)
-    strict_allowed_world.add_entity(Position(0, 0))
-    strict_allowed_world.add_system(allowed_tree_system)
-    strict_allowed_world.run_pre_draw_systems()
-    assert strict_allowed_world.diagnostics()["ecs_spatial_index_fallbacks"] == 1
+    strict_world.run_pre_draw_systems()
+    strict_diagnostics = strict_world.diagnostics()
+    assert strict_diagnostics["ecs_spatial_algorithm_quadtree"] == 1
+    assert strict_diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
 
 
 def test_spatial_aabb_overlaps_deduplicate_self_pairs() -> None:
