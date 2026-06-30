@@ -56,6 +56,13 @@ pub struct ExecutionReport {
     pub spatial_algorithm_quadtree: usize,
     pub spatial_algorithm_octree: usize,
     pub spatial_algorithm_hilbert_curve: usize,
+    pub spatial_index_reuses: usize,
+    pub spatial_index_full_rebuilds: usize,
+    pub spatial_index_incremental_updates: usize,
+    pub spatial_parallel_chunks: usize,
+    pub spatial_parallel_workers: usize,
+    pub spatial_thread_scratch_reuses: usize,
+    pub spatial_candidate_buffer_growths: usize,
     pub writes: Vec<ExecutionWrite>,
     pub events: Vec<ExecutionEvent>,
 }
@@ -95,11 +102,19 @@ enum ExprCacheKey {
 }
 
 #[derive(Debug, Clone)]
-enum BuiltSpatialIndex {
+pub(crate) enum BuiltSpatialIndex {
     HashGrid(HashGridIndex),
     Quadtree(QuadtreeIndex),
     Octree(OctreeIndex),
     Hilbert(HilbertIndex),
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct CachedSpatialIndex {
+    pub index: BuiltSpatialIndex,
+    pub signature: String,
+    pub structural_revision: u64,
+    pub field_revision: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -163,6 +178,27 @@ struct SpatialBatchAccum {
     sum: f64,
     min: f64,
     max: f64,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct SpatialLocalCounters {
+    candidate_rows: usize,
+    exact_rows: usize,
+    rows_scanned: usize,
+    deduplicated_pairs: usize,
+    candidate_buffer_growths: usize,
+}
+
+#[derive(Debug)]
+struct SpatialOriginResult {
+    origin: Entity,
+    values: Vec<(usize, f64)>,
+}
+
+#[derive(Debug)]
+struct SpatialChunkResult {
+    origins: Vec<SpatialOriginResult>,
+    counters: SpatialLocalCounters,
 }
 
 #[derive(Debug, Clone)]
@@ -262,6 +298,24 @@ fn reverse_comparison(comparison: NumericComparison) -> NumericComparison {
 }
 
 impl BuiltSpatialIndex {
+    fn build(&mut self, records: &[SpatialRecord]) -> Result<()> {
+        match self {
+            Self::HashGrid(index) => index.build(records),
+            Self::Quadtree(index) => index.build(records),
+            Self::Octree(index) => index.build(records),
+            Self::Hilbert(index) => index.build(records),
+        }
+    }
+
+    fn update_incremental(&mut self, records: &[SpatialRecord]) -> Result<bool> {
+        match self {
+            Self::HashGrid(index) => index.update_incremental(records),
+            Self::Quadtree(index) => index.update_incremental(records),
+            Self::Octree(index) => index.update_incremental(records),
+            Self::Hilbert(index) => index.update_incremental(records),
+        }
+    }
+
     fn query_radius(
         &self,
         origin: &SpatialPoint,
@@ -306,6 +360,7 @@ struct PlanExecutor<'a> {
     report: ExecutionReport,
     report_writes: bool,
     spatial_indexes: HashMap<String, BuiltSpatialIndex>,
+    spatial_index_metadata: HashMap<String, (String, u64, u64)>,
     spatial_relation_cache:
         HashMap<(String, Option<usize>, Option<usize>, bool, String, u64), Arc<Vec<SpatialRecord>>>,
     expr_cache: HashMap<ExprCacheKey, EcsValue>,
@@ -398,6 +453,7 @@ impl World {
             report: ExecutionReport::default(),
             report_writes: include_writes,
             spatial_indexes: HashMap::new(),
+            spatial_index_metadata: HashMap::new(),
             spatial_relation_cache: HashMap::new(),
             expr_cache: HashMap::new(),
             local_expr_cache: None,
@@ -418,7 +474,9 @@ impl World {
             profile_direct_aggregate_nanos: 0,
             profile_direct_aggregate_hits: 0,
         };
-        executor.execute_action(plan.root_action, &[EvalContext::default()])?;
+        let execute_result = executor.execute_action(plan.root_action, &[EvalContext::default()]);
+        executor.persist_spatial_index_cache();
+        execute_result?;
         if let Some(start) = total_start {
             eprintln!(
                 "ecs_profile execute_total elapsed_ms={:.3}",
@@ -499,7 +557,7 @@ impl<'a> PlanExecutor<'a> {
                 for child in children {
                     self.expr_cache.clear();
                     self.numeric_field_cache.clear();
-                    self.spatial_indexes.clear();
+                    self.persist_spatial_index_cache();
                     self.spatial_relation_cache.clear();
                     self.execute_action(*child, contexts)?;
                 }
@@ -573,6 +631,7 @@ impl<'a> PlanExecutor<'a> {
         let snapshot = self.world.clone();
         let mut targets_seen = HashSet::new();
         let mut shared_spatial_indexes = HashMap::new();
+        let mut shared_spatial_index_metadata = HashMap::new();
         let mut shared_spatial_relation_cache = HashMap::new();
         let mut shared_expr_cache = HashMap::new();
         for child in children {
@@ -589,6 +648,7 @@ impl<'a> PlanExecutor<'a> {
                 report: ExecutionReport::default(),
                 report_writes: true,
                 spatial_indexes: shared_spatial_indexes,
+                spatial_index_metadata: shared_spatial_index_metadata,
                 spatial_relation_cache: shared_spatial_relation_cache,
                 expr_cache: shared_expr_cache,
                 local_expr_cache: None,
@@ -611,6 +671,7 @@ impl<'a> PlanExecutor<'a> {
             };
             child_executor.execute_action(*child, contexts)?;
             shared_spatial_indexes = child_executor.spatial_indexes;
+            shared_spatial_index_metadata = child_executor.spatial_index_metadata;
             shared_spatial_relation_cache = child_executor.spatial_relation_cache;
             shared_expr_cache = if share_expr_cache_after_child {
                 child_executor.expr_cache
@@ -619,6 +680,9 @@ impl<'a> PlanExecutor<'a> {
             };
             self.merge_parallel_report(child_executor.report, &mut targets_seen)?;
         }
+        self.spatial_indexes.extend(shared_spatial_indexes);
+        self.spatial_index_metadata
+            .extend(shared_spatial_index_metadata);
         Ok(())
     }
 
@@ -660,6 +724,8 @@ impl<'a> PlanExecutor<'a> {
         let query_rows = self.query_rows.clone();
         let query_indices = self.query_indices.clone();
         let collector_report;
+        let collector_spatial_indexes;
+        let collector_spatial_index_metadata;
         {
             let profile = self.profile;
             let parallel_start = profile.then(Instant::now);
@@ -671,6 +737,7 @@ impl<'a> PlanExecutor<'a> {
                 report: ExecutionReport::default(),
                 report_writes: self.report_writes,
                 spatial_indexes: HashMap::new(),
+                spatial_index_metadata: HashMap::new(),
                 spatial_relation_cache: HashMap::new(),
                 expr_cache: HashMap::new(),
                 local_expr_cache: None,
@@ -735,6 +802,9 @@ impl<'a> PlanExecutor<'a> {
             }
             let drop_start = profile.then(Instant::now);
             collector_report = std::mem::take(&mut collector.report);
+            collector_spatial_indexes = std::mem::take(&mut collector.spatial_indexes);
+            collector_spatial_index_metadata =
+                std::mem::take(&mut collector.spatial_index_metadata);
             drop(collector);
             if let Some(start) = drop_start {
                 eprintln!(
@@ -743,6 +813,10 @@ impl<'a> PlanExecutor<'a> {
                 );
             }
         }
+
+        self.spatial_indexes.extend(collector_spatial_indexes);
+        self.spatial_index_metadata
+            .extend(collector_spatial_index_metadata);
 
         let merge_start = self.profile.then(Instant::now);
         let write_count = collector_report.writes.len();
@@ -774,6 +848,18 @@ impl<'a> PlanExecutor<'a> {
         self.report.spatial_algorithm_quadtree += child_report.spatial_algorithm_quadtree;
         self.report.spatial_algorithm_octree += child_report.spatial_algorithm_octree;
         self.report.spatial_algorithm_hilbert_curve += child_report.spatial_algorithm_hilbert_curve;
+        self.report.spatial_index_reuses += child_report.spatial_index_reuses;
+        self.report.spatial_index_full_rebuilds += child_report.spatial_index_full_rebuilds;
+        self.report.spatial_index_incremental_updates +=
+            child_report.spatial_index_incremental_updates;
+        self.report.spatial_parallel_chunks += child_report.spatial_parallel_chunks;
+        self.report.spatial_parallel_workers = self
+            .report
+            .spatial_parallel_workers
+            .max(child_report.spatial_parallel_workers);
+        self.report.spatial_thread_scratch_reuses += child_report.spatial_thread_scratch_reuses;
+        self.report.spatial_candidate_buffer_growths +=
+            child_report.spatial_candidate_buffer_growths;
         self.report.events.extend(child_report.events);
         if child_report.writes.is_empty() {
             self.report.fields_written += child_report.fields_written;
@@ -1609,6 +1695,12 @@ impl<'a> PlanExecutor<'a> {
         else {
             return Ok(None);
         };
+        if let Some(index) = self.take_fresh_spatial_index(relation) {
+            self.report_algorithm_use(&index);
+            self.spatial_indexes
+                .insert(relation.index_id.clone(), index.clone());
+            return Ok(Some(index));
+        }
         let item_rows = self
             .query_rows
             .get(&relation.item_query)
@@ -1619,34 +1711,34 @@ impl<'a> PlanExecutor<'a> {
                     relation.item_query
                 ))
             })?;
-        let mut records = Vec::with_capacity(item_rows.len());
-        for entity in item_rows {
-            records.push(SpatialRecord {
-                entity,
-                point: self.direct_spatial_point_for_entity(entity, &target_coords)?,
-                bounds: None,
-            });
+        let mut target_coord_arrays = Vec::with_capacity(target_coords.len());
+        for coord in &target_coords {
+            target_coord_arrays.push(self.build_fast_field_array(
+                &item_rows,
+                &coord.component,
+                &coord.field,
+            )?);
         }
-        let mut index = build_spatial_index(&relation.algorithm)?;
-        match &mut index {
-            BuiltSpatialIndex::HashGrid(index) => {
-                self.report.spatial_algorithm_hash_grid += 1;
-                index.build(&records)?;
-            }
-            BuiltSpatialIndex::Quadtree(index) => {
-                self.report.spatial_algorithm_quadtree += 1;
-                index.build(&records)?;
-            }
-            BuiltSpatialIndex::Octree(index) => {
-                self.report.spatial_algorithm_octree += 1;
-                index.build(&records)?;
-            }
-            BuiltSpatialIndex::Hilbert(index) => {
-                self.report.spatial_algorithm_hilbert_curve += 1;
-                index.build(&records)?;
-            }
+        let records = item_rows
+            .par_iter()
+            .map(|entity| {
+                Ok(SpatialRecord {
+                    entity: *entity,
+                    point: point_from_fast_arrays(&target_coord_arrays, *entity)?,
+                    bounds: None,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let worker_count = rayon::current_num_threads().max(1);
+        self.report.spatial_parallel_workers =
+            self.report.spatial_parallel_workers.max(worker_count);
+        if records.len() >= worker_count * 32 {
+            self.report.spatial_parallel_chunks += worker_count;
         }
-        self.report.spatial_indexes_built += 1;
+        let index = self.build_or_update_spatial_index(relation, records)?;
+        self.report_algorithm_use(&index);
+        self.spatial_indexes
+            .insert(relation.index_id.clone(), index.clone());
         Ok(Some(index))
     }
 
@@ -1712,22 +1804,6 @@ impl<'a> PlanExecutor<'a> {
             field: field.to_string(),
             values,
         })
-    }
-
-    fn fast_field_value(&self, array: &FastFieldArray, entity: Entity) -> Result<f64> {
-        let Some(Some((generation, value))) = array.values.get(entity.index as usize) else {
-            return Err(EcsError::InvalidPlan(format!(
-                "fast numeric field array missing entity {}:{} for '{}.{}'",
-                entity.index, entity.generation, array.component, array.field
-            )));
-        };
-        if *generation != entity.generation {
-            return Err(EcsError::InvalidPlan(format!(
-                "fast numeric field array has stale entity generation for {}:{}",
-                entity.index, entity.generation
-            )));
-        }
-        Ok(*value)
     }
 
     fn ensure_fast_field_array(
@@ -1838,115 +1914,126 @@ impl<'a> PlanExecutor<'a> {
             .iter()
             .map(|batch| batch.query_radius)
             .fold(0.0_f64, f64::max);
-        let mut accumulators = batches
-            .iter()
-            .map(|batch| vec![SpatialBatchAccum::default(); batch.specs.len()])
-            .collect::<Vec<_>>();
-        let mut exact_counts = vec![0usize; batches.len()];
-        let mut candidates = Vec::new();
-        for origin_entity in origin_rows {
-            let origin_point = match origin_coord_arrays.as_slice() {
-                [x, y] => SpatialPoint::point2(
-                    self.fast_field_value(x, origin_entity)?,
-                    self.fast_field_value(y, origin_entity)?,
-                ),
-                [x, y, z] => SpatialPoint::point3(
-                    self.fast_field_value(x, origin_entity)?,
-                    self.fast_field_value(y, origin_entity)?,
-                    self.fast_field_value(z, origin_entity)?,
-                ),
-                _ => Err(EcsError::InvalidPlan(
-                    "spatial points must have 2 or 3 coordinates".to_string(),
-                )),
-            }?;
-            for accumulator in &mut accumulators {
-                accumulator.fill(SpatialBatchAccum::default());
-            }
-            exact_counts.fill(0);
-            let mut process_record =
-                |executor: &mut Self, record: &SpatialRecord, distance_sq: f64| -> Result<()> {
-                    executor.report.spatial_candidate_rows += 1;
-                    if !first.include_self && record.entity == origin_entity {
-                        return Ok(());
+        let worker_count = rayon::current_num_threads().max(1);
+        let chunk_size = (origin_rows.len() / (worker_count * 4))
+            .clamp(32, 512)
+            .max(1);
+        let chunk_results = origin_rows
+            .par_chunks(chunk_size)
+            .map(|chunk| {
+                let mut candidates = Vec::new();
+                let mut counters = SpatialLocalCounters::default();
+                let mut origin_results = Vec::with_capacity(chunk.len());
+                let mut accumulators = batches
+                    .iter()
+                    .map(|batch| vec![SpatialBatchAccum::default(); batch.specs.len()])
+                    .collect::<Vec<_>>();
+                let mut exact_counts = vec![0usize; batches.len()];
+                for origin_entity in chunk {
+                    let origin_entity = *origin_entity;
+                    let origin_point = point_from_fast_arrays(&origin_coord_arrays, origin_entity)?;
+                    for accumulator in &mut accumulators {
+                        accumulator.fill(SpatialBatchAccum::default());
                     }
-                    if first.pair_policy == "unique_unordered"
-                        && record.entity.raw() <= origin_entity.raw()
-                    {
-                        executor.report.spatial_deduplicated_pairs += 1;
-                        return Ok(());
-                    }
-                    for (batch_index, batch) in batches.iter().enumerate() {
-                        if distance_sq > batch.query_radius * batch.query_radius {
-                            continue;
+                    exact_counts.fill(0);
+                    let before_capacity = candidates.capacity();
+                    match index {
+                        BuiltSpatialIndex::HashGrid(index) => {
+                            index.visit_radius_unordered(
+                                &origin_point,
+                                max_radius,
+                                |record, distance_sq| {
+                                    process_fast_spatial_record(
+                                        first,
+                                        &batches,
+                                        &item_field_arrays,
+                                        origin_entity,
+                                        &origin_point,
+                                        record,
+                                        distance_sq,
+                                        &mut accumulators,
+                                        &mut exact_counts,
+                                        &mut counters,
+                                    )
+                                },
+                            )?;
                         }
-                        if let Some(distance_filter) = batch.distance_filter {
-                            if !distance_filter.matches(distance_sq) {
-                                continue;
+                        _ => {
+                            candidates.clear();
+                            index.query_radius_unordered(
+                                &origin_point,
+                                max_radius,
+                                &mut candidates,
+                            )?;
+                            if candidates.capacity() > before_capacity {
+                                counters.candidate_buffer_growths += 1;
+                            }
+                            for record in candidates.iter() {
+                                let distance_sq = direct_distance_squared(
+                                    &origin_point,
+                                    &record.point,
+                                    dimensions,
+                                );
+                                process_fast_spatial_record(
+                                    first,
+                                    &batches,
+                                    &item_field_arrays,
+                                    origin_entity,
+                                    &origin_point,
+                                    record,
+                                    distance_sq,
+                                    &mut accumulators,
+                                    &mut exact_counts,
+                                    &mut counters,
+                                )?;
                             }
                         }
-                        exact_counts[batch_index] += 1;
-                        executor.report.rows_scanned += 1;
-                        executor.report.spatial_exact_rows += 1;
-                        for (spec_index, spec) in batch.specs.iter().enumerate() {
-                            let value = match &spec.value {
-                                FastSpatialBatchValue::Count => 1.0,
-                                FastSpatialBatchValue::DirectField { array_index } => executor
-                                    .fast_field_value(
-                                        &item_field_arrays[*array_index],
-                                        record.entity,
-                                    )?,
-                                FastSpatialBatchValue::NegDeltaOverDistance {
-                                    axis,
-                                    minimum_distance,
-                                } => {
-                                    let delta_axis =
-                                        record.point.coord(*axis) - origin_point.coord(*axis);
-                                    -delta_axis / distance_sq.sqrt().max(*minimum_distance)
+                    }
+                    let mut values = Vec::new();
+                    for (batch_index, batch) in batches.iter().enumerate() {
+                        let exact_count = exact_counts[batch_index];
+                        for (spec, accumulator) in
+                            batch.specs.iter().zip(accumulators[batch_index].iter())
+                        {
+                            let value = match spec.kind.as_str() {
+                                "any" => bool_f64(exact_count > 0),
+                                "count" => exact_count as f64,
+                                "sum" => accumulator.sum,
+                                "mean" if accumulator.count > 0 => {
+                                    accumulator.sum / accumulator.count as f64
                                 }
+                                "min" if accumulator.count > 0 => accumulator.min,
+                                "max" if accumulator.count > 0 => accumulator.max,
+                                _ => continue,
                             };
-                            let accumulator = &mut accumulators[batch_index][spec_index];
-                            accumulator.count += 1;
-                            accumulator.sum += value;
-                            accumulator.min = accumulator.min.min(value);
-                            accumulator.max = accumulator.max.max(value);
+                            values.push((spec.expr_index, value));
                         }
                     }
-                    Ok(())
-                };
-            match index {
-                BuiltSpatialIndex::HashGrid(index) => {
-                    index.visit_radius_unordered(
-                        &origin_point,
-                        max_radius,
-                        |record, distance_sq| process_record(self, record, distance_sq),
-                    )?;
+                    origin_results.push(SpatialOriginResult {
+                        origin: origin_entity,
+                        values,
+                    });
                 }
-                _ => {
-                    candidates.clear();
-                    index.query_radius_unordered(&origin_point, max_radius, &mut candidates)?;
-                    for record in candidates.iter() {
-                        let distance_sq =
-                            direct_distance_squared(&origin_point, &record.point, dimensions);
-                        process_record(self, record, distance_sq)?;
-                    }
-                }
-            }
-            for (batch_index, batch) in batches.iter().enumerate() {
-                let exact_count = exact_counts[batch_index];
-                for (spec, accumulator) in batch.specs.iter().zip(accumulators[batch_index].iter())
-                {
-                    let value = match spec.kind.as_str() {
-                        "any" => bool_f64(exact_count > 0),
-                        "count" => exact_count as f64,
-                        "sum" => accumulator.sum,
-                        "mean" if accumulator.count > 0 => {
-                            accumulator.sum / accumulator.count as f64
-                        }
-                        "min" if accumulator.count > 0 => accumulator.min,
-                        "max" if accumulator.count > 0 => accumulator.max,
-                        _ => continue,
-                    };
-                    self.store_precomputed_spatial_f64(spec.expr_index, origin_entity, value);
+                Ok(SpatialChunkResult {
+                    origins: origin_results,
+                    counters,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.report.spatial_parallel_workers =
+            self.report.spatial_parallel_workers.max(worker_count);
+        self.report.spatial_parallel_chunks += chunk_results.len();
+        self.report.spatial_thread_scratch_reuses +=
+            origin_rows.len().saturating_sub(chunk_results.len());
+        for chunk in chunk_results {
+            self.report.spatial_candidate_rows += chunk.counters.candidate_rows;
+            self.report.rows_scanned += chunk.counters.rows_scanned;
+            self.report.spatial_exact_rows += chunk.counters.exact_rows;
+            self.report.spatial_deduplicated_pairs += chunk.counters.deduplicated_pairs;
+            self.report.spatial_candidate_buffer_growths += chunk.counters.candidate_buffer_growths;
+            for origin in chunk.origins {
+                for (expr_index, value) in origin.values {
+                    self.store_precomputed_spatial_f64(expr_index, origin.origin, value);
                 }
             }
         }
@@ -3171,33 +3258,208 @@ impl<'a> PlanExecutor<'a> {
         Ok(records)
     }
 
+    fn persist_spatial_index_cache(&mut self) {
+        for (index_id, index) in self.spatial_indexes.drain() {
+            let Some((signature, structural_revision, field_revision)) =
+                self.spatial_index_metadata.remove(&index_id)
+            else {
+                continue;
+            };
+            self.world.store_spatial_index_cache(
+                index_id,
+                CachedSpatialIndex {
+                    index,
+                    signature,
+                    structural_revision,
+                    field_revision,
+                },
+            );
+        }
+    }
+
+    fn report_algorithm_use(&mut self, index: &BuiltSpatialIndex) {
+        match index {
+            BuiltSpatialIndex::HashGrid(_) => self.report.spatial_algorithm_hash_grid += 1,
+            BuiltSpatialIndex::Quadtree(_) => self.report.spatial_algorithm_quadtree += 1,
+            BuiltSpatialIndex::Octree(_) => self.report.spatial_algorithm_octree += 1,
+            BuiltSpatialIndex::Hilbert(_) => self.report.spatial_algorithm_hilbert_curve += 1,
+        }
+    }
+
+    fn spatial_dependency_revision(&self, relation: &SpatialRelationNode) -> u64 {
+        let mut dependencies = Vec::new();
+        let mut complete = true;
+        for expr in &relation.target_position {
+            complete &= self.collect_spatial_field_dependencies(
+                *expr,
+                &relation.item_query,
+                &mut dependencies,
+                &mut HashSet::new(),
+            );
+        }
+        if let Some(bounds) = &relation.target_bounds {
+            for expr in bounds.minimum.iter().chain(bounds.maximum.iter()) {
+                complete &= self.collect_spatial_field_dependencies(
+                    *expr,
+                    &relation.item_query,
+                    &mut dependencies,
+                    &mut HashSet::new(),
+                );
+            }
+        }
+        if complete && !dependencies.is_empty() {
+            dependencies
+                .iter()
+                .map(|(component, field)| self.world.component_field_revision(component, field))
+                .max()
+                .unwrap_or(0)
+        } else {
+            self.world.field_revision()
+        }
+    }
+
+    fn collect_spatial_field_dependencies(
+        &self,
+        expr_index: usize,
+        query_name: &str,
+        dependencies: &mut Vec<(String, String)>,
+        visiting: &mut HashSet<usize>,
+    ) -> bool {
+        if !visiting.insert(expr_index) {
+            return true;
+        }
+        let complete = match &self.plan.expressions[expr_index] {
+            ExprNode::LiteralF64(_)
+            | ExprNode::LiteralI64(_)
+            | ExprNode::LiteralBool(_)
+            | ExprNode::LiteralString(_)
+            | ExprNode::LiteralValue(_) => true,
+            ExprNode::Field {
+                query,
+                component,
+                field,
+            } if query == query_name => {
+                dependencies.push((component.clone(), field.clone()));
+                true
+            }
+            ExprNode::Unary { input, .. } | ExprNode::Attribute { input, .. } => {
+                self.collect_spatial_field_dependencies(*input, query_name, dependencies, visiting)
+            }
+            ExprNode::Binary { left, right, .. } => {
+                self.collect_spatial_field_dependencies(*left, query_name, dependencies, visiting)
+                    & self.collect_spatial_field_dependencies(
+                        *right,
+                        query_name,
+                        dependencies,
+                        visiting,
+                    )
+            }
+            _ => false,
+        };
+        visiting.remove(&expr_index);
+        complete
+    }
+
+    fn take_fresh_spatial_index(
+        &mut self,
+        relation: &SpatialRelationNode,
+    ) -> Option<BuiltSpatialIndex> {
+        let signature = spatial_index_signature(relation);
+        let structural_revision = self.world.structural_revision();
+        let field_revision = self.spatial_dependency_revision(relation);
+        let Some(cached) = self.world.take_spatial_index_cache(&relation.index_id) else {
+            return None;
+        };
+        if cached.signature == signature
+            && cached.structural_revision == structural_revision
+            && cached.field_revision == field_revision
+        {
+            self.report.spatial_index_reuses += 1;
+            self.spatial_index_metadata.insert(
+                relation.index_id.clone(),
+                (signature, structural_revision, field_revision),
+            );
+            return Some(cached.index);
+        }
+        self.world
+            .store_spatial_index_cache(relation.index_id.clone(), cached);
+        None
+    }
+
+    fn build_or_update_spatial_index(
+        &mut self,
+        relation: &SpatialRelationNode,
+        records: Vec<SpatialRecord>,
+    ) -> Result<BuiltSpatialIndex> {
+        let signature = spatial_index_signature(relation);
+        let structural_revision = self.world.structural_revision();
+        let field_revision = self.spatial_dependency_revision(relation);
+        let index =
+            if let Some(mut cached) = self.world.take_spatial_index_cache(&relation.index_id) {
+                if cached.signature == signature {
+                    if cached.structural_revision == structural_revision
+                        && cached.field_revision == field_revision
+                    {
+                        self.report.spatial_index_reuses += 1;
+                        self.spatial_index_metadata.insert(
+                            relation.index_id.clone(),
+                            (signature, structural_revision, field_revision),
+                        );
+                        return Ok(cached.index);
+                    }
+                    if should_try_incremental_spatial_update(
+                        records.len(),
+                        cached.field_revision,
+                        field_revision,
+                    ) {
+                        if cached.index.update_incremental(&records)? {
+                            self.report.spatial_index_incremental_updates += 1;
+                        } else {
+                            self.report.spatial_indexes_built += 1;
+                            self.report.spatial_index_full_rebuilds += 1;
+                        }
+                    } else {
+                        cached.index.build(&records)?;
+                        self.report.spatial_indexes_built += 1;
+                        self.report.spatial_index_full_rebuilds += 1;
+                    }
+                    cached.index
+                } else {
+                    let mut index = build_spatial_index(&relation.algorithm)?;
+                    index.build(&records)?;
+                    self.report.spatial_indexes_built += 1;
+                    self.report.spatial_index_full_rebuilds += 1;
+                    index
+                }
+            } else {
+                let mut index = build_spatial_index(&relation.algorithm)?;
+                index.build(&records)?;
+                self.report.spatial_indexes_built += 1;
+                self.report.spatial_index_full_rebuilds += 1;
+                index
+            };
+        self.spatial_index_metadata.insert(
+            relation.index_id.clone(),
+            (signature, structural_revision, field_revision),
+        );
+        Ok(index)
+    }
+
     fn ensure_spatial_index(
         &mut self,
         relation: &SpatialRelationNode,
         ctx: &EvalContext,
     ) -> Result<&BuiltSpatialIndex> {
-        if !self.spatial_indexes.contains_key(&relation.index_id) {
+        if self.spatial_indexes.contains_key(&relation.index_id) {
+            self.report.spatial_index_reuses += 1;
+        } else if let Some(index) = self.take_fresh_spatial_index(relation) {
+            self.report_algorithm_use(&index);
+            self.spatial_indexes
+                .insert(relation.index_id.clone(), index);
+        } else {
             let records = self.build_spatial_records(relation, ctx)?;
-            let mut index = build_spatial_index(&relation.algorithm)?;
-            match &mut index {
-                BuiltSpatialIndex::HashGrid(index) => {
-                    self.report.spatial_algorithm_hash_grid += 1;
-                    index.build(&records)?;
-                }
-                BuiltSpatialIndex::Quadtree(index) => {
-                    self.report.spatial_algorithm_quadtree += 1;
-                    index.build(&records)?;
-                }
-                BuiltSpatialIndex::Octree(index) => {
-                    self.report.spatial_algorithm_octree += 1;
-                    index.build(&records)?;
-                }
-                BuiltSpatialIndex::Hilbert(index) => {
-                    self.report.spatial_algorithm_hilbert_curve += 1;
-                    index.build(&records)?;
-                }
-            }
-            self.report.spatial_indexes_built += 1;
+            let index = self.build_or_update_spatial_index(relation, records)?;
+            self.report_algorithm_use(&index);
             self.spatial_indexes
                 .insert(relation.index_id.clone(), index);
         }
@@ -3381,6 +3643,95 @@ impl<'a> PlanExecutor<'a> {
         }
         Ok(())
     }
+}
+
+fn fast_field_array_value(array: &FastFieldArray, entity: Entity) -> Result<f64> {
+    let Some(Some((generation, value))) = array.values.get(entity.index as usize) else {
+        return Err(EcsError::InvalidPlan(format!(
+            "fast numeric field array missing entity {}:{} for '{}.{}'",
+            entity.index, entity.generation, array.component, array.field
+        )));
+    };
+    if *generation != entity.generation {
+        return Err(EcsError::InvalidPlan(format!(
+            "fast numeric field array has stale entity generation for {}:{}",
+            entity.index, entity.generation
+        )));
+    }
+    Ok(*value)
+}
+
+fn point_from_fast_arrays(arrays: &[FastFieldArray], entity: Entity) -> Result<SpatialPoint> {
+    match arrays {
+        [x, y] => SpatialPoint::point2(
+            fast_field_array_value(x, entity)?,
+            fast_field_array_value(y, entity)?,
+        ),
+        [x, y, z] => SpatialPoint::point3(
+            fast_field_array_value(x, entity)?,
+            fast_field_array_value(y, entity)?,
+            fast_field_array_value(z, entity)?,
+        ),
+        _ => Err(EcsError::InvalidPlan(
+            "spatial points must have 2 or 3 coordinates".to_string(),
+        )),
+    }
+}
+
+fn process_fast_spatial_record(
+    relation: &SpatialRelationNode,
+    batches: &[FastDirectSpatialRelationBatch],
+    item_field_arrays: &[FastFieldArray],
+    origin_entity: Entity,
+    origin_point: &SpatialPoint,
+    record: &SpatialRecord,
+    distance_sq: f64,
+    accumulators: &mut [Vec<SpatialBatchAccum>],
+    exact_counts: &mut [usize],
+    counters: &mut SpatialLocalCounters,
+) -> Result<()> {
+    counters.candidate_rows += 1;
+    if !relation.include_self && record.entity == origin_entity {
+        return Ok(());
+    }
+    if relation.pair_policy == "unique_unordered" && record.entity.raw() <= origin_entity.raw() {
+        counters.deduplicated_pairs += 1;
+        return Ok(());
+    }
+    for (batch_index, batch) in batches.iter().enumerate() {
+        if distance_sq > batch.query_radius * batch.query_radius {
+            continue;
+        }
+        if let Some(distance_filter) = batch.distance_filter {
+            if !distance_filter.matches(distance_sq) {
+                continue;
+            }
+        }
+        exact_counts[batch_index] += 1;
+        counters.rows_scanned += 1;
+        counters.exact_rows += 1;
+        for (spec_index, spec) in batch.specs.iter().enumerate() {
+            let value = match &spec.value {
+                FastSpatialBatchValue::Count => 1.0,
+                FastSpatialBatchValue::DirectField { array_index } => {
+                    fast_field_array_value(&item_field_arrays[*array_index], record.entity)?
+                }
+                FastSpatialBatchValue::NegDeltaOverDistance {
+                    axis,
+                    minimum_distance,
+                } => {
+                    let delta_axis = record.point.coord(*axis) - origin_point.coord(*axis);
+                    -delta_axis / distance_sq.sqrt().max(*minimum_distance)
+                }
+            };
+            let accumulator = &mut accumulators[batch_index][spec_index];
+            accumulator.count += 1;
+            accumulator.sum += value;
+            accumulator.min = accumulator.min.min(value);
+            accumulator.max = accumulator.max.max(value);
+        }
+    }
+    Ok(())
 }
 
 fn eval_expr_f64_readonly(
@@ -3689,6 +4040,23 @@ fn direct_distance_squared(left: &SpatialPoint, right: &SpatialPoint, dimensions
         distance_sq += delta * delta;
     }
     distance_sq
+}
+
+fn should_try_incremental_spatial_update(
+    record_count: usize,
+    previous_field_revision: u64,
+    current_field_revision: u64,
+) -> bool {
+    let changed_field_writes = current_field_revision.saturating_sub(previous_field_revision);
+    let incremental_write_budget = (record_count / 4).max(1) as u64;
+    changed_field_writes <= incremental_write_budget
+}
+
+fn spatial_index_signature(relation: &SpatialRelationNode) -> String {
+    format!(
+        "item={};target_pos={:?};target_bounds={:?};algorithm={:?}",
+        relation.item_query, relation.target_position, relation.target_bounds, relation.algorithm
+    )
 }
 
 fn spatial_relations_same_base(left: &SpatialRelationNode, right: &SpatialRelationNode) -> bool {
@@ -4129,6 +4497,104 @@ mod tests {
         (world, entity)
     }
 
+    fn add_motion_entity(world: &mut World, x: f64, y: f64, dx: f64) -> Entity {
+        let entity = world
+            .spawn_with_defaults(["Position".to_string(), "Velocity".to_string()])
+            .unwrap();
+        world
+            .set_field(entity, "Position", "x", EcsValue::F64(x))
+            .unwrap();
+        world
+            .set_field(entity, "Position", "y", EcsValue::F64(y))
+            .unwrap();
+        world
+            .set_field(entity, "Velocity", "dx", EcsValue::F64(dx))
+            .unwrap();
+        entity
+    }
+
+    fn spatial_count_payload(world: &World) -> BridgePlanPayload {
+        BridgePlanPayload {
+            version: BRIDGE_PLAN_VERSION,
+            schema_fingerprint: Some(world.schema_fingerprint()),
+            queries: vec![BridgeQueryPayload {
+                name: "entity".to_string(),
+                terms: vec![
+                    QueryTerm::WithComponent("Position".to_string()),
+                    QueryTerm::WithComponent("Velocity".to_string()),
+                ],
+                allowed_entities: None,
+            }],
+            expressions: vec![
+                ExprNode::Field {
+                    query: "entity".to_string(),
+                    component: "Position".to_string(),
+                    field: "x".to_string(),
+                },
+                ExprNode::Field {
+                    query: "entity".to_string(),
+                    component: "Position".to_string(),
+                    field: "y".to_string(),
+                },
+                ExprNode::LiteralF64(2.5),
+                ExprNode::SpatialAggregate {
+                    kind: "count".to_string(),
+                    relation: SpatialRelationNode {
+                        id: "nearby".to_string(),
+                        index_id: "position_neighbors".to_string(),
+                        origin_query: "entity".to_string(),
+                        item_query: "entity".to_string(),
+                        origin_position: vec![0, 1],
+                        target_position: vec![0, 1],
+                        radius: Some(2),
+                        origin_bounds: None,
+                        target_bounds: None,
+                        algorithm: crate::plan::SpatialAlgorithmNode {
+                            kind: "hash_grid".to_string(),
+                            dimensions: 2,
+                            cell_size: Some(4.0),
+                            bounds: None,
+                            capacity: None,
+                            bits: None,
+                        },
+                        include_self: false,
+                        pair_policy: "all".to_string(),
+                        exact_filter: None,
+                    },
+                    value: None,
+                    default: None,
+                },
+                ExprNode::Field {
+                    query: "entity".to_string(),
+                    component: "Velocity".to_string(),
+                    field: "dx".to_string(),
+                },
+            ],
+            actions: vec![ActionNode::SetField {
+                target: 4,
+                value: 3,
+            }],
+            root_action: 0,
+        }
+    }
+
+    fn spatial_parallel_count_payload(world: &World) -> BridgePlanPayload {
+        let mut payload = spatial_count_payload(world);
+        payload.actions = vec![
+            ActionNode::SetField {
+                target: 4,
+                value: 3,
+            },
+            ActionNode::SetField {
+                target: 0,
+                value: 3,
+            },
+            ActionNode::Parallel(vec![0, 1]),
+        ];
+        payload.root_action = 2;
+        payload
+    }
+
     #[test]
     fn physical_plan_executes_scalar_set_over_query_rows() {
         let (mut world, entity) = world_with_motion();
@@ -4312,6 +4778,93 @@ mod tests {
         );
         assert_eq!(report.fields_written, 1);
         assert!(report.writes.is_empty());
+    }
+
+    #[test]
+    fn spatial_index_cache_reuses_valid_snapshot_across_executions() {
+        let (mut world, _) = world_with_motion();
+        add_motion_entity(&mut world, 1.0, 0.0, 0.0);
+        add_motion_entity(&mut world, 20.0, 0.0, 0.0);
+        let handle = world
+            .compile_bridge_plan_handle(spatial_count_payload(&world))
+            .unwrap();
+
+        let first = world
+            .execute_compiled_plan_with_options(handle, false)
+            .unwrap();
+        assert_eq!(first.spatial_index_full_rebuilds, 1);
+        assert_eq!(first.spatial_index_incremental_updates, 0);
+        assert_eq!(world.spatial_index_cache_len(), 1);
+
+        let second = world
+            .execute_compiled_plan_with_options(handle, false)
+            .unwrap();
+        assert_eq!(second.spatial_indexes_built, 0);
+        assert_eq!(second.spatial_index_full_rebuilds, 0);
+        assert_eq!(second.spatial_index_incremental_updates, 0);
+        assert!(second.spatial_index_reuses >= 1);
+        assert_eq!(world.spatial_index_cache_len(), 1);
+    }
+
+    #[test]
+    fn spatial_index_cache_persists_from_fused_parallel_collector() {
+        let (mut world, _) = world_with_motion();
+        add_motion_entity(&mut world, 1.0, 0.0, 0.0);
+        add_motion_entity(&mut world, 20.0, 0.0, 0.0);
+        let handle = world
+            .compile_bridge_plan_handle(spatial_parallel_count_payload(&world))
+            .unwrap();
+
+        let report = world
+            .execute_compiled_plan_with_options(handle, false)
+            .unwrap();
+        assert_eq!(report.spatial_index_full_rebuilds, 1);
+        assert_eq!(world.spatial_index_cache_len(), 1);
+    }
+
+    #[test]
+    fn spatial_hash_grid_incrementally_updates_after_indexed_field_change() {
+        let (mut world, entity) = world_with_motion();
+        add_motion_entity(&mut world, 1.0, 0.0, 0.0);
+        add_motion_entity(&mut world, 20.0, 0.0, 0.0);
+        let handle = world
+            .compile_bridge_plan_handle(spatial_count_payload(&world))
+            .unwrap();
+        world
+            .execute_compiled_plan_with_options(handle, false)
+            .unwrap();
+
+        world
+            .set_field(entity, "Position", "x", EcsValue::F64(30.0))
+            .unwrap();
+        let report = world
+            .execute_compiled_plan_with_options(handle, false)
+            .unwrap();
+        assert_eq!(report.spatial_index_incremental_updates, 1);
+        assert_eq!(report.spatial_index_full_rebuilds, 0);
+        assert_eq!(world.spatial_index_cache_len(), 1);
+    }
+
+    #[test]
+    fn spatial_hash_grid_incrementally_updates_after_structural_churn() {
+        let (mut world, _) = world_with_motion();
+        add_motion_entity(&mut world, 1.0, 0.0, 0.0);
+        let removed = add_motion_entity(&mut world, 20.0, 0.0, 0.0);
+        let handle = world
+            .compile_bridge_plan_handle(spatial_count_payload(&world))
+            .unwrap();
+        world
+            .execute_compiled_plan_with_options(handle, false)
+            .unwrap();
+
+        world.despawn(removed).unwrap();
+        add_motion_entity(&mut world, 2.0, 0.0, 0.0);
+        let report = world
+            .execute_compiled_plan_with_options(handle, false)
+            .unwrap();
+        assert_eq!(report.spatial_index_incremental_updates, 1);
+        assert_eq!(report.spatial_index_full_rebuilds, 0);
+        assert_eq!(world.spatial_index_cache_len(), 1);
     }
 
     #[test]

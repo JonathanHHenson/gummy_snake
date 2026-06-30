@@ -599,6 +599,25 @@ fn execution_report_to_dict<'py>(
         "spatial_algorithm_hilbert_curve",
         report.spatial_algorithm_hilbert_curve,
     )?;
+    dict.set_item("spatial_index_reuses", report.spatial_index_reuses)?;
+    dict.set_item(
+        "spatial_index_full_rebuilds",
+        report.spatial_index_full_rebuilds,
+    )?;
+    dict.set_item(
+        "spatial_index_incremental_updates",
+        report.spatial_index_incremental_updates,
+    )?;
+    dict.set_item("spatial_parallel_chunks", report.spatial_parallel_chunks)?;
+    dict.set_item("spatial_parallel_workers", report.spatial_parallel_workers)?;
+    dict.set_item(
+        "spatial_thread_scratch_reuses",
+        report.spatial_thread_scratch_reuses,
+    )?;
+    dict.set_item(
+        "spatial_candidate_buffer_growths",
+        report.spatial_candidate_buffer_growths,
+    )?;
     let component_writes = PyList::empty_bound(py);
     let resource_writes = PyList::empty_bound(py);
     if include_writes {
@@ -822,9 +841,11 @@ impl PyEcsWorld {
         handle: u64,
         include_writes: bool,
     ) -> PyResult<Bound<'py, PyDict>> {
-        let report = self
-            .world
-            .execute_compiled_plan_with_options(handle, include_writes)
+        let report = py
+            .allow_threads(|| {
+                self.world
+                    .execute_compiled_plan_with_options(handle, include_writes)
+            })
             .map_err(|err| PyValueError::new_err(err.to_string()))?;
         execution_report_to_dict(py, &report, include_writes)
     }
@@ -835,6 +856,18 @@ impl PyEcsWorld {
 
     fn compiled_plan_count(&self) -> usize {
         self.world.compiled_plan_count()
+    }
+
+    fn spatial_index_cache_len(&self) -> usize {
+        self.world.spatial_index_cache_len()
+    }
+
+    fn structural_revision(&self) -> u64 {
+        self.world.structural_revision()
+    }
+
+    fn field_revision(&self) -> u64 {
+        self.world.field_revision()
     }
 
     #[pyo3(signature = (name, value, code=None))]
@@ -855,9 +888,8 @@ impl PyEcsWorld {
         payload: &Bound<'_, PyDict>,
     ) -> PyResult<Bound<'py, PyDict>> {
         let payload = parse_bridge_plan_payload(payload)?;
-        let report = self
-            .world
-            .execute_bridge_plan(payload)
+        let report = py
+            .allow_threads(|| self.world.execute_bridge_plan(payload))
             .map_err(|err| PyValueError::new_err(err.to_string()))?;
         execution_report_to_dict(py, &report, true)
     }

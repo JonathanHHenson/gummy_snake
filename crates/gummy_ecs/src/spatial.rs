@@ -171,6 +171,10 @@ pub trait SpatialIndexBackend {
         SpatialMemoryStats::default()
     }
     fn build(&mut self, records: &[SpatialRecord]) -> Result<()>;
+    fn update_incremental(&mut self, records: &[SpatialRecord]) -> Result<bool> {
+        self.build(records)?;
+        Ok(false)
+    }
     fn query_radius(
         &self,
         origin: &SpatialPoint,
@@ -186,6 +190,7 @@ pub struct HashGridIndex {
     cell_size: f64,
     buckets: HashMap<[i64; 3], Vec<SpatialRecord>>,
     records: Vec<SpatialRecord>,
+    record_cells: HashMap<u64, [i64; 3]>,
     has_multicell_records: bool,
 }
 
@@ -201,6 +206,7 @@ impl HashGridIndex {
             cell_size,
             buckets: HashMap::new(),
             records: Vec::new(),
+            record_cells: HashMap::new(),
             has_multicell_records: false,
         })
     }
@@ -392,13 +398,14 @@ impl SpatialIndexBackend for HashGridIndex {
             dimensions: self.dimensions,
             radius_queries: true,
             aabb_queries: true,
-            incremental_updates: false,
+            incremental_updates: true,
         }
     }
 
     fn build(&mut self, records: &[SpatialRecord]) -> Result<()> {
         self.buckets.clear();
         self.records.clear();
+        self.record_cells.clear();
         self.has_multicell_records = false;
         self.records.extend_from_slice(records);
         self.records.sort_by_key(|record| record.entity.raw());
@@ -419,6 +426,7 @@ impl SpatialIndexBackend for HashGridIndex {
                 }
             } else {
                 let cell = self.cell(&record.point)?;
+                self.record_cells.insert(record.entity.raw(), cell);
                 self.buckets.entry(cell).or_default().push(record.clone());
             }
         }
@@ -426,6 +434,68 @@ impl SpatialIndexBackend for HashGridIndex {
             bucket.sort_by_key(|record| record.entity.raw());
         }
         Ok(())
+    }
+
+    fn update_incremental(&mut self, records: &[SpatialRecord]) -> Result<bool> {
+        if self.has_multicell_records || records.iter().any(|record| record.bounds.is_some()) {
+            self.build(records)?;
+            return Ok(false);
+        }
+        let mut next_records = records.to_vec();
+        next_records.sort_by_key(|record| record.entity.raw());
+        let mut next_cells = HashMap::with_capacity(next_records.len());
+        for record in &next_records {
+            if record.point.dimensions() != self.dimensions {
+                return Err(EcsError::InvalidSpatialInput(
+                    "hash grid record dimensions do not match index dimensions".to_string(),
+                ));
+            }
+            next_cells.insert(record.entity.raw(), self.cell(&record.point)?);
+        }
+
+        let removed = self
+            .record_cells
+            .keys()
+            .copied()
+            .filter(|entity| !next_cells.contains_key(entity))
+            .collect::<Vec<_>>();
+        for entity in removed {
+            if let Some(old_cell) = self.record_cells.remove(&entity) {
+                remove_record_from_bucket(&mut self.buckets, old_cell, entity);
+            }
+        }
+
+        for record in &next_records {
+            let entity = record.entity.raw();
+            let next_cell = next_cells[&entity];
+            match self.record_cells.get(&entity).copied() {
+                Some(old_cell) if old_cell == next_cell => {
+                    replace_record_in_bucket(&mut self.buckets, next_cell, record.clone());
+                }
+                Some(old_cell) => {
+                    remove_record_from_bucket(&mut self.buckets, old_cell, entity);
+                    self.buckets
+                        .entry(next_cell)
+                        .or_default()
+                        .push(record.clone());
+                    self.record_cells.insert(entity, next_cell);
+                }
+                None => {
+                    self.buckets
+                        .entry(next_cell)
+                        .or_default()
+                        .push(record.clone());
+                    self.record_cells.insert(entity, next_cell);
+                }
+            }
+        }
+        self.records = next_records;
+        self.has_multicell_records = false;
+        self.buckets.retain(|_, bucket| !bucket.is_empty());
+        for bucket in self.buckets.values_mut() {
+            bucket.sort_by_key(|record| record.entity.raw());
+        }
+        Ok(true)
     }
 
     fn memory_stats(&self) -> SpatialMemoryStats {
@@ -606,6 +676,33 @@ impl SpatialIndexBackend for HashGridIndex {
     }
 }
 
+fn remove_record_from_bucket(
+    buckets: &mut HashMap<[i64; 3], Vec<SpatialRecord>>,
+    cell: [i64; 3],
+    entity: u64,
+) {
+    if let Some(bucket) = buckets.get_mut(&cell) {
+        bucket.retain(|record| record.entity.raw() != entity);
+    }
+}
+
+fn replace_record_in_bucket(
+    buckets: &mut HashMap<[i64; 3], Vec<SpatialRecord>>,
+    cell: [i64; 3],
+    record: SpatialRecord,
+) {
+    if let Some(bucket) = buckets.get_mut(&cell) {
+        if let Some(slot) = bucket
+            .iter_mut()
+            .find(|candidate| candidate.entity.raw() == record.entity.raw())
+        {
+            *slot = record;
+            return;
+        }
+    }
+    buckets.entry(cell).or_default().push(record);
+}
+
 fn distance_squared_unchecked(
     left: &SpatialPoint,
     right: &SpatialPoint,
@@ -761,6 +858,69 @@ mod tests {
         assert_eq!(second.records_len, 4);
         assert!(second.records_capacity >= first.records_capacity);
         assert!(second.buckets_capacity >= first.buckets_capacity);
+    }
+
+    #[test]
+    fn hash_grid_incremental_update_matches_full_rebuild() {
+        let initial = (0..16)
+            .map(|index| SpatialRecord {
+                entity: entity(index),
+                point: SpatialPoint::point2(index as f64, 0.0).unwrap(),
+                bounds: None,
+            })
+            .collect::<Vec<_>>();
+        let updated = (4..20)
+            .map(|index| SpatialRecord {
+                entity: entity(index),
+                point: SpatialPoint::point2((index % 5) as f64, (index / 5) as f64).unwrap(),
+                bounds: None,
+            })
+            .collect::<Vec<_>>();
+        let mut incremental = HashGridIndex::new(Dimensions::D2, 2.0).unwrap();
+        let mut rebuilt = HashGridIndex::new(Dimensions::D2, 2.0).unwrap();
+        incremental.build(&initial).unwrap();
+        assert!(incremental.update_incremental(&updated).unwrap());
+        rebuilt.build(&updated).unwrap();
+
+        let origin = SpatialPoint::point2(2.0, 2.0).unwrap();
+        let mut incremental_rows = Vec::new();
+        let mut rebuilt_rows = Vec::new();
+        incremental
+            .query_radius(&origin, 4.0, &mut incremental_rows)
+            .unwrap();
+        rebuilt
+            .query_radius(&origin, 4.0, &mut rebuilt_rows)
+            .unwrap();
+        assert_eq!(
+            incremental_rows
+                .iter()
+                .map(|record| record.entity.raw())
+                .collect::<Vec<_>>(),
+            rebuilt_rows
+                .iter()
+                .map(|record| record.entity.raw())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn hash_grid_incremental_falls_back_for_bounds_records() {
+        let records = vec![SpatialRecord {
+            entity: entity(0),
+            point: SpatialPoint::point2(0.0, 0.0).unwrap(),
+            bounds: Some(SpatialAabb::point2(-1.0, -1.0, 1.0, 1.0).unwrap()),
+        }];
+        let mut index = HashGridIndex::new(Dimensions::D2, 2.0).unwrap();
+        index.build(&[]).unwrap();
+        assert!(!index.update_incremental(&records).unwrap());
+        let mut out = Vec::new();
+        index
+            .query_aabb(
+                &SpatialAabb::point2(-0.5, -0.5, 0.5, 0.5).unwrap(),
+                &mut out,
+            )
+            .unwrap();
+        assert_eq!(out.len(), 1);
     }
 
     #[test]

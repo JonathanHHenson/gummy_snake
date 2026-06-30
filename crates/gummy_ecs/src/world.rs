@@ -7,6 +7,7 @@ use crate::diagnostics::Diagnostics;
 use crate::entity::{Entity, EntityAllocator};
 use crate::error::{EcsError, Result};
 use crate::event::{EventRecord, EventStore};
+use crate::execution::CachedSpatialIndex;
 use crate::plan::{
     compile_bridge_plan, BridgePlanPayload, PhysicalPlan, PhysicalPlanHandle, PlanCache,
 };
@@ -36,6 +37,10 @@ pub struct World {
     compiled_plans: PlanCache,
     input_states: HashMap<(String, Option<i64>), EcsValue>,
     current_frame: u64,
+    structural_revision: u64,
+    field_revision: u64,
+    field_revisions: HashMap<(String, String), u64>,
+    spatial_index_cache: HashMap<String, CachedSpatialIndex>,
     diagnostics: Diagnostics,
 }
 
@@ -54,6 +59,7 @@ impl World {
             .expect("empty archetype row");
         self.locations
             .insert(entity.raw(), EntityLocation { archetype, row });
+        self.note_structural_revision();
         entity
     }
 
@@ -68,6 +74,7 @@ impl World {
         let row = self.archetypes[archetype].push_default_row(entity)?;
         self.locations
             .insert(entity.raw(), EntityLocation { archetype, row });
+        self.note_structural_revision();
         Ok(entity)
     }
 
@@ -76,7 +83,7 @@ impl World {
         self.remove_entity_row(entity)?;
         self.entities.despawn(entity)?;
         self.diagnostics.structural_commands_applied += 1;
-        self.invalidate_query_cache();
+        self.note_structural_revision();
         Ok(())
     }
 
@@ -135,6 +142,40 @@ impl World {
 
     pub fn compiled_plan_count(&self) -> usize {
         self.compiled_plans.len()
+    }
+
+    pub fn structural_revision(&self) -> u64 {
+        self.structural_revision
+    }
+
+    pub fn field_revision(&self) -> u64 {
+        self.field_revision
+    }
+
+    pub fn component_field_revision(&self, component: &str, field: &str) -> u64 {
+        self.field_revisions
+            .get(&(component.to_string(), field.to_string()))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn take_spatial_index_cache(
+        &mut self,
+        index_id: &str,
+    ) -> Option<CachedSpatialIndex> {
+        self.spatial_index_cache.remove(index_id)
+    }
+
+    pub(crate) fn store_spatial_index_cache(
+        &mut self,
+        index_id: String,
+        cached: CachedSpatialIndex,
+    ) {
+        self.spatial_index_cache.insert(index_id, cached);
+    }
+
+    pub fn spatial_index_cache_len(&self) -> usize {
+        self.spatial_index_cache.len()
     }
 
     pub fn set_input_state(&mut self, name: impl Into<String>, code: Option<i64>, value: EcsValue) {
@@ -243,6 +284,7 @@ impl World {
         let new_key = old_key.with(component);
         self.move_entity_to_archetype(entity, new_key, None)?;
         self.diagnostics.structural_commands_applied += 1;
+        self.note_structural_revision();
         Ok(())
     }
 
@@ -255,6 +297,7 @@ impl World {
         let new_key = old_key.without(component);
         self.move_entity_to_archetype(entity, new_key, Some(component))?;
         self.diagnostics.structural_commands_applied += 1;
+        self.note_structural_revision();
         Ok(())
     }
 
@@ -271,6 +314,7 @@ impl World {
         }
         self.move_entity_to_archetype(entity, old_key.with_tag(tag), None)?;
         self.diagnostics.structural_commands_applied += 1;
+        self.note_structural_revision();
         Ok(())
     }
 
@@ -282,6 +326,7 @@ impl World {
         }
         self.move_entity_to_archetype(entity, old_key.without_tag(tag), None)?;
         self.diagnostics.structural_commands_applied += 1;
+        self.note_structural_revision();
         Ok(())
     }
 
@@ -294,7 +339,9 @@ impl World {
     ) -> Result<()> {
         let value = self.coerce_value_for_component_field(component, field, value)?;
         let location = self.location(entity)?;
-        self.archetypes[location.archetype].set_field(location.row, component, field, value)
+        self.archetypes[location.archetype].set_field(location.row, component, field, value)?;
+        self.note_field_revision(component, field);
+        Ok(())
     }
 
     pub(crate) fn set_field_f64(
@@ -305,7 +352,9 @@ impl World {
         value: f64,
     ) -> Result<()> {
         let location = self.location(entity)?;
-        self.archetypes[location.archetype].set_field_f64(location.row, component, field, value)
+        self.archetypes[location.archetype].set_field_f64(location.row, component, field, value)?;
+        self.note_field_revision(component, field);
+        Ok(())
     }
 
     pub fn get_field(&self, entity: Entity, component: &str, field: &str) -> Result<EcsValue> {
@@ -547,6 +596,18 @@ impl World {
         matches
     }
 
+    fn note_structural_revision(&mut self) {
+        self.structural_revision = self.structural_revision.saturating_add(1);
+        self.invalidate_query_cache();
+    }
+
+    fn note_field_revision(&mut self, component: &str, field: &str) {
+        self.field_revision = self.field_revision.saturating_add(1);
+        let key = (component.to_string(), field.to_string());
+        let revision = self.field_revisions.entry(key).or_default();
+        *revision = revision.saturating_add(1);
+    }
+
     fn invalidate_query_cache(&mut self) {
         if !self.query_cache.is_empty() || !self.filtered_query_cache.is_empty() {
             self.diagnostics.query_cache_invalidations += 1;
@@ -609,6 +670,28 @@ mod tests {
         );
         world.remove_component(first, "Velocity").unwrap();
         assert_eq!(world.query(["Velocity".to_string()]).unwrap(), vec![second]);
+    }
+
+    #[test]
+    fn revisions_track_structural_and_field_mutations() {
+        let mut world = World::new();
+        register_position_velocity(&mut world);
+        assert_eq!(world.structural_revision(), 0);
+        assert_eq!(world.field_revision(), 0);
+        let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+        assert_eq!(world.structural_revision(), 1);
+        world
+            .set_field(entity, "Position", "x", EcsValue::F64(10.0))
+            .unwrap();
+        assert_eq!(world.field_revision(), 1);
+        assert_eq!(world.component_field_revision("Position", "x"), 1);
+        assert_eq!(world.component_field_revision("Position", "y"), 0);
+        world.add_component_default(entity, "Velocity").unwrap();
+        assert_eq!(world.structural_revision(), 2);
+        world.remove_tag(entity, "missing").unwrap();
+        assert_eq!(world.structural_revision(), 2);
+        world.add_tag(entity, "mover").unwrap();
+        assert_eq!(world.structural_revision(), 3);
     }
 
     #[test]

@@ -1,9 +1,8 @@
 """Python-facing ECS world and entity APIs.
 
-The MVP keeps the public API and deterministic execution semantics in Python while using
-column-oriented schema restrictions planned for the Rust runtime. The module is written behind a
-small ``EcsWorld`` boundary so a Rust bridge can replace storage/execution without changing sketch
-code.
+Rust owns canonical ECS entity/component/resource storage and physical system execution. This module
+keeps the public Python API, schema conversion, logical-plan construction, and explicit Python UDF
+integration at the boundary.
 """
 
 from __future__ import annotations
@@ -812,8 +811,18 @@ class EcsWorld:
             "spatial_algorithm_quadtree",
             "spatial_algorithm_octree",
             "spatial_algorithm_hilbert_curve",
+            "spatial_index_reuses",
+            "spatial_index_full_rebuilds",
+            "spatial_index_incremental_updates",
+            "spatial_parallel_chunks",
+            "spatial_thread_scratch_reuses",
+            "spatial_candidate_buffer_growths",
         ):
             self._diagnostics[f"ecs_{counter}"] += int(report.get(counter, 0))
+        self._diagnostics["ecs_spatial_parallel_workers"] = max(
+            int(self._diagnostics.get("ecs_spatial_parallel_workers", 0)),
+            int(report.get("spatial_parallel_workers", 0)),
+        )
         duplicate_writes = int(report.get("duplicate_writes", 0))
         if duplicate_writes:
             self._diagnostics["ecs_physical_duplicate_writes"] += duplicate_writes
@@ -1068,6 +1077,9 @@ class EcsWorld:
     def diagnostics(self) -> dict[str, Any]:
         enabled = sum(1 for system in self._systems if system.enabled)
         data: dict[str, Any] = dict(self._diagnostics)
+        spatial_index_cache_len = _optional_rust_int(self._rust, "spatial_index_cache_len")
+        structural_revision = _optional_rust_int(self._rust, "structural_revision")
+        field_revision = _optional_rust_int(self._rust, "field_revision")
         data.update(
             {
                 "ecs_systems_registered": len(self._systems),
@@ -1077,6 +1089,9 @@ class EcsWorld:
                 "ecs_rust_entities_alive": self._rust.alive_count(),
                 "ecs_rust_component_schemas_total": self._rust.schema_count(),
                 "ecs_rust_compiled_plans": self._rust.compiled_plan_count(),
+                "ecs_spatial_index_cache_len": spatial_index_cache_len,
+                "ecs_rust_structural_revision": structural_revision,
+                "ecs_rust_field_revision": field_revision,
                 "ecs_strict": self.strict,
                 "ecs_warn_on_ambiguity": self.warn_on_ambiguity,
                 "messages": list(self._messages),
@@ -1295,6 +1310,13 @@ def _contains_direct_udf_action(action: Action) -> bool:
 
 def _component_key(entity: Entity, component_type: type[Any]) -> tuple[int, int, type[Any]]:
     return (entity.index, entity.generation, component_type)
+
+
+def _optional_rust_int(rust_world: object, method_name: str) -> int:
+    method = getattr(rust_world, method_name, None)
+    if not callable(method):
+        return 0
+    return int(cast(Any, method()))
 
 
 def _validate_event_value(event: object) -> None:

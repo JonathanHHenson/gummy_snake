@@ -247,6 +247,91 @@ mod tests {
     }
 
     #[test]
+    fn hilbert_quantization_clamps_bounds_edges_deterministically() {
+        let bounds = SpatialAabb::point2(0.0, 0.0, 10.0, 10.0).unwrap();
+        let index = HilbertIndex::new(bounds, 4).unwrap();
+        assert_eq!(
+            index
+                .key(&SpatialPoint::point2(-5.0, 0.0).unwrap())
+                .unwrap(),
+            index.key(&SpatialPoint::point2(0.0, 0.0).unwrap()).unwrap()
+        );
+        assert_eq!(
+            index
+                .key(&SpatialPoint::point2(15.0, 10.0).unwrap())
+                .unwrap(),
+            index
+                .key(&SpatialPoint::point2(10.0, 10.0).unwrap())
+                .unwrap()
+        );
+        assert_eq!(
+            index.key(&SpatialPoint::point2(5.0, 5.0).unwrap()).unwrap(),
+            index.key(&SpatialPoint::point2(5.0, 5.0).unwrap()).unwrap()
+        );
+    }
+
+    #[test]
+    fn hilbert_radius_query_matches_naive_exact_filtering() {
+        let bounds = SpatialAabb::point2(-10.0, -10.0, 10.0, 10.0).unwrap();
+        let mut index = HilbertIndex::new(bounds, 8).unwrap();
+        let records = vec![
+            SpatialRecord {
+                entity: Entity {
+                    index: 4,
+                    generation: 0,
+                },
+                point: SpatialPoint::point2(-11.0, 0.0).unwrap(),
+                bounds: None,
+            },
+            SpatialRecord {
+                entity: Entity {
+                    index: 1,
+                    generation: 0,
+                },
+                point: SpatialPoint::point2(0.0, 0.0).unwrap(),
+                bounds: None,
+            },
+            SpatialRecord {
+                entity: Entity {
+                    index: 3,
+                    generation: 0,
+                },
+                point: SpatialPoint::point2(2.0, 1.0).unwrap(),
+                bounds: None,
+            },
+            SpatialRecord {
+                entity: Entity {
+                    index: 2,
+                    generation: 0,
+                },
+                point: SpatialPoint::point2(9.0, 9.0).unwrap(),
+                bounds: None,
+            },
+        ];
+        index.build(&records).unwrap();
+        let origin = SpatialPoint::point2(0.0, 0.0).unwrap();
+        let radius = 3.0;
+        let mut out = Vec::new();
+        index.query_radius(&origin, radius, &mut out).unwrap();
+        let mut expected = records
+            .iter()
+            .filter(|record| {
+                origin
+                    .distance_squared(&record.point)
+                    .is_ok_and(|distance_sq| distance_sq <= radius * radius)
+            })
+            .map(|record| record.entity.index)
+            .collect::<Vec<_>>();
+        expected.sort_unstable();
+        assert_eq!(
+            out.iter()
+                .map(|record| record.entity.index)
+                .collect::<Vec<_>>(),
+            expected
+        );
+    }
+
+    #[test]
     fn hilbert_rejects_3d_bounds() {
         let bounds = SpatialAabb::point3(0.0, 0.0, 0.0, 1.0, 1.0, 1.0).unwrap();
         assert!(HilbertIndex::new(bounds, 8).is_err());
