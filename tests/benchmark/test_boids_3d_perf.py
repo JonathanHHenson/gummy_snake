@@ -26,6 +26,8 @@ CHILD_CODE = textwrap.dedent(
     import sys
     import time
 
+    from gummysnake.ecs.world import EcsWorld
+
     phase = sys.argv[1]
     frames = int(sys.argv[2])
     mode = sys.argv[3]
@@ -40,6 +42,23 @@ CHILD_CODE = textwrap.dedent(
     ]
     boids = importlib.import_module("examples.09_performance.boids_3d")
 
+    def _prepare_boids_world(add_system: bool = True):
+        world = EcsWorld()
+        if add_system:
+            world.add_system(boids.simulate_boids)
+        for state in boids._seed_boids():
+            world.add_entity(state, tags=[boids.BOID_TAG])
+        return world
+
+    def _boid_states_from_world(world):
+        return list(
+            world.iter_component_fields(
+                boids.BoidState,
+                *boids.BOID_STATE_FIELDS,
+                tags=[boids.BOID_TAG],
+            )
+        )
+
     def _renderer_counters():
         try:
             return boids.gs.renderer_performance_counters()
@@ -47,7 +66,7 @@ CHILD_CODE = textwrap.dedent(
             return {}
 
     if phase == "simulation":
-        world = boids._prepare_boids_world()
+        world = _prepare_boids_world()
         start = time.perf_counter()
         for _ in range(frames):
             world.run_pre_draw_systems()
@@ -65,13 +84,13 @@ CHILD_CODE = textwrap.dedent(
             "metrics": {"ecs": world.diagnostics()},
         }
     elif phase == "mesh":
-        world = boids._prepare_boids_world(add_system=False)
-        state_buckets = boids._bucket_states(boids._boid_states_from_world(world))
+        world = _prepare_boids_world(add_system=False)
+        rows = _boid_states_from_world(world)
         boids._boid_model()
         start = time.perf_counter()
         for _ in range(frames):
-            for bucket_states in state_buckets:
-                boids._boid_transform_keys(bucket_states)
+            for _x, _y, _z, vx, vy, vz, _bucket in rows:
+                boids._orientation_quaternion(vx, vy, vz)
         elapsed = time.perf_counter() - start
         payload = {
             "phase": phase,
