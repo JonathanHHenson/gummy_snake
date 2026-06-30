@@ -1013,6 +1013,7 @@ impl<'a> PlanExecutor<'a> {
                 let plan = self.plan;
                 let numeric_field_cache = &self.numeric_field_cache;
                 let spatial_precomputed_f64 = &self.spatial_precomputed_f64;
+                let world = &*self.world;
                 let expr_count = self.plan.expressions.len();
                 let row_values = rows
                     .par_iter()
@@ -1028,6 +1029,7 @@ impl<'a> PlanExecutor<'a> {
                                         *entity,
                                         &query_name,
                                         plan,
+                                        world,
                                         numeric_field_cache,
                                         spatial_precomputed_f64,
                                         row_cache,
@@ -3386,6 +3388,7 @@ fn eval_expr_f64_readonly(
     entity: Entity,
     query_name: &str,
     plan: &PhysicalPlan,
+    world: &World,
     numeric_field_cache: &HashMap<String, HashMap<String, Vec<Option<(u32, f64)>>>>,
     spatial_precomputed_f64: &HashMap<usize, Vec<Option<(u32, f64)>>>,
     cache: &mut [Option<f64>],
@@ -3432,12 +3435,21 @@ fn eval_expr_f64_readonly(
             }
             *value
         }
+        ExprNode::ResourceField { resource, field } => {
+            numeric_f64(&world.resource_field(resource, field)?)?
+        }
+        ExprNode::InputState { name, code } => numeric_f64(
+            &world
+                .input_state(name, *code)
+                .unwrap_or_else(|| default_input_state_value(name)),
+        )?,
         ExprNode::Unary { op, input } => {
             let input = eval_expr_f64_readonly(
                 *input,
                 entity,
                 query_name,
                 plan,
+                world,
                 numeric_field_cache,
                 spatial_precomputed_f64,
                 cache,
@@ -3451,6 +3463,7 @@ fn eval_expr_f64_readonly(
                     entity,
                     query_name,
                     plan,
+                    world,
                     numeric_field_cache,
                     spatial_precomputed_f64,
                     cache,
@@ -3463,6 +3476,7 @@ fn eval_expr_f64_readonly(
                         entity,
                         query_name,
                         plan,
+                        world,
                         numeric_field_cache,
                         spatial_precomputed_f64,
                         cache,
@@ -3474,6 +3488,7 @@ fn eval_expr_f64_readonly(
                     entity,
                     query_name,
                     plan,
+                    world,
                     numeric_field_cache,
                     spatial_precomputed_f64,
                     cache,
@@ -3486,6 +3501,7 @@ fn eval_expr_f64_readonly(
                         entity,
                         query_name,
                         plan,
+                        world,
                         numeric_field_cache,
                         spatial_precomputed_f64,
                         cache,
@@ -3497,6 +3513,7 @@ fn eval_expr_f64_readonly(
                     entity,
                     query_name,
                     plan,
+                    world,
                     numeric_field_cache,
                     spatial_precomputed_f64,
                     cache,
@@ -3506,6 +3523,7 @@ fn eval_expr_f64_readonly(
                     entity,
                     query_name,
                     plan,
+                    world,
                     numeric_field_cache,
                     spatial_precomputed_f64,
                     cache,
@@ -3518,6 +3536,7 @@ fn eval_expr_f64_readonly(
             entity,
             query_name,
             plan,
+            world,
             numeric_field_cache,
             spatial_precomputed_f64,
             cache,
@@ -3546,6 +3565,7 @@ fn eval_expr_f64_readonly(
             entity,
             query_name,
             plan,
+            world,
             numeric_field_cache,
             spatial_precomputed_f64,
             cache,
@@ -4207,6 +4227,91 @@ mod tests {
         );
         assert_eq!(report.fields_written, 2);
         assert_eq!(report.duplicate_writes, 0);
+    }
+
+    #[test]
+    fn optimized_f64_executor_reads_resources_and_input_state() {
+        let (mut world, entity) = world_with_motion();
+        world
+            .register_schema(ComponentSchema::new(
+                "Wind",
+                vec![FieldSchema::new("x", StorageType::Float64)],
+            ))
+            .unwrap();
+        world.set_input_state("dt", None, EcsValue::F64(16.0));
+        let mut wind = HashMap::new();
+        wind.insert("x".to_string(), EcsValue::F64(2.0));
+        world.insert_resource("Wind", wind).unwrap();
+        let payload = BridgePlanPayload {
+            version: BRIDGE_PLAN_VERSION,
+            schema_fingerprint: Some(world.schema_fingerprint()),
+            queries: vec![BridgeQueryPayload {
+                name: "entity".to_string(),
+                terms: vec![
+                    QueryTerm::WithComponent("Position".to_string()),
+                    QueryTerm::WithComponent("Velocity".to_string()),
+                ],
+                allowed_entities: None,
+            }],
+            expressions: vec![
+                ExprNode::Field {
+                    query: "entity".to_string(),
+                    component: "Position".to_string(),
+                    field: "x".to_string(),
+                },
+                ExprNode::Field {
+                    query: "entity".to_string(),
+                    component: "Velocity".to_string(),
+                    field: "dx".to_string(),
+                },
+                ExprNode::ResourceField {
+                    resource: "Wind".to_string(),
+                    field: "x".to_string(),
+                },
+                ExprNode::Binary {
+                    op: "add".to_string(),
+                    left: 1,
+                    right: 2,
+                },
+                ExprNode::InputState {
+                    name: "dt".to_string(),
+                    code: None,
+                },
+                ExprNode::LiteralF64(1000.0),
+                ExprNode::Binary {
+                    op: "truediv".to_string(),
+                    left: 4,
+                    right: 5,
+                },
+                ExprNode::Binary {
+                    op: "mul".to_string(),
+                    left: 3,
+                    right: 6,
+                },
+                ExprNode::Binary {
+                    op: "add".to_string(),
+                    left: 0,
+                    right: 7,
+                },
+            ],
+            actions: vec![ActionNode::SetField {
+                target: 0,
+                value: 8,
+            }],
+            root_action: 0,
+        };
+        let handle = world.compile_bridge_plan_handle(payload).unwrap();
+
+        let report = world
+            .execute_compiled_plan_with_options(handle, false)
+            .unwrap();
+
+        assert_eq!(
+            world.get_field(entity, "Position", "x").unwrap(),
+            EcsValue::F64(2.08)
+        );
+        assert_eq!(report.fields_written, 1);
+        assert!(report.writes.is_empty());
     }
 
     #[test]

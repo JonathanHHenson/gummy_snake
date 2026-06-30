@@ -29,7 +29,7 @@ from gummysnake.ecs.world import EcsWorld
 WIDTH = 960
 HEIGHT = 540
 TARGET_FPS = 60
-BOID_COUNT = 1_200
+BOID_COUNT = 2_000
 WORLD_X = 760.0
 WORLD_Y = 430.0
 WORLD_Z = 620.0
