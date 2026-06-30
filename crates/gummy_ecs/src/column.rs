@@ -187,6 +187,38 @@ impl Column {
         Ok(())
     }
 
+    pub fn get_f64(&self, row: usize) -> Result<f64> {
+        if row >= self.len() {
+            return Err(EcsError::RowOutOfBounds);
+        }
+        match self {
+            Self::Bool(values) => Ok(if values[row] { 1.0 } else { 0.0 }),
+            Self::I64(values) => Ok(values[row] as f64),
+            Self::U64(values) => Ok(values[row] as f64),
+            Self::F64(values) => Ok(values[row]),
+            column => Err(EcsError::ColumnTypeMismatch {
+                expected: "numeric",
+                got: column.family_name(),
+            }),
+        }
+    }
+
+    pub fn set_f64(&mut self, row: usize, value: f64) -> Result<()> {
+        if row >= self.len() {
+            return Err(EcsError::RowOutOfBounds);
+        }
+        match self {
+            Self::F64(values) => values[row] = value,
+            column => {
+                return Err(EcsError::ColumnTypeMismatch {
+                    expected: column.family_name(),
+                    got: "F64",
+                })
+            }
+        }
+        Ok(())
+    }
+
     pub fn get(&self, row: usize) -> Result<EcsValue> {
         let value = match self {
             Self::Bool(values) => EcsValue::Bool(*values.get(row).ok_or(EcsError::RowOutOfBounds)?),

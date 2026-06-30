@@ -567,6 +567,7 @@ fn physical_plan_summary_to_dict<'py>(
 fn execution_report_to_dict<'py>(
     py: Python<'py>,
     report: &ExecutionReport,
+    include_writes: bool,
 ) -> PyResult<Bound<'py, PyDict>> {
     let dict = PyDict::new_bound(py);
     dict.set_item("rows_scanned", report.rows_scanned)?;
@@ -600,32 +601,34 @@ fn execution_report_to_dict<'py>(
     )?;
     let component_writes = PyList::empty_bound(py);
     let resource_writes = PyList::empty_bound(py);
-    for write in &report.writes {
-        match write {
-            ExecutionWrite::ComponentField {
-                entity,
-                component,
-                field,
-                value,
-            } => {
-                let item = PyDict::new_bound(py);
-                item.set_item("index", entity.index)?;
-                item.set_item("generation", entity.generation)?;
-                item.set_item("component", component)?;
-                item.set_item("field", field)?;
-                item.set_item("value", ecs_value_to_py(py, value)?)?;
-                component_writes.append(item)?;
-            }
-            ExecutionWrite::ResourceField {
-                resource,
-                field,
-                value,
-            } => {
-                let item = PyDict::new_bound(py);
-                item.set_item("resource", resource)?;
-                item.set_item("field", field)?;
-                item.set_item("value", ecs_value_to_py(py, value)?)?;
-                resource_writes.append(item)?;
+    if include_writes {
+        for write in &report.writes {
+            match write {
+                ExecutionWrite::ComponentField {
+                    entity,
+                    component,
+                    field,
+                    value,
+                } => {
+                    let item = PyDict::new_bound(py);
+                    item.set_item("index", entity.index)?;
+                    item.set_item("generation", entity.generation)?;
+                    item.set_item("component", component)?;
+                    item.set_item("field", field)?;
+                    item.set_item("value", ecs_value_to_py(py, value)?)?;
+                    component_writes.append(item)?;
+                }
+                ExecutionWrite::ResourceField {
+                    resource,
+                    field,
+                    value,
+                } => {
+                    let item = PyDict::new_bound(py);
+                    item.set_item("resource", resource)?;
+                    item.set_item("field", field)?;
+                    item.set_item("value", ecs_value_to_py(py, value)?)?;
+                    resource_writes.append(item)?;
+                }
             }
         }
     }
@@ -812,16 +815,18 @@ impl PyEcsWorld {
         Ok(dict)
     }
 
+    #[pyo3(signature = (handle, include_writes=true))]
     fn execute_compiled_plan<'py>(
         &mut self,
         py: Python<'py>,
         handle: u64,
+        include_writes: bool,
     ) -> PyResult<Bound<'py, PyDict>> {
         let report = self
             .world
-            .execute_compiled_plan(handle)
+            .execute_compiled_plan_with_options(handle, include_writes)
             .map_err(|err| PyValueError::new_err(err.to_string()))?;
-        execution_report_to_dict(py, &report)
+        execution_report_to_dict(py, &report, include_writes)
     }
 
     fn release_compiled_plan(&mut self, handle: u64) -> bool {
@@ -854,7 +859,7 @@ impl PyEcsWorld {
             .world
             .execute_bridge_plan(payload)
             .map_err(|err| PyValueError::new_err(err.to_string()))?;
-        execution_report_to_dict(py, &report)
+        execution_report_to_dict(py, &report, true)
     }
 
     fn archetype_count(&self) -> usize {

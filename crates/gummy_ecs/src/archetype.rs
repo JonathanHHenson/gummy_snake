@@ -146,6 +146,17 @@ impl ComponentTable {
         column.set(row, value)
     }
 
+    pub fn set_field_f64(&mut self, row: usize, field_name: &str, value: f64) -> Result<()> {
+        let column = self
+            .columns
+            .get_mut(field_name)
+            .ok_or_else(|| EcsError::UnknownField {
+                component: self.schema_name.clone(),
+                field: field_name.to_string(),
+            })?;
+        column.set_f64(row, value)
+    }
+
     pub fn get_field(&self, row: usize, field_name: &str) -> Result<EcsValue> {
         let column = self
             .columns
@@ -155,6 +166,17 @@ impl ComponentTable {
                 field: field_name.to_string(),
             })?;
         column.get(row)
+    }
+
+    pub fn get_field_f64(&self, row: usize, field_name: &str) -> Result<f64> {
+        let column = self
+            .columns
+            .get(field_name)
+            .ok_or_else(|| EcsError::UnknownField {
+                component: self.schema_name.clone(),
+                field: field_name.to_string(),
+            })?;
+        column.get_f64(row)
     }
 }
 
@@ -260,6 +282,20 @@ impl Archetype {
         table.set_field(row, field_name, value)
     }
 
+    pub fn set_field_f64(
+        &mut self,
+        row: usize,
+        component_name: &str,
+        field_name: &str,
+        value: f64,
+    ) -> Result<()> {
+        let table = self
+            .components
+            .get_mut(component_name)
+            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
+        table.set_field_f64(row, field_name, value)
+    }
+
     pub fn get_field(
         &self,
         row: usize,
@@ -271,6 +307,14 @@ impl Archetype {
             .get(component_name)
             .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
         table.get_field(row, field_name)
+    }
+
+    pub fn get_field_f64(&self, row: usize, component_name: &str, field_name: &str) -> Result<f64> {
+        let table = self
+            .components
+            .get(component_name)
+            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
+        table.get_field_f64(row, field_name)
     }
 }
 

@@ -297,9 +297,30 @@ impl World {
         self.archetypes[location.archetype].set_field(location.row, component, field, value)
     }
 
+    pub(crate) fn set_field_f64(
+        &mut self,
+        entity: Entity,
+        component: &str,
+        field: &str,
+        value: f64,
+    ) -> Result<()> {
+        let location = self.location(entity)?;
+        self.archetypes[location.archetype].set_field_f64(location.row, component, field, value)
+    }
+
     pub fn get_field(&self, entity: Entity, component: &str, field: &str) -> Result<EcsValue> {
         let location = self.location(entity)?;
         self.archetypes[location.archetype].get_field(location.row, component, field)
+    }
+
+    pub(crate) fn get_field_f64(
+        &self,
+        entity: Entity,
+        component: &str,
+        field: &str,
+    ) -> Result<f64> {
+        let location = self.location(entity)?;
+        self.archetypes[location.archetype].get_field_f64(location.row, component, field)
     }
 
     pub fn insert_resource(&mut self, name: impl Into<String>, value: ComponentRow) -> Result<()> {

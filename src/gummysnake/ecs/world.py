@@ -738,7 +738,7 @@ class EcsWorld:
                 handle = temporary_handle
 
             self._refresh_rust_input_states(execution_payload)
-            report = self._rust.execute_compiled_plan(handle)
+            report = self._rust.execute_compiled_plan(handle, self._has_change_filtered_systems())
         except (AttributeError, ValueError) as exc:
             if use_scheduled_cache:
                 scheduled.physical_payload = None
@@ -778,6 +778,16 @@ class EcsWorld:
                 "ECS do_in_parallel()/Rust physical execution wrote the same field more "
                 "than once; deterministic last-write-wins is used. Consider group_by(...).any()."
             )
+
+    def _has_change_filtered_systems(self) -> bool:
+        for scheduled in self._systems:
+            for query in scheduled.built.queries:
+                spec = query.spec
+                if isinstance(spec, QuerySpec) and any(
+                    isinstance(term, ChangeTerm) for term in spec.terms
+                ):
+                    return True
+        return False
 
     def _refresh_rust_input_states(self, payload: dict[str, Any] | None) -> None:
         if payload is None:

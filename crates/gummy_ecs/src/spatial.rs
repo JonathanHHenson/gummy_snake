@@ -186,6 +186,7 @@ pub struct HashGridIndex {
     cell_size: f64,
     buckets: HashMap<[i64; 3], Vec<SpatialRecord>>,
     records: Vec<SpatialRecord>,
+    has_multicell_records: bool,
 }
 
 impl HashGridIndex {
@@ -200,6 +201,7 @@ impl HashGridIndex {
             cell_size,
             buckets: HashMap::new(),
             records: Vec::new(),
+            has_multicell_records: false,
         })
     }
 
@@ -209,9 +211,13 @@ impl HashGridIndex {
                 "hash grid point dimensions do not match index dimensions".to_string(),
             ));
         }
+        self.cell_from_coords([point.coord(0), point.coord(1), point.coord(2)])
+    }
+
+    fn cell_from_coords(&self, coords: [f64; 3]) -> Result<[i64; 3]> {
         let mut cell = [0_i64; 3];
         for (axis, slot) in cell.iter_mut().enumerate().take(self.dimensions.len()) {
-            let value = (point.coord(axis) / self.cell_size).floor();
+            let value = (coords[axis] / self.cell_size).floor();
             if value < i64::MIN as f64 || value > i64::MAX as f64 {
                 return Err(EcsError::InvalidSpatialInput(
                     "hash grid cell coordinate overflow".to_string(),
@@ -220,6 +226,163 @@ impl HashGridIndex {
             *slot = value as i64;
         }
         Ok(cell)
+    }
+
+    pub fn visit_radius_unordered<F>(
+        &self,
+        origin: &SpatialPoint,
+        radius: f64,
+        mut visit: F,
+    ) -> Result<()>
+    where
+        F: FnMut(&SpatialRecord, f64) -> Result<()>,
+    {
+        if self.has_multicell_records {
+            let mut records = Vec::new();
+            self.query_radius(origin, radius, &mut records)?;
+            for record in &records {
+                visit(
+                    record,
+                    distance_squared_unchecked(origin, &record.point, self.dimensions),
+                )?;
+            }
+            return Ok(());
+        }
+        if origin.dimensions() != self.dimensions {
+            return Err(EcsError::InvalidSpatialInput(
+                "query point dimensions do not match index dimensions".to_string(),
+            ));
+        }
+        if !radius.is_finite() || radius < 0.0 {
+            return Err(EcsError::InvalidSpatialInput(
+                "query radius must be finite and non-negative".to_string(),
+            ));
+        }
+        let min_cell = self.cell_from_coords([
+            origin.coord(0) - radius,
+            origin.coord(1) - radius,
+            if self.dimensions == Dimensions::D3 {
+                origin.coord(2) - radius
+            } else {
+                0.0
+            },
+        ])?;
+        let max_cell = self.cell_from_coords([
+            origin.coord(0) + radius,
+            origin.coord(1) + radius,
+            if self.dimensions == Dimensions::D3 {
+                origin.coord(2) + radius
+            } else {
+                0.0
+            },
+        ])?;
+        validate_cell_span(self.dimensions, min_cell, max_cell)?;
+        let radius_sq = radius * radius;
+        for x in min_cell[0]..=max_cell[0] {
+            for y in min_cell[1]..=max_cell[1] {
+                if self.dimensions == Dimensions::D2 {
+                    if let Some(bucket) = self.buckets.get(&[x, y, 0]) {
+                        for record in bucket {
+                            let distance_sq =
+                                distance_squared_unchecked(origin, &record.point, self.dimensions);
+                            if distance_sq <= radius_sq {
+                                visit(record, distance_sq)?;
+                            }
+                        }
+                    }
+                } else {
+                    for z in min_cell[2]..=max_cell[2] {
+                        if let Some(bucket) = self.buckets.get(&[x, y, z]) {
+                            for record in bucket {
+                                let distance_sq = distance_squared_unchecked(
+                                    origin,
+                                    &record.point,
+                                    self.dimensions,
+                                );
+                                if distance_sq <= radius_sq {
+                                    visit(record, distance_sq)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn query_radius_unordered(
+        &self,
+        origin: &SpatialPoint,
+        radius: f64,
+        out: &mut Vec<SpatialRecord>,
+    ) -> Result<()> {
+        if self.has_multicell_records {
+            return self.query_radius(origin, radius, out);
+        }
+        if origin.dimensions() != self.dimensions {
+            return Err(EcsError::InvalidSpatialInput(
+                "query point dimensions do not match index dimensions".to_string(),
+            ));
+        }
+        if !radius.is_finite() || radius < 0.0 {
+            return Err(EcsError::InvalidSpatialInput(
+                "query radius must be finite and non-negative".to_string(),
+            ));
+        }
+        out.clear();
+        let min_point = SpatialPoint::new(
+            [
+                origin.coord(0) - radius,
+                origin.coord(1) - radius,
+                if self.dimensions == Dimensions::D3 {
+                    origin.coord(2) - radius
+                } else {
+                    0.0
+                },
+            ],
+            self.dimensions,
+        )?;
+        let max_point = SpatialPoint::new(
+            [
+                origin.coord(0) + radius,
+                origin.coord(1) + radius,
+                if self.dimensions == Dimensions::D3 {
+                    origin.coord(2) + radius
+                } else {
+                    0.0
+                },
+            ],
+            self.dimensions,
+        )?;
+        let min_cell = self.cell(&min_point)?;
+        let max_cell = self.cell(&max_point)?;
+        validate_cell_span(self.dimensions, min_cell, max_cell)?;
+        let radius_sq = radius * radius;
+        for x in min_cell[0]..=max_cell[0] {
+            for y in min_cell[1]..=max_cell[1] {
+                if self.dimensions == Dimensions::D2 {
+                    if let Some(bucket) = self.buckets.get(&[x, y, 0]) {
+                        for record in bucket {
+                            if origin.distance_squared(&record.point)? <= radius_sq {
+                                out.push(record.clone());
+                            }
+                        }
+                    }
+                } else {
+                    for z in min_cell[2]..=max_cell[2] {
+                        if let Some(bucket) = self.buckets.get(&[x, y, z]) {
+                            for record in bucket {
+                                if origin.distance_squared(&record.point)? <= radius_sq {
+                                    out.push(record.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -236,19 +399,27 @@ impl SpatialIndexBackend for HashGridIndex {
     fn build(&mut self, records: &[SpatialRecord]) -> Result<()> {
         self.buckets.clear();
         self.records.clear();
+        self.has_multicell_records = false;
         self.records.extend_from_slice(records);
         self.records.sort_by_key(|record| record.entity.raw());
-        for record in self.records.clone() {
+        for index in 0..self.records.len() {
+            let record = &self.records[index];
             if let Some(bounds) = &record.bounds {
                 let min_cell = self.cell(bounds.minimum())?;
                 let max_cell = self.cell(bounds.maximum())?;
                 validate_cell_span(self.dimensions, min_cell, max_cell)?;
+                let mut first = true;
                 for cell in iter_cells(self.dimensions, min_cell, max_cell) {
+                    if first {
+                        first = false;
+                    } else {
+                        self.has_multicell_records = true;
+                    }
                     self.buckets.entry(cell).or_default().push(record.clone());
                 }
             } else {
                 let cell = self.cell(&record.point)?;
-                self.buckets.entry(cell).or_default().push(record);
+                self.buckets.entry(cell).or_default().push(record.clone());
             }
         }
         for bucket in self.buckets.values_mut() {
@@ -313,6 +484,35 @@ impl SpatialIndexBackend for HashGridIndex {
         let min_cell = self.cell(&min_point)?;
         let max_cell = self.cell(&max_point)?;
         validate_cell_span(self.dimensions, min_cell, max_cell)?;
+        let radius_sq = radius * radius;
+        if !self.has_multicell_records {
+            for x in min_cell[0]..=max_cell[0] {
+                for y in min_cell[1]..=max_cell[1] {
+                    if self.dimensions == Dimensions::D2 {
+                        if let Some(bucket) = self.buckets.get(&[x, y, 0]) {
+                            for record in bucket {
+                                if origin.distance_squared(&record.point)? <= radius_sq {
+                                    out.push(record.clone());
+                                }
+                            }
+                        }
+                    } else {
+                        for z in min_cell[2]..=max_cell[2] {
+                            if let Some(bucket) = self.buckets.get(&[x, y, z]) {
+                                for record in bucket {
+                                    if origin.distance_squared(&record.point)? <= radius_sq {
+                                        out.push(record.clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            out.sort_by_key(|record| record.entity.raw());
+            return Ok(());
+        }
+
         let mut seen = HashMap::new();
         for x in min_cell[0]..=max_cell[0] {
             for y in min_cell[1]..=max_cell[1] {
@@ -337,7 +537,7 @@ impl SpatialIndexBackend for HashGridIndex {
         keys.sort_unstable();
         for key in keys {
             let record = seen.remove(&key).expect("key came from map");
-            if origin.distance_squared(&record.point)? <= radius * radius {
+            if origin.distance_squared(&record.point)? <= radius_sq {
                 out.push(record);
             }
         }
@@ -354,6 +554,30 @@ impl SpatialIndexBackend for HashGridIndex {
         let min_cell = self.cell(bounds.minimum())?;
         let max_cell = self.cell(bounds.maximum())?;
         validate_cell_span(self.dimensions, min_cell, max_cell)?;
+        if !self.has_multicell_records {
+            for cell in iter_cells(self.dimensions, min_cell, max_cell) {
+                if let Some(bucket) = self.buckets.get(&cell) {
+                    for record in bucket {
+                        match &record.bounds {
+                            Some(record_bounds) if bounds.overlaps(record_bounds)? => {
+                                out.push(record.clone())
+                            }
+                            None => {
+                                let point_bounds =
+                                    SpatialAabb::new(record.point.clone(), record.point.clone())?;
+                                if bounds.overlaps(&point_bounds)? {
+                                    out.push(record.clone());
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+            out.sort_by_key(|record| record.entity.raw());
+            return Ok(());
+        }
+
         let mut seen = HashMap::new();
         for cell in iter_cells(self.dimensions, min_cell, max_cell) {
             if let Some(bucket) = self.buckets.get(&cell) {
@@ -380,6 +604,19 @@ impl SpatialIndexBackend for HashGridIndex {
         }
         Ok(())
     }
+}
+
+fn distance_squared_unchecked(
+    left: &SpatialPoint,
+    right: &SpatialPoint,
+    dimensions: Dimensions,
+) -> f64 {
+    let mut distance_sq = 0.0;
+    for axis in 0..dimensions.len() {
+        let delta = right.coord(axis) - left.coord(axis);
+        distance_sq += delta * delta;
+    }
+    distance_sq
 }
 
 fn validate_cell_span(
