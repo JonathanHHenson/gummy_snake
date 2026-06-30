@@ -74,7 +74,7 @@ const BLEND_MODE_SCREEN: &str = "screen";
 const IMAGE_CACHE_LIMIT: usize = 1024;
 const TEXTURE_CACHE_LIMIT: usize = 1024;
 const TEXT_CACHE_LIMIT: usize = 512;
-const CANVAS_ABI_VERSION: u32 = 13;
+const CANVAS_ABI_VERSION: u32 = 15;
 
 #[pymodule]
 fn _canvas(m: &Bound<'_, PyModule>) -> PyResult<()> {

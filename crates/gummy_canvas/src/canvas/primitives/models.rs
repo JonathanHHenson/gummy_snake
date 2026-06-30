@@ -62,7 +62,7 @@ impl Canvas {
         lights: &Bound<'_, PyAny>,
         normal_material: bool,
         cull_backfaces: bool,
-        transform: Option<(f64, f64, f64, f64, f64, f64)>,
+        transform: Option<Vec<f64>>,
     ) -> PyResult<()> {
         if self.gpu.is_some() && !self.cpu_compositing_active && cull_backfaces {
             let (key, vertices, indices) = crate::software3d::model_gpu_buffers(model);
@@ -75,7 +75,7 @@ impl Canvas {
                     material,
                     lights,
                     normal_material,
-                    transform,
+                    transform.clone(),
                 )?;
                 self.upload_stale_texture(false)?;
                 if let Some(gpu) = self.gpu.as_mut() {
@@ -117,6 +117,64 @@ impl Canvas {
     }
 
     #[allow(clippy::too_many_arguments)]
+    pub(crate) fn draw_model_shaded_batch_impl(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        lights: &Bound<'_, PyAny>,
+        normal_material: bool,
+        cull_backfaces: bool,
+        transforms: Vec<Vec<f64>>,
+    ) -> PyResult<()> {
+        if transforms.is_empty() {
+            return Ok(());
+        }
+        if self.gpu.is_some() && !self.cpu_compositing_active && cull_backfaces {
+            let (key, vertices, indices) = crate::software3d::model_gpu_buffers(model);
+            if !vertices.is_empty() && !indices.is_empty() {
+                let uniforms = crate::software3d::model_gpu_uniforms(
+                    camera,
+                    projection,
+                    viewport_width,
+                    viewport_height,
+                    material,
+                    lights,
+                    normal_material,
+                    transforms.clone(),
+                )?;
+                self.upload_stale_texture(false)?;
+                if let Some(gpu) = self.gpu.as_mut() {
+                    let index_count = gpu
+                        .ensure_model_mesh(key, vertices, indices)
+                        .map_err(PyValueError::new_err)?;
+                    gpu.draw_model_instances(key, index_count, uniforms);
+                    self.record_native_model_batch_draw(transforms.len());
+                    return Ok(());
+                }
+            }
+        }
+        for transform in transforms {
+            self.draw_model_shaded_impl(
+                model,
+                camera,
+                projection,
+                viewport_width,
+                viewport_height,
+                material,
+                lights,
+                normal_material,
+                cull_backfaces,
+                Some(transform),
+            )?;
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn draw_model_textured_impl(
         &mut self,
         model: &crate::software3d::CanvasModel3D,
@@ -129,7 +187,7 @@ impl Canvas {
         lights: &Bound<'_, PyAny>,
         normal_material: bool,
         cull_backfaces: bool,
-        transform: Option<(f64, f64, f64, f64, f64, f64)>,
+        transform: Option<Vec<f64>>,
     ) -> PyResult<bool> {
         if image.width == 0 || image.height == 0 {
             return Ok(true);
@@ -145,7 +203,7 @@ impl Canvas {
                     material,
                     lights,
                     normal_material,
-                    transform,
+                    transform.clone(),
                 )?;
                 self.upload_stale_texture(false)?;
                 self.ensure_gpu_canvas_image_texture(&image)?;

@@ -7,6 +7,9 @@ from typing import Any, Protocol
 
 from gummysnake.backend.canvas_runtime.renderer.batch_state import (
     LineBatchState,
+    ModelBatchKey,
+    ModelBatchState,
+    ModelTransformPayload,
     PrimitiveBatchState,
 )
 from gummysnake.core.state import StyleState
@@ -29,6 +32,7 @@ TextMetricKey = tuple[str, str | None, int, int]
 class CanvasRendererHost(Protocol):
     _line_batch_state: LineBatchState
     _primitive_batch_state: PrimitiveBatchState
+    _model_batch_state: ModelBatchState
     _text_batch: list[tuple[str, float, float]]
     _text_batch_style: dict[str, object] | None
     _text_batch_matrix: MatrixPayload | None
@@ -46,6 +50,8 @@ class CanvasRendererHost(Protocol):
     def _flush_line_batch_only(self) -> None: ...
     def _flush_primitive_batch_only(self) -> None: ...
     def _flush_image_batch(self) -> None: ...
+    def _flush_model_batch(self) -> None: ...
+    def _queue_model_batch(self, key: ModelBatchKey, transform: ModelTransformPayload) -> bool: ...
     def _flush_text_batch(self, *, final: bool = False) -> None: ...
     def _count(self, name: str, amount: int = 1) -> None: ...
     def _max_count(self, name: str, value: int) -> None: ...

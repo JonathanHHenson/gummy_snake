@@ -43,14 +43,14 @@ class CanvasRendererLifecycleMixin:
         renderer: c.RendererMode = c.P2D,
     ) -> None:
         """Resize.
-        
+
         Args:
             width: The width value. Expected type: `int`.
             height: The height value. Expected type: `int`.
             pixel_density: The pixel density value. Expected type: `float`. Defaults to `1.0`.
             mode: The mode value. Expected type: `str`. Defaults to `'headless'`.
             renderer: The renderer value. Expected type: `c.RendererMode`. Defaults to `c.P2D`.
-        
+
         Returns:
             None.
         """
@@ -77,14 +77,14 @@ class CanvasRendererLifecycleMixin:
         renderer: c.RendererMode | None = None,
     ) -> None:
         """Resize canvas.
-        
+
         Args:
             width: The width value. Expected type: `int`.
             height: The height value. Expected type: `int`.
             pixel_density: The pixel density value. Expected type: `float`. Defaults to `1.0`.
             renderer: The renderer value. Expected type: `c.RendererMode | None`. Defaults to
                 `None`.
-        
+
         Returns:
             None.
         """
@@ -106,10 +106,10 @@ class CanvasRendererLifecycleMixin:
 
     def begin_frame(self) -> None:
         """Begin frame.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -121,10 +121,10 @@ class CanvasRendererLifecycleMixin:
 
     def end_frame(self) -> None:
         """End frame.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -134,6 +134,7 @@ class CanvasRendererLifecycleMixin:
             renderer._flush_line_batch_only()
             renderer._flush_primitive_batch_only()
             renderer._flush_image_batch()
+            renderer._flush_model_batch()
             renderer._flush_text_batch(final=True)
             self.restore_clip_depth(0)
             if not host._skip_canvas_end_frame:
@@ -143,10 +144,10 @@ class CanvasRendererLifecycleMixin:
 
     def present(self) -> None:
         """Present.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -159,10 +160,10 @@ class CanvasRendererLifecycleMixin:
 
     def close(self) -> None:
         """Close.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -174,10 +175,10 @@ class CanvasRendererLifecycleMixin:
 
     def runtime_canvas(self) -> Any:
         """Return the underlying Rust canvas/runtime object for backend event-loop calls.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Any`.
         """
@@ -186,10 +187,10 @@ class CanvasRendererLifecycleMixin:
 
     def clip_depth(self) -> int:
         """Clip depth.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `int`.
         """
@@ -197,10 +198,10 @@ class CanvasRendererLifecycleMixin:
 
     def restore_clip_depth(self, depth: int) -> None:
         """Restore clip depth.
-        
+
         Args:
             depth: The depth value. Expected type: `int`.
-        
+
         Returns:
             None.
         """

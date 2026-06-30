@@ -22,6 +22,19 @@ pub(crate) fn create_mesh3d_handle(
     software3d::create_mesh3d_handle(vertices, faces, normals, texcoords)
 }
 
+#[pyfunction(signature = (meshes, source="gummy_snake_model"))]
+pub(crate) fn create_model3d_handle(
+    meshes: Vec<software3d::CanvasMesh3D>,
+    source: &str,
+) -> PyResult<software3d::CanvasModel3D> {
+    if meshes.is_empty() {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "create_model3d_handle() requires at least one mesh handle",
+        ));
+    }
+    Ok(software3d::canvas_model_from_meshes(&meshes, source))
+}
+
 #[pyfunction]
 pub(crate) fn parse_obj_model_handle(
     text: &str,
@@ -144,7 +157,7 @@ pub(crate) fn project_shade_model_handle<'py>(
     lights: &Bound<'py, PyAny>,
     normal_material: bool,
     cull_backfaces: bool,
-    transform: Option<(f64, f64, f64, f64, f64, f64)>,
+    transform: Option<Vec<f64>>,
 ) -> PyResult<Bound<'py, PyList>> {
     software3d::project_shade_model_handle(
         py,

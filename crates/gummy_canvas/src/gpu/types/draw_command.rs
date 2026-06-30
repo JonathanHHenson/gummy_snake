@@ -73,6 +73,11 @@ pub enum DrawCommand {
         index_count: u32,
         uniform: ModelUniform,
     },
+    ModelInstances {
+        key: u64,
+        index_count: u32,
+        uniforms: Vec<ModelUniform>,
+    },
     TexturedModel {
         model_key: u64,
         texture_key: u64,
@@ -80,6 +85,7 @@ pub enum DrawCommand {
         uniform: ModelUniform,
         linear: bool,
     },
+
     Text {
         text: String,
         x: f32,

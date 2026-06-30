@@ -45,6 +45,14 @@ class EcsContextMixin:
     ) -> Iterator[EntityView]:
         return self.ecs.iter_entities(*components, tags=tags)
 
+    def iter_component_fields(
+        self,
+        component_type: type[Any],
+        *field_names: str,
+        tags: Iterable[object] = (),
+    ) -> Iterator[tuple[Any, ...]]:
+        return self.ecs.iter_component_fields(component_type, *field_names, tags=tags)
+
     def set_resource(self, resource: object) -> None:
         self.ecs.set_resource(resource)
 

@@ -118,11 +118,53 @@ impl GpuRenderer {
     }
 
     pub fn draw_model(&mut self, key: u64, index_count: u32, uniform: ModelUniform) {
-        if index_count > 0 {
-            self.commands.push(DrawCommand::Model {
+        if index_count == 0 {
+            return;
+        }
+        if let Some(last) = self.commands.last_mut() {
+            match last {
+                DrawCommand::Model {
+                    key: previous_key,
+                    index_count: previous_index_count,
+                    uniform: previous_uniform,
+                } if *previous_key == key && *previous_index_count == index_count => {
+                    let first_uniform = *previous_uniform;
+                    *last = DrawCommand::ModelInstances {
+                        key,
+                        index_count,
+                        uniforms: vec![first_uniform, uniform],
+                    };
+                    return;
+                }
+                DrawCommand::ModelInstances {
+                    key: previous_key,
+                    index_count: previous_index_count,
+                    uniforms,
+                } if *previous_key == key && *previous_index_count == index_count => {
+                    uniforms.push(uniform);
+                    return;
+                }
+                _ => {}
+            }
+        }
+        self.commands.push(DrawCommand::Model {
+            key,
+            index_count,
+            uniform,
+        });
+    }
+
+    pub fn draw_model_instances(
+        &mut self,
+        key: u64,
+        index_count: u32,
+        uniforms: Vec<ModelUniform>,
+    ) {
+        if index_count > 0 && !uniforms.is_empty() {
+            self.commands.push(DrawCommand::ModelInstances {
                 key,
                 index_count,
-                uniform,
+                uniforms,
             });
         }
     }

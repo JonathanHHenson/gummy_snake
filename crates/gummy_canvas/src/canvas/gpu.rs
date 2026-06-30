@@ -69,6 +69,14 @@ impl Canvas {
         self.mark_gpu_output_texture_current();
     }
 
+    pub(crate) fn record_native_model_batch_draw(&mut self, instance_count: usize) {
+        self.performance_counters.direct_model_draws += instance_count as u64;
+        self.performance_counters.gpu_draws += 1;
+        self.performance_counters.native_draw_commands += 1;
+        self.performance_counters.native_model_commands += 1;
+        self.mark_gpu_output_texture_current();
+    }
+
     pub(crate) fn record_native_region_effect_draw(&mut self, blend_command: bool) {
         self.performance_counters.gpu_draws += 1;
         self.performance_counters.native_draw_commands += 1;

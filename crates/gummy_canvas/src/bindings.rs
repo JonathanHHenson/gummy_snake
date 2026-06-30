@@ -25,6 +25,7 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(media_frame_to_rgba, m)?)?;
     m.add_function(wrap_pyfunction!(parse_obj_model, m)?)?;
     m.add_function(wrap_pyfunction!(create_mesh3d_handle, m)?)?;
+    m.add_function(wrap_pyfunction!(create_model3d_handle, m)?)?;
     m.add_function(wrap_pyfunction!(parse_obj_model_handle, m)?)?;
     m.add_function(wrap_pyfunction!(create_plane_model_handle, m)?)?;
     m.add_function(wrap_pyfunction!(create_box_model_handle, m)?)?;

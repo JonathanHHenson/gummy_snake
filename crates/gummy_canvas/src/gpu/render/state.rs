@@ -87,6 +87,7 @@ impl GpuRenderer {
                 | DrawCommand::BlendEllipse { .. }
                 | DrawCommand::PixelPrefix { .. }
                 | DrawCommand::Model { .. }
+                | DrawCommand::ModelInstances { .. }
                 | DrawCommand::TexturedModel { .. }
                 | DrawCommand::Text { .. } => return None,
                 DrawCommand::Image { .. } | DrawCommand::ImageBatch { .. } => return None,

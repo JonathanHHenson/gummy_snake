@@ -8,8 +8,8 @@ use crate::software3d::payload::{
 };
 use crate::software3d::project::validate_projection_payload;
 use crate::software3d::types::{
-    CameraPayload, LightKindPayload, LightPayload, MaterialPayload, ObjModelData,
-    ProjectionPayload, Transform2D,
+    parse_transform_payload, CameraPayload, LightKindPayload, LightPayload, MaterialPayload,
+    ObjModelData, ProjectionPayload, Transform3D,
 };
 
 pub(super) fn pack_model_gpu_triangles(
@@ -78,23 +78,92 @@ pub(crate) fn model_gpu_uniform(
     material: &Bound<'_, PyAny>,
     lights: &Bound<'_, PyAny>,
     normal_material: bool,
-    transform: Option<Transform2D>,
+    transform: Option<Vec<f64>>,
 ) -> PyResult<crate::gpu::ModelUniform> {
+    let inputs = parse_model_uniform_inputs(
+        camera,
+        projection,
+        viewport_width,
+        viewport_height,
+        material,
+        lights,
+    )?;
+    let transform = parse_transform_payload(transform)?;
+    model_gpu_uniform_from_payloads(
+        &inputs.camera,
+        &inputs.projection,
+        viewport_width,
+        viewport_height,
+        &inputs.material,
+        &inputs.lights,
+        normal_material,
+        transform,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn model_gpu_uniforms(
+    camera: &Bound<'_, PyAny>,
+    projection: &Bound<'_, PyAny>,
+    viewport_width: f64,
+    viewport_height: f64,
+    material: &Bound<'_, PyAny>,
+    lights: &Bound<'_, PyAny>,
+    normal_material: bool,
+    transforms: Vec<Vec<f64>>,
+) -> PyResult<Vec<crate::gpu::ModelUniform>> {
+    let inputs = parse_model_uniform_inputs(
+        camera,
+        projection,
+        viewport_width,
+        viewport_height,
+        material,
+        lights,
+    )?;
+    transforms
+        .into_iter()
+        .map(|transform| {
+            let transform = parse_transform_payload(Some(transform))?;
+            model_gpu_uniform_from_payloads(
+                &inputs.camera,
+                &inputs.projection,
+                viewport_width,
+                viewport_height,
+                &inputs.material,
+                &inputs.lights,
+                normal_material,
+                transform,
+            )
+        })
+        .collect()
+}
+
+struct ModelUniformInputs {
+    camera: CameraPayload,
+    projection: ProjectionPayload,
+    material: MaterialPayload,
+    lights: Vec<LightPayload>,
+}
+
+fn parse_model_uniform_inputs(
+    camera: &Bound<'_, PyAny>,
+    projection: &Bound<'_, PyAny>,
+    _viewport_width: f64,
+    _viewport_height: f64,
+    material: &Bound<'_, PyAny>,
+    lights: &Bound<'_, PyAny>,
+) -> PyResult<ModelUniformInputs> {
     let camera = parse_camera_payload(camera)?;
     let projection = parse_projection_payload(projection)?;
     validate_projection_payload(&projection)?;
     let material = parse_material_payload(material)?;
     let lights = parse_light_payloads(lights)?;
-    model_gpu_uniform_from_payloads(
-        &camera,
-        &projection,
-        viewport_width,
-        viewport_height,
-        &material,
-        &lights,
-        normal_material,
-        transform,
-    )
+    Ok(ModelUniformInputs {
+        camera,
+        projection,
+        material,
+        lights,
+    })
 }
 
 fn model_gpu_uniform_from_payloads(
@@ -105,7 +174,7 @@ fn model_gpu_uniform_from_payloads(
     material: &MaterialPayload,
     lights: &[LightPayload],
     normal_material: bool,
-    transform: Option<Transform2D>,
+    transform: Option<Transform3D>,
 ) -> PyResult<crate::gpu::ModelUniform> {
     let model = transform_to_model_matrix(transform);
     let view = view_matrix(camera)?;
@@ -184,15 +253,15 @@ fn color_tuple_to_vec4(color: (f64, f64, f64, f64)) -> [f32; 4] {
     ]
 }
 
-fn transform_to_model_matrix(transform: Option<Transform2D>) -> [[f32; 4]; 4] {
-    let (a, b, c, d, e, f) = transform.unwrap_or((1.0, 0.0, 0.0, 1.0, 0.0, 0.0));
-    let z_scale = ((a.hypot(b) + c.hypot(d)) / 2.0).max(1e-9);
-    [
-        [a as f32, b as f32, 0.0, 0.0],
-        [c as f32, d as f32, 0.0, 0.0],
-        [0.0, 0.0, z_scale as f32, 0.0],
-        [e as f32, (-f) as f32, 0.0, 1.0],
-    ]
+fn transform_to_model_matrix(transform: Option<Transform3D>) -> [[f32; 4]; 4] {
+    transform
+        .unwrap_or([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ])
+        .map(|column| column.map(|value| value as f32))
 }
 
 fn view_matrix(camera: &CameraPayload) -> PyResult<[[f32; 4]; 4]> {

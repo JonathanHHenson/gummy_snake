@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from gummysnake.drawing.renderer3d.mesh import Mesh3D
+from gummysnake.drawing.renderer3d.mesh import Mesh3D, _mesh_rust_handle
 from gummysnake.drawing.renderer3d.types import Vec3
 
 
@@ -33,10 +33,10 @@ class Model3D:
     @property
     def meshes(self) -> tuple[Mesh3D, ...]:
         """Meshes.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `tuple[Mesh3D, ...]`.
         """
@@ -60,4 +60,31 @@ class Model3D:
 
 
 def _model_rust_handle(model: Model3D) -> Any | None:
+    return model._rust_handle
+
+
+def _ensure_model_rust_handle(model: Model3D) -> Any | None:
+    """Return or create a Rust model handle when all meshes are Rust-backed."""
+    if model._rust_handle is not None:
+        return model._rust_handle
+    meshes = model._meshes
+    if not meshes:
+        return None
+    handles: list[Any] = []
+    for mesh in meshes:
+        handle = _mesh_rust_handle(mesh)
+        if handle is None:
+            return None
+        handles.append(handle)
+
+    from gummysnake.rust.canvas import require_canvas_runtime
+
+    runtime = require_canvas_runtime()
+    factory = getattr(runtime, "create_model3d_handle", None)
+    if not callable(factory):
+        raise RuntimeError(
+            "The installed canvas runtime does not provide create_model3d_handle(). "
+            "Rebuild gummy_canvas."
+        )
+    model._rust_handle = factory(handles, str(model.source or "gummy_snake_model"))
     return model._rust_handle

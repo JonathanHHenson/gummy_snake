@@ -43,6 +43,7 @@ Common entity APIs are available in global mode and object mode:
 - `get_entity(*components, tags=())`
 - `try_get_entity(*components, tags=())`
 - `iter_entities(*components, tags=())`
+- `iter_component_fields(ComponentType, *field_names, tags=())`
 
 `get_entity()` and `iter_entities()` return `ecs.EntityView` objects:
 
@@ -50,6 +51,16 @@ Common entity APIs are available in global mode and object mode:
 hero = gs.get_entity(Position, tags=["Hero"])
 hero[Position].x += 4
 hero.add_component(Tile(2, 2))
+```
+
+For dense draw loops that only need read-only component values, use
+`iter_component_fields()` to read selected Rust-owned columns in one batch instead
+of issuing one Python attribute lookup per field:
+
+```python
+draw_fast = gs.fast()
+for x, y in gs.iter_component_fields(Position, "x", "y", tags=["Particle"]):
+    draw_fast.circle(x, y, 3)
 ```
 
 Component/resource fields support scalar `bool`, `int`, `float`, and `str`.

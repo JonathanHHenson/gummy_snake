@@ -40,7 +40,9 @@ impl GpuRenderer {
                 DrawCommand::ImageBatch { vertices, .. } => {
                     image_vertices += vertices.len();
                 }
-                DrawCommand::Model { .. } | DrawCommand::TexturedModel { .. } => {}
+                DrawCommand::Model { .. }
+                | DrawCommand::ModelInstances { .. }
+                | DrawCommand::TexturedModel { .. } => {}
                 DrawCommand::Text { .. } => {}
                 DrawCommand::Clear(_) => {}
             }
@@ -52,13 +54,12 @@ impl GpuRenderer {
         let model_uniforms = self
             .commands
             .iter()
-            .filter(|command| {
-                matches!(
-                    command,
-                    DrawCommand::Model { .. } | DrawCommand::TexturedModel { .. }
-                )
+            .map(|command| match command {
+                DrawCommand::Model { .. } | DrawCommand::TexturedModel { .. } => 1,
+                DrawCommand::ModelInstances { uniforms, .. } => uniforms.len(),
+                _ => 0,
             })
-            .count();
+            .sum();
         self.ensure_model_uniform_capacity(model_uniforms);
     }
 

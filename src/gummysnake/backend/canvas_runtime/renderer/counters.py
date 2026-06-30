@@ -37,6 +37,10 @@ _PERFORMANCE_COUNTER_KEYS = (
     "image_batch_flushes",
     "image_batch_max_records",
     "image_batch_fallbacks",
+    "model_batch_records",
+    "model_batch_flushes",
+    "model_batch_max_records",
+    "model_batch_fallbacks",
 )
 NativePerformanceCounterValue = int | float
 PerformanceCounterValue = int | float | dict[str, NativePerformanceCounterValue]

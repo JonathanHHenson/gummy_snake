@@ -78,7 +78,9 @@ impl GpuRenderer {
         let mut model_uniform_indices = if self.commands.iter().any(|command| {
             matches!(
                 command,
-                DrawCommand::Model { .. } | DrawCommand::TexturedModel { .. }
+                DrawCommand::Model { .. }
+                    | DrawCommand::ModelInstances { .. }
+                    | DrawCommand::TexturedModel { .. }
             )
         }) {
             vec![None; self.commands.len()]
@@ -89,15 +91,21 @@ impl GpuRenderer {
             if last_clear_index.is_some_and(|index| command_index <= index) {
                 continue;
             }
-            let uniform = match command {
+            let uniform_index = render_offsets.model_uniform + model_uniforms.len() as u32;
+            match command {
                 DrawCommand::Model { uniform, .. } | DrawCommand::TexturedModel { uniform, .. } => {
-                    uniform
+                    model_uniforms.push(*uniform);
+                    model_uniform_indices[command_index] = Some(uniform_index);
+                }
+                DrawCommand::ModelInstances { uniforms, .. } => {
+                    if uniforms.is_empty() {
+                        continue;
+                    }
+                    model_uniforms.extend(uniforms.iter().copied());
+                    model_uniform_indices[command_index] = Some(uniform_index);
                 }
                 _ => continue,
-            };
-            let uniform_index = render_offsets.model_uniform + model_uniforms.len() as u32;
-            model_uniforms.push(*uniform);
-            model_uniform_indices[command_index] = Some(uniform_index);
+            }
         }
         if !model_uniforms.is_empty() {
             self.uploaded_vertex_bytes +=

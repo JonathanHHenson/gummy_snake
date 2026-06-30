@@ -36,6 +36,52 @@ pub(super) fn canvas_model_from_data(model: ObjModelData, source: &str) -> Canva
     }
 }
 
+pub(crate) fn canvas_model_from_meshes(meshes: &[CanvasMesh3D], source: &str) -> CanvasModel3D {
+    if meshes.len() == 1 {
+        return canvas_model_from_data(meshes[0].mesh.clone(), source);
+    }
+
+    let vertex_count = meshes.iter().map(|mesh| mesh.mesh.vertices.len()).sum();
+    let face_count = meshes.iter().map(|mesh| mesh.mesh.faces.len()).sum();
+    let mut vertices = Vec::with_capacity(vertex_count);
+    let mut normals = Vec::with_capacity(vertex_count);
+    let mut texcoords = Vec::with_capacity(vertex_count);
+    let mut faces = Vec::with_capacity(face_count);
+    let mut vertex_offset = 0usize;
+
+    for mesh in meshes {
+        let mesh_data = &mesh.mesh;
+        vertices.extend(mesh_data.vertices.iter().copied());
+        if mesh_data.normals.len() == mesh_data.vertices.len() {
+            normals.extend(mesh_data.normals.iter().copied());
+        } else {
+            normals.extend(std::iter::repeat(None).take(mesh_data.vertices.len()));
+        }
+        if mesh_data.texcoords.len() == mesh_data.vertices.len() {
+            texcoords.extend(mesh_data.texcoords.iter().copied());
+        } else {
+            texcoords.extend(std::iter::repeat(None).take(mesh_data.vertices.len()));
+        }
+        faces.extend(
+            mesh_data
+                .faces
+                .iter()
+                .map(|face| face.iter().map(|index| index + vertex_offset).collect()),
+        );
+        vertex_offset += mesh_data.vertices.len();
+    }
+
+    canvas_model_from_data(
+        ObjModelData {
+            vertices,
+            texcoords,
+            normals,
+            faces,
+        },
+        source,
+    )
+}
+
 pub(super) fn canvas_mesh_from_data(mesh: ObjModelData) -> CanvasMesh3D {
     CanvasMesh3D { mesh }
 }

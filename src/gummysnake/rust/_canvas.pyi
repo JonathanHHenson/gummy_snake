@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from typing import Any
 
+ModelTransformPayload = tuple[float, ...]
+
 def health_check() -> str: ...
 def canvas_abi_version() -> int: ...
 def gpu_available() -> bool: ...
@@ -76,6 +78,7 @@ def project_shade_model_handle(
     lights: list[dict[str, Any]],
     normal_material: bool,
     cull_backfaces: bool,
+    transform: ModelTransformPayload | None = None,
 ) -> list[dict[str, Any]]: ...
 def project_shade_faces(
     meshes: list[dict[str, Any]],
@@ -409,7 +412,7 @@ class Canvas:
         lights: list[dict[str, Any]],
         normal_material: bool,
         cull_backfaces: bool,
-        transform: tuple[float, float, float, float, float, float] | None = None,
+        transform: ModelTransformPayload | None = None,
     ) -> bool: ...
     def ellipse(
         self,

@@ -41,7 +41,7 @@ class CanvasRendererImagesMixin:
         cache: bool = True,
     ) -> None:
         """Draw image.
-        
+
         Args:
             image: The image value. Expected type: `Image | CanvasImage`.
             dx: The dx value. Expected type: `float`.
@@ -53,12 +53,13 @@ class CanvasRendererImagesMixin:
             source: The source value. Expected type: `tuple[int, int, int, int] | None`. Defaults to
                 `None`.
             cache: The cache value. Expected type: `bool`. Defaults to `True`.
-        
+
         Returns:
             None.
         """
         _renderer(self)._flush_line_batch_only()
         _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_model_batch()
         _renderer(self)._flush_text_batch()
         if isinstance(image, CanvasImage):
             self._draw_rust_image(image._rust_image, dx, dy, dw, dh, style, transform, source)
@@ -92,6 +93,7 @@ class CanvasRendererImagesMixin:
         if callable(batch) or callable(transformed_batch):
             renderer._flush_line_batch_only()
             renderer._flush_primitive_batch_only()
+            renderer._flush_model_batch()
             style_payload = renderer._style_payload(style)
             matrix_payload = renderer._matrix_payload(transform)
             if renderer._image_batch and not _same_image_batch_style(

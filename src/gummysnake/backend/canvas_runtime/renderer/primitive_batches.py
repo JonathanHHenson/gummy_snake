@@ -31,6 +31,7 @@ def flush_line_batch(self: object) -> None:
     _renderer(self)._flush_line_batch_only()
     _renderer(self)._flush_primitive_batch_only()
     _renderer(self)._flush_image_batch()
+    _renderer(self)._flush_model_batch()
     _renderer(self)._flush_text_batch()
 
 
@@ -154,6 +155,7 @@ def flush_batches_before_primitive_batch(self: object) -> None:
     if renderer._text_batch:
         renderer._flush_text_batch()
     renderer._flush_image_batch()
+    renderer._flush_model_batch()
 
 
 def flush_line_batch_only(self: object) -> None:

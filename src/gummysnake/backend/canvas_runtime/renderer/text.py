@@ -17,19 +17,20 @@ def _renderer(self: object) -> CanvasRendererHost:
 class CanvasRendererTextMixin:
     def text(self, value: str, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
         """Text.
-        
+
         Args:
             value: The value value. Expected type: `str`.
             x: The x value. Expected type: `float`.
             y: The y value. Expected type: `float`.
             style: The style value. Expected type: `StyleState`.
             transform: The transform value. Expected type: `Matrix2D`.
-        
+
         Returns:
             None.
         """
         _renderer(self)._flush_line_batch_only()
         _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_model_batch()
         if style.fill_color is None:
             return
         self._queue_text_batch([(value, x, y)], style, transform)
@@ -41,17 +42,18 @@ class CanvasRendererTextMixin:
         transform: Matrix2D,
     ) -> None:
         """Text batch.
-        
+
         Args:
             items: The items value. Expected type: `list[tuple[str, float, float]]`.
             style: The style value. Expected type: `StyleState`.
             transform: The transform value. Expected type: `Matrix2D`.
-        
+
         Returns:
             None.
         """
         _renderer(self)._flush_line_batch_only()
         _renderer(self)._flush_primitive_batch_only()
+        _renderer(self)._flush_model_batch()
         if not items or style.fill_color is None:
             return
         self._queue_text_batch(items, style, transform)
@@ -75,11 +77,11 @@ class CanvasRendererTextMixin:
 
     def text_width(self, value: str, style: StyleState) -> float:
         """Text width.
-        
+
         Args:
             value: The value value. Expected type: `str`.
             style: The style value. Expected type: `StyleState`.
-        
+
         Returns:
             The return value. Type: `float`.
         """
@@ -111,10 +113,10 @@ class CanvasRendererTextMixin:
 
     def text_ascent(self, style: StyleState) -> float:
         """Text ascent.
-        
+
         Args:
             style: The style value. Expected type: `StyleState`.
-        
+
         Returns:
             The return value. Type: `float`.
         """
@@ -144,10 +146,10 @@ class CanvasRendererTextMixin:
 
     def text_descent(self, style: StyleState) -> float:
         """Text descent.
-        
+
         Args:
             style: The style value. Expected type: `StyleState`.
-        
+
         Returns:
             The return value. Type: `float`.
         """

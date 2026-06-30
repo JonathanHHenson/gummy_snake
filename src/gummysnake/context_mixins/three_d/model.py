@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, cast
 
+from gummysnake.backend.canvas_runtime.renderer.batch_state import ModelBatchKey
 from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
 from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.renderer3d import (
@@ -17,6 +18,7 @@ from gummysnake.drawing.renderer3d import (
     OrthographicProjection,
     PerspectiveProjection,
     Shader3D,
+    _ensure_model_rust_handle,
     _model_rust_handle,
 )
 from gummysnake.drawing.software3d import (
@@ -40,6 +42,26 @@ def _three_d(self: Any) -> ThreeDContextHost:
     return cast(ThreeDContextHost, self)
 
 
+_IDENTITY_MODEL_TRANSFORM: tuple[float, ...] = (
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+)
+
+
 class ThreeDModelMixin:
     renderer: Any
     state: Any
@@ -54,10 +76,10 @@ class ThreeDModelMixin:
     @property
     def width(self) -> int:
         """Width.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `int`.
         """
@@ -66,10 +88,10 @@ class ThreeDModelMixin:
     @property
     def height(self) -> int:
         """Height.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `int`.
         """
@@ -77,10 +99,10 @@ class ThreeDModelMixin:
 
     def model(self, shape: Mesh3D | Model3D) -> None:
         """Model.
-        
+
         Args:
             shape: The shape value. Expected type: `Mesh3D | Model3D`.
-        
+
         Returns:
             None.
         """
@@ -167,6 +189,93 @@ class ThreeDModelMixin:
             ]
             self._stroke_3d_faces(shaded_faces, screen_transform)
 
+    def _draw_model_fast(
+        self, shape: Mesh3D | Model3D, *, model_transform: Any | None = None
+    ) -> None:
+        _three_d(self)._require_webgl_mode("model")
+        if isinstance(shape, Mesh3D):
+            model = Model3D(meshes=(shape,))
+        elif isinstance(shape, Model3D):
+            model = shape
+        else:
+            raise ArgumentValidationError("model() requires a Mesh3D or Model3D value.")
+
+        if self._geometry_build_models is not None:
+            self._geometry_build_models.append(model)
+            return
+
+        material = _three_d(self)._effective_3d_material()
+        draw_fill = (
+            self._normal_material3d
+            or self._material3d is not None
+            or self.state.style.fill_color is not None
+        )
+        texture = None if self._normal_material3d else texture_image(material)
+        if draw_fill and self.state.style.stroke_color is None:
+            handle = _ensure_model_rust_handle(model)
+            effective_transform = (
+                self.state.transform.matrix if model_transform is None else model_transform
+            )
+            if texture is not None and self._draw_model_textured_direct(
+                model, texture, material, effective_transform
+            ):
+                return
+            if texture is None and handle is not None:
+                if isinstance(effective_transform, tuple) and len(effective_transform) == 16:
+                    transform_payload = (
+                        None
+                        if effective_transform == _IDENTITY_MODEL_TRANSFORM
+                        else effective_transform
+                    )
+                else:
+                    transform_payload = model_transform_payload(effective_transform)
+                if self._queue_model_shaded_direct(handle, material, transform_payload):
+                    return
+                if self._draw_model_shaded_direct(model, material, effective_transform):
+                    return
+
+        self.model(model)
+
+    def _queue_model_shaded_direct(
+        self,
+        handle: Any,
+        material: Material3D,
+        transform_payload: tuple[float, ...] | None,
+    ) -> bool:
+        queue = getattr(self.renderer, "_queue_model_batch", None)
+        if not callable(queue):
+            return False
+        transform = transform_payload or _IDENTITY_MODEL_TRANSFORM
+        source_signature = (
+            id(handle),
+            id(self._camera3d),
+            id(self._projection3d),
+            id(material),
+            id(self._lights3d),
+            len(self._lights3d),
+            self._normal_material3d,
+        )
+        batch_state = getattr(self.renderer, "_model_batch_state", None)
+        existing_key = getattr(batch_state, "key", None)
+        if (
+            existing_key is not None
+            and getattr(existing_key, "source_signature", None) == source_signature
+        ):
+            return bool(queue(existing_key, transform))
+        key = ModelBatchKey(
+            model_handle=handle,
+            camera=camera_payload(self._camera3d),
+            projection=projection_payload(self._projection3d),
+            viewport_width=float(self.width),
+            viewport_height=float(self.height),
+            material=material_payload(material),
+            lights=light_payloads(self._lights3d),
+            normal_material=self._normal_material3d,
+            cull_backfaces=True,
+            source_signature=source_signature,
+        )
+        return bool(queue(key, transform))
+
     def _rust_model_draw_resources(
         self, model: Model3D, method_name: str
     ) -> tuple[Any, Callable[..., Any]] | None:
@@ -179,6 +288,9 @@ class ThreeDModelMixin:
         draw = getattr(require_canvas(), method_name, None)
         if not callable(draw):
             return None
+        flush_model_batch = getattr(self.renderer, "_flush_model_batch", None)
+        if callable(flush_model_batch):
+            flush_model_batch()
         flush_line_batch = getattr(self.renderer, "_flush_line_batch", None)
         if callable(flush_line_batch):
             flush_line_batch()
@@ -193,7 +305,7 @@ class ThreeDModelMixin:
         self,
         model: Model3D,
         material: Material3D,
-        model_transform: Matrix2D | None,
+        model_transform: Any | None,
     ) -> bool:
         resources = self._rust_model_draw_resources(model, "draw_model_shaded")
         if resources is None:
@@ -220,7 +332,7 @@ class ThreeDModelMixin:
         model: Model3D,
         texture: Any,
         material: Material3D,
-        model_transform: Matrix2D | None,
+        model_transform: Any | None,
     ) -> bool:
         rust_image = getattr(texture, "rust_image", None)
         rust_image = getattr(rust_image, "_rust_image", None)

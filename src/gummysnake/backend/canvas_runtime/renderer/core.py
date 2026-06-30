@@ -8,6 +8,7 @@ from gummysnake import constants as c
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
 from gummysnake.backend.canvas_runtime.renderer.batch_state import (
     LineBatchState,
+    ModelBatchState,
     PrimitiveBatchState,
 )
 from gummysnake.backend.canvas_runtime.renderer.bridge import CanvasRendererBridgeMixin
@@ -80,6 +81,7 @@ class CanvasRendererCore(
         self._rust_transform_synced = True
         self._line_batch_state = LineBatchState()
         self._primitive_batch_state = PrimitiveBatchState()
+        self._model_batch_state = ModelBatchState()
         self._text_batch: list[tuple[str, float, float]] = []
         self._text_batch_style: dict[str, object] | None = None
         self._text_batch_matrix: MatrixPayload | None = None
@@ -95,10 +97,10 @@ class CanvasRendererCore(
 
     def set_current_style(self, style: StyleState) -> None:
         """Set the current style value.
-        
+
         Args:
             style: The style value. Expected type: `StyleState`.
-        
+
         Returns:
             None.
         """
@@ -120,10 +122,10 @@ class CanvasRendererCore(
 
     def set_current_matrix(self, transform: Matrix2D) -> None:
         """Set the current matrix value.
-        
+
         Args:
             transform: The transform value. Expected type: `Matrix2D`.
-        
+
         Returns:
             None.
         """
@@ -141,10 +143,10 @@ class CanvasRendererCore(
 
     def push_canvas_state(self) -> None:
         """Push the current canvas style and transform state.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -175,10 +177,10 @@ class CanvasRendererCore(
 
     def pop_canvas_state(self) -> None:
         """Pop the most recently pushed canvas style and transform state.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -197,11 +199,11 @@ class CanvasRendererCore(
 
     def translate(self, x: float, y: float) -> None:
         """Translate for this CanvasRendererCore.
-        
+
         Args:
             x: The x value. Expected type: `float`.
             y: The y value. Expected type: `float`.
-        
+
         Returns:
             None.
         """
@@ -218,10 +220,10 @@ class CanvasRendererCore(
 
     def rotate(self, angle: float) -> None:
         """Rotate for this CanvasRendererCore.
-        
+
         Args:
             angle: The angle value. Expected type: `float`.
-        
+
         Returns:
             None.
         """
@@ -238,11 +240,11 @@ class CanvasRendererCore(
 
     def scale(self, x: float, y: float | None = None) -> None:
         """Scale for this CanvasRendererCore.
-        
+
         Args:
             x: The x value. Expected type: `float`.
             y: The y value. Expected type: `float | None`. Defaults to `None`.
-        
+
         Returns:
             None.
         """
@@ -259,10 +261,10 @@ class CanvasRendererCore(
 
     def shear_x(self, angle: float) -> None:
         """Shear x for this CanvasRendererCore.
-        
+
         Args:
             angle: The angle value. Expected type: `float`.
-        
+
         Returns:
             None.
         """
@@ -279,10 +281,10 @@ class CanvasRendererCore(
 
     def shear_y(self, angle: float) -> None:
         """Shear y for this CanvasRendererCore.
-        
+
         Args:
             angle: The angle value. Expected type: `float`.
-        
+
         Returns:
             None.
         """
@@ -299,10 +301,10 @@ class CanvasRendererCore(
 
     def apply_matrix(self, transform: Matrix2D) -> None:
         """Apply matrix for this CanvasRendererCore.
-        
+
         Args:
             transform: The transform value. Expected type: `Matrix2D`.
-        
+
         Returns:
             None.
         """
@@ -319,10 +321,10 @@ class CanvasRendererCore(
 
     def reset_matrix(self) -> None:
         """Reset matrix for this CanvasRendererCore.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -348,10 +350,10 @@ class CanvasRendererCore(
 
     def remember_current_matrix(self, transform: Matrix2D) -> None:
         """Remember current matrix for this CanvasRendererCore.
-        
+
         Args:
             transform: The transform value. Expected type: `Matrix2D`.
-        
+
         Returns:
             None.
         """

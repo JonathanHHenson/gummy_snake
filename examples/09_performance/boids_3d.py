@@ -4,17 +4,15 @@ A WEBGL version of Craig Reynolds-style boids: many agents steer using
 separation, alignment, and cohesion while flying through a bounded 3D volume.
 The simulation state is stored as ECS dataclass components and updated by an ECS
 system before each draw call. The system uses generic `ecs.spatial.neighbors`
-relations and aggregates for flocking, then each color flock is rendered as one
-lightweight dynamic 3D mesh.
+relations and aggregates for flocking, then each boid is rendered as a reused
+Rust-backed 3D model transformed through `gs.fast()`.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import math
 import random
 import sys
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
@@ -27,21 +25,6 @@ from examples.common import example_parser, save_once
 from gummysnake import ecs
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D, Vec3
 from gummysnake.ecs.world import EcsWorld
-
-
-def _load_boids_helpers() -> Any:
-    path = Path(__file__).with_name("boids_3d_helpers.py")
-    spec = importlib.util.spec_from_file_location("boids_3d_helpers", path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load boids helper module from {path!s}.")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-_boids_helpers = _load_boids_helpers()
-cross = _boids_helpers.cross
-set_magnitude = _boids_helpers.set_magnitude
 
 WIDTH = 960
 HEIGHT = 540
@@ -69,7 +52,12 @@ ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
 
 fps_last_time: float | None = None
 fps_value = float(TARGET_FPS)
-_boid_state_cache: list[BoidState] = []
+_boid_state_cache: list[Any] = []
+_boid_buckets: list[list[Any]] = []
+_boid_bucket_indices: list[list[int]] = []
+_boid_model_cache: Model3D | None = None
+BOID_DRAW_FIELDS = ("x", "y", "z", "vx", "vy", "vz")
+BOID_STATE_FIELDS = (*BOID_DRAW_FIELDS, "bucket")
 
 palette = [
     (95, 185, 255, 220),
@@ -266,88 +254,147 @@ def _seed_boids() -> list[BoidState]:
 
 
 def _prepare_boids() -> None:
-    global _boid_state_cache
+    global _boid_buckets, _boid_bucket_indices, _boid_state_cache
     _boid_state_cache = []
+    _boid_buckets = [[] for _ in palette]
+    _boid_bucket_indices = [[] for _ in palette]
     for state in _seed_boids():
         gs.add_entity(state, tags=[BOID_TAG])
     _boid_state_cache = _boid_states_from_context()
+    _boid_buckets = _bucket_states(_boid_state_cache)
+    _boid_bucket_indices = _bucket_indices(_boid_state_cache)
 
 
 def _prepare_boids_world(*, add_system: bool = True) -> EcsWorld:
-    global _boid_state_cache
+    global _boid_buckets, _boid_bucket_indices, _boid_state_cache
     world = EcsWorld()
     if add_system:
         world.add_system(simulate_boids)
     for state in _seed_boids():
         world.add_entity(state, tags=[BOID_TAG])
     _boid_state_cache = _boid_states_from_world(world)
+    _boid_buckets = _bucket_states(_boid_state_cache)
+    _boid_bucket_indices = _bucket_indices(_boid_state_cache)
     return world
 
 
-def _boid_states_from_world(world: EcsWorld) -> list[BoidState]:
-    return [entity[BoidState] for entity in world.iter_entities(BoidState, tags=[BOID_TAG])]
+def _boid_states_from_world(world: EcsWorld) -> list[tuple[Any, ...]]:
+    return list(world.iter_component_fields(BoidState, *BOID_STATE_FIELDS, tags=[BOID_TAG]))
 
 
-def _boid_states_from_context() -> list[BoidState]:
-    return [entity[BoidState] for entity in gs.iter_entities(BoidState, tags=[BOID_TAG])]
+def _boid_states_from_context() -> list[tuple[Any, ...]]:
+    return list(gs.iter_component_fields(BoidState, *BOID_STATE_FIELDS, tags=[BOID_TAG]))
 
 
-def _bucket_states(states: Sequence[BoidState]) -> list[list[BoidState]]:
-    buckets: list[list[BoidState]] = [[] for _ in palette]
+def _boid_draw_states_from_context() -> list[tuple[Any, ...]]:
+    return list(gs.iter_component_fields(BoidState, *BOID_DRAW_FIELDS, tags=[BOID_TAG]))
+
+
+def _bucket_states(states: list[tuple[Any, ...]]) -> list[list[tuple[Any, ...]]]:
+    buckets: list[list[tuple[Any, ...]]] = [[] for _ in palette]
     for state in states:
-        buckets[state.bucket].append(state)
+        buckets[int(state[6])].append(state)
     return buckets
 
 
-def _append_boid(
-    vertices: list[Vec3],
-    normals: list[Vec3],
-    faces: list[tuple[int, int, int]],
-    boid: BoidState,
-) -> None:
-    x = boid.x
-    y = boid.y
-    z = boid.z
-    forward = set_magnitude(boid.vx, boid.vy, boid.vz, 1.0)
-    reference = (0.0, 1.0, 0.0) if abs(forward[1]) < 0.9 else (1.0, 0.0, 0.0)
-    right = set_magnitude(*cross(forward, reference), magnitude=1.0)
-    up = set_magnitude(*cross(right, forward), magnitude=1.0)
+def _bucket_indices(states: list[tuple[Any, ...]]) -> list[list[int]]:
+    buckets: list[list[int]] = [[] for _ in palette]
+    for index, state in enumerate(states):
+        buckets[int(state[6])].append(index)
+    return buckets
+
+
+def _boid_model() -> Model3D:
+    global _boid_model_cache
+    if _boid_model_cache is not None:
+        return _boid_model_cache
     length = 12.0
     width = 5.0
     height = 4.2
-    base = len(vertices)
-
-    nose = Vec3(x + forward[0] * length, y + forward[1] * length, z + forward[2] * length)
-    left = Vec3(
-        x - forward[0] * length * 0.55 - right[0] * width,
-        y - forward[1] * length * 0.55 - right[1] * width,
-        z - forward[2] * length * 0.55 - right[2] * width,
+    vertices = (
+        Vec3(length, 0.0, 0.0),
+        Vec3(-length * 0.55, 0.0, -width),
+        Vec3(-length * 0.55, 0.0, width),
+        Vec3(0.0, height, 0.0),
     )
-    right_vertex = Vec3(
-        x - forward[0] * length * 0.55 + right[0] * width,
-        y - forward[1] * length * 0.55 + right[1] * width,
-        z - forward[2] * length * 0.55 + right[2] * width,
+    normals = (
+        Vec3(1.0, 0.0, 0.0),
+        Vec3(0.0, 0.0, 1.0),
+        Vec3(0.0, 0.0, -1.0),
+        Vec3(0.0, 1.0, 0.0),
     )
-    dorsal = Vec3(x + up[0] * height, y + up[1] * height, z + up[2] * height)
-    vertices.extend((nose, left, right_vertex, dorsal))
-    normals.extend((Vec3(*forward), Vec3(*right), Vec3(-right[0], -right[1], -right[2]), Vec3(*up)))
-    faces.extend(
-        (
-            (base, base + 1, base + 3),
-            (base, base + 3, base + 2),
-            (base, base + 2, base + 1),
-            (base + 1, base + 2, base + 3),
-        )
-    )
+    faces = ((0, 1, 3), (0, 3, 2), (0, 2, 1), (1, 2, 3))
+    _boid_model_cache = Model3D(meshes=(Mesh3D(vertices=vertices, faces=faces, normals=normals),))
+    return _boid_model_cache
 
 
-def _flock_model(states: Sequence[BoidState]) -> Model3D:
-    vertices: list[Vec3] = []
-    normals: list[Vec3] = []
-    faces: list[tuple[int, int, int]] = []
+def _orientation_quaternion(vx: float, vy: float, vz: float) -> tuple[float, float, float, float]:
+    speed = math.sqrt(vx * vx + vy * vy + vz * vz)
+    if speed <= 1.0e-12:
+        return (1.0, 0.0, 0.0, 0.0)
+    tx = vx / speed
+    ty = vy / speed
+    tz = vz / speed
+    dot = tx
+    if dot > 0.999_999:
+        return (1.0, 0.0, 0.0, 0.0)
+    if dot < -0.999_999:
+        return (0.0, 0.0, 1.0, 0.0)
+    # Quaternion from +X to target direction: (1 + dot, cross(+X, target)).
+    w = 1.0 + dot
+    x = 0.0
+    y = -tz
+    z = ty
+    inv_length = 1.0 / math.sqrt(w * w + y * y + z * z)
+    return (w * inv_length, x, y * inv_length, z * inv_length)
+
+
+def _model_matrix_from_translation_quaternion(
+    x: float, y: float, z: float, quaternion: tuple[float, float, float, float]
+) -> tuple[float, ...]:
+    w, qx, qy, qz = quaternion
+    xx = qx * qx
+    yy = qy * qy
+    zz = qz * qz
+    xy = qx * qy
+    xz = qx * qz
+    yz = qy * qz
+    wx = w * qx
+    wy = w * qy
+    wz = w * qz
+    return (
+        1.0 - 2.0 * (yy + zz),
+        2.0 * (xy + wz),
+        2.0 * (xz - wy),
+        0.0,
+        2.0 * (xy - wz),
+        1.0 - 2.0 * (xx + zz),
+        2.0 * (yz + wx),
+        0.0,
+        2.0 * (xz + wy),
+        2.0 * (yz - wx),
+        1.0 - 2.0 * (xx + yy),
+        0.0,
+        x,
+        y,
+        z,
+        1.0,
+    )
+
+
+def _boid_transform_keys(states: list[tuple[Any, ...]]) -> list[tuple[float, ...]]:
+    transforms = []
     for state in states:
-        _append_boid(vertices, normals, faces, state)
-    return Model3D(meshes=(Mesh3D(vertices=vertices, faces=faces, normals=normals),))
+        x, y, z, vx, vy, vz = state[:6]
+        transforms.append(
+            _model_matrix_from_translation_quaternion(
+                x,
+                y,
+                z,
+                _orientation_quaternion(vx, vy, vz),
+            )
+        )
+    return transforms
 
 
 @gs.setup
@@ -356,8 +403,10 @@ def setup() -> None:
     gs.frame_rate(TARGET_FPS)
     gs.no_stroke()
     gs.perspective(FOV_Y, WIDTH / HEIGHT, 0.1, 5000)
-    gs.describe("A 3D boids flocking simulation using an ECS system and WEBGL meshes.")
-    gs.configure_ecs(strict=True)
+    gs.describe(
+        "A 3D boids flocking simulation using an ECS system and fast WEBGL model transforms."
+    )
+    gs.configure_ecs(strict=False, warn_on_ambiguity=False)
     gs.add_system(simulate_boids, order=10)
     _prepare_boids()
 
@@ -371,25 +420,34 @@ def draw() -> None:
     eye_y = CAMERA_HEIGHT
     eye_z = math.cos(orbit) * CAMERA_ORBIT_RADIUS
 
-    states = _boid_state_cache or _boid_states_from_context()
-    state_buckets = _bucket_states(states)
-
-    gs.camera(eye_x, eye_y, eye_z, 0, 0, 0, 0, 1, 0)
+    draw3d = gs.fast()
+    draw3d.camera(eye_x, eye_y, eye_z, 0, 0, 0, 0, 1, 0)
     gs.background(5, 8, 18)
-    gs.ambient_light(44)
-    gs.directional_light(135, 172, 255, -0.35, -0.75, -1.0)
-    gs.point_light(120, 238, 205, *POINT_LIGHT_POSITION)
+    draw3d.ambient_light(44)
+    draw3d.directional_light(135, 172, 255, -0.35, -0.75, -1.0)
+    draw3d.point_light(120, 238, 205, *POINT_LIGHT_POSITION)
 
-    for bucket, bucket_states in enumerate(state_buckets):
-        gs.specular_material(*palette[bucket])
-        gs.shininess(28)
-        gs.model(_flock_model(bucket_states))
+    boid_rows = _boid_draw_states_from_context()
+
+    model = _boid_model()
+    for bucket, bucket_indices in enumerate(_boid_bucket_indices):
+        draw3d.specular_material(*palette[bucket])
+        draw3d.shininess(28)
+        for index in bucket_indices:
+            x, y, z, vx, vy, vz = boid_rows[index]
+            quaternion = _orientation_quaternion(vx, vy, vz)
+            with draw3d.pushed():
+                draw3d.translate(x, y, z)
+                draw3d.rotate_quaternion(*quaternion)
+                draw3d.model(model)
 
     gs.reset_matrix()
     gs.fill(238, 244, 255, 235)
     gs.text_size(15)
     gs.text(f"ECS 3D boids | {BOID_COUNT:,} agents | separation + alignment + cohesion", 24, 32)
-    gs.text(f"fps {fps:5.1f} | ECS spatial relation aggregates", 24, HEIGHT - 24)
+    gs.text(
+        f"fps {fps:5.1f} | ECS spatial relation aggregates + fast model transforms", 24, HEIGHT - 24
+    )
     save_once(ARGS, frame, gs.save_canvas)
 
 

@@ -18,9 +18,9 @@ mod rasterize;
 mod triangles;
 mod types;
 
-pub(crate) use self::gpu::{model_gpu_buffers, model_gpu_uniform};
+pub(crate) use self::gpu::{model_gpu_buffers, model_gpu_uniform, model_gpu_uniforms};
 pub(crate) use self::mesh::create_mesh3d_handle;
-pub(crate) use self::model::{CanvasMesh3D, CanvasModel3D};
+pub(crate) use self::model::{canvas_model_from_meshes, CanvasMesh3D, CanvasModel3D};
 pub(crate) use self::model_factory::{
     create_box_model_handle, create_cone_model_handle, create_cylinder_model_handle,
     create_ellipsoid_model_handle, create_plane_model_handle, create_sphere_model_handle,

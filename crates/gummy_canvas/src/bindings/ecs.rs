@@ -974,6 +974,37 @@ impl PyEcsWorld {
             .collect())
     }
 
+    fn query_component_fields(
+        &mut self,
+        py: Python<'_>,
+        required_components: Vec<String>,
+        required_tags: Vec<String>,
+        component: String,
+        fields: Vec<String>,
+    ) -> PyResult<Vec<PyObject>> {
+        let terms = required_components
+            .into_iter()
+            .map(QueryTerm::WithComponent)
+            .chain(required_tags.into_iter().map(QueryTerm::WithTag));
+        let entities = self
+            .world
+            .query_filter(QueryFilter::new(terms))
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        let mut rows = Vec::with_capacity(entities.len());
+        for entity in entities {
+            let mut values = Vec::with_capacity(fields.len());
+            for field in &fields {
+                let value = self
+                    .world
+                    .get_field(entity, &component, field)
+                    .map_err(|err| PyValueError::new_err(err.to_string()))?;
+                values.push(ecs_value_to_py(py, &value)?);
+            }
+            rows.push(PyTuple::new_bound(py, values).into_py(py));
+        }
+        Ok(rows)
+    }
+
     fn insert_resource(&mut self, name: String, fields: &Bound<'_, PyDict>) -> PyResult<()> {
         self.world
             .insert_resource(name, component_row_from_dict(fields)?)

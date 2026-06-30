@@ -11,7 +11,7 @@ use crate::software3d::payload::{
 };
 use crate::software3d::project::{project_mesh_payload_faces, validate_projection_payload};
 use crate::software3d::types::{
-    CameraPayload, LightPayload, MaterialPayload, ProjectedPayloadFace, Transform2D,
+    parse_transform_payload, CameraPayload, LightPayload, MaterialPayload, ProjectedPayloadFace,
 };
 
 fn projected_faces_to_py<'py>(
@@ -88,7 +88,7 @@ pub(crate) fn project_shade_model_handle<'py>(
     lights: &Bound<'py, PyAny>,
     normal_material: bool,
     cull_backfaces: bool,
-    transform: Option<Transform2D>,
+    transform: Option<Vec<f64>>,
 ) -> PyResult<Bound<'py, PyList>> {
     if viewport_width <= 0.0 || viewport_height <= 0.0 {
         return Err(PyValueError::new_err(
@@ -100,6 +100,7 @@ pub(crate) fn project_shade_model_handle<'py>(
     validate_projection_payload(&projection)?;
     let material = parse_material_payload(material)?;
     let lights = parse_light_payloads(lights)?;
+    let transform = parse_transform_payload(transform)?;
     let mesh = model_to_mesh_payload(&model.model, transform);
     let faces = project_mesh_payload_faces(
         &mesh,

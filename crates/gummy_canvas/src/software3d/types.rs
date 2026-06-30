@@ -1,4 +1,41 @@
-pub(crate) type Transform2D = (f64, f64, f64, f64, f64, f64);
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+
+pub(crate) type Transform3D = [[f64; 4]; 4];
+
+pub(crate) fn parse_transform_payload(
+    transform: Option<Vec<f64>>,
+) -> PyResult<Option<Transform3D>> {
+    let Some(values) = transform else {
+        return Ok(None);
+    };
+    match values.len() {
+        6 => {
+            let a = values[0];
+            let b = values[1];
+            let c = values[2];
+            let d = values[3];
+            let e = values[4];
+            let f = values[5];
+            let z_scale = ((a.hypot(b) + c.hypot(d)) / 2.0).max(1e-9);
+            Ok(Some([
+                [a, b, 0.0, 0.0],
+                [c, d, 0.0, 0.0],
+                [0.0, 0.0, z_scale, 0.0],
+                [e, -f, 0.0, 1.0],
+            ]))
+        }
+        16 => Ok(Some([
+            [values[0], values[1], values[2], values[3]],
+            [values[4], values[5], values[6], values[7]],
+            [values[8], values[9], values[10], values[11]],
+            [values[12], values[13], values[14], values[15]],
+        ])),
+        length => Err(PyValueError::new_err(format!(
+            "model transform payload must contain 6 affine or 16 matrix values, got {length}"
+        ))),
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Vec3d {

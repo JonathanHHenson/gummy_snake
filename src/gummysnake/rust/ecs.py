@@ -71,6 +71,14 @@ class _RustEcsWorld(Protocol):
         excluded_tags: list[str],
     ) -> list[tuple[int, int]]: ...
 
+    def query_component_fields(
+        self,
+        required_components: list[str],
+        required_tags: list[str],
+        component: str,
+        fields: list[str],
+    ) -> list[tuple[Any, ...]]: ...
+
     def insert_resource(self, name: str, fields: dict[str, Any]) -> None: ...
 
     def remove_resource(self, name: str) -> dict[str, Any]: ...

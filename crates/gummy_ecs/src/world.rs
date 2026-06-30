@@ -313,12 +313,7 @@ impl World {
         self.archetypes[location.archetype].get_field(location.row, component, field)
     }
 
-    pub(crate) fn get_field_f64(
-        &self,
-        entity: Entity,
-        component: &str,
-        field: &str,
-    ) -> Result<f64> {
+    pub fn get_field_f64(&self, entity: Entity, component: &str, field: &str) -> Result<f64> {
         let location = self.location(entity)?;
         self.archetypes[location.archetype].get_field_f64(location.row, component, field)
     }

@@ -412,7 +412,7 @@ impl Canvas {
         lights: &Bound<'_, PyAny>,
         normal_material: bool,
         cull_backfaces: bool,
-        transform: Option<(f64, f64, f64, f64, f64, f64)>,
+        transform: Option<Vec<f64>>,
     ) -> PyResult<()> {
         self.draw_model_shaded_impl(
             model,
@@ -427,6 +427,35 @@ impl Canvas {
             transform,
         )
     }
+
+    #[pyo3(signature = (model, camera, projection, viewport_width, viewport_height, material, lights, normal_material, cull_backfaces, transforms))]
+    pub(crate) fn _draw_model_shaded_batch(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        lights: &Bound<'_, PyAny>,
+        normal_material: bool,
+        cull_backfaces: bool,
+        transforms: Vec<Vec<f64>>,
+    ) -> PyResult<()> {
+        self.draw_model_shaded_batch_impl(
+            model,
+            camera,
+            projection,
+            viewport_width,
+            viewport_height,
+            material,
+            lights,
+            normal_material,
+            cull_backfaces,
+            transforms,
+        )
+    }
+
     #[pyo3(signature = (model, image, camera, projection, viewport_width, viewport_height, material, lights, normal_material, cull_backfaces, transform=None))]
     pub(crate) fn draw_model_textured(
         &mut self,
@@ -440,7 +469,7 @@ impl Canvas {
         lights: &Bound<'_, PyAny>,
         normal_material: bool,
         cull_backfaces: bool,
-        transform: Option<(f64, f64, f64, f64, f64, f64)>,
+        transform: Option<Vec<f64>>,
     ) -> PyResult<bool> {
         self.draw_model_textured_impl(
             model,

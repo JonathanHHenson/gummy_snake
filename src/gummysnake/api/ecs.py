@@ -46,6 +46,14 @@ def iter_entities(*components: type[Any], tags: Iterable[object] = ()) -> Iterat
     return require_context().iter_entities(*components, tags=tags)
 
 
+def iter_component_fields(
+    component_type: type[Any],
+    *field_names: str,
+    tags: Iterable[object] = (),
+) -> Iterator[tuple[Any, ...]]:
+    return require_context().iter_component_fields(component_type, *field_names, tags=tags)
+
+
 def set_resource(resource: object) -> None:
     require_context().set_resource(resource)
 
@@ -142,6 +150,7 @@ __all__ = [
     "get_entity",
     "get_resource",
     "emit_event",
+    "iter_component_fields",
     "iter_entities",
     "remove_component",
     "read_events",

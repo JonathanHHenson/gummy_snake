@@ -23,6 +23,7 @@ impl GpuRenderer {
                 DrawCommand::BlendEllipse { .. } => None,
                 DrawCommand::PixelPrefix { .. } => None,
                 DrawCommand::Model { .. } => None,
+                DrawCommand::ModelInstances { .. } => None,
                 DrawCommand::TexturedModel { .. } => None,
                 DrawCommand::Text { .. } => None,
                 DrawCommand::EraseTriangles { .. } => None,
@@ -176,6 +177,22 @@ impl GpuRenderer {
                         model_uniform_indices[command_index],
                     );
                 }
+                DrawCommand::ModelInstances {
+                    key,
+                    index_count,
+                    uniforms,
+                } => {
+                    if skip_until_last_clear {
+                        continue;
+                    }
+                    let instance_count = u32::try_from(uniforms.len()).unwrap_or(u32::MAX);
+                    batcher.draw_model_instances(
+                        self.model_meshes.get(key),
+                        *index_count,
+                        model_uniform_indices[command_index],
+                        instance_count,
+                    );
+                }
                 DrawCommand::TexturedModel {
                     model_key,
                     texture_key,
@@ -194,6 +211,7 @@ impl GpuRenderer {
                         *linear,
                     );
                 }
+
                 DrawCommand::EraseTriangles { vertices, clip_id } => {
                     if skip_until_last_clear {
                         continue;

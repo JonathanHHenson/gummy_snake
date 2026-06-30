@@ -130,10 +130,31 @@ enum SpatialBatchValue {
 }
 
 #[derive(Debug, Clone)]
+enum FastSpatialBatchValue {
+    Count,
+    DirectField { array_index: usize },
+    NegDeltaOverDistance { axis: usize, minimum_distance: f64 },
+}
+
+#[derive(Debug, Clone)]
 struct SpatialBatchSpec {
     expr_index: usize,
     kind: String,
     value: SpatialBatchValue,
+}
+
+#[derive(Debug, Clone)]
+struct FastSpatialBatchSpec {
+    expr_index: usize,
+    kind: String,
+    value: FastSpatialBatchValue,
+}
+
+#[derive(Debug, Clone)]
+struct FastFieldArray {
+    component: String,
+    field: String,
+    values: Vec<Option<(u32, f64)>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -161,6 +182,13 @@ struct DirectSpatialCoord {
 #[derive(Debug, Clone)]
 struct DirectSpatialRelationBatch {
     specs: Vec<SpatialBatchSpec>,
+    distance_filter: Option<SpatialDistanceFilter>,
+    query_radius: f64,
+}
+
+#[derive(Debug, Clone)]
+struct FastDirectSpatialRelationBatch {
+    specs: Vec<FastSpatialBatchSpec>,
     distance_filter: Option<SpatialDistanceFilter>,
     query_radius: f64,
 }
@@ -988,24 +1016,27 @@ impl<'a> PlanExecutor<'a> {
                 let expr_count = self.plan.expressions.len();
                 let row_values = rows
                     .par_iter()
-                    .map(|entity| {
-                        let mut row_cache = vec![None; expr_count];
-                        let values = direct_specs
-                            .iter()
-                            .map(|spec| {
-                                eval_expr_f64_readonly(
-                                    spec.value_expr,
-                                    *entity,
-                                    &query_name,
-                                    plan,
-                                    numeric_field_cache,
-                                    spatial_precomputed_f64,
-                                    &mut row_cache,
-                                )
-                            })
-                            .collect::<Result<Vec<_>>>()?;
-                        Ok((*entity, values))
-                    })
+                    .map_init(
+                        || vec![None; expr_count],
+                        |row_cache, entity| {
+                            row_cache.fill(None);
+                            let values = direct_specs
+                                .iter()
+                                .map(|spec| {
+                                    eval_expr_f64_readonly(
+                                        spec.value_expr,
+                                        *entity,
+                                        &query_name,
+                                        plan,
+                                        numeric_field_cache,
+                                        spatial_precomputed_f64,
+                                        row_cache,
+                                    )
+                                })
+                                .collect::<Result<Vec<_>>>()?;
+                            Ok((*entity, values))
+                        },
+                    )
                     .collect::<Result<Vec<_>>>()?;
                 self.report.rows_scanned += row_values.len();
                 for (entity, values) in row_values {
@@ -1656,6 +1687,64 @@ impl<'a> PlanExecutor<'a> {
         }))
     }
 
+    fn build_fast_field_array(
+        &self,
+        entities: &[Entity],
+        component: &str,
+        field: &str,
+    ) -> Result<FastFieldArray> {
+        let max_index = entities
+            .iter()
+            .map(|entity| entity.index as usize)
+            .max()
+            .unwrap_or(0);
+        let mut values = vec![None; max_index + 1];
+        for entity in entities {
+            values[entity.index as usize] = Some((
+                entity.generation,
+                self.world.get_field_f64(*entity, component, field)?,
+            ));
+        }
+        Ok(FastFieldArray {
+            component: component.to_string(),
+            field: field.to_string(),
+            values,
+        })
+    }
+
+    fn fast_field_value(&self, array: &FastFieldArray, entity: Entity) -> Result<f64> {
+        let Some(Some((generation, value))) = array.values.get(entity.index as usize) else {
+            return Err(EcsError::InvalidPlan(format!(
+                "fast numeric field array missing entity {}:{} for '{}.{}'",
+                entity.index, entity.generation, array.component, array.field
+            )));
+        };
+        if *generation != entity.generation {
+            return Err(EcsError::InvalidPlan(format!(
+                "fast numeric field array has stale entity generation for {}:{}",
+                entity.index, entity.generation
+            )));
+        }
+        Ok(*value)
+    }
+
+    fn ensure_fast_field_array(
+        &self,
+        arrays: &mut Vec<FastFieldArray>,
+        entities: &[Entity],
+        component: &str,
+        field: &str,
+    ) -> Result<usize> {
+        if let Some(index) = arrays
+            .iter()
+            .position(|array| array.component == component && array.field == field)
+        {
+            return Ok(index);
+        }
+        arrays.push(self.build_fast_field_array(entities, component, field)?);
+        Ok(arrays.len() - 1)
+    }
+
     fn precompute_direct_spatial_relation_group_f64(
         &mut self,
         relations: &[SpatialRelationNode],
@@ -1685,12 +1774,62 @@ impl<'a> PlanExecutor<'a> {
                     first.origin_query
                 ))
             })?;
+        let item_rows = self
+            .query_rows
+            .get(&first.item_query)
+            .cloned()
+            .ok_or_else(|| {
+                EcsError::InvalidPlan(format!(
+                    "spatial item query '{}' is not part of the plan",
+                    first.item_query
+                ))
+            })?;
+        let mut origin_coord_arrays = Vec::with_capacity(origin_coords.len());
+        for coord in &origin_coords {
+            origin_coord_arrays.push(self.build_fast_field_array(
+                &origin_rows,
+                &coord.component,
+                &coord.field,
+            )?);
+        }
+        let mut item_field_arrays: Vec<FastFieldArray> = Vec::new();
         let mut batches = Vec::with_capacity(relations.len());
         for relation in relations {
             let Some(batch) = self.direct_spatial_relation_batch(relation)? else {
                 return Ok(false);
             };
-            batches.push(batch);
+            let mut specs = Vec::with_capacity(batch.specs.len());
+            for spec in batch.specs {
+                let value = match spec.value {
+                    SpatialBatchValue::Count => FastSpatialBatchValue::Count,
+                    SpatialBatchValue::DirectField { component, field } => {
+                        let array_index = self.ensure_fast_field_array(
+                            &mut item_field_arrays,
+                            &item_rows,
+                            &component,
+                            &field,
+                        )?;
+                        FastSpatialBatchValue::DirectField { array_index }
+                    }
+                    SpatialBatchValue::NegDeltaOverDistance {
+                        axis,
+                        minimum_distance,
+                    } => FastSpatialBatchValue::NegDeltaOverDistance {
+                        axis,
+                        minimum_distance,
+                    },
+                };
+                specs.push(FastSpatialBatchSpec {
+                    expr_index: spec.expr_index,
+                    kind: spec.kind,
+                    value,
+                });
+            }
+            batches.push(FastDirectSpatialRelationBatch {
+                specs,
+                distance_filter: batch.distance_filter,
+                query_radius: batch.query_radius,
+            });
         }
         let dimensions = dimensions_len(first.algorithm.dimensions)?;
         let max_radius = batches
@@ -1704,8 +1843,20 @@ impl<'a> PlanExecutor<'a> {
         let mut exact_counts = vec![0usize; batches.len()];
         let mut candidates = Vec::new();
         for origin_entity in origin_rows {
-            let origin_point =
-                self.direct_spatial_point_for_entity(origin_entity, &origin_coords)?;
+            let origin_point = match origin_coord_arrays.as_slice() {
+                [x, y] => SpatialPoint::point2(
+                    self.fast_field_value(x, origin_entity)?,
+                    self.fast_field_value(y, origin_entity)?,
+                ),
+                [x, y, z] => SpatialPoint::point3(
+                    self.fast_field_value(x, origin_entity)?,
+                    self.fast_field_value(y, origin_entity)?,
+                    self.fast_field_value(z, origin_entity)?,
+                ),
+                _ => Err(EcsError::InvalidPlan(
+                    "spatial points must have 2 or 3 coordinates".to_string(),
+                )),
+            }?;
             for accumulator in &mut accumulators {
                 accumulator.fill(SpatialBatchAccum::default());
             }
@@ -1736,11 +1887,13 @@ impl<'a> PlanExecutor<'a> {
                         executor.report.spatial_exact_rows += 1;
                         for (spec_index, spec) in batch.specs.iter().enumerate() {
                             let value = match &spec.value {
-                                SpatialBatchValue::Count => 1.0,
-                                SpatialBatchValue::DirectField { component, field } => {
-                                    executor.entity_field_f64(record.entity, component, field)?
-                                }
-                                SpatialBatchValue::NegDeltaOverDistance {
+                                FastSpatialBatchValue::Count => 1.0,
+                                FastSpatialBatchValue::DirectField { array_index } => executor
+                                    .fast_field_value(
+                                        &item_field_arrays[*array_index],
+                                        record.entity,
+                                    )?,
+                                FastSpatialBatchValue::NegDeltaOverDistance {
                                     axis,
                                     minimum_distance,
                                 } => {

@@ -93,20 +93,46 @@ class _EntitySlot:
 class ComponentView:
     """Rust-backed component field view used at Python/UDF/draw boundaries."""
 
+    __slots__ = (
+        "_world",
+        "_entity",
+        "_component_type",
+        "_schema_name",
+        "_field_names",
+        "_rust",
+    )
+
     def __init__(self, world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
+        world.validate_schema(component_type)
         object.__setattr__(self, "_world", world)
         object.__setattr__(self, "_entity", entity)
         object.__setattr__(self, "_component_type", component_type)
+        object.__setattr__(self, "_schema_name", _schema_name(component_type))
+        object.__setattr__(self, "_field_names", frozenset(world._schemas[component_type]))
+        object.__setattr__(self, "_rust", world._rust)
 
     def __getattr__(self, field_name: str) -> Any:
-        if field_name.startswith("__"):
+        if field_name.startswith("__") or field_name not in self._field_names:
             raise AttributeError(field_name)
-        return self._world.get_component_field(self._entity, self._component_type, field_name)
+        try:
+            return self._rust.get_field(
+                self._entity.index,
+                self._entity.generation,
+                self._schema_name,
+                field_name,
+            )
+        except ValueError as exc:
+            raise MissingComponentError(
+                f"Entity {self._entity.index}:{self._entity.generation} does not have "
+                f"component {self._component_type.__name__}."
+            ) from exc
 
     def __setattr__(self, field_name: str, value: object) -> None:
         if field_name.startswith("_"):
             object.__setattr__(self, field_name, value)
             return
+        if field_name not in self._field_names:
+            raise AttributeError(field_name)
         self._world.set_component_field(self._entity, self._component_type, field_name, value)
 
     def snapshot(self) -> object:
@@ -414,6 +440,23 @@ class EcsWorld:
             required_components, required_tags, [], []
         ):
             yield EntityView(self, Entity(index, generation, self._world_id))
+
+    def iter_component_fields(
+        self,
+        component_type: type[Any],
+        *field_names: str,
+        tags: Iterable[object] = (),
+    ) -> Iterator[tuple[Any, ...]]:
+        """Iterate selected component fields using one Rust-backed batch read."""
+        self.validate_schema(component_type)
+        schema = _schema_name(component_type)
+        schema_fields = self._schemas[component_type]
+        for field_name in field_names:
+            if field_name not in schema_fields:
+                raise AttributeError(field_name)
+        required_tags = [_tag_name(tag) for tag in tags]
+        rows = self._rust.query_component_fields([schema], required_tags, schema, list(field_names))
+        return iter(rows)
 
     def _slot(self, entity: Entity) -> _EntitySlot:
         if entity.world_id != self._world_id:

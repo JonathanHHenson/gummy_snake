@@ -16,7 +16,7 @@ from gummysnake.exceptions import BackendCapabilityError
 GUMMY_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml"
 )
-EXPECTED_CANVAS_ABI_VERSION = 13
+EXPECTED_CANVAS_ABI_VERSION = 15
 
 
 class _RustCanvasImage(Protocol):
@@ -120,6 +120,10 @@ class _CanvasModule(Protocol):
 
     def parse_obj_model_handle(self, text: str, source: str, normalize: bool) -> Any: ...
 
+    def create_model3d_handle(
+        self, meshes: list[Any], source: str = "gummy_snake_model"
+    ) -> Any: ...
+
     def project_shade_faces(
         self,
         meshes: list[dict[str, Any]],
@@ -154,10 +158,10 @@ _canvas = cast(_CanvasModule | None, _loaded_canvas)
 
 def is_canvas_runtime_available() -> bool:
     """Return whether the required ``gummysnake.rust._canvas`` runtime module is importable.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `bool`.
     """
@@ -167,10 +171,10 @@ def is_canvas_runtime_available() -> bool:
 
 def canvas_import_error() -> ImportError | None:
     """Return the import error that made the Rust canvas runtime unavailable.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `ImportError | None`.
     """
@@ -180,10 +184,10 @@ def canvas_import_error() -> ImportError | None:
 
 def canvas_health_check() -> str:
     """Report the Rust canvas bridge health state.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `str`.
     """
@@ -198,10 +202,10 @@ def canvas_health_check() -> str:
 
 def canvas_abi_version() -> int | None:
     """Return the loaded canvas runtime ABI marker when available.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `int | None`.
     """
@@ -223,10 +227,10 @@ def canvas_abi_version() -> int | None:
 
 def canvas_native_window_available() -> bool:
     """Return whether the loaded canvas runtime has native window support.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `bool`.
     """
@@ -239,10 +243,10 @@ def canvas_native_window_available() -> bool:
 
 def canvas_gpu_available() -> bool:
     """Return whether the loaded canvas runtime can initialize a GPU adapter.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `bool`.
     """
@@ -255,10 +259,10 @@ def canvas_gpu_available() -> bool:
 
 def canvas_gpu_status() -> str:
     """Return an actionable GPU availability diagnostic for the loaded runtime.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `str`.
     """
@@ -280,10 +284,10 @@ def canvas_gpu_status() -> str:
 
 def require_canvas_runtime() -> _CanvasModule:
     """Return the loaded canvas runtime or raise a backend capability error.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `_CanvasModule`.
     """

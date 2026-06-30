@@ -9,7 +9,7 @@ use crate::software3d::payload::{
     parse_camera_payload, parse_light_payloads, parse_material_payload, parse_projection_payload,
 };
 use crate::software3d::project::{project_mesh_payload_faces, validate_projection_payload};
-use crate::software3d::types::Transform2D;
+use crate::software3d::types::parse_transform_payload;
 use crate::software3d::{ShadedTriangle, TexturedTriangle};
 use crate::Rgba;
 
@@ -24,7 +24,7 @@ pub(crate) fn model_handle_shaded_triangles_with_depth(
     lights: &Bound<'_, PyAny>,
     normal_material: bool,
     cull_backfaces: bool,
-    transform: Option<Transform2D>,
+    transform: Option<Vec<f64>>,
     pixel_density: f64,
 ) -> PyResult<Vec<ShadedTriangle>> {
     if viewport_width <= 0.0 || viewport_height <= 0.0 {
@@ -37,6 +37,7 @@ pub(crate) fn model_handle_shaded_triangles_with_depth(
     validate_projection_payload(&projection)?;
     let material = parse_material_payload(material)?;
     let lights = parse_light_payloads(lights)?;
+    let transform = parse_transform_payload(transform)?;
     let mesh = model_to_mesh_payload(&model.model, transform);
     let mut faces = project_mesh_payload_faces(
         &mesh,
@@ -98,7 +99,7 @@ pub(crate) fn model_handle_textured_triangles_with_depth(
     lights: &Bound<'_, PyAny>,
     normal_material: bool,
     cull_backfaces: bool,
-    transform: Option<Transform2D>,
+    transform: Option<Vec<f64>>,
     pixel_density: f64,
 ) -> PyResult<Vec<TexturedTriangle>> {
     if viewport_width <= 0.0 || viewport_height <= 0.0 {
@@ -111,6 +112,7 @@ pub(crate) fn model_handle_textured_triangles_with_depth(
     validate_projection_payload(&projection)?;
     let material = parse_material_payload(material)?;
     let lights = parse_light_payloads(lights)?;
+    let transform = parse_transform_payload(transform)?;
     let mesh = model_to_mesh_payload(&model.model, transform);
     let mut faces = project_mesh_payload_faces(
         &mesh,

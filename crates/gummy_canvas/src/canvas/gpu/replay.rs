@@ -77,6 +77,7 @@ impl Canvas {
                     return false;
                 }
                 crate::gpu::DrawCommand::Model { .. }
+                | crate::gpu::DrawCommand::ModelInstances { .. }
                 | crate::gpu::DrawCommand::TexturedModel { .. } => {
                     return false;
                 }

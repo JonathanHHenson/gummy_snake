@@ -67,10 +67,11 @@ CHILD_CODE = textwrap.dedent(
     elif phase == "mesh":
         world = boids._prepare_boids_world(add_system=False)
         state_buckets = boids._bucket_states(boids._boid_states_from_world(world))
+        boids._boid_model()
         start = time.perf_counter()
         for _ in range(frames):
             for bucket_states in state_buckets:
-                boids._flock_model(bucket_states)
+                boids._boid_transform_keys(bucket_states)
         elapsed = time.perf_counter() - start
         payload = {
             "phase": phase,
