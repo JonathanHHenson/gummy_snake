@@ -33,7 +33,8 @@ jobs:
             libxtst-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
-      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
+      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
+      - run: cargo test --manifest-path crates/gummy_ecs/Cargo.toml
       - run: uv run ruff check .
       - run: uv run mypy src
       - run: uv run python scripts/bump_version.py --check
@@ -68,7 +69,7 @@ jobs:
             libxtst-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
-      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
+      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
       - run: uv run pytest --cov=gummysnake --cov-report=term-missing --cov-report=xml
       - name: Add coverage summary
         run: |
@@ -110,6 +111,29 @@ jobs:
             libxtst-dev \
             pkg-config
       - run: uv build
+      - name: Verify sdist includes Rust ECS crate
+        run: |
+          python - <<'PY'
+          import tarfile
+          from pathlib import Path
+
+          sdist = next(Path("dist").glob("gummy_snake-*.tar.gz"))
+          with tarfile.open(sdist) as archive:
+              names = set(archive.getnames())
+          required_suffixes = [
+              "crates/gummy_ecs/Cargo.toml",
+              "crates/gummy_ecs/src/lib.rs",
+              "crates/gummy_ecs/src/world.rs",
+              "crates/gummy_ecs/src/execution.rs",
+              "crates/gummy_ecs/src/spatial.rs",
+          ]
+          missing = [
+              suffix for suffix in required_suffixes if not any(name.endswith(suffix) for name in names)
+          ]
+          if missing:
+              raise SystemExit(f"sdist {sdist} is missing ECS crate files: {missing}")
+          print(f"{sdist} contains the Rust ECS crate.")
+          PY
 
   build-rust:
     runs-on: ubuntu-latest
@@ -139,9 +163,10 @@ jobs:
             libxtst-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
-      - run: uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml
+      - run: uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --features extension-module
+      - run: cargo test --manifest-path crates/gummy_ecs/Cargo.toml
       - run: cargo test --manifest-path crates/gummy_canvas/Cargo.toml
-      - run: uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml
+      - run: uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 
   canvas-runtime-python:
     runs-on: ubuntu-latest
@@ -171,5 +196,5 @@ jobs:
             libxtst-dev \
             pkg-config
       - run: uv sync --dev --no-install-project
-      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml
+      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
       - run: uv run pytest tests/unit/test_rust_canvas.py tests/contracts/test_canvas_backend.py

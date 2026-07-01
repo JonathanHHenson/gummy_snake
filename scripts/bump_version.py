@@ -18,6 +18,7 @@ from pathlib import Path
 PROJECT_FILES = (
     Path("pyproject.toml"),
     Path("crates/gummy_canvas/Cargo.toml"),
+    Path("crates/gummy_ecs/Cargo.toml"),
     Path("crates/gummy_accel/Cargo.toml"),
 )
 UV_LOCK = Path("uv.lock")

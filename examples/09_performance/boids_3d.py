@@ -43,7 +43,7 @@ FPS_SMOOTHING = 0.12
 # -----------------------------------------------------------------------------
 # Boid simulation tuning
 
-BOID_COUNT = 2_000
+BOID_COUNT = 3_000
 BOID_TAG = "Boid"
 
 WORLD_X = 760.0
@@ -52,8 +52,8 @@ WORLD_Z = 620.0
 BOUND_MARGIN = 120.0
 BOUND_FORCE = 0.045
 
-PERCEPTION_RADIUS = 72.0
-SEPARATION_RADIUS = 32.0
+PERCEPTION_RADIUS = 60.0
+SEPARATION_RADIUS = 40.0
 MAX_SPEED = 5.4
 MIN_SPEED = 2.0
 MAX_FORCE = 0.075

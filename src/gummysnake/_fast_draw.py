@@ -361,12 +361,12 @@ class FastDrawScope:
         interpreted as conventional row-major rows and converted internally.
         """
         values: Matrix4Payload
-        if len(matrix) == 16 and not isinstance(matrix[0], Sequence):  # type: ignore[index]
+        if len(matrix) == 16 and not isinstance(matrix[0], Sequence):
             values = tuple(float(value) for value in matrix)  # type: ignore[arg-type]
         elif len(matrix) == 4 and all(
             isinstance(row, Sequence) and len(row) == 4 for row in matrix
-        ):  # type: ignore[arg-type]
-            rows = matrix  # type: ignore[assignment]
+        ):
+            rows = matrix
             values = tuple(float(rows[row][column]) for column in range(4) for row in range(4))  # type: ignore[index]
         else:
             raise ValueError("apply_matrix_3d() requires a flat 16-value or nested 4x4 matrix.")

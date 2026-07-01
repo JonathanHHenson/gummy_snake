@@ -19,16 +19,28 @@ def load_bump_version_module() -> ModuleType:
     return module
 
 
-def write_fake_repo(root: Path, *, py_version: str = "0.2.2", crate_version: str = "0.2.2") -> None:
+def write_fake_repo(
+    root: Path,
+    *,
+    py_version: str = "0.2.2",
+    crate_version: str = "0.2.2",
+    ecs_version: str | None = None,
+) -> None:
     (root / "crates" / "gummy_canvas").mkdir(parents=True)
+    (root / "crates" / "gummy_ecs").mkdir(parents=True)
     (root / "crates" / "gummy_accel").mkdir(parents=True)
     (root / "pyproject.toml").write_text(
         f'[project]\nname = "gummy-snake"\nversion = "{py_version}"\n',
         encoding="utf-8",
     )
-    for crate in ("gummy_canvas", "gummy_accel"):
+    crate_versions = {
+        "gummy_canvas": crate_version,
+        "gummy_ecs": ecs_version or crate_version,
+        "gummy_accel": crate_version,
+    }
+    for crate, version in crate_versions.items():
         (root / "crates" / crate / "Cargo.toml").write_text(
-            f'[package]\nname = "{crate}"\nversion = "{crate_version}"\n',
+            f'[package]\nname = "{crate}"\nversion = "{version}"\n',
             encoding="utf-8",
         )
     (root / "uv.lock").write_text(
@@ -38,10 +50,11 @@ def write_fake_repo(root: Path, *, py_version: str = "0.2.2", crate_version: str
     )
 
 
-def read_texts(root: Path) -> tuple[str, str, str, str]:
+def read_texts(root: Path) -> tuple[str, str, str, str, str]:
     return (
         (root / "pyproject.toml").read_text(encoding="utf-8"),
         (root / "crates" / "gummy_canvas" / "Cargo.toml").read_text(encoding="utf-8"),
+        (root / "crates" / "gummy_ecs" / "Cargo.toml").read_text(encoding="utf-8"),
         (root / "crates" / "gummy_accel" / "Cargo.toml").read_text(encoding="utf-8"),
         (root / "uv.lock").read_text(encoding="utf-8"),
     )
@@ -80,5 +93,17 @@ def test_bump_version_dry_run_does_not_write(tmp_path: Path):
 def test_bump_version_check_detects_mismatched_versions(tmp_path: Path):
     module = load_bump_version_module()
     write_fake_repo(tmp_path, py_version="0.2.2", crate_version="0.2.1")
+
+    assert module.main(["--check", "--root", str(tmp_path)]) == 1
+
+
+def test_bump_version_check_detects_mismatched_ecs_version(tmp_path: Path):
+    module = load_bump_version_module()
+    write_fake_repo(
+        tmp_path,
+        py_version="0.2.2",
+        crate_version="0.2.2",
+        ecs_version="0.2.1",
+    )
 
     assert module.main(["--check", "--root", str(tmp_path)]) == 1
