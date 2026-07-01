@@ -11,13 +11,17 @@ to input, load sprites, play with pixels, and build visual toys without first
 building a full app.
 
 The public API is Python-first. Function names use `snake_case`, sketches are
-ordinary Python files, and drawing, export, pixels, text, images, and native
-interactive windows are powered by the packaged Rust `gummy_canvas` runtime. On
-desktop builds, native windows and input use the SDL3-backed runtime. The Rust
-canvas owns the hot renderer state used to construct draw commands, including
-the current style, transform stack, image/text state, and GPU command batches.
-It also owns the mutable sketch context state for canvas lifecycle fields,
-timing, loop/redraw flags, input snapshots, and in-progress shape buffers.
+ordinary Python files, and drawing, export, pixels, text, images, native
+interactive windows, and ECS storage/execution are powered by packaged Rust
+runtime components. On desktop builds, native windows and input use the
+SDL3-backed runtime. The Rust canvas owns the hot renderer state used to
+construct draw commands, including the current style, transform stack,
+image/text state, and GPU command batches. It also owns the mutable sketch
+context state for canvas lifecycle fields, timing, loop/redraw flags, input
+snapshots, and in-progress shape buffers. The Rust ECS owns entity/component,
+tag, resource, event, query, schedule, spatial-index, and compiled physical-plan
+state; Python constructs typed logical plans and keeps the public sketch API
+friendly.
 
 ## Install
 
@@ -25,9 +29,10 @@ timing, loop/redraw flags, input snapshots, and in-progress shape buffers.
 pip install gummy-snake
 ```
 
-Published wheels include the required Rust `gummy_canvas` canvas runtime. Source
-or editable installs must build that PyO3 module; there is no Python renderer
-fallback for canvas-owned behavior. Local development builds compile SDL3 from
+Published wheels include the required Rust `gummy_canvas` canvas runtime, which
+also exposes the packaged Rust ECS bridge. Source or editable installs must build
+that PyO3 module; there is no Python renderer or Python ECS execution fallback
+for runtime-owned behavior. Local development builds compile SDL3 from
 source/static through Rust when native interactive support is enabled, so no
 separate system SDL3 install is normally required.
 
@@ -100,6 +105,10 @@ async def preload() -> None:
   and shader objects. Built-in model and primitive draws use retained Rust/GPU
   buffers, GPU transforms/projection/depth, and built-in material shaders when
   GPU drawing is available.
+- Data-oriented simulations and games with the Rust-accelerated ECS: dataclass
+  components/resources, typed tags/events, decorated systems, deterministic
+  system ordering, grouped joins, spatial relations, and Rust physical execution
+  before every `draw()` call.
 - Dense 2D scenes that rely on internal mixed primitive, line, sprite, and
   text batching rather than one Python-to-Rust call per draw.
 - Small games and visual toys using the examples as starting points.
@@ -118,6 +127,17 @@ bytes.
 Image-local resize, mask, filter, crop/copy, and alpha compositing delegate
 bulk byte work to the Rust canvas runtime while keeping the Python `Image`
 API and version semantics.
+
+ECS component and resource schemas are declared with Python dataclasses. Default
+Python field types map to Rust storage columns, and `typing.Annotated` with
+`gummysnake.ecs.types` lets sketches request narrower or vector/list storage
+such as `UInt16`, `Float32`, `Vec3F32`, or `List(Float64)`. Registered systems
+are ordinary decorated Python functions that return lazy `ecs.Action` trees; the
+plan is serialized to Rust, optimized into a physical plan, cached, and executed
+against Rust-owned columns. Python UDFs marked with `@ecs.udf` are the explicit
+escape hatch for side effects or external APIs and are the only ECS plan nodes
+that execute Python at runtime.
+
 For pixel effects, `load_pixels()` returns `gummysnake.core.pixels.PixelBuffer`,
 a mutable list-like RGBA byte buffer that tracks dirty regions;
 `load_pixel_bytes()` provides a bytes readback path; and `update_pixels()`
@@ -146,11 +166,22 @@ text path. The renderer keeps `text_width()`, ascent/descent, and
 GPU glyph-atlas text with batched cached line-texture atlas fallback internally
 when that is needed to preserve ordered output around intervening shapes or
 images.
+ECS runs after frame timing/input state is updated and before plugin
+`before_draw` hooks and user `draw()`. Use `gs.add_system(system, order=...)`,
+`before=[...]`, `after=[...]`, or named system sets to make execution order
+explicit. `do_in_order()` observes serial read-after-write order;
+`do_in_parallel()` is for independent snapshot-style actions. Strict mode
+(`gs.configure_ecs(strict=True)`) rejects ambiguous duplicate writes, while
+non-strict mode remains deterministic with last-write-wins warnings that can be
+suppressed via `warn_on_ambiguity=False`.
+
 Opt-in `enable_performance_diagnostics()` counters can identify readback, pixel
 conversion, upload, direct model/shape draw, primitive/image batch size and
 flush shape, GPU vertex-buffer, texture cache, GPU blend/region-effect passes,
 glyphon-backed text drawing, cached-text atlas fallback, and CPU compositing
-fallback paths.
+fallback paths. Use `gs.ecs_diagnostics()` for ECS counters such as physical
+plan compiles/runs, rows scanned, fields written, UDF calls, ambiguity warnings,
+event queues, and spatial index candidate/exact rows.
 HiDPI/Retina rendering keeps sketch coordinates logical while physical pixel
 buffers and GPU vertices are scaled by `pixel_density()`.
 
@@ -158,8 +189,8 @@ buffers and GPU vertices are scaled by `pixel_density()`.
 
 - [Getting started](docs/getting_started/index.md)
 - [Examples](examples/README.md)
-- [API reference](docs/reference/index.md)
-- [Contributor docs](docs/contribute/index.md)
+- [API reference](docs/reference/index.md), including the [ECS reference](docs/reference/ecs.md)
+- [Contributor docs](docs/contribute/index.md), including the [ECS architecture](docs/contribute/ecs_architecture.md)
 
 ## For Contributors
 
@@ -174,11 +205,15 @@ uv run python scripts/source_size_audit.py
 uv run python scripts/structure_audit.py
 ```
 
-The canvas runtime is a required PyO3 module for development/source installs:
+The canvas runtime is a required PyO3 module for development/source installs and
+also exposes the Rust ECS bridge:
 
 ```sh
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 ```
+
+Use `--release` for benchmark/performance comparisons; a debug extension build
+can make ECS and rendering benchmarks look dramatically slower.
 
 The refactored Python package is split by responsibility: user-facing wrapper
 functions live in topic modules under `src/gummysnake/api/` (for example
@@ -188,10 +223,13 @@ live in `src/gummysnake/context_mixins/`, lifecycle code and object-mode facade
 groups live in `src/gummysnake/sketch/`, enum-backed constants live in
 `src/gummysnake/constants/`, and thin canvas backend/renderer facades delegate to
 `src/gummysnake/backend/canvas_runtime/host/` and
-`src/gummysnake/backend/canvas_runtime/renderer/`. The renderer internals are
-grouped around bridge calls, lifecycle, counters, caches, payload builders, and
-primitive/image/text/pixel drawing. Shared test fakes live in `tests/helpers/`,
-fixtures live in `tests/fixtures/`, and generated example output stays under the
+`src/gummysnake/backend/canvas_runtime/renderer/`. The ECS public API and logical
+plan builders live in `src/gummysnake/ecs/`, while canonical storage and physical
+execution live in `crates/gummy_ecs` and are exposed through the `gummy_canvas`
+PyO3 module. The renderer internals are grouped around bridge calls, lifecycle,
+counters, caches, payload builders, and primitive/image/text/pixel drawing.
+Shared test fakes live in `tests/helpers/`, fixtures live in `tests/fixtures/`,
+and generated example output stays under the
 gitignored `examples/output/` tree. The native desktop runtime itself lives in
 `crates/gummy_canvas`, owns sketch context state, canvas draw state, command
 construction, cache/dirty-state helpers, and GPU render-pass batching, and uses
@@ -206,6 +244,8 @@ workflow, and release shape in more detail:
 - [Backend and renderer boundaries](docs/contribute/backend_renderer.md)
 - [Runtime model](docs/contribute/runtime.md)
 - [Runtime diagnostics](docs/contribute/runtime_diagnostics.md)
+- [ECS architecture](docs/contribute/ecs_architecture.md)
+- [ECS debugging and performance triage](docs/contribute/ecs_debugging.md)
 - [Build capabilities](docs/contribute/build_capabilities.md)
 - [API performance policy](docs/contribute/api_performance_policy.md)
 - [Text renderer decision](docs/contribute/text_renderer_decision.md)
@@ -219,6 +259,8 @@ uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_ecs_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks
 ```
 
 Canvas backend benchmark scenarios measure native interactive presentation and

@@ -1,6 +1,8 @@
 # Gummy Snake examples
 
 These examples are grouped by feature area and all use the current canvas-first runtime.
+Examples in `10_ecs` also use the Rust-owned ECS runtime for entity/component
+storage, system execution, resources, events, and spatial queries before drawing.
 
 New examples prefer Pythonic Gummy Snake conveniences: decorator callbacks
 (`@gs.setup`, `@gs.draw`, `@gs.on(...)`), property facades such as
@@ -33,5 +35,6 @@ Most examples save to `examples/output/` when `--frames` is provided. Pass `--no
 - `06_math`: vectors, random numbers, noise, mapping, and interpolation.
 - `07_plugins`: plugin hook ordering and plugin-provided APIs.
 - `08_3d`: WEBGL/WEBGPU-style primitives, cameras, projections, lights, materials, geometry, model loading, and textures.
-- `09_performance`: dense 60 FPS load showcases, particle-force attractors, and retained 3D performance sketches.
+- `09_performance`: dense 60 FPS load showcases, particle-force attractors, ECS-backed 3D boids, and retained 3D performance sketches.
+- `10_ecs`: Rust ECS examples with dataclass components/resources, ordered systems, typed entity views, and spatial joins.
 - `games`: small sprite-based games using the included assets.

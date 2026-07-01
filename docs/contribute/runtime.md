@@ -1,15 +1,17 @@
 # Runtime Model
 
-The runtime is canvas-first and bounded/headless runs still use `gummy_canvas`.
-There is no supported Pillow or Pyglet fallback.
+The runtime is canvas-first and ECS-accelerated. Bounded/headless runs still use
+`gummy_canvas`; there is no supported Pillow or Pyglet fallback.
 
-The runtime starts in Python, creates a Python context, and then uses the Rust
-canvas runtime for canvas work. Rust provides native interactive windows and
-input through the SDL3-backed `gummy_canvas` desktop runtime when those
-capabilities are available, but Python still owns callback/plugin orchestration
-and public API policy. The mutable sketch context state that affects scheduling,
-input readback, canvas dimensions, and shape capture lives in Rust
-`SketchContextState`.
+The runtime starts in Python, creates a Python context, and then uses Rust-owned
+runtime components for canvas work and ECS storage/execution. Rust provides
+native interactive windows and input through the SDL3-backed `gummy_canvas`
+desktop runtime when those capabilities are available, but Python still owns
+callback/plugin orchestration and public API policy. The mutable sketch context
+state that affects scheduling, input readback, canvas dimensions, and shape
+capture lives in Rust `SketchContextState`. The canonical entity/component,
+resource, event, query, spatial-index, schedule, and physical-plan state for ECS
+lives in Rust `gummy_ecs` behind the mandatory `gummy_canvas` PyO3 module.
 
 ```mermaid
 sequenceDiagram
@@ -18,11 +20,13 @@ sequenceDiagram
     participant B as CanvasBackend
     participant R as CanvasRenderer
     participant X as gummy_canvas Rust runtime
+    participant E as gummy_ecs Rust runtime
 
     S->>B: create_backend(headless=...)
     B->>R: construct CanvasRenderer
     S->>C: create context
     C->>X: create SketchContextState
+    C->>E: create Rust-owned EcsWorld
     C->>B: keep backend reference
     C->>R: keep backend.renderer reference
     S->>S: preload()
@@ -32,6 +36,7 @@ sequenceDiagram
     B->>R: resize()
     R->>X: allocate canvas and backing surface
     X->>X: initialize context state, draw state, command queues, assets, GPU/raster paths
+    E->>E: register schemas, systems, resources, events, physical plans as requested
     B->>S: run frames
 ```
 
@@ -66,9 +71,17 @@ Runtime implementation files follow that ownership split:
 - `src/gummysnake/backend/canvas_runtime/renderer/` owns Python-to-Rust renderer
   translation: canvas resize/create, style/transform sync, caches, payload
   builders, primitive/image/text/pixel forwarding, and renderer counters.
+- `src/gummysnake/ecs/` owns the Python ECS public API, dataclass schema
+  discovery, logical expressions/actions, system decorators, physical payload
+  serialization, and Rust-backed world facade.
+- `src/gummysnake/rust/ecs.py` owns ECS bridge import and ABI validation for the
+  ECS objects exposed through `gummysnake.rust._canvas`.
 - `crates/gummy_canvas/src/` owns the Rust canvas runtime, SDL3 integration,
-  draw-command construction, batching, assets, pixels, text, export, and GPU/raster
-  rendering.
+  draw-command construction, batching, assets, pixels, text, export, GPU/raster
+  rendering, and PyO3 exposure of the ECS bridge.
+- `crates/gummy_ecs/src/` owns canonical ECS storage, resources, events,
+  deterministic scheduling, physical-plan compilation/execution, and spatial
+  index implementations.
 
 ## Frame Order
 
@@ -76,16 +89,23 @@ Runtime implementation files follow that ownership split:
 flowchart TD
     A[begin timing] --> B[context begin_frame]
     B --> C[renderer begin_frame]
-    C --> D[plugin before_draw]
-    D --> E[user draw]
-    E --> F[plugin after_draw]
-    F --> G[renderer end_frame]
-    G --> H[context end_frame]
-    H --> I[increment frame_count]
-    I --> J[present]
+    C --> D[plugin before_ecs]
+    D --> E[run ECS pre-draw systems]
+    E --> F[plugin after_ecs]
+    F --> G[plugin before_draw]
+    G --> H[user draw]
+    H --> I[plugin after_draw]
+    I --> J[renderer end_frame]
+    J --> K[context end_frame]
+    K --> L[increment frame_count]
+    L --> M[present]
 ```
 
-Keep this ordering intact when changing lifecycle behavior.
+Keep this ordering intact when changing lifecycle behavior. ECS systems run only
+on frames that will draw, after timing/input state is current and before drawing
+hooks/users can inspect component values. `before_ecs(context)` and
+`after_ecs(context)` are plugin observation points around the Rust ECS phase;
+`before_draw(context)` must see ECS-updated component/resource/event state.
 
 ## Frame Scheduling
 
@@ -98,7 +118,9 @@ The draw loop checks Rust-owned Gummy Snake lifecycle flags before drawing:
 `no_loop()` sets `state.looping` false. `loop()` sets it true. `redraw()` marks a
 single frame as requested. These Python properties are facades over
 `SketchContextState`; after a frame is drawn, the Rust-owned
-`redraw_requested` flag is cleared.
+`redraw_requested` flag is cleared. Because ECS runs inside the drawn-frame path,
+a non-looping sketch that does not request redraw will not advance scheduled ECS
+systems until another draw is requested.
 
 Interactive runs schedule frames according to the target frame rate and poll
 SDL3 native events between frames. The Rust runtime also pumps native events
@@ -106,6 +128,34 @@ around presentation and selected long-running canvas operations so close, resize
 and input events can still be observed while Python drawing work is active.
 Headless bounded runs draw a fixed number of frames as quickly and
 deterministically as possible.
+
+## ECS Pre-draw Execution
+
+ECS systems are registered from Python but execute as Rust physical plans unless
+the system contains an explicit `@ecs.udf` boundary. `@ecs.system` functions are
+called when the system is registered to build an `ecs.Action` tree. That logical
+plan is serialized through `src/gummysnake/ecs/physical.py`, compiled by the Rust
+ECS runtime, cached by schema fingerprint, and then executed during the pre-draw
+ECS phase.
+
+During each ECS phase, `SketchContext.run_ecs_pre_draw()`:
+
+1. starts the ECS change-detection frame,
+2. refreshes Rust input-state expressions such as `ecs.dt()` and
+   `ecs.key_is_down(...)`,
+3. runs enabled systems in deterministic `order` / dependency / set order,
+4. executes non-UDF action trees in Rust against Rust-owned component/resource
+   columns and spatial indexes,
+5. calls explicit Python UDF actions or iterable UDF sources only at the declared
+   UDF boundary,
+6. applies Rust execution reports for change detection, events, diagnostics, and
+   spatial invalidation,
+7. finalizes change-detection state before `after_ecs` and `before_draw` hooks.
+
+Do not add Python fallback execution for unsupported non-UDF action or expression
+nodes. Unsupported nodes should fail during physical-plan compilation with a
+clear `SystemPlanError` that tells the user to express the operation with the ECS
+DSL or isolate Python-only work in `@ecs.udf`.
 
 ## Headless vs Interactive
 

@@ -6,6 +6,7 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 - [Backend and renderer boundaries](backend_renderer.md)
 - [Runtime model](runtime.md)
 - [Runtime diagnostics](runtime_diagnostics.md)
+- [ECS architecture](ecs_architecture.md)
 - [ECS debugging and performance triage](ecs_debugging.md)
 - [Build capabilities](build_capabilities.md)
 - [Feature scope decisions](feature_scope_decisions.md)
@@ -30,14 +31,16 @@ flowchart TD
     subgraph Adapter["Python canvas adapters"]
         Backend[CanvasBackend]
         Renderer[CanvasRenderer]
-        Wrapper[gummysnake.rust.canvas]
+        Wrapper[gummysnake.rust.canvas / rust.ecs]
     end
 
-    subgraph Rust["Rust-owned canvas runtime"]
+    subgraph Rust["Rust-owned runtime"]
         Crate[crates/gummy_canvas]
+        EcsCrate[crates/gummy_ecs]
         ContextState[SketchContextState]
         DrawState[style / transform / draw state]
         Commands[draw commands and batching]
+        ECS[ECS storage / schedules / physical plans]
         Rendering[GPU 2D / GPU 3D, raster, export, assets, SDL3]
     end
 
@@ -56,11 +59,14 @@ flowchart TD
     Crate --> DrawState
     Crate --> Commands
     Crate --> Rendering
+    Crate --> ECS
+    EcsCrate --> ECS
 ```
 
-Gummy Snake is canvas-first. The Rust `gummy_canvas` crate provides the required
-runtime for sketch context state, drawing, presentation, image loading, pixels,
-export, text, and native window/input support when available.
+Gummy Snake is canvas-first and ECS-accelerated. The Rust `gummy_canvas` crate
+provides the required runtime for sketch context state, drawing, presentation,
+image loading, pixels, export, text, native window/input support when available,
+and the PyO3 bridge to the Rust `gummy_ecs` storage/execution crate.
 
 ## Reading Order
 
@@ -80,9 +86,11 @@ native user shader execution.
 
 Read [Runtime diagnostics](runtime_diagnostics.md) when changing renderer
 counters, fallback boundaries, benchmark scenes, or interactive frame pacing.
-Read [ECS debugging and performance triage](ecs_debugging.md) before changing
-ECS explain output, diagnostics, strict-mode behavior, UDF execution, or spatial
-fallback boundaries.
+Read [ECS architecture](ecs_architecture.md) before changing ECS storage,
+logical-plan serialization, physical execution, scheduling, resources/events, or
+spatial indexes. Read [ECS debugging and performance triage](ecs_debugging.md)
+before changing ECS explain output, diagnostics, strict-mode behavior, UDF
+execution, or spatial fallback boundaries.
 
 Read [Build capabilities](build_capabilities.md) when changing packaging,
 runtime import checks, cargo features, optional extras, or runtime capability
@@ -107,8 +115,9 @@ Read [Testing and CI](testing.md) before adding tests or changing workflows.
 - `src/gummysnake/backend/canvas.py` and `canvas_renderer.py`: public facade classes.
 - `src/gummysnake/backend/canvas_runtime/host/`: backend/runtime, event, and frame-pacing implementation mixins.
 - `src/gummysnake/backend/canvas_runtime/renderer/`: renderer bridge, lifecycle, cache, payload, batch-state, and drawing implementation helpers.
+- `src/gummysnake/ecs/`: Python ECS public API, logical expressions/actions, system builder, physical payload serialization, and Rust-backed world facade.
 - `src/gummysnake/drawing/`: renderer protocols, `renderer3d` package, `software3d` helpers, and retained prototype helpers.
-- `src/gummysnake/rust/`: Python wrappers around PyO3 modules and Rust-backed kernels.
+- `src/gummysnake/rust/`: Python wrappers around PyO3 modules and Rust-backed kernels, including ECS ABI validation.
 - `tests/helpers/` and `tests/fixtures/`: shared test support and package/file fixtures.
 - `scripts/source_size_audit.py` and `scripts/structure_audit.py`: lightweight layout guardrails for refactors.
 
@@ -117,6 +126,8 @@ Read [Testing and CI](testing.md) before adding tests or changing workflows.
 ```sh
 uv sync --dev
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
+cargo test --manifest-path crates/gummy_canvas/Cargo.toml
+cargo test --manifest-path crates/gummy_ecs/Cargo.toml
 uv run ruff check .
 uv run mypy src
 uv run pytest

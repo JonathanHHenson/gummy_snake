@@ -12,6 +12,7 @@ uv run python scripts/source_size_audit.py
 uv run python scripts/structure_audit.py
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
+cargo test --manifest-path crates/gummy_ecs/Cargo.toml
 ```
 
 For coverage locally:
@@ -31,6 +32,8 @@ Use focused checks while developing, then broaden before handing off:
 | Backend scheduling or capability behavior | `tests/contracts/` plus relevant unit tests |
 | Renderer or pixel behavior | contract or integration test plus a headless smoke example |
 | Rust canvas runtime behavior | `cargo test --manifest-path crates/gummy_canvas/Cargo.toml` plus Python wrapper tests |
+| ECS API, storage, scheduling, or physical execution | `uv run ruff check src/gummysnake/ecs tests/unit/test_ecs.py`, `uv run mypy src/gummysnake/ecs`, `uv run pytest tests/unit/test_ecs.py -q`, and `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` |
+| ECS spatial systems or examples | ECS unit/Rust checks plus `uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save`, `uv run python examples/10_ecs/crystal_moths.py --headless --frames 1 --no-save`, or `uv run python examples/09_performance/boids_3d.py --headless --frames 1 --no-save` |
 | WEBGL or fallback 3D path behavior | focused integration tests plus `tests/benchmark/test_webgl_3d_perf.py --run-benchmarks` when hot paths change |
 | Long-running resource lifecycle behavior | `uv run pytest tests/stress --run-stress -q -s` |
 | Documentation only | link/path review; no full test suite required unless commands changed |
@@ -80,6 +83,8 @@ uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_ecs_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks
 ```
 
 The canvas backend benchmarks require the `gummysnake.rust._canvas` runtime
@@ -145,6 +150,14 @@ software paths. They are frame-style benchmarks and keep the same 240 FPS
 target; failures are expected optimization signals for the Rust 3D/GPU path or
 its fallback boundaries.
 
+The ECS benchmarks verify that hot systems use Rust physical plans rather than
+Python fallback execution. Performance claims should show
+`ecs_physical_system_runs` greater than zero and `ecs_udf_calls` equal to zero for
+the hot path. Spatial ECS benchmarks additionally check candidate/exact row counts
+and per-algorithm counters for generic `ecs.spatial` relations. Use release-built
+`gummy_canvas` extensions for comparisons; debug extension builds can make ECS
+and renderer numbers look dramatically slower.
+
 Checked-in baseline snapshots live in `tests/benchmark/baselines/` as TOML.
 Each baseline records the command, machine/configuration, commit, canvas size,
 pixel density, backend mode, frame count or iteration count, and whether GPU
@@ -171,10 +184,11 @@ uv run pytest tests/stress --run-stress -q -s
 
 Run these before releases and when changing canvas resize, shutdown, image
 texture caching, text/font caching, pixel readback/upload, direct shape/clip
-finalization, or CPU/GPU fallback boundaries. The current scenarios churn
-transient images, dynamic text, repeated pixel readback/upload, repeated resize,
-repeated close/recreate, and CPU fallback paths. They assert cache/counter
-behavior and basic state consistency; they are not FPS benchmarks.
+finalization, ECS spatial index lifecycle, or CPU/GPU fallback boundaries. The
+current scenarios churn transient images, dynamic text, repeated pixel
+readback/upload, repeated resize, repeated close/recreate, CPU fallback paths,
+and ECS spatial storage/index state where those tests are enabled. They assert
+cache/counter behavior and basic state consistency; they are not FPS benchmarks.
 
 ## Test Style
 
@@ -223,8 +237,8 @@ Coverage is reported in the job summary and uploaded as `coverage-xml`.
 - `coverage`: runs the Python test suite with coverage instrumentation and
   uploads `coverage.xml`.
 - `build-python`: verifies `uv build` can produce Python distributions.
-- `build-rust`: verifies optional acceleration and required canvas Rust builds,
-  and runs canvas crate tests.
+- `build-rust`: verifies optional acceleration and required canvas/ECS Rust builds,
+  and runs canvas plus ECS crate tests.
 - `canvas-runtime-python`: focuses on Python tests that require the canvas
   runtime.
 

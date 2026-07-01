@@ -27,4 +27,5 @@ Python-first conveniences are part of the public API:
 - property facades such as `gs.current`, `gs.mouse`, and `gs.keyboard`
 - context managers such as `gs.style(...)` and `gs.transform(...)`
 - async-compatible lifecycle callbacks and asset loaders
+- dataclass-based ECS components/resources with Rust physical system execution
 - vector operators, event vector properties, and image indexing

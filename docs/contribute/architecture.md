@@ -1,6 +1,7 @@
 # Architecture
 
-Gummy Snake keeps sketch semantics in Python and delegates canvas work to Rust.
+Gummy Snake keeps sketch semantics in Python and delegates canvas and ECS runtime
+work to Rust.
 
 ```mermaid
 flowchart TD
@@ -11,6 +12,7 @@ flowchart TD
         Current[gs.api.current]
         Lifecycle[lifecycle and callback dispatch]
         ApiFacade[public API validation<br/>and Python wrappers]
+        EcsApi[ecs logical plan API]
     end
 
     subgraph Adapter["Python canvas adapters"]
@@ -19,12 +21,13 @@ flowchart TD
         BridgeImport[gummysnake.rust.canvas<br/>import / ABI / capabilities]
     end
 
-    subgraph Rust["Rust canvas runtime"]
+    subgraph Rust["Rust runtime"]
         Native[SDL3 runtime and input events]
         ContextState[SketchContextState<br/>canvas / timing / input / shape]
         Canvas[gummy_canvas canvas and backing surface]
         State[renderer state<br/>style / transform / draw state]
         Commands[draw commands<br/>construction / batching]
+        ECS[gummy_ecs storage<br/>schedules / physical plans / spatial indexes]
         Rendering[render paths<br/>GPU 2D / GPU 3D / raster / export]
         Assets[image/model/sound assets]
     end
@@ -36,6 +39,8 @@ flowchart TD
     User --> Global
     Global --> Current
     Current --> ApiFacade
+    Current --> EcsApi
+    EcsApi --> BridgeImport
     ApiFacade --> Backend
     ApiFacade --> Renderer
     Backend --> Renderer
@@ -43,6 +48,7 @@ flowchart TD
     Renderer --> BridgeImport
     BridgeImport --> ContextState
     BridgeImport --> Canvas
+    BridgeImport --> ECS
     BridgeImport --> Assets
     Backend --> Native
     Backend --> ContextState
@@ -74,7 +80,10 @@ The runtime has a small set of objects that appear in most changes:
 | `CanvasBackend` | `src/gummysnake/backend/canvas.py` plus `src/gummysnake/backend/canvas_runtime/host/` mixins | Runtime adapter. It chooses headless vs interactive execution, opens native windows when supported, schedules frames, and dispatches input events. |
 | `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/canvas_runtime/renderer/` mixins/helpers | Drawing adapter. It mirrors canvas dimensions, synchronizes Python facade state mutations into Rust current state, and forwards drawing requests to the Rust canvas runtime. Bridge, lifecycle, counters, caches, payload builders, and batch state live in focused internal modules. |
 | `gummysnake.rust.canvas` | `src/gummysnake/rust/canvas.py` | Import, ABI validation, health-check, and capability wrapper for the PyO3 runtime module. It turns missing native support into clear Gummy Snake errors. |
-| `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime and renderer implementation. |
+| `gummysnake.rust.ecs` | `src/gummysnake/rust/ecs.py` | ECS ABI validation and typed wrapper around the ECS objects exposed by the mandatory canvas extension. |
+| `EcsWorld` | `src/gummysnake/ecs/world.py` | Python-facing ECS facade. It validates dataclass schemas, registers systems/resources/events, and delegates canonical storage and physical execution to Rust. |
+| `gummy_ecs` | `crates/gummy_ecs/` | Rust ECS storage, scheduler, physical-plan, event, resource, and spatial-index implementation. |
+| `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime, renderer implementation, and PyO3 bridge exposing canvas plus ECS runtime objects. |
 
 ## Ownership Boundaries
 
@@ -85,6 +94,8 @@ Python owns:
 - global-mode context activation
 - callback/plugin orchestration and public API conversion state
 - backend and renderer adapter contracts
+- ECS dataclass schema discovery, logical action/expression construction, explicit
+  UDF calls, and user-facing entity/resource views
 
 Rust owns:
 
@@ -110,6 +121,13 @@ Rust owns:
 - SDL3-backed native window and input events when compiled with those capabilities
 - `SketchContextState` for canvas lifecycle fields, timing, loop/redraw flags,
   input snapshots, and shape-building buffers
+- canonical ECS entity/component/tag/resource/event storage, deterministic query
+  matching, compiled physical plans, system execution, and spatial indexes
+
+See [ECS architecture](ecs_architecture.md) for the ECS-specific ownership and
+execution model. The key rule is that Python builds logical ECS plans while Rust
+owns component columns and non-UDF execution; Python must not maintain a mirror
+of ECS data for performance paths.
 
 ## Sketch, Context, and State
 

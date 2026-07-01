@@ -20,6 +20,9 @@ Useful starting points:
 - `examples/08_3d/advanced_webgpu_geometry.py`
 - `examples/09_performance/sixty_fps_load_showcase.py`
 - `examples/09_performance/nature_of_code_attractor.py`
+- `examples/09_performance/boids_3d.py`
+- `examples/10_ecs/firefly_constellation.py`
+- `examples/10_ecs/crystal_moths.py`
 - `examples/08_3d/lorenz_attractor_3d.py`
 - `examples/games/asteroids.py`
 
@@ -30,8 +33,10 @@ sensor input, environment state, offscreen graphics, framebuffers,
 storage-buffer compute, and advanced WEBGL/WEBGPU-style 3D APIs.
 The performance examples are good starting points when you want to see dense
 public drawing loops using `gs.fast()`, internal primitive batching, sprite
-batching, Nature of Code-style particle forces, or retained WEBGL model drawing
-while targeting 60 FPS.
+batching, Nature of Code-style particle forces, retained WEBGL model drawing, or
+Rust ECS/spatial-query simulation while targeting 60 FPS. The ECS examples show
+dataclass components, resources, ordered systems, typed entity views, and spatial
+relations before user drawing.
 
 Run an example interactively:
 

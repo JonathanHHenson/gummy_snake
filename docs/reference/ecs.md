@@ -161,6 +161,25 @@ non-UDF plan nodes raise `SystemPlanError` instead of executing a Python fallbac
 Explicit `@ecs.udf` actions and iterable UDF sources are the only ECS plan pieces
 that execute Python at runtime.
 
+### Typing helpers for system helpers
+
+When extracting reusable helper functions for ECS systems, annotate lazy values
+with the public proxy/expression types instead of falling back to `Any`:
+
+```python
+def speed(state: ecs.ComponentExpressionProxy) -> ecs.Expression:
+    return (state.dx * state.dx + state.dy * state.dy).sqrt()
+
+
+def steer(body: ecs.QueryProxy, velocity: ecs.ComponentExpressionProxy) -> ecs.Action:
+    return ecs.set(body.ctx[Velocity].dx, velocity.dx.clamp(-4.0, 4.0))
+```
+
+For draw-side and UDF boundaries, use `ecs.EntityView`, `ecs.MutEntity[T]`, and
+`ecs.Entity[T]` annotations as appropriate. `gs.FastDrawScope` is the public type
+for a local `draw_fast = gs.fast()` binding in examples that mix ECS readback with
+dense drawing.
+
 ## Actions
 
 Action builders include:

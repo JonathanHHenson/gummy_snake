@@ -32,10 +32,12 @@ canvas, and benchmark-only utilities.
 
 ## Hot-Loop Guidance
 
-`gs.fast()` and `Sketch.fast()` return a frame-local facade for dense 2D loops.
-It keeps public Gummy Snake style and transform state but skips repeated global-mode
-context lookup and flexible argument normalization for the hottest drawing
-calls. Create it inside the scope whose style/transform state should apply:
+`gs.fast()` and `Sketch.fast()` return a frame-local facade for dense drawing
+loops, including batched 2D primitives/images/text and supported 3D camera, light,
+transform, material, and model calls. It keeps public Gummy Snake style and
+transform state but skips repeated global-mode context lookup and flexible
+argument normalization for the hottest drawing calls. Create it inside the scope
+whose style/transform state should apply:
 
 ```python
 def draw():
@@ -48,7 +50,7 @@ def draw():
 
 Use normal global-mode calls in simple sketches and setup code. Use local
 bindings or `gs.fast()` in loops that issue hundreds or thousands of primitive,
-image, or text-measurement calls per frame.
+image, text-measurement, transform, or model calls per frame.
 
 Current optimized hot paths include compact line batches, mixed primitive
 batches with per-record style/transform data, transformed sprite/image atlas
@@ -58,6 +60,35 @@ unchanged command streams, direct Rust shape/clip finalization, and retained GPU
 model buffers for supported WEBGL draws. Preserve the public API shape while
 keeping these paths visible through renderer diagnostics when changing code from
 the renderer performance epics.
+
+## ECS Simulation Hot Paths
+
+Simulation-heavy sketches should prefer `gummysnake.ecs` plans over Python loops
+when component data changes every frame. Dataclass components/resources define
+Rust storage schemas; decorated systems build logical `ecs.Action` trees; Rust
+compiles and executes non-UDF plans against canonical component/resource columns.
+Python should only construct plans, validate schemas, expose typed views for draw
+or UDF boundaries, and run explicit `@ecs.udf` callbacks.
+
+Prefer ECS expressions/actions for hot math:
+
+- use `ecs.set`, `ecs.do_in_order`, `ecs.do_in_parallel`, `ecs.when`,
+  `.otherwise()`, `ecs.for_each`, `ecs.exists`, grouped aggregates, events, and
+  `ecs.spatial` relations before adding Python iteration;
+- use `ecs.spatial.neighbors`, `join`, and `overlaps` with generic algorithms
+  such as `HashGrid`, `Quadtree`, `Octree`, or `HilbertCurve` instead of bespoke
+  sketch-specific kernels;
+- use `iter_component_fields()` for draw-side readback of selected columns, not
+  persistent Python mirrors of all component data;
+- keep UDFs for side effects, external APIs, or genuinely Python-only operations,
+  and count `ecs_udf_calls` when making performance claims;
+- treat unsupported non-UDF physical-plan nodes as errors to fix in the ECS DSL or
+  Rust executor, not as a reason to add Python fallback execution.
+
+For deterministic performance, `do_in_order()` is serial and observes earlier
+writes, while `do_in_parallel()` is for independent snapshot-style action groups.
+Strict mode should reject ambiguous duplicate writes; non-strict mode may use
+last-write-wins with warnings and diagnostics.
 
 ## Pixels And Images
 

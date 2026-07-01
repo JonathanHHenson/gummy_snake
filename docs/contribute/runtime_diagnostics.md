@@ -85,8 +85,8 @@ unique layouts have been shaped.
 
 ## ECS Diagnostics
 
-Use `ecs_diagnostics()` after ECS frames to inspect scheduler, ambiguity,
-resource/event, and spatial behavior:
+Use `ecs_diagnostics()` after ECS frames to inspect scheduler, physical-plan,
+ambiguity, resource/event, UDF, and spatial behavior:
 
 ```python
 gs.reset_ecs_diagnostics()
@@ -94,15 +94,34 @@ gs.reset_ecs_diagnostics()
 report = gs.ecs_diagnostics()
 ```
 
-Stable public counters include system registration/enabled counts, schedule
-rebuilds, pre-draw run timing, Rust compiled-plan handle counts, Rust
-physical-plan compiles/runs, physical rows scanned and fields written, ambiguity
-warnings/suppressions, UDF calls,
-change-filter checks, event queues, resource counts, spatial index builds,
-candidate/exact row counts, deduplicated self-pairs, false-positive rows, and
-per-algorithm spatial index builds. The Rust bridge also exposes core storage
-counters such as entity generation reuse, archetype moves, staged commands, query
-cache hits/misses/refreshes/invalidations, matched archetypes, and matched rows.
+Common stable counters include:
+
+| Counter | Meaning |
+| --- | --- |
+| `ecs_systems_registered` / `ecs_systems_enabled` | Current schedule surface. |
+| `ecs_schedule_rebuilds` | System registration, removal, enable state, dependencies, or set configuration changed schedule ordering. |
+| `ecs_pre_draw_runs` | ECS phases executed before draw. This should advance with drawn frames. |
+| `ecs_physical_plan_compiles` | Logical action trees serialized and compiled into Rust physical plans. Repeated compiles usually mean schema fingerprints or dynamic UDF iterable sources are changing. |
+| `ecs_rust_compiled_plans` | Rust physical-plan handles cached by the world. |
+| `ecs_physical_system_runs` | Non-UDF systems executed through Rust physical plans. Hot ECS benchmark claims should show this is non-zero. |
+| `ecs_physical_rows_scanned` | Rows scanned by the Rust physical executor. |
+| `ecs_physical_fields_written` / `ecs_physical_resource_fields_written` | Component/resource field writes performed by Rust physical execution. |
+| `ecs_physical_plan_errors` / `ecs_physical_execution_errors` | Unsupported or failing non-UDF plans. These should fail loudly; they must not fall back to Python execution. |
+| `ecs_udf_calls` | Explicit Python UDF action or iterable-source invocations. These are flexibility boundaries, not accelerated work. |
+| `ecs_ambiguity_warnings` / `ecs_ambiguity_warnings_suppressed` | Deterministic last-write-wins situations in non-strict mode. Suppression only hides logs; diagnostics still count. |
+| `ecs_strict_mode_errors` | Duplicate/ambiguous writes rejected in strict mode. |
+| `ecs_events_emitted` / `ecs_events_read` | Typed ECS event queue activity. |
+| `ecs_entities_alive` / `ecs_rust_entities_alive` | Public and Rust-side live entity counts; these should agree. |
+| `ecs_spatial_indexes_built` / `ecs_spatial_index_reuses` | Rust spatial-index construction and reuse. |
+| `ecs_spatial_candidate_rows` / `ecs_spatial_exact_rows` / `ecs_spatial_false_positive_rows` | Broad-phase and exact-filter spatial relation shape. |
+| `ecs_spatial_deduplicated_pairs` | Self-pairs skipped by unique unordered pair policies. |
+| `ecs_spatial_algorithm_hash_grid`, `ecs_spatial_algorithm_quadtree`, `ecs_spatial_algorithm_octree`, `ecs_spatial_algorithm_hilbert_curve` | Per-algorithm Rust spatial index usage. |
+| `ecs_spatial_parallel_workers` / `ecs_spatial_parallel_chunks` | Parallel spatial execution shape where the runtime used worker chunks. |
+
+The Rust bridge may also expose core storage counters such as entity generation
+reuse, structural and field revisions, query cache refreshes, matched archetypes,
+matched rows, resources, and event queue totals. Treat debug-only Rust detail as
+triage data; tests and docs should prefer the public `ecs_*` counters above.
 
 When debugging a system, start with `system.explain()` to inspect the action tree
 and relation/aggregate shape, then compare diagnostics before and after a small

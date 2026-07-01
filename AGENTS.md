@@ -6,13 +6,13 @@ Guidance for AI coding agents working in this repository.
 
 This repository contains `Gummy Snake`, a Pythonic creative-coding and game-development package. The package distribution name is `gummy-snake`.
 
-The project keeps a familiar sketch lifecycle and drawing model while staying native Python at the public API boundary, typed, testable, backend-agnostic for sketch authors, and packaged around the required Rust `gummy_canvas` runtime.
+The project keeps a familiar sketch lifecycle, drawing model, and ECS API while staying native Python at the public API boundary, typed, testable, backend-agnostic for sketch authors, and packaged around the required Rust `gummy_canvas` runtime plus its Rust ECS bridge.
 
 Do not add JavaScript, HTML, DOM APIs, browser-only APIs, or browser runtime dependencies.
 
 ## Current Runtime Model
 
-The current runtime is canvas-first:
+The current runtime is canvas-first and ECS-accelerated:
 
 ```text
 Python sketch shell:
@@ -20,36 +20,52 @@ Python sketch shell:
     -> Sketch / FunctionSketch lifecycle
     -> SketchContext
 
-Python canvas adapters:
+Python public API adapters:
   SketchContext
     -> CanvasBackend
     -> CanvasRenderer owned by CanvasBackend
-    -> gummysnake.rust.canvas wrapper
+    -> EcsWorld facade owned by SketchContext
+    -> gummysnake.rust.canvas / gummysnake.rust.ecs wrappers
 
-Rust-owned canvas runtime:
+Rust-owned runtime:
   gummysnake.rust._canvas
     -> crates/gummy_canvas
     -> SketchContextState, canvas state, draw commands, batching,
-       GPU/raster rendering, assets, export, pixels, text, SDL3 window/input
+       GPU/raster rendering, assets, export, pixels, text, SDL3 window/input,
+       PyO3 bridge classes/functions for ECS
+    -> crates/gummy_ecs
+    -> canonical ECS entity/component/tag/resource/event storage,
+       query matching, schedules, physical plans, spatial indexes,
+       deterministic non-UDF system execution
 
-user sketch gs.* calls during callbacks
+user sketch gs.* drawing calls during callbacks
   -> Gummy Snake public API
   -> active SketchContext
   -> CanvasRenderer
   -> gummysnake.rust._canvas
   -> crates/gummy_canvas
+
+user sketch ecs systems and entity/resource/event calls
+  -> Gummy Snake public API / gummysnake.ecs logical-plan API
+  -> active SketchContext.ecs / EcsWorld facade
+  -> gummysnake.rust._canvas ECS bridge
+  -> crates/gummy_ecs
 ```
 
 `gummysnake.rust._canvas` owns drawing, presentation, renderer draw state,
 sketch context state for canvas lifecycle/timing/input/shape capture, image
 asset loading/saving, image-local byte operations, media frame conversion, text,
 pixels, export, and native window/input support when built with those
-capabilities. Python `SketchState` is a compatibility facade over that Rust
-state plus Python-only API conversion objects, not an independent runtime
-mirror. The current native desktop window/input runtime is SDL3-backed
-inside `crates/gummy_canvas`; do not reintroduce winit/Tao window loops as the
-primary interactive path without an explicit user request and a new experiment
-plan.
+capabilities. The same mandatory extension exposes the Rust ECS bridge backed by
+`crates/gummy_ecs`, which owns canonical ECS storage, resource/event queues,
+query matching, spatial indexes, schedule/physical-plan execution, and ECS
+runtime diagnostics. Python `SketchState` is a compatibility facade over Rust
+canvas state plus Python-only API conversion objects, not an independent runtime
+mirror. Python `EcsWorld` is a public facade for schemas, logical plans, handles,
+views, and explicit UDF boundaries, not a component-column mirror. The current
+native desktop window/input runtime is SDL3-backed inside `crates/gummy_canvas`;
+do not reintroduce winit/Tao window loops as the primary interactive path without
+an explicit user request and a new experiment plan.
 Current `WEBGL` support is a Rust canvas 3D path presented through the canvas
 runtime. Backend capabilities distinguish `software_three_d`, `native_three_d`,
 `shaders`, and `native_shaders`; do not imply user-programmable native shader
@@ -62,17 +78,23 @@ instead of CPU-projected face payloads.
 
 Important consequences:
 
-- The `gummy_canvas` canvas runtime is mandatory for canvas-owned behavior.
+- The `gummy_canvas` canvas runtime is mandatory for canvas-owned behavior and for exposing the ECS bridge.
+- The `gummy_ecs` Rust crate owns canonical ECS storage and non-UDF system execution.
 - There is no supported Pillow/Pyglet/Python renderer fallback.
-- Bounded/headless runs still use `gummy_canvas`; they do not switch to a Python image backend.
+- There is no supported Python ECS execution fallback for non-UDF systems.
+- Bounded/headless runs still use `gummy_canvas`; they do not switch to a Python image backend or Python ECS runtime.
 - `headless=True` or `--headless` requests offscreen/bounded canvas behavior for tests, CI, and export.
 - `headless=False` or `--interactive` requests native interactive canvas behavior where the installed runtime supports it.
 - Missing canvas runtime should raise clear Gummy Snake capability errors with rebuild guidance; do not add alternate Python runtime paths.
 - Missing native-window support should raise clear Gummy Snake capability errors when interactive behavior is requested.
 - SDL3 mouse, wheel, and touch coordinates are logical/window coordinates. Rust event payloads should mark them with `coordinates = "logical"` so Python does not divide them by pixel density a second time. Preserve HiDPI input behavior when touching event code.
 - Normalize one-character SDL3 key names to lowercase before exposing them to Python so `KeyboardEvent.matches("l")` and similar lifecycle controls remain stable.
-- `gummysnake.rust._canvas` exposes a canvas ABI marker. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend construction proceeds.
+- `gummysnake.rust._canvas` exposes canvas and ECS ABI markers. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend/ECS construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
+- ECS systems are Python-declared logical plans. `@ecs.system` functions are called at registration to build `ecs.Action` trees; Rust compiles those plans into physical plans and executes them before drawing. Python UDFs marked with `@ecs.udf` are the only ECS runtime nodes that execute Python.
+- Do not maintain Python mirrors of component columns. Python entity/resource views should read/write Rust-owned storage, and dense draw-side readback should use batch APIs such as `iter_component_fields()`.
+- ECS strict mode should reject non-deterministic duplicate writes. Non-strict mode may use deterministic last-write-wins, count diagnostics, and warn unless `warn_on_ambiguity=False` suppresses logs.
+- Spatial ECS APIs must stay generic (`ecs.spatial.neighbors`, `join`, `overlaps`, and algorithm configs such as `HashGrid`, `Quadtree`, `Octree`, and `HilbertCurve`). Do not add bespoke APIs for a single sketch or benchmark.
 - The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn before and after text/images/effects must remain visible. The Rust encoder uses a local `RenderPassBatcher`; if special commands split a frame into multiple render-pass segments, reusable buffer offsets must advance across the whole command encoder so later vertex/image/model uploads do not overwrite data referenced by earlier passes.
 - Direct glyphon GPU text is limited to ordered command streams where text can be encoded as a single contiguous glyphon text segment. If later text follows intervening primitives/images/effects, preserve draw order by using the Rust cached line-texture path for that later text rather than queuing multiple glyphon text passes that can corrupt earlier glyph atlas output. Batched cached text-image fallback may atlas many cached line textures into ordered image batches; preserve cache hit/miss and texture upload diagnostics.
 - Text metrics and `text_bounds()` must use the same current Python style revision as subsequent drawing. Do not use Rust current-style metric fast paths when the Python `StyleState` object or revision has changed after native/window sync.
@@ -123,6 +145,7 @@ Important crates:
 
 ```text
 crates/gummy_canvas/    required PyO3 canvas runtime module: gummysnake.rust._canvas
+crates/gummy_ecs/       Rust ECS storage, schedule, physical-plan, and spatial-index crate linked through gummy_canvas
 crates/gummy_accel/     optional acceleration extension: gummysnake.rust._accelerated
 ```
 
@@ -130,6 +153,7 @@ Common commands:
 
 ```sh
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
+cargo test --manifest-path crates/gummy_ecs/Cargo.toml
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 ```
@@ -140,7 +164,7 @@ For `gummy_accel`:
 uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --module-name gummysnake.rust._accelerated --python-source src --features extension-module
 ```
 
-Keep Rust acceleration optional only for features routed through `gummy_accel`. Features owned by `gummy_canvas` may require the canvas runtime because it is mandatory.
+Keep Rust acceleration optional only for features routed through `gummy_accel`. Features owned by `gummy_canvas` or `gummy_ecs` may require the canvas runtime because it is mandatory.
 
 ## Source Layout
 
@@ -160,6 +184,7 @@ src/gummysnake/backend/     backend contracts, registry, thin canvas facade modu
 src/gummysnake/constants/    enum-backed public constants and compatibility aliases
 src/gummysnake/core/         color, geometry, math, random/noise, pixels, input event dataclasses, state, state_facades, transforms, data helpers, vectors
 src/gummysnake/drawing/      renderer protocols, renderer3d package, software3d helpers, and retained prototype3d compatibility helpers
+src/gummysnake/ecs/          Python ECS public API, dataclass schemas, logical expressions/actions, systems, spatial relation builders, physical payload serialization, and Rust-backed world facade
 src/gummysnake/plugins/      plugin interfaces and registry
 src/gummysnake/rust/         Python wrappers around PyO3 extensions and Rust-backed kernels
 src/gummysnake/sketch/       sketch lifecycle runtime, decorator builder, and explicit object-mode facade forwarding groups under sketch/facade_mixins/
@@ -181,7 +206,7 @@ docs/getting_started/ user learning path and first-sketch material
 docs/reference/      public API reference grouped by topic
 docs/contribute/     architecture, runtime, testing, and maintainer workflow
 .scratch/backlog/             TOML PBIs grouped by numbered epic
-crates/              Rust runtime and acceleration crates; gummy_canvas canvas helpers include cache, dirty-state, image batch, text layout, and GPU render-pass batching modules
+crates/              Rust runtime and acceleration crates; gummy_canvas canvas helpers include cache, dirty-state, image batch, text layout, and GPU render-pass batching modules; gummy_ecs owns ECS storage, plans, schedules, and spatial indexes
 ```
 
 Generated artifacts such as `__pycache__/`, compiled `.so` files, build directories, benchmark output, and example image/data output should not be committed unless the user explicitly asks.
@@ -220,7 +245,7 @@ Prefer Pythonic convenience APIs in user-facing examples and docs when they impr
 
 Keep the older function-passing and direct state-function APIs working for older Gummy Snake examples, but do not make them the only documented path for new Python-first examples.
 
-`gs.fast()` is a public frame-local facade, not a Rust escape hatch. It should preserve the current public style/transform state and compose with `style()`, `transform()`, and `pushed()` while reducing context lookup and flexible argument-normalization overhead for dense 2D primitive/image/text loops.
+`gs.fast()` is a public frame-local facade, not a Rust escape hatch. It should preserve the current public style/transform state and compose with `style()`, `transform()`, and `pushed()` while reducing context lookup and flexible argument-normalization overhead for dense 2D primitive/image/text loops and supported 3D camera/light/transform/material/model loops.
 
 Async-compatible lifecycle callbacks are supported. `preload`, `setup`, `draw`, event callbacks, and plugin hooks may be `async def`. Async asset helpers such as `load_image_async`, `load_json_async`, `load_model_async`, and `load_sound_async` are awaitable wrappers over the current canvas-owned runtime. Do not move Rust canvas-owned objects or active `SketchContext` state to arbitrary worker threads when extending async behavior; the canvas runtime is not generally thread-sendable.
 
@@ -233,23 +258,57 @@ When adding or changing enum-backed public values:
 - update `docs/reference/constants_and_enums.md` and any topic-specific reference docs that mention the value
 - avoid reintroducing loose `Literal[...]` or raw constant groups when a reusable enum better expresses the closed set
 
+### Keep ECS Rust-Owned And Plan-Driven
+
+The ECS public API is Pythonic, but runtime execution is Rust-owned:
+
+- Components, resources, and events are declared with Python dataclasses. Default
+  Python field types map to Rust storage columns, and `typing.Annotated` with
+  `gummysnake.ecs.types` selects narrower scalar, vector, or list storage.
+- `@ecs.system` functions must have complete annotations and return only
+  `ecs.Action`. The function is called at registration to build a lazy logical
+  action tree; `Action.plan()` builds the system plan used for explain output and
+  serialization.
+- Supported non-UDF nodes include `ecs.set`, `ecs.do`, `ecs.do_in_order`,
+  `ecs.do_in_parallel`, `ecs.when`, `.otherwise()`, `ecs.for_each`, typed events,
+  resources, change filters, grouped aggregates, `ecs.exists`, `ecs.dt`,
+  `ecs.key_is_down`, and generic `ecs.spatial` relations.
+- Python boolean `and` / `or` / `not` and chained comparisons cannot build lazy
+  plans. Use `&`, `|`, `~`, `ecs.all_of(...)`, or `ecs.any_of(...)` in systems and
+  examples.
+- `do_in_order()` is serial; later actions observe earlier writes.
+  `do_in_parallel()` is for independent snapshot-style work. Strict mode rejects
+  ambiguous duplicate writes; non-strict mode uses deterministic last-write-wins
+  with diagnostics and optional warnings.
+- Python UDFs (`@ecs.udf`) are explicit performance-cost boundaries for side
+  effects, external APIs, or operations not expressible in the ECS DSL. They are
+  the only ECS runtime work that may execute Python.
+- Do not add Python fallback execution, Python component-column mirrors, or
+  sketch-specific ECS kernels. If a generic operation is missing, design it as a
+  logical-plan/Rust physical executor feature and expose generic diagnostics.
+
 ### Preserve Sketch Lifecycle Ownership
 
 Python `Sketch` and `SketchContext` own lifecycle ordering, global-mode
 dispatch, plugin hooks, public API validation, and callback invocation. Rust
 `SketchContextState` owns mutable canvas lifecycle fields, timing/frame
 counters, loop/redraw flags, input snapshots, and shape capture buffers. The
-Rust runtime may schedule frames and provide events, but it should not own Gummy
-Snake API naming policy or callback/plugin semantics.
+Rust runtime may schedule frames, provide events, and execute compiled ECS plans,
+but it should not own Gummy Snake API naming policy or callback/plugin semantics.
 
 Frame rendering should preserve the existing high-level order:
 
 1. update Rust timing/context frame state
 2. begin renderer frame
-3. run sketch `draw()` and plugin hooks
-4. end renderer frame
-5. update context after-frame state
-6. present when a frame was drawn
+3. dispatch plugin `before_ecs`
+4. run scheduled ECS systems through Rust physical execution, except explicit UDFs
+5. dispatch plugin `after_ecs`
+6. dispatch plugin `before_draw`
+7. run sketch `draw()`
+8. dispatch plugin `after_draw`
+9. end renderer frame
+10. update context after-frame state
+11. present when a frame was drawn
 
 ### Keep Backend/Renderer Boundaries Clear
 
@@ -265,8 +324,13 @@ For the current implementation this means:
   synchronizes Rust `SketchContextState` during resize/create, synchronizes
   Python facade style/transform changes into Rust current renderer state, and
   forwards draw calls to `gummy_canvas`.
+- `EcsWorld` validates Python dataclass schemas, builds/serializes logical plans,
+  exposes handles/views/resources/events, and delegates canonical storage and
+  non-UDF execution to Rust.
 - `gummysnake.rust.canvas` handles optional import, health checks, ABI validation, and clear capability failures.
+- `gummysnake.rust.ecs` validates the ECS ABI and wraps the ECS bridge objects exposed by `gummy_canvas`.
 - `crates/gummy_canvas` owns the native SDL3 runtime and rendering implementation.
+- `crates/gummy_ecs` owns ECS storage, schedules, physical execution, resources/events, query matching, and spatial indexes.
 
 ### Preserve HiDPI Semantics
 
@@ -334,7 +398,8 @@ Current Python project dependencies are intentionally minimal:
 - core installs should not require NumPy; ndarray interoperability uses the optional
   `numpy` extra and dev/test environments install NumPy explicitly
 - drawing, presentation, assets, pixels, export, numeric mesh/model processing,
-  and media frame conversion are supplied by the packaged Rust canvas runtime
+  media frame conversion, and ECS storage/physical execution are supplied by the
+  packaged Rust runtime
 - optional media support uses the `media` extra
 - dev tools include `numpy`, `pytest`, `pytest-cov`, `ruff`, and `mypy`
 - release tooling uses `maturin`
@@ -360,6 +425,7 @@ uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 uv run python scripts/source_size_audit.py
 uv run python scripts/structure_audit.py
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
+cargo test --manifest-path crates/gummy_ecs/Cargo.toml
 uv run python scripts/bump_version.py --check
 uv build
 ```
@@ -374,6 +440,18 @@ For rendering changes, run at least one bounded/headless smoke test:
 
 ```sh
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
+```
+
+For ECS changes, run focused Python and Rust checks plus at least one ECS example:
+
+```sh
+uv run ruff check src/gummysnake/ecs tests/unit/test_ecs.py
+uv run mypy src/gummysnake/ecs
+uv run pytest tests/unit/test_ecs.py -q
+cargo test --manifest-path crates/gummy_ecs/Cargo.toml
+uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save
+uv run python examples/10_ecs/crystal_moths.py --headless --frames 1 --no-save
+uv run python examples/09_performance/boids_3d.py --headless --frames 1 --no-save
 ```
 
 For coverage reporting:
@@ -392,6 +470,8 @@ uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_ecs_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks
 ```
 
 The 50k and 100k primitive stress benchmarks are intentionally excluded from
@@ -425,9 +505,15 @@ context-direct, `fast()`, and renderer-direct dispatch paths.
 WEBGL frame-style benchmarks also use the 240 FPS floor; failures are
 optimization work for the Rust 3D/GPU model path or its fallback boundaries
 unless the benchmark is explicitly measuring a memory budget instead of FPS.
+ECS benchmarks should show non-UDF hot systems running through Rust physical
+plans (`ecs_physical_system_runs` > 0) with `ecs_udf_calls` at zero for the hot
+path. Spatial ECS benchmarks should report candidate/exact rows and algorithm
+counters that match the intended relation shape. Use
+`examples/09_performance/boids_3d.py --headless --frames 1 --no-save` as a smoke
+path for ECS spatial simulation plus retained WEBGL model drawing.
 Renderer/runtime diagnostics should expose counters through public Python APIs
-such as `renderer_performance_counters()` rather than leaking unstable Rust
-details. Keep fallback-boundary benchmark scenes and
+such as `renderer_performance_counters()` and `ecs_diagnostics()` rather than
+leaking unstable Rust details. Keep fallback-boundary benchmark scenes and
 `docs/contribute/runtime_diagnostics.md` aligned when renderer paths change,
 especially `primitive_batch_records`, `primitive_batch_flushes`,
 `primitive_batch_max_records`, `image_batch_records`, `image_batch_flushes`, and
@@ -453,7 +539,7 @@ Check Zed diagnostics when practical.
 
 Add or update tests when changing behavior.
 
-Prefer deterministic bounded/headless tests for renderer behavior. Use fake modules/window objects for runtime edge cases where possible. Avoid manual-only interactive tests unless the behavior cannot reasonably be covered headlessly.
+Prefer deterministic bounded/headless tests for renderer and ECS behavior. Use fake modules/window objects for runtime edge cases where possible. Avoid manual-only interactive tests unless the behavior cannot reasonably be covered headlessly.
 
 Good placement:
 
@@ -479,12 +565,15 @@ docs/reference/lifecycle.md
 docs/reference/drawing.md
 docs/reference/assets_and_pixels.md
 docs/reference/input_and_events.md
+docs/reference/ecs.md
 docs/reference/constants_and_enums.md
 docs/contribute/index.md
 docs/contribute/architecture.md
 docs/contribute/backend_renderer.md
 docs/contribute/runtime.md
 docs/contribute/runtime_diagnostics.md
+docs/contribute/ecs_architecture.md
+docs/contribute/ecs_debugging.md
 docs/contribute/build_capabilities.md
 docs/contribute/api_performance_policy.md
 docs/contribute/text_renderer_decision.md
@@ -551,4 +640,5 @@ uv run python -c "from pathlib import Path; import tomllib; [tomllib.load(p.open
 - Do not commit changes unless explicitly asked.
 - Do not remove or overwrite generated/user files unless you are sure they are artifacts from your own validation commands.
 - Do not reintroduce Pillow/Pyglet/Python renderer fallback paths unless the user explicitly asks for a rollback or compatibility experiment.
+- Do not add Python ECS execution fallbacks or Python component-column mirrors for non-UDF systems.
 - Do not add browser, JavaScript, HTML, or DOM-based implementation paths.
