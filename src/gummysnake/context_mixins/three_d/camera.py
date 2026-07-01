@@ -6,12 +6,11 @@ import math
 from typing import Any, cast, overload
 
 from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
-from gummysnake.drawing.renderer3d import (
-    Camera3D,
+from gummysnake.drawing.renderer3d import Camera3D, Vec3
+from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
     OrthographicProjection,
     PerspectiveProjection,
-    Vec3,
 )
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -34,10 +33,10 @@ class ThreeDCameraMixin:
     @property
     def width(self) -> int:
         """Width.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `int`.
         """
@@ -46,10 +45,10 @@ class ThreeDCameraMixin:
     @property
     def height(self) -> int:
         """Height.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `int`.
         """
@@ -58,10 +57,10 @@ class ThreeDCameraMixin:
     @overload
     def create_camera(self) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -70,10 +69,10 @@ class ThreeDCameraMixin:
     @overload
     def create_camera(self, camera: Camera3D, /) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             camera: The camera value. Expected type: `Camera3D`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -94,7 +93,7 @@ class ThreeDCameraMixin:
         /,
     ) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             eye_x: The eye x value. Expected type: `Number`.
             eye_y: The eye y value. Expected type: `Number`.
@@ -105,7 +104,7 @@ class ThreeDCameraMixin:
             up_x: The up x value. Expected type: `Number`.
             up_y: The up y value. Expected type: `Number`.
             up_z: The up z value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -113,10 +112,10 @@ class ThreeDCameraMixin:
 
     def create_camera(self, *args: Any) -> Camera3D:
         """Create camera.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -125,10 +124,10 @@ class ThreeDCameraMixin:
     @overload
     def camera(self) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -137,10 +136,10 @@ class ThreeDCameraMixin:
     @overload
     def camera(self, camera: Camera3D, /) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             camera: The camera value. Expected type: `Camera3D`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -161,7 +160,7 @@ class ThreeDCameraMixin:
         /,
     ) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             eye_x: The eye x value. Expected type: `Number`.
             eye_y: The eye y value. Expected type: `Number`.
@@ -172,7 +171,7 @@ class ThreeDCameraMixin:
             up_x: The up x value. Expected type: `Number`.
             up_y: The up y value. Expected type: `Number`.
             up_z: The up z value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -180,10 +179,10 @@ class ThreeDCameraMixin:
 
     def camera(self, *args: Any) -> Camera3D:
         """Camera.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -208,10 +207,10 @@ class ThreeDCameraMixin:
 
     def set_camera(self, camera: Camera3D) -> Camera3D:
         """Set camera.
-        
+
         Args:
             camera: The camera value. Expected type: `Camera3D`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -223,10 +222,10 @@ class ThreeDCameraMixin:
 
     def roll(self, angle: Number) -> Camera3D:
         """Roll.
-        
+
         Args:
             angle: The angle value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -240,10 +239,10 @@ class ThreeDCameraMixin:
     @overload
     def perspective(self) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -252,10 +251,10 @@ class ThreeDCameraMixin:
     @overload
     def perspective(self, fov: Number, /) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             fov: The fov value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -264,27 +263,25 @@ class ThreeDCameraMixin:
     @overload
     def perspective(self, fov: Number, aspect: Number, /) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             fov: The fov value. Expected type: `Number`.
             aspect: The aspect value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
         ...
 
     @overload
-    def perspective(
-        self, fov: Number, aspect: Number, near: Number, /
-    ) -> PerspectiveProjection:
+    def perspective(self, fov: Number, aspect: Number, near: Number, /) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             fov: The fov value. Expected type: `Number`.
             aspect: The aspect value. Expected type: `Number`.
             near: The near value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -295,13 +292,13 @@ class ThreeDCameraMixin:
         self, fov: Number, aspect: Number, near: Number, far: Number, /
     ) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             fov: The fov value. Expected type: `Number`.
             aspect: The aspect value. Expected type: `Number`.
             near: The near value. Expected type: `Number`.
             far: The far value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -309,10 +306,10 @@ class ThreeDCameraMixin:
 
     def perspective(self, *args: Any) -> PerspectiveProjection:
         """Perspective.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -335,10 +332,10 @@ class ThreeDCameraMixin:
     @overload
     def ortho(self) -> OrthographicProjection:
         """Overload accepting optional orthographic projection values.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `OrthographicProjection`.
         """
@@ -347,11 +344,11 @@ class ThreeDCameraMixin:
     @overload
     def ortho(self, width: Number, height: Number, /) -> OrthographicProjection:
         """Overload accepting optional orthographic projection values.
-        
+
         Args:
             width: The width value. Expected type: `Number`.
             height: The height value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `OrthographicProjection`.
         """
@@ -362,13 +359,13 @@ class ThreeDCameraMixin:
         self, width: Number, height: Number, near: Number, far: Number, /
     ) -> OrthographicProjection:
         """Overload accepting optional orthographic projection values.
-        
+
         Args:
             width: The width value. Expected type: `Number`.
             height: The height value. Expected type: `Number`.
             near: The near value. Expected type: `Number`.
             far: The far value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `OrthographicProjection`.
         """
@@ -376,10 +373,10 @@ class ThreeDCameraMixin:
 
     def ortho(self, *args: Any) -> OrthographicProjection:
         """Ortho.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `OrthographicProjection`.
         """
@@ -409,7 +406,7 @@ class ThreeDCameraMixin:
         far: Number = 10_000.0,
     ) -> FrustumProjection:
         """Frustum.
-        
+
         Args:
             left: The left value. Expected type: `Number`.
             right: The right value. Expected type: `Number`.
@@ -417,7 +414,7 @@ class ThreeDCameraMixin:
             top: The top value. Expected type: `Number`.
             near: The near value. Expected type: `Number`. Defaults to `0.1`.
             far: The far value. Expected type: `Number`. Defaults to `10000.0`.
-        
+
         Returns:
             The return value. Type: `FrustumProjection`.
         """
@@ -439,12 +436,12 @@ class ThreeDCameraMixin:
 
     def world_to_screen(self, x: Number, y: Number, z: Number) -> tuple[float, float, float]:
         """World to screen.
-        
+
         Args:
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `tuple[float, float, float]`.
         """
@@ -478,12 +475,12 @@ class ThreeDCameraMixin:
 
     def screen_to_world(self, x: Number, y: Number, depth: Number = 0.0) -> Vec3:
         """Screen to world.
-        
+
         Args:
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             depth: The depth value. Expected type: `Number`. Defaults to `0.0`.
-        
+
         Returns:
             The return value. Type: `Vec3`.
         """
@@ -519,10 +516,10 @@ class ThreeDCameraMixin:
     @overload
     def orbit_control(self) -> Camera3D:
         """Overload accepting optional orbit-control sensitivities.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -531,10 +528,10 @@ class ThreeDCameraMixin:
     @overload
     def orbit_control(self, sensitivity_x: Number, /) -> Camera3D:
         """Overload accepting optional orbit-control sensitivities.
-        
+
         Args:
             sensitivity_x: The sensitivity x value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -543,11 +540,11 @@ class ThreeDCameraMixin:
     @overload
     def orbit_control(self, sensitivity_x: Number, sensitivity_y: Number, /) -> Camera3D:
         """Overload accepting optional orbit-control sensitivities.
-        
+
         Args:
             sensitivity_x: The sensitivity x value. Expected type: `Number`.
             sensitivity_y: The sensitivity y value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -558,12 +555,12 @@ class ThreeDCameraMixin:
         self, sensitivity_x: Number, sensitivity_y: Number, sensitivity_z: Number, /
     ) -> Camera3D:
         """Overload accepting optional orbit-control sensitivities.
-        
+
         Args:
             sensitivity_x: The sensitivity x value. Expected type: `Number`.
             sensitivity_y: The sensitivity y value. Expected type: `Number`.
             sensitivity_z: The sensitivity z value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -571,10 +568,10 @@ class ThreeDCameraMixin:
 
     def orbit_control(self, *args: Any) -> Camera3D:
         """Orbit control.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """

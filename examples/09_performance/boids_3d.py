@@ -16,7 +16,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Any, cast
+from typing import cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -81,6 +81,7 @@ BOID_STATE_FIELDS = (*BOID_DRAW_FIELDS, "bucket")
 Quaternion = tuple[float, float, float, float]
 BoidDrawRow = tuple[float, float, float, float, float, float]
 BoidStateRow = tuple[float, float, float, float, float, float, int]
+PlanVector3 = tuple[ecs.Expression, ecs.Expression, ecs.Expression]
 
 fps_last_time: float | None = None
 fps_value = float(TARGET_FPS)
@@ -103,35 +104,35 @@ class BoidState:
     bucket: int
 
 
-def _expr_length(x: Any, y: Any, z: Any) -> ecs.Expression:
+def _expr_length(x: ecs.Expression, y: ecs.Expression, z: ecs.Expression) -> ecs.Expression:
     """Length expression for ECS vector components."""
     return (x * x + y * y + z * z).sqrt()
 
 
 def _expr_set_magnitude(
-    x: Any, y: Any, z: Any, magnitude: Any
-) -> tuple[ecs.Expression, ecs.Expression, ecs.Expression]:
+    x: ecs.Expression, y: ecs.Expression, z: ecs.Expression, magnitude: float
+) -> PlanVector3:
     scale = magnitude / _expr_length(x, y, z).clamp_min(1.0e-9)
     return x * scale, y * scale, z * scale
 
 
 def _expr_limit_vector(
-    x: Any, y: Any, z: Any, maximum: float
-) -> tuple[ecs.Expression, ecs.Expression, ecs.Expression]:
+    x: ecs.Expression, y: ecs.Expression, z: ecs.Expression, maximum: float
+) -> PlanVector3:
     scale = maximum / _expr_length(x, y, z).clamp_min(maximum)
     return x * scale, y * scale, z * scale
 
 
 def _expr_steer_toward(
-    desired_x: Any,
-    desired_y: Any,
-    desired_z: Any,
-    velocity_x: Any,
-    velocity_y: Any,
-    velocity_z: Any,
+    desired_x: ecs.Expression,
+    desired_y: ecs.Expression,
+    desired_z: ecs.Expression,
+    velocity_x: ecs.Expression,
+    velocity_y: ecs.Expression,
+    velocity_z: ecs.Expression,
     *,
     speed: float = MAX_SPEED,
-) -> tuple[ecs.Expression, ecs.Expression, ecs.Expression]:
+) -> PlanVector3:
     target_x, target_y, target_z = _expr_set_magnitude(desired_x, desired_y, desired_z, speed)
     return _expr_limit_vector(
         target_x - velocity_x,
@@ -141,7 +142,9 @@ def _expr_steer_toward(
     )
 
 
-def _boid_neighbors(boid: Any, state: Any) -> Any:
+def _boid_neighbors(
+    boid: ecs.Query, state: ecs.ComponentExpressionProxy
+) -> ecs.spatial.SpatialRelation:
     return ecs.spatial.neighbors(
         boid,
         position=ecs.spatial.point3(state.x, state.y, state.z),
@@ -153,7 +156,9 @@ def _boid_neighbors(boid: Any, state: Any) -> Any:
     )
 
 
-def _alignment_and_cohesion(state: Any, neighbors: Any) -> tuple[Any, Any, Any]:
+def _alignment_and_cohesion(
+    state: ecs.ComponentExpressionProxy, neighbors: ecs.spatial.SpatialRelation
+) -> PlanVector3:
     neighbor_count = neighbors.count()
     inv_neighbors = 1.0 / neighbor_count.clamp_min(1)
     has_neighbors = neighbor_count > 0
@@ -185,7 +190,9 @@ def _alignment_and_cohesion(state: Any, neighbors: Any) -> tuple[Any, Any, Any]:
     )
 
 
-def _separation_force(state: Any, neighbors: Any) -> tuple[Any, Any, Any]:
+def _separation_force(
+    state: ecs.ComponentExpressionProxy, neighbors: ecs.spatial.SpatialRelation
+) -> PlanVector3:
     close = neighbors.where(neighbors.distance_sq < SEPARATION_RADIUS * SEPARATION_RADIUS)
     close_count = close.count()
     has_close_neighbors = close_count > 0
@@ -208,13 +215,13 @@ def _separation_force(state: Any, neighbors: Any) -> tuple[Any, Any, Any]:
     )
 
 
-def _axis_boundary_force(value: Any, extent: float) -> Any:
+def _axis_boundary_force(value: ecs.Expression, extent: float) -> ecs.Expression:
     low = -extent * 0.5 + BOUND_MARGIN
     high = extent * 0.5 - BOUND_MARGIN
     return ((value < low) * BOUND_FORCE) + ((value > high) * -BOUND_FORCE)
 
 
-def _boundary_force(state: Any) -> tuple[Any, Any, Any]:
+def _boundary_force(state: ecs.ComponentExpressionProxy) -> PlanVector3:
     return (
         _axis_boundary_force(state.x, WORLD_X),
         _axis_boundary_force(state.y, WORLD_Y),
@@ -222,7 +229,7 @@ def _boundary_force(state: Any) -> tuple[Any, Any, Any]:
     )
 
 
-def _apply_speed_floor(x: Any, y: Any, z: Any) -> tuple[Any, Any, Any]:
+def _apply_speed_floor(x: ecs.Expression, y: ecs.Expression, z: ecs.Expression) -> PlanVector3:
     speed = _expr_length(x, y, z)
     min_speed_factor = ((speed < MIN_SPEED) * (MIN_SPEED / speed.clamp_min(1.0e-9))) + (
         (speed >= MIN_SPEED) * 1.0
@@ -383,14 +390,14 @@ def _update_fps() -> float:
     return fps_value
 
 
-def _set_camera_and_lights(draw3d: Any) -> None:
+def _set_camera_and_lights(draw3d: gs.FastDrawScope) -> None:
     draw3d.camera(0, CAMERA_HEIGHT, CAMERA_DISTANCE, 0, 0, 0, 0, 1, 0)
     draw3d.ambient_light(44)
     draw3d.directional_light(135, 172, 255, -0.35, -0.75, -1.0)
     draw3d.point_light(120, 238, 205, *POINT_LIGHT_POSITION)
 
 
-def _draw_boids(draw3d: Any, boid_rows: list[BoidDrawRow]) -> None:
+def _draw_boids(draw3d: gs.FastDrawScope, boid_rows: list[BoidDrawRow]) -> None:
     model = _boid_model()
     for bucket, bucket_indices in enumerate(_boid_bucket_indices):
         draw3d.specular_material(*PALETTE[bucket])

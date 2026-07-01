@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import math
 
-from gummysnake.drawing.renderer3d import (
-    Camera3D,
+from gummysnake.drawing.renderer3d import Camera3D, Vec3
+from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
     OrthographicProjection,
     PerspectiveProjection,
     Projection3D,
-    Vec3,
 )
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -20,11 +19,11 @@ from .types import ScreenPoint
 
 def visible(point: Vec3, projection: Projection3D) -> bool:
     """Visible.
-    
+
     Args:
         point: The point value. Expected type: `Vec3`.
         projection: The projection value. Expected type: `Projection3D`.
-    
+
     Returns:
         The return value. Type: `bool`.
     """
@@ -38,13 +37,13 @@ def project_camera_point(
     viewport_height: float,
 ) -> ScreenPoint | None:
     """Project camera point.
-    
+
     Args:
         point: The point value. Expected type: `Vec3`.
         projection: The projection value. Expected type: `Projection3D`.
         viewport_width: The viewport width value. Expected type: `float`.
         viewport_height: The viewport height value. Expected type: `float`.
-    
+
     Returns:
         The return value. Type: `ScreenPoint | None`.
     """
@@ -57,11 +56,11 @@ def project_camera_point(
 
 def camera_space(point: Vec3, camera: Camera3D) -> Vec3:
     """Camera space.
-    
+
     Args:
         point: The point value. Expected type: `Vec3`.
         camera: The camera value. Expected type: `Camera3D`.
-    
+
     Returns:
         The return value. Type: `Vec3`.
     """
@@ -74,10 +73,10 @@ def camera_space(point: Vec3, camera: Camera3D) -> Vec3:
 
 def validate_projection(projection: Projection3D) -> None:
     """Validate projection.
-    
+
     Args:
         projection: The projection value. Expected type: `Projection3D`.
-    
+
     Returns:
         None.
     """

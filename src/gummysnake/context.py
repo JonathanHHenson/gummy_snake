@@ -16,15 +16,11 @@ from gummysnake.context_mixins.text import TextContextMixin
 from gummysnake.context_mixins.three_d import ThreeDContextMixin
 from gummysnake.context_mixins.transform import TransformContextMixin
 from gummysnake.core.state import SketchState
-from gummysnake.drawing.renderer3d import (
-    Camera3D,
+from gummysnake.drawing.renderer3d import Camera3D, Light3D, Material3D, Model3D, Shader3D
+from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
-    Light3D,
-    Material3D,
-    Model3D,
     OrthographicProjection,
     PerspectiveProjection,
-    Shader3D,
 )
 from gummysnake.ecs.world import EcsWorld
 

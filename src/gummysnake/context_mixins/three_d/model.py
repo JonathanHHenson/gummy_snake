@@ -10,16 +10,18 @@ from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
 from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.renderer3d import (
     Camera3D,
-    FrustumProjection,
     Light3D,
     Material3D,
     Mesh3D,
     Model3D,
+    Shader3D,
+    _model_rust_handle,
+)
+from gummysnake.drawing.renderer3d.model import _ensure_model_rust_handle
+from gummysnake.drawing.renderer3d.types import (
+    FrustumProjection,
     OrthographicProjection,
     PerspectiveProjection,
-    Shader3D,
-    _ensure_model_rust_handle,
-    _model_rust_handle,
 )
 from gummysnake.drawing.software3d import (
     ShadedFace,

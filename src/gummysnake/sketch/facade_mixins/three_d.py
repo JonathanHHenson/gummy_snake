@@ -11,14 +11,16 @@ from gummysnake.assets.model import load_model_async as _load_model_async
 from gummysnake.assets.shader import load_shader_async as _load_shader_async
 from gummysnake.drawing.renderer3d import (
     Camera3D,
-    FrustumProjection,
     Mesh3D,
     Model3D,
-    OrthographicProjection,
-    PerspectiveProjection,
     Shader3D,
     ShaderUniformValue,
     Vec3,
+)
+from gummysnake.drawing.renderer3d.types import (
+    FrustumProjection,
+    OrthographicProjection,
+    PerspectiveProjection,
 )
 from gummysnake.sketch.facade_mixins.base import ColorValue, Number, SketchFacadeBaseMixin
 
@@ -29,10 +31,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def create_camera(self) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -41,10 +43,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def create_camera(self, camera: Camera3D, /) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             camera: The camera value. Expected type: `Camera3D`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -65,7 +67,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         /,
     ) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             eye_x: The eye x value. Expected type: `Number`.
             eye_y: The eye y value. Expected type: `Number`.
@@ -76,7 +78,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
             up_x: The up x value. Expected type: `Number`.
             up_y: The up y value. Expected type: `Number`.
             up_z: The up z value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -84,10 +86,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def create_camera(self, *args: Any) -> Camera3D:
         """Create and return a camera value.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -96,10 +98,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def camera(self) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -108,10 +110,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def camera(self, camera: Camera3D, /) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             camera: The camera value. Expected type: `Camera3D`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -132,7 +134,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         /,
     ) -> Camera3D:
         """Overload accepting no camera, an existing camera, or camera basis values.
-        
+
         Args:
             eye_x: The eye x value. Expected type: `Number`.
             eye_y: The eye y value. Expected type: `Number`.
@@ -143,7 +145,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
             up_x: The up x value. Expected type: `Number`.
             up_y: The up y value. Expected type: `Number`.
             up_z: The up z value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -151,10 +153,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def camera(self, *args: Any) -> Camera3D:
         """Camera for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -162,10 +164,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def set_camera(self, camera: Camera3D) -> Camera3D:
         """Set the camera value.
-        
+
         Args:
             camera: The camera value. Expected type: `Camera3D`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -173,10 +175,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def roll(self, angle: Number) -> Camera3D:
         """Roll for this SketchFacadeThreeDMixin.
-        
+
         Args:
             angle: The angle value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -184,12 +186,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def world_to_screen(self, x: Number, y: Number, z: Number) -> tuple[float, float, float]:
         """World to screen for this SketchFacadeThreeDMixin.
-        
+
         Args:
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `tuple[float, float, float]`.
         """
@@ -197,12 +199,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def screen_to_world(self, x: Number, y: Number, depth: Number = 0.0) -> Vec3:
         """Screen to world for this SketchFacadeThreeDMixin.
-        
+
         Args:
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             depth: The depth value. Expected type: `Number`. Defaults to `0.0`.
-        
+
         Returns:
             The return value. Type: `Vec3`.
         """
@@ -211,10 +213,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def perspective(self) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -223,10 +225,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def perspective(self, fov: Number, /) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             fov: The fov value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -235,27 +237,25 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def perspective(self, fov: Number, aspect: Number, /) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             fov: The fov value. Expected type: `Number`.
             aspect: The aspect value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
         ...
 
     @overload
-    def perspective(
-        self, fov: Number, aspect: Number, near: Number, /
-    ) -> PerspectiveProjection:
+    def perspective(self, fov: Number, aspect: Number, near: Number, /) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             fov: The fov value. Expected type: `Number`.
             aspect: The aspect value. Expected type: `Number`.
             near: The near value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -266,13 +266,13 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         self, fov: Number, aspect: Number, near: Number, far: Number, /
     ) -> PerspectiveProjection:
         """Overload accepting optional perspective projection values.
-        
+
         Args:
             fov: The fov value. Expected type: `Number`.
             aspect: The aspect value. Expected type: `Number`.
             near: The near value. Expected type: `Number`.
             far: The far value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -280,10 +280,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def perspective(self, *args: Any) -> PerspectiveProjection:
         """Perspective for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `PerspectiveProjection`.
         """
@@ -292,10 +292,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ortho(self) -> OrthographicProjection:
         """Overload accepting optional orthographic projection values.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `OrthographicProjection`.
         """
@@ -304,11 +304,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ortho(self, width: Number, height: Number, /) -> OrthographicProjection:
         """Overload accepting optional orthographic projection values.
-        
+
         Args:
             width: The width value. Expected type: `Number`.
             height: The height value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `OrthographicProjection`.
         """
@@ -319,13 +319,13 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         self, width: Number, height: Number, near: Number, far: Number, /
     ) -> OrthographicProjection:
         """Overload accepting optional orthographic projection values.
-        
+
         Args:
             width: The width value. Expected type: `Number`.
             height: The height value. Expected type: `Number`.
             near: The near value. Expected type: `Number`.
             far: The far value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `OrthographicProjection`.
         """
@@ -333,10 +333,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def ortho(self, *args: Any) -> OrthographicProjection:
         """Ortho for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `OrthographicProjection`.
         """
@@ -352,7 +352,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         far: Number = 10_000.0,
     ) -> FrustumProjection:
         """Frustum for this SketchFacadeThreeDMixin.
-        
+
         Args:
             left: The left value. Expected type: `Number`.
             right: The right value. Expected type: `Number`.
@@ -360,7 +360,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
             top: The top value. Expected type: `Number`.
             near: The near value. Expected type: `Number`. Defaults to `0.1`.
             far: The far value. Expected type: `Number`. Defaults to `10000.0`.
-        
+
         Returns:
             The return value. Type: `FrustumProjection`.
         """
@@ -369,10 +369,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def orbit_control(self) -> Camera3D:
         """Overload accepting optional orbit-control sensitivities.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -381,10 +381,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def orbit_control(self, sensitivity_x: Number, /) -> Camera3D:
         """Overload accepting optional orbit-control sensitivities.
-        
+
         Args:
             sensitivity_x: The sensitivity x value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -393,11 +393,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def orbit_control(self, sensitivity_x: Number, sensitivity_y: Number, /) -> Camera3D:
         """Overload accepting optional orbit-control sensitivities.
-        
+
         Args:
             sensitivity_x: The sensitivity x value. Expected type: `Number`.
             sensitivity_y: The sensitivity y value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -408,12 +408,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         self, sensitivity_x: Number, sensitivity_y: Number, sensitivity_z: Number, /
     ) -> Camera3D:
         """Overload accepting optional orbit-control sensitivities.
-        
+
         Args:
             sensitivity_x: The sensitivity x value. Expected type: `Number`.
             sensitivity_y: The sensitivity y value. Expected type: `Number`.
             sensitivity_z: The sensitivity z value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -421,10 +421,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def orbit_control(self, *args: Any) -> Camera3D:
         """Orbit control for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `Camera3D`.
         """
@@ -433,10 +433,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_light(self, value: ColorValue, /) -> None:
         """Overload accepting color-compatible ambient-light arguments.
-        
+
         Args:
             value: The value value. Expected type: `ColorValue`.
-        
+
         Returns:
             None.
         """
@@ -445,10 +445,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_light(self, gray: Number, /) -> None:
         """Overload accepting color-compatible ambient-light arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -457,11 +457,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_light(self, gray: Number, alpha: Number, /) -> None:
         """Overload accepting color-compatible ambient-light arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -470,12 +470,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_light(self, v1: Number, v2: Number, v3: Number, /) -> None:
         """Overload accepting color-compatible ambient-light arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
             v3: The v3 value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -484,13 +484,13 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_light(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
         """Overload accepting color-compatible ambient-light arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
             v3: The v3 value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -498,10 +498,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def ambient_light(self, *args: Any) -> None:
         """Ambient light for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             None.
         """
@@ -509,10 +509,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def lights(self) -> None:
         """Lights for this SketchFacadeThreeDMixin.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -520,10 +520,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def no_lights(self) -> None:
         """Disable lights.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -532,13 +532,13 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def directional_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None:
         """Overload accepting color-compatible directional-light arguments.
-        
+
         Args:
             value: The value value. Expected type: `ColorValue`.
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -547,13 +547,13 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def directional_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None:
         """Overload accepting color-compatible directional-light arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -564,14 +564,14 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
     ) -> None:
         """Overload accepting color-compatible directional-light arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -582,7 +582,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
     ) -> None:
         """Overload accepting color-compatible directional-light arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
@@ -590,7 +590,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -609,7 +609,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         /,
     ) -> None:
         """Overload accepting color-compatible directional-light arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
@@ -618,7 +618,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -626,10 +626,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def directional_light(self, *args: Any) -> None:
         """Directional light for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             None.
         """
@@ -638,13 +638,13 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def point_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None:
         """Overload accepting color-compatible point-light arguments.
-        
+
         Args:
             value: The value value. Expected type: `ColorValue`.
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -653,31 +653,29 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def point_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None:
         """Overload accepting color-compatible point-light arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
         ...
 
     @overload
-    def point_light(
-        self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
-    ) -> None:
+    def point_light(self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /) -> None:
         """Overload accepting color-compatible point-light arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -688,7 +686,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
     ) -> None:
         """Overload accepting color-compatible point-light arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
@@ -696,7 +694,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -715,7 +713,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         /,
     ) -> None:
         """Overload accepting color-compatible point-light arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
@@ -724,7 +722,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
             x: The x value. Expected type: `Number`.
             y: The y value. Expected type: `Number`.
             z: The z value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -732,10 +730,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def point_light(self, *args: Any) -> None:
         """Point light for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             None.
         """
@@ -743,10 +741,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def spot_light(self, *args: Any) -> None:
         """Spot light for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             None.
         """
@@ -754,11 +752,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def image_light(self, image: Image, intensity: float = 1.0) -> None:
         """Image light for this SketchFacadeThreeDMixin.
-        
+
         Args:
             image: The image value. Expected type: `Image`.
             intensity: The intensity value. Expected type: `float`. Defaults to `1.0`.
-        
+
         Returns:
             None.
         """
@@ -766,10 +764,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def panorama(self, image: Image | None = None) -> Image | None:
         """Panorama for this SketchFacadeThreeDMixin.
-        
+
         Args:
             image: The image value. Expected type: `Image | None`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `Image | None`.
         """
@@ -777,12 +775,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def light_falloff(self, constant: float, linear: float, quadratic: float) -> None:
         """Light falloff for this SketchFacadeThreeDMixin.
-        
+
         Args:
             constant: The constant value. Expected type: `float`.
             linear: The linear value. Expected type: `float`.
             quadratic: The quadratic value. Expected type: `float`.
-        
+
         Returns:
             None.
         """
@@ -790,10 +788,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def specular_color(self, *args: Any) -> None:
         """Specular color for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             None.
         """
@@ -801,10 +799,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def normal_material(self) -> None:
         """Normal material for this SketchFacadeThreeDMixin.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -813,10 +811,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_material(self, value: ColorValue, /) -> None:
         """Overload accepting color-compatible ambient material arguments.
-        
+
         Args:
             value: The value value. Expected type: `ColorValue`.
-        
+
         Returns:
             None.
         """
@@ -825,10 +823,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_material(self, gray: Number, /) -> None:
         """Overload accepting color-compatible ambient material arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -837,11 +835,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_material(self, gray: Number, alpha: Number, /) -> None:
         """Overload accepting color-compatible ambient material arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -850,12 +848,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_material(self, v1: Number, v2: Number, v3: Number, /) -> None:
         """Overload accepting color-compatible ambient material arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
             v3: The v3 value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -864,13 +862,13 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def ambient_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
         """Overload accepting color-compatible ambient material arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
             v3: The v3 value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -878,10 +876,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def ambient_material(self, *args: Any) -> None:
         """Ambient material for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             None.
         """
@@ -890,10 +888,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def specular_material(self, value: ColorValue, /) -> None:
         """Overload accepting color-compatible specular material arguments.
-        
+
         Args:
             value: The value value. Expected type: `ColorValue`.
-        
+
         Returns:
             None.
         """
@@ -902,10 +900,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def specular_material(self, gray: Number, /) -> None:
         """Overload accepting color-compatible specular material arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -914,11 +912,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def specular_material(self, gray: Number, alpha: Number, /) -> None:
         """Overload accepting color-compatible specular material arguments.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -927,12 +925,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def specular_material(self, v1: Number, v2: Number, v3: Number, /) -> None:
         """Overload accepting color-compatible specular material arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
             v3: The v3 value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -941,13 +939,13 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     @overload
     def specular_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
         """Overload accepting color-compatible specular material arguments.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
             v3: The v3 value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
-        
+
         Returns:
             None.
         """
@@ -955,10 +953,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def specular_material(self, *args: Any) -> None:
         """Specular material for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             None.
         """
@@ -966,10 +964,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def shininess(self, value: float) -> None:
         """Shininess for this SketchFacadeThreeDMixin.
-        
+
         Args:
             value: The value value. Expected type: `float`.
-        
+
         Returns:
             None.
         """
@@ -977,10 +975,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def emissive_material(self, *args: Any) -> None:
         """Emissive material for this SketchFacadeThreeDMixin.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             None.
         """
@@ -988,10 +986,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def metalness(self, value: float) -> None:
         """Metalness for this SketchFacadeThreeDMixin.
-        
+
         Args:
             value: The value value. Expected type: `float`.
-        
+
         Returns:
             None.
         """
@@ -999,10 +997,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def texture_mode(self, mode: Any = None) -> Any:
         """Texture mode for this SketchFacadeThreeDMixin.
-        
+
         Args:
             mode: The mode value. Expected type: `Any`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `Any`.
         """
@@ -1010,11 +1008,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def texture_wrap(self, wrap_x: Any = None, wrap_y: Any = None) -> Any:
         """Texture wrap for this SketchFacadeThreeDMixin.
-        
+
         Args:
             wrap_x: The wrap x value. Expected type: `Any`. Defaults to `None`.
             wrap_y: The wrap y value. Expected type: `Any`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `Any`.
         """
@@ -1022,10 +1020,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def texture(self, image: Image) -> None:
         """Texture for this SketchFacadeThreeDMixin.
-        
+
         Args:
             image: The image value. Expected type: `Image`.
-        
+
         Returns:
             None.
         """
@@ -1033,11 +1031,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def plane(self, width: float, height: float | None = None) -> None:
         """Plane for this SketchFacadeThreeDMixin.
-        
+
         Args:
             width: The width value. Expected type: `float`.
             height: The height value. Expected type: `float | None`. Defaults to `None`.
-        
+
         Returns:
             None.
         """
@@ -1045,12 +1043,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def box(self, width: float, height: float | None = None, depth: float | None = None) -> None:
         """Box for this SketchFacadeThreeDMixin.
-        
+
         Args:
             width: The width value. Expected type: `float`.
             height: The height value. Expected type: `float | None`. Defaults to `None`.
             depth: The depth value. Expected type: `float | None`. Defaults to `None`.
-        
+
         Returns:
             None.
         """
@@ -1058,12 +1056,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def sphere(self, radius: float, detail_x: int = 24, detail_y: int = 16) -> None:
         """Sphere for this SketchFacadeThreeDMixin.
-        
+
         Args:
             radius: The radius value. Expected type: `float`.
             detail_x: The detail x value. Expected type: `int`. Defaults to `24`.
             detail_y: The detail y value. Expected type: `int`. Defaults to `16`.
-        
+
         Returns:
             None.
         """
@@ -1078,14 +1076,14 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         detail_y: int = 16,
     ) -> None:
         """Ellipsoid for this SketchFacadeThreeDMixin.
-        
+
         Args:
             radius_x: The radius x value. Expected type: `float`.
             radius_y: The radius y value. Expected type: `float | None`. Defaults to `None`.
             radius_z: The radius z value. Expected type: `float | None`. Defaults to `None`.
             detail_x: The detail x value. Expected type: `int`. Defaults to `24`.
             detail_y: The detail y value. Expected type: `int`. Defaults to `16`.
-        
+
         Returns:
             None.
         """
@@ -1102,7 +1100,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         top_cap: bool = True,
     ) -> None:
         """Cylinder for this SketchFacadeThreeDMixin.
-        
+
         Args:
             radius: The radius value. Expected type: `float`.
             height: The height value. Expected type: `float`.
@@ -1110,7 +1108,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
             detail_y: The detail y value. Expected type: `int`. Defaults to `1`.
             bottom_cap: The bottom cap value. Expected type: `bool`. Defaults to `True`.
             top_cap: The top cap value. Expected type: `bool`. Defaults to `True`.
-        
+
         Returns:
             None.
         """
@@ -1128,14 +1126,14 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         cap: bool = True,
     ) -> None:
         """Cone for this SketchFacadeThreeDMixin.
-        
+
         Args:
             radius: The radius value. Expected type: `float`.
             height: The height value. Expected type: `float`.
             detail_x: The detail x value. Expected type: `int`. Defaults to `24`.
             detail_y: The detail y value. Expected type: `int`. Defaults to `1`.
             cap: The cap value. Expected type: `bool`. Defaults to `True`.
-        
+
         Returns:
             None.
         """
@@ -1149,13 +1147,13 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         detail_y: int = 12,
     ) -> None:
         """Torus for this SketchFacadeThreeDMixin.
-        
+
         Args:
             radius: The radius value. Expected type: `float`.
             tube_radius: The tube radius value. Expected type: `float | None`. Defaults to `None`.
             detail_x: The detail x value. Expected type: `int`. Defaults to `24`.
             detail_y: The detail y value. Expected type: `int`. Defaults to `12`.
-        
+
         Returns:
             None.
         """
@@ -1163,10 +1161,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def create_model(self, mesh: Mesh3D | Model3D) -> Model3D:
         """Create and return a model value.
-        
+
         Args:
             mesh: The mesh value. Expected type: `Mesh3D | Model3D`.
-        
+
         Returns:
             The return value. Type: `Model3D`.
         """
@@ -1174,12 +1172,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def normal(self, x: float, y: float, z: float) -> None:
         """Normal for this SketchFacadeThreeDMixin.
-        
+
         Args:
             x: The x value. Expected type: `float`.
             y: The y value. Expected type: `float`.
             z: The z value. Expected type: `float`.
-        
+
         Returns:
             None.
         """
@@ -1187,11 +1185,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def vertex_property(self, name: str, value: object) -> None:
         """Vertex property for this SketchFacadeThreeDMixin.
-        
+
         Args:
             name: The name value. Expected type: `str`.
             value: The value value. Expected type: `object`.
-        
+
         Returns:
             None.
         """
@@ -1199,10 +1197,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def build_geometry(self, callback: Any) -> Model3D:
         """Build geometry for this SketchFacadeThreeDMixin.
-        
+
         Args:
             callback: The callback value. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `Model3D`.
         """
@@ -1210,10 +1208,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def free_geometry(self, model_value: Model3D) -> None:
         """Free geometry for this SketchFacadeThreeDMixin.
-        
+
         Args:
             model_value: The model value value. Expected type: `Model3D`.
-        
+
         Returns:
             None.
         """
@@ -1221,10 +1219,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def flip_u(self, mesh_or_model: Mesh3D | Model3D) -> Mesh3D | Model3D:
         """Flip u for this SketchFacadeThreeDMixin.
-        
+
         Args:
             mesh_or_model: The mesh or model value. Expected type: `Mesh3D | Model3D`.
-        
+
         Returns:
             The return value. Type: `Mesh3D | Model3D`.
         """
@@ -1232,10 +1230,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def flip_v(self, mesh_or_model: Mesh3D | Model3D) -> Mesh3D | Model3D:
         """Flip v for this SketchFacadeThreeDMixin.
-        
+
         Args:
             mesh_or_model: The mesh or model value. Expected type: `Mesh3D | Model3D`.
-        
+
         Returns:
             The return value. Type: `Mesh3D | Model3D`.
         """
@@ -1245,12 +1243,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         self, path: str | Path, normalize: bool = False, *, package: str | None = None
     ) -> Model3D:
         """Load and return model.
-        
+
         Args:
             path: The path value. Expected type: `str | Path`.
             normalize: The normalize value. Expected type: `bool`. Defaults to `False`.
             package: The package value. Expected type: `str | None`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `Model3D`.
         """
@@ -1260,12 +1258,12 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         self, path: str | Path, normalize: bool = False, *, package: str | None = None
     ) -> Model3D:
         """Load and return model asynchronously.
-        
+
         Args:
             path: The path value. Expected type: `str | Path`.
             normalize: The normalize value. Expected type: `bool`. Defaults to `False`.
             package: The package value. Expected type: `str | None`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `Model3D`.
         """
@@ -1273,10 +1271,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def model(self, shape: Mesh3D | Model3D) -> None:
         """Model for this SketchFacadeThreeDMixin.
-        
+
         Args:
             shape: The shape value. Expected type: `Mesh3D | Model3D`.
-        
+
         Returns:
             None.
         """
@@ -1284,11 +1282,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def save_obj(self, model_value: Model3D, path: str | Path) -> Path:
         """Save obj data to the requested destination.
-        
+
         Args:
             model_value: The model value value. Expected type: `Model3D`.
             path: The path value. Expected type: `str | Path`.
-        
+
         Returns:
             The return value. Type: `Path`.
         """
@@ -1296,11 +1294,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def save_stl(self, model_value: Model3D, path: str | Path) -> Path:
         """Save stl data to the requested destination.
-        
+
         Args:
             model_value: The model value value. Expected type: `Model3D`.
             path: The path value. Expected type: `str | Path`.
-        
+
         Returns:
             The return value. Type: `Path`.
         """
@@ -1308,11 +1306,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def load_shader(self, vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
         """Load and return shader.
-        
+
         Args:
             vertex_path: The vertex path value. Expected type: `str | Path`.
             fragment_path: The fragment path value. Expected type: `str | Path`.
-        
+
         Returns:
             The return value. Type: `Shader3D`.
         """
@@ -1322,11 +1320,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
         self, vertex_path: str | Path, fragment_path: str | Path
     ) -> Shader3D:
         """Load and return shader asynchronously.
-        
+
         Args:
             vertex_path: The vertex path value. Expected type: `str | Path`.
             fragment_path: The fragment path value. Expected type: `str | Path`.
-        
+
         Returns:
             The return value. Type: `Shader3D`.
         """
@@ -1334,11 +1332,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def create_shader(self, vertex_source: str, fragment_source: str) -> Shader3D:
         """Create and return a shader value.
-        
+
         Args:
             vertex_source: The vertex source value. Expected type: `str`.
             fragment_source: The fragment source value. Expected type: `str`.
-        
+
         Returns:
             The return value. Type: `Shader3D`.
         """
@@ -1346,10 +1344,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def shader(self, shader_program: Shader3D) -> None:
         """Shader for this SketchFacadeThreeDMixin.
-        
+
         Args:
             shader_program: The shader program value. Expected type: `Shader3D`.
-        
+
         Returns:
             None.
         """
@@ -1357,10 +1355,10 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def reset_shader(self) -> None:
         """Reset shader for this SketchFacadeThreeDMixin.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -1368,11 +1366,11 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
 
     def set_shader_uniform(self, name: str, value: ShaderUniformValue) -> None:
         """Set the shader uniform value.
-        
+
         Args:
             name: The name value. Expected type: `str`.
             value: The value value. Expected type: `ShaderUniformValue`.
-        
+
         Returns:
             None.
         """

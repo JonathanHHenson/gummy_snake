@@ -536,6 +536,7 @@ from gummysnake.sketch import (
     Sketch,
     SketchBuilder,
 )
+from gummysnake._fast_draw import FastDrawScope
 
 __all__ = [
     "ambient_light",
@@ -843,6 +844,7 @@ __all__ = [
     "Image",
     "Graphics",
     "Framebuffer",
+    "FastDrawScope",
     "create_image",
     "Capture",
     "Video",

@@ -10,15 +10,12 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from gummysnake.drawing.renderer3d import (
-    Camera3D,
+from gummysnake.drawing.renderer3d import Camera3D, Mesh3D, Model3D, Vec3
+from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
-    Mesh3D,
-    Model3D,
     OrthographicProjection,
     PerspectiveProjection,
     Projection3D,
-    Vec3,
 )
 
 type ScreenPoint = tuple[float, float]
@@ -34,10 +31,10 @@ class ProjectedLine:
 
 def cube_model(size: float = 100.0) -> Model3D:
     """Return a simple indexed cube model centered on the origin.
-    
+
     Args:
         size: The size value. Expected type: `float`. Defaults to `100.0`.
-    
+
     Returns:
         The return value. Type: `Model3D`.
     """
@@ -75,14 +72,14 @@ def wireframe_segments(
     viewport_height: float,
 ) -> list[ProjectedLine]:
     """Project model edges into 2D line segments.
-    
+
     Args:
         model: The model value. Expected type: `Model3D`.
         camera: The camera value. Expected type: `Camera3D`.
         projection: The projection value. Expected type: `Projection3D`.
         viewport_width: The viewport width value. Expected type: `float`.
         viewport_height: The viewport height value. Expected type: `float`.
-    
+
     Returns:
         The return value. Type: `list[ProjectedLine]`.
     """

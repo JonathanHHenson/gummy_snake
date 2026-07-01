@@ -20,7 +20,9 @@ from gummysnake.ecs.actions import (
     when,
 )
 from gummysnake.ecs.expressions import (
+    ComponentExpressionProxy,
     Expression,
+    QueryProxy,
     all_of,
     any_of,
     dt,
@@ -46,6 +48,7 @@ __all__ = [
     "Action",
     "Added",
     "Changed",
+    "ComponentExpressionProxy",
     "DefaultAction",
     "Entity",
     "EntityView",
@@ -55,6 +58,7 @@ __all__ = [
     "ForEachAction",
     "MutEntity",
     "Query",
+    "QueryProxy",
     "Removed",
     "Res",
     "ResMut",

@@ -7,15 +7,11 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from gummysnake.core.transform import Matrix2D
-from gummysnake.drawing.renderer3d import (
-    Camera3D,
+from gummysnake.drawing.renderer3d import Camera3D, Light3D, LightKind, Material3D, Vec3
+from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
-    Light3D,
-    LightKind,
-    Material3D,
     PerspectiveProjection,
     Projection3D,
-    Vec3,
 )
 
 Matrix2DPayload = tuple[float, float, float, float, float, float]

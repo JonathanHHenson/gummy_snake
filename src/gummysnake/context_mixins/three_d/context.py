@@ -12,15 +12,11 @@ from gummysnake.context_mixins.three_d.material import ThreeDMaterialMixin
 from gummysnake.context_mixins.three_d.model import ThreeDModelMixin
 from gummysnake.context_mixins.three_d.primitives import ThreeDPrimitivesMixin
 from gummysnake.core.color import Color
-from gummysnake.drawing.renderer3d import (
-    Camera3D,
+from gummysnake.drawing.renderer3d import Camera3D, Light3D, Material3D, Shader3D, Texture3D
+from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
-    Light3D,
-    Material3D,
     OrthographicProjection,
     PerspectiveProjection,
-    Shader3D,
-    Texture3D,
 )
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
@@ -63,10 +59,10 @@ class ThreeDContextMixin(
     @overload
     def color(self, value: ColorValue, /) -> Color:
         """Overload accepting color-compatible arguments and returning a Color.
-        
+
         Args:
             value: The value value. Expected type: `ColorValue`.
-        
+
         Returns:
             The return value. Type: `Color`.
         """
@@ -75,10 +71,10 @@ class ThreeDContextMixin(
     @overload
     def color(self, gray: Number, /) -> Color:
         """Overload accepting color-compatible arguments and returning a Color.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Color`.
         """
@@ -87,11 +83,11 @@ class ThreeDContextMixin(
     @overload
     def color(self, gray: Number, alpha: Number, /) -> Color:
         """Overload accepting color-compatible arguments and returning a Color.
-        
+
         Args:
             gray: The gray value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Color`.
         """
@@ -100,12 +96,12 @@ class ThreeDContextMixin(
     @overload
     def color(self, v1: Number, v2: Number, v3: Number, /) -> Color:
         """Overload accepting color-compatible arguments and returning a Color.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
             v3: The v3 value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Color`.
         """
@@ -114,13 +110,13 @@ class ThreeDContextMixin(
     @overload
     def color(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> Color:
         """Overload accepting color-compatible arguments and returning a Color.
-        
+
         Args:
             v1: The v1 value. Expected type: `Number`.
             v2: The v2 value. Expected type: `Number`.
             v3: The v3 value. Expected type: `Number`.
             alpha: The alpha value. Expected type: `Number`.
-        
+
         Returns:
             The return value. Type: `Color`.
         """
@@ -128,10 +124,10 @@ class ThreeDContextMixin(
 
     def color(self, *args: Any) -> Color:
         """Color.
-        
+
         Args:
             *args: Additional positional arguments. Expected type: `Any`.
-        
+
         Returns:
             The return value. Type: `Color`.
         """
