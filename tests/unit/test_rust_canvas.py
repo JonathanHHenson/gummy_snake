@@ -200,12 +200,12 @@ def test_canvas_current_draws_do_not_reuse_stale_temporary_style_payloads() -> N
     assert tuple(pixels[((1 * 16) + 9) * 4 : ((1 * 16) + 9) * 4 + 4]) == (0, 0, 255, 255)
 
 
-def test_canvas_shaded_faces_preserve_logical_size_at_pixel_density_two() -> None:
+def test_canvas_shaded_faces_requires_retained_gpu_model_path() -> None:
     runtime = require_canvas_runtime()
+    canvas = runtime.Canvas(64, 64, 1.0, "headless", "p2d")
+    canvas.background((0, 0, 0, 255))
 
-    def logical_occupied_bounds(density: float) -> tuple[float, float, float, float]:
-        canvas = runtime.Canvas(64, 64, density, "headless", "p2d")
-        canvas.background((0, 0, 0, 255))
+    with pytest.raises(ValueError, match="CPU projected-face payload drawing is disabled"):
         canvas.shaded_faces(
             [
                 {
@@ -216,30 +216,6 @@ def test_canvas_shaded_faces_preserve_logical_size_at_pixel_density_two() -> Non
                 }
             ]
         )
-        pixels = canvas.load_pixels()
-        physical_width = int(64 * density)
-        occupied = []
-        for y in range(int(64 * density)):
-            row = y * physical_width * 4
-            for x in range(physical_width):
-                offset = row + x * 4
-                if tuple(pixels[offset : offset + 3]) == (255, 0, 0):
-                    occupied.append((x / density, y / density))
-        assert occupied
-        return (
-            min(x for x, _ in occupied),
-            min(y for _, y in occupied),
-            max(x for x, _ in occupied),
-            max(y for _, y in occupied),
-        )
-
-    density_one = logical_occupied_bounds(1.0)
-    density_two = logical_occupied_bounds(2.0)
-
-    assert density_two[0] == pytest.approx(density_one[0], abs=0.75)
-    assert density_two[1] == pytest.approx(density_one[1], abs=0.75)
-    assert density_two[2] == pytest.approx(density_one[2], abs=0.75)
-    assert density_two[3] == pytest.approx(density_one[3], abs=0.75)
 
 
 def test_sketch_context_state_owns_lifecycle_input_and_shape_buffers() -> None:

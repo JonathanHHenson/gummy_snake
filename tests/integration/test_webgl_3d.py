@@ -65,7 +65,7 @@ def test_webgl_obj_model_renders_from_example_asset():
     def setup():
         gs.create_canvas(128, 128, gs.WEBGL)
         gs.background(8, 10, 18)
-        gs.stroke(24, 28, 44)
+        gs.no_stroke()
         gs.camera(0, 0, 4, 0, 0, 0, 0, 1, 0)
         gs.perspective(math.pi / 3, 1.0, 0.1, 100)
         gs.specular_material(220, 170, 255)

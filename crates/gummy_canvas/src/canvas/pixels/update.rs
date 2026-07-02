@@ -43,7 +43,7 @@ impl Canvas {
         &mut self,
         x: i64,
         y: i64,
-        _rgba: (u8, u8, u8, u8),
+        rgba: (u8, u8, u8, u8),
     ) -> PyResult<()> {
         if let Some(runtime) = self.runtime.as_mut() {
             let _ = runtime.pump_events();
@@ -54,7 +54,17 @@ impl Canvas {
         if x < 0 || y < 0 || x >= self.physical_width as i64 || y >= self.physical_height as i64 {
             return Ok(());
         }
-        self.prepare_cpu_composite()
+        self.sync_pixels_for_explicit_pixel_write();
+        let offset = (y as usize * self.physical_width + x as usize) * 4;
+        self.pixels[offset] = rgba.0;
+        self.pixels[offset + 1] = rgba.1;
+        self.pixels[offset + 2] = rgba.2;
+        self.pixels[offset + 3] = rgba.3;
+        self.present_pixels[y as usize * self.physical_width + x as usize] =
+            rgba_to_present_pixel(&self.pixels[offset..offset + 4]);
+        self.performance_counters.pixel_region_uploads += 1;
+        self.mark_cpu_pixels_uploaded();
+        Ok(())
     }
 
     pub(crate) fn update_pixel_region_impl(
@@ -90,12 +100,61 @@ impl Canvas {
         pixels: &[u8],
         width: usize,
         height: usize,
-        _x: i64,
-        _y: i64,
-        _alpha_composite: bool,
+        x: i64,
+        y: i64,
+        alpha_composite: bool,
     ) -> PyResult<()> {
         validate_rgba_buffer(pixels.len(), width, height)?;
-        self.prepare_cpu_composite()
+        if width == 0 || height == 0 {
+            return Ok(());
+        }
+        let Some((src_x, src_y, dst_x, dst_y, copy_width, copy_height)) = clipped_region(
+            width,
+            height,
+            self.physical_width,
+            self.physical_height,
+            x,
+            y,
+        ) else {
+            return Ok(());
+        };
+        self.sync_pixels_for_explicit_pixel_write();
+        for row in 0..copy_height {
+            let source_offset = ((src_y + row) * width + src_x) * 4;
+            let destination_offset = ((dst_y + row) * self.physical_width + dst_x) * 4;
+            let byte_count = copy_width * 4;
+            if alpha_composite {
+                for column in 0..copy_width {
+                    let source = source_offset + column * 4;
+                    let destination = destination_offset + column * 4;
+                    alpha_blend_pixel(
+                        &mut self.pixels[destination..destination + 4],
+                        &pixels[source..source + 4],
+                    );
+                    self.present_pixels[(dst_y + row) * self.physical_width + dst_x + column] =
+                        rgba_to_present_pixel(&self.pixels[destination..destination + 4]);
+                }
+            } else {
+                self.pixels[destination_offset..destination_offset + byte_count]
+                    .copy_from_slice(&pixels[source_offset..source_offset + byte_count]);
+                for column in 0..copy_width {
+                    let destination = destination_offset + column * 4;
+                    self.present_pixels[(dst_y + row) * self.physical_width + dst_x + column] =
+                        rgba_to_present_pixel(&self.pixels[destination..destination + 4]);
+                }
+            }
+        }
+        self.performance_counters.pixel_region_uploads += 1;
+        self.mark_cpu_pixels_uploaded();
+        Ok(())
+    }
+
+    fn sync_pixels_for_explicit_pixel_write(&mut self) {
+        if self.offscreen_dirty && self.pixels_stale {
+            self.render_gpu_frame(true);
+        } else if self.pixels_stale {
+            self.read_gpu_pixels();
+        }
     }
 
     pub(crate) fn adjust_pixel_prefix_impl(
@@ -130,6 +189,50 @@ impl Canvas {
         }
         self.prepare_cpu_composite()
     }
+}
+
+fn clipped_region(
+    source_width: usize,
+    source_height: usize,
+    destination_width: usize,
+    destination_height: usize,
+    x: i64,
+    y: i64,
+) -> Option<(usize, usize, usize, usize, usize, usize)> {
+    let dst_x = x.max(0) as usize;
+    let dst_y = y.max(0) as usize;
+    let src_x = if x < 0 { (-x) as usize } else { 0 };
+    let src_y = if y < 0 { (-y) as usize } else { 0 };
+    if src_x >= source_width
+        || src_y >= source_height
+        || dst_x >= destination_width
+        || dst_y >= destination_height
+    {
+        return None;
+    }
+    let copy_width = (source_width - src_x).min(destination_width - dst_x);
+    let copy_height = (source_height - src_y).min(destination_height - dst_y);
+    if copy_width == 0 || copy_height == 0 {
+        return None;
+    }
+    Some((src_x, src_y, dst_x, dst_y, copy_width, copy_height))
+}
+
+fn alpha_blend_pixel(destination: &mut [u8], source: &[u8]) {
+    let src_alpha = source[3] as f32 / 255.0;
+    let dst_alpha = destination[3] as f32 / 255.0;
+    let out_alpha = src_alpha + dst_alpha * (1.0 - src_alpha);
+    if out_alpha <= 0.0 {
+        destination.copy_from_slice(&[0, 0, 0, 0]);
+        return;
+    }
+    for channel in 0..3 {
+        let src = source[channel] as f32 / 255.0;
+        let dst = destination[channel] as f32 / 255.0;
+        let out = (src * src_alpha + dst * dst_alpha * (1.0 - src_alpha)) / out_alpha;
+        destination[channel] = (out * 255.0).round().clamp(0.0, 255.0) as u8;
+    }
+    destination[3] = (out_alpha * 255.0).round().clamp(0.0, 255.0) as u8;
 }
 
 fn with_u8_buffer<T>(

@@ -35,9 +35,8 @@ from gummysnake.drawing.software3d.payloads import (
     model_transform_payload,
     projection_payload,
 )
-from gummysnake.drawing.software3d.rust_bridge import rust_project_shade_faces
 from gummysnake.drawing.software3d.shading import texture_image
-from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.exceptions import ArgumentValidationError, UnsupportedFeatureError
 
 
 def _three_d(self: Any) -> ThreeDContextHost:
@@ -140,56 +139,36 @@ class ThreeDModelMixin:
             or self.state.style.fill_color is not None
         )
         texture = None if self._normal_material3d else texture_image(material)
-        if (
-            draw_fill
-            and texture is not None
-            and self.state.style.stroke_color is None
-            and self._draw_model_textured_direct(model, texture, material, model_transform)
-        ):
-            return
-        if (
-            draw_fill
-            and texture is None
-            and self.state.style.stroke_color is None
-            and self._draw_model_shaded_direct(model, material, model_transform)
-        ):
-            return
-
-        faces = rust_project_shade_faces(
-            model,
-            self._camera3d,
-            self._projection3d,
-            viewport_width=float(self.width),
-            viewport_height=float(self.height),
-            base_material=material,
-            lights=tuple(self._lights3d),
-            normal_material=self._normal_material3d,
-            cull_backfaces=True,
-            model_transform=model_transform,
-        )
-        self._count_renderer_counter("python_face_payloads", len(faces))
-        screen_transform = Matrix2D.identity()
-        if draw_fill:
-            if texture is None and self._draw_shaded_faces_direct(faces):
-                pass
-            else:
-                self._draw_rasterized_3d_payload(
-                    faces,
-                    screen_transform,
-                    texture=texture,
-                )
         if self.state.style.stroke_color is not None:
-            shaded_faces = [
-                ShadedFace(
-                    points=tuple((float(x), float(y)) for x, y in face["points"]),
-                    color=cast(tuple[float, float, float, float], tuple(face["color"])),
-                    depth=float(face["depth"]),
-                    texcoords=None,
-                    texture=None,
-                )
-                for face in faces
-            ]
-            self._stroke_3d_faces(shaded_faces, screen_transform)
+            raise UnsupportedFeatureError(
+                "model() stroke outlines require a retained GPU model-stroke "
+                "implementation; CPU projected-face stroke fallback is disabled. "
+                "Call no_stroke() before drawing retained GPU models."
+            )
+        if not draw_fill:
+            return
+        if texture is not None:
+            if self._draw_model_textured_direct(model, texture, material, model_transform):
+                return
+            raise UnsupportedFeatureError(
+                "model() textured drawing requires retained GPU textured-model support; "
+                "CPU projected-face texture fallback is disabled."
+            )
+
+        handle = _ensure_model_rust_handle(model)
+        transform_payload = model_transform_payload(model_transform)
+        if handle is not None and self._queue_model_shaded_direct(
+            handle,
+            material,
+            transform_payload,
+        ):
+            return
+        if self._draw_model_shaded_direct(model, material, model_transform):
+            return
+        raise UnsupportedFeatureError(
+            "model() requires retained GPU model drawing; CPU projected-face payload "
+            "drawing is disabled."
+        )
 
     def _draw_model_fast(
         self, shape: Mesh3D | Model3D, *, model_transform: Any | None = None

@@ -50,7 +50,7 @@ def test_load_pixel_bytes_and_update_pixels_accept_memoryview():
     assert gs.run(setup=setup, headless=True, max_frames=0).load_pixel_bytes() == bytes(8)
 
 
-def test_canvas_get_set_copy_and_filter_helpers():
+def test_canvas_get_set_copy_helpers_and_filter_gpu_only_error():
     def setup():
         gs.create_canvas(3, 2)
         gs.background(0, 0, 0, 255)
@@ -60,10 +60,11 @@ def test_canvas_get_set_copy_and_filter_helpers():
         assert isinstance(region, gs.Image)
         gs.copy(1, 0, 1, 1, 2, 1, 1, 1)
         assert gs.get(2, 1) == gs.Color(10, 20, 30, 255)
-        gs.filter(gs.INVERT)
+        with pytest.raises(ArgumentValidationError, match="CPU raster/compositing fallback"):
+            gs.filter(gs.INVERT)
 
     context = gs.run(setup=setup, headless=True, max_frames=0)
-    assert context.get(2, 1) == gs.Color(245, 235, 225, 255)
+    assert context.get(2, 1) == gs.Color(10, 20, 30, 255)
 
 
 def test_canvas_region_apis_use_physical_hidpi_regions():
@@ -158,7 +159,7 @@ def test_save_frames_exports_numbered_sequence_and_callback(tmp_path):
     assert callback_results == [results]
 
 
-def test_blend_mode_multiply_and_erase_affect_subsequent_drawing():
+def test_unsupported_multiply_rect_fails_instead_of_cpu_compositing():
     def setup():
         gs.create_canvas(4, 1)
         gs.no_stroke()
@@ -166,20 +167,13 @@ def test_blend_mode_multiply_and_erase_affect_subsequent_drawing():
         gs.blend_mode(gs.MULTIPLY)
         gs.fill(128, 255, 255, 255)
         gs.rect(0, 0, 1, 1)
-        gs.blend_mode(gs.BLEND)
-        gs.erase()
-        gs.fill(255, 255, 255, 255)
-        gs.rect(3, 0, 1, 1)
-        gs.no_erase()
 
     context = gs.run(setup=setup, headless=True, max_frames=0)
-    pixels = context.load_pixels()
-
-    assert pixels[0:4] == [50, 100, 100, 255]
-    assert pixels[12:16] == [100, 100, 100, 0]
+    with pytest.raises(ArgumentValidationError, match="CPU raster/compositing fallback"):
+        context.load_pixels()
 
 
-def test_blend_region_can_copy_canvas_region_with_add_mode():
+def test_blend_region_requires_gpu_region_blend():
     def setup():
         gs.create_canvas(4, 1)
         gs.no_stroke()
@@ -188,13 +182,11 @@ def test_blend_region_can_copy_canvas_region_with_add_mode():
         gs.rect(0, 0, 1, 1)
         gs.blend(0, 0, 1, 1, 3, 0, 1, 1, gs.ADD)
 
-    context = gs.run(setup=setup, headless=True, max_frames=0)
-    pixels = context.load_pixels()
-
-    assert pixels[12:16] == [20, 20, 30, 255]
+    with pytest.raises(ArgumentValidationError, match="CPU raster/compositing fallback"):
+        gs.run(setup=setup, headless=True, max_frames=0)
 
 
-def test_blend_region_scales_destination_for_physical_density():
+def test_blend_region_with_image_source_requires_gpu_region_blend():
     source = gs.create_image(2, 2)
     for y in range(2):
         for x in range(2):
@@ -205,13 +197,5 @@ def test_blend_region_scales_destination_for_physical_density():
         gs.background(0, 0, 0, 255)
         gs.blend(source, 0, 0, 2, 2, 1, 1, 1, 1, gs.BLEND)
 
-    context = gs.run(setup=setup, headless=True, max_frames=0)
-    pixels = context.load_pixels()
-
-    def pixel_at(x: int, y: int) -> list[int]:
-        offset = (y * context.state.canvas.physical_width + x) * 4
-        return pixels[offset : offset + 4]
-
-    assert pixel_at(1, 1) == [0, 0, 0, 255]
-    assert pixel_at(2, 2) == [255, 0, 0, 255]
-    assert pixel_at(3, 3) == [255, 0, 0, 255]
+    with pytest.raises(ArgumentValidationError, match="CPU raster/compositing fallback"):
+        gs.run(setup=setup, headless=True, max_frames=0)

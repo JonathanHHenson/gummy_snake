@@ -21,4 +21,4 @@ def _render_reference_pixels() -> bytes:
 
 def test_canvas_basic_shapes_golden_hash():
     digest = hashlib.sha256(_render_reference_pixels()).hexdigest()
-    assert digest == "8163600793b1e8e5f317a6c9d9343d5bf8ff73d3d9e30728637b88740b8602c8"
+    assert digest == "d6ce839c3b95c9b296f4e981dfaa5a728ac3154c80f0d6583cad9facdb0aeea0"
