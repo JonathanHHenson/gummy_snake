@@ -102,10 +102,10 @@ impl Canvas {
     pub(crate) fn close(&mut self) {
         self.close_impl()
     }
-    pub(crate) fn background(&mut self, rgba: (u8, u8, u8, u8)) {
+    pub(crate) fn background(&mut self, rgba: (u8, u8, u8, u8)) -> PyResult<()> {
         self.background_impl(rgba)
     }
-    pub(crate) fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) -> PyResult<()> {
         self.clear_impl()
     }
     pub(crate) fn set_current_style(&mut self, style: &Bound<'_, PyAny>) -> PyResult<()> {

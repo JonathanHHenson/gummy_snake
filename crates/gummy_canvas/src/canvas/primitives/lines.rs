@@ -30,34 +30,33 @@ impl Canvas {
             Some(color) => color,
             None => return Ok(()),
         };
-        let (tx, ty) = self.transform_point(matrix, x, y);
-        let radius = (style.stroke_weight * self.pixel_density / 2.0).max(0.5);
-        let bounds = clipped_bounds(
-            &[(tx, ty)],
-            radius,
-            self.physical_width,
-            self.physical_height,
-        );
+        let stroke_width = stroke_width(style.stroke_weight, self.pixel_density);
+        if style.erasing {
+            if self.can_queue_gpu_erase(&style) {
+                self.draw_gpu_erase_polyline_with_matrix(
+                    &[(x, y), (x, y)],
+                    false,
+                    matrix,
+                    self.pixel_density,
+                    stroke_width,
+                )?;
+                return Ok(());
+            }
+            return self.prepare_cpu_composite();
+        }
         if self.can_queue_gpu_primitives(&style) {
-            self.draw_gpu_disc(tx, ty, radius, color, style.blend_mode_kind)?;
+            self.draw_gpu_polyline_with_matrix(
+                &[(x, y), (x, y)],
+                false,
+                matrix,
+                self.pixel_density,
+                stroke_width,
+                color,
+                style.blend_mode_kind,
+            )?;
             return Ok(());
         }
-        self.prepare_cpu_composite();
-        let Some(mut overlay) = OverlayRegion::from_bounds(
-            bounds,
-            self.physical_width,
-            &mut self.pixels,
-            &mut self.present_pixels,
-            style.erasing,
-            self.erase_color,
-            style.blend_mode_kind,
-            self.clip_masks.last().map(Vec::as_slice),
-        ) else {
-            return Ok(());
-        };
-        fill_disc(&mut overlay, tx, ty, radius, color);
-        self.upload_cpu_pixels()?;
-        Ok(())
+        self.prepare_cpu_composite()
     }
 
     pub(crate) fn line_impl(
@@ -92,30 +91,33 @@ impl Canvas {
             Some(color) => color,
             None => return Ok(()),
         };
-        let p1 = self.transform_point(matrix, x1, y1);
-        let p2 = self.transform_point(matrix, x2, y2);
-        let radius = stroke_width(style.stroke_weight, self.pixel_density) / 2.0;
-        let bounds = clipped_bounds(&[p1, p2], radius, self.physical_width, self.physical_height);
+        let width = stroke_width(style.stroke_weight, self.pixel_density);
+        if style.erasing {
+            if self.can_queue_gpu_erase(&style) {
+                self.draw_gpu_erase_polyline_with_matrix(
+                    &[(x1, y1), (x2, y2)],
+                    false,
+                    matrix,
+                    self.pixel_density,
+                    width,
+                )?;
+                return Ok(());
+            }
+            return self.prepare_cpu_composite();
+        }
         if self.can_queue_gpu_primitives(&style) {
-            self.draw_gpu_segment(p1, p2, radius * 2.0, stroke, style.blend_mode_kind)?;
+            self.draw_gpu_polyline_with_matrix(
+                &[(x1, y1), (x2, y2)],
+                false,
+                matrix,
+                self.pixel_density,
+                width,
+                stroke,
+                style.blend_mode_kind,
+            )?;
             return Ok(());
         }
-        self.prepare_cpu_composite();
-        let Some(mut overlay) = OverlayRegion::from_bounds(
-            bounds,
-            self.physical_width,
-            &mut self.pixels,
-            &mut self.present_pixels,
-            style.erasing,
-            self.erase_color,
-            style.blend_mode_kind,
-            self.clip_masks.last().map(Vec::as_slice),
-        ) else {
-            return Ok(());
-        };
-        stroke_segment(&mut overlay, p1, p2, radius * 2.0, stroke);
-        self.upload_cpu_pixels()?;
-        Ok(())
+        self.prepare_cpu_composite()
     }
 
     pub(crate) fn batch_lines_impl(
@@ -146,32 +148,36 @@ impl Canvas {
         let Some(stroke) = style.stroke else {
             return Ok(());
         };
-        let radius = stroke_width(style.stroke_weight, self.pixel_density) / 2.0;
-        for (x1, y1, x2, y2) in lines {
-            let p1 = self.transform_point(matrix, x1, y1);
-            let p2 = self.transform_point(matrix, x2, y2);
-            let bounds =
-                clipped_bounds(&[p1, p2], radius, self.physical_width, self.physical_height);
-            if self.can_queue_gpu_primitives(&style) {
-                self.draw_gpu_segment(p1, p2, radius * 2.0, stroke, style.blend_mode_kind)?;
-                continue;
+        let width = stroke_width(style.stroke_weight, self.pixel_density);
+        if style.erasing {
+            if self.can_queue_gpu_erase(&style) {
+                for (x1, y1, x2, y2) in lines {
+                    self.draw_gpu_erase_polyline_with_matrix(
+                        &[(x1, y1), (x2, y2)],
+                        false,
+                        matrix,
+                        self.pixel_density,
+                        width,
+                    )?;
+                }
+                return Ok(());
             }
-            self.prepare_cpu_composite();
-            let Some(mut overlay) = OverlayRegion::from_bounds(
-                bounds,
-                self.physical_width,
-                &mut self.pixels,
-                &mut self.present_pixels,
-                style.erasing,
-                self.erase_color,
-                style.blend_mode_kind,
-                self.clip_masks.last().map(Vec::as_slice),
-            ) else {
-                continue;
-            };
-            stroke_segment(&mut overlay, p1, p2, radius * 2.0, stroke);
-            self.upload_cpu_pixels()?;
+            return self.prepare_cpu_composite();
         }
-        Ok(())
+        if self.can_queue_gpu_primitives(&style) {
+            for (x1, y1, x2, y2) in lines {
+                self.draw_gpu_polyline_with_matrix(
+                    &[(x1, y1), (x2, y2)],
+                    false,
+                    matrix,
+                    self.pixel_density,
+                    width,
+                    stroke,
+                    style.blend_mode_kind,
+                )?;
+            }
+            return Ok(());
+        }
+        self.prepare_cpu_composite()
     }
 }

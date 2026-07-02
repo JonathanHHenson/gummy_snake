@@ -23,7 +23,10 @@ fn canvas_rejects_invalid_dimensions_and_density() {
 #[test]
 fn canvas_resize_noop_preserves_pixels() {
     let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
-    canvas.background((10, 20, 30, 255));
+    if !canvas.gpu_available() {
+        return;
+    }
+    canvas.background((10, 20, 30, 255)).unwrap();
 
     canvas
         .resize_canvas(2, 1, 1.0, SUPPORTED_RENDERER)
@@ -35,7 +38,10 @@ fn canvas_resize_noop_preserves_pixels() {
 #[test]
 fn background_clear_and_pixel_update_round_trip() {
     let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
-    canvas.background((10, 20, 30, 255));
+    if !canvas.gpu_available() {
+        return;
+    }
+    canvas.background((10, 20, 30, 255)).unwrap();
     assert_eq!(canvas.load_pixels(), vec![10, 20, 30, 255, 10, 20, 30, 255]);
 
     canvas
@@ -43,28 +49,26 @@ fn background_clear_and_pixel_update_round_trip() {
         .unwrap();
     assert_eq!(canvas.load_pixels(), vec![255, 0, 0, 255, 0, 0, 255, 255]);
 
-    canvas.clear();
+    canvas.clear().unwrap();
     assert_eq!(canvas.load_pixels(), vec![0; 8]);
 }
 
 #[test]
-fn set_pixel_rgba_updates_one_pixel_and_ignores_out_of_bounds() {
+fn set_pixel_rgba_ignores_out_of_bounds_without_cpu_compositing() {
     let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
 
-    canvas.set_pixel_rgba(1, 0, (10, 20, 30, 255)).unwrap();
     canvas.set_pixel_rgba(-1, 0, (255, 0, 0, 255)).unwrap();
     canvas.set_pixel_rgba(2, 0, (255, 0, 0, 255)).unwrap();
 
-    assert_eq!(canvas.load_pixels(), vec![0, 0, 0, 0, 10, 20, 30, 255]);
-    assert!(canvas.render_dirty);
-    assert!(!canvas.pixels_stale);
-    assert!(canvas.texture_stale);
+    assert_eq!(canvas.load_pixels(), vec![0; 8]);
 }
 
 #[test]
 fn canvas_save_gif_writes_gif_file() {
     let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
-    canvas.background((10, 20, 30, 255));
+    canvas
+        .update_pixels(vec![10, 20, 30, 255, 10, 20, 30, 255])
+        .unwrap();
     let path =
         std::env::temp_dir().join(format!("gummy_canvas_test_{}_save.gif", std::process::id()));
     let path_string = path.to_string_lossy().to_string();

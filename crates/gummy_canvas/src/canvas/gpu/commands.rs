@@ -29,30 +29,6 @@ impl Canvas {
         Ok(())
     }
 
-    pub(crate) fn draw_gpu_filled_ellipse(
-        &mut self,
-        cx: f64,
-        cy: f64,
-        rx: f64,
-        ry: f64,
-        color: Rgba,
-        blend_mode: BlendMode,
-    ) -> PyResult<()> {
-        self.upload_stale_texture(false)?;
-        if let Some(gpu) = self.gpu.as_mut() {
-            gpu.draw_filled_ellipse(
-                cx as f32,
-                cy as f32,
-                rx as f32,
-                ry as f32,
-                crate::raster::gpu_color(color),
-                blend_mode,
-            );
-            self.record_native_ellipse_draw(blend_mode);
-        }
-        Ok(())
-    }
-
     pub(crate) fn draw_gpu_triangles(
         &mut self,
         vertices: Vec<([f32; 2], crate::gpu::GpuColor)>,
@@ -109,21 +85,95 @@ impl Canvas {
         Ok(())
     }
 
-    pub(crate) fn draw_gpu_erase_triangles(
+    pub(crate) fn draw_gpu_stroke_path(
         &mut self,
-        mut vertices: Vec<([f32; 2], crate::gpu::GpuColor)>,
+        records: Vec<crate::gpu::StrokePathRecord>,
+        blend_mode: BlendMode,
     ) -> PyResult<()> {
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
-            for (_, color) in &mut vertices {
-                color.r = self.erase_color.r;
-                color.g = self.erase_color.g;
-                color.b = self.erase_color.b;
-                color.a = 255;
+            gpu.draw_stroke_path(records, blend_mode);
+            self.record_native_primitive_instance_draw(blend_mode);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_gpu_fill_path(
+        &mut self,
+        records: Vec<crate::gpu::StrokePathRecord>,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_fill_path(records, blend_mode);
+            self.record_native_primitive_instance_draw(blend_mode);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_gpu_erase_primitive_instances(
+        &mut self,
+        mut instances: Vec<crate::gpu::PrimitiveInstance>,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        let erase_color = crate::gpu::GpuColor {
+            r: self.erase_color.r,
+            g: self.erase_color.g,
+            b: self.erase_color.b,
+            a: 255,
+        }
+        .as_float();
+        if let Some(gpu) = self.gpu.as_mut() {
+            for instance in &mut instances {
+                instance.color = erase_color;
             }
-            let vertex_count = vertices.len();
-            gpu.draw_erase_triangles(vertices);
-            self.record_native_erase_draw(vertex_count);
+            let instance_count = instances.len();
+            gpu.draw_erase_primitive_instances(instances);
+            self.record_native_erase_draw(instance_count * 6);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_gpu_erase_stroke_path(
+        &mut self,
+        mut records: Vec<crate::gpu::StrokePathRecord>,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        let erase_color = crate::gpu::GpuColor {
+            r: self.erase_color.r,
+            g: self.erase_color.g,
+            b: self.erase_color.b,
+            a: 255,
+        }
+        .as_float();
+        if let Some(gpu) = self.gpu.as_mut() {
+            if records.len() > 2 {
+                records[2] = erase_color;
+            }
+            gpu.draw_erase_stroke_path(records);
+            self.record_native_erase_draw(6);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_gpu_erase_fill_path(
+        &mut self,
+        mut records: Vec<crate::gpu::StrokePathRecord>,
+    ) -> PyResult<()> {
+        self.upload_stale_texture(false)?;
+        let erase_color = crate::gpu::GpuColor {
+            r: self.erase_color.r,
+            g: self.erase_color.g,
+            b: self.erase_color.b,
+            a: 255,
+        }
+        .as_float();
+        if let Some(gpu) = self.gpu.as_mut() {
+            if records.len() > 2 {
+                records[2] = erase_color;
+            }
+            gpu.draw_erase_fill_path(records);
+            self.record_native_erase_draw(6);
         }
         Ok(())
     }

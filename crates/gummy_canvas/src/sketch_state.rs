@@ -7,6 +7,25 @@ use crate::DEFAULT_POINTER_LOCK_MODE;
 use pyo3::prelude::*;
 use std::time::Instant;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum CapturedPathSegment {
+    Line {
+        from: (f64, f64),
+        to: (f64, f64),
+    },
+    Quadratic {
+        from: (f64, f64),
+        control: (f64, f64),
+        to: (f64, f64),
+    },
+    Cubic {
+        from: (f64, f64),
+        control1: (f64, f64),
+        control2: (f64, f64),
+        to: (f64, f64),
+    },
+}
+
 #[derive(Clone, Debug)]
 struct TouchSnapshot {
     id: i64,
@@ -91,6 +110,7 @@ pub(crate) struct SketchContextState {
     shape_active: bool,
     shape_vertices: Vec<(f64, f64)>,
     shape_contours: Vec<Vec<(f64, f64)>>,
+    shape_path_segments: Vec<CapturedPathSegment>,
     #[pyo3(get)]
     contour_active: bool,
     contour_vertices: Vec<(f64, f64)>,
@@ -140,6 +160,7 @@ impl Default for SketchContextState {
             shape_active: false,
             shape_vertices: Vec::new(),
             shape_contours: Vec::new(),
+            shape_path_segments: Vec::new(),
             contour_active: false,
             contour_vertices: Vec::new(),
             shape_kind: None,

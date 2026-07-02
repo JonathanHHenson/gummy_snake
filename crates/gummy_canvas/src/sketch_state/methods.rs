@@ -84,6 +84,22 @@ impl SketchContextState {
         self.add_vertex_impl(x, y)
     }
 
+    fn add_quadratic_vertex(&mut self, cx: f64, cy: f64, x: f64, y: f64) -> PyResult<()> {
+        self.add_quadratic_vertex_impl(cx, cy, x, y)
+    }
+
+    fn add_cubic_vertex(
+        &mut self,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+    ) -> PyResult<()> {
+        self.add_cubic_vertex_impl(x2, y2, x3, y3, x4, y4)
+    }
+
     fn extend_vertices(&mut self, vertices: Vec<(f64, f64)>) -> PyResult<()> {
         self.extend_vertices_impl(vertices)
     }

@@ -28,7 +28,69 @@ impl Canvas {
         matrix: Matrix,
         close: bool,
     ) -> PyResult<()> {
-        let result = if state.captured_shape_contours().is_empty() {
+        let has_path_segments = !state.captured_shape_path_segments().is_empty();
+        let has_contours = !state.captured_shape_contours().is_empty();
+        let result = if has_path_segments && !has_contours {
+            if style.erasing {
+                if !self.can_queue_gpu_erase(style) {
+                    self.prepare_cpu_composite()
+                } else {
+                    if close && style.fill.is_some() {
+                        self.draw_gpu_erase_path_fill_with_matrix(
+                            state.captured_shape_path_segments(),
+                            state.captured_shape_vertices(),
+                            close,
+                            matrix,
+                            self.pixel_density,
+                        )?;
+                    }
+                    if style.stroke.is_some() {
+                        self.draw_gpu_erase_path_segments_with_matrix(
+                            state.captured_shape_path_segments(),
+                            state.captured_shape_vertices(),
+                            close,
+                            matrix,
+                            self.pixel_density,
+                            stroke_width(style.stroke_weight, self.pixel_density),
+                        )?;
+                    }
+                    Ok(())
+                }
+            } else if self.can_queue_gpu_primitives(style) {
+                if close {
+                    if let Some(fill) = style.fill {
+                        self.draw_gpu_path_fill_with_matrix(
+                            state.captured_shape_path_segments(),
+                            state.captured_shape_vertices(),
+                            close,
+                            matrix,
+                            self.pixel_density,
+                            fill,
+                            style.blend_mode_kind,
+                        )?;
+                    }
+                }
+                if let Some(stroke) = style.stroke {
+                    self.draw_gpu_path_segments_with_matrix(
+                        state.captured_shape_path_segments(),
+                        state.captured_shape_vertices(),
+                        close,
+                        matrix,
+                        self.pixel_density,
+                        stroke_width(style.stroke_weight, self.pixel_density),
+                        stroke,
+                        style.blend_mode_kind,
+                    )?;
+                }
+                Ok(())
+            } else {
+                self.prepare_cpu_composite()
+            }
+        } else if has_path_segments && has_contours && close && style.fill.is_some() {
+            Err(PyValueError::new_err(
+                "Filled captured paths with contours require a GPU contour-fill implementation; CPU path tessellation is disabled.",
+            ))
+        } else if state.captured_shape_contours().is_empty() {
             self.polygon_with_style(
                 state.captured_shape_vertices().to_vec(),
                 style,
@@ -86,54 +148,10 @@ impl Canvas {
                 "begin_clip() requires at least three vertices.",
             ));
         }
-        let transformed_outer: Vec<Point> = outer
-            .iter()
-            .map(|(x, y)| self.transform_point(matrix, *x, *y))
-            .collect();
-        let transformed_contours: Vec<Vec<Point>> = contours
-            .iter()
-            .map(|contour| {
-                contour
-                    .iter()
-                    .map(|(x, y)| self.transform_point(matrix, *x, *y))
-                    .collect()
-            })
-            .collect();
-        let parent = self.clip_masks.last();
-        let parent_bounds = self.clip_bounds.last().copied();
-        let mut mask = vec![false; self.physical_width * self.physical_height];
-        let mut bounds_points = transformed_outer.clone();
-        for contour in &transformed_contours {
-            bounds_points.extend(contour.iter().copied());
-        }
-        let mut bounds = clipped_bounds(
-            &bounds_points,
-            0.0,
-            self.physical_width,
-            self.physical_height,
-        );
-        if let Some((p_min_x, p_min_y, p_max_x, p_max_y)) = parent_bounds {
-            bounds.0 = bounds.0.max(p_min_x);
-            bounds.1 = bounds.1.max(p_min_y);
-            bounds.2 = bounds.2.min(p_max_x);
-            bounds.3 = bounds.3.min(p_max_y);
-        }
-        let mut rings = Vec::with_capacity(1 + transformed_contours.len());
-        rings.push(transformed_outer.as_slice());
-        for contour in &transformed_contours {
-            rings.push(contour.as_slice());
-        }
-        rasterize_even_odd_mask(
-            &mut mask,
-            self.physical_width,
-            bounds,
-            &rings,
-            parent.map(Vec::as_slice),
-        );
-        self.clip_masks.push(mask);
-        self.clip_bounds.push(bounds);
-        self.upload_current_clip_mask();
-        Ok(())
+        let _ = (contours, matrix);
+        Err(PyValueError::new_err(
+            "CPU clip-mask rasterization is disabled; begin_clip() requires a GPU mask/stencil implementation.",
+        ))
     }
 
     pub(crate) fn end_clip_impl(&mut self) -> PyResult<()> {

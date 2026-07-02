@@ -4,7 +4,7 @@ import pytest
 
 from gummysnake.assets.image import Image
 from gummysnake.backend.canvas_renderer import CanvasRenderer, PerformanceCounters
-from gummysnake.constants import BLEND, MULTIPLY
+from gummysnake.constants import BLEND
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
@@ -81,19 +81,18 @@ def test_repeated_runtime_close_and_recreate_lifecycle() -> None:
         renderer.close()
 
 
-def test_repeated_fallback_paths_report_diagnostics() -> None:
+def test_repeated_gpu_paths_report_no_cpu_fallbacks() -> None:
     renderer = _renderer()
     style = StyleState(fill_color=Color(255, 255, 255, 255), stroke_color=None)
     transform = Matrix2D.identity()
     renderer.resize(16, 16, pixel_density=1)
 
     for frame in range(90):
-        style.blend_mode = MULTIPLY if frame % 2 else BLEND
-        renderer.rect(0, 0, 8, 8, style, transform)
-        renderer.blend_region(None, (0, 0, 4, 4), (4, 4, 4, 4), BLEND)
+        style.blend_mode = BLEND
+        renderer.rect(frame % 8, 0, 8, 8, style, transform)
         renderer.load_pixels()
 
     counters = renderer.performance_counters()
-    assert _counter_value(counters, "cpu_fallbacks") >= 90
+    assert _counter_value(counters, "cpu_fallbacks") == 0
     assert _counter_value(counters, "pixel_readbacks") >= 90
     renderer.close()

@@ -44,14 +44,6 @@ pub(super) fn fill_primitive_batch_instances(
     _physical_width: usize,
     _physical_height: usize,
 ) -> PyResult<Option<Vec<gpu::PrimitiveInstance>>> {
-    let axis_aligned = matrix.1.abs() <= f64::EPSILON && matrix.2.abs() <= f64::EPSILON;
-    if !axis_aligned
-        && records
-            .iter()
-            .any(|record| record.0 == PRIMITIVE_BATCH_RECT || record.0 == PRIMITIVE_BATCH_ELLIPSE)
-    {
-        return Ok(None);
-    }
     let mut instances = Vec::with_capacity(records.len());
     for (kind, a, b, c, d, e, f, r, g, blue, alpha) in records {
         let color = [
@@ -62,55 +54,48 @@ pub(super) fn fill_primitive_batch_instances(
         ];
         match *kind {
             PRIMITIVE_BATCH_RECT | PRIMITIVE_BATCH_ELLIPSE => {
-                let p0 = transform_batch_point(matrix, pixel_density, *a, *b);
-                let p1 = transform_batch_point(matrix, pixel_density, *a + *c, *b + *d);
-                let min_x = p0.0.min(p1.0) as f32;
-                let min_y = p0.1.min(p1.1) as f32;
-                let max_x = p0.0.max(p1.0) as f32;
-                let max_y = p0.1.max(p1.1) as f32;
-                if !min_x.is_finite()
-                    || !min_y.is_finite()
-                    || !max_x.is_finite()
-                    || !max_y.is_finite()
-                    || min_x == max_x
-                    || min_y == max_y
+                if !a.is_finite()
+                    || !b.is_finite()
+                    || !c.is_finite()
+                    || !d.is_finite()
+                    || *c == 0.0
+                    || *d == 0.0
                 {
                     continue;
                 }
-                instances.push(gpu::PrimitiveInstance {
-                    p0: [min_x, min_y],
-                    p1: [max_x, max_y],
-                    p2: [0.0, 0.0],
-                    bounds: [min_x, min_y, max_x, max_y],
+                instances.push(transformed_rect_like_instance(
+                    (*a, *b),
+                    (*a + *c, *b + *d),
+                    matrix,
+                    pixel_density,
                     color,
-                    params: [*kind as f32, 0.0, 0.0, 0.0],
-                });
+                    if *kind == PRIMITIVE_BATCH_RECT {
+                        5.0
+                    } else {
+                        7.0
+                    },
+                    0.0,
+                ));
             }
             PRIMITIVE_BATCH_TRIANGLE => {
-                let p0 = transform_batch_point(matrix, pixel_density, *a, *b);
-                let p1 = transform_batch_point(matrix, pixel_density, *c, *d);
-                let p2 = transform_batch_point(matrix, pixel_density, *e, *f);
-                let min_x = p0.0.min(p1.0).min(p2.0) as f32;
-                let min_y = p0.1.min(p1.1).min(p2.1) as f32;
-                let max_x = p0.0.max(p1.0).max(p2.0) as f32;
-                let max_y = p0.1.max(p1.1).max(p2.1) as f32;
-                if !min_x.is_finite()
-                    || !min_y.is_finite()
-                    || !max_x.is_finite()
-                    || !max_y.is_finite()
-                    || min_x == max_x
-                    || min_y == max_y
+                if !a.is_finite()
+                    || !b.is_finite()
+                    || !c.is_finite()
+                    || !d.is_finite()
+                    || !e.is_finite()
+                    || !f.is_finite()
+                    || ((*c - *a) * (*f - *b) - (*d - *b) * (*e - *a)).abs() <= f64::EPSILON
                 {
                     continue;
                 }
-                instances.push(gpu::PrimitiveInstance {
-                    p0: [p0.0 as f32, p0.1 as f32],
-                    p1: [p1.0 as f32, p1.1 as f32],
-                    p2: [p2.0 as f32, p2.1 as f32],
-                    bounds: [min_x, min_y, max_x, max_y],
+                instances.push(transformed_triangle_instance(
+                    (*a, *b),
+                    (*c, *d),
+                    (*e, *f),
+                    matrix,
+                    pixel_density,
                     color,
-                    params: [PRIMITIVE_BATCH_TRIANGLE as f32, 0.0, 0.0, 0.0],
-                });
+                ));
             }
             _ => {
                 return Err(PyValueError::new_err(format!(
@@ -122,12 +107,58 @@ pub(super) fn fill_primitive_batch_instances(
     Ok(Some(instances))
 }
 
-fn transform_batch_point(matrix: Matrix, pixel_density: f64, x: f64, y: f64) -> Point {
+fn transformed_rect_like_instance(
+    p0: Point,
+    p1: Point,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: [f32; 4],
+    kind: f32,
+    stroke_width: f64,
+) -> gpu::PrimitiveInstance {
     let (a, b, c, d, e, f) = matrix;
-    (
-        (a * x + c * y + e) * pixel_density,
-        (b * x + d * y + f) * pixel_density,
-    )
+    gpu::PrimitiveInstance {
+        p0: [p0.0 as f32, p0.1 as f32],
+        p1: [p1.0 as f32, p1.1 as f32],
+        p2: [(a * pixel_density) as f32, (b * pixel_density) as f32],
+        bounds: [
+            (c * pixel_density) as f32,
+            (d * pixel_density) as f32,
+            (e * pixel_density) as f32,
+            (f * pixel_density) as f32,
+        ],
+        color,
+        params: [kind, stroke_width as f32, 0.0, 0.0],
+    }
+}
+
+fn transformed_triangle_instance(
+    p0: Point,
+    p1: Point,
+    p2: Point,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: [f32; 4],
+) -> gpu::PrimitiveInstance {
+    let (a, b, c, d, e, f) = matrix;
+    gpu::PrimitiveInstance {
+        p0: [p0.0 as f32, p0.1 as f32],
+        p1: [p1.0 as f32, p1.1 as f32],
+        p2: [p2.0 as f32, p2.1 as f32],
+        bounds: [
+            (a * pixel_density) as f32,
+            (b * pixel_density) as f32,
+            (c * pixel_density) as f32,
+            (d * pixel_density) as f32,
+        ],
+        color,
+        params: [
+            6.0,
+            (e * pixel_density) as f32,
+            (f * pixel_density) as f32,
+            0.0,
+        ],
+    }
 }
 
 #[cfg(test)]
@@ -187,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn fill_primitive_instances_scale_logical_coordinates_by_pixel_density() {
+    fn fill_primitive_instances_carry_logical_coordinates_and_scaled_matrix() {
         let instances = fill_primitive_batch_instances(
             &[rect_record()],
             (1.0, 0.0, 0.0, 1.0, 5.0, 7.0),
@@ -196,10 +227,14 @@ mod tests {
             60,
         )
         .expect("valid records")
-        .expect("axis-aligned rects use instances");
+        .expect("rects use procedural instances");
 
         assert_eq!(instances.len(), 1);
-        assert_eq!(instances[0].bounds, [12.0, 18.0, 18.0, 26.0]);
+        assert_eq!(instances[0].p0, [1.0, 2.0]);
+        assert_eq!(instances[0].p1, [4.0, 6.0]);
+        assert_eq!(instances[0].p2, [2.0, 0.0]);
+        assert_eq!(instances[0].bounds, [0.0, 2.0, 10.0, 14.0]);
+        assert_eq!(instances[0].params[0], 5.0);
         assert_eq!(
             instances[0].color,
             [10.0 / 255.0, 20.0 / 255.0, 30.0 / 255.0, 40.0 / 255.0]
@@ -207,7 +242,7 @@ mod tests {
     }
 
     #[test]
-    fn fill_primitive_instances_fall_back_for_rotated_rects_and_ellipses() {
+    fn fill_primitive_instances_keep_rotated_rects_on_gpu() {
         let instances = fill_primitive_batch_instances(
             &[rect_record()],
             (0.0, 1.0, -1.0, 0.0, 0.0, 0.0),
@@ -215,9 +250,15 @@ mod tests {
             20,
             30,
         )
-        .expect("valid fallback");
+        .expect("valid rotated record")
+        .expect("rotated rects use procedural instances");
 
-        assert!(instances.is_none());
+        assert_eq!(instances.len(), 1);
+        assert_eq!(instances[0].p0, [1.0, 2.0]);
+        assert_eq!(instances[0].p1, [4.0, 6.0]);
+        assert_eq!(instances[0].p2, [0.0, 1.0]);
+        assert_eq!(instances[0].bounds, [-1.0, 0.0, 0.0, 0.0]);
+        assert_eq!(instances[0].params[0], 5.0);
     }
 
     #[test]
@@ -242,7 +283,7 @@ mod tests {
             30,
         )
         .expect("degenerate supported records are skipped")
-        .expect("axis-aligned rects use instances");
+        .expect("rects use procedural instances");
 
         assert!(instances.is_empty());
     }

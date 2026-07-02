@@ -1,10 +1,14 @@
 use crate::gpu::types::*;
 
+pub(super) fn aligned_stroke_path_record_offset(record_offset: usize) -> usize {
+    record_offset.div_ceil(STROKE_PATH_RECORD_ALIGNMENT) * STROKE_PATH_RECORD_ALIGNMENT
+}
+
 impl GpuRenderer {
     pub(super) fn ensure_render_vertex_buffers(&mut self) {
         let mut primitive_vertices = 0usize;
         let mut procedural_instances = 0usize;
-        let mut erase_vertices = 0usize;
+        let mut stroke_path_records = 0usize;
         let mut image_vertices = 0usize;
         for command in &self.commands {
             match command {
@@ -26,13 +30,19 @@ impl GpuRenderer {
                 } => {
                     procedural_instances += instances.len();
                 }
-                DrawCommand::Ellipse { .. } => {
-                    primitive_vertices += 64 * 3;
+                DrawCommand::StrokePath { records, .. } | DrawCommand::FillPath { records, .. } => {
+                    stroke_path_records = aligned_stroke_path_record_offset(stroke_path_records);
+                    stroke_path_records += records.len();
                 }
                 DrawCommand::BlendEllipse { .. } => {}
                 DrawCommand::PixelPrefix { .. } => {}
-                DrawCommand::EraseTriangles { vertices, .. } => {
-                    erase_vertices += vertices.len();
+                DrawCommand::ErasePrimitiveInstances { instances, .. } => {
+                    procedural_instances += instances.len();
+                }
+                DrawCommand::EraseStrokePath { records, .. }
+                | DrawCommand::EraseFillPath { records, .. } => {
+                    stroke_path_records = aligned_stroke_path_record_offset(stroke_path_records);
+                    stroke_path_records += records.len();
                 }
                 DrawCommand::Image { .. } => {
                     image_vertices += 6;
@@ -49,7 +59,7 @@ impl GpuRenderer {
         }
         self.ensure_primitive_vertex_capacity(primitive_vertices);
         self.ensure_procedural_primitive_capacity(procedural_instances);
-        self.ensure_erase_vertex_capacity(erase_vertices);
+        self.ensure_stroke_path_record_capacity(stroke_path_records);
         self.ensure_image_vertex_capacity(image_vertices);
         let model_uniforms = self
             .commands
@@ -117,18 +127,18 @@ impl GpuRenderer {
         self.vertex_buffer_allocations += 1;
     }
 
-    fn ensure_erase_vertex_capacity(&mut self, required: usize) {
-        if required == 0 || self.erase_vertex_capacity >= required {
+    fn ensure_stroke_path_record_capacity(&mut self, required: usize) {
+        if required == 0 || self.stroke_path_record_capacity >= required {
             return;
         }
         let capacity = required.next_power_of_two();
-        self.erase_vertex_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas reusable erase vertices"),
-            size: (capacity * std::mem::size_of::<Vertex>()) as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        self.stroke_path_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("gummy_canvas reusable stroke path records"),
+            size: (capacity * std::mem::size_of::<StrokePathRecord>()) as u64,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         }));
-        self.erase_vertex_capacity = capacity;
+        self.stroke_path_record_capacity = capacity;
         self.vertex_buffer_allocations += 1;
     }
 

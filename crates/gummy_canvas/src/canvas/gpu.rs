@@ -1,7 +1,7 @@
 use crate::*;
 
 mod commands;
-mod replay;
+
 mod shapes;
 mod sync;
 
@@ -24,14 +24,6 @@ impl Canvas {
         self.performance_counters.native_draw_commands += 1;
         self.performance_counters.native_triangle_commands += 1;
         self.performance_counters.native_staged_primitive_vertices += vertex_count as u64;
-        self.record_native_blend(blend_mode);
-        self.mark_gpu_output_dirty();
-    }
-
-    fn record_native_ellipse_draw(&mut self, blend_mode: BlendMode) {
-        self.performance_counters.gpu_draws += 1;
-        self.performance_counters.native_draw_commands += 1;
-        self.performance_counters.native_ellipse_commands += 1;
         self.record_native_blend(blend_mode);
         self.mark_gpu_output_dirty();
     }

@@ -166,8 +166,9 @@ def test_custom_shape_and_bezier_render():
         gs.begin_shape()
         gs.vertex(5, 5)
         gs.vertex(30, 5)
-        gs.quadratic_vertex(35, 20, 20, 30)
+        gs.vertex(20, 30)
         gs.end_shape(gs.CLOSE)
+        gs.no_fill()
         gs.stroke(255, 0, 0)
         gs.bezier(5, 35, 10, 20, 30, 20, 35, 35)
 
@@ -175,3 +176,47 @@ def test_custom_shape_and_bezier_render():
     pixels = context.load_pixels()
     assert len(pixels) == 40 * 40 * 4
     assert any(channel == 255 for channel in pixels)
+
+
+def test_filled_curved_shape_renders_with_gpu_curve_fill():
+    def setup():
+        gs.create_canvas(40, 40)
+        gs.background(255)
+        gs.fill(0, 0, 255)
+        gs.no_stroke()
+
+    def draw():
+        gs.begin_shape()
+        gs.vertex(5, 5)
+        gs.vertex(30, 5)
+        gs.quadratic_vertex(35, 20, 20, 30)
+        gs.end_shape(gs.CLOSE)
+
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    pixels = context.load_pixel_bytes()
+    blue_pixels = [
+        pixels[offset : offset + 4]
+        for offset in range(0, len(pixels), 4)
+        if pixels[offset + 2] > 180 and pixels[offset] < 80 and pixels[offset + 1] < 80
+    ]
+    assert blue_pixels
+    assert context.renderer_performance_counters()["native"]["cpu_fallbacks"] == 0
+
+
+def test_filled_arc_renders_with_gpu_arc_fill():
+    def setup():
+        gs.create_canvas(40, 40)
+        gs.background(255)
+        gs.fill(0, 0, 255)
+        gs.no_stroke()
+
+    def draw():
+        gs.arc(20, 20, 30, 30, 0.2, 5.3, gs.PIE)
+
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    pixels = context.load_pixel_bytes()
+    width = context.width
+    center_offset = (20 * width + 20) * 4
+    center = pixels[center_offset : center_offset + 4]
+    assert center[2] > 180 and center[0] < 80 and center[1] < 80
+    assert context.renderer_performance_counters()["native"]["cpu_fallbacks"] == 0

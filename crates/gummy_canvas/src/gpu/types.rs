@@ -8,6 +8,9 @@ use crate::BlendMode;
 mod draw_command;
 pub use draw_command::DrawCommand;
 
+pub(super) const STROKE_PATH_RECORD_ALIGNMENT: usize = 16;
+pub type StrokePathRecord = [f32; 4];
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub(super) struct Vertex {
@@ -166,7 +169,11 @@ pub struct GpuRenderer {
     pub(super) pipeline: wgpu::RenderPipeline,
     pub(super) primitive_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) procedural_primitive_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
-    pub(super) erase_pipeline: wgpu::RenderPipeline,
+    pub(super) procedural_erase_pipeline: wgpu::RenderPipeline,
+    pub(super) stroke_path_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
+    pub(super) stroke_path_erase_pipeline: wgpu::RenderPipeline,
+    pub(super) path_fill_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
+    pub(super) path_fill_erase_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) model_pipeline: wgpu::RenderPipeline,
@@ -174,6 +181,7 @@ pub struct GpuRenderer {
     pub(super) pixel_prefix_pipeline: wgpu::RenderPipeline,
     pub(super) blend_ellipse_pipeline: wgpu::RenderPipeline,
     pub(super) model_bind_group_layout: wgpu::BindGroupLayout,
+    pub(super) stroke_path_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) model_uniform_buffer: wgpu::Buffer,
     pub(super) model_uniform_bind_group: wgpu::BindGroup,
     pub(super) model_uniform_capacity: usize,
@@ -206,14 +214,13 @@ pub struct GpuRenderer {
     pub(super) textures: HashMap<u64, TextureAsset>,
     pub(super) model_meshes: HashMap<u64, GpuModelMesh>,
     pub(super) primitive_staging: Vec<Vertex>,
-    pub(super) erase_staging: Vec<Vertex>,
     pub(super) image_staging: Vec<ImageVertex>,
     pub(super) primitive_vertex_buffer: Option<wgpu::Buffer>,
     pub(super) primitive_vertex_capacity: usize,
     pub(super) procedural_primitive_buffer: Option<wgpu::Buffer>,
     pub(super) procedural_primitive_capacity: usize,
-    pub(super) erase_vertex_buffer: Option<wgpu::Buffer>,
-    pub(super) erase_vertex_capacity: usize,
+    pub(super) stroke_path_buffer: Option<wgpu::Buffer>,
+    pub(super) stroke_path_record_capacity: usize,
     pub(super) image_vertex_buffer: Option<wgpu::Buffer>,
     pub(super) image_vertex_capacity: usize,
     pub(super) vertex_buffer_allocations: u64,

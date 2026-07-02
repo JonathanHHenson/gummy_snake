@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
 use crate::gpu::pipeline::{
-    clip_bind_group_layout, create_blend_ellipse_pipeline, create_erase_pipeline,
-    create_image_pipeline, create_image_pipeline_for_blend_mode, create_model_pipeline,
-    create_pipeline, create_pipeline_for_blend_mode, create_pixel_prefix_pipeline,
-    create_procedural_primitive_pipeline, create_textured_model_pipeline, model_bind_group_layout,
-    pixel_prefix_bind_group_layout, texture_bind_group_layout, viewport_bind_group_layout,
+    clip_bind_group_layout, create_blend_ellipse_pipeline, create_image_pipeline,
+    create_image_pipeline_for_blend_mode, create_model_pipeline, create_path_fill_erase_pipeline,
+    create_path_fill_pipeline, create_pipeline, create_pipeline_for_blend_mode,
+    create_pixel_prefix_pipeline, create_procedural_erase_pipeline,
+    create_procedural_primitive_pipeline, create_stroke_path_erase_pipeline,
+    create_stroke_path_pipeline, create_textured_model_pipeline, model_bind_group_layout,
+    pixel_prefix_bind_group_layout, stroke_path_bind_group_layout, texture_bind_group_layout,
+    viewport_bind_group_layout,
 };
 use crate::BlendMode;
 
@@ -16,10 +19,15 @@ pub(super) struct PipelineResources {
     pub(super) clip_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) model_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) pixel_prefix_bind_group_layout: wgpu::BindGroupLayout,
+    pub(super) stroke_path_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) pipeline: wgpu::RenderPipeline,
     pub(super) primitive_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) procedural_primitive_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
-    pub(super) erase_pipeline: wgpu::RenderPipeline,
+    pub(super) procedural_erase_pipeline: wgpu::RenderPipeline,
+    pub(super) stroke_path_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
+    pub(super) stroke_path_erase_pipeline: wgpu::RenderPipeline,
+    pub(super) path_fill_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
+    pub(super) path_fill_erase_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) model_pipeline: wgpu::RenderPipeline,
@@ -34,6 +42,7 @@ pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResour
     let image_bind_group_layout = texture_bind_group_layout(device);
     let clip_bind_group_layout = clip_bind_group_layout(device);
     let model_bind_group_layout = model_bind_group_layout(device);
+    let stroke_path_bind_group_layout = stroke_path_bind_group_layout(device);
     let pipeline = create_pipeline(
         device,
         &viewport_bind_group_layout,
@@ -70,10 +79,56 @@ pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResour
             )
         })
         .collect();
-    let erase_pipeline = create_erase_pipeline(
+    let procedural_erase_pipeline = create_procedural_erase_pipeline(
         device,
         &viewport_bind_group_layout,
         &clip_bind_group_layout,
+        wgpu::TextureFormat::Rgba8Unorm,
+    );
+    let stroke_path_pipelines = [BlendMode::Blend, BlendMode::Add, BlendMode::Replace]
+        .into_iter()
+        .map(|mode| {
+            (
+                mode,
+                create_stroke_path_pipeline(
+                    device,
+                    &viewport_bind_group_layout,
+                    &clip_bind_group_layout,
+                    &stroke_path_bind_group_layout,
+                    wgpu::TextureFormat::Rgba8Unorm,
+                    mode,
+                ),
+            )
+        })
+        .collect();
+    let stroke_path_erase_pipeline = create_stroke_path_erase_pipeline(
+        device,
+        &viewport_bind_group_layout,
+        &clip_bind_group_layout,
+        &stroke_path_bind_group_layout,
+        wgpu::TextureFormat::Rgba8Unorm,
+    );
+    let path_fill_pipelines = [BlendMode::Blend, BlendMode::Add, BlendMode::Replace]
+        .into_iter()
+        .map(|mode| {
+            (
+                mode,
+                create_path_fill_pipeline(
+                    device,
+                    &viewport_bind_group_layout,
+                    &clip_bind_group_layout,
+                    &stroke_path_bind_group_layout,
+                    wgpu::TextureFormat::Rgba8Unorm,
+                    mode,
+                ),
+            )
+        })
+        .collect();
+    let path_fill_erase_pipeline = create_path_fill_erase_pipeline(
+        device,
+        &viewport_bind_group_layout,
+        &clip_bind_group_layout,
+        &stroke_path_bind_group_layout,
         wgpu::TextureFormat::Rgba8Unorm,
     );
     let image_pipeline = create_image_pipeline(
@@ -129,10 +184,15 @@ pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResour
         clip_bind_group_layout,
         model_bind_group_layout,
         pixel_prefix_bind_group_layout,
+        stroke_path_bind_group_layout,
         pipeline,
         primitive_pipelines,
         procedural_primitive_pipelines,
-        erase_pipeline,
+        procedural_erase_pipeline,
+        stroke_path_pipelines,
+        stroke_path_erase_pipeline,
+        path_fill_pipelines,
+        path_fill_erase_pipeline,
         image_pipeline,
         image_pipelines,
         model_pipeline,

@@ -1,4 +1,4 @@
-use super::SketchContextState;
+use super::{CapturedPathSegment, SketchContextState};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
@@ -11,6 +11,7 @@ impl SketchContextState {
         self.shape_active = true;
         self.shape_vertices.clear();
         self.shape_contours.clear();
+        self.shape_path_segments.clear();
         self.contour_active = false;
         self.contour_vertices.clear();
         self.shape_kind = kind;
@@ -21,6 +22,7 @@ impl SketchContextState {
         self.shape_active = false;
         self.shape_vertices.clear();
         self.shape_contours.clear();
+        self.shape_path_segments.clear();
         self.contour_active = false;
         self.contour_vertices.clear();
         self.shape_kind = None;
@@ -35,6 +37,10 @@ impl SketchContextState {
         if self.contour_active {
             self.contour_vertices.push((x, y));
         } else {
+            if let Some(from) = self.shape_vertices.last().copied() {
+                self.shape_path_segments
+                    .push(CapturedPathSegment::Line { from, to: (x, y) });
+            }
             self.shape_vertices.push((x, y));
         }
         Ok(())
@@ -49,8 +55,80 @@ impl SketchContextState {
         if self.contour_active {
             self.contour_vertices.extend(vertices);
         } else {
-            self.shape_vertices.extend(vertices);
+            for (x, y) in vertices {
+                if let Some(from) = self.shape_vertices.last().copied() {
+                    self.shape_path_segments
+                        .push(CapturedPathSegment::Line { from, to: (x, y) });
+                }
+                self.shape_vertices.push((x, y));
+            }
         }
+        Ok(())
+    }
+
+    pub(super) fn add_quadratic_vertex_impl(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        x: f64,
+        y: f64,
+    ) -> PyResult<()> {
+        if !self.shape_active {
+            return Err(PyRuntimeError::new_err(
+                "quadratic_vertex() must be called between begin_shape() and end_shape().",
+            ));
+        }
+        if self.contour_active {
+            return Err(PyRuntimeError::new_err(
+                "quadratic_vertex() is not supported inside begin_contour().",
+            ));
+        }
+        let Some(from) = self.shape_vertices.last().copied() else {
+            return Err(PyRuntimeError::new_err(
+                "quadratic_vertex() requires an initial vertex().",
+            ));
+        };
+        self.shape_path_segments
+            .push(CapturedPathSegment::Quadratic {
+                from,
+                control: (cx, cy),
+                to: (x, y),
+            });
+        self.shape_vertices.push((x, y));
+        Ok(())
+    }
+
+    pub(super) fn add_cubic_vertex_impl(
+        &mut self,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+    ) -> PyResult<()> {
+        if !self.shape_active {
+            return Err(PyRuntimeError::new_err(
+                "bezier_vertex() must be called between begin_shape() and end_shape().",
+            ));
+        }
+        if self.contour_active {
+            return Err(PyRuntimeError::new_err(
+                "bezier_vertex() is not supported inside begin_contour().",
+            ));
+        }
+        let Some(from) = self.shape_vertices.last().copied() else {
+            return Err(PyRuntimeError::new_err(
+                "bezier_vertex() requires an initial vertex().",
+            ));
+        };
+        self.shape_path_segments.push(CapturedPathSegment::Cubic {
+            from,
+            control1: (x2, y2),
+            control2: (x3, y3),
+            to: (x4, y4),
+        });
+        self.shape_vertices.push((x4, y4));
         Ok(())
     }
 
@@ -140,10 +218,15 @@ impl SketchContextState {
         &self.shape_contours
     }
 
+    pub(crate) fn captured_shape_path_segments(&self) -> &[CapturedPathSegment] {
+        &self.shape_path_segments
+    }
+
     pub(crate) fn reset_captured_shape(&mut self) {
         self.shape_active = false;
         self.shape_vertices.clear();
         self.shape_contours.clear();
+        self.shape_path_segments.clear();
         self.contour_active = false;
         self.contour_vertices.clear();
         self.shape_kind = None;

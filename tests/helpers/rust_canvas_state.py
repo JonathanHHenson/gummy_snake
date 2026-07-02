@@ -162,6 +162,20 @@ class FakeSketchContextState:
         else:
             self._shape_vertices.append((x, y))
 
+    def add_quadratic_vertex(self, _cx: float, _cy: float, x: float, y: float) -> None:
+        self._shape_vertices.append((x, y))
+
+    def add_cubic_vertex(
+        self,
+        _x2: float,
+        _y2: float,
+        _x3: float,
+        _y3: float,
+        x4: float,
+        y4: float,
+    ) -> None:
+        self._shape_vertices.append((x4, y4))
+
     def extend_vertices(self, vertices: list[tuple[float, float]]) -> None:
         if self.contour_active:
             self._contour_vertices.extend(vertices)

@@ -19,10 +19,15 @@ fn gpu_path_renders_background_and_triangle_when_available() {
     }
 
     canvas.begin_frame();
-    canvas.background((255, 255, 255, 255));
+    canvas.background((255, 255, 255, 255)).unwrap();
     canvas
-        .draw_gpu_polygon(
-            &[(1.0, 1.0), (6.0, 1.0), (1.0, 6.0)],
+        .triangle_with_style(
+            1.0,
+            1.0,
+            6.0,
+            1.0,
+            1.0,
+            6.0,
             &Style {
                 fill: Some(Rgba {
                     r: 255,
@@ -44,8 +49,7 @@ fn gpu_path_renders_background_and_triangle_when_available() {
                 text_align_y: "baseline".to_string(),
                 text_leading: 14.0,
             },
-            true,
-            1.0,
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
         )
         .unwrap();
     canvas.end_frame();
@@ -58,73 +62,227 @@ fn gpu_path_renders_background_and_triangle_when_available() {
 }
 
 #[test]
-fn gpu_reuse_invalidates_when_clip_mask_changes() {
-    let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+fn gpu_closed_stroke_path_does_not_double_blend_at_corners() {
+    let mut canvas = Canvas::new(24, 24, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
     if !canvas.gpu_available() {
         return;
     }
 
     canvas.begin_frame();
-    canvas.background((255, 255, 255, 255));
+    canvas.background((0, 0, 0, 0)).unwrap();
     canvas
-        .begin_clip(
-            vec![(0.0, 0.0), (4.0, 0.0), (4.0, 8.0), (0.0, 8.0)],
-            vec![],
+        .rect_with_style(
+            4.0,
+            4.0,
+            16.0,
+            16.0,
+            &Style {
+                fill: None,
+                stroke: Some(Rgba {
+                    r: 255,
+                    g: 0,
+                    b: 0,
+                    a: 128,
+                }),
+                stroke_weight: 8.0,
+                image_tint: None,
+                blend_mode: BLEND_MODE_BLEND.to_string(),
+                blend_mode_kind: BlendMode::Blend,
+                erasing: false,
+                image_sampling: "linear".to_string(),
+                text_font_path: None,
+                text_font_name: "default".to_string(),
+                text_size: 12.0,
+                text_align_x: "left".to_string(),
+                text_align_y: "baseline".to_string(),
+                text_leading: 14.0,
+            },
             (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
         )
         .unwrap();
-    canvas.background((0, 0, 255, 255));
-    canvas.end_clip().unwrap();
     canvas.end_frame();
 
-    let first_frame = canvas.load_pixels();
-    let physical_width = canvas.physical_width;
-    let pixel = |pixels: &[u8], x: usize, y: usize| -> [u8; 4] {
-        let offset = (y * physical_width + x) * 4;
-        pixels[offset..offset + 4].try_into().unwrap()
+    let pixels = canvas.load_pixels();
+    let pixel = |x: usize, y: usize| {
+        let offset = (y * canvas.physical_width + x) * 4;
+        &pixels[offset..offset + 4]
     };
-    assert_eq!(pixel(&first_frame, 1, 4), [0, 0, 255, 255]);
-    assert_eq!(pixel(&first_frame, 6, 4), [255, 255, 255, 255]);
+    let corner_alpha = pixel(4, 4)[3];
+    let edge_alpha = pixel(12, 4)[3];
 
-    canvas.begin_frame();
-    canvas.background((255, 255, 255, 255));
-    canvas
-        .begin_clip(
-            vec![(4.0, 0.0), (8.0, 0.0), (8.0, 8.0), (4.0, 8.0)],
-            vec![],
-            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
-        )
-        .unwrap();
-    canvas.background((0, 0, 255, 255));
-    canvas.end_clip().unwrap();
-    canvas.end_frame();
-
-    let second_frame = canvas.load_pixels();
-    assert_eq!(pixel(&second_frame, 1, 4), [255, 255, 255, 255]);
-    assert_eq!(pixel(&second_frame, 6, 4), [0, 0, 255, 255]);
+    assert!(edge_alpha >= 120);
+    assert!(corner_alpha <= edge_alpha.saturating_add(8));
 }
 
 #[test]
-fn shaded_faces_cpu_fallback_preserves_face_color() {
-    let mut canvas = Canvas::new(8, 8, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
-    canvas.gpu = None;
-    let red = crate::gpu::GpuColor {
-        r: 255,
-        g: 0,
-        b: 0,
-        a: 255,
-    };
+fn gpu_arc_stroke_command_renders_without_cpu_chord_vertices() {
+    let mut canvas = Canvas::new(48, 48, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    if !canvas.gpu_available() {
+        return;
+    }
 
-    canvas.background((0, 0, 0, 255));
+    canvas.begin_frame();
+    canvas.background((0, 0, 0, 0)).unwrap();
     canvas
-        .draw_shaded_face_vertices_cpu(&[([1.0, 1.0], red), ([6.0, 1.0], red), ([1.0, 6.0], red)])
+        .draw_gpu_arc_stroke_with_matrix(
+            (24.0, 24.0),
+            (16.0, 12.0),
+            0.2,
+            5.3,
+            "pie",
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+            1.0,
+            5.0,
+            Rgba {
+                r: 0,
+                g: 120,
+                b: 255,
+                a: 255,
+            },
+            BlendMode::Blend,
+        )
         .unwrap();
+    canvas.end_frame();
 
     let pixels = canvas.load_pixels();
-    assert!(pixels.chunks_exact(4).any(|rgba| rgba == [255, 0, 0, 255]));
-    assert!(!pixels
+    assert!(pixels
         .chunks_exact(4)
-        .any(|rgba| rgba == [255, 255, 255, 255]));
+        .any(|rgba| rgba[2] > 180 && rgba[3] > 0));
+}
+
+#[test]
+fn gpu_arc_fill_command_renders_without_cpu_chord_vertices() {
+    let mut canvas = Canvas::new(48, 48, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    if !canvas.gpu_available() {
+        return;
+    }
+    let style = Style {
+        fill: Some(Rgba {
+            r: 0,
+            g: 120,
+            b: 255,
+            a: 255,
+        }),
+        stroke: None,
+        ..Style::default()
+    };
+
+    canvas.begin_frame();
+    canvas.background((0, 0, 0, 0)).unwrap();
+    canvas
+        .arc_with_style(
+            4.0,
+            4.0,
+            40.0,
+            40.0,
+            0.2,
+            5.3,
+            "pie",
+            &style,
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+        )
+        .unwrap();
+    canvas.end_frame();
+
+    let pixels = canvas.load_pixels();
+    assert!(pixels
+        .chunks_exact(4)
+        .any(|rgba| rgba[2] > 180 && rgba[3] > 0));
+}
+
+#[test]
+fn gpu_filled_curve_segment_path_renders_without_cpu_flattened_vertices() {
+    let mut canvas = Canvas::new(48, 48, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    if !canvas.gpu_available() {
+        return;
+    }
+
+    canvas.begin_frame();
+    canvas.background((0, 0, 0, 0)).unwrap();
+    canvas
+        .draw_gpu_path_fill_with_matrix(
+            &[
+                crate::sketch_state::CapturedPathSegment::Line {
+                    from: (8.0, 8.0),
+                    to: (34.0, 8.0),
+                },
+                crate::sketch_state::CapturedPathSegment::Quadratic {
+                    from: (34.0, 8.0),
+                    control: (42.0, 28.0),
+                    to: (22.0, 38.0),
+                },
+                crate::sketch_state::CapturedPathSegment::Cubic {
+                    from: (22.0, 38.0),
+                    control1: (16.0, 34.0),
+                    control2: (4.0, 28.0),
+                    to: (8.0, 8.0),
+                },
+            ],
+            &[(8.0, 8.0), (34.0, 8.0), (22.0, 38.0), (8.0, 8.0)],
+            true,
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+            1.0,
+            Rgba {
+                r: 0,
+                g: 120,
+                b: 255,
+                a: 255,
+            },
+            BlendMode::Blend,
+        )
+        .unwrap();
+    canvas.end_frame();
+
+    let pixels = canvas.load_pixels();
+    assert!(pixels
+        .chunks_exact(4)
+        .any(|rgba| rgba[2] > 180 && rgba[3] > 0));
+}
+
+#[test]
+fn gpu_captured_curve_segment_path_renders_without_cpu_flattened_vertices() {
+    let mut canvas = Canvas::new(48, 48, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    if !canvas.gpu_available() {
+        return;
+    }
+
+    canvas.begin_frame();
+    canvas.background((0, 0, 0, 0)).unwrap();
+    canvas
+        .draw_gpu_path_segments_with_matrix(
+            &[
+                crate::sketch_state::CapturedPathSegment::Quadratic {
+                    from: (6.0, 34.0),
+                    control: (18.0, 8.0),
+                    to: (28.0, 28.0),
+                },
+                crate::sketch_state::CapturedPathSegment::Cubic {
+                    from: (28.0, 28.0),
+                    control1: (34.0, 44.0),
+                    control2: (42.0, 8.0),
+                    to: (44.0, 18.0),
+                },
+            ],
+            &[(6.0, 34.0), (28.0, 28.0), (44.0, 18.0)],
+            false,
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+            1.0,
+            5.0,
+            Rgba {
+                r: 0,
+                g: 120,
+                b: 255,
+                a: 255,
+            },
+            BlendMode::Blend,
+        )
+        .unwrap();
+    canvas.end_frame();
+
+    let pixels = canvas.load_pixels();
+    assert!(pixels
+        .chunks_exact(4)
+        .any(|rgba| rgba[2] > 180 && rgba[3] > 0));
 }
 
 #[test]
@@ -135,7 +293,7 @@ fn gpu_primitives_after_image_commands_are_rendered() {
     }
 
     canvas.begin_frame();
-    canvas.background((0, 0, 0, 255));
+    canvas.background((0, 0, 0, 255)).unwrap();
     if let Some(gpu) = canvas.gpu.as_mut() {
         let white = crate::gpu::GpuColor {
             r: 255,
@@ -167,8 +325,13 @@ fn gpu_primitives_after_image_commands_are_rendered() {
         );
     }
     canvas
-        .draw_gpu_polygon(
-            &[(4.0, 4.0), (7.0, 4.0), (4.0, 7.0)],
+        .triangle_with_style(
+            4.0,
+            4.0,
+            7.0,
+            4.0,
+            4.0,
+            7.0,
             &Style {
                 fill: Some(Rgba {
                     r: 0,
@@ -190,8 +353,7 @@ fn gpu_primitives_after_image_commands_are_rendered() {
                 text_align_y: "baseline".to_string(),
                 text_leading: 14.0,
             },
-            true,
-            1.0,
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
         )
         .unwrap();
     canvas.end_frame();
@@ -202,15 +364,17 @@ fn gpu_primitives_after_image_commands_are_rendered() {
 }
 
 #[test]
-fn stale_cpu_pixels_upload_to_gpu_texture_without_pending_draws() {
+fn full_pixel_upload_to_gpu_texture_without_pending_draws() {
     let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
     if !canvas.gpu_available() {
         return;
     }
 
-    canvas.background((0, 0, 0, 255));
+    canvas.background((0, 0, 0, 255)).unwrap();
     canvas.render_gpu_frame(true);
-    canvas.set_pixel_rgba(1, 0, (10, 20, 30, 255)).unwrap();
+    canvas
+        .update_pixels(vec![0, 0, 0, 255, 10, 20, 30, 255])
+        .unwrap();
 
     assert!(canvas.texture_stale);
     assert!(canvas.render_dirty);

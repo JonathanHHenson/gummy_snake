@@ -15,7 +15,6 @@ mod primitives;
 mod project;
 mod py_faces;
 mod rasterize;
-mod triangles;
 mod types;
 
 pub(crate) use self::gpu::{model_gpu_buffers, model_gpu_uniform, model_gpu_uniforms};
@@ -28,17 +27,3 @@ pub(crate) use self::model_factory::{
 };
 pub(crate) use self::py_faces::{project_shade_faces, project_shade_model_handle};
 pub(crate) use self::rasterize::rasterize_faces_rgba;
-pub(crate) use self::triangles::{
-    model_handle_shaded_triangles_with_depth, model_handle_textured_triangles_with_depth,
-};
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct ShadedTriangle {
-    pub(crate) depth: f64,
-    pub(crate) vertices: [([f32; 2], crate::gpu::GpuColor); 3],
-}
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct TexturedTriangle {
-    pub(crate) vertices: [([f32; 2], [f32; 2], crate::gpu::GpuColor); 3],
-}

@@ -94,36 +94,6 @@ pub(crate) fn alpha_composite_rgba_region(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn replace_rgba_region(
-    dst: &mut [u8],
-    dst_width: usize,
-    dst_height: usize,
-    src: &[u8],
-    src_width: usize,
-    src_height: usize,
-    dx: i64,
-    dy: i64,
-) {
-    let dst_x0 = dx.max(0).min(dst_width as i64) as usize;
-    let dst_y0 = dy.max(0).min(dst_height as i64) as usize;
-    let dst_x1 = (dx + src_width as i64).max(0).min(dst_width as i64) as usize;
-    let dst_y1 = (dy + src_height as i64).max(0).min(dst_height as i64) as usize;
-    if dst_x0 >= dst_x1 || dst_y0 >= dst_y1 {
-        return;
-    }
-    let row_pixels = dst_x1 - dst_x0;
-    let row_bytes = row_pixels * 4;
-    for ty in dst_y0..dst_y1 {
-        let src_y = (ty as i64 - dy) as usize;
-        let src_x = (dst_x0 as i64 - dx) as usize;
-        let src_offset = (src_y * src_width + src_x) * 4;
-        let dst_offset = (ty * dst_width + dst_x0) * 4;
-        dst[dst_offset..dst_offset + row_bytes]
-            .copy_from_slice(&src[src_offset..src_offset + row_bytes]);
-    }
-}
-
 pub(crate) fn apply_rgba_mask(
     pixels: &mut [u8],
     width: usize,

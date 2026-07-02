@@ -8,7 +8,7 @@ fn gpu_erase_preserves_destination_rgb_and_clears_alpha() {
     }
 
     canvas.begin_frame();
-    canvas.background((100, 120, 140, 255));
+    canvas.background((100, 120, 140, 255)).unwrap();
     canvas
         .draw_gpu_axis_aligned_ellipse(
             4.0,
@@ -54,10 +54,13 @@ fn gpu_erase_after_overlay_reveals_background_rgb() {
     }
 
     canvas.begin_frame();
-    canvas.background((28, 32, 42, 255));
+    canvas.background((28, 32, 42, 255)).unwrap();
     canvas
-        .draw_gpu_polygon(
-            &[(1.0, 1.0), (7.0, 1.0), (7.0, 7.0), (1.0, 7.0)],
+        .rect_with_style(
+            1.0,
+            1.0,
+            6.0,
+            6.0,
             &Style {
                 fill: Some(Rgba {
                     r: 255,
@@ -79,8 +82,7 @@ fn gpu_erase_after_overlay_reveals_background_rgb() {
                 text_align_y: "baseline".to_string(),
                 text_leading: 14.0,
             },
-            true,
-            1.0,
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
         )
         .unwrap();
     canvas
@@ -128,16 +130,21 @@ fn gpu_overlay_after_cpu_upload_does_not_replay_previous_clear() {
     }
 
     canvas.begin_frame();
-    canvas.background((255, 255, 255, 255));
+    canvas.background((255, 255, 255, 255)).unwrap();
     canvas.render_gpu_frame(true);
 
     let preserved_pixel_offset = (7 * canvas.physical_width + 7) * 4;
-    canvas.pixels[preserved_pixel_offset..preserved_pixel_offset + 4]
-        .copy_from_slice(&[255, 0, 0, 255]);
-    canvas.upload_cpu_pixels().unwrap();
+    let mut pixels = canvas.pixels.clone();
+    pixels[preserved_pixel_offset..preserved_pixel_offset + 4].copy_from_slice(&[255, 0, 0, 255]);
+    canvas.update_pixels(pixels).unwrap();
     canvas
-        .draw_gpu_polygon(
-            &[(1.0, 1.0), (3.0, 1.0), (1.0, 3.0)],
+        .triangle_with_style(
+            1.0,
+            1.0,
+            3.0,
+            1.0,
+            1.0,
+            3.0,
             &Style {
                 fill: Some(Rgba {
                     r: 0,
@@ -159,8 +166,7 @@ fn gpu_overlay_after_cpu_upload_does_not_replay_previous_clear() {
                 text_align_y: "baseline".to_string(),
                 text_leading: 14.0,
             },
-            true,
-            1.0,
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
         )
         .unwrap();
     canvas.end_frame();

@@ -25,27 +25,19 @@ mod bindings;
 pub(crate) use bindings::{health_check, native_window_available};
 
 pub(crate) use assets::{CachedImage, CachedText, CachedTextMetrics, CanvasImage};
-pub(crate) use canvas_state::{Canvas, Pending3dTriangle};
+pub(crate) use canvas_state::Canvas;
 pub(crate) use sound::CanvasSound;
 pub(crate) use types::{BlendMode, Matrix2D, Rgba, Style};
 
 use canvas::cache::{ImageCache, TextCache, TextureCache};
-use images::{
-    alpha_composite_rgba_region, crop_rgba_with_padding, filter_rgba, replace_rgba_region,
-    validate_rgba_buffer,
-};
+use images::{crop_rgba_with_padding, validate_rgba_buffer};
 use performance::PerformanceCounters;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
 use raster::{
-    affine_bounds, axis_aligned_image_destination, blit_affine_region, blit_scaled_region,
-    clipped_bounds, clipped_dest_rect, clipped_source_rect, draw_axis_aligned_ellipse,
-    draw_polygon_overlay, draw_polyline_stroke, ellipse_bounds, fill_axis_aligned_ellipse,
-    fill_disc, fill_even_odd_polygon, fill_rgba_buffer, for_even_odd_spans, image_to_canvas_matrix,
-    matrix_determinant, matrix_inverse, matrix_transform_point, point_to_f32, polygon_is_convex,
-    push_triangle, rasterize_even_odd_mask, rgba_to_present_pixel, scale_rect, stroke_segment,
-    stroke_width, Matrix, OverlayRegion, Point,
+    clipped_source_rect, image_to_canvas_matrix, matrix_determinant, matrix_transform_point,
+    point_to_f32, polygon_is_convex, rgba_to_present_pixel, stroke_width, Matrix, Point,
 };
 use runtime::{
     native_window_available as runtime_native_window_available, InteractiveRuntime,

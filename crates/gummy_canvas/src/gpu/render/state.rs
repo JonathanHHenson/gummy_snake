@@ -40,7 +40,7 @@ impl GpuRenderer {
     fn retained_render_bytes(&self) -> u64 {
         ((self.primitive_vertex_capacity * std::mem::size_of::<Vertex>())
             + (self.procedural_primitive_capacity * std::mem::size_of::<PrimitiveInstance>())
-            + (self.erase_vertex_capacity * std::mem::size_of::<Vertex>())
+            + (self.stroke_path_record_capacity * std::mem::size_of::<StrokePathRecord>())
             + (self.image_vertex_capacity * std::mem::size_of::<ImageVertex>())) as u64
     }
 
@@ -56,8 +56,7 @@ impl GpuRenderer {
         for command in &self.commands {
             match command {
                 DrawCommand::Clear(color) => clear = Some(*color),
-                DrawCommand::Triangles { vertices, .. }
-                | DrawCommand::EraseTriangles { vertices, .. } => {
+                DrawCommand::Triangles { vertices, .. } => {
                     if !vertices.is_empty() {
                         return None;
                     }
@@ -70,8 +69,17 @@ impl GpuRenderer {
                         return None;
                     }
                 }
-                DrawCommand::PrimitiveInstances { instances, .. } => {
+                DrawCommand::PrimitiveInstances { instances, .. }
+                | DrawCommand::ErasePrimitiveInstances { instances, .. } => {
                     if !instances.is_empty() {
+                        return None;
+                    }
+                }
+                DrawCommand::StrokePath { records, .. }
+                | DrawCommand::FillPath { records, .. }
+                | DrawCommand::EraseStrokePath { records, .. }
+                | DrawCommand::EraseFillPath { records, .. } => {
+                    if !records.is_empty() {
                         return None;
                     }
                 }
@@ -83,8 +91,7 @@ impl GpuRenderer {
                         return None;
                     }
                 }
-                DrawCommand::Ellipse { .. }
-                | DrawCommand::BlendEllipse { .. }
+                DrawCommand::BlendEllipse { .. }
                 | DrawCommand::PixelPrefix { .. }
                 | DrawCommand::Model { .. }
                 | DrawCommand::ModelInstances { .. }
@@ -94,10 +101,6 @@ impl GpuRenderer {
             }
         }
         clear
-    }
-
-    pub fn pending_commands(&self) -> &[DrawCommand] {
-        &self.commands
     }
 
     pub fn can_append_glyphon_text_command(&self) -> bool {

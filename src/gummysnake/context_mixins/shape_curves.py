@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from gummysnake import constants as c
 from gummysnake.context_mixins._protocols import SketchContextHost
-from gummysnake.core.geometry import flatten_cubic, flatten_spline
 from gummysnake.core.geometry import spline_point as geometry_spline_point
 from gummysnake.core.geometry import spline_tangent as geometry_spline_tangent
 from gummysnake.exceptions import ArgumentValidationError
@@ -23,7 +23,7 @@ def spline(
     y4: float,
 ) -> None:
     """Spline.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         x1: The x1 value. Expected type: `float`.
@@ -34,7 +34,7 @@ def spline(
         y3: The y3 value. Expected type: `float`.
         x4: The x4 value. Expected type: `float`.
         y4: The y4 value. Expected type: `float`.
-    
+
     Returns:
         None.
     """
@@ -42,22 +42,25 @@ def spline(
     p1 = (float(x2), float(y2))
     p2 = (float(x3), float(y3))
     p3 = (float(x4), float(y4))
+    scale = (1.0 - ctx._spline_tightness) / 2.0
+    control1 = (p1[0] + (p2[0] - p0[0]) * scale / 3.0, p1[1] + (p2[1] - p0[1]) * scale / 3.0)
+    control2 = (p2[0] - (p3[0] - p1[0]) * scale / 3.0, p2[1] - (p3[1] - p1[1]) * scale / 3.0)
     previous_fill = ctx.state.style.fill_color
     ctx.state.style.fill_color = None
     cast(SketchContextHost, ctx)._mark_style_changed()
-    ctx.renderer.polygon(
-        [p1, *flatten_spline(p0, p1, p2, p3, tightness=ctx._spline_tightness)],
-        ctx.state.style,
-        ctx.state.transform.matrix,
-        close=False,
-    )
-    ctx.state.style.fill_color = previous_fill
-    cast(SketchContextHost, ctx)._mark_style_changed()
+    try:
+        ctx.begin_shape()
+        ctx.vertex(*p1)
+        ctx.bezier_vertex(control1[0], control1[1], control2[0], control2[1], p2[0], p2[1])
+        ctx.end_shape(c.OPEN)
+    finally:
+        ctx.state.style.fill_color = previous_fill
+        cast(SketchContextHost, ctx)._mark_style_changed()
 
 
 def spline_point(ctx: Any, a: float, b: float, cc: float, d: float, t: float) -> float:
     """Spline point.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         a: The a value. Expected type: `float`.
@@ -65,7 +68,7 @@ def spline_point(ctx: Any, a: float, b: float, cc: float, d: float, t: float) ->
         cc: The cc value. Expected type: `float`.
         d: The d value. Expected type: `float`.
         t: The t value. Expected type: `float`.
-    
+
     Returns:
         The return value. Type: `float`.
     """
@@ -76,7 +79,7 @@ def spline_point(ctx: Any, a: float, b: float, cc: float, d: float, t: float) ->
 
 def spline_tangent(ctx: Any, a: float, b: float, cc: float, d: float, t: float) -> float:
     """Spline tangent.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         a: The a value. Expected type: `float`.
@@ -84,7 +87,7 @@ def spline_tangent(ctx: Any, a: float, b: float, cc: float, d: float, t: float) 
         cc: The cc value. Expected type: `float`.
         d: The d value. Expected type: `float`.
         t: The t value. Expected type: `float`.
-    
+
     Returns:
         The return value. Type: `float`.
     """
@@ -95,12 +98,12 @@ def spline_tangent(ctx: Any, a: float, b: float, cc: float, d: float, t: float) 
 
 def spline_property(ctx: Any, name: str, value: float | None = None) -> float:
     """Spline property.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         name: The name value. Expected type: `str`.
         value: The value value. Expected type: `float | None`. Defaults to `None`.
-    
+
     Returns:
         The return value. Type: `float`.
     """
@@ -113,11 +116,11 @@ def spline_property(ctx: Any, name: str, value: float | None = None) -> float:
 
 def spline_properties(ctx: Any, **properties: float) -> dict[str, float]:
     """Spline properties.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         **properties: Additional keyword arguments. Expected type: `float`.
-    
+
     Returns:
         The return value. Type: `dict[str, float]`.
     """
@@ -138,7 +141,7 @@ def bezier(
     y4: float,
 ) -> None:
     """Bezier.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         x1: The x1 value. Expected type: `float`.
@@ -149,7 +152,7 @@ def bezier(
         y3: The y3 value. Expected type: `float`.
         x4: The x4 value. Expected type: `float`.
         y4: The y4 value. Expected type: `float`.
-    
+
     Returns:
         None.
     """
@@ -160,11 +163,11 @@ def bezier(
     previous_fill = ctx.state.style.fill_color
     ctx.state.style.fill_color = None
     cast(SketchContextHost, ctx)._mark_style_changed()
-    ctx.renderer.polygon(
-        [p0, *flatten_cubic(p0, p1, p2, p3)],
-        ctx.state.style,
-        ctx.state.transform.matrix,
-        close=False,
-    )
-    ctx.state.style.fill_color = previous_fill
-    cast(SketchContextHost, ctx)._mark_style_changed()
+    try:
+        ctx.begin_shape()
+        ctx.vertex(*p0)
+        ctx.bezier_vertex(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1])
+        ctx.end_shape(c.OPEN)
+    finally:
+        ctx.state.style.fill_color = previous_fill
+        cast(SketchContextHost, ctx)._mark_style_changed()

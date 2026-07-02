@@ -50,7 +50,8 @@ impl Canvas {
         }
         validate_rgba_buffer(image_pixels.len(), image_width, image_height)?;
         let source = source.unwrap_or((0, 0, image_width as i64, image_height as i64));
-        let Some((sx, sy, sw, sh)) = clipped_source_rect(source, image_width, image_height) else {
+        let Some((_sx, _sy, sw, sh)) = clipped_source_rect(source, image_width, image_height)
+        else {
             return Ok(());
         };
         let image_to_canvas =
@@ -58,78 +59,7 @@ impl Canvas {
         if matrix_determinant(image_to_canvas).abs() <= f64::EPSILON {
             return Ok(());
         }
-        let tinted_pixels;
-        let source_pixels = if let Some(tint) = style.image_tint {
-            tinted_pixels = tint_rgba_pixels(image_pixels, tint);
-            tinted_pixels.as_slice()
-        } else {
-            image_pixels
-        };
-        if let Some((dest_x, dest_y, dest_w, dest_h)) = axis_aligned_image_destination(
-            image_to_canvas,
-            sw,
-            sh,
-            self.physical_width,
-            self.physical_height,
-        ) {
-            self.prepare_cpu_composite();
-            blit_scaled_region(
-                &mut self.pixels,
-                &mut self.present_pixels,
-                self.physical_width,
-                source_pixels,
-                image_width,
-                sx,
-                sy,
-                sw,
-                sh,
-                dest_x,
-                dest_y,
-                dest_w,
-                dest_h,
-                style.erasing,
-                &style.blend_mode,
-                &style.image_sampling,
-                self.clip_masks.last().map(Vec::as_slice),
-            );
-            self.upload_cpu_pixels()?;
-            return Ok(());
-        }
-        let Some((dest_x, dest_y, dest_w, dest_h)) = affine_bounds(
-            image_to_canvas,
-            sw,
-            sh,
-            self.physical_width,
-            self.physical_height,
-        ) else {
-            return Ok(());
-        };
-        let canvas_to_image = matrix_inverse(image_to_canvas).ok_or_else(|| {
-            PyValueError::new_err("Image transform is not invertible for gummy_canvas.")
-        })?;
-        self.prepare_cpu_composite();
-        blit_affine_region(
-            &mut self.pixels,
-            &mut self.present_pixels,
-            self.physical_width,
-            source_pixels,
-            image_width,
-            sx,
-            sy,
-            sw,
-            sh,
-            dest_x,
-            dest_y,
-            dest_w,
-            dest_h,
-            canvas_to_image,
-            style.erasing,
-            &style.blend_mode,
-            &style.image_sampling,
-            self.clip_masks.last().map(Vec::as_slice),
-        );
-        self.upload_cpu_pixels()?;
-        Ok(())
+        self.prepare_cpu_composite()
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -249,23 +179,4 @@ impl Canvas {
         }
         Ok(false)
     }
-
-    pub(crate) fn transform_point(&self, matrix: Matrix, x: f64, y: f64) -> Point {
-        let (a, b, c, d, e, f) = matrix;
-        (
-            (a * x + c * y + e) * self.pixel_density,
-            (b * x + d * y + f) * self.pixel_density,
-        )
-    }
-}
-
-fn tint_rgba_pixels(pixels: &[u8], tint: Rgba) -> Vec<u8> {
-    let mut tinted = pixels.to_vec();
-    for pixel in tinted.chunks_exact_mut(4) {
-        pixel[0] = ((u16::from(pixel[0]) * u16::from(tint.r)) / 255) as u8;
-        pixel[1] = ((u16::from(pixel[1]) * u16::from(tint.g)) / 255) as u8;
-        pixel[2] = ((u16::from(pixel[2]) * u16::from(tint.b)) / 255) as u8;
-        pixel[3] = ((u16::from(pixel[3]) * u16::from(tint.a)) / 255) as u8;
-    }
-    tinted
 }

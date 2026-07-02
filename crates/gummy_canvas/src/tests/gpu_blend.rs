@@ -8,7 +8,7 @@ fn gpu_multiply_ellipse_blends_against_destination_texture() {
     }
 
     canvas.begin_frame();
-    canvas.background((100, 100, 100, 255));
+    canvas.background((100, 100, 100, 255)).unwrap();
     canvas
         .draw_gpu_blend_ellipse(
             4.0,
@@ -70,7 +70,7 @@ fn gpu_multiple_blend_ellipses_keep_distinct_uniforms() {
     };
 
     canvas.begin_frame();
-    canvas.background((28, 32, 42, 255));
+    canvas.background((28, 32, 42, 255)).unwrap();
     canvas
         .draw_gpu_blend_ellipse(
             40.0,

@@ -43,7 +43,7 @@ impl Canvas {
         &mut self,
         x: i64,
         y: i64,
-        rgba: (u8, u8, u8, u8),
+        _rgba: (u8, u8, u8, u8),
     ) -> PyResult<()> {
         if let Some(runtime) = self.runtime.as_mut() {
             let _ = runtime.pump_events();
@@ -54,14 +54,7 @@ impl Canvas {
         if x < 0 || y < 0 || x >= self.physical_width as i64 || y >= self.physical_height as i64 {
             return Ok(());
         }
-        self.prepare_cpu_composite();
-        let pixel_index = y as usize * self.physical_width + x as usize;
-        let offset = pixel_index * 4;
-        let color = [rgba.0, rgba.1, rgba.2, rgba.3];
-        self.pixels[offset..offset + 4].copy_from_slice(&color);
-        self.present_pixels[pixel_index] = rgba_to_present_pixel(&color);
-        self.mark_cpu_pixels_uploaded();
-        Ok(())
+        self.prepare_cpu_composite()
     }
 
     pub(crate) fn update_pixel_region_impl(
@@ -97,40 +90,12 @@ impl Canvas {
         pixels: &[u8],
         width: usize,
         height: usize,
-        x: i64,
-        y: i64,
-        alpha_composite: bool,
+        _x: i64,
+        _y: i64,
+        _alpha_composite: bool,
     ) -> PyResult<()> {
         validate_rgba_buffer(pixels.len(), width, height)?;
-        self.performance_counters.pixel_uploads += 1;
-        self.performance_counters.pixel_region_uploads += 1;
-        self.prepare_cpu_composite();
-        if alpha_composite {
-            alpha_composite_rgba_region(
-                &mut self.pixels,
-                self.physical_width,
-                self.physical_height,
-                &pixels,
-                width,
-                height,
-                x,
-                y,
-            );
-        } else {
-            replace_rgba_region(
-                &mut self.pixels,
-                self.physical_width,
-                self.physical_height,
-                &pixels,
-                width,
-                height,
-                x,
-                y,
-            );
-        }
-        self.sync_present_pixel_region(x, y, width, height);
-        self.upload_cpu_pixels()?;
-        Ok(())
+        self.prepare_cpu_composite()
     }
 
     pub(crate) fn adjust_pixel_prefix_impl(
@@ -148,8 +113,6 @@ impl Canvas {
         if pixel_count == 0 {
             return Ok(());
         }
-        let region_width = pixel_count.min(self.physical_width);
-        let region_height = pixel_count.div_ceil(self.physical_width);
         if self.gpu.is_some() {
             if self.texture_stale {
                 self.upload_stale_texture(false)?;
@@ -165,44 +128,7 @@ impl Canvas {
                 return Ok(());
             }
         }
-        if self.pixels_stale {
-            self.read_gpu_pixels();
-        }
-        let mut region = crop_rgba_with_padding(
-            &self.pixels,
-            self.physical_width,
-            self.physical_height,
-            0,
-            0,
-            region_width,
-            region_height,
-        );
-        for offset in (0..byte_limit.min(region.len())).step_by(stride) {
-            region[offset] = (i16::from(region[offset]) + red_delta).rem_euclid(256) as u8;
-            if offset + 1 < region.len() {
-                region[offset + 1] =
-                    (i16::from(region[offset + 1]) + green_delta).rem_euclid(256) as u8;
-            }
-        }
-        self.update_pixel_region_impl(region, region_width, region_height, 0, 0, false)
-    }
-    fn sync_present_pixel_region(&mut self, x: i64, y: i64, width: usize, height: usize) {
-        let start_x = x.max(0) as usize;
-        let start_y = y.max(0) as usize;
-        let end_x = ((x + width as i64).max(0) as usize).min(self.physical_width);
-        let end_y = ((y + height as i64).max(0) as usize).min(self.physical_height);
-        if start_x >= end_x || start_y >= end_y {
-            return;
-        }
-        for row in start_y..end_y {
-            let pixel_start = row * self.physical_width + start_x;
-            let pixel_end = row * self.physical_width + end_x;
-            for index in pixel_start..pixel_end {
-                let offset = index * 4;
-                self.present_pixels[index] =
-                    rgba_to_present_pixel(&self.pixels[offset..offset + 4]);
-            }
-        }
+        self.prepare_cpu_composite()
     }
 }
 

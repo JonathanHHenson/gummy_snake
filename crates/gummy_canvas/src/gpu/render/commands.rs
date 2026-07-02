@@ -77,6 +77,26 @@ impl GpuRenderer {
         }
     }
 
+    pub fn draw_stroke_path(&mut self, records: Vec<StrokePathRecord>, blend_mode: BlendMode) {
+        if !records.is_empty() {
+            self.commands.push(DrawCommand::StrokePath {
+                records,
+                blend_mode,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
+    pub fn draw_fill_path(&mut self, records: Vec<StrokePathRecord>, blend_mode: BlendMode) {
+        if !records.is_empty() {
+            self.commands.push(DrawCommand::FillPath {
+                records,
+                blend_mode,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
     pub fn ensure_model_mesh(
         &mut self,
         key: u64,
@@ -188,28 +208,6 @@ impl GpuRenderer {
         }
     }
 
-    pub fn draw_filled_ellipse(
-        &mut self,
-        cx: f32,
-        cy: f32,
-        rx: f32,
-        ry: f32,
-        color: GpuColor,
-        blend_mode: BlendMode,
-    ) {
-        if rx > 0.0 && ry > 0.0 {
-            self.commands.push(DrawCommand::Ellipse {
-                cx,
-                cy,
-                rx,
-                ry,
-                color,
-                blend_mode,
-                clip_id: self.current_clip_id,
-            });
-        }
-    }
-
     pub fn draw_blend_ellipse(
         &mut self,
         cx: f32,
@@ -248,10 +246,28 @@ impl GpuRenderer {
         }
     }
 
-    pub fn draw_erase_triangles(&mut self, vertices: Vec<([f32; 2], GpuColor)>) {
-        if !vertices.is_empty() {
-            self.commands.push(DrawCommand::EraseTriangles {
-                vertices,
+    pub fn draw_erase_primitive_instances(&mut self, instances: Vec<PrimitiveInstance>) {
+        if !instances.is_empty() {
+            self.commands.push(DrawCommand::ErasePrimitiveInstances {
+                instances,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
+    pub fn draw_erase_stroke_path(&mut self, records: Vec<StrokePathRecord>) {
+        if !records.is_empty() {
+            self.commands.push(DrawCommand::EraseStrokePath {
+                records,
+                clip_id: self.current_clip_id,
+            });
+        }
+    }
+
+    pub fn draw_erase_fill_path(&mut self, records: Vec<StrokePathRecord>) {
+        if !records.is_empty() {
+            self.commands.push(DrawCommand::EraseFillPath {
+                records,
                 clip_id: self.current_clip_id,
             });
         }

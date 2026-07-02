@@ -166,10 +166,6 @@ impl Rgba {
             a: tuple.3,
         }
     }
-
-    pub(crate) fn as_array(self) -> [u8; 4] {
-        [self.r, self.g, self.b, self.a]
-    }
 }
 
 #[derive(Clone, Debug)]

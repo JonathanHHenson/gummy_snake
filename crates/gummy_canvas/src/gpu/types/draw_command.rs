@@ -1,6 +1,6 @@
 use super::{
     GpuColor, ImageVertex, ModelUniform, PrimitiveInstance, RetainedPrimitiveInstances,
-    RetainedTriangleVertices,
+    RetainedTriangleVertices, StrokePathRecord,
 };
 use crate::BlendMode;
 
@@ -27,15 +27,17 @@ pub enum DrawCommand {
         blend_mode: BlendMode,
         clip_id: usize,
     },
-    Ellipse {
-        cx: f32,
-        cy: f32,
-        rx: f32,
-        ry: f32,
-        color: GpuColor,
+    StrokePath {
+        records: Vec<StrokePathRecord>,
         blend_mode: BlendMode,
         clip_id: usize,
     },
+    FillPath {
+        records: Vec<StrokePathRecord>,
+        blend_mode: BlendMode,
+        clip_id: usize,
+    },
+
     BlendEllipse {
         cx: f32,
         cy: f32,
@@ -50,8 +52,17 @@ pub enum DrawCommand {
         red_delta: i32,
         green_delta: i32,
     },
-    EraseTriangles {
-        vertices: Vec<([f32; 2], GpuColor)>,
+
+    ErasePrimitiveInstances {
+        instances: Vec<PrimitiveInstance>,
+        clip_id: usize,
+    },
+    EraseStrokePath {
+        records: Vec<StrokePathRecord>,
+        clip_id: usize,
+    },
+    EraseFillPath {
+        records: Vec<StrokePathRecord>,
         clip_id: usize,
     },
     Image {

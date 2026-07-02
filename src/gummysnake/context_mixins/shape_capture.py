@@ -7,17 +7,16 @@ from contextlib import contextmanager
 from typing import Any
 
 from gummysnake import constants as c
-from gummysnake.core.geometry import flatten_cubic, flatten_quadratic, flatten_spline
 from gummysnake.exceptions import ArgumentValidationError
 
 
 def begin_shape(ctx: Any, kind: c.ShapeKind | None = None) -> None:
     """Begin shape.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         kind: The kind value. Expected type: `c.ShapeKind | None`. Defaults to `None`.
-    
+
     Returns:
         None.
     """
@@ -28,10 +27,10 @@ def begin_shape(ctx: Any, kind: c.ShapeKind | None = None) -> None:
 
 def reset_shape_capture(ctx: Any) -> None:
     """Reset shape capture.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -40,10 +39,10 @@ def reset_shape_capture(ctx: Any) -> None:
 
 def active_shape_vertices(ctx: Any) -> list[tuple[float, float]]:
     """Active shape vertices.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         The return value. Type: `list[tuple[float, float]]`.
     """
@@ -52,11 +51,11 @@ def active_shape_vertices(ctx: Any) -> list[tuple[float, float]]:
 
 def extend_shape_vertices(ctx: Any, vertices: list[tuple[float, float]]) -> None:
     """Extend shape vertices.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         vertices: The vertices value. Expected type: `list[tuple[float, float]]`.
-    
+
     Returns:
         None.
     """
@@ -68,12 +67,12 @@ def shape(
     ctx: Any, mode: c.ArcMode = c.OPEN, *, kind: c.ShapeKind | None = None
 ) -> Generator[None]:
     """Shape.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         mode: The mode value. Expected type: `c.ArcMode`. Defaults to `c.OPEN`.
         kind: The kind value. Expected type: `c.ShapeKind | None`. Defaults to `None`.
-    
+
     Returns:
         The return value. Type: `Generator[None]`.
     """
@@ -90,12 +89,12 @@ def shape(
 
 def vertex(ctx: Any, x: float, y: float) -> None:
     """Vertex.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         x: The x value. Expected type: `float`.
         y: The y value. Expected type: `float`.
-    
+
     Returns:
         None.
     """
@@ -110,7 +109,7 @@ def bezier_vertex(
     ctx: Any, x2: float, y2: float, x3: float, y3: float, x4: float, y4: float
 ) -> None:
     """Bezier vertex.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         x2: The x2 value. Expected type: `float`.
@@ -119,45 +118,47 @@ def bezier_vertex(
         y3: The y3 value. Expected type: `float`.
         x4: The x4 value. Expected type: `float`.
         y4: The y4 value. Expected type: `float`.
-    
+
     Returns:
         None.
     """
-    vertices = ctx._active_shape_vertices()
-    if not vertices:
-        raise ArgumentValidationError("bezier_vertex() requires an initial vertex().")
-    p0 = vertices[-1]
-    ctx._extend_shape_vertices(flatten_cubic(p0, (x2, y2), (x3, y3), (x4, y4)))
+    if not ctx.state.rust.shape_active:
+        raise ArgumentValidationError(
+            "bezier_vertex() must be called between begin_shape() and end_shape()."
+        )
+    ctx.state.rust.add_cubic_vertex(
+        float(x2), float(y2), float(x3), float(y3), float(x4), float(y4)
+    )
 
 
 def quadratic_vertex(ctx: Any, cx: float, cy: float, x3: float, y3: float) -> None:
     """Quadratic vertex.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         cx: The cx value. Expected type: `float`.
         cy: The cy value. Expected type: `float`.
         x3: The x3 value. Expected type: `float`.
         y3: The y3 value. Expected type: `float`.
-    
+
     Returns:
         None.
     """
-    vertices = ctx._active_shape_vertices()
-    if not vertices:
-        raise ArgumentValidationError("quadratic_vertex() requires an initial vertex().")
-    p0 = vertices[-1]
-    ctx._extend_shape_vertices(flatten_quadratic(p0, (cx, cy), (x3, y3)))
+    if not ctx.state.rust.shape_active:
+        raise ArgumentValidationError(
+            "quadratic_vertex() must be called between begin_shape() and end_shape()."
+        )
+    ctx.state.rust.add_quadratic_vertex(float(cx), float(cy), float(x3), float(y3))
 
 
 def spline_vertex(ctx: Any, x: float, y: float) -> None:
     """Spline vertex.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         x: The x value. Expected type: `float`.
         y: The y value. Expected type: `float`.
-    
+
     Returns:
         None.
     """
@@ -175,18 +176,27 @@ def spline_vertex(ctx: Any, x: float, y: float) -> None:
         return
     p0 = vertices[-2]
     p1 = vertices[-1]
-    ctx._extend_shape_vertices(
-        flatten_spline(p0, p1, point, point, tightness=ctx._spline_tightness)
+    scale = (1.0 - ctx._spline_tightness) / 2.0
+    control1 = (
+        p1[0] + (point[0] - p0[0]) * scale / 3.0,
+        p1[1] + (point[1] - p0[1]) * scale / 3.0,
+    )
+    control2 = (
+        point[0] - (point[0] - p1[0]) * scale / 3.0,
+        point[1] - (point[1] - p1[1]) * scale / 3.0,
+    )
+    ctx.state.rust.add_cubic_vertex(
+        control1[0], control1[1], control2[0], control2[1], point[0], point[1]
     )
 
 
 def end_shape(ctx: Any, mode: c.ArcMode = c.OPEN) -> None:
     """End shape.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         mode: The mode value. Expected type: `c.ArcMode`. Defaults to `c.OPEN`.
-    
+
     Returns:
         None.
     """
@@ -227,10 +237,10 @@ def end_shape(ctx: Any, mode: c.ArcMode = c.OPEN) -> None:
 
 def begin_contour(ctx: Any) -> None:
     """Begin contour.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -251,10 +261,10 @@ def begin_contour(ctx: Any) -> None:
 
 def end_contour(ctx: Any) -> None:
     """End contour.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -268,10 +278,10 @@ def end_contour(ctx: Any) -> None:
 @contextmanager
 def contour(ctx: Any) -> Generator[None]:
     """Contour.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         The return value. Type: `Generator[None]`.
     """
@@ -288,10 +298,10 @@ def contour(ctx: Any) -> Generator[None]:
 
 def begin_clip(ctx: Any) -> None:
     """Begin clip.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -302,10 +312,10 @@ def begin_clip(ctx: Any) -> None:
 
 def clip(ctx: Any) -> None:
     """Clip.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -329,10 +339,10 @@ def clip(ctx: Any) -> None:
 
 def end_clip(ctx: Any) -> None:
     """End clip.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -342,10 +352,10 @@ def end_clip(ctx: Any) -> None:
 @contextmanager
 def clip_path(ctx: Any) -> Generator[None]:
     """Clip path.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         The return value. Type: `Generator[None]`.
     """

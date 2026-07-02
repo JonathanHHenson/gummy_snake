@@ -1,47 +1,25 @@
 use crate::*;
 
-impl Canvas {
-    pub(crate) fn draw_gpu_polygon(
-        &mut self,
-        points: &[Point],
-        style: &Style,
-        close: bool,
-        pixel_density: f64,
-    ) -> PyResult<()> {
-        if style.erasing {
-            return Ok(());
-        }
-        if close && points.len() >= 3 {
-            if let Some(fill) = style.fill {
-                let mut vertices = Vec::with_capacity((points.len() - 2) * 3);
-                for index in 1..points.len() - 1 {
-                    push_triangle(
-                        &mut vertices,
-                        points[0],
-                        points[index],
-                        points[index + 1],
-                        fill,
-                    );
-                }
-                self.draw_gpu_triangles(vertices, style.blend_mode_kind)?;
-            }
-        }
-        if let Some(stroke) = style.stroke {
-            self.draw_gpu_polyline(
-                points,
-                close,
-                stroke_width(style.stroke_weight, pixel_density),
-                stroke,
-                style.blend_mode_kind,
-            )?;
-        }
-        Ok(())
-    }
+const STROKE_PATH_POINT_RECORDS: f32 = 0.0;
+const STROKE_PATH_SEGMENT_RECORDS: f32 = 1.0;
+const STROKE_SEGMENT_LINE: f32 = 0.0;
+const STROKE_SEGMENT_QUADRATIC: f32 = 1.0;
+const STROKE_SEGMENT_CUBIC: f32 = 2.0;
+const STROKE_SEGMENT_ARC: f32 = 3.0;
+const STROKE_ARC_OPEN: f32 = 0.0;
+const STROKE_ARC_CHORD: f32 = 1.0;
+const STROKE_ARC_PIE: f32 = 2.0;
+const PROCEDURAL_TRANSFORMED_RECT_KIND: f32 = 5.0;
+const PROCEDURAL_TRANSFORMED_TRIANGLE_KIND: f32 = 6.0;
+const PROCEDURAL_TRANSFORMED_ELLIPSE_KIND: f32 = 7.0;
 
-    pub(crate) fn draw_gpu_polyline(
+impl Canvas {
+    pub(crate) fn draw_gpu_polyline_with_matrix(
         &mut self,
         points: &[Point],
         close: bool,
+        matrix: Matrix,
+        pixel_density: f64,
         stroke_width: f64,
         color: Rgba,
         blend_mode: BlendMode,
@@ -49,93 +27,211 @@ impl Canvas {
         if points.len() < 2 {
             return Ok(());
         }
-        for pair in points.windows(2) {
-            self.draw_gpu_segment(pair[0], pair[1], stroke_width, color, blend_mode)?;
-        }
-        if close {
-            self.draw_gpu_segment(
-                *points.last().expect("non-empty points"),
-                points[0],
-                stroke_width,
-                color,
-                blend_mode,
-            )?;
-        }
-        Ok(())
+        let records =
+            stroke_path_records(points, close, matrix, pixel_density, stroke_width, color);
+        self.draw_gpu_stroke_path(records, blend_mode)
     }
 
-    pub(crate) fn draw_gpu_even_odd_spans(
+    pub(crate) fn draw_gpu_path_segments_with_matrix(
         &mut self,
-        bounds: (usize, usize, usize, usize),
-        rings: &[&[Point]],
-        color: Rgba,
-        blend_mode: BlendMode,
-    ) -> PyResult<()> {
-        let mut vertices = Vec::new();
-        for_even_odd_spans(bounds, rings, |y, start, end| {
-            let y0 = y as f64;
-            let y1 = y0 + 1.0;
-            let x0 = start as f64;
-            let x1 = end as f64;
-            push_triangle(&mut vertices, (x0, y0), (x1, y0), (x1, y1), color);
-            push_triangle(&mut vertices, (x0, y0), (x1, y1), (x0, y1), color);
-        });
-        self.draw_gpu_triangles(vertices, blend_mode)
-    }
-
-    pub(crate) fn draw_gpu_segment(
-        &mut self,
-        p1: Point,
-        p2: Point,
+        segments: &[crate::sketch_state::CapturedPathSegment],
+        vertices: &[Point],
+        close: bool,
+        matrix: Matrix,
+        pixel_density: f64,
         stroke_width: f64,
         color: Rgba,
         blend_mode: BlendMode,
     ) -> PyResult<()> {
-        let dx = p2.0 - p1.0;
-        let dy = p2.1 - p1.1;
-        let length = (dx * dx + dy * dy).sqrt();
-        if length <= f64::EPSILON {
-            self.draw_gpu_disc(p1.0, p1.1, (stroke_width / 2.0).max(0.5), color, blend_mode)?;
+        if segments.is_empty() {
             return Ok(());
         }
-        let half = (stroke_width / 2.0).max(0.5);
-        let nx = -dy / length * half;
-        let ny = dx / length * half;
-        let a = (p1.0 + nx, p1.1 + ny);
-        let b = (p1.0 - nx, p1.1 - ny);
-        let c = (p2.0 - nx, p2.1 - ny);
-        let d = (p2.0 + nx, p2.1 + ny);
-        let mut vertices = Vec::with_capacity(6);
-        push_triangle(&mut vertices, a, b, c, color);
-        push_triangle(&mut vertices, a, c, d, color);
-        self.draw_gpu_triangles(vertices, blend_mode)
+        let records = stroke_path_segment_records(
+            segments,
+            vertices,
+            close,
+            matrix,
+            pixel_density,
+            stroke_width,
+            color,
+        );
+        self.draw_gpu_stroke_path(records, blend_mode)
     }
 
-    pub(crate) fn draw_gpu_disc(
+    pub(crate) fn draw_gpu_path_fill_with_matrix(
         &mut self,
-        cx: f64,
-        cy: f64,
-        radius: f64,
+        segments: &[crate::sketch_state::CapturedPathSegment],
+        vertices: &[Point],
+        close: bool,
+        matrix: Matrix,
+        pixel_density: f64,
         color: Rgba,
         blend_mode: BlendMode,
     ) -> PyResult<()> {
-        if radius <= 0.0 {
+        if segments.is_empty() || vertices.len() < 3 || !close {
             return Ok(());
         }
-        let steps = 24usize;
-        let mut vertices = Vec::with_capacity(steps * 3);
-        for index in 0..steps {
-            let a = 2.0 * PI * index as f64 / steps as f64;
-            let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
-            push_triangle(
-                &mut vertices,
-                (cx, cy),
-                (cx + a.cos() * radius, cy + a.sin() * radius),
-                (cx + b.cos() * radius, cy + b.sin() * radius),
-                color,
-            );
+        let records =
+            path_fill_segment_records(segments, vertices, close, matrix, pixel_density, color);
+        self.draw_gpu_fill_path(records, blend_mode)
+    }
+
+    pub(crate) fn draw_gpu_erase_path_fill_with_matrix(
+        &mut self,
+        segments: &[crate::sketch_state::CapturedPathSegment],
+        vertices: &[Point],
+        close: bool,
+        matrix: Matrix,
+        pixel_density: f64,
+    ) -> PyResult<()> {
+        if segments.is_empty() || vertices.len() < 3 || !close {
+            return Ok(());
         }
-        self.draw_gpu_triangles(vertices, blend_mode)
+        let records = path_fill_segment_records(
+            segments,
+            vertices,
+            close,
+            matrix,
+            pixel_density,
+            self.erase_color,
+        );
+        self.draw_gpu_erase_fill_path(records)
+    }
+
+    pub(crate) fn draw_gpu_erase_path_segments_with_matrix(
+        &mut self,
+        segments: &[crate::sketch_state::CapturedPathSegment],
+        vertices: &[Point],
+        close: bool,
+        matrix: Matrix,
+        pixel_density: f64,
+        stroke_width: f64,
+    ) -> PyResult<()> {
+        if segments.is_empty() {
+            return Ok(());
+        }
+        let records = stroke_path_segment_records(
+            segments,
+            vertices,
+            close,
+            matrix,
+            pixel_density,
+            stroke_width,
+            self.erase_color,
+        );
+        self.draw_gpu_erase_stroke_path(records)
+    }
+
+    pub(crate) fn draw_gpu_arc_stroke_with_matrix(
+        &mut self,
+        center: Point,
+        radius: Point,
+        start: f64,
+        stop: f64,
+        mode: &str,
+        matrix: Matrix,
+        pixel_density: f64,
+        stroke_width: f64,
+        color: Rgba,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        if radius.0 <= 0.0 || radius.1 <= 0.0 {
+            return Ok(());
+        }
+        let records = stroke_path_arc_records(
+            center,
+            radius,
+            start,
+            stop,
+            mode,
+            matrix,
+            pixel_density,
+            stroke_width,
+            color,
+        );
+        self.draw_gpu_stroke_path(records, blend_mode)
+    }
+
+    pub(crate) fn draw_gpu_erase_arc_stroke_with_matrix(
+        &mut self,
+        center: Point,
+        radius: Point,
+        start: f64,
+        stop: f64,
+        mode: &str,
+        matrix: Matrix,
+        pixel_density: f64,
+        stroke_width: f64,
+    ) -> PyResult<()> {
+        if radius.0 <= 0.0 || radius.1 <= 0.0 {
+            return Ok(());
+        }
+        let records = stroke_path_arc_records(
+            center,
+            radius,
+            start,
+            stop,
+            mode,
+            matrix,
+            pixel_density,
+            stroke_width,
+            self.erase_color,
+        );
+        self.draw_gpu_erase_stroke_path(records)
+    }
+
+    pub(crate) fn draw_gpu_arc_fill_with_matrix(
+        &mut self,
+        center: Point,
+        radius: Point,
+        start: f64,
+        stop: f64,
+        mode: &str,
+        matrix: Matrix,
+        pixel_density: f64,
+        color: Rgba,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        if radius.0 <= 0.0 || radius.1 <= 0.0 {
+            return Ok(());
+        }
+        let records = path_fill_arc_records(
+            center,
+            radius,
+            start,
+            stop,
+            mode,
+            matrix,
+            pixel_density,
+            color,
+        );
+        self.draw_gpu_fill_path(records, blend_mode)
+    }
+
+    pub(crate) fn draw_gpu_erase_arc_fill_with_matrix(
+        &mut self,
+        center: Point,
+        radius: Point,
+        start: f64,
+        stop: f64,
+        mode: &str,
+        matrix: Matrix,
+        pixel_density: f64,
+    ) -> PyResult<()> {
+        if radius.0 <= 0.0 || radius.1 <= 0.0 {
+            return Ok(());
+        }
+        let records = path_fill_arc_records(
+            center,
+            radius,
+            start,
+            stop,
+            mode,
+            matrix,
+            pixel_density,
+            self.erase_color,
+        );
+        self.draw_gpu_erase_fill_path(records)
     }
 
     pub(crate) fn draw_gpu_axis_aligned_ellipse(
@@ -150,72 +246,270 @@ impl Canvas {
         if rx <= 0.0 || ry <= 0.0 {
             return Ok(());
         }
+        if style.erasing {
+            if !self.can_queue_gpu_erase(style) {
+                return self.prepare_cpu_composite();
+            }
+            if style.fill.is_some() {
+                self.draw_gpu_erase_transformed_ellipse(
+                    cx - rx,
+                    cy - ry,
+                    rx * 2.0,
+                    ry * 2.0,
+                    (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+                    1.0,
+                    0.0,
+                )?;
+            }
+            if style.stroke.is_some() {
+                self.draw_gpu_erase_transformed_ellipse(
+                    cx - rx,
+                    cy - ry,
+                    rx * 2.0,
+                    ry * 2.0,
+                    (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+                    1.0,
+                    stroke_width(style.stroke_weight, pixel_density),
+                )?;
+            }
+            return Ok(());
+        }
         if let Some(fill) = style.fill {
-            if style.stroke.is_none() {
-                if style.erasing {
-                    let steps = 64usize;
-                    let mut vertices = Vec::with_capacity(steps * 3);
-                    for index in 0..steps {
-                        let a = 2.0 * PI * index as f64 / steps as f64;
-                        let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
-                        push_triangle(
-                            &mut vertices,
-                            (cx, cy),
-                            (cx + a.cos() * rx, cy + a.sin() * ry),
-                            (cx + b.cos() * rx, cy + b.sin() * ry),
-                            fill,
-                        );
-                    }
-                    self.draw_gpu_erase_triangles(vertices)?;
-                    return Ok(());
-                }
-                self.draw_gpu_filled_ellipse(cx, cy, rx, ry, fill, style.blend_mode_kind)?;
-                return Ok(());
-            }
-            let steps = 64usize;
-            let mut vertices = Vec::with_capacity(steps * 3);
-            for index in 0..steps {
-                let a = 2.0 * PI * index as f64 / steps as f64;
-                let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
-                push_triangle(
-                    &mut vertices,
-                    (cx, cy),
-                    (cx + a.cos() * rx, cy + a.sin() * ry),
-                    (cx + b.cos() * rx, cy + b.sin() * ry),
-                    fill,
-                );
-            }
-            if style.erasing {
-                self.draw_gpu_erase_triangles(vertices)?;
-            } else {
-                self.draw_gpu_triangles(vertices, style.blend_mode_kind)?;
-            }
+            self.draw_gpu_transformed_ellipse(
+                cx - rx,
+                cy - ry,
+                rx * 2.0,
+                ry * 2.0,
+                (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+                1.0,
+                fill,
+                0.0,
+                style.blend_mode_kind,
+            )?;
         }
         if let Some(stroke) = style.stroke {
-            let half_width = (stroke_width(style.stroke_weight, pixel_density) / 2.0).max(0.5);
-            let outer_rx = rx + half_width;
-            let outer_ry = ry + half_width;
-            let inner_rx = (rx - half_width).max(0.0);
-            let inner_ry = (ry - half_width).max(0.0);
-            let steps = 64usize;
-            let mut vertices = Vec::with_capacity(steps * 6);
-            for index in 0..steps {
-                let a = 2.0 * PI * index as f64 / steps as f64;
-                let b = 2.0 * PI * (index + 1) as f64 / steps as f64;
-                let outer_a = (cx + a.cos() * outer_rx, cy + a.sin() * outer_ry);
-                let inner_a = (cx + a.cos() * inner_rx, cy + a.sin() * inner_ry);
-                let inner_b = (cx + b.cos() * inner_rx, cy + b.sin() * inner_ry);
-                let outer_b = (cx + b.cos() * outer_rx, cy + b.sin() * outer_ry);
-                push_triangle(&mut vertices, outer_a, inner_a, inner_b, stroke);
-                push_triangle(&mut vertices, outer_a, inner_b, outer_b, stroke);
-            }
-            if style.erasing {
-                self.draw_gpu_erase_triangles(vertices)?;
-            } else {
-                self.draw_gpu_triangles(vertices, style.blend_mode_kind)?;
-            }
+            self.draw_gpu_transformed_ellipse(
+                cx - rx,
+                cy - ry,
+                rx * 2.0,
+                ry * 2.0,
+                (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+                1.0,
+                stroke,
+                stroke_width(style.stroke_weight, pixel_density),
+                style.blend_mode_kind,
+            )?;
         }
         Ok(())
+    }
+
+    pub(crate) fn draw_gpu_transformed_rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        matrix: Matrix,
+        pixel_density: f64,
+        color: Rgba,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        if width == 0.0 || height == 0.0 {
+            return Ok(());
+        }
+        self.draw_gpu_primitive_instances(
+            vec![transformed_rect_instance(
+                (x, y),
+                (x + width, y + height),
+                matrix,
+                pixel_density,
+                color,
+            )],
+            blend_mode,
+        )
+    }
+
+    pub(crate) fn draw_gpu_transformed_triangle(
+        &mut self,
+        p0: Point,
+        p1: Point,
+        p2: Point,
+        matrix: Matrix,
+        pixel_density: f64,
+        color: Rgba,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        self.draw_gpu_primitive_instances(
+            vec![transformed_triangle_instance(
+                p0,
+                p1,
+                p2,
+                matrix,
+                pixel_density,
+                color,
+            )],
+            blend_mode,
+        )
+    }
+
+    pub(crate) fn draw_gpu_erase_transformed_rect(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        matrix: Matrix,
+        pixel_density: f64,
+    ) -> PyResult<()> {
+        if width == 0.0 || height == 0.0 {
+            return Ok(());
+        }
+        self.draw_gpu_erase_primitive_instances(vec![transformed_rect_instance(
+            (x, y),
+            (x + width, y + height),
+            matrix,
+            pixel_density,
+            self.erase_color,
+        )])
+    }
+
+    pub(crate) fn draw_gpu_erase_transformed_triangle(
+        &mut self,
+        p0: Point,
+        p1: Point,
+        p2: Point,
+        matrix: Matrix,
+        pixel_density: f64,
+    ) -> PyResult<()> {
+        self.draw_gpu_erase_primitive_instances(vec![transformed_triangle_instance(
+            p0,
+            p1,
+            p2,
+            matrix,
+            pixel_density,
+            self.erase_color,
+        )])
+    }
+
+    pub(crate) fn draw_gpu_erase_polyline_with_matrix(
+        &mut self,
+        points: &[Point],
+        close: bool,
+        matrix: Matrix,
+        pixel_density: f64,
+        stroke_width: f64,
+    ) -> PyResult<()> {
+        if points.len() < 2 {
+            return Ok(());
+        }
+        let records = stroke_path_records(
+            points,
+            close,
+            matrix,
+            pixel_density,
+            stroke_width,
+            self.erase_color,
+        );
+        self.draw_gpu_erase_stroke_path(records)
+    }
+
+    pub(crate) fn draw_gpu_transformed_polygon_fill(
+        &mut self,
+        points: &[Point],
+        matrix: Matrix,
+        pixel_density: f64,
+        color: Rgba,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        if points.len() < 3 {
+            return Ok(());
+        }
+        let mut instances = Vec::with_capacity(points.len() - 2);
+        for index in 1..points.len() - 1 {
+            instances.push(transformed_triangle_instance(
+                points[0],
+                points[index],
+                points[index + 1],
+                matrix,
+                pixel_density,
+                color,
+            ));
+        }
+        self.draw_gpu_primitive_instances(instances, blend_mode)
+    }
+
+    pub(crate) fn draw_gpu_erase_transformed_polygon_fill(
+        &mut self,
+        points: &[Point],
+        matrix: Matrix,
+        pixel_density: f64,
+    ) -> PyResult<()> {
+        if points.len() < 3 {
+            return Ok(());
+        }
+        let mut instances = Vec::with_capacity(points.len() - 2);
+        for index in 1..points.len() - 1 {
+            instances.push(transformed_triangle_instance(
+                points[0],
+                points[index],
+                points[index + 1],
+                matrix,
+                pixel_density,
+                self.erase_color,
+            ));
+        }
+        self.draw_gpu_erase_primitive_instances(instances)
+    }
+
+    pub(crate) fn draw_gpu_transformed_ellipse(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        matrix: Matrix,
+        pixel_density: f64,
+        color: Rgba,
+        stroke_width: f64,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        if width == 0.0 || height == 0.0 {
+            return Ok(());
+        }
+        self.draw_gpu_primitive_instances(
+            vec![transformed_ellipse_instance(
+                (x, y),
+                (x + width, y + height),
+                matrix,
+                pixel_density,
+                color,
+                stroke_width,
+            )],
+            blend_mode,
+        )
+    }
+
+    pub(crate) fn draw_gpu_erase_transformed_ellipse(
+        &mut self,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+        matrix: Matrix,
+        pixel_density: f64,
+        stroke_width: f64,
+    ) -> PyResult<()> {
+        if width == 0.0 || height == 0.0 {
+            return Ok(());
+        }
+        self.draw_gpu_erase_primitive_instances(vec![transformed_ellipse_instance(
+            (x, y),
+            (x + width, y + height),
+            matrix,
+            pixel_density,
+            self.erase_color,
+            stroke_width,
+        )])
     }
 
     pub(crate) fn can_draw_gpu_blend_ellipse(&self, style: &Style) -> bool {
@@ -276,5 +570,320 @@ impl Canvas {
             self.record_native_region_effect_draw(true);
         }
         Ok(())
+    }
+}
+
+fn transformed_rect_instance(
+    p0: Point,
+    p1: Point,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: Rgba,
+) -> crate::gpu::PrimitiveInstance {
+    transformed_rect_like_instance(
+        p0,
+        p1,
+        matrix,
+        pixel_density,
+        color,
+        PROCEDURAL_TRANSFORMED_RECT_KIND,
+        0.0,
+    )
+}
+
+fn transformed_ellipse_instance(
+    p0: Point,
+    p1: Point,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: Rgba,
+    stroke_width: f64,
+) -> crate::gpu::PrimitiveInstance {
+    transformed_rect_like_instance(
+        p0,
+        p1,
+        matrix,
+        pixel_density,
+        color,
+        PROCEDURAL_TRANSFORMED_ELLIPSE_KIND,
+        stroke_width,
+    )
+}
+
+fn transformed_rect_like_instance(
+    p0: Point,
+    p1: Point,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: Rgba,
+    kind: f32,
+    stroke_width: f64,
+) -> crate::gpu::PrimitiveInstance {
+    let (a, b, c, d, e, f) = matrix;
+    crate::gpu::PrimitiveInstance {
+        p0: [p0.0 as f32, p0.1 as f32],
+        p1: [p1.0 as f32, p1.1 as f32],
+        p2: [(a * pixel_density) as f32, (b * pixel_density) as f32],
+        bounds: [
+            (c * pixel_density) as f32,
+            (d * pixel_density) as f32,
+            (e * pixel_density) as f32,
+            (f * pixel_density) as f32,
+        ],
+        color: crate::raster::gpu_color(color).as_float(),
+        params: [kind, stroke_width as f32, 0.0, 0.0],
+    }
+}
+
+fn transformed_triangle_instance(
+    p0: Point,
+    p1: Point,
+    p2: Point,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: Rgba,
+) -> crate::gpu::PrimitiveInstance {
+    let (a, b, c, d, e, f) = matrix;
+    crate::gpu::PrimitiveInstance {
+        p0: [p0.0 as f32, p0.1 as f32],
+        p1: [p1.0 as f32, p1.1 as f32],
+        p2: [p2.0 as f32, p2.1 as f32],
+        bounds: [
+            (a * pixel_density) as f32,
+            (b * pixel_density) as f32,
+            (c * pixel_density) as f32,
+            (d * pixel_density) as f32,
+        ],
+        color: crate::raster::gpu_color(color).as_float(),
+        params: [
+            PROCEDURAL_TRANSFORMED_TRIANGLE_KIND,
+            (e * pixel_density) as f32,
+            (f * pixel_density) as f32,
+            0.0,
+        ],
+    }
+}
+
+fn stroke_path_header(
+    matrix: Matrix,
+    pixel_density: f64,
+    stroke_width: f64,
+    color: Rgba,
+) -> Vec<crate::gpu::StrokePathRecord> {
+    let (a, b, c, d, e, f) = matrix;
+    vec![
+        [a as f32, b as f32, c as f32, d as f32],
+        [
+            e as f32,
+            f as f32,
+            pixel_density as f32,
+            stroke_width as f32,
+        ],
+        crate::raster::gpu_color(color).as_float(),
+    ]
+}
+
+fn stroke_path_records(
+    points: &[Point],
+    close: bool,
+    matrix: Matrix,
+    pixel_density: f64,
+    stroke_width: f64,
+    color: Rgba,
+) -> Vec<crate::gpu::StrokePathRecord> {
+    let mut records = stroke_path_header(matrix, pixel_density, stroke_width, color);
+    records.push([
+        points.len() as f32,
+        if close { 1.0 } else { 0.0 },
+        STROKE_PATH_POINT_RECORDS,
+        0.0,
+    ]);
+    records.extend(
+        points
+            .iter()
+            .map(|point| [point.0 as f32, point.1 as f32, 0.0, 0.0]),
+    );
+    records
+}
+
+fn stroke_path_arc_records(
+    center: Point,
+    radius: Point,
+    start: f64,
+    stop: f64,
+    mode: &str,
+    matrix: Matrix,
+    pixel_density: f64,
+    stroke_width: f64,
+    color: Rgba,
+) -> Vec<crate::gpu::StrokePathRecord> {
+    let mut records = stroke_path_header(matrix, pixel_density, stroke_width, color);
+    records.push([1.0, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
+    records.push([
+        STROKE_SEGMENT_ARC,
+        match mode {
+            "pie" => STROKE_ARC_PIE,
+            "chord" => STROKE_ARC_CHORD,
+            _ => STROKE_ARC_OPEN,
+        },
+        0.0,
+        0.0,
+    ]);
+    records.push([
+        center.0 as f32,
+        center.1 as f32,
+        radius.0 as f32,
+        radius.1 as f32,
+    ]);
+    records.push([start as f32, stop as f32, 0.0, 0.0]);
+    records
+}
+
+fn path_fill_segment_records(
+    segments: &[crate::sketch_state::CapturedPathSegment],
+    vertices: &[Point],
+    close: bool,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: Rgba,
+) -> Vec<crate::gpu::StrokePathRecord> {
+    let close_segment = close && vertices.len() > 1;
+    let command_count = segments.len() + usize::from(close_segment);
+    let mut records = stroke_path_header(matrix, pixel_density, 0.0, color);
+    records.push([command_count as f32, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
+    for segment in segments {
+        push_stroke_segment_records(&mut records, *segment);
+    }
+    if close_segment {
+        push_stroke_segment_records(
+            &mut records,
+            crate::sketch_state::CapturedPathSegment::Line {
+                from: *vertices.last().expect("non-empty vertices"),
+                to: vertices[0],
+            },
+        );
+    }
+    records
+}
+
+fn path_fill_arc_records(
+    center: Point,
+    radius: Point,
+    start: f64,
+    stop: f64,
+    mode: &str,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: Rgba,
+) -> Vec<crate::gpu::StrokePathRecord> {
+    let mut records = stroke_path_header(matrix, pixel_density, 0.0, color);
+    records.push([1.0, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
+    records.push([
+        STROKE_SEGMENT_ARC,
+        match mode {
+            "pie" => STROKE_ARC_PIE,
+            _ => STROKE_ARC_CHORD,
+        },
+        0.0,
+        0.0,
+    ]);
+    records.push([
+        center.0 as f32,
+        center.1 as f32,
+        radius.0 as f32,
+        radius.1 as f32,
+    ]);
+    records.push([start as f32, stop as f32, 0.0, 0.0]);
+    records
+}
+
+fn stroke_path_segment_records(
+    segments: &[crate::sketch_state::CapturedPathSegment],
+    vertices: &[Point],
+    close: bool,
+    matrix: Matrix,
+    pixel_density: f64,
+    stroke_width: f64,
+    color: Rgba,
+) -> Vec<crate::gpu::StrokePathRecord> {
+    let close_segment = close && vertices.len() > 1;
+    let command_count = segments.len() + usize::from(close_segment);
+    let mut records = stroke_path_header(matrix, pixel_density, stroke_width, color);
+    records.push([command_count as f32, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
+    for segment in segments {
+        push_stroke_segment_records(&mut records, *segment);
+    }
+    if close_segment {
+        push_stroke_segment_records(
+            &mut records,
+            crate::sketch_state::CapturedPathSegment::Line {
+                from: *vertices.last().expect("non-empty vertices"),
+                to: vertices[0],
+            },
+        );
+    }
+    records
+}
+
+fn push_stroke_segment_records(
+    records: &mut Vec<crate::gpu::StrokePathRecord>,
+    segment: crate::sketch_state::CapturedPathSegment,
+) {
+    match segment {
+        crate::sketch_state::CapturedPathSegment::Line { from, to } => {
+            records.push([STROKE_SEGMENT_LINE, from.0 as f32, from.1 as f32, 0.0]);
+            records.push([to.0 as f32, to.1 as f32, 0.0, 0.0]);
+            records.push([0.0, 0.0, 0.0, 0.0]);
+        }
+        crate::sketch_state::CapturedPathSegment::Quadratic { from, control, to } => {
+            records.push([STROKE_SEGMENT_QUADRATIC, from.0 as f32, from.1 as f32, 0.0]);
+            records.push([control.0 as f32, control.1 as f32, to.0 as f32, to.1 as f32]);
+            records.push([0.0, 0.0, 0.0, 0.0]);
+        }
+        crate::sketch_state::CapturedPathSegment::Cubic {
+            from,
+            control1,
+            control2,
+            to,
+        } => {
+            records.push([STROKE_SEGMENT_CUBIC, from.0 as f32, from.1 as f32, 0.0]);
+            records.push([
+                control1.0 as f32,
+                control1.1 as f32,
+                control2.0 as f32,
+                control2.1 as f32,
+            ]);
+            records.push([to.0 as f32, to.1 as f32, 0.0, 0.0]);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stroke_path_records_carry_matrix_style_and_logical_points() {
+        let records = stroke_path_records(
+            &[(1.0, 2.0), (3.0, 4.0), (5.0, 6.0)],
+            true,
+            (2.0, 0.5, 0.25, 3.0, 5.0, 7.0),
+            2.0,
+            6.0,
+            Rgba {
+                r: 255,
+                g: 0,
+                b: 0,
+                a: 128,
+            },
+        );
+
+        assert_eq!(records[0], [2.0, 0.5, 0.25, 3.0]);
+        assert_eq!(records[1], [5.0, 7.0, 2.0, 6.0]);
+        assert_eq!(records[2], [1.0, 0.0, 0.0, 128.0 / 255.0]);
+        assert_eq!(records[3], [3.0, 1.0, 0.0, 0.0]);
+        assert_eq!(records[4], [1.0, 2.0, 0.0, 0.0]);
+        assert_eq!(records[5], [3.0, 4.0, 0.0, 0.0]);
+        assert_eq!(records[6], [5.0, 6.0, 0.0, 0.0]);
     }
 }

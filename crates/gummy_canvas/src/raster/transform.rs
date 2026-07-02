@@ -4,15 +4,6 @@ pub(crate) fn stroke_width(stroke_weight: f64, pixel_density: f64) -> f64 {
     (stroke_weight * pixel_density).round().max(1.0)
 }
 
-pub(crate) fn scale_rect(rect: (i64, i64, i64, i64), pixel_density: f64) -> (i64, i64, i64, i64) {
-    (
-        (rect.0 as f64 * pixel_density).round() as i64,
-        (rect.1 as f64 * pixel_density).round() as i64,
-        (rect.2 as f64 * pixel_density).round() as i64,
-        (rect.3 as f64 * pixel_density).round() as i64,
-    )
-}
-
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn image_to_canvas_matrix(
     matrix: Matrix,
@@ -64,100 +55,6 @@ pub(crate) fn matrix_determinant(matrix: Matrix) -> f64 {
     matrix.0 * matrix.3 - matrix.1 * matrix.2
 }
 
-pub(crate) fn matrix_inverse(matrix: Matrix) -> Option<Matrix> {
-    let determinant = matrix_determinant(matrix);
-    if determinant.abs() <= f64::EPSILON {
-        return None;
-    }
-    let inv_det = 1.0 / determinant;
-    let a = matrix.3 * inv_det;
-    let b = -matrix.1 * inv_det;
-    let c = -matrix.2 * inv_det;
-    let d = matrix.0 * inv_det;
-    let e = -(a * matrix.4 + c * matrix.5);
-    let f = -(b * matrix.4 + d * matrix.5);
-    Some((a, b, c, d, e, f))
-}
-
-pub(crate) fn affine_bounds(
-    matrix: Matrix,
-    width: usize,
-    height: usize,
-    canvas_width: usize,
-    canvas_height: usize,
-) -> Option<(usize, usize, usize, usize)> {
-    let corners = [
-        matrix_transform_point(matrix, 0.0, 0.0),
-        matrix_transform_point(matrix, width as f64, 0.0),
-        matrix_transform_point(matrix, width as f64, height as f64),
-        matrix_transform_point(matrix, 0.0, height as f64),
-    ];
-    let min_x = corners
-        .iter()
-        .map(|point| point.0)
-        .fold(f64::INFINITY, f64::min)
-        .floor()
-        .max(0.0) as usize;
-    let min_y = corners
-        .iter()
-        .map(|point| point.1)
-        .fold(f64::INFINITY, f64::min)
-        .floor()
-        .max(0.0) as usize;
-    let max_x = corners
-        .iter()
-        .map(|point| point.0)
-        .fold(f64::NEG_INFINITY, f64::max)
-        .ceil()
-        .min(canvas_width as f64)
-        .max(0.0) as usize;
-    let max_y = corners
-        .iter()
-        .map(|point| point.1)
-        .fold(f64::NEG_INFINITY, f64::max)
-        .ceil()
-        .min(canvas_height as f64)
-        .max(0.0) as usize;
-    if max_x <= min_x || max_y <= min_y {
-        None
-    } else {
-        Some((min_x, min_y, max_x - min_x, max_y - min_y))
-    }
-}
-
-pub(crate) fn axis_aligned_image_destination(
-    matrix: Matrix,
-    width: usize,
-    height: usize,
-    canvas_width: usize,
-    canvas_height: usize,
-) -> Option<(usize, usize, usize, usize)> {
-    if matrix.1.abs() > f64::EPSILON || matrix.2.abs() > f64::EPSILON {
-        return None;
-    }
-    if matrix.0 <= 0.0 || matrix.3 <= 0.0 {
-        return None;
-    }
-    let left = matrix.4.round();
-    let top = matrix.5.round();
-    let dest_width = (matrix.0 * width as f64).round();
-    let dest_height = (matrix.3 * height as f64).round();
-    if left < 0.0 || top < 0.0 || dest_width <= 0.0 || dest_height <= 0.0 {
-        return None;
-    }
-    let right = left + dest_width;
-    let bottom = top + dest_height;
-    if right > canvas_width as f64 || bottom > canvas_height as f64 {
-        return None;
-    }
-    Some((
-        left as usize,
-        top as usize,
-        dest_width as usize,
-        dest_height as usize,
-    ))
-}
-
 pub(crate) fn clipped_source_rect(
     rect: (i64, i64, i64, i64),
     width: usize,
@@ -176,12 +73,4 @@ pub(crate) fn clipped_source_rect(
     } else {
         Some((left, top, right - left, bottom - top))
     }
-}
-
-pub(crate) fn clipped_dest_rect(
-    rect: (i64, i64, i64, i64),
-    width: usize,
-    height: usize,
-) -> Option<(usize, usize, usize, usize)> {
-    clipped_source_rect(rect, width, height)
 }

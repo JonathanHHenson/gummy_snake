@@ -5,14 +5,8 @@ use std::fs::File;
 use std::io::BufWriter;
 
 impl Canvas {
-    pub(crate) fn filter_pixels_impl(&mut self, mode: &str, value: Option<f64>) -> PyResult<()> {
-        self.performance_counters.cpu_fallbacks += 1;
-        self.performance_counters.pixel_uploads += 1;
-        self.prepare_cpu_composite();
-        filter_rgba(&mut self.pixels, mode, value)?;
-        self.sync_present_pixels_from_rgba();
-        self.upload_cpu_pixels()?;
-        Ok(())
+    pub(crate) fn filter_pixels_impl(&mut self, _mode: &str, _value: Option<f64>) -> PyResult<()> {
+        self.prepare_cpu_composite()
     }
 
     pub(crate) fn save_impl(&mut self, path: &str) -> PyResult<()> {

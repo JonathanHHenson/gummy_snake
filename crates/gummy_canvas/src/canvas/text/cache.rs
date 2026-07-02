@@ -41,40 +41,6 @@ impl Canvas {
         Ok(parsed)
     }
 
-    pub(crate) fn draw_transformed_polygon(
-        &mut self,
-        points: &[Point],
-        style: &Style,
-        close: bool,
-    ) -> PyResult<()> {
-        let padding = if style.stroke.is_some() {
-            stroke_width(style.stroke_weight, self.pixel_density) / 2.0
-        } else {
-            0.0
-        };
-        let bounds = clipped_bounds(points, padding, self.physical_width, self.physical_height);
-        if self.can_queue_gpu_polygon(points, style, close) {
-            self.draw_gpu_polygon(points, style, close, self.pixel_density)?;
-            return Ok(());
-        }
-        self.prepare_cpu_composite();
-        let Some(mut overlay) = OverlayRegion::from_bounds(
-            bounds,
-            self.physical_width,
-            &mut self.pixels,
-            &mut self.present_pixels,
-            style.erasing,
-            self.erase_color,
-            style.blend_mode_kind,
-            self.clip_masks.last().map(Vec::as_slice),
-        ) else {
-            return Ok(());
-        };
-        draw_polygon_overlay(&mut overlay, points, style, close, self.pixel_density);
-        self.upload_cpu_pixels()?;
-        Ok(())
-    }
-
     pub(crate) fn axis_aligned_ellipse_geometry(
         &self,
         matrix: Matrix,
@@ -110,14 +76,11 @@ impl Canvas {
             && style.blend_mode_kind.gpu_fixed_function_supported()
     }
 
-    pub(crate) fn can_queue_gpu_polygon(
-        &self,
-        points: &[Point],
-        style: &Style,
-        close: bool,
-    ) -> bool {
-        self.can_queue_gpu_primitives(style)
-            && (!close || style.fill.is_none() || polygon_is_convex(points))
+    pub(crate) fn can_queue_gpu_erase(&self, style: &Style) -> bool {
+        self.gpu.is_some()
+            && !self.cpu_compositing_active
+            && style.erasing
+            && style.blend_mode == BLEND_MODE_BLEND
     }
 
     pub(crate) fn cached_text_line(
