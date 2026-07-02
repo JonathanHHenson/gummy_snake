@@ -1,53 +1,98 @@
+use crate::gpu::pipeline::to_wgpu_color;
 use crate::gpu::types::*;
+use crate::BlendMode;
+use wgpu::util::DeviceExt;
 
 impl GpuRenderer {
-    pub fn set_clip_mask(
-        &mut self,
-        x: usize,
-        y: usize,
-        width: usize,
-        height: usize,
-        mask_rgba: &[u8],
-    ) -> usize {
-        let width = width.max(1);
-        let height = height.max(1);
-        let size = wgpu::Extent3d {
-            width: width as u32,
-            height: height as u32,
-            depth_or_array_layers: 1,
-        };
+    pub fn push_clip_path(&mut self, records: &[StrokePathRecord]) -> Result<usize, String> {
+        if records.is_empty() {
+            return Ok(self.current_clip_id);
+        }
+        self.write_viewport(self.texture_size.width, self.texture_size.height);
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("gummy_canvas clip mask texture"),
-            size,
+            label: Some("gummy_canvas GPU clip path texture"),
+            size: self.texture_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
-        self.queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            mask_rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(width as u32 * 4),
-                rows_per_image: Some(height as u32),
-            },
-            size,
-        );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let record_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("gummy_canvas GPU clip path records"),
+                contents: bytemuck::cast_slice(records),
+                usage: wgpu::BufferUsages::STORAGE,
+            });
+        let record_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("gummy_canvas GPU clip path records bind group"),
+            layout: &self.stroke_path_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: record_buffer.as_entire_binding(),
+            }],
+        });
+        let parent_clip_id = self.current_clip_id;
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("gummy_canvas GPU clip path encoder"),
+            });
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("gummy_canvas GPU clip path pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(to_wgpu_color(GpuColor {
+                            r: 0,
+                            g: 0,
+                            b: 0,
+                            a: 0,
+                        })),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            let pipeline = self
+                .path_fill_pipelines
+                .get(&BlendMode::Blend)
+                .ok_or_else(|| {
+                    "GPU path-fill pipeline is unavailable for clip_path().".to_string()
+                })?;
+            pass.set_pipeline(pipeline);
+            pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+            pass.set_bind_group(1, &self.clip_textures[parent_clip_id].bind_group, &[]);
+            pass.set_bind_group(2, &record_bind_group, &[]);
+            pass.draw(0..6, 0..1);
+        }
+        self.queue.submit([encoder.finish()]);
+
         let clip_uniform = ClipUniform {
-            rect: [x as f32, y as f32, width as f32, height as f32],
+            rect: [
+                0.0,
+                0.0,
+                self.texture_size.width as f32,
+                self.texture_size.height as f32,
+            ],
             flags: [1.0, 0.0, 0.0, 0.0],
         };
         let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas clip uniform"),
+            label: Some("gummy_canvas GPU clip path uniform"),
             size: std::mem::size_of::<ClipUniform>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
@@ -55,7 +100,7 @@ impl GpuRenderer {
         self.queue
             .write_buffer(&uniform_buffer, 0, bytemuck::bytes_of(&clip_uniform));
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gummy_canvas clip mask bind group"),
+            label: Some("gummy_canvas GPU clip path bind group"),
             layout: &self.clip_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -72,22 +117,24 @@ impl GpuRenderer {
                 },
             ],
         });
+        self.clip_stack.push(parent_clip_id);
         self.clip_textures.push(ClipTextureAsset {
             _texture: texture,
             _view: view,
             _uniform_buffer: uniform_buffer,
             bind_group,
         });
-        self.clip_generation = self.clip_generation.wrapping_add(1);
         self.current_clip_id = self.clip_textures.len() - 1;
-        self.current_clip_id
+        self.clip_generation = self.clip_generation.wrapping_add(1);
+        Ok(self.current_clip_id)
     }
 
-    pub fn clear_clip_mask(&mut self) {
-        if self.current_clip_id != 0 {
+    pub fn pop_clip_path(&mut self) {
+        let previous = self.clip_stack.pop().unwrap_or(0);
+        if previous != self.current_clip_id {
             self.clip_generation = self.clip_generation.wrapping_add(1);
         }
-        self.current_clip_id = 0;
+        self.current_clip_id = previous;
     }
 
     pub fn upload_texture(

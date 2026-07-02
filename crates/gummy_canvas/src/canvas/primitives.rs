@@ -4,7 +4,6 @@ pub(super) const PRIMITIVE_BATCH_ELLIPSE: u8 = 3;
 pub(super) const PRIMITIVE_BATCH_LINE: u8 = 4;
 
 mod batches;
-mod clip;
 mod lines;
 mod models;
 mod polygons;

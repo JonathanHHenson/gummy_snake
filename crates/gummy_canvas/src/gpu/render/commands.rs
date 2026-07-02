@@ -7,6 +7,7 @@ impl GpuRenderer {
         self.commands.clear();
         self.clip_textures.truncate(1);
         self.current_clip_id = 0;
+        self.clip_stack.clear();
     }
 
     pub fn set_clear_color(&mut self, color: GpuColor) {
@@ -125,15 +126,27 @@ impl GpuRenderer {
                 contents: bytemuck::cast_slice(indices),
                 usage: wgpu::BufferUsages::INDEX,
             });
+        let wire_indices = model_wire_indices(indices);
+        let wire_index_count = u32::try_from(wire_indices.len())
+            .map_err(|_| "model wireframe index count exceeds GPU draw limits".to_owned())?;
+        let wire_index_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("gummy_canvas model wireframe indices"),
+                contents: bytemuck::cast_slice(&wire_indices),
+                usage: wgpu::BufferUsages::INDEX,
+            });
         self.model_meshes.insert(
             key,
             GpuModelMesh {
                 _vertex_buffer: vertex_buffer,
                 _index_buffer: index_buffer,
+                _wire_index_buffer: wire_index_buffer,
                 index_count,
+                wire_index_count,
             },
         );
-        self.vertex_buffer_allocations += 2;
+        self.vertex_buffer_allocations += 3;
         Ok(index_count)
     }
 
@@ -172,6 +185,16 @@ impl GpuRenderer {
             index_count,
             uniform,
         });
+    }
+
+    pub fn draw_model_wireframe(&mut self, key: u64, index_count: u32, uniform: ModelUniform) {
+        if index_count > 0 {
+            self.commands.push(DrawCommand::ModelWireframe {
+                key,
+                index_count,
+                uniform,
+            });
+        }
     }
 
     pub fn draw_model_instances(
@@ -297,4 +320,19 @@ impl GpuRenderer {
             });
         }
     }
+}
+
+fn model_wire_indices(indices: &[u32]) -> Vec<u32> {
+    let mut wire_indices = Vec::with_capacity(indices.len() * 2);
+    for triangle in indices.chunks_exact(3) {
+        wire_indices.extend_from_slice(&[
+            triangle[0],
+            triangle[1],
+            triangle[1],
+            triangle[2],
+            triangle[2],
+            triangle[0],
+        ]);
+    }
+    wire_indices
 }

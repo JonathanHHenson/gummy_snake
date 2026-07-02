@@ -35,6 +35,7 @@ pub(super) struct RenderPassBatcher<'resources, 'pass> {
     pub(super) image_pipelines:
         &'resources std::collections::HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) model_pipeline: &'resources wgpu::RenderPipeline,
+    pub(super) model_wireframe_pipeline: &'resources wgpu::RenderPipeline,
     pub(super) textured_model_pipeline: &'resources wgpu::RenderPipeline,
     pub(super) model_uniform_bind_group: &'resources wgpu::BindGroup,
     pub(super) vertex_uploads: &'pass mut u64,

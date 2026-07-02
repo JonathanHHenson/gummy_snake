@@ -51,6 +51,7 @@ impl GpuRenderer {
                     image_vertices += vertices.len();
                 }
                 DrawCommand::Model { .. }
+                | DrawCommand::ModelWireframe { .. }
                 | DrawCommand::ModelInstances { .. }
                 | DrawCommand::TexturedModel { .. } => {}
                 DrawCommand::Text { .. } => {}
@@ -65,7 +66,9 @@ impl GpuRenderer {
             .commands
             .iter()
             .map(|command| match command {
-                DrawCommand::Model { .. } | DrawCommand::TexturedModel { .. } => 1,
+                DrawCommand::Model { .. }
+                | DrawCommand::ModelWireframe { .. }
+                | DrawCommand::TexturedModel { .. } => 1,
                 DrawCommand::ModelInstances { uniforms, .. } => uniforms.len(),
                 _ => 0,
             })

@@ -79,6 +79,7 @@ impl GpuRenderer {
             matches!(
                 command,
                 DrawCommand::Model { .. }
+                    | DrawCommand::ModelWireframe { .. }
                     | DrawCommand::ModelInstances { .. }
                     | DrawCommand::TexturedModel { .. }
             )
@@ -93,7 +94,9 @@ impl GpuRenderer {
             }
             let uniform_index = render_offsets.model_uniform + model_uniforms.len() as u32;
             match command {
-                DrawCommand::Model { uniform, .. } | DrawCommand::TexturedModel { uniform, .. } => {
+                DrawCommand::Model { uniform, .. }
+                | DrawCommand::ModelWireframe { uniform, .. }
+                | DrawCommand::TexturedModel { uniform, .. } => {
                     model_uniforms.push(*uniform);
                     model_uniform_indices[command_index] = Some(uniform_index);
                 }

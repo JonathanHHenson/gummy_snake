@@ -94,6 +94,7 @@ impl GpuRenderer {
                 DrawCommand::BlendEllipse { .. }
                 | DrawCommand::PixelPrefix { .. }
                 | DrawCommand::Model { .. }
+                | DrawCommand::ModelWireframe { .. }
                 | DrawCommand::ModelInstances { .. }
                 | DrawCommand::TexturedModel { .. }
                 | DrawCommand::Text { .. } => return None,

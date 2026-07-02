@@ -14,6 +14,30 @@ pub(in crate::gpu) fn create_model_pipeline(
         MODEL_SHADER,
         "gummy_canvas model shader",
         "gummy_canvas model pipeline",
+        wgpu::PrimitiveTopology::TriangleList,
+        Some(wgpu::Face::Back),
+        true,
+        wgpu::CompareFunction::Less,
+    )
+}
+
+pub(in crate::gpu) fn create_model_wireframe_pipeline(
+    device: &wgpu::Device,
+    model_bind_group_layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    create_model_pipeline_inner(
+        device,
+        model_bind_group_layout,
+        &[],
+        format,
+        MODEL_SHADER,
+        "gummy_canvas model wireframe shader",
+        "gummy_canvas model wireframe pipeline",
+        wgpu::PrimitiveTopology::LineList,
+        None,
+        false,
+        wgpu::CompareFunction::LessEqual,
     )
 }
 
@@ -31,6 +55,10 @@ pub(in crate::gpu) fn create_textured_model_pipeline(
         TEXTURED_MODEL_SHADER,
         "gummy_canvas textured model shader",
         "gummy_canvas textured model pipeline",
+        wgpu::PrimitiveTopology::TriangleList,
+        Some(wgpu::Face::Back),
+        true,
+        wgpu::CompareFunction::Less,
     )
 }
 
@@ -42,6 +70,10 @@ fn create_model_pipeline_inner(
     shader_source: &str,
     shader_label: &'static str,
     pipeline_label: &'static str,
+    topology: wgpu::PrimitiveTopology,
+    cull_mode: Option<wgpu::Face>,
+    depth_write_enabled: bool,
+    depth_compare: wgpu::CompareFunction,
 ) -> wgpu::RenderPipeline {
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: Some(shader_label),
@@ -94,18 +126,18 @@ fn create_model_pipeline_inner(
             })],
         }),
         primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleList,
+            topology,
             strip_index_format: None,
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: Some(wgpu::Face::Back),
+            cull_mode,
             polygon_mode: wgpu::PolygonMode::Fill,
             unclipped_depth: false,
             conservative: false,
         },
         depth_stencil: Some(wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth24Plus,
-            depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less,
+            depth_write_enabled,
+            depth_compare,
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),

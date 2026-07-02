@@ -153,7 +153,9 @@ pub(super) struct ClipTextureAsset {
 pub(super) struct GpuModelMesh {
     pub(super) _vertex_buffer: wgpu::Buffer,
     pub(super) _index_buffer: wgpu::Buffer,
+    pub(super) _wire_index_buffer: wgpu::Buffer,
     pub(super) index_count: u32,
+    pub(super) wire_index_count: u32,
 }
 
 pub struct GpuRenderer {
@@ -177,6 +179,7 @@ pub struct GpuRenderer {
     pub(super) image_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) model_pipeline: wgpu::RenderPipeline,
+    pub(super) model_wireframe_pipeline: wgpu::RenderPipeline,
     pub(super) textured_model_pipeline: wgpu::RenderPipeline,
     pub(super) pixel_prefix_pipeline: wgpu::RenderPipeline,
     pub(super) blend_ellipse_pipeline: wgpu::RenderPipeline,
@@ -206,6 +209,7 @@ pub struct GpuRenderer {
     pub(super) viewport_bind_group: wgpu::BindGroup,
     pub(super) clip_textures: Vec<ClipTextureAsset>,
     pub(super) current_clip_id: usize,
+    pub(super) clip_stack: Vec<usize>,
     pub(super) clip_generation: u64,
     pub(super) previous_render_clip_generation: u64,
     pub(super) clear_color: GpuColor,

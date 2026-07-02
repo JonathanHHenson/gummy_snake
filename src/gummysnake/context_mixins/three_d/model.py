@@ -139,36 +139,46 @@ class ThreeDModelMixin:
             or self.state.style.fill_color is not None
         )
         texture = None if self._normal_material3d else texture_image(material)
+        drew_fill = False
+        if draw_fill:
+            if texture is not None:
+                if self._draw_model_textured_direct(model, texture, material, model_transform):
+                    drew_fill = True
+                else:
+                    raise UnsupportedFeatureError(
+                        "model() textured drawing requires retained GPU textured-model support; "
+                        "CPU projected-face texture fallback is disabled."
+                    )
+            else:
+                handle = _ensure_model_rust_handle(model)
+                transform_payload = model_transform_payload(model_transform)
+                if (
+                    handle is not None
+                    and self._queue_model_shaded_direct(
+                        handle,
+                        material,
+                        transform_payload,
+                    )
+                    or self._draw_model_shaded_direct(model, material, model_transform)
+                ):
+                    drew_fill = True
+                else:
+                    raise UnsupportedFeatureError(
+                        "model() requires retained GPU model drawing; CPU projected-face payload "
+                        "drawing is disabled."
+                    )
+
         if self.state.style.stroke_color is not None:
-            raise UnsupportedFeatureError(
-                "model() stroke outlines require a retained GPU model-stroke "
-                "implementation; CPU projected-face stroke fallback is disabled. "
-                "Call no_stroke() before drawing retained GPU models."
-            )
-        if not draw_fill:
-            return
-        if texture is not None:
-            if self._draw_model_textured_direct(model, texture, material, model_transform):
+            stroke_rgba = _three_d(self)._color_to_rgba(self.state.style.stroke_color)
+            stroke_material = Material3D(base_color=stroke_rgba)
+            if self._draw_model_wireframe_direct(model, stroke_material, model_transform):
                 return
             raise UnsupportedFeatureError(
-                "model() textured drawing requires retained GPU textured-model support; "
-                "CPU projected-face texture fallback is disabled."
+                "model() stroke outlines require retained GPU model-wireframe support; "
+                "CPU projected-face stroke fallback is disabled."
             )
-
-        handle = _ensure_model_rust_handle(model)
-        transform_payload = model_transform_payload(model_transform)
-        if handle is not None and self._queue_model_shaded_direct(
-            handle,
-            material,
-            transform_payload,
-        ):
+        if drew_fill or not draw_fill:
             return
-        if self._draw_model_shaded_direct(model, material, model_transform):
-            return
-        raise UnsupportedFeatureError(
-            "model() requires retained GPU model drawing; CPU projected-face payload "
-            "drawing is disabled."
-        )
 
     def _draw_model_fast(
         self, shape: Mesh3D | Model3D, *, model_transform: Any | None = None
@@ -303,6 +313,30 @@ class ThreeDModelMixin:
             light_payloads(self._lights3d),
             self._normal_material3d,
             True,
+            transform_payload,
+        )
+        self._count_renderer_counter("direct_model_draws")
+        return True
+
+    def _draw_model_wireframe_direct(
+        self,
+        model: Model3D,
+        material: Material3D,
+        model_transform: Any | None,
+    ) -> bool:
+        _ensure_model_rust_handle(model)
+        resources = self._rust_model_draw_resources(model, "draw_model_wireframe")
+        if resources is None:
+            return False
+        handle, draw = resources
+        transform_payload = model_transform_payload(model_transform)
+        draw(
+            handle,
+            camera_payload(self._camera3d),
+            projection_payload(self._projection3d),
+            float(self.width),
+            float(self.height),
+            material_payload(material),
             transform_payload,
         )
         self._count_renderer_counter("direct_model_draws")

@@ -76,6 +76,80 @@ impl Canvas {
         self.draw_gpu_fill_path(records, blend_mode)
     }
 
+    pub(crate) fn gpu_complex_path_fill_records(
+        &self,
+        segments: &[crate::sketch_state::CapturedPathSegment],
+        vertices: &[Point],
+        contours: &[Vec<Point>],
+        close: bool,
+        matrix: Matrix,
+        pixel_density: f64,
+        color: Rgba,
+    ) -> Vec<crate::gpu::StrokePathRecord> {
+        path_fill_segment_records_with_contours(
+            segments,
+            vertices,
+            contours,
+            close,
+            matrix,
+            pixel_density,
+            color,
+        )
+    }
+
+    pub(crate) fn gpu_complex_polygon_fill_records(
+        &self,
+        outer: &[Point],
+        contours: &[Vec<Point>],
+        matrix: Matrix,
+        pixel_density: f64,
+        color: Rgba,
+    ) -> Vec<crate::gpu::StrokePathRecord> {
+        path_fill_polygon_records(outer, contours, matrix, pixel_density, color)
+    }
+
+    pub(crate) fn draw_gpu_complex_path_fill_with_matrix(
+        &mut self,
+        segments: &[crate::sketch_state::CapturedPathSegment],
+        vertices: &[Point],
+        contours: &[Vec<Point>],
+        close: bool,
+        matrix: Matrix,
+        pixel_density: f64,
+        color: Rgba,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        if vertices.len() < 3 || !close {
+            return Ok(());
+        }
+        let records = path_fill_segment_records_with_contours(
+            segments,
+            vertices,
+            contours,
+            close,
+            matrix,
+            pixel_density,
+            color,
+        );
+        self.draw_gpu_fill_path(records, blend_mode)
+    }
+
+    pub(crate) fn draw_gpu_complex_polygon_fill_with_matrix(
+        &mut self,
+        outer: &[Point],
+        contours: &[Vec<Point>],
+        matrix: Matrix,
+        pixel_density: f64,
+        color: Rgba,
+        blend_mode: BlendMode,
+    ) -> PyResult<()> {
+        if outer.len() < 3 {
+            return Ok(());
+        }
+        let records = path_fill_polygon_records(outer, contours, matrix, pixel_density, color);
+        self.draw_gpu_fill_path(records, blend_mode)
+    }
+
     pub(crate) fn draw_gpu_erase_path_fill_with_matrix(
         &mut self,
         segments: &[crate::sketch_state::CapturedPathSegment],
@@ -95,6 +169,45 @@ impl Canvas {
             pixel_density,
             self.erase_color,
         );
+        self.draw_gpu_erase_fill_path(records)
+    }
+
+    pub(crate) fn draw_gpu_erase_complex_path_fill_with_matrix(
+        &mut self,
+        segments: &[crate::sketch_state::CapturedPathSegment],
+        vertices: &[Point],
+        contours: &[Vec<Point>],
+        close: bool,
+        matrix: Matrix,
+        pixel_density: f64,
+    ) -> PyResult<()> {
+        if vertices.len() < 3 || !close {
+            return Ok(());
+        }
+        let records = path_fill_segment_records_with_contours(
+            segments,
+            vertices,
+            contours,
+            close,
+            matrix,
+            pixel_density,
+            self.erase_color,
+        );
+        self.draw_gpu_erase_fill_path(records)
+    }
+
+    pub(crate) fn draw_gpu_erase_complex_polygon_fill_with_matrix(
+        &mut self,
+        outer: &[Point],
+        contours: &[Vec<Point>],
+        matrix: Matrix,
+        pixel_density: f64,
+    ) -> PyResult<()> {
+        if outer.len() < 3 {
+            return Ok(());
+        }
+        let records =
+            path_fill_polygon_records(outer, contours, matrix, pixel_density, self.erase_color);
         self.draw_gpu_erase_fill_path(records)
     }
 
@@ -747,8 +860,33 @@ fn path_fill_segment_records(
     pixel_density: f64,
     color: Rgba,
 ) -> Vec<crate::gpu::StrokePathRecord> {
+    path_fill_segment_records_with_contours(
+        segments,
+        vertices,
+        &[],
+        close,
+        matrix,
+        pixel_density,
+        color,
+    )
+}
+
+pub(crate) fn path_fill_segment_records_with_contours(
+    segments: &[crate::sketch_state::CapturedPathSegment],
+    vertices: &[Point],
+    contours: &[Vec<Point>],
+    close: bool,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: Rgba,
+) -> Vec<crate::gpu::StrokePathRecord> {
     let close_segment = close && vertices.len() > 1;
-    let command_count = segments.len() + usize::from(close_segment);
+    let contour_command_count: usize = contours
+        .iter()
+        .filter(|contour| contour.len() > 1)
+        .map(|contour| contour.len())
+        .sum();
+    let command_count = segments.len() + usize::from(close_segment) + contour_command_count;
     let mut records = stroke_path_header(matrix, pixel_density, 0.0, color);
     records.push([command_count as f32, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
     for segment in segments {
@@ -762,6 +900,31 @@ fn path_fill_segment_records(
                 to: vertices[0],
             },
         );
+    }
+    for contour in contours {
+        push_closed_line_loop_records(&mut records, contour);
+    }
+    records
+}
+
+pub(crate) fn path_fill_polygon_records(
+    outer: &[Point],
+    contours: &[Vec<Point>],
+    matrix: Matrix,
+    pixel_density: f64,
+    color: Rgba,
+) -> Vec<crate::gpu::StrokePathRecord> {
+    let contour_command_count: usize = contours
+        .iter()
+        .filter(|contour| contour.len() > 1)
+        .map(|contour| contour.len())
+        .sum();
+    let command_count = outer.len() + contour_command_count;
+    let mut records = stroke_path_header(matrix, pixel_density, 0.0, color);
+    records.push([command_count as f32, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
+    push_closed_line_loop_records(&mut records, outer);
+    for contour in contours {
+        push_closed_line_loop_records(&mut records, contour);
     }
     records
 }
@@ -823,6 +986,31 @@ fn stroke_path_segment_records(
         );
     }
     records
+}
+
+fn push_closed_line_loop_records(
+    records: &mut Vec<crate::gpu::StrokePathRecord>,
+    points: &[Point],
+) {
+    if points.len() < 2 {
+        return;
+    }
+    for pair in points.windows(2) {
+        push_stroke_segment_records(
+            records,
+            crate::sketch_state::CapturedPathSegment::Line {
+                from: pair[0],
+                to: pair[1],
+            },
+        );
+    }
+    push_stroke_segment_records(
+        records,
+        crate::sketch_state::CapturedPathSegment::Line {
+            from: *points.last().expect("non-empty contour"),
+            to: points[0],
+        },
+    );
 }
 
 fn push_stroke_segment_records(

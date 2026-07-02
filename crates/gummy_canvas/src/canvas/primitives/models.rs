@@ -54,6 +54,45 @@ impl Canvas {
         ))
     }
 
+    pub(crate) fn draw_model_wireframe_impl(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        transform: Option<Vec<f64>>,
+    ) -> PyResult<()> {
+        if self.gpu.is_some() && !self.cpu_compositing_active {
+            let (key, vertices, indices) = crate::software3d::model_gpu_buffers(model);
+            if !vertices.is_empty() && !indices.is_empty() {
+                let uniform = crate::software3d::model_gpu_uniform(
+                    camera,
+                    projection,
+                    viewport_width,
+                    viewport_height,
+                    material,
+                    &PyList::empty_bound(camera.py()),
+                    false,
+                    transform.clone(),
+                )?;
+                self.upload_stale_texture(false)?;
+                if let Some(gpu) = self.gpu.as_mut() {
+                    let index_count = gpu
+                        .ensure_model_mesh(key, vertices, indices)
+                        .map_err(PyValueError::new_err)?;
+                    gpu.draw_model_wireframe(key, index_count, uniform);
+                    self.record_native_model_draw();
+                    return Ok(());
+                }
+            }
+        }
+        Err(PyValueError::new_err(
+            "CPU 3D model wireframe fallback is disabled; model strokes require the retained GPU model path.",
+        ))
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn draw_model_shaded_batch_impl(
         &mut self,

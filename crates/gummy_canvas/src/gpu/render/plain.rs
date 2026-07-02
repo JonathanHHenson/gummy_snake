@@ -30,6 +30,7 @@ impl GpuRenderer {
                 DrawCommand::BlendEllipse { .. } => None,
                 DrawCommand::PixelPrefix { .. } => None,
                 DrawCommand::Model { .. } => None,
+                DrawCommand::ModelWireframe { .. } => None,
                 DrawCommand::ModelInstances { .. } => None,
                 DrawCommand::TexturedModel { .. } => None,
                 DrawCommand::Text { .. } => None,
@@ -97,6 +98,7 @@ impl GpuRenderer {
             image_pipeline: &self.image_pipeline,
             image_pipelines: &self.image_pipelines,
             model_pipeline: &self.model_pipeline,
+            model_wireframe_pipeline: &self.model_wireframe_pipeline,
             textured_model_pipeline: &self.textured_model_pipeline,
             model_uniform_bind_group: &self.model_uniform_bind_group,
             vertex_uploads: &mut self.vertex_uploads,
@@ -209,6 +211,20 @@ impl GpuRenderer {
                         continue;
                     }
                     batcher.draw_model(
+                        self.model_meshes.get(key),
+                        *index_count,
+                        model_uniform_indices[command_index],
+                    );
+                }
+                DrawCommand::ModelWireframe {
+                    key,
+                    index_count,
+                    uniform: _,
+                } => {
+                    if skip_until_last_clear {
+                        continue;
+                    }
+                    batcher.draw_model_wireframe(
                         self.model_meshes.get(key),
                         *index_count,
                         model_uniform_indices[command_index],

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use crate::gpu::pipeline::{
     clip_bind_group_layout, create_blend_ellipse_pipeline, create_image_pipeline,
-    create_image_pipeline_for_blend_mode, create_model_pipeline, create_path_fill_erase_pipeline,
-    create_path_fill_pipeline, create_pipeline, create_pipeline_for_blend_mode,
-    create_pixel_prefix_pipeline, create_procedural_erase_pipeline,
+    create_image_pipeline_for_blend_mode, create_model_pipeline, create_model_wireframe_pipeline,
+    create_path_fill_erase_pipeline, create_path_fill_pipeline, create_pipeline,
+    create_pipeline_for_blend_mode, create_pixel_prefix_pipeline, create_procedural_erase_pipeline,
     create_procedural_primitive_pipeline, create_stroke_path_erase_pipeline,
     create_stroke_path_pipeline, create_textured_model_pipeline, model_bind_group_layout,
     pixel_prefix_bind_group_layout, stroke_path_bind_group_layout, texture_bind_group_layout,
@@ -31,6 +31,7 @@ pub(super) struct PipelineResources {
     pub(super) image_pipeline: wgpu::RenderPipeline,
     pub(super) image_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
     pub(super) model_pipeline: wgpu::RenderPipeline,
+    pub(super) model_wireframe_pipeline: wgpu::RenderPipeline,
     pub(super) textured_model_pipeline: wgpu::RenderPipeline,
     pub(super) pixel_prefix_pipeline: wgpu::RenderPipeline,
     pub(super) blend_ellipse_pipeline: wgpu::RenderPipeline,
@@ -159,6 +160,11 @@ pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResour
         &model_bind_group_layout,
         wgpu::TextureFormat::Rgba8Unorm,
     );
+    let model_wireframe_pipeline = create_model_wireframe_pipeline(
+        device,
+        &model_bind_group_layout,
+        wgpu::TextureFormat::Rgba8Unorm,
+    );
     let textured_model_pipeline = create_textured_model_pipeline(
         device,
         &model_bind_group_layout,
@@ -196,6 +202,7 @@ pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResour
         image_pipeline,
         image_pipelines,
         model_pipeline,
+        model_wireframe_pipeline,
         textured_model_pipeline,
         pixel_prefix_pipeline,
         blend_ellipse_pipeline,

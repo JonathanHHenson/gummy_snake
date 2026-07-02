@@ -15,7 +15,9 @@ pub(super) use layouts::{
     clip_bind_group_layout, model_bind_group_layout, pixel_prefix_bind_group_layout,
     stroke_path_bind_group_layout, texture_bind_group_layout, viewport_bind_group_layout,
 };
-pub(super) use models::{create_model_pipeline, create_textured_model_pipeline};
+pub(super) use models::{
+    create_model_pipeline, create_model_wireframe_pipeline, create_textured_model_pipeline,
+};
 pub(super) use presentation::create_texture_pipeline;
 pub(super) use primitives::{
     create_path_fill_erase_pipeline, create_path_fill_pipeline, create_pipeline,

@@ -84,6 +84,11 @@ pub enum DrawCommand {
         index_count: u32,
         uniform: ModelUniform,
     },
+    ModelWireframe {
+        key: u64,
+        index_count: u32,
+        uniform: ModelUniform,
+    },
     ModelInstances {
         key: u64,
         index_count: u32,

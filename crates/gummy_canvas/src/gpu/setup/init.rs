@@ -102,6 +102,7 @@ impl GpuRenderer {
             image_pipeline: pipelines.image_pipeline,
             image_pipelines: pipelines.image_pipelines,
             model_pipeline: pipelines.model_pipeline,
+            model_wireframe_pipeline: pipelines.model_wireframe_pipeline,
             textured_model_pipeline: pipelines.textured_model_pipeline,
             pixel_prefix_pipeline: pipelines.pixel_prefix_pipeline,
             blend_ellipse_pipeline: pipelines.blend_ellipse_pipeline,
@@ -131,6 +132,7 @@ impl GpuRenderer {
             viewport_bind_group,
             clip_textures,
             current_clip_id: 0,
+            clip_stack: Vec::new(),
             clip_generation: 0,
             previous_render_clip_generation: 0,
             clear_color: GpuColor {

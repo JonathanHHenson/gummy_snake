@@ -428,6 +428,28 @@ impl Canvas {
         )
     }
 
+    #[pyo3(signature = (model, camera, projection, viewport_width, viewport_height, material, transform=None))]
+    pub(crate) fn draw_model_wireframe(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        transform: Option<Vec<f64>>,
+    ) -> PyResult<()> {
+        self.draw_model_wireframe_impl(
+            model,
+            camera,
+            projection,
+            viewport_width,
+            viewport_height,
+            material,
+            transform,
+        )
+    }
+
     #[pyo3(signature = (model, camera, projection, viewport_width, viewport_height, material, lights, normal_material, cull_backfaces, transforms))]
     pub(crate) fn _draw_model_shaded_batch(
         &mut self,
