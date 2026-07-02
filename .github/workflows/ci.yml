@@ -4,6 +4,12 @@ on:
   push:
   pull_request:
 
+env:
+  # CI runners do not expose a hardware GPU consistently. Keep rendering on the
+  # GPU API path by using Mesa's Vulkan/lavapipe adapter instead of falling back
+  # to CPU rasterization in Gummy Snake.
+  WGPU_BACKEND: vulkan
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -19,6 +25,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libasound2-dev \
+            libvulkan1 \
             libwayland-dev \
             libx11-dev \
             libxcb1-dev \
@@ -31,6 +38,7 @@ jobs:
             libxrender-dev \
             libxss-dev \
             libxtst-dev \
+            mesa-vulkan-drivers \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
@@ -55,6 +63,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libasound2-dev \
+            libvulkan1 \
             libwayland-dev \
             libx11-dev \
             libxcb1-dev \
@@ -67,6 +76,7 @@ jobs:
             libxrender-dev \
             libxss-dev \
             libxtst-dev \
+            mesa-vulkan-drivers \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
@@ -97,6 +107,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libasound2-dev \
+            libvulkan1 \
             libwayland-dev \
             libx11-dev \
             libxcb1-dev \
@@ -109,6 +120,7 @@ jobs:
             libxrender-dev \
             libxss-dev \
             libxtst-dev \
+            mesa-vulkan-drivers \
             pkg-config
       - run: uv build
       - name: Verify sdist includes Rust ECS crate
@@ -149,6 +161,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libasound2-dev \
+            libvulkan1 \
             libwayland-dev \
             libx11-dev \
             libxcb1-dev \
@@ -161,6 +174,7 @@ jobs:
             libxrender-dev \
             libxss-dev \
             libxtst-dev \
+            mesa-vulkan-drivers \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --features extension-module
@@ -182,6 +196,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libasound2-dev \
+            libvulkan1 \
             libwayland-dev \
             libx11-dev \
             libxcb1-dev \
@@ -194,6 +209,7 @@ jobs:
             libxrender-dev \
             libxss-dev \
             libxtst-dev \
+            mesa-vulkan-drivers \
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
