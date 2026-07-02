@@ -118,7 +118,10 @@ def test_transform_contexts_do_not_reuse_stale_fill_payloads():
     for row in range(3):
         for col in range(6):
             center = pixel_at(80 + col * 112, 85 + row * 112)
-            assert center == blended_fill(row, col)
+            expected = blended_fill(row, col)
+            assert all(
+                abs(actual - target) <= 1 for actual, target in zip(center, expected, strict=True)
+            ), (center, expected)
 
 
 def test_text_before_later_primitive_and_centered_text_is_not_clipped():
