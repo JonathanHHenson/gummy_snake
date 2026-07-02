@@ -17,6 +17,12 @@ on:
 
 permissions: {}
 
+env:
+  # Publish validation runs headless rendering on Linux CI runners without a
+  # hardware GPU. Use Mesa's Vulkan/lavapipe adapter so tests stay on the GPU API
+  # path instead of requiring Gummy Snake CPU raster fallbacks.
+  WGPU_BACKEND: vulkan
+
 jobs:
   validate:
     name: Validate package
@@ -39,6 +45,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libasound2-dev \
+            libvulkan1 \
             libwayland-dev \
             libx11-dev \
             libxcb1-dev \
@@ -51,6 +58,7 @@ jobs:
             libxrender-dev \
             libxss-dev \
             libxtst-dev \
+            mesa-vulkan-drivers \
             pkg-config
 
       - name: Install dev dependencies
