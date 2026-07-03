@@ -8,7 +8,7 @@ use crate::query::{QueryFilter, QueryTerm};
 use crate::scheduler::{AccessKey, AccessSummary};
 use crate::schema::SchemaRegistry;
 
-pub const BRIDGE_PLAN_VERSION: u32 = 1;
+pub const BRIDGE_PLAN_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PhysicalQuery {
@@ -140,6 +140,26 @@ pub enum ActionNode {
     EmitEvent {
         event_type: String,
         value: usize,
+    },
+    AddComponent {
+        query: String,
+        component: String,
+        value: Option<usize>,
+    },
+    RemoveComponent {
+        query: String,
+        component: String,
+    },
+    AddTag {
+        query: String,
+        tag: String,
+    },
+    RemoveTag {
+        query: String,
+        tag: String,
+    },
+    Despawn {
+        query: String,
     },
     Udf {
         descriptor: String,
@@ -574,6 +594,43 @@ pub fn validate_plan_with_schemas(plan: &PhysicalPlan, schemas: &SchemaRegistry)
             _ => {}
         }
     }
+    for action in &plan.actions {
+        match action {
+            ActionNode::AddComponent {
+                query, component, ..
+            }
+            | ActionNode::RemoveComponent { query, component } => {
+                if !query_names.contains(query.as_str()) {
+                    return Err(EcsError::InvalidPlan(format!(
+                        "unknown query {query} in structural component action"
+                    )));
+                }
+                if !schemas.contains(component) {
+                    return Err(EcsError::UnknownSchema(component.clone()));
+                }
+            }
+            ActionNode::AddTag { query, tag } | ActionNode::RemoveTag { query, tag } => {
+                if !query_names.contains(query.as_str()) {
+                    return Err(EcsError::InvalidPlan(format!(
+                        "unknown query {query} in structural tag action"
+                    )));
+                }
+                if tag.is_empty() {
+                    return Err(EcsError::InvalidPlan(
+                        "tag action cannot use an empty tag".to_string(),
+                    ));
+                }
+            }
+            ActionNode::Despawn { query } => {
+                if !query_names.contains(query.as_str()) {
+                    return Err(EcsError::InvalidPlan(format!(
+                        "unknown query {query} in despawn action"
+                    )));
+                }
+            }
+            _ => {}
+        }
+    }
     Ok(())
 }
 
@@ -694,6 +751,15 @@ fn validate_plan_shape(plan: &PhysicalPlan) -> Result<()> {
                 validate_action_index(plan, *action)?;
             }
             ActionNode::EmitEvent { value, .. } => validate_expr_index(plan, *value)?,
+            ActionNode::AddComponent { value, .. } => {
+                if let Some(value) = value {
+                    validate_expr_index(plan, *value)?;
+                }
+            }
+            ActionNode::RemoveComponent { .. }
+            | ActionNode::AddTag { .. }
+            | ActionNode::RemoveTag { .. }
+            | ActionNode::Despawn { .. } => {}
             ActionNode::Udf {
                 descriptor, args, ..
             } => {
@@ -839,6 +905,32 @@ fn collect_action_access(
         ActionNode::EmitEvent { event_type, value } => {
             collect_expr_reads(plan, *value, access)?;
             access.writes.insert(AccessKey::Event(event_type.clone()));
+        }
+        ActionNode::AddComponent {
+            component, value, ..
+        } => {
+            if let Some(value) = value {
+                collect_expr_reads(plan, *value, access)?;
+            }
+            access
+                .writes
+                .insert(AccessKey::Component(component.clone()));
+            access.structural = true;
+        }
+        ActionNode::RemoveComponent { component, .. } => {
+            access
+                .writes
+                .insert(AccessKey::Component(component.clone()));
+            access.structural = true;
+        }
+        ActionNode::AddTag { tag, .. } | ActionNode::RemoveTag { tag, .. } => {
+            access
+                .writes
+                .insert(AccessKey::Hidden(format!("tag:{tag}")));
+            access.structural = true;
+        }
+        ActionNode::Despawn { .. } => {
+            access.structural = true;
         }
         ActionNode::Udf {
             args,

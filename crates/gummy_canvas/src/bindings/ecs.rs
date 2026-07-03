@@ -469,6 +469,28 @@ fn parse_action_node(value: Bound<'_, PyAny>) -> PyResult<ActionNode> {
             event_type: get_required(dict, "event_type")?.extract::<String>()?,
             value: get_required(dict, "value")?.extract::<usize>()?,
         }),
+        "add_component" => Ok(ActionNode::AddComponent {
+            query: get_required(dict, "query")?.extract::<String>()?,
+            component: get_required(dict, "component")?.extract::<String>()?,
+            value: get_optional(dict, "value")?
+                .map(|value| value.extract::<usize>())
+                .transpose()?,
+        }),
+        "remove_component" => Ok(ActionNode::RemoveComponent {
+            query: get_required(dict, "query")?.extract::<String>()?,
+            component: get_required(dict, "component")?.extract::<String>()?,
+        }),
+        "add_tag" => Ok(ActionNode::AddTag {
+            query: get_required(dict, "query")?.extract::<String>()?,
+            tag: get_required(dict, "tag")?.extract::<String>()?,
+        }),
+        "remove_tag" => Ok(ActionNode::RemoveTag {
+            query: get_required(dict, "query")?.extract::<String>()?,
+            tag: get_required(dict, "tag")?.extract::<String>()?,
+        }),
+        "despawn" => Ok(ActionNode::Despawn {
+            query: get_required(dict, "query")?.extract::<String>()?,
+        }),
         "udf" => Ok(ActionNode::Udf {
             descriptor: get_required(dict, "descriptor")?.extract::<String>()?,
             args: parse_usize_list(&get_required(dict, "args")?, "args")?,
@@ -574,6 +596,7 @@ fn execution_report_to_dict<'py>(
     dict.set_item("fields_written", report.fields_written)?;
     dict.set_item("resource_fields_written", report.resource_fields_written)?;
     dict.set_item("events_emitted", report.events_emitted)?;
+    dict.set_item("structural_commands", report.structural_commands)?;
     dict.set_item("duplicate_writes", report.duplicate_writes)?;
     dict.set_item("spatial_indexes_built", report.spatial_indexes_built)?;
     dict.set_item("spatial_candidate_rows", report.spatial_candidate_rows)?;

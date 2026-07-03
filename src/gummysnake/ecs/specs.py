@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -17,6 +18,11 @@ class TagTerm:
 class ChangeTerm:
     kind: str
     component_type: type[Any]
+
+
+@dataclass(frozen=True)
+class WithoutTerm:
+    value: object
 
 
 class Changed:
@@ -47,6 +53,15 @@ class Tag:
         return TagTerm(item)
 
 
+class Without:
+    """Query annotation marker excluding a component type or tag term."""
+
+    def __class_getitem__(cls, item: object) -> WithoutTerm:
+        if isinstance(item, tuple):
+            raise TypeError("ecs.Without[...] accepts one component type or ecs.Tag[...] term.")
+        return WithoutTerm(item)
+
+
 @dataclass(frozen=True)
 class QuerySpec:
     terms: tuple[object, ...]
@@ -65,6 +80,11 @@ class Query:
 
     def __getitem__(self, component_type: type[Any]) -> ComponentExpressionProxy:
         raise TypeError("ecs.Query is an annotation marker; systems receive query proxies.")
+
+    def __iter__(self) -> Iterator[Any]:
+        raise TypeError(
+            "ecs.Query is an annotation marker; explicit Python systems receive entity views."
+        )
 
 
 @dataclass(frozen=True)
@@ -90,6 +110,16 @@ class EventWriterProxy:
     name: str
     event_type: type[Any]
 
+    def emit(self, event: object) -> None:
+        from gummysnake.ecs.actions import append_action, emit_event
+        from gummysnake.exceptions import SystemPlanError
+
+        if type(event) is not self.event_type:
+            raise SystemPlanError(
+                f"Expected ECS event {self.event_type.__name__}, got {type(event).__name__}."
+            )
+        append_action(emit_event(self, event), operation=f"{self.name}.emit()")
+
 
 class Res:
     """Annotation marker for read-only ECS resource access."""
@@ -113,6 +143,10 @@ class EventWriter:
 
     def __class_getitem__(cls, item: type[Any]) -> EventSpec:
         return EventSpec(item, "writer")
+
+    def emit(self, event: object) -> None:
+        del event
+        raise TypeError("ecs.EventWriter is an annotation marker; systems receive writer proxies.")
 
 
 class ResMut:
@@ -142,4 +176,6 @@ __all__ = [
     "ResourceSpec",
     "Tag",
     "TagTerm",
+    "Without",
+    "WithoutTerm",
 ]

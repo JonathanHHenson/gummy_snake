@@ -2,7 +2,7 @@
 
 Gummy Snake exposes an ECS API through `gummysnake.ecs` plus global/object-mode
 helpers on `gs` and `Sketch`. Components and resources are Python dataclasses;
-systems are decorated functions that return an `ecs.Action` tree.
+systems are decorated functions that record a logical plan through context-managed build blocks and return `None`.
 
 ```python
 from dataclasses import dataclass
@@ -107,24 +107,30 @@ Systems receive resources with `ecs.Res[T]` or mutable resources with
 
 ```python
 @ecs.system
-def accelerate(body: ecs.Query[Velocity], gravity: ecs.Res[Gravity]) -> ecs.Action:
-    return ecs.set(body[Velocity].dy, body[Velocity].dy + gravity[Gravity].y)
+def accelerate(body: ecs.Query[Velocity], gravity: ecs.Res[Gravity]) -> None:
+    body[Velocity].dy.increase_by(gravity[Gravity].y)
 ```
 
 ## Systems and query expressions
 
-A system is a decorated function. Type annotations are mandatory. The function is
-called once when registered to build a lazy action plan; it must return an
-`ecs.Action`, not a `SystemPlan`.
+A Rust-executed system is a decorated build function. Type annotations are
+mandatory. The function is called once when registered with query/resource/event
+proxies and an active plan-build session. It records actions with field methods
+and ECS context managers, then returns `None`.
 
 ```python
 @ecs.system
-def move(entity: ecs.Query[Position, Velocity]) -> ecs.Action:
-    return ecs.do_in_order(
-        ecs.set(entity[Position].x, entity[Position].x + entity[Velocity].dx * ecs.dt()),
-        ecs.set(entity[Position].y, entity[Position].y + entity[Velocity].dy * ecs.dt()),
-    )
+def move(entity: ecs.Query[Position, Velocity]) -> None:
+    seconds = ecs.dt()
+    entity[Position].x.increase_by(entity[Velocity].dx * seconds)
+    entity[Position].y.increase_by(entity[Velocity].dy * seconds)
 ```
+
+Returned `ecs.Action` trees are a migration error for Rust systems. Replace
+`return ecs.set(field, value)` with `field.set_to(value)`, replace
+`return ecs.do_in_parallel(...)` with `@ecs.system(parallel=True)` or
+`with ecs.do(parallel=True):`, and replace chained `ecs.when(...).do(...)` with
+`with ecs.conditional():` plus `with ecs.when(...):` branches.
 
 Register systems with optional deterministic order, dependencies, run
 conditions, and system sets:
@@ -152,14 +158,15 @@ Systems run every drawn frame after frame state is updated and before plugin
 `before_ecs(context)` and `after_ecs(context)` hooks.
 
 Non-UDF systems are serialized into the Rust ECS physical executor automatically.
-This includes `set`, serial `do_in_order`, snapshot `do_in_parallel`,
-`when`/`otherwise` chains, arithmetic/comparison/math expressions, query and
-resource field reads/writes, `for_each` over list/event sources, `ecs.dt()`,
+This includes field `set_to`/`increase_by`/`decrease_by`, serial and parallel
+`ecs.do` blocks, `ecs.conditional()` branches, arithmetic/comparison/math
+expressions, query/resource field reads and writes, `for_each` over list/event
+sources, typed events, structural entity commands, `ecs.dt()`,
 `ecs.key_is_down(...)`, `exists(...)`, grouped aggregates, change-detection
-filters, typed ECS events, and spatial relation aggregates/metadata. Unsupported
-non-UDF plan nodes raise `SystemPlanError` instead of executing a Python fallback.
-Explicit `@ecs.udf` actions and iterable UDF sources are the only ECS plan pieces
-that execute Python at runtime.
+filters, query exclusions with `ecs.Without[...]`, and spatial relation
+aggregates/metadata. Unsupported non-UDF plan nodes raise `SystemPlanError`
+instead of executing a Python fallback. Runtime Python work must be declared with
+`@ecs.udf(python=True)` or `@ecs.system(python=True)`.
 
 ### Typing helpers for system helpers
 
@@ -171,31 +178,72 @@ def speed(state: ecs.ComponentExpressionProxy) -> ecs.Expression:
     return (state.dx * state.dx + state.dy * state.dy).sqrt()
 
 
-def steer(body: ecs.QueryProxy, velocity: ecs.ComponentExpressionProxy) -> ecs.Action:
-    return ecs.set(body.ctx[Velocity].dx, velocity.dx.clamp(-4.0, 4.0))
+def steering_value(velocity: ecs.ComponentExpressionProxy) -> ecs.Expression:
+    return velocity.dx.clamp(-4.0, 4.0)
 ```
 
-For draw-side and UDF boundaries, use `ecs.EntityView`, `ecs.MutEntity[T]`, and
-`ecs.Entity[T]` annotations as appropriate. `gs.FastDrawScope` is the public type
-for a local `draw_fast = gs.fast()` binding in examples that mix ECS readback with
-dense drawing.
+For draw-side and explicit Python UDF/system boundaries, use `ecs.EntityView` or
+`ecs.Entity[T]` annotations. Mutable Python entity access must be declared with
+`ecs.EntityMutation[T](...)` metadata on `@ecs.udf(python=True)` or
+`@ecs.system(python=True)`; `ecs.MutEntity` is deprecated. `gs.FastDrawScope` is
+the public type for a local `draw_fast = gs.fast()` binding in examples that mix
+ECS readback with dense drawing.
 
-## Actions
+## System build blocks and mutations
 
-Action builders include:
+Writable field expressions expose mutation methods:
 
-- `ecs.set(target_field, value)`
-- `ecs.do(*actions)`
-- `ecs.do_in_order(*actions)` for serial/read-after-write execution
-- `ecs.do_in_parallel(*actions)` for independent action groups
-- `ecs.when(condition).do(...)`
-- `ecs.when(...).do(...).when(...).do(...).otherwise().do(...)`
-- `ecs.for_each(udf_iterable_source).do(...)`
-- `ecs.for_each(list_or_vector_field_expression).do(...)`
+- `field.set_to(value)` records an assignment,
+- `field.increase_by(amount)` records `field = field + amount`,
+- `field.decrease_by(amount)` records `field = field - amount`.
 
-`otherwise()` is equivalent to a final `when(not previous_conditions)` branch.
-A successive `.when(cond)` in a chain only sees rows that did not match earlier
-branches.
+Use `ecs.do` for nested serial/parallel blocks:
+
+```python
+@ecs.system(parallel=True)
+def integrate(body: ecs.Query[Position, Velocity]) -> None:
+    body[Position].x.increase_by(body[Velocity].dx)
+    body[Position].y.increase_by(body[Velocity].dy)
+
+
+@ecs.system
+def serial_then_parallel(body: ecs.Query[Position, Velocity]) -> None:
+    body[Velocity].dx.set_to(body[Velocity].dx * 0.98)
+    with ecs.do(parallel=True):
+        body[Position].x.increase_by(body[Velocity].dx)
+        body[Position].y.increase_by(body[Velocity].dy)
+```
+
+Conditionals use branch context managers inside `ecs.conditional()`:
+
+```python
+@ecs.system
+def clamp_x(body: ecs.Query[Position], bounds: ecs.Res[Bounds]) -> None:
+    with ecs.conditional():
+        with ecs.when(body[Position].x < 0):
+            body[Position].x.set_to(0)
+        with ecs.when(body[Position].x > bounds[Bounds].width):
+            body[Position].x.set_to(bounds[Bounds].width)
+```
+
+`ecs.conditional(parallel=True)` makes branch bodies parallel by default;
+`ecs.when(..., parallel=...)` and `ecs.otherwise(parallel=...)` can override that
+per branch. `ecs.otherwise()` is the final branch for rows that did not match
+previous conditions.
+
+`ecs.for_each(source)` builds deterministic loop bodies over typed event readers,
+Python-UDF iterable sources, or list/vector field expressions:
+
+```python
+@ecs.system
+def sum_samples(entity: ecs.Query[Trail], counter: ecs.ResMut[Counter]) -> None:
+    with ecs.for_each(entity[Trail].samples) as sample:
+        counter[Counter].value.increase_by(sample)
+```
+
+Structural commands are available from `query.entity`: `add_component(...)`,
+`remove_component(Component)`, `add_tag(tag)`, `remove_tag(tag)`, and `despawn()`.
+They are broad structural writes and affect scheduling/conflict diagnostics.
 
 Python `and`, `or`, `not`, and chained comparisons cannot be overloaded for lazy
 plans. Use `&`, `|`, `~`, `ecs.all_of(...)`, or `ecs.any_of(...)`:
@@ -220,11 +268,11 @@ Use `group_by(query).any()` to collapse boolean joins to one row per group:
 
 ```python
 hero_on_platform = near.group_by(platform).any()
-return ecs.when(hero_on_platform).do(
-    ecs.set(platform.ctx[Velocity].dx, 3.0)
-).otherwise().do(
-    ecs.set(platform.ctx[Velocity].dx, 0.0)
-)
+with ecs.conditional():
+    with ecs.when(hero_on_platform):
+        platform.ctx[Velocity].dx.set_to(3.0)
+    with ecs.otherwise():
+        platform.ctx[Velocity].dx.set_to(0.0)
 ```
 
 Use `ecs.exists(query).where(predicate)` when a condition only needs to know if a
@@ -232,6 +280,15 @@ matching row exists:
 
 ```python
 has_target = ecs.exists(targets).where(targets[Position].x > actor[Position].x)
+```
+
+Use `ecs.Without[T]` or `ecs.Without[ecs.Tag[tag]]` to exclude components or tags
+while keeping query matching Rust-owned:
+
+```python
+@ecs.system
+def wake_sleepers(sleeper: ecs.Query[Position, ecs.Without[Velocity]]) -> None:
+    sleeper.entity.add_component(Velocity(0.0, -1.0))
 ```
 
 Grouped value aggregates are available on `group_by(query)` expressions:
@@ -260,7 +317,7 @@ from gummysnake.ecs import spatial
 def proximity(
     pickup: ecs.Query[ecs.Tag["Pickup"], Position, Glow],
     player: ecs.Query[ecs.Tag["Player"], Position],
-) -> ecs.Action:
+) -> None:
     nearby = spatial.join(
         pickup,
         player,
@@ -270,11 +327,11 @@ def proximity(
         algorithm=spatial.HashGrid(cell_size=80.0),
         allow_fallback=False,
     )
-    return ecs.when(nearby.any()).do(
-        ecs.set(pickup.ctx[Glow].active, True)
-    ).otherwise().do(
-        ecs.set(pickup.ctx[Glow].active, False)
-    )
+    with ecs.conditional():
+        with ecs.when(nearby.any()):
+            pickup.ctx[Glow].active.set_to(True)
+        with ecs.otherwise():
+            pickup.ctx[Glow].active.set_to(False)
 ```
 
 Implemented spatial relation features:
@@ -310,13 +367,13 @@ current ECS frame:
 
 ```python
 @ecs.system
-def wake_new_particles(particle: ecs.Query[Position, ecs.Added[Velocity]]) -> ecs.Action:
-    return ecs.set(particle[Velocity].dy, -2.0)
+def wake_new_particles(particle: ecs.Query[Position, ecs.Added[Velocity]]) -> None:
+    particle[Velocity].dy.set_to(-2.0)
 
 
 @ecs.system
-def redraw_dirty(sprite: ecs.Query[Position, ecs.Changed[Position]]) -> ecs.Action:
-    return ecs.set(sprite[Position].x, sprite[Position].x)
+def redraw_dirty(sprite: ecs.Query[Position, ecs.Changed[Position]]) -> None:
+    sprite[Position].x.set_to(sprite[Position].x)
 ```
 
 `Added[T]` also counts as changed for `Changed[T]`. Direct Python mutations made
@@ -340,16 +397,14 @@ class Damage:
 
 
 @ecs.system
-def hazards(writer: ecs.EventWriter[Damage]) -> ecs.Action:
-    return ecs.emit_event(writer, Damage(3))
+def hazards(writer: ecs.EventWriter[Damage]) -> None:
+    writer.emit(Damage(3))
 
 
 @ecs.system
-def apply_damage(reader: ecs.EventReader[Damage], health: ecs.ResMut[Health]) -> ecs.Action:
-    event = ecs.for_each(reader)
-    return event.do(
-        ecs.set(health[Health].value, health[Health].value - event.item.amount)
-    )
+def apply_damage(reader: ecs.EventReader[Damage], health: ecs.ResMut[Health]) -> None:
+    with ecs.for_each(reader) as event:
+        health[Health].value.decrease_by(event.amount)
 ```
 
 The global/object APIs also expose `emit_event(event)`, `read_events(EventType)`,
@@ -357,21 +412,46 @@ and `clear_events(EventType | None = None)` for callback-side integration.
 Events are frame-stamped and recent queues are retained across the next ECS pass
 so systems registered after a callback can consume callback-emitted events.
 
-## UDFs
+## Explicit Python systems
 
-Python UDFs provide escape hatches for side effects, external APIs, or operations
-that are not yet expressible in the lazy ECS DSL. Annotations are mandatory.
-UDFs may be used as actions or iterable sources depending on their return type.
-They are flexible but have a performance cost.
+Use `@ecs.system(python=True)` only when a scheduled system must execute Python at
+runtime. Python systems are scheduler barriers by default, materialize query rows
+as Rust-backed `EntityView` objects, run with the GIL held, and are diagnosed
+separately from Rust physical systems. They are never an implicit fallback for an
+invalid Rust logical system.
 
 ```python
-@ecs.udf
-def boost(items: Iterable[ecs.MutEntity[Velocity]]) -> None:
+@ecs.system(
+    python=True,
+    mutations={"entities": {ecs.EntityMutation[Velocity](update=True)}},
+)
+def dampen(entities: ecs.Query[Velocity]) -> None:
+    for entity in entities:
+        entity[Velocity].dx *= 0.98
+        entity[Velocity].dy *= 0.98
+```
+
+Use the same `EntityMutation[T]` metadata for Python UDF and Python-system entity
+parameters so readers can see the intentional write/structural boundary.
+
+## UDFs
+
+Bare `@ecs.udf` declares a typed Rust-backed UDF: value parameters and returns
+use `ecs.Expression[T]`, and execution requires a matching Rust registry entry.
+Use `@ecs.udf(python=True)` for explicit runtime Python escape hatches, side
+effects, external APIs, or operations that are not yet expressible in the lazy
+ECS DSL. Python UDF annotations are mandatory and may use `ecs.Vector[T]`,
+`ecs.Entity[T]`, or iterable return types. They are flexible but have a
+performance cost and are counted separately in diagnostics.
+
+```python
+@ecs.udf(python=True, mutations={"items": {ecs.EntityMutation[Velocity](update=True)}})
+def boost(items: Iterable[ecs.Entity[Velocity]]) -> None:
     for item in items:
         item[Velocity].dx *= 1.1
 
 
-@ecs.udf
+@ecs.udf(python=True)
 def names() -> Iterable[str]:
     return ("James", "Emily", "Janet")
 ```

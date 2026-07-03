@@ -11,6 +11,7 @@ from gummysnake.ecs.actions import (
     ExpressionIterableSource,
     ForEachAction,
     LoopItem,
+    UdfCallExpression,
     UdfIterableSource,
     WhenAction,
 )
@@ -32,10 +33,10 @@ from gummysnake.ecs.expressions import (
     UnaryExpression,
     expression_queries,
 )
-from gummysnake.ecs.specs import ChangeTerm, QuerySpec, TagTerm
+from gummysnake.ecs.specs import ChangeTerm, QuerySpec, TagTerm, WithoutTerm
 from gummysnake.exceptions import SystemPlanError
 
-BRIDGE_PLAN_VERSION = 1
+BRIDGE_PLAN_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,18 @@ class _PhysicalPayloadBuilder:
                 if not tag:
                     raise SystemPlanError("ECS tag values cannot be empty.")
                 add_term("with_tag", tag)
+            elif isinstance(term, WithoutTerm):
+                value = term.value
+                if isinstance(value, TagTerm):
+                    tag = str(value.value)
+                    if not tag:
+                        raise SystemPlanError("ECS tag values cannot be empty.")
+                    add_term("without_tag", tag)
+                elif isinstance(value, type):
+                    self.world.validate_schema(value)
+                    add_term("without_component", _schema_name(value))
+                else:
+                    raise PhysicalPlanUnsupported(f"unsupported ecs.Without query term {value!r}")
             elif isinstance(term, ChangeTerm):
                 self.world.validate_schema(term.component_type)
                 change_terms.append(term)
@@ -199,6 +212,11 @@ class _PhysicalPayloadBuilder:
             return self._serialize_binary_expr(expr.op, expr.left, expr.right)
         if isinstance(expr, FunctionExpression):
             return self._serialize_function_expr(expr)
+        if isinstance(expr, UdfCallExpression):
+            raise PhysicalPlanUnsupported(
+                f"Rust-backed UDF {expr.definition.function.__name__!r} has no registered "
+                "Rust executor"
+            )
         if isinstance(expr, DeltatimeExpression):
             return self._add_expr({"kind": "input_state", "name": "dt"})
         if isinstance(expr, KeyDownExpression):
@@ -447,9 +465,32 @@ class _PhysicalPayloadBuilder:
                     "value": self._serialize_literal(action.event_value),
                 }
             )
+        if action.kind in {"add_component", "remove_component", "add_tag", "remove_tag", "despawn"}:
+            return self._serialize_structural_action(action)
         raise PhysicalPlanUnsupported(
             f"action kind {action.kind!r} is not supported by Rust ECS execution"
         )
+
+    def _serialize_structural_action(self, action: DefaultAction) -> int:
+        if action.entity_query is None:
+            raise SystemPlanError(f"Malformed ECS structural action {action.kind!r}.")
+        self._register_query(action.entity_query)
+        node: dict[str, Any] = {"kind": action.kind, "query": action.entity_query.name}
+        if action.kind in {"add_component", "remove_component"}:
+            if action.component_type is None:
+                raise SystemPlanError(f"Malformed ECS {action.kind} action.")
+            self.world.validate_schema(action.component_type)
+            node["component"] = _schema_name(action.component_type)
+            if action.kind == "add_component" and action.component_value is not None:
+                node["value"] = self._serialize_literal(action.component_value)
+        elif action.kind in {"add_tag", "remove_tag"}:
+            if action.tag is None:
+                raise SystemPlanError(f"Malformed ECS {action.kind} action.")
+            tag = str(action.tag)
+            if not tag:
+                raise SystemPlanError("ECS tag values cannot be empty.")
+            node["tag"] = tag
+        return self._add_action(node)
 
     def _serialize_when_action(self, action: WhenAction) -> int:
         if not action.branches:

@@ -5,7 +5,17 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, is_dataclass
-from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Protocol,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+    runtime_checkable,
+)
 
 if TYPE_CHECKING:
     from gummysnake.ecs.world import EcsWorld, EntityView
@@ -16,8 +26,16 @@ class OuterQueryProvider(Protocol):
     def _ecs_outer_queries(self) -> set[QueryProxy]: ...
 
 
+class Vector(list[Any]):
+    """Row-aligned vector materialization buffer for explicit Python UDF/system boundaries."""
+
+
 class Expression:
     """Base lazy expression."""
+
+    def __class_getitem__(cls, item: object) -> type[Expression]:
+        del item
+        return cls
 
     def eval(self, ctx: dict[object, Any], world: EcsWorld) -> Any:
         raise NotImplementedError
@@ -289,6 +307,24 @@ class QueryProxy:
     def __getitem__(self, component_type: type[Any]) -> ComponentExpressionProxy:
         return ComponentExpressionProxy(self, component_type)
 
+    def as_iter(self, *component_types: type[Any]) -> object:
+        from gummysnake.ecs.actions import EntityIteratorSource
+        from gummysnake.ecs.specs import QuerySpec
+        from gummysnake.exceptions import SystemPlanError
+
+        if not isinstance(self.spec, QuerySpec):
+            raise SystemPlanError(
+                "Query.as_iter() requires a concrete ecs.Query[...] specification."
+            )
+        available = {term for term in self.spec.terms if isinstance(term, type)}
+        for component_type in component_types:
+            if component_type not in available:
+                raise SystemPlanError(
+                    f"Query.as_iter() projection {component_type.__name__} is not present "
+                    f"in query {self.name!r}."
+                )
+        return EntityIteratorSource(self, tuple(component_types))
+
     def __repr__(self) -> str:
         return f"QueryProxy({self.name})"
 
@@ -357,6 +393,49 @@ class FieldExpression(Expression):
         world._sync_resource_field_to_rust(self.component_type, self.field_name, value)
         world._note_resource_update()
 
+    def set_to(self, value: object) -> None:
+        """Append a logical field assignment to the active ECS system build block."""
+
+        self._ensure_writable()
+        from gummysnake.ecs.actions import append_action, set
+
+        append_action(
+            set(self, value), operation=f"{self.component_type.__name__}.{self.field_name}.set_to()"
+        )
+
+    def increase_by(self, amount: object) -> None:
+        """Append ``field = field + amount`` to the active ECS system build block."""
+
+        self._ensure_numeric_update(amount, "increase_by")
+        self.set_to(self + amount)
+
+    def decrease_by(self, amount: object) -> None:
+        """Append ``field = field - amount`` to the active ECS system build block."""
+
+        self._ensure_numeric_update(amount, "decrease_by")
+        self.set_to(self - amount)
+
+    def _ensure_writable(self) -> None:
+        from gummysnake.exceptions import SystemPlanError
+
+        if isinstance(self.source, ResourceProxy) and not self.source.mutable:
+            raise SystemPlanError(
+                f"Resource parameter {self.source.name!r} is read-only; use "
+                f"ecs.ResMut[{self.component_type.__name__}] to write "
+                f"{self.component_type.__name__}.{self.field_name}."
+            )
+
+    def _ensure_numeric_update(self, amount: object, method: str) -> None:
+        from gummysnake.exceptions import SystemPlanError
+
+        if not _field_annotation_is_numeric(self.component_type, self.field_name):
+            raise SystemPlanError(
+                f"{self.component_type.__name__}.{self.field_name}.{method}() requires "
+                "a numeric field."
+            )
+        if isinstance(amount, bool | str):
+            raise SystemPlanError(f"{method}() requires a numeric expression or literal amount.")
+
 
 @dataclass(frozen=True, eq=False)
 class EntityExpression(Expression):
@@ -365,6 +444,58 @@ class EntityExpression(Expression):
     def eval(self, ctx: dict[object, Any], world: EcsWorld) -> EntityView:
         del world
         return ctx[self.query]
+
+    def add_component(self, component: object | type[Any]) -> None:
+        from gummysnake.ecs.actions import add_component_action, append_action
+
+        append_action(
+            add_component_action(self, component), operation="query.entity.add_component()"
+        )
+
+    def remove_component(self, component_type: type[Any]) -> None:
+        from gummysnake.ecs.actions import append_action, remove_component_action
+
+        append_action(
+            remove_component_action(self, component_type),
+            operation="query.entity.remove_component()",
+        )
+
+    def add_tag(self, tag: object) -> None:
+        from gummysnake.ecs.actions import add_tag_action, append_action
+
+        append_action(add_tag_action(self, tag), operation="query.entity.add_tag()")
+
+    def remove_tag(self, tag: object) -> None:
+        from gummysnake.ecs.actions import append_action, remove_tag_action
+
+        append_action(remove_tag_action(self, tag), operation="query.entity.remove_tag()")
+
+    def despawn(self) -> None:
+        from gummysnake.ecs.actions import append_action, despawn_action
+
+        append_action(despawn_action(self), operation="query.entity.despawn()")
+
+
+def _field_annotation_is_numeric(component_type: type[Any], field_name: str) -> bool:
+    try:
+        annotations = get_type_hints(component_type, include_extras=True)
+    except Exception:
+        annotations = getattr(component_type, "__annotations__", {})
+    annotation = annotations.get(field_name)
+    if annotation is None:
+        return True
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        base, *metadata = get_args(annotation)
+        if any(getattr(item, "python_type", None) in {int, float} for item in metadata):
+            return True
+        annotation = base
+        origin = get_origin(annotation)
+    if annotation in {int, float}:
+        return True
+    if origin in {tuple, list}:
+        return False
+    return False
 
 
 @dataclass(frozen=True, eq=False)

@@ -237,8 +237,8 @@ def _apply_speed_floor(x: ecs.Expression, y: ecs.Expression, z: ecs.Expression) 
     return x * min_speed_factor, y * min_speed_factor, z * min_speed_factor
 
 
-@ecs.system
-def simulate_boids(boid: ecs.Query[ecs.Tag[BOID_TAG], BoidState]) -> ecs.Action:
+@ecs.system(parallel=True)
+def simulate_boids(boid: ecs.Query[ecs.Tag[BOID_TAG], BoidState]) -> None:
     state = boid[BoidState]
     neighbors = _boid_neighbors(boid, state)
 
@@ -258,14 +258,12 @@ def simulate_boids(boid: ecs.Query[ecs.Tag[BOID_TAG], BoidState]) -> ecs.Action:
     )
     next_vx, next_vy, next_vz = _apply_speed_floor(limited_vx, limited_vy, limited_vz)
 
-    return ecs.do_in_parallel(
-        ecs.set(state.x, state.x + next_vx),
-        ecs.set(state.y, state.y + next_vy),
-        ecs.set(state.z, state.z + next_vz),
-        ecs.set(state.vx, next_vx),
-        ecs.set(state.vy, next_vy),
-        ecs.set(state.vz, next_vz),
-    )
+    state.x.set_to(state.x + next_vx)
+    state.y.set_to(state.y + next_vy)
+    state.z.set_to(state.z + next_vz)
+    state.vx.set_to(next_vx)
+    state.vy.set_to(next_vy)
+    state.vz.set_to(next_vz)
 
 
 # -----------------------------------------------------------------------------

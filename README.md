@@ -131,12 +131,17 @@ API and version semantics.
 ECS component and resource schemas are declared with Python dataclasses. Default
 Python field types map to Rust storage columns, and `typing.Annotated` with
 `gummysnake.ecs.types` lets sketches request narrower or vector/list storage
-such as `UInt16`, `Float32`, `Vec3F32`, or `List(Float64)`. Registered systems
-are ordinary decorated Python functions that return lazy `ecs.Action` trees; the
-plan is serialized to Rust, optimized into a physical plan, cached, and executed
-against Rust-owned columns. Python UDFs marked with `@ecs.udf` are the explicit
-escape hatch for side effects or external APIs and are the only ECS plan nodes
-that execute Python at runtime.
+such as `UInt16`, `Float32`, `Vec3F32`, or `List(Float64)`. Rust-executed systems
+are ordinary decorated Python functions that are called once at registration with
+query/resource/event proxies and an active plan-build session. They return
+`None` and record work with Pythonic plan-building calls such as
+`field.set_to(...)`, `field.increase_by(...)`, `with ecs.do:`,
+`with ecs.conditional():`, `with ecs.for_each(...) as item:`, and
+`writer.emit(event)`. The resulting logical plan is serialized to Rust,
+optimized into a physical plan, cached, and executed against Rust-owned columns.
+Bare `@ecs.udf` declares a Rust-backed typed UDF. Runtime Python work must be
+explicitly marked with `@ecs.udf(python=True)` or `@ecs.system(python=True)`;
+invalid Rust systems do not fall back to Python execution.
 
 For pixel effects, `load_pixels()` returns `gummysnake.core.pixels.PixelBuffer`,
 a mutable list-like RGBA byte buffer that tracks dirty regions;
@@ -169,9 +174,9 @@ images.
 ECS runs after frame timing/input state is updated and before plugin
 `before_draw` hooks and user `draw()`. Use `gs.add_system(system, order=...)`,
 `before=[...]`, `after=[...]`, or named system sets to make execution order
-explicit. `do_in_order()` observes serial read-after-write order;
-`do_in_parallel()` is for independent snapshot-style actions. Strict mode
-(`gs.configure_ecs(strict=True)`) rejects ambiguous duplicate writes, while
+explicit. `with ecs.do:` is serial; `@ecs.system(parallel=True)` or
+`with ecs.do(parallel=True):` is for independent snapshot-style actions. Strict
+mode (`gs.configure_ecs(strict=True)`) rejects ambiguous duplicate writes, while
 non-strict mode remains deterministic with last-write-wins warnings that can be
 suppressed via `warn_on_ambiguity=False`.
 
@@ -210,10 +215,12 @@ also exposes the Rust ECS bridge:
 
 ```sh
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
+uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 ```
 
-Use `--release` for benchmark/performance comparisons; a debug extension build
-can make ECS and rendering benchmarks look dramatically slower.
+Use the `--release` form for benchmark/performance comparisons; a debug extension
+build can make ECS spatial systems and renderer benchmarks look dramatically
+slower.
 
 The refactored Python package is split by responsibility: user-facing wrapper
 functions live in topic modules under `src/gummysnake/api/` (for example

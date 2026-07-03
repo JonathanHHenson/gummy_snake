@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from typing import get_type_hints, overload
 
-from gummysnake.ecs.actions import Action, SystemPlan
+from gummysnake.ecs.actions import Action, SystemPlan, build_session, validate_mutation_metadata
 from gummysnake.ecs.expressions import QueryProxy, ResourceProxy
 from gummysnake.ecs.specs import (
     EventReaderProxy,
@@ -21,10 +21,14 @@ from gummysnake.exceptions import SystemPlanError
 
 @dataclass(frozen=True)
 class SystemDefinition:
-    """Decorated system builder function."""
+    """Decorated ECS system function."""
 
-    function: Callable[..., Action]
+    function: Callable[..., object]
     name: str | None = None
+    parallel: bool = False
+    python: bool = False
+    queries: Mapping[str, object] = field(default_factory=dict)
+    mutations: Mapping[str, object] = field(default_factory=dict)
 
     @property
     def display_name(self) -> str:
@@ -40,9 +44,13 @@ class SystemDefinition:
         for parameter in signature.parameters.values():
             annotation = hints.get(parameter.name)
             if annotation is None:
+                if self.python:
+                    args.append(None)
+                    continue
                 raise SystemPlanError(
                     f"ECS system {self.function.__name__} parameter {parameter.name!r} "
-                    "needs an ecs.Query, ecs.Res, or ecs.ResMut annotation."
+                    "needs an ecs.Query, ecs.Res, ecs.ResMut, ecs.EventReader, or "
+                    "ecs.EventWriter annotation."
                 )
             if isinstance(annotation, QuerySpec):
                 query_proxy = QueryProxy(parameter.name, annotation)
@@ -62,27 +70,53 @@ class SystemDefinition:
                     event_proxy = EventWriterProxy(parameter.name, annotation.event_type)
                 event_proxies.append(event_proxy)
                 args.append(event_proxy)
+            elif self.python:
+                args.append(None)
             else:
                 raise SystemPlanError(
                     f"Unsupported ECS system annotation for {parameter.name!r}: {annotation!r}."
                 )
-        result = self.function(*args)
-        if isinstance(result, SystemPlan):
-            raise SystemPlanError(
-                f"ECS system {self.function.__name__} returned SystemPlan. "
-                "Return the complete ecs.Action instead; the registry calls Action.plan()."
+        if self.python:
+            return BuiltSystem(
+                definition=self,
+                plan=_noop_plan(),
+                queries=tuple(query_proxies),
+                resources=tuple(resource_proxies),
+                events=tuple(event_proxies),
+                python=True,
             )
-        if not isinstance(result, Action):
-            raise SystemPlanError(
-                f"ECS system {self.function.__name__} must return ecs.Action, "
-                f"got {type(result).__name__}."
-            )
+
+        with build_session(parallel=self.parallel) as session:
+            result = self.function(*args)
+            if isinstance(result, SystemPlan):
+                raise SystemPlanError(
+                    f"ECS system {self.function.__name__} returned SystemPlan. "
+                    "Context-managed ECS systems must return None; use field.set_to(...), "
+                    "field.increase_by(...), with ecs.conditional():/ecs.when():, and "
+                    "with ecs.do: blocks to record actions."
+                )
+            if isinstance(result, Action):
+                raise SystemPlanError(
+                    f"ECS system {self.function.__name__} returned an ecs.Action. "
+                    "The return-action ECS authoring style has been replaced by context-managed "
+                    "systems. For example, replace return ecs.set(pos.x, value) with "
+                    "pos.x.set_to(value), and replace ecs.when(...).do(...) with "
+                    "with ecs.conditional():\n    with ecs.when(...):\n        field.set_to(...)."
+                )
+            if result is not None:
+                raise SystemPlanError(
+                    f"Rust-executed ECS system {self.function.__name__} must return None, "
+                    f"got {type(result).__name__}. Use @ecs.system(python=True) for explicit "
+                    "runtime Python systems."
+                )
+            action = session.finish()
         return BuiltSystem(
             definition=self,
-            plan=result.plan(),
+            plan=action.plan(),
             queries=tuple(query_proxies),
             resources=tuple(resource_proxies),
             events=tuple(event_proxies),
+            python=False,
         )
 
     def explain(self) -> str:
@@ -96,33 +130,101 @@ class BuiltSystem:
     queries: tuple[QueryProxy, ...]
     resources: tuple[ResourceProxy, ...]
     events: tuple[EventReaderProxy | EventWriterProxy, ...] = ()
+    python: bool = False
 
     @property
     def name(self) -> str:
         return self.definition.name or self.definition.function.__name__
 
 
+def _noop_plan() -> SystemPlan:
+    from gummysnake.ecs.actions import DefaultAction
+
+    return DefaultAction("noop").plan()
+
+
 @overload
-def system(function: Callable[..., Action], /) -> SystemDefinition: ...
+def system(function: Callable[..., object], /) -> SystemDefinition: ...
 
 
 @overload
 def system(
-    function: None = None, *, name: str | None = None
-) -> Callable[[Callable[..., Action]], SystemDefinition]: ...
+    function: None = None,
+    *,
+    name: str | None = None,
+    parallel: bool = False,
+    python: bool = False,
+    queries: Mapping[str, object] | None = None,
+    mutations: Mapping[str, object] | None = None,
+) -> Callable[[Callable[..., object]], SystemDefinition]: ...
 
 
 def system(
-    function: Callable[..., Action] | None = None, *, name: str | None = None
-) -> SystemDefinition | Callable[[Callable[..., Action]], SystemDefinition]:
-    """Decorate a function as an ECS system builder."""
+    function: Callable[..., object] | None = None,
+    *,
+    name: str | None = None,
+    parallel: bool = False,
+    python: bool = False,
+    queries: Mapping[str, object] | None = None,
+    mutations: Mapping[str, object] | None = None,
+) -> SystemDefinition | Callable[[Callable[..., object]], SystemDefinition]:
+    """Decorate a function as an ECS system.
 
-    def decorate(callback: Callable[..., Action]) -> SystemDefinition:
-        return SystemDefinition(callback, name=name)
+    Rust-executed systems (the default) run once at registration to record a
+    context-managed logical plan and must return ``None``. ``python=True`` opts
+    into runtime Python execution explicitly and never acts as a fallback for
+    invalid Rust plans.
+    """
+
+    if python and parallel:
+        raise SystemPlanError(
+            "@ecs.system(python=True) is a scheduler barrier; parallel=True is invalid."
+        )
+
+    def decorate(callback: Callable[..., object]) -> SystemDefinition:
+        if not python and queries:
+            raise SystemPlanError(
+                "@ecs.system queries={...} metadata is only valid with @ecs.system(python=True)."
+            )
+        if not python and mutations:
+            raise SystemPlanError(
+                "@ecs.system mutations={...} metadata is only valid with @ecs.system(python=True)."
+            )
+        normalized_queries = _validate_query_metadata(callback, queries) if python else {}
+        normalized_mutations = validate_mutation_metadata(callback, mutations) if python else {}
+        return SystemDefinition(
+            callback,
+            name=name,
+            parallel=bool(parallel),
+            python=bool(python),
+            queries=normalized_queries,
+            mutations=normalized_mutations,
+        )
 
     if function is not None:
         return decorate(function)
     return decorate
+
+
+def _validate_query_metadata(
+    callback: Callable[..., object], queries: Mapping[str, object] | None
+) -> dict[str, QuerySpec]:
+    if not queries:
+        return {}
+    parameter_names = set(inspect.signature(callback).parameters)
+    normalized: dict[str, QuerySpec] = {}
+    for parameter_name, query in queries.items():
+        if parameter_name not in parameter_names:
+            raise SystemPlanError(
+                f"Python ECS system query metadata for {callback.__name__} references "
+                f"unknown parameter {parameter_name!r}."
+            )
+        if not isinstance(query, QuerySpec):
+            raise SystemPlanError(
+                f"Python ECS system query metadata for {parameter_name!r} must be ecs.Query[...]."
+            )
+        normalized[parameter_name] = query
+    return normalized
 
 
 __all__ = ["BuiltSystem", "SystemDefinition", "system"]

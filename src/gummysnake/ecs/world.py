@@ -8,7 +8,9 @@ integration at the boundary.
 from __future__ import annotations
 
 import copy
+import inspect
 import itertools
+import time
 import warnings
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
@@ -29,7 +31,14 @@ from gummysnake.ecs.expressions import (
     expression_queries,
 )
 from gummysnake.ecs.physical import PhysicalPlanUnsupported, build_physical_payload
-from gummysnake.ecs.specs import ChangeTerm, QuerySpec, TagTerm
+from gummysnake.ecs.specs import (
+    ChangeTerm,
+    EventSpec,
+    QuerySpec,
+    ResourceSpec,
+    TagTerm,
+    WithoutTerm,
+)
 from gummysnake.ecs.systems import BuiltSystem, SystemDefinition
 from gummysnake.ecs.types import (
     Bool,
@@ -51,6 +60,7 @@ from gummysnake.rust.ecs import create_ecs_world
 
 ComponentT = TypeVar("ComponentT")
 ResourceT = TypeVar("ResourceT")
+_ENTITY_MUTATION_COMPONENT_UNSET = object()
 
 
 @dataclass(frozen=True)
@@ -64,6 +74,33 @@ class Entity:
     def __class_getitem__(cls, item: object) -> EntityAnnotation:
         return EntityAnnotation(item, mutable=False)
 
+    def __getitem__(self, component_type: type[ComponentT]) -> ComponentT:
+        del component_type
+        raise TypeError(
+            "ecs.Entity[...] is a Python UDF/system annotation marker. Runtime component "
+            "access is available on EntityView objects materialized by explicit Python "
+            "ECS boundaries."
+        )
+
+    def add_component(self, component: object) -> None:
+        del component
+        raise TypeError("Raw Entity handles cannot mutate components directly; use EntityView.")
+
+    def remove_component(self, component_type: type[Any]) -> None:
+        del component_type
+        raise TypeError("Raw Entity handles cannot mutate components directly; use EntityView.")
+
+    def add_tag(self, tag: object) -> None:
+        del tag
+        raise TypeError("Raw Entity handles cannot mutate tags directly; use EntityView.")
+
+    def remove_tag(self, tag: object) -> None:
+        del tag
+        raise TypeError("Raw Entity handles cannot mutate tags directly; use EntityView.")
+
+    def despawn(self) -> None:
+        raise TypeError("Raw Entity handles cannot despawn directly; use EntityView.")
+
 
 @dataclass(frozen=True)
 class EntityAnnotation:
@@ -71,14 +108,52 @@ class EntityAnnotation:
     mutable: bool = False
 
 
+@dataclass(frozen=True)
+class EntityMutation:
+    """Declared entity mutations for explicit Python UDF/system parameters."""
+
+    component_type: object = _ENTITY_MUTATION_COMPONENT_UNSET
+    add: bool = False
+    remove: bool = False
+    update: bool = True
+
+    def __post_init__(self) -> None:
+        if self.component_type is _ENTITY_MUTATION_COMPONENT_UNSET:
+            raise SystemPlanError(
+                "EntityMutation must be parameterized as ecs.EntityMutation[Component](...)."
+            )
+        if not (self.add or self.remove or self.update):
+            raise SystemPlanError(
+                "EntityMutation must allow at least one of add, remove, or update."
+            )
+
+    def __class_getitem__(cls, item: object) -> _EntityMutationAlias:
+        return _EntityMutationAlias(item)
+
+
+@dataclass(frozen=True)
+class _EntityMutationAlias:
+    component_type: object
+
+    def __call__(
+        self, *, add: bool = False, remove: bool = False, update: bool = True
+    ) -> EntityMutation:
+        return EntityMutation(self.component_type, add=add, remove=remove, update=update)
+
+
 class MutEntity:
-    """UDF annotation marker for mutable entity views."""
+    """Deprecated mutable entity annotation marker."""
 
     def __class_getitem__(cls, item: object) -> EntityAnnotation:
-        return EntityAnnotation(item, mutable=True)
+        raise SystemPlanError(
+            "ecs.MutEntity has been replaced by ecs.Entity[...] plus EntityMutation[...] "
+            "metadata on @ecs.udf(python=True) or @ecs.system(python=True)."
+        )
 
     def __getitem__(self, component_type: type[ComponentT]) -> ComponentT:
-        raise TypeError("ecs.MutEntity is an annotation marker; UDFs receive entity views.")
+        raise TypeError(
+            "ecs.MutEntity is deprecated; use ecs.Entity[...] and EntityMutation metadata."
+        )
 
 
 @dataclass
@@ -234,6 +309,15 @@ class _ScheduledSystem:
     physical_payload_dynamic: bool = False
     physical_schema_fingerprint: int | None = None
     physical_error_reason: str | None = None
+
+
+class _RuntimeEventWriter:
+    def __init__(self, world: EcsWorld, event_type: type[Any]) -> None:
+        self._world = world
+        self._event_type = event_type
+
+    def emit(self, event: object) -> None:
+        self._world.emit_event(event, expected_type=self._event_type)
 
 
 class EcsWorld:
@@ -679,6 +763,9 @@ class EcsWorld:
                 ) from exc
 
     def _run_system_action(self, scheduled: _ScheduledSystem, action: Action) -> None:
+        if scheduled.built.python:
+            self._run_python_system(scheduled)
+            return
         if _is_direct_udf_action(action):
             action.execute(self, [{}])
             self._sync_python_changes_to_rust()
@@ -694,7 +781,63 @@ class EcsWorld:
             )
         self._run_physical_system(scheduled, action)
 
+    def _run_python_system(self, scheduled: _ScheduledSystem) -> None:
+        definition = scheduled.built.definition
+        callback = definition.function
+        signature = inspect.signature(callback)
+        hints = get_type_hints(callback, include_extras=True)
+        args: list[object] = []
+        materialized_count = 0
+        start = time.perf_counter()
+        try:
+            for parameter in signature.parameters.values():
+                annotation = hints.get(parameter.name)
+                if isinstance(annotation, QuerySpec):
+                    rows = tuple(self.match_query(annotation))
+                    materialized_count += len(rows)
+                    args.append(rows)
+                elif isinstance(annotation, ResourceSpec):
+                    args.append(self.get_resource(annotation.resource_type))
+                elif isinstance(annotation, EventSpec):
+                    if annotation.mode == "reader":
+                        args.append(self.read_events(annotation.event_type))
+                    else:
+                        args.append(_RuntimeEventWriter(self, annotation.event_type))
+                elif parameter.name in definition.queries:
+                    query = definition.queries[parameter.name]
+                    if not isinstance(query, QuerySpec):
+                        raise SystemPlanError(
+                            f"Python ECS system query metadata for {parameter.name!r} "
+                            "must be ecs.Query[...]."
+                        )
+                    rows = tuple(self.match_query(query))
+                    materialized_count += len(rows)
+                    args.append(rows)
+                else:
+                    raise SystemPlanError(
+                        f"@ecs.system(python=True) parameter {parameter.name!r} needs "
+                        "an ECS annotation or a queries={...} metadata entry."
+                    )
+            callback(*args)
+        except Exception as exc:
+            if isinstance(exc, SystemPlanError | SystemExecutionError):
+                raise
+            raise SystemExecutionError(
+                f"Python ECS system {scheduled.handle.name!r} failed while materializing/executing "
+                f"with mutations={dict(definition.mutations)!r}: {exc}"
+            ) from exc
+        finally:
+            cast(Any, self._diagnostics)["ecs_python_system_runtime_ms"] += (
+                time.perf_counter() - start
+            ) * 1000.0
+        self._diagnostics["ecs_python_system_calls"] += 1
+        self._diagnostics["ecs_python_system_barriers"] += 1
+        self._diagnostics["ecs_python_system_entities_materialized"] += materialized_count
+        self._sync_python_changes_to_rust()
+
     def _prepare_scheduled_physical_plan(self, scheduled: _ScheduledSystem) -> None:
+        if scheduled.built.python:
+            return
         action = scheduled.built.plan.action
         if _is_direct_udf_action(action) or _contains_direct_udf_action(action):
             return
@@ -801,6 +944,9 @@ class EcsWorld:
             report.get("resource_fields_written", 0)
         )
         self._diagnostics["ecs_events_emitted"] += int(report.get("events_emitted", 0))
+        self._diagnostics["ecs_structural_commands_applied"] += int(
+            report.get("structural_commands", 0)
+        )
         for counter in (
             "spatial_indexes_built",
             "spatial_candidate_rows",
@@ -873,6 +1019,8 @@ class EcsWorld:
     def match_query(self, spec: QuerySpec) -> list[EntityView]:
         components: list[type[Any]] = []
         tags: list[object] = []
+        excluded_components: list[type[Any]] = []
+        excluded_tags: list[object] = []
         change_terms: list[ChangeTerm] = []
         for term in spec.terms:
             if isinstance(term, TagTerm):
@@ -882,12 +1030,35 @@ class EcsWorld:
                 change_terms.append(term)
                 if term.kind != "removed" and term.component_type not in components:
                     components.append(term.component_type)
+            elif isinstance(term, WithoutTerm):
+                value = term.value
+                if isinstance(value, TagTerm):
+                    excluded_tags.append(value.value)
+                elif isinstance(value, type):
+                    self.validate_schema(value)
+                    excluded_components.append(value)
+                else:
+                    raise SystemPlanError(f"Unsupported ecs.Without query term {value!r}.")
             elif isinstance(term, type):
                 self.validate_schema(term)
                 components.append(term)
             else:
                 raise SystemPlanError(f"Unsupported ECS query term {term!r}.")
         matches = list(self.iter_entities(*components, tags=tags))
+        if excluded_components or excluded_tags:
+            matches = [
+                entity
+                for entity in matches
+                if all(
+                    not self._has_component(entity.entity, component)
+                    for component in excluded_components
+                )
+                and all(
+                    str(tag)
+                    not in self._rust.entity_tags(entity.entity.index, entity.entity.generation)
+                    for tag in excluded_tags
+                )
+            ]
         if change_terms:
             matches = [
                 entity for entity in matches if self._matches_change_terms(entity, change_terms)

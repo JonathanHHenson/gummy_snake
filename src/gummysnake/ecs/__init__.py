@@ -10,11 +10,13 @@ from gummysnake.ecs.actions import (
     SystemPlan,
     UdfDefinition,
     WhenAction,
+    conditional,
     do,
     do_in_order,
     do_in_parallel,
     emit_event,
     for_each,
+    otherwise,
     set,
     udf,
     when,
@@ -23,6 +25,7 @@ from gummysnake.ecs.expressions import (
     ComponentExpressionProxy,
     Expression,
     QueryProxy,
+    Vector,
     all_of,
     any_of,
     dt,
@@ -40,9 +43,10 @@ from gummysnake.ecs.specs import (
     Res,
     ResMut,
     Tag,
+    Without,
 )
 from gummysnake.ecs.systems import SystemDefinition, system
-from gummysnake.ecs.world import Entity, EntityView, MutEntity, SystemHandle
+from gummysnake.ecs.world import Entity, EntityMutation, EntityView, MutEntity, SystemHandle
 
 __all__ = [
     "Action",
@@ -51,6 +55,7 @@ __all__ = [
     "ComponentExpressionProxy",
     "DefaultAction",
     "Entity",
+    "EntityMutation",
     "EntityView",
     "EventReader",
     "EventWriter",
@@ -67,9 +72,12 @@ __all__ = [
     "SystemPlan",
     "Tag",
     "UdfDefinition",
+    "Vector",
     "WhenAction",
+    "Without",
     "all_of",
     "any_of",
+    "conditional",
     "do",
     "do_in_order",
     "do_in_parallel",
@@ -79,6 +87,7 @@ __all__ = [
     "for_each",
     "key_is_down",
     "literal",
+    "otherwise",
     "set",
     "spatial",
     "system",

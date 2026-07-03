@@ -3,12 +3,13 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Annotated, Any, cast
+from typing import Annotated
 
 import pytest
 
 from gummysnake import Sketch, ecs
 from gummysnake.ecs import types as ecs_t
+from gummysnake.ecs.physical import BRIDGE_PLAN_VERSION
 from gummysnake.ecs.world import EcsWorld
 from gummysnake.exceptions import (
     BackendCapabilityError,
@@ -71,7 +72,7 @@ def test_rust_ecs_bridge_compiles_plan_payload() -> None:
     world.register_schema("Position", [("x", "Float64"), ("y", "Float64")])
     world.register_schema("Clock", [("dt", "Float64")])
     payload = {
-        "version": 1,
+        "version": BRIDGE_PLAN_VERSION,
         "schema_fingerprint": world.schema_fingerprint(),
         "queries": [
             {
@@ -110,7 +111,7 @@ def test_rust_ecs_bridge_executes_plan_payload() -> None:
     world.set_field(index, generation, "Position", "x", 2.0)
     world.set_field(index, generation, "Velocity", "dx", 3.0)
     payload = {
-        "version": 1,
+        "version": BRIDGE_PLAN_VERSION,
         "schema_fingerprint": world.schema_fingerprint(),
         "queries": [
             {
@@ -227,8 +228,8 @@ def test_resources_and_system_resource_mutation() -> None:
     world.set_resource(Counter(1))
 
     @ecs.system
-    def increment(counter: ecs.ResMut[Counter]) -> ecs.Action:
-        return ecs.set(counter[Counter].value, counter[Counter].value + 2)
+    def increment(counter: ecs.ResMut[Counter]) -> None:
+        counter[Counter].value.increase_by(2)
 
     world.add_system(increment)
     world.run_pre_draw_systems()
@@ -244,8 +245,8 @@ def test_supported_system_executes_in_rust_and_reads_rust_backed_views() -> None
     world.add_entity(Position(1, 0), Velocity(3, 0))
 
     @ecs.system
-    def move(entity: ecs.Query[Position, Velocity]) -> ecs.Action:
-        return ecs.set(entity[Position].x, entity[Position].x + entity[Velocity].dx)
+    def move(entity: ecs.Query[Position, Velocity]) -> None:
+        entity[Position].x.increase_by(entity[Velocity].dx)
 
     world.add_system(move)
     world.run_pre_draw_systems()
@@ -264,13 +265,12 @@ def test_supported_when_and_resource_system_execute_in_rust() -> None:
     world.set_resource(Counter(1))
 
     @ecs.system
-    def branch(entity: ecs.Query[Position], counter: ecs.ResMut[Counter]) -> ecs.Action:
-        return (
-            ecs.when(entity[Position].x > 1)
-            .do(ecs.set(counter[Counter].value, counter[Counter].value + 2))
-            .otherwise()
-            .do(ecs.set(counter[Counter].value, 0))
-        )
+    def branch(entity: ecs.Query[Position], counter: ecs.ResMut[Counter]) -> None:
+        with ecs.conditional():
+            with ecs.when(entity[Position].x > 1):
+                counter[Counter].value.increase_by(2)
+            with ecs.otherwise():
+                counter[Counter].value.set_to(0)
 
     world.add_system(branch)
     world.run_pre_draw_systems()
@@ -286,14 +286,13 @@ def test_system_do_in_order_when_otherwise_and_dt_expression() -> None:
     world.add_entity(Position(1, 0), Velocity(3, 0))
 
     @ecs.system
-    def move(entity: ecs.Query[Position, Velocity]) -> ecs.Action:
-        return ecs.do_in_order(
-            ecs.set(entity[Position].x, entity[Position].x + entity[Velocity].dx + ecs.dt()),
-            ecs.when(entity[Position].x > 3)
-            .do(ecs.set(entity[Velocity].dy, 10))
-            .otherwise()
-            .do(ecs.set(entity[Velocity].dy, -10)),
-        )
+    def move(entity: ecs.Query[Position, Velocity]) -> None:
+        entity[Position].x.set_to(entity[Position].x + entity[Velocity].dx + ecs.dt())
+        with ecs.conditional():
+            with ecs.when(entity[Position].x > 3):
+                entity[Velocity].dy.set_to(10)
+            with ecs.otherwise():
+                entity[Velocity].dy.set_to(-10)
 
     world.add_system(move)
     world.run_pre_draw_systems()
@@ -307,12 +306,10 @@ def test_do_in_parallel_uses_snapshot_reads_for_independent_actions() -> None:
     world = EcsWorld()
     world.add_entity(Position(1, 0))
 
-    @ecs.system
-    def snapshot(entity: ecs.Query[Position]) -> ecs.Action:
-        return ecs.do_in_parallel(
-            ecs.set(entity[Position].x, 5),
-            ecs.set(entity[Position].y, entity[Position].x),
-        )
+    @ecs.system(parallel=True)
+    def snapshot(entity: ecs.Query[Position]) -> None:
+        entity[Position].x.set_to(5)
+        entity[Position].y.set_to(entity[Position].x)
 
     world.add_system(snapshot)
     world.run_pre_draw_systems()
@@ -326,12 +323,10 @@ def test_do_in_parallel_conflicts_warn_and_strict_errors() -> None:
     world = EcsWorld()
     world.add_entity(Position(0, 0))
 
-    @ecs.system
-    def conflict(entity: ecs.Query[Position]) -> ecs.Action:
-        return ecs.do_in_parallel(
-            ecs.set(entity[Position].x, 1),
-            ecs.set(entity[Position].x, 2),
-        )
+    @ecs.system(parallel=True)
+    def conflict(entity: ecs.Query[Position]) -> None:
+        entity[Position].x.set_to(1)
+        entity[Position].x.set_to(2)
 
     world.add_system(conflict)
     with pytest.warns(RuntimeWarning, match="do_in_parallel"):
@@ -357,11 +352,12 @@ def test_unaggregated_join_duplicate_writes_warn_and_can_be_suppressed() -> None
     def ungrouped(
         platform: ecs.Query[ecs.Tag[PLATFORM], Position, Velocity],
         hero: ecs.Query[ecs.Tag[HERO], Position],
-    ) -> ecs.Action:
+    ) -> None:
         near = ((platform[Position].x - 5) <= hero[Position].x) & (
             hero[Position].x <= (platform[Position].x + 5)
         )
-        return ecs.when(near).do(ecs.set(platform.ctx[Velocity].dx, 3))
+        with ecs.conditional(), ecs.when(near):
+            platform.ctx[Velocity].dx.set_to(3)
 
     world.add_system(ungrouped)
     with pytest.warns(RuntimeWarning, match="last-write-wins"):
@@ -390,11 +386,12 @@ def test_group_by_any_reduces_join_to_one_write_per_group() -> None:
     def grouped(
         platform: ecs.Query[ecs.Tag[PLATFORM], Position, Velocity],
         hero: ecs.Query[ecs.Tag[HERO], Position],
-    ) -> ecs.Action:
+    ) -> None:
         near = ((platform[Position].x - 5) <= hero[Position].x) & (
             hero[Position].x <= (platform[Position].x + 5)
         )
-        return ecs.when(near.group_by(platform).any()).do(ecs.set(platform.ctx[Velocity].dx, 3))
+        with ecs.conditional(), ecs.when(near.group_by(platform).any()):
+            platform.ctx[Velocity].dx.set_to(3)
 
     world.add_system(grouped)
     world.run_pre_draw_systems()
@@ -412,9 +409,10 @@ def test_exists_where_scans_inner_query_without_cross_join_writes() -> None:
     def exists_system(
         platform: ecs.Query[ecs.Tag[PLATFORM], Position, Velocity],
         hero: ecs.Query[ecs.Tag[HERO], Position],
-    ) -> ecs.Action:
+    ) -> None:
         has_right_hero = ecs.exists(hero).where(hero[Position].x > platform[Position].x)
-        return ecs.when(has_right_hero).do(ecs.set(platform.ctx[Velocity].dx, 7))
+        with ecs.conditional(), ecs.when(has_right_hero):
+            platform.ctx[Velocity].dx.set_to(7)
 
     world.add_system(exists_system)
     world.run_pre_draw_systems()
@@ -428,22 +426,20 @@ def test_udf_action_and_for_each_iterable_source() -> None:
     world.add_entity(Position(1, 0))
     world.set_resource(Counter(0))
 
-    @ecs.udf
-    def boost(items: Iterable[ecs.MutEntity[Position]]) -> None:
+    @ecs.udf(python=True, mutations={"items": {ecs.EntityMutation[Position](update=True)}})
+    def boost(items: Iterable[ecs.Entity[Position]]) -> None:
         for item in items:
             item[Position].x += 5
 
-    @ecs.udf
+    @ecs.udf(python=True)
     def numbers() -> Iterable[int]:
         return (1, 2, 3)
 
     @ecs.system
-    def udf_system(entity: ecs.Query[Position], counter: ecs.ResMut[Counter]) -> ecs.Action:
-        loop = ecs.for_each(numbers())
-        return ecs.do_in_order(
-            cast(ecs.Action, boost(entity)),
-            loop.do(ecs.set(counter[Counter].value, loop.item)),
-        )
+    def udf_system(entity: ecs.Query[Position], counter: ecs.ResMut[Counter]) -> None:
+        boost(entity)
+        with ecs.for_each(numbers()) as item:
+            counter[Counter].value.set_to(item)
 
     world.add_system(udf_system)
     world.run_pre_draw_systems()
@@ -456,15 +452,14 @@ def test_udf_action_and_for_each_iterable_source() -> None:
 
 
 def test_system_plan_explain_describes_action_tree() -> None:
-    @ecs.system
-    def explained(entity: ecs.Query[Position, Velocity]) -> ecs.Action:
-        return ecs.do_in_parallel(
-            ecs.set(entity[Position].x, entity[Position].x + entity[Velocity].dx),
-            ecs.when(entity[Position].x > 10)
-            .do(ecs.set(entity[Velocity].dy, 1))
-            .otherwise()
-            .do(ecs.set(entity[Velocity].dy, 0)),
-        )
+    @ecs.system(parallel=True)
+    def explained(entity: ecs.Query[Position, Velocity]) -> None:
+        entity[Position].x.increase_by(entity[Velocity].dx)
+        with ecs.conditional():
+            with ecs.when(entity[Position].x > 10):
+                entity[Velocity].dy.set_to(1)
+            with ecs.otherwise():
+                entity[Velocity].dy.set_to(0)
 
     explanation = explained.explain()
     assert "do_in_parallel" in explanation
@@ -477,7 +472,7 @@ def test_system_plan_explain_describes_action_tree() -> None:
 
 def test_system_plan_explain_describes_spatial_relations() -> None:
     @ecs.system
-    def explained(entity: ecs.Query[Position]) -> ecs.Action:
+    def explained(entity: ecs.Query[Position]) -> None:
         point = ecs.spatial.point2(entity[Position].x, entity[Position].y)
         nearby = ecs.spatial.neighbors(
             entity,
@@ -488,7 +483,8 @@ def test_system_plan_explain_describes_spatial_relations() -> None:
             allow_fallback=False,
             name="nearby_positions",
         )
-        return ecs.when(nearby.any()).do(ecs.set(entity.ctx[Position].y, nearby.count()))
+        with ecs.conditional(), ecs.when(nearby.any()):
+            entity.ctx[Position].y.set_to(nearby.count())
 
     explanation = explained.explain()
     assert "spatial.any(nearby_positions)" in explanation
@@ -505,10 +501,94 @@ def test_system_must_return_action_not_plan() -> None:
 
     @ecs.system
     def bad() -> ecs.Action:
-        return ecs.do().plan()  # type: ignore[return-value]
+        return ecs.do_in_order().plan()  # type: ignore[return-value]
 
     with pytest.raises(SystemPlanError, match="returned SystemPlan"):
         world.add_system(bad)
+
+
+def test_context_system_migration_and_active_session_errors() -> None:
+    world = EcsWorld()
+    proxy = ecs.QueryProxy("entity", ecs.Query[Position])
+
+    with pytest.raises(SystemPlanError, match="active @ecs.system plan-build session"):
+        proxy[Position].x.set_to(1)
+
+    @ecs.system
+    def old_return(entity: ecs.Query[Position]) -> ecs.Action:
+        return ecs.set(entity[Position].x, 1)
+
+    with pytest.raises(SystemPlanError, match="returned an ecs.Action"):
+        world.add_system(old_return)
+
+    @ecs.system
+    def read_only(counter: ecs.Res[Counter]) -> None:
+        counter[Counter].value.set_to(1)
+
+    world.set_resource(Counter(0))
+    with pytest.raises(SystemPlanError, match="read-only"):
+        world.add_system(read_only)
+
+
+def test_without_query_term_and_explicit_python_system_diagnostics() -> None:
+    world = EcsWorld()
+    world.add_entity(Position(0, 0))
+    world.add_entity(Position(10, 0), Velocity(1, 0))
+
+    @ecs.system
+    def mark_stationary(entity: ecs.Query[Position, ecs.Without[Velocity]]) -> None:
+        entity[Position].y.set_to(5)
+
+    @ecs.system(python=True)
+    def collect_positions(entities: ecs.Query[Position]) -> None:
+        for entity in entities:
+            entity[Position].x += 1
+
+    world.add_system(mark_stationary)
+    world.add_system(collect_positions, after=["mark_stationary"])
+    world.run_pre_draw_systems()
+
+    positions = sorted(
+        (entity[Position].x, entity[Position].y) for entity in world.iter_entities(Position)
+    )
+    assert positions == [(1, 5), (11, 0)]
+    diagnostics = world.diagnostics()
+    assert diagnostics["ecs_python_system_calls"] == 1
+    assert diagnostics["ecs_python_system_barriers"] == 1
+    assert diagnostics["ecs_python_system_entities_materialized"] == 2
+
+
+def test_python_udf_and_system_metadata_validation() -> None:
+    with pytest.raises(SystemPlanError, match="unknown parameter"):
+
+        @ecs.udf(python=True, mutations={"missing": {ecs.EntityMutation[Position]()}})
+        def bad_udf(items: Iterable[ecs.Entity[Position]]) -> None:
+            del items
+
+    with pytest.raises(SystemPlanError, match=r"only valid with @ecs.udf\(python=True\)"):
+
+        @ecs.udf(mutations={"items": {ecs.EntityMutation[Position]()}})
+        def bad_rust_udf(items: ecs.Expression[float]) -> ecs.Expression[float]:
+            del items
+            return ecs.literal(0)
+
+    with pytest.raises(SystemPlanError, match="unknown parameter"):
+
+        @ecs.system(python=True, queries={"missing": ecs.Query[Position]})
+        def bad_system(entities: object) -> None:
+            del entities
+
+    with pytest.raises(SystemPlanError, match="must be ecs.Query"):
+
+        @ecs.system(python=True, queries={"entities": object()})
+        def bad_query_metadata(entities: object) -> None:
+            del entities
+
+    with pytest.raises(SystemPlanError, match=r"only valid with @ecs.system\(python=True\)"):
+
+        @ecs.system(mutations={"entities": {ecs.EntityMutation[Position]()}})
+        def bad_rust_system(entity: ecs.Query[Position]) -> None:
+            entity[Position].x.set_to(1)
 
 
 def test_grouped_value_aggregates_count_sum_min_max_mean() -> None:
@@ -524,14 +604,12 @@ def test_grouped_value_aggregates_count_sum_min_max_mean() -> None:
         platform: ecs.Query[ecs.Tag[PLATFORM], Position],
         hero: ecs.Query[ecs.Tag[HERO], Position],
         counter: ecs.ResMut[Counter],
-    ) -> ecs.Action:
+    ) -> None:
         near = (hero[Position].x - platform[Position].x).abs() <= 5
         grouped = near.group_by(platform)
-        return ecs.do_in_order(
-            ecs.set(counter[Counter].value, grouped.count()),
-            ecs.set(platform[Position].x, grouped.sum(hero[Position].x)),
-            ecs.set(platform[Position].y, grouped.mean(hero[Position].x, default=0.0)),
-        )
+        counter[Counter].value.set_to(grouped.count())
+        platform[Position].x.set_to(grouped.sum(hero[Position].x))
+        platform[Position].y.set_to(grouped.mean(hero[Position].x, default=0.0))
 
     world.add_system(aggregate_system)
     world.run_pre_draw_systems()
@@ -548,9 +626,9 @@ def test_vector_list_markers_and_for_each_column_source() -> None:
     world.set_resource(Counter(0))
 
     @ecs.system
-    def sum_trail(entity: ecs.Query[Trail], counter: ecs.ResMut[Counter]) -> ecs.Action:
-        sample = ecs.for_each(entity[Trail].samples)
-        return sample.do(ecs.set(counter[Counter].value, counter[Counter].value + sample.item))
+    def sum_trail(entity: ecs.Query[Trail], counter: ecs.ResMut[Counter]) -> None:
+        with ecs.for_each(entity[Trail].samples) as sample:
+            counter[Counter].value.increase_by(sample)
 
     world.add_system(sum_trail)
     world.run_pre_draw_systems()
@@ -566,7 +644,7 @@ def test_spatial_hash_neighbors_and_join_aggregates() -> None:
     world.add_entity(Position(1, 1), Velocity(0, 0), tags=[PLATFORM])
 
     @ecs.system
-    def neighbor_system(hero: ecs.Query[ecs.Tag[HERO], Position]) -> ecs.Action:
+    def neighbor_system(hero: ecs.Query[ecs.Tag[HERO], Position]) -> None:
         pos = ecs.spatial.point2(hero[Position].x, hero[Position].y)
         neighbors = ecs.spatial.neighbors(
             hero,
@@ -576,13 +654,13 @@ def test_spatial_hash_neighbors_and_join_aggregates() -> None:
             include_self=False,
             allow_fallback=False,
         )
-        return ecs.set(hero[Position].y, neighbors.count())
+        hero[Position].y.set_to(neighbors.count())
 
     @ecs.system
     def platform_sensor(
         platform: ecs.Query[ecs.Tag[PLATFORM], Position, Velocity],
         hero: ecs.Query[ecs.Tag[HERO], Position],
-    ) -> ecs.Action:
+    ) -> None:
         nearby = ecs.spatial.join(
             platform,
             hero,
@@ -592,7 +670,8 @@ def test_spatial_hash_neighbors_and_join_aggregates() -> None:
             algorithm=ecs.spatial.HashGrid(cell_size=4.0),
             allow_fallback=False,
         )
-        return ecs.when(nearby.any()).do(ecs.set(platform.ctx[Velocity].dx, nearby.count()))
+        with ecs.conditional(), ecs.when(nearby.any()):
+            platform.ctx[Velocity].dx.set_to(nearby.count())
 
     world.add_system(neighbor_system)
     world.add_system(platform_sensor, order=1)
@@ -612,7 +691,7 @@ def test_spatial_hash_neighbors_and_join_aggregates() -> None:
 
 def test_spatial_tree_algorithms_execute_in_rust_without_fallbacks() -> None:
     @ecs.system
-    def tree_system(entity: ecs.Query[Position]) -> ecs.Action:
+    def tree_system(entity: ecs.Query[Position]) -> None:
         pos = ecs.spatial.point2(entity[Position].x, entity[Position].y)
         relation = ecs.spatial.neighbors(
             entity,
@@ -620,7 +699,7 @@ def test_spatial_tree_algorithms_execute_in_rust_without_fallbacks() -> None:
             radius=4.0,
             algorithm=ecs.spatial.Quadtree(ecs.spatial.Bounds2D(-10, -10, 10, 10)),
         )
-        return ecs.set(entity[Position].y, relation.count())
+        entity[Position].y.set_to(relation.count())
 
     world = EcsWorld()
     world.add_entity(Position(0, 0))
@@ -650,7 +729,7 @@ def test_spatial_aabb_overlaps_deduplicate_self_pairs() -> None:
     world.add_entity(Position(20, 0), Box(2, 2))
 
     @ecs.system
-    def overlap_system(entity: ecs.Query[Position, Box]) -> ecs.Action:
+    def overlap_system(entity: ecs.Query[Position, Box]) -> None:
         half_w = entity[Box].width / 2
         half_h = entity[Box].height / 2
         bounds = ecs.spatial.aabb2(
@@ -668,7 +747,8 @@ def test_spatial_aabb_overlaps_deduplicate_self_pairs() -> None:
             pair_policy="unique_unordered",
             allow_fallback=False,
         )
-        return ecs.when(overlaps.any()).do(ecs.set(entity.ctx[Position].y, overlaps.count()))
+        with ecs.conditional(), ecs.when(overlaps.any()):
+            entity.ctx[Position].y.set_to(overlaps.count())
 
     world.add_system(overlap_system)
     world.run_pre_draw_systems()
@@ -686,16 +766,16 @@ def test_system_dependencies_run_conditions_and_sets() -> None:
     should_run = False
 
     @ecs.system
-    def first(entity: ecs.Query[Position]) -> ecs.Action:
-        return ecs.set(entity[Position].x, entity[Position].x + 1)
+    def first(entity: ecs.Query[Position]) -> None:
+        entity[Position].x.increase_by(1)
 
     @ecs.system
-    def second(entity: ecs.Query[Position]) -> ecs.Action:
-        return ecs.set(entity[Position].x, entity[Position].x * 10)
+    def second(entity: ecs.Query[Position]) -> None:
+        entity[Position].x.set_to(entity[Position].x * 10)
 
     @ecs.system
-    def skipped(entity: ecs.Query[Position]) -> ecs.Action:
-        return ecs.set(entity[Position].y, 99)
+    def skipped(entity: ecs.Query[Position]) -> None:
+        entity[Position].y.set_to(99)
 
     world.add_system(first, name="first")
     world.add_system(second, name="second", after=["first"])
@@ -719,8 +799,8 @@ def test_change_detection_added_changed_and_removed_filters() -> None:
     added_world.add_entity(Position(10, 0), Velocity(0, 0))
 
     @ecs.system
-    def mark_added(entity: ecs.Query[Position, ecs.Added[Position]]) -> ecs.Action:
-        return ecs.set(entity[Position].y, 5)
+    def mark_added(entity: ecs.Query[Position, ecs.Added[Position]]) -> None:
+        entity[Position].y.set_to(5)
 
     added_world.add_system(mark_added)
     added_world.run_pre_draw_systems()
@@ -732,8 +812,8 @@ def test_change_detection_added_changed_and_removed_filters() -> None:
     changed_world.set_component(changed_entity, Position(4, 0))
 
     @ecs.system
-    def mark_changed(entity: ecs.Query[Position, ecs.Changed[Position]]) -> ecs.Action:
-        return ecs.set(entity[Position].y, 8)
+    def mark_changed(entity: ecs.Query[Position, ecs.Changed[Position]]) -> None:
+        entity[Position].y.set_to(8)
 
     changed_world.add_system(mark_changed)
     changed_world.run_pre_draw_systems()
@@ -745,8 +825,8 @@ def test_change_detection_added_changed_and_removed_filters() -> None:
     removed_world.remove_component(survivor, Velocity)
 
     @ecs.system
-    def mark_removed(entity: ecs.Query[Position, ecs.Removed[Velocity]]) -> ecs.Action:
-        return ecs.set(entity[Position].y, 9)
+    def mark_removed(entity: ecs.Query[Position, ecs.Removed[Velocity]]) -> None:
+        entity[Position].y.set_to(9)
 
     removed_world.add_system(mark_removed)
     removed_world.run_pre_draw_systems()
@@ -762,13 +842,13 @@ def test_typed_ecs_events_reader_writer_and_public_queue() -> None:
     assert world.read_events(Ping) == ()
 
     @ecs.system
-    def produce(writer: ecs.EventWriter[Ping]) -> ecs.Action:
-        return ecs.emit_event(cast(Any, writer), Ping(3))
+    def produce(writer: ecs.EventWriter[Ping]) -> None:
+        writer.emit(Ping(3))
 
     @ecs.system
-    def consume(reader: ecs.EventReader[Ping], counter: ecs.ResMut[Counter]) -> ecs.Action:
-        event = ecs.for_each(reader)
-        return event.do(ecs.set(counter[Counter].value, counter[Counter].value + event.item.amount))
+    def consume(reader: ecs.EventReader[Ping], counter: ecs.ResMut[Counter]) -> None:
+        with ecs.for_each(reader) as event:
+            counter[Counter].value.increase_by(event.amount)
 
     world.add_system(produce, name="produce")
     world.add_system(consume, name="consume", after=["produce"])
@@ -786,12 +866,12 @@ def test_system_dependency_cycles_error() -> None:
     world = EcsWorld()
 
     @ecs.system
-    def one() -> ecs.Action:
-        return ecs.do()
+    def one() -> None:
+        pass
 
     @ecs.system
-    def two() -> ecs.Action:
-        return ecs.do()
+    def two() -> None:
+        pass
 
     world.add_system(one, name="one")
     world.add_system(two, name="two", after=["one"])
@@ -817,13 +897,13 @@ def test_ecs_runs_before_before_draw_with_before_after_ecs_hooks() -> None:
             del context
             events.append("before_draw")
 
-    @ecs.udf(side_effects=True)
+    @ecs.udf(python=True)
     def mark_system_run() -> None:
         events.append("system")
 
     @ecs.system
-    def marker_system() -> ecs.Action:
-        return cast(ecs.Action, mark_system_run())
+    def marker_system() -> None:
+        mark_system_run()
 
     class EcsLifecycleSketch(Sketch):
         def setup(self) -> None:

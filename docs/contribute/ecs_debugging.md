@@ -27,8 +27,8 @@ print(move_system.explain())
 Use it to verify:
 
 - the action tree shape (`do_in_order`, `do_in_parallel`, `when_chain`, `otherwise`, `for_each`),
-- target fields and value expressions for `ecs.set(...)`,
-- branch conditions for `when(...)`,
+- target fields and value expressions for `set_to(...)` and related field mutations,
+- branch conditions for `ecs.when(...)`,
 - UDF and event action boundaries,
 - spatial relation descriptors, including relation name, algorithm, dimensions, origin/target query aliases, predicates, and pair policy.
 
@@ -50,6 +50,8 @@ Common ECS counters:
 | `ecs_ambiguity_warnings_suppressed` | Ambiguity logs suppressed while diagnostics stayed active. |
 | `ecs_strict_mode_errors` | Ambiguity rejected in strict mode. |
 | `ecs_udf_calls` | Python UDF action or iterable-source calls; these are flexibility escape hatches, not accelerated hot loops. |
+| `ecs_python_system_calls` / `ecs_python_system_barriers` | Explicit `@ecs.system(python=True)` runtime Python boundaries. |
+| `ecs_python_system_entities_materialized` | Entity views materialized for explicit Python systems. |
 | `ecs_change_detection_refreshes` | Change-tracking frame refreshes; component values remain Rust-owned and are not snapshotted in Python. |
 
 Rust core/bridge counters include entity generation reuse, schema counts, query cache refreshes, matched archetypes/rows, resources, and event queue totals where the installed runtime exposes them.
@@ -93,7 +95,8 @@ A condition that references multiple query parameters creates a join from contex
 
 ```python
 on_platform = contact_condition.group_by(platform).any()
-return ecs.when(on_platform).do(ecs.set(platform.ctx[Velocity].dx, 3.0))
+with ecs.conditional(), ecs.when(on_platform):
+    platform.ctx[Velocity].dx.set_to(3.0)
 ```
 
 ### Unsupported Rust physical nodes
@@ -106,7 +109,7 @@ Non-UDF plan nodes should serialize to Rust physical execution. If a system rais
 
 ### UDF performance
 
-`@ecs.udf` is intentionally flexible and may perform side effects or call external APIs. It executes Python code and should not be used to claim Rust acceleration. If a UDF is doing pure component math in a hot loop, consider expressing it with ECS actions, resources, events, `for_each`, or a generic spatial relation.
+`@ecs.udf(python=True)` is intentionally flexible and may perform side effects or call external APIs. It executes Python code and should not be used to claim Rust acceleration. If a UDF is doing pure component math in a hot loop, consider expressing it with ECS actions, resources, events, `for_each`, or a generic spatial relation.
 
 ## Validation commands
 

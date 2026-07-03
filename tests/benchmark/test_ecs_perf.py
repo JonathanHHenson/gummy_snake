@@ -53,11 +53,9 @@ def test_ecs_system_scheduler_smoke_benchmark() -> None:
         world.add_entity(Position(float(index), 0.0), Velocity(1.0, 0.5))
 
     @ecs.system
-    def move(entity: ecs.Query[Position, Velocity]) -> ecs.Action:
-        return ecs.do_in_order(
-            ecs.set(entity[Position].x, entity[Position].x + entity[Velocity].dx),
-            ecs.set(entity[Position].y, entity[Position].y + entity[Velocity].dy),
-        )
+    def move(entity: ecs.Query[Position, Velocity]) -> None:
+        entity[Position].x.increase_by(entity[Velocity].dx)
+        entity[Position].y.increase_by(entity[Velocity].dy)
 
     world.add_system(move, name="move")
     start = time.perf_counter()
@@ -77,7 +75,7 @@ def test_ecs_spatial_hash_grid_smoke_benchmark() -> None:
             world.add_entity(Position(float(x * 4), float(y * 4)))
 
     @ecs.system
-    def neighbors(entity: ecs.Query[Position]) -> ecs.Action:
+    def neighbors(entity: ecs.Query[Position]) -> None:
         point = ecs.spatial.point2(entity[Position].x, entity[Position].y)
         nearby = ecs.spatial.neighbors(
             entity,
@@ -87,7 +85,7 @@ def test_ecs_spatial_hash_grid_smoke_benchmark() -> None:
             include_self=False,
             allow_fallback=False,
         )
-        return ecs.set(entity[Position].y, nearby.count())
+        entity[Position].y.set_to(nearby.count())
 
     world.add_system(neighbors)
     start = time.perf_counter()

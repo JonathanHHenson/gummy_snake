@@ -3,8 +3,9 @@
 Gummy Snake's ECS is a Pythonic logical-plan API backed by Rust-owned storage and
 physical execution. The public surface is designed to feel like typed Python data
 workflows: dataclass components behave like tables/columns, query expressions
-compose into lazy plans, and decorated systems return action trees rather than
-running Python loops over component data.
+compose into lazy plans, and decorated systems record action trees through
+context-managed build sessions rather than running Python loops over component
+data.
 
 ## High-level shape
 
@@ -14,7 +15,7 @@ flowchart TD
         Sketch[User sketch]
         Dataclasses[Dataclass components/resources]
         Systems[ecs.system functions]
-        Actions[ecs.Action tree]
+        Builder[context-managed plan builder]
         Context[SketchContext / EcsWorld facade]
         UDF[Explicit ecs.udf boundaries]
     end
@@ -36,8 +37,8 @@ flowchart TD
 
     Sketch --> Dataclasses
     Sketch --> Systems
-    Systems --> Actions
-    Actions --> Logical
+    Systems --> Builder
+    Builder --> Logical
     Dataclasses --> Schema
     Context --> Schema
     Context --> Storage
@@ -137,8 +138,8 @@ A decorated system is a build function, not a per-frame Python loop:
 1. `@ecs.system` wraps a Python function as `SystemDefinition`.
 2. `gs.add_system(...)` calls the function once with query/resource/event proxy
    objects derived from mandatory type annotations.
-3. The function returns an `ecs.Action` tree.
-4. `Action.plan()` produces a `SystemPlan` for explain output and serialization.
+3. The function records mutations/blocks into the active build session and returns `None`.
+4. The root build block produces a `SystemPlan` for explain output and serialization.
 5. `build_physical_payload()` serializes supported non-UDF expressions/actions.
 6. Rust validates/optimizes/compiles the bridge payload into a physical plan.
 7. Each ECS phase executes the cached Rust physical plan against Rust storage.
@@ -175,12 +176,11 @@ Query fields produce lazy expressions:
 
 ```python
 @ecs.system
-def move(body: ecs.Query[Position, Velocity]) -> ecs.Action:
+def move(body: ecs.Query[Position, Velocity]) -> None:
     seconds = ecs.dt() / 1000.0
-    return ecs.do_in_parallel(
-        ecs.set(body[Position].x, body[Position].x + body[Velocity].dx * seconds),
-        ecs.set(body[Position].y, body[Position].y + body[Velocity].dy * seconds),
-    )
+    with ecs.do(parallel=True):
+        body[Position].x.increase_by(body[Velocity].dx * seconds)
+        body[Position].y.increase_by(body[Velocity].dy * seconds)
 ```
 
 Expressions support arithmetic, comparisons, `&`, `|`, `~`, `sqrt`, `abs`,
@@ -201,17 +201,15 @@ indexing/filter expression.
 
 ## Actions
 
-Public action builders are:
+Public plan-building surfaces are:
 
-- `ecs.set(field, value)`,
-- `ecs.do(*actions)`,
-- `ecs.do_in_order(*actions)`,
-- `ecs.do_in_parallel(*actions)`,
-- `ecs.when(condition).do(...)`,
-- chained `.when(...).do(...)` for else-if behavior,
-- `.otherwise().do(...)` for the final `not previous_conditions` branch,
-- `ecs.for_each(source).do(...)`, `.do_in_order(...)`, or `.do_in_parallel(...)`,
-- `ecs.emit_event(writer, event)` for typed event writer parameters.
+- field mutation methods: `set_to`, `increase_by`, and `decrease_by`,
+- `with ecs.do:` and `with ecs.do(parallel=True):` blocks,
+- `with ecs.conditional():`, `with ecs.when(...):`, and `with ecs.otherwise():`,
+- `with ecs.for_each(source) as item:` loop bodies,
+- `writer.emit(event)` for typed event writer parameters,
+- `query.entity.add_component(...)`, `remove_component(...)`, `add_tag(...)`,
+  `remove_tag(...)`, and `despawn()` structural commands.
 
 `Action` subclasses intentionally expose only valid continuation methods. For
 example, a completed default action is not followed by `.otherwise()`, while a
@@ -232,16 +230,14 @@ class Damage:
 
 
 @ecs.system
-def hazards(writer: ecs.EventWriter[Damage]) -> ecs.Action:
-    return ecs.emit_event(writer, Damage(3))
+def hazards(writer: ecs.EventWriter[Damage]) -> None:
+    writer.emit(Damage(3))
 
 
 @ecs.system
-def apply_damage(reader: ecs.EventReader[Damage], health: ecs.ResMut[Health]) -> ecs.Action:
-    event = ecs.for_each(reader)
-    return event.do(
-        ecs.set(health[Health].value, health[Health].value - event.item.amount)
-    )
+def apply_damage(reader: ecs.EventReader[Damage], health: ecs.ResMut[Health]) -> None:
+    with ecs.for_each(reader) as event:
+        health[Health].value.decrease_by(event.amount)
 ```
 
 Event queues are frame-stamped and retained long enough for the next ECS phase to
@@ -271,15 +267,16 @@ is faster and deterministic.
 
 ## UDF boundary
 
-`@ecs.udf` is the only intentional Python runtime execution boundary inside ECS
-plans. UDF annotations are mandatory. Use UDFs for side effects, external APIs,
-or operations that cannot be expressed in the lazy DSL. Do not use UDFs for hot
-component math that can be represented with expressions/actions/spatial
-relations.
+Bare `@ecs.udf` declares a Rust-backed typed UDF and must not execute Python at
+runtime. `@ecs.udf(python=True)` is the intentional Python runtime execution
+boundary inside ECS plans. UDF annotations are mandatory. Use Python UDFs for
+side effects, external APIs, or operations that cannot be expressed in the lazy
+DSL. Do not use Python UDFs for hot component math that can be represented with
+expressions/actions/spatial relations.
 
 ```python
-@ecs.udf(writes=(Temperature,), side_effects=True)
-def fetch_weather(locations: Iterable[ecs.MutEntity[Location]]) -> None:
+@ecs.udf(python=True, mutations={"locations": {ecs.EntityMutation[Temperature](add=True)}})
+def fetch_weather(locations: Iterable[ecs.Entity[Location]]) -> None:
     for location in locations:
         location.add_component(Temperature(fetch_temperature(location[Location].lon)))
 ```

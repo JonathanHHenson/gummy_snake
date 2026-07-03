@@ -14,6 +14,7 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 - [Text renderer decision](text_renderer_decision.md)
 - [Native 3D renderer plan](native_3d_plan.md)
 - [ECS release checklist](ecs_release_checklist.md)
+- [ECS context-manager API release notes](ecs_context_manager_release_notes.md)
 - [Testing and CI](testing.md)
 - [Documentation workflow](documentation.md)
 

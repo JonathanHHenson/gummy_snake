@@ -54,47 +54,42 @@ class Wind:
 
 
 @ecs.system
-def drift(fly: ecs.Query[Position, Velocity, Glow], wind: ecs.Res[Wind]) -> ecs.Action:
+def drift(fly: ecs.Query[Position, Velocity, Glow], wind: ecs.Res[Wind]) -> None:
     seconds = ecs.dt() / 1000.0
-    return ecs.do_in_parallel(
-        ecs.set(fly[Position].x, fly[Position].x + (fly[Velocity].dx + wind[Wind].x) * seconds),
-        ecs.set(fly[Position].y, fly[Position].y + (fly[Velocity].dy + wind[Wind].y) * seconds),
-        ecs.set(fly[Glow].energy, fly[Glow].energy + fly[Glow].pulse * seconds),
-    )
+    with ecs.do(parallel=True):
+        fly[Position].x.set_to(fly[Position].x + (fly[Velocity].dx + wind[Wind].x) * seconds)
+        fly[Position].y.set_to(fly[Position].y + (fly[Velocity].dy + wind[Wind].y) * seconds)
+        fly[Glow].energy.set_to(fly[Glow].energy + fly[Glow].pulse * seconds)
 
 
 @ecs.system
-def pulse(fly: ecs.Query[Glow]) -> ecs.Action:
-    return (
-        ecs.when(fly[Glow].energy > 1.0)
-        .do_in_parallel(
-            ecs.set(fly[Glow].energy, 1.0),
-            ecs.set(fly[Glow].pulse, -0.65),
-        )
-        .when(fly[Glow].energy < 0.25)
-        .do_in_parallel(
-            ecs.set(fly[Glow].energy, 0.25),
-            ecs.set(fly[Glow].pulse, 0.65),
-        )
-    )
+def pulse(fly: ecs.Query[Glow]) -> None:
+    with ecs.conditional(parallel=True):
+        with ecs.when(fly[Glow].energy > 1.0):
+            fly[Glow].energy.set_to(1.0)
+            fly[Glow].pulse.set_to(-0.65)
+        with ecs.when(fly[Glow].energy < 0.25):
+            fly[Glow].energy.set_to(0.25)
+            fly[Glow].pulse.set_to(0.65)
 
 
 @ecs.system
-def wrap(fly: ecs.Query[Position], bounds: ecs.Res[Bounds]) -> ecs.Action:
+def wrap(fly: ecs.Query[Position], bounds: ecs.Res[Bounds]) -> None:
     left = -bounds[Bounds].padding
     right = bounds[Bounds].width + bounds[Bounds].padding
     top = -bounds[Bounds].padding
     bottom = bounds[Bounds].height + bounds[Bounds].padding
-    return ecs.do_in_parallel(
-        ecs.when(fly[Position].x < left)
-        .do(ecs.set(fly[Position].x, right))
-        .when(fly[Position].x > right)
-        .do(ecs.set(fly[Position].x, left)),
-        ecs.when(fly[Position].y < top)
-        .do(ecs.set(fly[Position].y, bottom))
-        .when(fly[Position].y > bottom)
-        .do(ecs.set(fly[Position].y, top)),
-    )
+    with ecs.do(parallel=True):
+        with ecs.conditional():
+            with ecs.when(fly[Position].x < left):
+                fly[Position].x.set_to(right)
+            with ecs.when(fly[Position].x > right):
+                fly[Position].x.set_to(left)
+        with ecs.conditional():
+            with ecs.when(fly[Position].y < top):
+                fly[Position].y.set_to(bottom)
+            with ecs.when(fly[Position].y > bottom):
+                fly[Position].y.set_to(top)
 
 
 @gs.setup

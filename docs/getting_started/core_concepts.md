@@ -50,8 +50,8 @@ class Position:
 
 
 @ecs.system
-def drift(body: ecs.Query[Position]) -> ecs.Action:
-    return ecs.set(body[Position].x, body[Position].x + 1)
+def drift(body: ecs.Query[Position]) -> None:
+    body[Position].x.increase_by(1)
 ```
 
 ECS systems run before `before_draw` and `draw()`, and can use resources, typed

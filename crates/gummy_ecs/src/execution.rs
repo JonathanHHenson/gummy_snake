@@ -46,6 +46,7 @@ pub struct ExecutionReport {
     pub fields_written: usize,
     pub resource_fields_written: usize,
     pub events_emitted: usize,
+    pub structural_commands: usize,
     pub duplicate_writes: usize,
     pub spatial_indexes_built: usize,
     pub spatial_candidate_rows: usize,
@@ -587,10 +588,114 @@ impl<'a> PlanExecutor<'a> {
                 }
                 Ok(())
             }
+            ActionNode::AddComponent {
+                query,
+                component,
+                value,
+            } => self.execute_add_component(query, component, *value, contexts),
+            ActionNode::RemoveComponent { query, component } => {
+                self.execute_remove_component(query, component, contexts)
+            }
+            ActionNode::AddTag { query, tag } => self.execute_add_tag(query, tag, contexts),
+            ActionNode::RemoveTag { query, tag } => self.execute_remove_tag(query, tag, contexts),
+            ActionNode::Despawn { query } => self.execute_despawn(query, contexts),
             ActionNode::Udf { descriptor, .. } => Err(EcsError::InvalidPlan(format!(
                 "physical execution cannot call Python UDF '{descriptor}'"
             ))),
         }
+    }
+
+    fn structural_contexts(
+        &self,
+        query: &str,
+        contexts: &[EvalContext],
+    ) -> Result<Vec<EvalContext>> {
+        let mut queries = BTreeSet::new();
+        queries.insert(query.to_string());
+        let mut out = Vec::new();
+        for ctx in contexts {
+            out.extend(self.expand_context_for_queries(ctx, &queries)?);
+        }
+        Ok(out)
+    }
+
+    fn execute_add_component(
+        &mut self,
+        query: &str,
+        component: &str,
+        value: Option<usize>,
+        contexts: &[EvalContext],
+    ) -> Result<()> {
+        for ctx in self.structural_contexts(query, contexts)? {
+            let entity = *ctx.bindings.get(query).ok_or_else(|| {
+                EcsError::InvalidPlan(format!("query '{query}' is not bound for add_component"))
+            })?;
+            let value = value.map(|expr| self.eval_expr(expr, &ctx)).transpose()?;
+            self.world
+                .add_component_default(entity, component.to_string())?;
+            if let Some(EcsValue::Struct(fields)) = value {
+                for (field, field_value) in fields {
+                    self.world
+                        .set_field(entity, component, &field, field_value)?;
+                }
+            }
+            self.report.structural_commands += 1;
+        }
+        Ok(())
+    }
+
+    fn execute_remove_component(
+        &mut self,
+        query: &str,
+        component: &str,
+        contexts: &[EvalContext],
+    ) -> Result<()> {
+        for ctx in self.structural_contexts(query, contexts)? {
+            let entity = *ctx.bindings.get(query).ok_or_else(|| {
+                EcsError::InvalidPlan(format!("query '{query}' is not bound for remove_component"))
+            })?;
+            self.world.remove_component(entity, component)?;
+            self.report.structural_commands += 1;
+        }
+        Ok(())
+    }
+
+    fn execute_add_tag(&mut self, query: &str, tag: &str, contexts: &[EvalContext]) -> Result<()> {
+        for ctx in self.structural_contexts(query, contexts)? {
+            let entity = *ctx.bindings.get(query).ok_or_else(|| {
+                EcsError::InvalidPlan(format!("query '{query}' is not bound for add_tag"))
+            })?;
+            self.world.add_tag(entity, tag)?;
+            self.report.structural_commands += 1;
+        }
+        Ok(())
+    }
+
+    fn execute_remove_tag(
+        &mut self,
+        query: &str,
+        tag: &str,
+        contexts: &[EvalContext],
+    ) -> Result<()> {
+        for ctx in self.structural_contexts(query, contexts)? {
+            let entity = *ctx.bindings.get(query).ok_or_else(|| {
+                EcsError::InvalidPlan(format!("query '{query}' is not bound for remove_tag"))
+            })?;
+            self.world.remove_tag(entity, tag)?;
+            self.report.structural_commands += 1;
+        }
+        Ok(())
+    }
+
+    fn execute_despawn(&mut self, query: &str, contexts: &[EvalContext]) -> Result<()> {
+        for ctx in self.structural_contexts(query, contexts)? {
+            let entity = *ctx.bindings.get(query).ok_or_else(|| {
+                EcsError::InvalidPlan(format!("query '{query}' is not bound for despawn"))
+            })?;
+            self.world.despawn(entity)?;
+            self.report.structural_commands += 1;
+        }
+        Ok(())
     }
 
     fn execute_for_each(
@@ -838,6 +943,7 @@ impl<'a> PlanExecutor<'a> {
     ) -> Result<()> {
         self.report.rows_scanned += child_report.rows_scanned;
         self.report.events_emitted += child_report.events_emitted;
+        self.report.structural_commands += child_report.structural_commands;
         self.report.duplicate_writes += child_report.duplicate_writes;
         self.report.spatial_indexes_built += child_report.spatial_indexes_built;
         self.report.spatial_candidate_rows += child_report.spatial_candidate_rows;

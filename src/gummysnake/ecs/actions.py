@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import builtins
+import contextvars
 import inspect
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, cast, get_origin, get_type_hints, overload
 
 from gummysnake.ecs.expressions import (
@@ -67,6 +69,10 @@ class DefaultAction(Action):
     udf_args: tuple[object, ...] = ()
     event_writer: EventWriterProxy | None = None
     event_value: object | None = None
+    entity_query: QueryProxy | None = None
+    component_type: type[Any] | None = None
+    component_value: object | None = None
+    tag: object | None = None
 
     def execute(self, world: EcsWorld, contexts: list[dict[object, Any]]) -> None:
         del contexts
@@ -126,12 +132,340 @@ class LoopItem(Expression):
 
 
 @dataclass
+class _BuildBlock:
+    mode: str = "sequence"
+    children: list[Action] = field(default_factory=list)
+
+    def append(self, action: Action) -> None:
+        if not isinstance(action, Action):
+            raise SystemPlanError(f"Expected ECS Action, got {type(action).__name__}.")
+        self.children.append(action)
+
+    def to_action(self) -> Action:
+        if self.mode == "parallel":
+            return _parallel_action(*self.children)
+        return _sequence_action(*self.children)
+
+
+@dataclass
+class _ConditionalScope:
+    parallel: bool = False
+    branches: list[tuple[Expression, Action]] = field(default_factory=list)
+    otherwise_action: Action | None = None
+    active_branch: bool = False
+
+    def branch_mode(self, override: bool | None) -> str:
+        return "parallel" if (self.parallel if override is None else override) else "sequence"
+
+    def to_action(self) -> WhenAction:
+        return WhenAction(list(self.branches), self.otherwise_action)
+
+
+class _BuildSession:
+    def __init__(self, *, parallel: bool = False) -> None:
+        self.root = _BuildBlock("parallel" if parallel else "sequence")
+        self.blocks: list[_BuildBlock] = [self.root]
+        self.conditionals: list[_ConditionalScope] = []
+
+    @property
+    def current_block(self) -> _BuildBlock:
+        return self.blocks[-1]
+
+    @property
+    def current_conditional(self) -> _ConditionalScope | None:
+        return self.conditionals[-1] if self.conditionals else None
+
+    def append(self, action: Action) -> None:
+        self.current_block.append(action)
+
+    def push_block(self, block: _BuildBlock) -> None:
+        self.blocks.append(block)
+
+    def pop_block(self, block: _BuildBlock) -> None:
+        if not self.blocks or self.blocks[-1] is not block:
+            raise SystemPlanError("ECS plan-build block stack became unbalanced.")
+        self.blocks.pop()
+
+    def push_conditional(self, conditional: _ConditionalScope) -> None:
+        self.conditionals.append(conditional)
+
+    def pop_conditional(self, conditional: _ConditionalScope) -> None:
+        if not self.conditionals or self.conditionals[-1] is not conditional:
+            raise SystemPlanError("ECS conditional plan-build stack became unbalanced.")
+        self.conditionals.pop()
+
+    def finish(self) -> Action:
+        if len(self.blocks) != 1:
+            raise SystemPlanError("ECS system plan has unclosed with ecs.do/when/for_each blocks.")
+        if self.conditionals:
+            raise SystemPlanError("ECS system plan has an unclosed ecs.conditional() block.")
+        return self.root.to_action()
+
+
+_BUILD_STACK: contextvars.ContextVar[tuple[_BuildSession, ...]] = contextvars.ContextVar(
+    "gummysnake_ecs_build_stack", default=()
+)
+
+
+def _current_session() -> _BuildSession | None:
+    stack = _BUILD_STACK.get()
+    return stack[-1] if stack else None
+
+
+def _require_session(operation: str) -> _BuildSession:
+    session = _current_session()
+    if session is None:
+        raise SystemPlanError(
+            f"{operation} requires an active @ecs.system plan-build session. "
+            "Use it inside a Rust-executed @ecs.system function."
+        )
+    return session
+
+
+def active_build_session() -> bool:
+    """Return whether code is currently building an ECS logical plan."""
+
+    return _current_session() is not None
+
+
+def append_action(action: Action, *, operation: str = "ECS plan mutation") -> None:
+    """Append an action to the active context-manager build block."""
+
+    _require_session(operation).append(action)
+
+
+class _BuildSessionContext:
+    def __init__(self, *, parallel: bool = False) -> None:
+        self.session = _BuildSession(parallel=parallel)
+        self._token: contextvars.Token[tuple[_BuildSession, ...]] | None = None
+
+    def __enter__(self) -> _BuildSession:
+        stack = _BUILD_STACK.get()
+        self._token = _BUILD_STACK.set((*stack, self.session))
+        return self.session
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        del exc_type, exc, traceback
+        if self._token is None:
+            raise SystemPlanError("ECS plan-build session was exited before it was entered.")
+        stack = _BUILD_STACK.get()
+        if not stack or stack[-1] is not self.session:
+            _BUILD_STACK.reset(self._token)
+            raise SystemPlanError("ECS plan-build session stack became unbalanced.")
+        _BUILD_STACK.reset(self._token)
+        self._token = None
+
+
+def build_session(*, parallel: bool = False) -> _BuildSessionContext:
+    return _BuildSessionContext(parallel=parallel)
+
+
+class _BlockContext:
+    def __init__(self, *, parallel: bool = False) -> None:
+        self.block = _BuildBlock("parallel" if parallel else "sequence")
+        self._session: _BuildSession | None = None
+
+    def __enter__(self) -> None:
+        self._session = _require_session("with ecs.do")
+        self._session.push_block(self.block)
+        return None
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        del exc, traceback
+        if self._session is None:
+            raise SystemPlanError("ECS do block was exited before it was entered.")
+        self._session.pop_block(self.block)
+        if exc_type is None:
+            self._session.append(self.block.to_action())
+        self._session = None
+
+
+class _DoFactory:
+    def __init__(self) -> None:
+        self._entered: list[_BlockContext] = []
+
+    @overload
+    def __call__(self, *, parallel: bool = False) -> _BlockContext: ...
+
+    @overload
+    def __call__(self, action: Action, /, *actions: Action, parallel: bool = False) -> Action: ...
+
+    def __call__(self, *actions: Action, parallel: bool = False) -> Action | _BlockContext:
+        if actions:
+            return _parallel_action(*actions) if parallel else _sequence_action(*actions)
+        return _BlockContext(parallel=parallel)
+
+    def __enter__(self) -> None:
+        context = _BlockContext(parallel=False)
+        self._entered.append(context)
+        return context.__enter__()
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        if not self._entered:
+            raise SystemPlanError("ecs.do context manager was exited before it was entered.")
+        context = self._entered.pop()
+        return context.__exit__(exc_type, exc, traceback)
+
+
+class _ConditionalContext:
+    def __init__(self, *, parallel: bool = False) -> None:
+        self.scope = _ConditionalScope(parallel=parallel)
+        self._session: _BuildSession | None = None
+
+    def __enter__(self) -> None:
+        self._session = _require_session("with ecs.conditional")
+        self._session.push_conditional(self.scope)
+        return None
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        del exc, traceback
+        if self._session is None:
+            raise SystemPlanError("ECS conditional block was exited before it was entered.")
+        if self.scope.active_branch:
+            raise SystemPlanError("ECS conditional branch stack became unbalanced.")
+        self._session.pop_conditional(self.scope)
+        if exc_type is None:
+            self._session.append(self.scope.to_action())
+        self._session = None
+
+
+class _BranchContext:
+    def __init__(
+        self,
+        condition: Expression | None,
+        *,
+        parallel: bool | None = None,
+        otherwise: bool = False,
+    ) -> None:
+        self.condition = condition
+        self.parallel = parallel
+        self.otherwise = otherwise
+        self.block: _BuildBlock | None = None
+        self._session: _BuildSession | None = None
+        self._scope: _ConditionalScope | None = None
+
+    def __enter__(self) -> None:
+        session = _require_session("ecs.when()/ecs.otherwise()")
+        scope = session.current_conditional
+        if scope is None:
+            raise SystemPlanError(
+                "ecs.when() and ecs.otherwise() can only be used inside with ecs.conditional():."
+            )
+        if scope.active_branch:
+            raise SystemPlanError(
+                "ECS conditional branches cannot be nested without closing the first branch."
+            )
+        if self.otherwise and scope.otherwise_action is not None:
+            raise SystemPlanError("An ECS conditional can only have one otherwise branch.")
+        if self.otherwise and self.condition is not None:
+            raise SystemPlanError("ecs.otherwise() cannot have a condition.")
+        if not self.otherwise and scope.otherwise_action is not None:
+            raise SystemPlanError("ecs.when() branches must appear before ecs.otherwise().")
+        self._session = session
+        self._scope = scope
+        self.block = _BuildBlock(scope.branch_mode(self.parallel))
+        scope.active_branch = True
+        session.push_block(self.block)
+        return None
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        del exc, traceback
+        if self._session is None or self._scope is None or self.block is None:
+            raise SystemPlanError("ECS conditional branch was exited before it was entered.")
+        self._session.pop_block(self.block)
+        self._scope.active_branch = False
+        if exc_type is None:
+            action = self.block.to_action()
+            if self.otherwise:
+                self._scope.otherwise_action = action
+            else:
+                assert self.condition is not None
+                self._scope.branches.append((self.condition, action))
+        self._session = None
+        self._scope = None
+        self.block = None
+
+
+class _ForEachContext:
+    def __init__(
+        self,
+        source: IterableSource,
+        *,
+        loop_parallel: bool = False,
+        block_parallel: bool = False,
+    ) -> None:
+        self.source = source
+        self.loop_parallel = loop_parallel
+        self.block_parallel = block_parallel
+        self.block = _BuildBlock("parallel" if block_parallel else "sequence")
+        self._session: _BuildSession | None = None
+
+    @property
+    def item(self) -> LoopItem:
+        return cast(Any, self.source).item
+
+    def __enter__(self) -> LoopItem:
+        self._session = _require_session("with ecs.for_each")
+        self._session.push_block(self.block)
+        return self.item
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        del exc, traceback
+        if self._session is None:
+            raise SystemPlanError("ECS for_each block was exited before it was entered.")
+        self._session.pop_block(self.block)
+        if exc_type is None:
+            mode = "parallel" if self.loop_parallel else "sequence"
+            self._session.append(ForEachAction(self.source, self.block.to_action(), mode=mode))
+        self._session = None
+
+    def do(self, *actions: Action) -> ForEachAction:
+        return ForEachAction(self.source, _sequence_action(*actions), mode="sequence")
+
+    def do_in_order(self, *actions: Action) -> ForEachAction:
+        return self.do(*actions)
+
+    def do_in_parallel(self, *actions: Action) -> ForEachAction:
+        return ForEachAction(self.source, _parallel_action(*actions), mode="parallel")
+
+
+@dataclass
 class _WhenBranchBuilder:
     chain: WhenAction | None
     condition: Expression
 
     def do(self, *actions: Action) -> WhenAction:
-        action = do(*actions)
+        action = _sequence_action(*actions)
         chain = self.chain or WhenAction()
         chain.branches.append((self.condition, action))
         return chain
@@ -150,7 +484,7 @@ class _OtherwiseBranchBuilder:
     def do(self, *actions: Action) -> WhenAction:
         if self.chain.otherwise_action is not None:
             raise SystemPlanError("A conditional chain can only have one otherwise() branch.")
-        self.chain.otherwise_action = do(*actions)
+        self.chain.otherwise_action = _sequence_action(*actions)
         return self.chain
 
     def do_in_order(self, *actions: Action) -> WhenAction:
@@ -169,7 +503,7 @@ class _ForEachBuilder:
         return cast(Any, self.source).item
 
     def do(self, *actions: Action) -> ForEachAction:
-        return ForEachAction(self.source, do(*actions), mode="sequence")
+        return ForEachAction(self.source, _sequence_action(*actions), mode="sequence")
 
     def do_in_order(self, *actions: Action) -> ForEachAction:
         return ForEachAction(self.source, do_in_order(*actions), mode="sequence")
@@ -238,6 +572,22 @@ class EventIterableSource(IterableSource):
 
 
 @dataclass(frozen=True)
+class EntityIteratorSource(IterableSource):
+    query: QueryProxy
+    components: tuple[type[Any], ...]
+    item: LoopItem = field(default_factory=lambda: LoopItem("entity"))
+
+    def iter_items(
+        self, world: EcsWorld, contexts: list[dict[object, Any]]
+    ) -> Iterable[tuple[dict[object, Any], Any]]:
+        del contexts
+        from gummysnake.ecs.specs import QuerySpec
+
+        for entity in world.match_query(cast(QuerySpec, self.query.spec)):
+            yield {}, entity
+
+
+@dataclass(frozen=True)
 class UdfDefinition:
     function: Callable[..., Any]
     return_annotation: object
@@ -245,11 +595,19 @@ class UdfDefinition:
     writes: tuple[type[Any], ...] = ()
     structural: bool = False
     side_effects: bool = False
+    python: bool = False
+    mutations: dict[str, frozenset[object]] = field(default_factory=dict)
 
-    def __call__(self, *args: object) -> DefaultAction | UdfIterableSource:
+    def __call__(self, *args: object) -> DefaultAction | UdfIterableSource | UdfCallExpression:
+        if not self.python:
+            return UdfCallExpression(self, tuple(args))
         if _is_iterable_annotation(self.return_annotation):
             return UdfIterableSource(self, tuple(args))
-        return DefaultAction("udf", udf=self, udf_args=tuple(args))
+        action = DefaultAction("udf", udf=self, udf_args=tuple(args))
+        if active_build_session():
+            append_action(action, operation=f"@ecs.udf(python=True) {self.function.__name__}()")
+            return None  # type: ignore[return-value]
+        return action
 
     def call_runtime(self, world: EcsWorld, args: tuple[object, ...]) -> Any:
         materialized = [world.materialize_udf_arg(arg) for arg in args]
@@ -258,6 +616,44 @@ class UdfDefinition:
     def execute_action(self, world: EcsWorld, args: tuple[object, ...]) -> None:
         self.call_runtime(world, args)
         world._diagnostics["ecs_udf_calls"] += 1
+
+
+def validate_mutation_metadata(
+    callback: Callable[..., Any], mutations: Mapping[str, object] | None
+) -> dict[str, frozenset[object]]:
+    """Validate EntityMutation metadata keyed by callback parameter name."""
+
+    if not mutations:
+        return {}
+    from gummysnake.ecs.world import EntityMutation
+
+    parameter_names = builtins.set(inspect.signature(callback).parameters)
+    normalized: dict[str, frozenset[object]] = {}
+    for parameter_name, declared in mutations.items():
+        if parameter_name not in parameter_names:
+            raise SystemPlanError(
+                f"ECS mutation metadata for {callback.__name__} references unknown "
+                f"parameter {parameter_name!r}."
+            )
+        if isinstance(declared, EntityMutation):
+            mutation_set = frozenset({declared})
+        elif isinstance(declared, Iterable) and not isinstance(declared, str | bytes):
+            mutation_set = frozenset(declared)
+        else:
+            raise SystemPlanError(
+                f"ECS mutation metadata for {parameter_name!r} must be a set of "
+                "ecs.EntityMutation[...] declarations."
+            )
+        if not mutation_set:
+            raise SystemPlanError(f"ECS mutation metadata for {parameter_name!r} cannot be empty.")
+        for mutation in mutation_set:
+            if not isinstance(mutation, EntityMutation):
+                raise SystemPlanError(
+                    f"ECS mutation metadata for {parameter_name!r} must contain only "
+                    "ecs.EntityMutation[...] declarations."
+                )
+        normalized[parameter_name] = mutation_set
+    return normalized
 
 
 def _is_iterable_annotation(annotation: object) -> bool:
@@ -269,6 +665,18 @@ def _is_iterable_annotation(annotation: object) -> bool:
         "Iterator",
         "Generator",
     }
+
+
+@dataclass(frozen=True, eq=False)
+class UdfCallExpression(Expression):
+    definition: UdfDefinition
+    args: tuple[object, ...]
+
+    def eval(self, ctx: dict[object, Any], world: EcsWorld) -> Any:
+        del ctx, world
+        raise SystemExecutionError(
+            f"Rust-backed ECS UDF {self.definition.function.__name__!r} cannot execute in Python."
+        )
 
 
 @overload
@@ -283,6 +691,8 @@ def udf(
     writes: Iterable[type[Any]] = (),
     structural: bool = False,
     side_effects: bool = False,
+    python: bool = False,
+    mutations: dict[str, object] | None = None,
 ) -> Callable[[Callable[..., Any]], UdfDefinition]: ...
 
 
@@ -293,8 +703,21 @@ def udf(
     writes: Iterable[type[Any]] = (),
     structural: bool = False,
     side_effects: bool = False,
+    python: bool = False,
+    mutations: dict[str, object] | None = None,
 ) -> Callable[[Callable[..., Any]], UdfDefinition] | UdfDefinition:
+    if side_effects:
+        raise SystemPlanError(
+            "@ecs.udf(side_effects=...) has been replaced by explicit mutations={...} metadata "
+            "on @ecs.udf(python=True)."
+        )
+
     def decorate(callback: Callable[..., Any]) -> UdfDefinition:
+        if mutations and not python:
+            raise SystemPlanError(
+                "@ecs.udf mutations={...} metadata is only valid with @ecs.udf(python=True)."
+            )
+        normalized_mutations = validate_mutation_metadata(callback, mutations)
         hints = get_type_hints(callback, include_extras=True)
         signature = inspect.signature(callback)
         for parameter in signature.parameters.values():
@@ -303,15 +726,27 @@ def udf(
                     f"ECS UDF {callback.__name__} parameter {parameter.name!r} needs a "
                     "type annotation."
                 )
+            if not python and hints[parameter.name] is not Expression:
+                raise SystemPlanError(
+                    f"Rust-backed ECS UDF {callback.__name__} parameter {parameter.name!r} "
+                    "must be annotated as ecs.Expression[T]. Use @ecs.udf(python=True) "
+                    "for runtime Python vector/materialized inputs."
+                )
         if "return" not in hints:
             raise SystemPlanError(f"ECS UDF {callback.__name__} needs a return annotation.")
+        if not python and hints["return"] is not Expression:
+            raise SystemPlanError(
+                f"Rust-backed ECS UDF {callback.__name__} return type must be ecs.Expression[T]."
+            )
         return UdfDefinition(
             callback,
             hints["return"],
             reads=tuple(reads),
             writes=tuple(writes),
             structural=structural,
-            side_effects=side_effects,
+            side_effects=False,
+            python=python,
+            mutations=normalized_mutations,
         )
 
     if function is not None:
@@ -325,36 +760,114 @@ def set(target: FieldExpression, value: object) -> DefaultAction:
     return DefaultAction("set", target=target, value=ensure_expr(value))
 
 
-def do(*actions: Action) -> DefaultAction:
+def add_component_action(entity: EntityExpression, component: object | type[Any]) -> DefaultAction:
+    if not isinstance(entity, EntityExpression):
+        raise SystemPlanError(
+            "ECS structural actions require query.entity from an ecs.Query parameter."
+        )
+    component_type = component if isinstance(component, type) else type(component)
+    return DefaultAction(
+        "add_component",
+        entity_query=entity.query,
+        component_type=component_type,
+        component_value=None if isinstance(component, type) else component,
+    )
+
+
+def remove_component_action(entity: EntityExpression, component_type: type[Any]) -> DefaultAction:
+    if not isinstance(entity, EntityExpression):
+        raise SystemPlanError(
+            "ECS structural actions require query.entity from an ecs.Query parameter."
+        )
+    return DefaultAction(
+        "remove_component", entity_query=entity.query, component_type=component_type
+    )
+
+
+def add_tag_action(entity: EntityExpression, tag: object) -> DefaultAction:
+    if not isinstance(entity, EntityExpression):
+        raise SystemPlanError(
+            "ECS structural actions require query.entity from an ecs.Query parameter."
+        )
+    return DefaultAction("add_tag", entity_query=entity.query, tag=tag)
+
+
+def remove_tag_action(entity: EntityExpression, tag: object) -> DefaultAction:
+    if not isinstance(entity, EntityExpression):
+        raise SystemPlanError(
+            "ECS structural actions require query.entity from an ecs.Query parameter."
+        )
+    return DefaultAction("remove_tag", entity_query=entity.query, tag=tag)
+
+
+def despawn_action(entity: EntityExpression) -> DefaultAction:
+    if not isinstance(entity, EntityExpression):
+        raise SystemPlanError(
+            "ECS structural actions require query.entity from an ecs.Query parameter."
+        )
+    return DefaultAction("despawn", entity_query=entity.query)
+
+
+def _sequence_action(*actions: Action) -> DefaultAction:
     if not actions:
         return DefaultAction("noop")
     _validate_actions(actions)
     return DefaultAction("sequence", children=tuple(actions))
 
 
-def do_in_order(*actions: Action) -> DefaultAction:
-    return do(*actions)
-
-
-def do_in_parallel(*actions: Action) -> DefaultAction:
+def _parallel_action(*actions: Action) -> DefaultAction:
     _validate_actions(actions)
+    if not actions:
+        return DefaultAction("noop")
     return DefaultAction("parallel", children=tuple(actions))
 
 
-def when(condition: object) -> _WhenBranchBuilder:
-    return _WhenBranchBuilder(None, ensure_expr(condition))
+do = _DoFactory()
 
 
-def for_each(source: object) -> _ForEachBuilder:
-    if isinstance(source, UdfIterableSource):
-        return _ForEachBuilder(source)
+def do_in_order(*actions: Action) -> DefaultAction:
+    return _sequence_action(*actions)
+
+
+def do_in_parallel(*actions: Action) -> DefaultAction:
+    return _parallel_action(*actions)
+
+
+def conditional(*, parallel: bool = False) -> _ConditionalContext:
+    return _ConditionalContext(parallel=parallel)
+
+
+def when(condition: object, *, parallel: bool | None = None) -> _BranchContext:
+    expr = ensure_expr(condition)
+    if active_build_session():
+        return _BranchContext(expr, parallel=parallel)
+    return cast(_BranchContext, _WhenBranchBuilder(None, expr))
+
+
+def otherwise(*, parallel: bool | None = None) -> _BranchContext:
+    return _BranchContext(None, parallel=parallel, otherwise=True)
+
+
+def _iterable_source_for(source: object) -> IterableSource:
+    if isinstance(source, IterableSource):
+        return source
     if isinstance(source, EventReaderProxy):
-        return _ForEachBuilder(EventIterableSource(source))
+        return EventIterableSource(source)
     if isinstance(source, Expression):
-        return _ForEachBuilder(ExpressionIterableSource(source))
+        return ExpressionIterableSource(source)
     raise SystemPlanError(
-        "ecs.for_each() accepts annotated @ecs.udf iterable sources or list/vector "
-        "field expressions."
+        "ecs.for_each() accepts EventReader parameters, annotated @ecs.udf iterable sources, "
+        "or list/vector field expressions. Python iterables would execute during plan build."
+    )
+
+
+def for_each(
+    source: object, *, loop_parallel: bool = False, block_parallel: bool = False
+) -> _ForEachContext:
+    return _ForEachContext(
+        _iterable_source_for(source),
+        loop_parallel=loop_parallel,
+        block_parallel=block_parallel,
     )
 
 
@@ -394,6 +907,18 @@ def _explain_action(action: Action, indent: int = 0) -> list[str]:
             return [f"{prefix}udf {action.udf.function.__name__}"]
         if action.kind == "emit_event" and action.event_writer is not None:
             return [f"{prefix}emit_event {action.event_writer.event_type.__name__}"]
+        if (
+            action.kind in {"add_component", "remove_component"}
+            and action.component_type is not None
+        ):
+            query = action.entity_query.name if action.entity_query is not None else "?"
+            return [f"{prefix}{action.kind} {query}.{action.component_type.__name__}"]
+        if action.kind in {"add_tag", "remove_tag"}:
+            query = action.entity_query.name if action.entity_query is not None else "?"
+            return [f"{prefix}{action.kind} {query}.{action.tag}"]
+        if action.kind == "despawn":
+            query = action.entity_query.name if action.entity_query is not None else "?"
+            return [f"{prefix}despawn {query}"]
         if action.kind == "noop":
             return [f"{prefix}noop"]
         return [f"{prefix}{action.kind}"]
@@ -560,6 +1085,13 @@ def action_write_targets(action: Action) -> builtins.set[tuple[object, type[Any]
             targets.add(
                 (action.target.source, action.target.component_type, action.target.field_name)
             )
+        elif (
+            action.kind in {"add_component", "remove_component"}
+            and action.component_type is not None
+        ):
+            targets.add((action.entity_query, action.component_type, "*structural*"))
+        elif action.kind in {"add_tag", "remove_tag", "despawn"}:
+            targets.add((action.entity_query, object, "*structural*"))
         for child in action.children:
             targets.update(action_write_targets(child))
     elif isinstance(action, WhenAction):
@@ -577,6 +1109,8 @@ def action_query_refs(action: Action) -> builtins.set[QueryProxy]:
     if isinstance(action, DefaultAction):
         if action.target is not None and isinstance(action.target.source, QueryProxy):
             refs.add(action.target.source)
+        if action.entity_query is not None:
+            refs.add(action.entity_query)
         if action.value is not None:
             refs.update(expression_queries(action.value))
         for child in action.children:
@@ -597,19 +1131,32 @@ def action_query_refs(action: Action) -> builtins.set[QueryProxy]:
 __all__ = [
     "Action",
     "DefaultAction",
+    "EntityIteratorSource",
     "EventIterableSource",
     "ExpressionIterableSource",
     "ForEachAction",
     "IterableSource",
     "SystemPlan",
+    "UdfCallExpression",
     "UdfDefinition",
     "WhenAction",
+    "active_build_session",
+    "add_component_action",
+    "add_tag_action",
+    "append_action",
+    "build_session",
+    "conditional",
+    "despawn_action",
     "do",
     "do_in_order",
     "do_in_parallel",
     "emit_event",
     "for_each",
+    "otherwise",
+    "remove_component_action",
+    "remove_tag_action",
     "set",
     "udf",
+    "validate_mutation_metadata",
     "when",
 ]

@@ -76,7 +76,7 @@ def _expr_limit_vector(
 def lantern_navigation(
     moth: ecs.Query[ecs.Tag[MOTH], Position, Velocity, Spark, Navigation],
     lantern: ecs.Query[ecs.Tag[LANTERN], Position],
-) -> ecs.Action:
+) -> None:
     """Steer moths using a spatial light field.
 
     The attraction term pulls each moth toward nearby lanterns, while the
@@ -144,40 +144,39 @@ def lantern_navigation(
         MAX_SPEED,
     )
 
-    return ecs.do_in_parallel(
-        ecs.set(moth[Velocity].dx, next_dx),
-        ecs.set(moth[Velocity].dy, next_dy),
-        ecs.set(moth[Spark].heat, (moth[Spark].heat * 0.90 + glow * 0.24).clamp(0.06, 1.0)),
-    )
+    with ecs.do(parallel=True):
+        moth[Velocity].dx.set_to(next_dx)
+        moth[Velocity].dy.set_to(next_dy)
+        moth[Spark].heat.set_to((moth[Spark].heat * 0.90 + glow * 0.24).clamp(0.06, 1.0))
 
 
 @ecs.system
-def flutter(moth: ecs.Query[ecs.Tag[MOTH], Position, Velocity, Spark, Navigation]) -> ecs.Action:
+def flutter(moth: ecs.Query[ecs.Tag[MOTH], Position, Velocity, Spark, Navigation]) -> None:
     seconds = ecs.dt() / 1000.0
     wing_speed = 7.0 + moth[Navigation].curiosity * 3.4 + moth[Spark].heat * 8.0
-    return ecs.do_in_parallel(
-        ecs.set(moth[Position].x, moth[Position].x + moth[Velocity].dx * seconds),
-        ecs.set(moth[Position].y, moth[Position].y + moth[Velocity].dy * seconds),
-        ecs.set(moth[Navigation].phase, moth[Navigation].phase + wing_speed * seconds),
-    )
+    with ecs.do(parallel=True):
+        moth[Position].x.set_to(moth[Position].x + moth[Velocity].dx * seconds)
+        moth[Position].y.set_to(moth[Position].y + moth[Velocity].dy * seconds)
+        moth[Navigation].phase.set_to(moth[Navigation].phase + wing_speed * seconds)
 
 
 @ecs.system
-def wrap_moths(moth: ecs.Query[ecs.Tag[MOTH], Position], bounds: ecs.Res[Bounds]) -> ecs.Action:
+def wrap_moths(moth: ecs.Query[ecs.Tag[MOTH], Position], bounds: ecs.Res[Bounds]) -> None:
     left = -bounds[Bounds].padding
     right = bounds[Bounds].width + bounds[Bounds].padding
     top = -bounds[Bounds].padding
     bottom = bounds[Bounds].height + bounds[Bounds].padding
-    return ecs.do_in_parallel(
-        ecs.when(moth[Position].x < left)
-        .do(ecs.set(moth[Position].x, right))
-        .when(moth[Position].x > right)
-        .do(ecs.set(moth[Position].x, left)),
-        ecs.when(moth[Position].y < top)
-        .do(ecs.set(moth[Position].y, bottom))
-        .when(moth[Position].y > bottom)
-        .do(ecs.set(moth[Position].y, top)),
-    )
+    with ecs.do(parallel=True):
+        with ecs.conditional():
+            with ecs.when(moth[Position].x < left):
+                moth[Position].x.set_to(right)
+            with ecs.when(moth[Position].x > right):
+                moth[Position].x.set_to(left)
+        with ecs.conditional():
+            with ecs.when(moth[Position].y < top):
+                moth[Position].y.set_to(bottom)
+            with ecs.when(moth[Position].y > bottom):
+                moth[Position].y.set_to(top)
 
 
 def _seed_moth(index: int) -> tuple[Position, Velocity, Spark, Navigation]:

@@ -62,7 +62,7 @@ def _spatial_system(
     radius: float,
 ):
     @ecs.system
-    def count_neighbors(entity: ecs.Query[Position, NeighborCount]) -> ecs.Action:
+    def count_neighbors(entity: ecs.Query[Position, NeighborCount]) -> None:
         position = (
             ecs.spatial.point3(entity[Position].x, entity[Position].y, entity[Position].z)
             if dimensions == 3
@@ -76,7 +76,7 @@ def _spatial_system(
             include_self=False,
             allow_fallback=False,
         )
-        return ecs.set(entity[NeighborCount].value, neighbors.count())
+        entity[NeighborCount].value.set_to(neighbors.count())
 
     return count_neighbors
 

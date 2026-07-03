@@ -9,7 +9,7 @@ from typing import Any, Protocol, cast
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
 
-EXPECTED_ECS_ABI_VERSION = 2
+EXPECTED_ECS_ABI_VERSION = 3
 
 
 class _RustEcsWorld(Protocol):
