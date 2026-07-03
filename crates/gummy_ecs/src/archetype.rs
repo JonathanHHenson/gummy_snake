@@ -157,6 +157,17 @@ impl ComponentTable {
         column.set_f64(row, value)
     }
 
+    pub fn set_field_f64_rows(&mut self, field_name: &str, rows: &[(usize, f64)]) -> Result<()> {
+        let column = self
+            .columns
+            .get_mut(field_name)
+            .ok_or_else(|| EcsError::UnknownField {
+                component: self.schema_name.clone(),
+                field: field_name.to_string(),
+            })?;
+        column.set_f64_rows(rows)
+    }
+
     pub fn get_field(&self, row: usize, field_name: &str) -> Result<EcsValue> {
         let column = self
             .columns
@@ -294,6 +305,19 @@ impl Archetype {
             .get_mut(component_name)
             .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
         table.set_field_f64(row, field_name, value)
+    }
+
+    pub fn set_field_f64_rows(
+        &mut self,
+        component_name: &str,
+        field_name: &str,
+        rows: &[(usize, f64)],
+    ) -> Result<()> {
+        let table = self
+            .components
+            .get_mut(component_name)
+            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
+        table.set_field_f64_rows(field_name, rows)
     }
 
     pub fn get_field(

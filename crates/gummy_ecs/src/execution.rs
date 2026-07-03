@@ -12,6 +12,7 @@ use crate::plan::{
     ActionNode, BridgePlanPayload, ExprNode, PhysicalPlan, PhysicalPlanHandle,
     SpatialBoundsExprNode, SpatialRelationNode,
 };
+use crate::scheduler::install_on_ecs_worker_pool;
 use crate::schema::StorageType;
 use crate::spatial::{
     Dimensions, HashGridIndex, SpatialAabb, SpatialIndexBackend, SpatialPoint, SpatialRecord,
@@ -102,12 +103,29 @@ enum ExprCacheKey {
     Many(usize, Vec<(usize, u64)>),
 }
 
+const DIRECT_POINT_HASH_GRID_MAX_QUERY_CELLS: u64 = 1_000_000;
+
 #[derive(Debug, Clone)]
 pub(crate) enum BuiltSpatialIndex {
     HashGrid(HashGridIndex),
+    DirectPointHashGrid(DirectPointHashGrid),
     Quadtree(QuadtreeIndex),
     Octree(OctreeIndex),
     Hilbert(HilbertIndex),
+}
+
+#[derive(Debug, Clone)]
+struct DirectPointRecord {
+    entity: Entity,
+    point: SpatialPoint,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct DirectPointHashGrid {
+    dimensions: Dimensions,
+    cell_size: f64,
+    buckets: HashMap<[i64; 3], Vec<usize>>,
+    records: Vec<DirectPointRecord>,
 }
 
 #[derive(Debug, Clone)]
@@ -149,6 +167,7 @@ enum SpatialBatchValue {
 enum FastSpatialBatchValue {
     Count,
     DirectField { array_index: usize },
+    DirectPointCoord { axis: usize },
     NegDeltaOverDistance { axis: usize, minimum_distance: f64 },
 }
 
@@ -191,14 +210,9 @@ struct SpatialLocalCounters {
 }
 
 #[derive(Debug)]
-struct SpatialOriginResult {
-    origin: Entity,
-    values: Vec<(usize, f64)>,
-}
-
-#[derive(Debug)]
 struct SpatialChunkResult {
-    origins: Vec<SpatialOriginResult>,
+    origins: Vec<Entity>,
+    values: Vec<Option<f64>>,
     counters: SpatialLocalCounters,
 }
 
@@ -208,6 +222,84 @@ struct DirectF64SetSpec {
     component: String,
     field: String,
     value_expr: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum F64UnaryOp {
+    Neg,
+    Not,
+    Abs,
+    Sqrt,
+    Sin,
+    Cos,
+    Floor,
+    Ceil,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum F64BinaryOp {
+    Add,
+    Sub,
+    Mul,
+    TrueDiv,
+    FloorDiv,
+    Mod,
+    Pow,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Eq,
+    Ne,
+    Min,
+    Max,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone)]
+enum CompiledF64Expr {
+    Literal(f64),
+    Field(usize),
+    SpatialAggregate(usize),
+    ResourceField {
+        resource: String,
+        field: String,
+    },
+    InputState {
+        name: String,
+        code: Option<i64>,
+    },
+    Unary {
+        op: F64UnaryOp,
+        input: usize,
+    },
+    Binary {
+        op: F64BinaryOp,
+        left: usize,
+        right: usize,
+    },
+    Passthrough(usize),
+    Unsupported(String),
+}
+
+struct CompiledF64ReadOnlyProgram<'a> {
+    expressions: Vec<CompiledF64Expr>,
+    aliases: Vec<usize>,
+    field_arrays: Vec<&'a [Option<(u32, f64)>]>,
+    spatial_arrays: Vec<&'a [Option<(u32, f64)>]>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum CompiledF64ExprKey {
+    Literal(u64),
+    Field(usize),
+    SpatialAggregate(usize),
+    ResourceField(String, String),
+    InputState(String, Option<i64>),
+    Unary(F64UnaryOp, usize),
+    Binary(F64BinaryOp, usize, usize),
+    Passthrough(usize),
 }
 
 #[derive(Debug, Clone)]
@@ -228,6 +320,7 @@ struct FastDirectSpatialRelationBatch {
     specs: Vec<FastSpatialBatchSpec>,
     distance_filter: Option<SpatialDistanceFilter>,
     query_radius: f64,
+    query_radius_sq: f64,
 }
 
 impl Default for SpatialBatchAccum {
@@ -298,10 +391,254 @@ fn reverse_comparison(comparison: NumericComparison) -> NumericComparison {
     }
 }
 
+impl DirectPointHashGrid {
+    fn new(dimensions: Dimensions, cell_size: f64) -> Result<Self> {
+        if !cell_size.is_finite() || cell_size <= 0.0 {
+            return Err(EcsError::InvalidSpatialInput(
+                "hash grid cell_size must be finite and positive".to_string(),
+            ));
+        }
+        Ok(Self {
+            dimensions,
+            cell_size,
+            buckets: HashMap::new(),
+            records: Vec::new(),
+        })
+    }
+
+    fn build_sorted_points(&mut self, records: Vec<DirectPointRecord>) -> Result<()> {
+        self.buckets.clear();
+        self.records = records;
+        for (index, record) in self.records.iter().enumerate() {
+            if record.point.dimensions() != self.dimensions {
+                return Err(EcsError::InvalidSpatialInput(
+                    "hash grid record dimensions do not match index dimensions".to_string(),
+                ));
+            }
+            let cell = self.cell(&record.point)?;
+            self.buckets.entry(cell).or_default().push(index);
+        }
+        Ok(())
+    }
+
+    fn build_from_spatial_records(&mut self, records: &[SpatialRecord]) -> Result<()> {
+        if records.iter().any(|record| record.bounds.is_some()) {
+            return Err(EcsError::InvalidSpatialInput(
+                "direct point hash grid only supports point records".to_string(),
+            ));
+        }
+        let mut direct = records
+            .iter()
+            .map(|record| DirectPointRecord {
+                entity: record.entity,
+                point: record.point.clone(),
+            })
+            .collect::<Vec<_>>();
+        direct.sort_by_key(|record| record.entity.raw());
+        self.build_sorted_points(direct)
+    }
+
+    fn cell(&self, point: &SpatialPoint) -> Result<[i64; 3]> {
+        if point.dimensions() != self.dimensions {
+            return Err(EcsError::InvalidSpatialInput(
+                "hash grid point dimensions do not match index dimensions".to_string(),
+            ));
+        }
+        self.cell_from_coords([point.coord(0), point.coord(1), point.coord(2)])
+    }
+
+    fn cell_from_coords(&self, coords: [f64; 3]) -> Result<[i64; 3]> {
+        let mut cell = [0_i64; 3];
+        for (axis, slot) in cell.iter_mut().enumerate().take(self.dimensions.len()) {
+            let value = (coords[axis] / self.cell_size).floor();
+            if value < i64::MIN as f64 || value > i64::MAX as f64 {
+                return Err(EcsError::InvalidSpatialInput(
+                    "hash grid cell coordinate overflow".to_string(),
+                ));
+            }
+            *slot = value as i64;
+        }
+        Ok(cell)
+    }
+
+    fn visit_radius_unordered<F>(
+        &self,
+        origin: &SpatialPoint,
+        radius: f64,
+        mut visit: F,
+    ) -> Result<()>
+    where
+        F: FnMut(&DirectPointRecord, f64) -> Result<()>,
+    {
+        if origin.dimensions() != self.dimensions {
+            return Err(EcsError::InvalidSpatialInput(
+                "query point dimensions do not match index dimensions".to_string(),
+            ));
+        }
+        if !radius.is_finite() || radius < 0.0 {
+            return Err(EcsError::InvalidSpatialInput(
+                "query radius must be finite and non-negative".to_string(),
+            ));
+        }
+        let min_cell = self.cell_from_coords([
+            origin.coord(0) - radius,
+            origin.coord(1) - radius,
+            if self.dimensions == Dimensions::D3 {
+                origin.coord(2) - radius
+            } else {
+                0.0
+            },
+        ])?;
+        let max_cell = self.cell_from_coords([
+            origin.coord(0) + radius,
+            origin.coord(1) + radius,
+            if self.dimensions == Dimensions::D3 {
+                origin.coord(2) + radius
+            } else {
+                0.0
+            },
+        ])?;
+        validate_direct_point_cell_span(self.dimensions, min_cell, max_cell)?;
+        let radius_sq = radius * radius;
+        for x in min_cell[0]..=max_cell[0] {
+            for y in min_cell[1]..=max_cell[1] {
+                if self.dimensions == Dimensions::D2 {
+                    if let Some(bucket) = self.buckets.get(&[x, y, 0]) {
+                        for index in bucket {
+                            let record = &self.records[*index];
+                            let distance_sq = direct_distance_squared(
+                                origin,
+                                &record.point,
+                                self.dimensions.len(),
+                            );
+                            if distance_sq <= radius_sq {
+                                visit(record, distance_sq)?;
+                            }
+                        }
+                    }
+                } else {
+                    for z in min_cell[2]..=max_cell[2] {
+                        if let Some(bucket) = self.buckets.get(&[x, y, z]) {
+                            for index in bucket {
+                                let record = &self.records[*index];
+                                let distance_sq = direct_distance_squared(
+                                    origin,
+                                    &record.point,
+                                    self.dimensions.len(),
+                                );
+                                if distance_sq <= radius_sq {
+                                    visit(record, distance_sq)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn query_radius_unordered(
+        &self,
+        origin: &SpatialPoint,
+        radius: f64,
+        out: &mut Vec<SpatialRecord>,
+    ) -> Result<()> {
+        out.clear();
+        self.visit_radius_unordered(origin, radius, |record, _| {
+            out.push(SpatialRecord {
+                entity: record.entity,
+                point: record.point.clone(),
+                bounds: None,
+            });
+            Ok(())
+        })
+    }
+
+    fn query_aabb(&self, bounds: &SpatialAabb, out: &mut Vec<SpatialRecord>) -> Result<()> {
+        if bounds.dimensions() != self.dimensions {
+            return Err(EcsError::InvalidSpatialInput(
+                "query bounds dimensions do not match index dimensions".to_string(),
+            ));
+        }
+        out.clear();
+        let min_cell = self.cell(bounds.minimum())?;
+        let max_cell = self.cell(bounds.maximum())?;
+        validate_direct_point_cell_span(self.dimensions, min_cell, max_cell)?;
+        for x in min_cell[0]..=max_cell[0] {
+            for y in min_cell[1]..=max_cell[1] {
+                if self.dimensions == Dimensions::D2 {
+                    if let Some(bucket) = self.buckets.get(&[x, y, 0]) {
+                        self.push_aabb_matches(bucket, bounds, out);
+                    }
+                } else {
+                    for z in min_cell[2]..=max_cell[2] {
+                        if let Some(bucket) = self.buckets.get(&[x, y, z]) {
+                            self.push_aabb_matches(bucket, bounds, out);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn push_aabb_matches(
+        &self,
+        bucket: &[usize],
+        bounds: &SpatialAabb,
+        out: &mut Vec<SpatialRecord>,
+    ) {
+        for index in bucket {
+            let record = &self.records[*index];
+            let inside = (0..self.dimensions.len()).all(|axis| {
+                let coord = record.point.coord(axis);
+                bounds.minimum().coord(axis) <= coord && coord <= bounds.maximum().coord(axis)
+            });
+            if inside {
+                out.push(SpatialRecord {
+                    entity: record.entity,
+                    point: record.point.clone(),
+                    bounds: None,
+                });
+            }
+        }
+    }
+}
+
+fn validate_direct_point_cell_span(
+    dimensions: Dimensions,
+    min_cell: [i64; 3],
+    max_cell: [i64; 3],
+) -> Result<()> {
+    let mut total = 1_u64;
+    for axis in 0..dimensions.len() {
+        let span = max_cell[axis]
+            .checked_sub(min_cell[axis])
+            .and_then(|value| value.checked_add(1))
+            .ok_or_else(|| {
+                EcsError::InvalidSpatialInput("hash grid cell span overflow".to_string())
+            })?;
+        let span = u64::try_from(span).map_err(|_| {
+            EcsError::InvalidSpatialInput("hash grid cell span must be non-negative".to_string())
+        })?;
+        total = total.checked_mul(span).ok_or_else(|| {
+            EcsError::InvalidSpatialInput("hash grid cell span overflow".to_string())
+        })?;
+        if total > DIRECT_POINT_HASH_GRID_MAX_QUERY_CELLS {
+            return Err(EcsError::InvalidSpatialInput(format!(
+                "hash grid query spans {total} cells; maximum is {DIRECT_POINT_HASH_GRID_MAX_QUERY_CELLS}"
+            )));
+        }
+    }
+    Ok(())
+}
+
 impl BuiltSpatialIndex {
     fn build(&mut self, records: &[SpatialRecord]) -> Result<()> {
         match self {
             Self::HashGrid(index) => index.build(records),
+            Self::DirectPointHashGrid(index) => index.build_from_spatial_records(records),
             Self::Quadtree(index) => index.build(records),
             Self::Octree(index) => index.build(records),
             Self::Hilbert(index) => index.build(records),
@@ -311,6 +648,10 @@ impl BuiltSpatialIndex {
     fn update_incremental(&mut self, records: &[SpatialRecord]) -> Result<bool> {
         match self {
             Self::HashGrid(index) => index.update_incremental(records),
+            Self::DirectPointHashGrid(index) => {
+                index.build_from_spatial_records(records)?;
+                Ok(false)
+            }
             Self::Quadtree(index) => index.update_incremental(records),
             Self::Octree(index) => index.update_incremental(records),
             Self::Hilbert(index) => index.update_incremental(records),
@@ -325,6 +666,7 @@ impl BuiltSpatialIndex {
     ) -> Result<()> {
         match self {
             Self::HashGrid(index) => index.query_radius(origin, radius, out),
+            Self::DirectPointHashGrid(index) => index.query_radius_unordered(origin, radius, out),
             Self::Quadtree(index) => index.query_radius(origin, radius, out),
             Self::Octree(index) => index.query_radius(origin, radius, out),
             Self::Hilbert(index) => index.query_radius(origin, radius, out),
@@ -339,6 +681,7 @@ impl BuiltSpatialIndex {
     ) -> Result<()> {
         match self {
             Self::HashGrid(index) => index.query_radius_unordered(origin, radius, out),
+            Self::DirectPointHashGrid(index) => index.query_radius_unordered(origin, radius, out),
             _ => self.query_radius(origin, radius, out),
         }
     }
@@ -346,6 +689,7 @@ impl BuiltSpatialIndex {
     fn query_aabb(&self, bounds: &SpatialAabb, out: &mut Vec<SpatialRecord>) -> Result<()> {
         match self {
             Self::HashGrid(index) => index.query_aabb(bounds, out),
+            Self::DirectPointHashGrid(index) => index.query_aabb(bounds, out),
             Self::Quadtree(index) => index.query_aabb(bounds, out),
             Self::Octree(index) => index.query_aabb(bounds, out),
             Self::Hilbert(index) => index.query_aabb(bounds, out),
@@ -419,6 +763,14 @@ impl World {
     }
 
     pub fn execute_plan_with_options(
+        &mut self,
+        plan: &PhysicalPlan,
+        include_writes: bool,
+    ) -> Result<ExecutionReport> {
+        install_on_ecs_worker_pool(|| self.execute_plan_with_options_inner(plan, include_writes))
+    }
+
+    fn execute_plan_with_options_inner(
         &mut self,
         plan: &PhysicalPlan,
         include_writes: bool,
@@ -1187,6 +1539,7 @@ impl<'a> PlanExecutor<'a> {
         let mut child_writes = (0..direct_specs.len())
             .map(|_| Vec::<(Entity, f64)>::new())
             .collect::<Vec<_>>();
+        let mut dense_apply: Option<(Vec<Entity>, Vec<f64>, usize)> = None;
         let mut cache = vec![None; self.plan.expressions.len()];
         if query_names.len() == 1 {
             let query_name = query_names
@@ -1206,38 +1559,70 @@ impl<'a> PlanExecutor<'a> {
                 let numeric_field_cache = &self.numeric_field_cache;
                 let spatial_precomputed_f64 = &self.spatial_precomputed_f64;
                 let world = &*self.world;
+                let compiled = compile_f64_readonly_program(
+                    plan,
+                    world,
+                    &query_name,
+                    numeric_field_cache,
+                    spatial_precomputed_f64,
+                );
                 let expr_count = self.plan.expressions.len();
-                let row_values = rows
-                    .par_iter()
-                    .map_init(
-                        || vec![None; expr_count],
-                        |row_cache, entity| {
-                            row_cache.fill(None);
-                            let values = direct_specs
-                                .iter()
-                                .map(|spec| {
-                                    eval_expr_f64_readonly(
+                let spec_count = direct_specs.len();
+                let eval_order = compiled_f64_eval_order(
+                    &compiled,
+                    direct_specs.iter().map(|spec| spec.value_expr),
+                );
+                if self.profile {
+                    eprintln!(
+                        "ecs_profile direct_f64_eval linear={} order_len={}",
+                        eval_order.is_some(),
+                        eval_order.as_ref().map_or(0, Vec::len)
+                    );
+                }
+                let mut flat_values = vec![0.0; rows.len() * spec_count];
+                if let Some(eval_order) = eval_order {
+                    flat_values
+                        .par_chunks_mut(spec_count)
+                        .zip(rows.par_iter())
+                        .try_for_each_init(
+                            || vec![0.0; expr_count],
+                            |values, (out, entity)| {
+                                eval_compiled_f64_linear_order(
+                                    &eval_order,
+                                    *entity,
+                                    &compiled,
+                                    world,
+                                    values,
+                                )?;
+                                for (slot, spec) in direct_specs.iter().enumerate() {
+                                    out[slot] = values[compiled.aliases[spec.value_expr]];
+                                }
+                                Ok::<(), EcsError>(())
+                            },
+                        )?;
+                } else {
+                    flat_values
+                        .par_chunks_mut(spec_count)
+                        .zip(rows.par_iter())
+                        .try_for_each_init(
+                            || vec![None; expr_count],
+                            |row_cache, (out, entity)| {
+                                row_cache.fill(None);
+                                for (slot, spec) in direct_specs.iter().enumerate() {
+                                    out[slot] = eval_compiled_f64_readonly(
                                         spec.value_expr,
                                         *entity,
-                                        &query_name,
-                                        plan,
+                                        &compiled,
                                         world,
-                                        numeric_field_cache,
-                                        spatial_precomputed_f64,
                                         row_cache,
-                                    )
-                                })
-                                .collect::<Result<Vec<_>>>()?;
-                            Ok((*entity, values))
-                        },
-                    )
-                    .collect::<Result<Vec<_>>>()?;
-                self.report.rows_scanned += row_values.len();
-                for (entity, values) in row_values {
-                    for (child_index, value) in values.into_iter().enumerate() {
-                        child_writes[child_index].push((entity, value));
-                    }
+                                    )?;
+                                }
+                                Ok::<(), EcsError>(())
+                            },
+                        )?;
                 }
+                self.report.rows_scanned += rows.len();
+                dense_apply = Some((rows, flat_values, spec_count));
             } else {
                 for base_ctx in contexts {
                     if base_ctx.bindings.contains_key(&query_name) {
@@ -1308,18 +1693,42 @@ impl<'a> PlanExecutor<'a> {
                 });
             target_slots.push(slot);
         }
-        let mut targets_seen = HashSet::new();
-        for (child_index, writes) in child_writes.into_iter().enumerate() {
-            let spec = &direct_specs[child_index];
-            let target_slot = target_slots[child_index];
-            for (entity, value) in writes {
-                let key = (entity.raw(), target_slot);
-                if !targets_seen.insert(key) {
-                    self.report.duplicate_writes += 1;
+        if let Some((rows, flat_values, spec_count)) = dense_apply {
+            let duplicate_targets = (0..unique_targets.len())
+                .map(|slot| {
+                    target_slots
+                        .iter()
+                        .filter(|target_slot| **target_slot == slot)
+                        .count()
+                })
+                .map(|count| count.saturating_sub(1))
+                .sum::<usize>();
+            self.report.duplicate_writes += duplicate_targets * rows.len();
+            let locations = self.world.locations_for_entities(rows)?;
+            for (child_index, spec) in direct_specs.iter().enumerate() {
+                self.report.fields_written += self.world.set_field_f64_resolved_strided(
+                    &spec.component,
+                    &spec.field,
+                    &locations,
+                    &flat_values,
+                    child_index,
+                    spec_count,
+                )?;
+            }
+        } else {
+            let mut targets_seen = HashSet::new();
+            for (child_index, writes) in child_writes.into_iter().enumerate() {
+                let spec = &direct_specs[child_index];
+                let target_slot = target_slots[child_index];
+                for (entity, _) in &writes {
+                    let key = (entity.raw(), target_slot);
+                    if !targets_seen.insert(key) {
+                        self.report.duplicate_writes += 1;
+                    }
                 }
-                self.world
-                    .set_field_f64(entity, &spec.component, &spec.field, value)?;
-                self.report.fields_written += 1;
+                self.report.fields_written +=
+                    self.world
+                        .set_field_f64_many(&spec.component, &spec.field, &writes)?;
             }
         }
         if let Some(start) = apply_start {
@@ -1825,6 +2234,43 @@ impl<'a> PlanExecutor<'a> {
                 &coord.field,
             )?);
         }
+        let worker_count = rayon::current_num_threads().max(1);
+        self.report.spatial_parallel_workers =
+            self.report.spatial_parallel_workers.max(worker_count);
+        if item_rows.len() >= worker_count * 32 {
+            self.report.spatial_parallel_chunks += worker_count;
+        }
+        if relation.algorithm.kind == "hash_grid" {
+            let records = item_rows
+                .par_iter()
+                .map(|entity| {
+                    Ok(DirectPointRecord {
+                        entity: *entity,
+                        point: point_from_fast_arrays(&target_coord_arrays, *entity)?,
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let mut direct_index = DirectPointHashGrid::new(
+                dimensions_from_u8(relation.algorithm.dimensions)?,
+                relation.algorithm.cell_size.unwrap_or(1.0),
+            )?;
+            direct_index.build_sorted_points(records)?;
+            self.report.spatial_indexes_built += 1;
+            self.report.spatial_index_full_rebuilds += 1;
+            let index = BuiltSpatialIndex::DirectPointHashGrid(direct_index);
+            self.spatial_index_metadata.insert(
+                relation.index_id.clone(),
+                (
+                    spatial_index_signature(relation),
+                    self.world.structural_revision(),
+                    self.spatial_dependency_revision(relation),
+                ),
+            );
+            self.report_algorithm_use(&index);
+            self.spatial_indexes
+                .insert(relation.index_id.clone(), index.clone());
+            return Ok(Some(index));
+        }
         let records = item_rows
             .par_iter()
             .map(|entity| {
@@ -1835,12 +2281,6 @@ impl<'a> PlanExecutor<'a> {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
-        let worker_count = rayon::current_num_threads().max(1);
-        self.report.spatial_parallel_workers =
-            self.report.spatial_parallel_workers.max(worker_count);
-        if records.len() >= worker_count * 32 {
-            self.report.spatial_parallel_chunks += worker_count;
-        }
         let index = self.build_or_update_spatial_index(relation, records)?;
         self.report_algorithm_use(&index);
         self.spatial_indexes
@@ -1976,6 +2416,9 @@ impl<'a> PlanExecutor<'a> {
                 &coord.field,
             )?);
         }
+        let target_coords = self
+            .match_direct_spatial_coords(&first.target_position, &first.item_query)
+            .unwrap_or_default();
         let mut item_field_arrays: Vec<FastFieldArray> = Vec::new();
         let mut batches = Vec::with_capacity(relations.len());
         for relation in relations {
@@ -1987,13 +2430,20 @@ impl<'a> PlanExecutor<'a> {
                 let value = match spec.value {
                     SpatialBatchValue::Count => FastSpatialBatchValue::Count,
                     SpatialBatchValue::DirectField { component, field } => {
-                        let array_index = self.ensure_fast_field_array(
-                            &mut item_field_arrays,
-                            &item_rows,
-                            &component,
-                            &field,
-                        )?;
-                        FastSpatialBatchValue::DirectField { array_index }
+                        if let Some(axis) = target_coords
+                            .iter()
+                            .position(|coord| coord.component == component && coord.field == field)
+                        {
+                            FastSpatialBatchValue::DirectPointCoord { axis }
+                        } else {
+                            let array_index = self.ensure_fast_field_array(
+                                &mut item_field_arrays,
+                                &item_rows,
+                                &component,
+                                &field,
+                            )?;
+                            FastSpatialBatchValue::DirectField { array_index }
+                        }
                     }
                     SpatialBatchValue::NegDeltaOverDistance {
                         axis,
@@ -2013,9 +2463,23 @@ impl<'a> PlanExecutor<'a> {
                 specs,
                 distance_filter: batch.distance_filter,
                 query_radius: batch.query_radius,
+                query_radius_sq: batch.query_radius * batch.query_radius,
             });
         }
         let dimensions = dimensions_len(first.algorithm.dimensions)?;
+        let result_exprs = batches
+            .iter()
+            .flat_map(|batch| batch.specs.iter().map(|spec| spec.expr_index))
+            .collect::<Vec<_>>();
+        let result_count = result_exprs.len();
+        if result_count == 0 {
+            return Ok(false);
+        }
+        let max_entity_index = origin_rows
+            .iter()
+            .map(|entity| entity.index as usize)
+            .max()
+            .unwrap_or(0);
         let max_radius = batches
             .iter()
             .map(|batch| batch.query_radius)
@@ -2029,7 +2493,8 @@ impl<'a> PlanExecutor<'a> {
             .map(|chunk| {
                 let mut candidates = Vec::new();
                 let mut counters = SpatialLocalCounters::default();
-                let mut origin_results = Vec::with_capacity(chunk.len());
+                let mut origins = Vec::with_capacity(chunk.len());
+                let mut values = Vec::with_capacity(chunk.len() * result_count);
                 let mut accumulators = batches
                     .iter()
                     .map(|batch| vec![SpatialBatchAccum::default(); batch.specs.len()])
@@ -2055,7 +2520,29 @@ impl<'a> PlanExecutor<'a> {
                                         &item_field_arrays,
                                         origin_entity,
                                         &origin_point,
-                                        record,
+                                        record.entity,
+                                        &record.point,
+                                        distance_sq,
+                                        &mut accumulators,
+                                        &mut exact_counts,
+                                        &mut counters,
+                                    )
+                                },
+                            )?;
+                        }
+                        BuiltSpatialIndex::DirectPointHashGrid(index) => {
+                            index.visit_radius_unordered(
+                                &origin_point,
+                                max_radius,
+                                |record, distance_sq| {
+                                    process_fast_spatial_record(
+                                        first,
+                                        &batches,
+                                        &item_field_arrays,
+                                        origin_entity,
+                                        &origin_point,
+                                        record.entity,
+                                        &record.point,
                                         distance_sq,
                                         &mut accumulators,
                                         &mut exact_counts,
@@ -2086,7 +2573,8 @@ impl<'a> PlanExecutor<'a> {
                                     &item_field_arrays,
                                     origin_entity,
                                     &origin_point,
-                                    record,
+                                    record.entity,
+                                    &record.point,
                                     distance_sq,
                                     &mut accumulators,
                                     &mut exact_counts,
@@ -2095,33 +2583,30 @@ impl<'a> PlanExecutor<'a> {
                             }
                         }
                     }
-                    let mut values = Vec::new();
+                    origins.push(origin_entity);
                     for (batch_index, batch) in batches.iter().enumerate() {
                         let exact_count = exact_counts[batch_index];
                         for (spec, accumulator) in
                             batch.specs.iter().zip(accumulators[batch_index].iter())
                         {
                             let value = match spec.kind.as_str() {
-                                "any" => bool_f64(exact_count > 0),
-                                "count" => exact_count as f64,
-                                "sum" => accumulator.sum,
+                                "any" => Some(bool_f64(exact_count > 0)),
+                                "count" => Some(exact_count as f64),
+                                "sum" => Some(accumulator.sum),
                                 "mean" if accumulator.count > 0 => {
-                                    accumulator.sum / accumulator.count as f64
+                                    Some(accumulator.sum / accumulator.count as f64)
                                 }
-                                "min" if accumulator.count > 0 => accumulator.min,
-                                "max" if accumulator.count > 0 => accumulator.max,
-                                _ => continue,
+                                "min" if accumulator.count > 0 => Some(accumulator.min),
+                                "max" if accumulator.count > 0 => Some(accumulator.max),
+                                _ => None,
                             };
-                            values.push((spec.expr_index, value));
+                            values.push(value);
                         }
                     }
-                    origin_results.push(SpatialOriginResult {
-                        origin: origin_entity,
-                        values,
-                    });
                 }
                 Ok(SpatialChunkResult {
-                    origins: origin_results,
+                    origins,
+                    values,
                     counters,
                 })
             })
@@ -2131,17 +2616,33 @@ impl<'a> PlanExecutor<'a> {
         self.report.spatial_parallel_chunks += chunk_results.len();
         self.report.spatial_thread_scratch_reuses +=
             origin_rows.len().saturating_sub(chunk_results.len());
+        let mut result_arrays = result_exprs
+            .iter()
+            .map(|expr_index| (*expr_index, vec![None; max_entity_index + 1]))
+            .collect::<Vec<_>>();
         for chunk in chunk_results {
-            self.report.spatial_candidate_rows += chunk.counters.candidate_rows;
-            self.report.rows_scanned += chunk.counters.rows_scanned;
-            self.report.spatial_exact_rows += chunk.counters.exact_rows;
-            self.report.spatial_deduplicated_pairs += chunk.counters.deduplicated_pairs;
-            self.report.spatial_candidate_buffer_growths += chunk.counters.candidate_buffer_growths;
-            for origin in chunk.origins {
-                for (expr_index, value) in origin.values {
-                    self.store_precomputed_spatial_f64(expr_index, origin.origin, value);
+            let SpatialChunkResult {
+                origins,
+                values,
+                counters,
+            } = chunk;
+            self.report.spatial_candidate_rows += counters.candidate_rows;
+            self.report.rows_scanned += counters.rows_scanned;
+            self.report.spatial_exact_rows += counters.exact_rows;
+            self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
+            self.report.spatial_candidate_buffer_growths += counters.candidate_buffer_growths;
+            for (origin_index, origin) in origins.into_iter().enumerate() {
+                let base = origin_index * result_count;
+                for (slot, value) in values[base..base + result_count].iter().enumerate() {
+                    if let Some(value) = value {
+                        result_arrays[slot].1[origin.index as usize] =
+                            Some((origin.generation, *value));
+                    }
                 }
             }
+        }
+        for (expr_index, values) in result_arrays {
+            self.spatial_precomputed_f64.insert(expr_index, values);
         }
         Ok(true)
     }
@@ -3385,7 +3886,9 @@ impl<'a> PlanExecutor<'a> {
 
     fn report_algorithm_use(&mut self, index: &BuiltSpatialIndex) {
         match index {
-            BuiltSpatialIndex::HashGrid(_) => self.report.spatial_algorithm_hash_grid += 1,
+            BuiltSpatialIndex::HashGrid(_) | BuiltSpatialIndex::DirectPointHashGrid(_) => {
+                self.report.spatial_algorithm_hash_grid += 1
+            }
             BuiltSpatialIndex::Quadtree(_) => self.report.spatial_algorithm_quadtree += 1,
             BuiltSpatialIndex::Octree(_) => self.report.spatial_algorithm_octree += 1,
             BuiltSpatialIndex::Hilbert(_) => self.report.spatial_algorithm_hilbert_curve += 1,
@@ -3790,22 +4293,23 @@ fn process_fast_spatial_record(
     item_field_arrays: &[FastFieldArray],
     origin_entity: Entity,
     origin_point: &SpatialPoint,
-    record: &SpatialRecord,
+    record_entity: Entity,
+    record_point: &SpatialPoint,
     distance_sq: f64,
     accumulators: &mut [Vec<SpatialBatchAccum>],
     exact_counts: &mut [usize],
     counters: &mut SpatialLocalCounters,
 ) -> Result<()> {
     counters.candidate_rows += 1;
-    if !relation.include_self && record.entity == origin_entity {
+    if !relation.include_self && record_entity == origin_entity {
         return Ok(());
     }
-    if relation.pair_policy == "unique_unordered" && record.entity.raw() <= origin_entity.raw() {
+    if relation.pair_policy == "unique_unordered" && record_entity.raw() <= origin_entity.raw() {
         counters.deduplicated_pairs += 1;
         return Ok(());
     }
     for (batch_index, batch) in batches.iter().enumerate() {
-        if distance_sq > batch.query_radius * batch.query_radius {
+        if distance_sq > batch.query_radius_sq {
             continue;
         }
         if let Some(distance_filter) = batch.distance_filter {
@@ -3816,18 +4320,30 @@ fn process_fast_spatial_record(
         exact_counts[batch_index] += 1;
         counters.rows_scanned += 1;
         counters.exact_rows += 1;
+        let mut inverse_distance_cache: Option<(f64, f64)> = None;
         for (spec_index, spec) in batch.specs.iter().enumerate() {
             let value = match &spec.value {
                 FastSpatialBatchValue::Count => 1.0,
                 FastSpatialBatchValue::DirectField { array_index } => {
-                    fast_field_array_value(&item_field_arrays[*array_index], record.entity)?
+                    fast_field_array_value(&item_field_arrays[*array_index], record_entity)?
                 }
+                FastSpatialBatchValue::DirectPointCoord { axis } => record_point.coord(*axis),
                 FastSpatialBatchValue::NegDeltaOverDistance {
                     axis,
                     minimum_distance,
                 } => {
-                    let delta_axis = record.point.coord(*axis) - origin_point.coord(*axis);
-                    -delta_axis / distance_sq.sqrt().max(*minimum_distance)
+                    let inverse_distance = match inverse_distance_cache {
+                        Some((cached_minimum, value)) if cached_minimum == *minimum_distance => {
+                            value
+                        }
+                        _ => {
+                            let value = 1.0 / distance_sq.sqrt().max(*minimum_distance);
+                            inverse_distance_cache = Some((*minimum_distance, value));
+                            value
+                        }
+                    };
+                    let delta_axis = record_point.coord(*axis) - origin_point.coord(*axis);
+                    -delta_axis * inverse_distance
                 }
             };
             let accumulator = &mut accumulators[batch_index][spec_index];
@@ -3840,6 +4356,407 @@ fn process_fast_spatial_record(
     Ok(())
 }
 
+fn compile_f64_readonly_program<'a>(
+    plan: &PhysicalPlan,
+    _world: &World,
+    query_name: &str,
+    numeric_field_cache: &'a HashMap<String, HashMap<String, Vec<Option<(u32, f64)>>>>,
+    spatial_precomputed_f64: &'a HashMap<usize, Vec<Option<(u32, f64)>>>,
+) -> CompiledF64ReadOnlyProgram<'a> {
+    let mut expressions = Vec::with_capacity(plan.expressions.len());
+    let mut field_arrays = Vec::new();
+    let mut field_array_slots: HashMap<(String, String), usize> = HashMap::new();
+    let mut spatial_arrays = Vec::new();
+    for (expr_index, expr) in plan.expressions.iter().enumerate() {
+        let compiled = match expr {
+            ExprNode::LiteralF64(value) => CompiledF64Expr::Literal(*value),
+            ExprNode::LiteralI64(value) => CompiledF64Expr::Literal(*value as f64),
+            ExprNode::LiteralBool(value) => CompiledF64Expr::Literal(bool_f64(*value)),
+            ExprNode::LiteralValue(value) => match numeric_f64(value) {
+                Ok(value) => CompiledF64Expr::Literal(value),
+                Err(error) => CompiledF64Expr::Unsupported(error.to_string()),
+            },
+            ExprNode::Field {
+                query,
+                component,
+                field,
+            } => {
+                if query != query_name {
+                    CompiledF64Expr::Unsupported(format!(
+                        "readonly f64 evaluator cannot read unbound query '{query}'"
+                    ))
+                } else if let Some(values) = numeric_field_cache
+                    .get(component)
+                    .and_then(|fields| fields.get(field))
+                {
+                    let key = (component.clone(), field.clone());
+                    let slot = if let Some(slot) = field_array_slots.get(&key) {
+                        *slot
+                    } else {
+                        let slot = field_arrays.len();
+                        field_arrays.push(values.as_slice());
+                        field_array_slots.insert(key, slot);
+                        slot
+                    };
+                    CompiledF64Expr::Field(slot)
+                } else {
+                    CompiledF64Expr::Unsupported(format!(
+                        "numeric field cache missing field '{component}.{field}'"
+                    ))
+                }
+            }
+            ExprNode::ResourceField { resource, field } => CompiledF64Expr::ResourceField {
+                resource: resource.clone(),
+                field: field.clone(),
+            },
+            ExprNode::InputState { name, code } => CompiledF64Expr::InputState {
+                name: name.clone(),
+                code: *code,
+            },
+            ExprNode::Unary { op, input } => match f64_unary_op(op) {
+                Some(op) => CompiledF64Expr::Unary { op, input: *input },
+                None => {
+                    CompiledF64Expr::Unsupported(format!("unsupported physical unary op '{op}'"))
+                }
+            },
+            ExprNode::Binary { op, left, right } => match f64_binary_op(op) {
+                Some(op) => CompiledF64Expr::Binary {
+                    op,
+                    left: *left,
+                    right: *right,
+                },
+                None => {
+                    CompiledF64Expr::Unsupported(format!("unsupported physical binary op '{op}'"))
+                }
+            },
+            ExprNode::ContextJoin { predicate, .. } => CompiledF64Expr::Passthrough(*predicate),
+            ExprNode::SpatialAggregate { .. } => {
+                if let Some(values) = spatial_precomputed_f64.get(&expr_index) {
+                    let slot = spatial_arrays.len();
+                    spatial_arrays.push(values.as_slice());
+                    CompiledF64Expr::SpatialAggregate(slot)
+                } else {
+                    CompiledF64Expr::Unsupported(format!(
+                        "spatial aggregate expression {expr_index} was not precomputed"
+                    ))
+                }
+            }
+            ExprNode::Attribute { input, .. } => CompiledF64Expr::Passthrough(*input),
+            other => CompiledF64Expr::Unsupported(format!(
+                "readonly f64 evaluator does not support expression {expr_index}: {other:?}"
+            )),
+        };
+        expressions.push(compiled);
+    }
+    let aliases = build_compiled_f64_aliases(&expressions);
+    CompiledF64ReadOnlyProgram {
+        expressions,
+        aliases,
+        field_arrays,
+        spatial_arrays,
+    }
+}
+
+fn build_compiled_f64_aliases(expressions: &[CompiledF64Expr]) -> Vec<usize> {
+    let mut aliases = vec![0; expressions.len()];
+    let mut seen: HashMap<CompiledF64ExprKey, usize> = HashMap::new();
+    for (index, expression) in expressions.iter().enumerate() {
+        let key = compiled_f64_expr_key(expression, &aliases, index);
+        if let Some(key) = key {
+            if let Some(existing) = seen.get(&key) {
+                aliases[index] = *existing;
+            } else {
+                aliases[index] = index;
+                seen.insert(key, index);
+            }
+        } else {
+            aliases[index] = index;
+        }
+    }
+    aliases
+}
+
+fn compiled_f64_expr_key(
+    expression: &CompiledF64Expr,
+    aliases: &[usize],
+    current_index: usize,
+) -> Option<CompiledF64ExprKey> {
+    let alias = |index: usize| -> usize {
+        if index < current_index {
+            aliases[index]
+        } else {
+            index
+        }
+    };
+    match expression {
+        CompiledF64Expr::Literal(value) => Some(CompiledF64ExprKey::Literal(value.to_bits())),
+        CompiledF64Expr::Field(slot) => Some(CompiledF64ExprKey::Field(*slot)),
+        CompiledF64Expr::SpatialAggregate(slot) => {
+            Some(CompiledF64ExprKey::SpatialAggregate(*slot))
+        }
+        CompiledF64Expr::ResourceField { resource, field } => Some(
+            CompiledF64ExprKey::ResourceField(resource.clone(), field.clone()),
+        ),
+        CompiledF64Expr::InputState { name, code } => {
+            Some(CompiledF64ExprKey::InputState(name.clone(), *code))
+        }
+        CompiledF64Expr::Unary { op, input } => Some(CompiledF64ExprKey::Unary(*op, alias(*input))),
+        CompiledF64Expr::Binary { op, left, right } => {
+            Some(CompiledF64ExprKey::Binary(*op, alias(*left), alias(*right)))
+        }
+        CompiledF64Expr::Passthrough(input) => Some(CompiledF64ExprKey::Passthrough(alias(*input))),
+        CompiledF64Expr::Unsupported(_) => None,
+    }
+}
+
+fn compiled_f64_eval_order(
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    outputs: impl IntoIterator<Item = usize>,
+) -> Option<Vec<usize>> {
+    let mut order = Vec::new();
+    let mut visited = vec![false; program.expressions.len()];
+    let mut visiting = vec![false; program.expressions.len()];
+    for output in outputs {
+        if !collect_compiled_f64_eval_order(
+            program.aliases[output],
+            program,
+            &mut visited,
+            &mut visiting,
+            &mut order,
+        ) {
+            return None;
+        }
+    }
+    Some(order)
+}
+
+fn collect_compiled_f64_eval_order(
+    expr_index: usize,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    visited: &mut [bool],
+    visiting: &mut [bool],
+    order: &mut Vec<usize>,
+) -> bool {
+    let expr_index = program.aliases[expr_index];
+    if visited[expr_index] {
+        return true;
+    }
+    if visiting[expr_index] {
+        return false;
+    }
+    visiting[expr_index] = true;
+    let supported = match &program.expressions[expr_index] {
+        CompiledF64Expr::Literal(_)
+        | CompiledF64Expr::Field(_)
+        | CompiledF64Expr::SpatialAggregate(_)
+        | CompiledF64Expr::ResourceField { .. }
+        | CompiledF64Expr::InputState { .. } => true,
+        CompiledF64Expr::Unary { input, .. } | CompiledF64Expr::Passthrough(input) => {
+            collect_compiled_f64_eval_order(
+                program.aliases[*input],
+                program,
+                visited,
+                visiting,
+                order,
+            )
+        }
+        CompiledF64Expr::Binary { op, left, right } => {
+            !matches!(op, F64BinaryOp::And | F64BinaryOp::Or)
+                && collect_compiled_f64_eval_order(
+                    program.aliases[*left],
+                    program,
+                    visited,
+                    visiting,
+                    order,
+                )
+                && collect_compiled_f64_eval_order(
+                    program.aliases[*right],
+                    program,
+                    visited,
+                    visiting,
+                    order,
+                )
+        }
+        CompiledF64Expr::Unsupported(_) => false,
+    };
+    visiting[expr_index] = false;
+    if supported {
+        visited[expr_index] = true;
+        order.push(expr_index);
+    }
+    supported
+}
+
+fn eval_compiled_f64_linear_order(
+    order: &[usize],
+    entity: Entity,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    world: &World,
+    values: &mut [f64],
+) -> Result<()> {
+    for expr_index in order {
+        values[*expr_index] =
+            eval_compiled_f64_linear_node(*expr_index, entity, program, world, values)?;
+    }
+    Ok(())
+}
+
+fn eval_compiled_f64_linear_node(
+    expr_index: usize,
+    entity: Entity,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    world: &World,
+    values: &[f64],
+) -> Result<f64> {
+    match &program.expressions[expr_index] {
+        CompiledF64Expr::Literal(value) => Ok(*value),
+        CompiledF64Expr::Field(slot) => {
+            let array = program.field_arrays[*slot];
+            let Some(Some((generation, value))) = array.get(entity.index as usize) else {
+                return Err(EcsError::InvalidPlan(format!(
+                    "numeric field cache missing entity {}:{}",
+                    entity.index, entity.generation
+                )));
+            };
+            if *generation != entity.generation {
+                return Err(EcsError::InvalidPlan(format!(
+                    "numeric field cache has stale entity generation for {}:{}",
+                    entity.index, entity.generation
+                )));
+            }
+            Ok(*value)
+        }
+        CompiledF64Expr::SpatialAggregate(slot) => {
+            let array = program.spatial_arrays[*slot];
+            let Some(Some((generation, value))) = array.get(entity.index as usize) else {
+                return Err(EcsError::InvalidPlan(format!(
+                    "spatial aggregate missing entity {}:{}",
+                    entity.index, entity.generation
+                )));
+            };
+            if *generation != entity.generation {
+                return Err(EcsError::InvalidPlan(
+                    "spatial aggregate has stale entity generation".to_string(),
+                ));
+            }
+            Ok(*value)
+        }
+        CompiledF64Expr::ResourceField { resource, field } => {
+            numeric_f64(&world.resource_field(resource, field)?)
+        }
+        CompiledF64Expr::InputState { name, code } => numeric_f64(
+            &world
+                .input_state(name, *code)
+                .unwrap_or_else(|| default_input_state_value(name)),
+        ),
+        CompiledF64Expr::Unary { op, input } => {
+            Ok(eval_f64_unary_op(*op, values[program.aliases[*input]]))
+        }
+        CompiledF64Expr::Binary { op, left, right } => Ok(eval_f64_binary_op(
+            *op,
+            values[program.aliases[*left]],
+            values[program.aliases[*right]],
+        )),
+        CompiledF64Expr::Passthrough(input) => Ok(values[program.aliases[*input]]),
+        CompiledF64Expr::Unsupported(message) => Err(EcsError::InvalidPlan(message.clone())),
+    }
+}
+
+fn eval_compiled_f64_readonly(
+    expr_index: usize,
+    entity: Entity,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    world: &World,
+    cache: &mut [Option<f64>],
+) -> Result<f64> {
+    let expr_index = program.aliases[expr_index];
+    if let Some(value) = cache[expr_index] {
+        return Ok(value);
+    }
+    let value = match &program.expressions[expr_index] {
+        CompiledF64Expr::Literal(value) => *value,
+        CompiledF64Expr::Field(slot) => {
+            let values = program.field_arrays[*slot];
+            let Some(Some((generation, value))) = values.get(entity.index as usize) else {
+                return Err(EcsError::InvalidPlan(format!(
+                    "numeric field cache missing entity {}:{}",
+                    entity.index, entity.generation
+                )));
+            };
+            if *generation != entity.generation {
+                return Err(EcsError::InvalidPlan(format!(
+                    "numeric field cache has stale entity generation for {}:{}",
+                    entity.index, entity.generation
+                )));
+            }
+            *value
+        }
+        CompiledF64Expr::SpatialAggregate(slot) => {
+            let values = program.spatial_arrays[*slot];
+            let Some(Some((generation, value))) = values.get(entity.index as usize) else {
+                return Err(EcsError::InvalidPlan(format!(
+                    "spatial aggregate missing entity {}:{}",
+                    entity.index, entity.generation
+                )));
+            };
+            if *generation != entity.generation {
+                return Err(EcsError::InvalidPlan(
+                    "spatial aggregate has stale entity generation".to_string(),
+                ));
+            }
+            *value
+        }
+        CompiledF64Expr::ResourceField { resource, field } => {
+            numeric_f64(&world.resource_field(resource, field)?)?
+        }
+        CompiledF64Expr::InputState { name, code } => numeric_f64(
+            &world
+                .input_state(name, *code)
+                .unwrap_or_else(|| default_input_state_value(name)),
+        )?,
+        CompiledF64Expr::Unary { op, input } => {
+            let input = eval_compiled_f64_readonly(*input, entity, program, world, cache)?;
+            eval_f64_unary_op(*op, input)
+        }
+        CompiledF64Expr::Binary { op, left, right } => match op {
+            F64BinaryOp::And => {
+                let left = eval_compiled_f64_readonly(*left, entity, program, world, cache)?;
+                if truthy_f64(left) {
+                    bool_f64(truthy_f64(eval_compiled_f64_readonly(
+                        *right, entity, program, world, cache,
+                    )?))
+                } else {
+                    0.0
+                }
+            }
+            F64BinaryOp::Or => {
+                let left = eval_compiled_f64_readonly(*left, entity, program, world, cache)?;
+                if truthy_f64(left) {
+                    1.0
+                } else {
+                    bool_f64(truthy_f64(eval_compiled_f64_readonly(
+                        *right, entity, program, world, cache,
+                    )?))
+                }
+            }
+            op => {
+                let left = eval_compiled_f64_readonly(*left, entity, program, world, cache)?;
+                let right = eval_compiled_f64_readonly(*right, entity, program, world, cache)?;
+                eval_f64_binary_op(*op, left, right)
+            }
+        },
+        CompiledF64Expr::Passthrough(input) => {
+            eval_compiled_f64_readonly(*input, entity, program, world, cache)?
+        }
+        CompiledF64Expr::Unsupported(message) => {
+            return Err(EcsError::InvalidPlan(message.clone()))
+        }
+    };
+    cache[expr_index] = Some(value);
+    Ok(value)
+}
+
+#[allow(dead_code)]
 fn eval_expr_f64_readonly(
     expr_index: usize,
     entity: Entity,
@@ -4299,43 +5216,88 @@ fn storage_type_is_numeric(storage_type: StorageType) -> bool {
     )
 }
 
-fn eval_unary_f64(op: &str, input: f64) -> Result<f64> {
+fn f64_unary_op(op: &str) -> Option<F64UnaryOp> {
     match op {
-        "neg" | "-" => Ok(-input),
-        "not" | "!" => Ok(bool_f64(!truthy_f64(input))),
-        "abs" => Ok(input.abs()),
-        "sqrt" => Ok(input.sqrt()),
-        "sin" => Ok(input.sin()),
-        "cos" => Ok(input.cos()),
-        "floor" => Ok(input.floor()),
-        "ceil" => Ok(input.ceil()),
-        other => Err(EcsError::InvalidPlan(format!(
-            "unsupported physical unary op '{other}'"
-        ))),
+        "neg" | "-" => Some(F64UnaryOp::Neg),
+        "not" | "!" => Some(F64UnaryOp::Not),
+        "abs" => Some(F64UnaryOp::Abs),
+        "sqrt" => Some(F64UnaryOp::Sqrt),
+        "sin" => Some(F64UnaryOp::Sin),
+        "cos" => Some(F64UnaryOp::Cos),
+        "floor" => Some(F64UnaryOp::Floor),
+        "ceil" => Some(F64UnaryOp::Ceil),
+        _ => None,
+    }
+}
+
+fn eval_f64_unary_op(op: F64UnaryOp, input: f64) -> f64 {
+    match op {
+        F64UnaryOp::Neg => -input,
+        F64UnaryOp::Not => bool_f64(!truthy_f64(input)),
+        F64UnaryOp::Abs => input.abs(),
+        F64UnaryOp::Sqrt => input.sqrt(),
+        F64UnaryOp::Sin => input.sin(),
+        F64UnaryOp::Cos => input.cos(),
+        F64UnaryOp::Floor => input.floor(),
+        F64UnaryOp::Ceil => input.ceil(),
+    }
+}
+
+fn eval_unary_f64(op: &str, input: f64) -> Result<f64> {
+    f64_unary_op(op)
+        .map(|op| eval_f64_unary_op(op, input))
+        .ok_or_else(|| EcsError::InvalidPlan(format!("unsupported physical unary op '{op}'")))
+}
+
+fn f64_binary_op(op: &str) -> Option<F64BinaryOp> {
+    match op {
+        "add" | "+" => Some(F64BinaryOp::Add),
+        "sub" | "-" => Some(F64BinaryOp::Sub),
+        "mul" | "*" => Some(F64BinaryOp::Mul),
+        "truediv" | "/" => Some(F64BinaryOp::TrueDiv),
+        "floordiv" | "//" => Some(F64BinaryOp::FloorDiv),
+        "mod" | "%" => Some(F64BinaryOp::Mod),
+        "pow" | "**" => Some(F64BinaryOp::Pow),
+        "lt" | "<" => Some(F64BinaryOp::Lt),
+        "le" | "<=" => Some(F64BinaryOp::Le),
+        "gt" | ">" => Some(F64BinaryOp::Gt),
+        "ge" | ">=" => Some(F64BinaryOp::Ge),
+        "eq" | "==" => Some(F64BinaryOp::Eq),
+        "ne" | "!=" => Some(F64BinaryOp::Ne),
+        "min" => Some(F64BinaryOp::Min),
+        "max" => Some(F64BinaryOp::Max),
+        "and" | "&&" => Some(F64BinaryOp::And),
+        "or" | "||" => Some(F64BinaryOp::Or),
+        _ => None,
+    }
+}
+
+fn eval_f64_binary_op(op: F64BinaryOp, left: f64, right: f64) -> f64 {
+    match op {
+        F64BinaryOp::Add => left + right,
+        F64BinaryOp::Sub => left - right,
+        F64BinaryOp::Mul => left * right,
+        F64BinaryOp::TrueDiv => left / right,
+        F64BinaryOp::FloorDiv => (left / right).floor(),
+        F64BinaryOp::Mod => left % right,
+        F64BinaryOp::Pow => left.powf(right),
+        F64BinaryOp::Lt => bool_f64(left < right),
+        F64BinaryOp::Le => bool_f64(left <= right),
+        F64BinaryOp::Gt => bool_f64(left > right),
+        F64BinaryOp::Ge => bool_f64(left >= right),
+        F64BinaryOp::Eq => bool_f64(left == right),
+        F64BinaryOp::Ne => bool_f64(left != right),
+        F64BinaryOp::Min => left.min(right),
+        F64BinaryOp::Max => left.max(right),
+        F64BinaryOp::And => bool_f64(truthy_f64(left) && truthy_f64(right)),
+        F64BinaryOp::Or => bool_f64(truthy_f64(left) || truthy_f64(right)),
     }
 }
 
 fn eval_binary_f64(op: &str, left: f64, right: f64) -> Result<f64> {
-    match op {
-        "add" | "+" => Ok(left + right),
-        "sub" | "-" => Ok(left - right),
-        "mul" | "*" => Ok(left * right),
-        "truediv" | "/" => Ok(left / right),
-        "floordiv" | "//" => Ok((left / right).floor()),
-        "mod" | "%" => Ok(left % right),
-        "pow" | "**" => Ok(left.powf(right)),
-        "lt" | "<" => Ok(bool_f64(left < right)),
-        "le" | "<=" => Ok(bool_f64(left <= right)),
-        "gt" | ">" => Ok(bool_f64(left > right)),
-        "ge" | ">=" => Ok(bool_f64(left >= right)),
-        "eq" | "==" => Ok(bool_f64(left == right)),
-        "ne" | "!=" => Ok(bool_f64(left != right)),
-        "min" => Ok(left.min(right)),
-        "max" => Ok(left.max(right)),
-        other => Err(EcsError::InvalidPlan(format!(
-            "unsupported physical binary op '{other}'"
-        ))),
-    }
+    f64_binary_op(op)
+        .map(|op| eval_f64_binary_op(op, left, right))
+        .ok_or_else(|| EcsError::InvalidPlan(format!("unsupported physical binary op '{op}'")))
 }
 
 fn eval_unary(op: &str, input: EcsValue) -> Result<EcsValue> {

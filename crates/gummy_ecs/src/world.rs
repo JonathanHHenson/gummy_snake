@@ -344,17 +344,86 @@ impl World {
         Ok(())
     }
 
-    pub(crate) fn set_field_f64(
+    pub(crate) fn set_field_f64_many(
         &mut self,
-        entity: Entity,
         component: &str,
         field: &str,
-        value: f64,
-    ) -> Result<()> {
-        let location = self.location(entity)?;
-        self.archetypes[location.archetype].set_field_f64(location.row, component, field, value)?;
-        self.note_field_revision(component, field);
-        Ok(())
+        writes: &[(Entity, f64)],
+    ) -> Result<usize> {
+        if writes.is_empty() {
+            return Ok(0);
+        }
+        let locations = self.locations_for_entities(writes.iter().map(|(entity, _)| *entity))?;
+        let values = writes.iter().map(|(_, value)| *value).collect::<Vec<_>>();
+        self.set_field_f64_resolved_strided(component, field, &locations, &values, 0, 1)
+    }
+
+    pub(crate) fn locations_for_entities(
+        &self,
+        entities: impl IntoIterator<Item = Entity>,
+    ) -> Result<Vec<(usize, usize)>> {
+        let mut locations = Vec::new();
+        for entity in entities {
+            let location = self.location(entity)?;
+            locations.push((location.archetype, location.row));
+        }
+        Ok(locations)
+    }
+
+    pub(crate) fn set_field_f64_resolved_strided(
+        &mut self,
+        component: &str,
+        field: &str,
+        locations: &[(usize, usize)],
+        values: &[f64],
+        value_offset: usize,
+        value_stride: usize,
+    ) -> Result<usize> {
+        if locations.is_empty() {
+            return Ok(0);
+        }
+        if value_stride == 0 {
+            return Err(EcsError::InvalidPlan(
+                "strided f64 writes require a non-zero stride".to_string(),
+            ));
+        }
+        let required_value_index = (locations.len() - 1)
+            .checked_mul(value_stride)
+            .and_then(|index| index.checked_add(value_offset))
+            .ok_or_else(|| EcsError::InvalidPlan("strided f64 write index overflow".to_string()))?;
+        if required_value_index >= values.len() {
+            return Err(EcsError::InvalidPlan(
+                "strided f64 writes do not have enough values".to_string(),
+            ));
+        }
+
+        let first_archetype = locations[0].0;
+        let mut written = 0usize;
+        if locations
+            .iter()
+            .all(|(archetype, _)| *archetype == first_archetype)
+        {
+            let mut rows = Vec::with_capacity(locations.len());
+            for (index, (_, row)) in locations.iter().enumerate() {
+                rows.push((*row, values[index * value_stride + value_offset]));
+            }
+            self.archetypes[first_archetype].set_field_f64_rows(component, field, &rows)?;
+            written = rows.len();
+        } else {
+            let mut by_archetype: HashMap<usize, Vec<(usize, f64)>> = HashMap::new();
+            for (index, (archetype, row)) in locations.iter().enumerate() {
+                by_archetype
+                    .entry(*archetype)
+                    .or_default()
+                    .push((*row, values[index * value_stride + value_offset]));
+            }
+            for (archetype, rows) in by_archetype {
+                self.archetypes[archetype].set_field_f64_rows(component, field, &rows)?;
+                written += rows.len();
+            }
+        }
+        self.note_field_revision_by(component, field, written as u64);
+        Ok(written)
     }
 
     pub fn get_field(&self, entity: Entity, component: &str, field: &str) -> Result<EcsValue> {
@@ -602,10 +671,17 @@ impl World {
     }
 
     fn note_field_revision(&mut self, component: &str, field: &str) {
-        self.field_revision = self.field_revision.saturating_add(1);
+        self.note_field_revision_by(component, field, 1);
+    }
+
+    fn note_field_revision_by(&mut self, component: &str, field: &str, count: u64) {
+        if count == 0 {
+            return;
+        }
+        self.field_revision = self.field_revision.saturating_add(count);
         let key = (component.to_string(), field.to_string());
         let revision = self.field_revisions.entry(key).or_default();
-        *revision = revision.saturating_add(1);
+        *revision = revision.saturating_add(count);
     }
 
     fn invalidate_query_cache(&mut self) {

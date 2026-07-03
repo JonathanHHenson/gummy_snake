@@ -12,9 +12,49 @@ from benchmark_helpers import run_json_subprocess
 
 FRAMES = int(os.environ.get("GUMMY_BOIDS_BENCHMARK_FRAMES", "3"))
 REPEATS = int(os.environ.get("GUMMY_BOIDS_BENCHMARK_REPEATS", "1"))
-TARGET_FPS = 120.0
+TARGET_FPS = 160.0
 PHASES = ("full", "simulation", "mesh")
 BENCHMARK_MODE = os.environ.get("GUMMY_BOIDS_BENCHMARK_MODE", "headless")
+
+LOCKED_BOIDS_3D_CONSTANTS: dict[str, object] = {
+    "WIDTH": 960,
+    "HEIGHT": 540,
+    "TARGET_FPS": 60,
+    "FOV_Y": 3.141592653589793 / 3.1,
+    "CAMERA_DISTANCE": 800.0,
+    "CAMERA_HEIGHT": -170.0,
+    "POINT_LIGHT_POSITION": (230.0, -170.0, 320.0),
+    "FPS_SMOOTHING": 0.12,
+    "BOID_COUNT": 3_000,
+    "WORLD_X": 760.0,
+    "WORLD_Y": 430.0,
+    "WORLD_Z": 620.0,
+    "BOUND_MARGIN": 120.0,
+    "BOUND_FORCE": 0.045,
+    "PERCEPTION_RADIUS": 60.0,
+    "SEPARATION_RADIUS": 40.0,
+    "MAX_SPEED": 5.4,
+    "MIN_SPEED": 2.0,
+    "MAX_FORCE": 0.075,
+    "ALIGNMENT_WEIGHT": 1.0,
+    "COHESION_WEIGHT": 0.7,
+    "SEPARATION_WEIGHT": 1.7,
+    "COHESION_SPEED_FACTOR": 0.82,
+    "PALETTE": (
+        (95, 185, 255, 220),
+        (105, 238, 192, 215),
+        (255, 216, 118, 215),
+        (255, 140, 145, 212),
+        (185, 145, 255, 218),
+    ),
+    "BOID_MODEL_LENGTH": 12.0,
+    "BOID_MODEL_WIDTH": 5.0,
+    "BOID_MODEL_HEIGHT": 4.2,
+    "BOID_DRAW_FIELDS": ("x", "y", "z", "vx", "vy", "vz"),
+    "BOID_STATE_FIELDS": ("x", "y", "z", "vx", "vy", "vz", "bucket"),
+}
+
+LOCKED_BOIDS_3D_CONSTANTS_JSON = json.dumps(LOCKED_BOIDS_3D_CONSTANTS)
 
 CHILD_CODE = textwrap.dedent(
     """
@@ -31,6 +71,8 @@ CHILD_CODE = textwrap.dedent(
     phase = sys.argv[1]
     frames = int(sys.argv[2])
     mode = sys.argv[3]
+    locked_constants = json.loads(sys.argv[4])
+    target_fps = float(sys.argv[5])
     headless = mode != "interactive"
 
     sys.argv = [
@@ -41,6 +83,28 @@ CHILD_CODE = textwrap.dedent(
         "--headless" if headless else "--interactive",
     ]
     boids = importlib.import_module("examples.09_performance.boids_3d")
+
+    def _apply_locked_benchmark_constants() -> None:
+        tuple_constants = {
+            "BOID_DRAW_FIELDS",
+            "BOID_STATE_FIELDS",
+            "POINT_LIGHT_POSITION",
+        }
+        for name, value in locked_constants.items():
+            if name == "PALETTE":
+                value = tuple(tuple(color) for color in value)
+            elif name in tuple_constants:
+                value = tuple(value)
+            setattr(boids, name, value)
+        boids._boid_bucket_indices = [[] for _ in boids.PALETTE]
+        boids._boid_model_cache = None
+        steer_toward = getattr(boids, "_expr_steer_toward", None)
+        if steer_toward is not None:
+            kwdefaults = dict(getattr(steer_toward, "__kwdefaults__", None) or {})
+            kwdefaults["speed"] = boids.MAX_SPEED
+            steer_toward.__kwdefaults__ = kwdefaults
+
+    _apply_locked_benchmark_constants()
 
     def _prepare_boids_world(add_system: bool = True):
         world = EcsWorld()
@@ -76,7 +140,7 @@ CHILD_CODE = textwrap.dedent(
             "frames": frames,
             "elapsed": elapsed,
             "fps": frames / max(elapsed, 1e-9),
-            "target_fps": 120.0,
+            "target_fps": target_fps,
             "backend_mode": "ecs-world",
             "boid_count": boids.BOID_COUNT,
             "python": platform.python_version(),
@@ -97,7 +161,7 @@ CHILD_CODE = textwrap.dedent(
             "frames": frames,
             "elapsed": elapsed,
             "fps": frames / max(elapsed, 1e-9),
-            "target_fps": 120.0,
+            "target_fps": target_fps,
             "backend_mode": "ecs-world",
             "boid_count": boids.BOID_COUNT,
             "python": platform.python_version(),
@@ -125,7 +189,7 @@ CHILD_CODE = textwrap.dedent(
             "frames": frames,
             "elapsed": elapsed,
             "fps": frames / max(elapsed, 1e-9),
-            "target_fps": 120.0,
+            "target_fps": target_fps,
             "backend_mode": "headless" if headless else "interactive",
             "boid_count": boids.BOID_COUNT,
             "python": platform.python_version(),
@@ -170,7 +234,16 @@ def _run_phase(
     metadata: dict[str, object] = {}
     for _ in range(repeats):
         payload = run_json_subprocess(
-            [sys.executable, "-c", CHILD_CODE, phase, str(frames), BENCHMARK_MODE],
+            [
+                sys.executable,
+                "-c",
+                CHILD_CODE,
+                phase,
+                str(frames),
+                BENCHMARK_MODE,
+                LOCKED_BOIDS_3D_CONSTANTS_JSON,
+                str(TARGET_FPS),
+            ],
             f"boids benchmark phase {phase!r}",
         )
         samples.append(float(payload["fps"]))

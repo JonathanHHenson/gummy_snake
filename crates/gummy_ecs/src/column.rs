@@ -219,6 +219,27 @@ impl Column {
         Ok(())
     }
 
+    pub fn set_f64_rows(&mut self, rows: &[(usize, f64)]) -> Result<()> {
+        match self {
+            Self::F64(values) => {
+                let len = values.len();
+                for (row, _) in rows {
+                    if *row >= len {
+                        return Err(EcsError::RowOutOfBounds);
+                    }
+                }
+                for (row, value) in rows {
+                    values[*row] = *value;
+                }
+                Ok(())
+            }
+            column => Err(EcsError::ColumnTypeMismatch {
+                expected: column.family_name(),
+                got: "F64",
+            }),
+        }
+    }
+
     pub fn get(&self, row: usize) -> Result<EcsValue> {
         let value = match self {
             Self::Bool(values) => EcsValue::Bool(*values.get(row).ok_or(EcsError::RowOutOfBounds)?),

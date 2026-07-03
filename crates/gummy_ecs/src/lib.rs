@@ -40,7 +40,7 @@ pub use plan::{
 pub use query::{CachedQuery, QueryFilter, QuerySnapshot, QueryTerm};
 pub use resource::ResourceStore;
 pub use scheduler::{
-    build_deterministic_waves, deterministic_chunks, execute_deterministic_waves,
+    build_deterministic_waves, deterministic_chunks, ecs_worker_count, execute_deterministic_waves,
     merge_command_batches_stably, AccessKey, AccessSummary, CommandBatch, SchedulePlan,
     ScheduleWave, ScheduledSystem, SchedulerDiagnostics, SchedulerOptions,
 };

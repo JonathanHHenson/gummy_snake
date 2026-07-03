@@ -1,8 +1,9 @@
 use std::collections::{BTreeSet, HashMap};
 use std::ops::Range;
+use std::sync::OnceLock;
 
 use rayon::prelude::*;
-use rayon::ThreadPoolBuilder;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 
 use crate::error::{EcsError, Result};
 
@@ -64,12 +65,40 @@ pub struct SchedulerOptions {
 impl Default for SchedulerOptions {
     fn default() -> Self {
         Self {
-            worker_count: std::thread::available_parallelism().map_or(1, usize::from),
+            worker_count: ecs_worker_count(),
             force_single_thread: false,
             chunk_threshold: 4_096,
             chunk_size: 1_024,
         }
     }
+}
+
+static ECS_WORKER_POOL: OnceLock<std::result::Result<ThreadPool, String>> = OnceLock::new();
+
+pub fn ecs_worker_count() -> usize {
+    std::thread::available_parallelism()
+        .map_or(1, usize::from)
+        .saturating_sub(2)
+        .max(1)
+}
+
+pub(crate) fn install_on_ecs_worker_pool<R, F>(op: F) -> Result<R>
+where
+    R: Send,
+    F: FnOnce() -> Result<R> + Send,
+{
+    let worker_count = ecs_worker_count();
+    let pool_result = ECS_WORKER_POOL.get_or_init(|| {
+        ThreadPoolBuilder::new()
+            .num_threads(worker_count)
+            .thread_name(|index| format!("gummy-ecs-{index}"))
+            .build()
+            .map_err(|err| err.to_string())
+    });
+    let pool = pool_result.as_ref().map_err(|err| {
+        EcsError::InvalidSchedule(format!("failed to initialize ECS worker pool: {err}"))
+    })?;
+    pool.install(op)
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -310,6 +339,14 @@ mod tests {
         .unwrap();
         assert_eq!(plan.waves[0].systems, vec![1, 2]);
         assert_eq!(plan.waves[1].systems, vec![3]);
+    }
+
+    #[test]
+    fn default_worker_count_reserves_main_and_window_threads() {
+        let logical_cores = std::thread::available_parallelism().map_or(1, usize::from);
+        let expected = logical_cores.saturating_sub(2).max(1);
+        assert_eq!(ecs_worker_count(), expected);
+        assert_eq!(SchedulerOptions::default().worker_count, expected);
     }
 
     #[test]
