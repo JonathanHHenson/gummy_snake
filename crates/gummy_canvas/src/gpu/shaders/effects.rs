@@ -68,6 +68,129 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
+pub(in crate::gpu) const PIXEL_FILTER_SHADER: &str = r#"
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+};
+
+@vertex
+fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+    var positions = array<vec2<f32>, 6>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>(1.0, -1.0),
+        vec2<f32>(-1.0, 1.0),
+        vec2<f32>(-1.0, 1.0),
+        vec2<f32>(1.0, -1.0),
+        vec2<f32>(1.0, 1.0),
+    );
+    var uvs = array<vec2<f32>, 6>(
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(1.0, 1.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(1.0, 1.0),
+        vec2<f32>(1.0, 0.0),
+    );
+    var output: VertexOutput;
+    output.position = vec4<f32>(positions[vertex_index], 0.0, 1.0);
+    output.uv = uvs[vertex_index];
+    return output;
+}
+
+struct PixelFilter {
+    mode: u32,
+    value: f32,
+    _padding: vec2<u32>,
+};
+
+@group(0) @binding(0)
+var source_texture: texture_2d<f32>;
+
+@group(0) @binding(1)
+var source_sampler: sampler;
+
+@group(0) @binding(2)
+var<uniform> pixel_filter: PixelFilter;
+
+fn clamp_coord(coord: vec2<i32>, dims: vec2<i32>) -> vec2<i32> {
+    return clamp(coord, vec2<i32>(0, 0), dims - vec2<i32>(1, 1));
+}
+
+fn load_pixel(coord: vec2<i32>, dims: vec2<i32>) -> vec4<f32> {
+    return textureLoad(source_texture, clamp_coord(coord, dims), 0);
+}
+
+fn luma(color: vec3<f32>) -> f32 {
+    return dot(color, vec3<f32>(0.299, 0.587, 0.114));
+}
+
+fn blur3(coord: vec2<i32>, dims: vec2<i32>) -> vec4<f32> {
+    var sum = vec4<f32>(0.0);
+    for (var dy = -1; dy <= 1; dy = dy + 1) {
+        for (var dx = -1; dx <= 1; dx = dx + 1) {
+            sum = sum + load_pixel(coord + vec2<i32>(dx, dy), dims);
+        }
+    }
+    return sum / 9.0;
+}
+
+fn erode3(coord: vec2<i32>, dims: vec2<i32>) -> vec4<f32> {
+    var result = vec4<f32>(1.0);
+    for (var dy = -1; dy <= 1; dy = dy + 1) {
+        for (var dx = -1; dx <= 1; dx = dx + 1) {
+            result = min(result, load_pixel(coord + vec2<i32>(dx, dy), dims));
+        }
+    }
+    return vec4<f32>(result.rgb, load_pixel(coord, dims).a);
+}
+
+fn dilate3(coord: vec2<i32>, dims: vec2<i32>) -> vec4<f32> {
+    var result = vec4<f32>(0.0);
+    for (var dy = -1; dy <= 1; dy = dy + 1) {
+        for (var dx = -1; dx <= 1; dx = dx + 1) {
+            result = max(result, load_pixel(coord + vec2<i32>(dx, dy), dims));
+        }
+    }
+    return vec4<f32>(result.rgb, load_pixel(coord, dims).a);
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let dims_u = vec2<u32>(textureDimensions(source_texture));
+    let dims = vec2<i32>(dims_u);
+    let coord = vec2<i32>(min(input.uv * vec2<f32>(dims_u), vec2<f32>(dims_u - vec2<u32>(1u, 1u))));
+    let color = textureLoad(source_texture, coord, 0);
+    if pixel_filter.mode == 1u {
+        let gray = luma(color.rgb);
+        return vec4<f32>(gray, gray, gray, color.a);
+    }
+    if pixel_filter.mode == 2u {
+        return vec4<f32>(1.0 - color.rgb, color.a);
+    }
+    if pixel_filter.mode == 3u {
+        let threshold = clamp(pixel_filter.value, 0.0, 1.0);
+        let bw = select(0.0, 1.0, luma(color.rgb) >= threshold);
+        return vec4<f32>(bw, bw, bw, color.a);
+    }
+    if pixel_filter.mode == 4u {
+        return blur3(coord, dims);
+    }
+    if pixel_filter.mode == 5u {
+        let levels = max(2.0, floor(pixel_filter.value));
+        let scale = levels - 1.0;
+        return vec4<f32>(floor(color.rgb * scale + vec3<f32>(0.5)) / scale, color.a);
+    }
+    if pixel_filter.mode == 6u {
+        return erode3(coord, dims);
+    }
+    if pixel_filter.mode == 7u {
+        return dilate3(coord, dims);
+    }
+    return color;
+}
+"#;
+
 pub(in crate::gpu) const BLEND_ELLIPSE_SHADER: &str = r#"
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,

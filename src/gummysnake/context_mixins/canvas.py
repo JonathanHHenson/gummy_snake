@@ -35,6 +35,9 @@ _PERFORMANCE_DIAGNOSTIC_MESSAGES = {
         "Pixel region upload: this operation sends only the dirty PixelBuffer region "
         "back to the canvas."
     ),
+    "gpu_region_effect_pass": (
+        "GPU region effect: this operation runs as an ordered canvas effect pass."
+    ),
     "pixel_noop_upload_skip": (
         "Pixel upload skipped: the payload was the exact fresh load_pixel_bytes() result."
     ),
@@ -64,10 +67,10 @@ class CanvasContextMixin:
     @property
     def width(self) -> int:
         """Width.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `int`.
         """
@@ -76,10 +79,10 @@ class CanvasContextMixin:
     @property
     def height(self) -> int:
         """Height.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `int`.
         """
@@ -88,10 +91,10 @@ class CanvasContextMixin:
     @property
     def frame_count(self) -> int:
         """Frame count.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `int`.
         """
@@ -100,10 +103,10 @@ class CanvasContextMixin:
     @property
     def delta_time(self) -> float:
         """Delta time.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `float`.
         """
@@ -112,10 +115,10 @@ class CanvasContextMixin:
     @property
     def mouse_x(self) -> float:
         """Mouse x.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `float`.
         """
@@ -124,10 +127,10 @@ class CanvasContextMixin:
     @property
     def mouse_y(self) -> float:
         """Mouse y.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `float`.
         """
@@ -142,14 +145,14 @@ class CanvasContextMixin:
         pixel_density: float | None = None,
     ) -> None:
         """Create canvas.
-        
+
         Args:
             width: The width value. Expected type: `int`.
             height: The height value. Expected type: `int`.
             renderer: The renderer value. Expected type: `c.RendererMode`. Defaults to `c.P2D`.
             pixel_density: The pixel density value. Expected type: `float | None`. Defaults to
                 `None`.
-        
+
         Returns:
             None.
         """
@@ -175,13 +178,13 @@ class CanvasContextMixin:
 
     def resize_canvas(self, width: int, height: int, *, pixel_density: float | None = None) -> None:
         """Resize canvas.
-        
+
         Args:
             width: The width value. Expected type: `int`.
             height: The height value. Expected type: `int`.
             pixel_density: The pixel density value. Expected type: `float | None`. Defaults to
                 `None`.
-        
+
         Returns:
             None.
         """
@@ -201,10 +204,10 @@ class CanvasContextMixin:
 
     def ensure_canvas(self) -> None:
         """Ensure canvas.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -217,10 +220,10 @@ class CanvasContextMixin:
 
     def pixel_density(self, value: float | None = None) -> float:
         """Pixel density.
-        
+
         Args:
             value: The value value. Expected type: `float | None`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `float`.
         """
@@ -233,10 +236,10 @@ class CanvasContextMixin:
 
     def display_density(self) -> float:
         """Display density.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `float`.
         """
@@ -244,10 +247,10 @@ class CanvasContextMixin:
 
     def fast(self) -> FastDrawScope:
         """Fast.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `FastDrawScope`.
         """
@@ -255,11 +258,11 @@ class CanvasContextMixin:
 
     def enable_performance_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
         """Enable performance diagnostics.
-        
+
         Args:
             enabled: The enabled value. Expected type: `bool`. Defaults to `True`.
             reset: The reset value. Expected type: `bool`. Defaults to `True`.
-        
+
         Returns:
             None.
         """
@@ -269,10 +272,10 @@ class CanvasContextMixin:
 
     def reset_performance_diagnostics(self) -> None:
         """Reset performance diagnostics.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -282,10 +285,10 @@ class CanvasContextMixin:
 
     def performance_diagnostics(self) -> dict[str, Any]:
         """Performance diagnostics.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `dict[str, Any]`.
         """
@@ -298,10 +301,10 @@ class CanvasContextMixin:
 
     def renderer_performance_counters(self) -> dict[str, Any]:
         """Renderer performance counters.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `dict[str, Any]`.
         """
@@ -314,10 +317,10 @@ class CanvasContextMixin:
 
     def reset_renderer_performance_counters(self) -> None:
         """Reset renderer performance counters.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -327,11 +330,11 @@ class CanvasContextMixin:
 
     def enable_frame_pacing_diagnostics(self, enabled: bool = True, *, reset: bool = True) -> None:
         """Enable frame pacing diagnostics.
-        
+
         Args:
             enabled: The enabled value. Expected type: `bool`. Defaults to `True`.
             reset: The reset value. Expected type: `bool`. Defaults to `True`.
-        
+
         Returns:
             None.
         """
@@ -341,10 +344,10 @@ class CanvasContextMixin:
 
     def frame_pacing_diagnostics(self) -> dict[str, Any]:
         """Frame pacing diagnostics.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `dict[str, Any]`.
         """
@@ -357,10 +360,10 @@ class CanvasContextMixin:
 
     def reset_frame_pacing_diagnostics(self) -> None:
         """Reset frame pacing diagnostics.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -384,10 +387,10 @@ class CanvasContextMixin:
 
     def begin_frame(self) -> None:
         """Begin frame.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -397,10 +400,10 @@ class CanvasContextMixin:
 
     def end_frame(self) -> None:
         """End frame.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -422,10 +425,10 @@ class CanvasContextMixin:
 
     def frame_rate(self, value: float | None = None) -> float:
         """Frame rate.
-        
+
         Args:
             value: The value value. Expected type: `float | None`. Defaults to `None`.
-        
+
         Returns:
             The return value. Type: `float`.
         """
@@ -437,10 +440,10 @@ class CanvasContextMixin:
 
     def millis(self) -> float:
         """Millis.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `float`.
         """
@@ -448,10 +451,10 @@ class CanvasContextMixin:
 
     def no_loop(self) -> None:
         """No loop.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -459,10 +462,10 @@ class CanvasContextMixin:
 
     def loop(self) -> None:
         """Loop.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -470,10 +473,10 @@ class CanvasContextMixin:
 
     def redraw(self) -> None:
         """Redraw.
-        
+
         Args:
             None.
-        
+
         Returns:
             None.
         """
@@ -481,10 +484,10 @@ class CanvasContextMixin:
 
     def is_looping(self) -> bool:
         """Is looping.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `bool`.
         """

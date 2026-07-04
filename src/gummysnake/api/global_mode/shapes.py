@@ -33,28 +33,11 @@ def _queue_fill_primitive(context: Any, kind: int, coords: tuple[float, ...]) ->
 
 @overload
 def point(position: CoordinatePair, /) -> None:
-    """Overload accepting point coordinates or a point-like value.
-    
-    Args:
-        position: The position value. Expected type: `CoordinatePair`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def point(x: float, y: float, /) -> None:
-    """Overload accepting point coordinates or a point-like value.
-    
-    Args:
-        x: The x value. Expected type: `float`.
-        y: The y value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
@@ -74,31 +57,11 @@ def point(x: Any, y: float | None = None) -> None:
 
 @overload
 def line(start: CoordinatePair, end: CoordinatePair, /) -> None:
-    """Overload accepting line endpoints as coordinates or point-like values.
-    
-    Args:
-        start: The start value. Expected type: `CoordinatePair`.
-        end: The end value. Expected type: `CoordinatePair`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def line(x1: float, y1: float, x2: float, y2: float, /) -> None:
-    """Overload accepting line endpoints as coordinates or point-like values.
-    
-    Args:
-        x1: The x1 value. Expected type: `float`.
-        y1: The y1 value. Expected type: `float`.
-        x2: The x2 value. Expected type: `float`.
-        y2: The y2 value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
@@ -216,34 +179,11 @@ def circle(x: float, y: float, diameter: float) -> None:
 
 @overload
 def triangle(p1: CoordinatePair, p2: CoordinatePair, p3: CoordinatePair, /) -> None:
-    """Overload accepting triangle vertices as coordinates or point-like values.
-    
-    Args:
-        p1: The p1 value. Expected type: `CoordinatePair`.
-        p2: The p2 value. Expected type: `CoordinatePair`.
-        p3: The p3 value. Expected type: `CoordinatePair`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def triangle(x1: float, y1: float, x2: float, y2: float, x3: float, y3: float, /) -> None:
-    """Overload accepting triangle vertices as coordinates or point-like values.
-    
-    Args:
-        x1: The x1 value. Expected type: `float`.
-        y1: The y1 value. Expected type: `float`.
-        x2: The x2 value. Expected type: `float`.
-        y2: The y2 value. Expected type: `float`.
-        x3: The x3 value. Expected type: `float`.
-        y3: The y3 value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
@@ -290,17 +230,6 @@ def triangle(*coords: Any) -> None:
 def quad(
     p1: CoordinatePair, p2: CoordinatePair, p3: CoordinatePair, p4: CoordinatePair, /
 ) -> None:
-    """Overload accepting quadrilateral vertices as coordinates or point-like values.
-    
-    Args:
-        p1: The p1 value. Expected type: `CoordinatePair`.
-        p2: The p2 value. Expected type: `CoordinatePair`.
-        p3: The p3 value. Expected type: `CoordinatePair`.
-        p4: The p4 value. Expected type: `CoordinatePair`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
@@ -316,21 +245,6 @@ def quad(
     y4: float,
     /,
 ) -> None:
-    """Overload accepting quadrilateral vertices as coordinates or point-like values.
-    
-    Args:
-        x1: The x1 value. Expected type: `float`.
-        y1: The y1 value. Expected type: `float`.
-        x2: The x2 value. Expected type: `float`.
-        y2: The y2 value. Expected type: `float`.
-        x3: The x3 value. Expected type: `float`.
-        y3: The y3 value. Expected type: `float`.
-        x4: The x4 value. Expected type: `float`.
-        y4: The y4 value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
     ...
 
 

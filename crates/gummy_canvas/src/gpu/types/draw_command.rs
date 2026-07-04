@@ -52,6 +52,10 @@ pub enum DrawCommand {
         red_delta: i32,
         green_delta: i32,
     },
+    PixelFilter {
+        mode: u32,
+        value: f32,
+    },
 
     ErasePrimitiveInstances {
         instances: Vec<PrimitiveInstance>,

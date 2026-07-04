@@ -85,6 +85,58 @@ impl GpuRenderer {
         pass.draw(0..6, 0..1);
     }
 
+    pub(super) fn encode_pixel_filter_pass(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        mode: u32,
+        value: f32,
+    ) {
+        self.queue.write_buffer(
+            &self.pixel_prefix_uniform_buffer,
+            0,
+            bytemuck::bytes_of(&PixelFilterUniform {
+                mode,
+                value,
+                _padding: [0; 2],
+            }),
+        );
+        if self.texture_size.width == 0 || self.texture_size.height == 0 {
+            return;
+        }
+        encoder.copy_texture_to_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.pixel_prefix_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            self.texture_size,
+        );
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("gummy_canvas ordered pixel filter pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.texture_view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+        pass.set_pipeline(&self.pixel_filter_pipeline);
+        pass.set_bind_group(0, &self.pixel_prefix_bind_group, &[]);
+        pass.draw(0..6, 0..1);
+    }
+
     pub(super) fn encode_pixel_prefix_pass(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,

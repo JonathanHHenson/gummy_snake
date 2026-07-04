@@ -4,11 +4,11 @@ use crate::gpu::pipeline::{
     clip_bind_group_layout, create_blend_ellipse_pipeline, create_image_pipeline,
     create_image_pipeline_for_blend_mode, create_model_pipeline, create_model_wireframe_pipeline,
     create_path_fill_erase_pipeline, create_path_fill_pipeline, create_pipeline,
-    create_pipeline_for_blend_mode, create_pixel_prefix_pipeline, create_procedural_erase_pipeline,
-    create_procedural_primitive_pipeline, create_stroke_path_erase_pipeline,
-    create_stroke_path_pipeline, create_textured_model_pipeline, model_bind_group_layout,
-    pixel_prefix_bind_group_layout, stroke_path_bind_group_layout, texture_bind_group_layout,
-    viewport_bind_group_layout,
+    create_pipeline_for_blend_mode, create_pixel_filter_pipeline, create_pixel_prefix_pipeline,
+    create_procedural_erase_pipeline, create_procedural_primitive_pipeline,
+    create_stroke_path_erase_pipeline, create_stroke_path_pipeline, create_textured_model_pipeline,
+    model_bind_group_layout, pixel_prefix_bind_group_layout, stroke_path_bind_group_layout,
+    texture_bind_group_layout, viewport_bind_group_layout,
 };
 use crate::BlendMode;
 
@@ -34,6 +34,7 @@ pub(super) struct PipelineResources {
     pub(super) model_wireframe_pipeline: wgpu::RenderPipeline,
     pub(super) textured_model_pipeline: wgpu::RenderPipeline,
     pub(super) pixel_prefix_pipeline: wgpu::RenderPipeline,
+    pub(super) pixel_filter_pipeline: wgpu::RenderPipeline,
     pub(super) blend_ellipse_pipeline: wgpu::RenderPipeline,
 }
 
@@ -177,6 +178,11 @@ pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResour
         &pixel_prefix_bind_group_layout,
         wgpu::TextureFormat::Rgba8Unorm,
     );
+    let pixel_filter_pipeline = create_pixel_filter_pipeline(
+        device,
+        &pixel_prefix_bind_group_layout,
+        wgpu::TextureFormat::Rgba8Unorm,
+    );
     let blend_ellipse_pipeline = create_blend_ellipse_pipeline(
         device,
         &pixel_prefix_bind_group_layout,
@@ -205,6 +211,7 @@ pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResour
         model_wireframe_pipeline,
         textured_model_pipeline,
         pixel_prefix_pipeline,
+        pixel_filter_pipeline,
         blend_ellipse_pipeline,
     }
 }

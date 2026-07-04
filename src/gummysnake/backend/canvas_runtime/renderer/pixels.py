@@ -31,10 +31,10 @@ class CanvasRendererPixelsMixin:
 
     def load_pixels(self) -> PixelBuffer:
         """Load pixels.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `PixelBuffer`.
         """
@@ -51,10 +51,10 @@ class CanvasRendererPixelsMixin:
 
     def load_pixel_bytes(self) -> bytes:
         """Load pixel bytes.
-        
+
         Args:
             None.
-        
+
         Returns:
             The return value. Type: `bytes`.
         """
@@ -79,13 +79,13 @@ class CanvasRendererPixelsMixin:
 
     def load_pixel_region(self, x: int, y: int, width: int, height: int) -> bytes:
         """Load pixel region.
-        
+
         Args:
             x: The x value. Expected type: `int`.
             y: The y value. Expected type: `int`.
             width: The width value. Expected type: `int`.
             height: The height value. Expected type: `int`.
-        
+
         Returns:
             The return value. Type: `bytes`.
         """
@@ -104,10 +104,10 @@ class CanvasRendererPixelsMixin:
 
     def update_pixels(self, pixels: Sequence[int] | Buffer) -> None:
         """Update pixels.
-        
+
         Args:
             pixels: The pixels value. Expected type: `Sequence[int] | Buffer`.
-        
+
         Returns:
             None.
         """
@@ -143,12 +143,12 @@ class CanvasRendererPixelsMixin:
 
     def set_pixel_rgba(self, x: int, y: int, rgba: tuple[int, int, int, int]) -> None:
         """Set pixel rgba.
-        
+
         Args:
             x: The x value. Expected type: `int`.
             y: The y value. Expected type: `int`.
             rgba: The rgba value. Expected type: `tuple[int, int, int, int]`.
-        
+
         Returns:
             None.
         """
@@ -186,7 +186,7 @@ class CanvasRendererPixelsMixin:
         alpha_composite: bool = True,
     ) -> None:
         """Update pixel region.
-        
+
         Args:
             pixels: The pixels value. Expected type: `Sequence[int] | Buffer`.
             width: The width value. Expected type: `int`.
@@ -194,7 +194,7 @@ class CanvasRendererPixelsMixin:
             x: The x value. Expected type: `int`.
             y: The y value. Expected type: `int`.
             alpha_composite: The alpha composite value. Expected type: `bool`. Defaults to `True`.
-        
+
         Returns:
             None.
         """
@@ -237,13 +237,13 @@ class CanvasRendererPixelsMixin:
         green_delta: int,
     ) -> None:
         """Adjust pixel prefix.
-        
+
         Args:
             byte_limit: The byte limit value. Expected type: `int`.
             stride: The stride value. Expected type: `int`.
             red_delta: The red delta value. Expected type: `int`.
             green_delta: The green delta value. Expected type: `int`.
-        
+
         Returns:
             None.
         """
@@ -265,17 +265,16 @@ class CanvasRendererPixelsMixin:
 
     def filter_pixels(self, mode: c.ImageFilter, value: float | None = None) -> None:
         """Filter pixels.
-        
+
         Args:
             mode: The mode value. Expected type: `c.ImageFilter`.
             value: The value value. Expected type: `float | None`. Defaults to `None`.
-        
+
         Returns:
             None.
         """
         _renderer(self)._flush_line_batch()
-        _renderer(self)._count("cpu_fallbacks")
-        _renderer(self)._count("pixel_uploads")
+        _renderer(self)._count("gpu_region_effect_passes")
         _renderer(self)._call(
             "pixel filter", _renderer(self)._require_canvas().filter_pixels, mode.value, value
         )
@@ -288,13 +287,13 @@ class CanvasRendererPixelsMixin:
         mode: c.BlendMode,
     ) -> None:
         """Blend region.
-        
+
         Args:
             source_image: The source image value. Expected type: `object | None`.
             source: The source value. Expected type: `tuple[int, int, int, int]`.
             destination: The destination value. Expected type: `tuple[int, int, int, int]`.
             mode: The mode value. Expected type: `c.BlendMode`.
-        
+
         Returns:
             None.
         """
@@ -335,10 +334,10 @@ class CanvasRendererPixelsMixin:
 
     def save(self, path: str | Path) -> None:
         """Save.
-        
+
         Args:
             path: The path value. Expected type: `str | Path`.
-        
+
         Returns:
             None.
         """
@@ -347,12 +346,12 @@ class CanvasRendererPixelsMixin:
 
     def save_gif(self, path: str | Path, count: int, frame_duration_ms: int) -> None:
         """Save gif.
-        
+
         Args:
             path: The path value. Expected type: `str | Path`.
             count: The count value. Expected type: `int`.
             frame_duration_ms: The frame duration ms value. Expected type: `int`.
-        
+
         Returns:
             None.
         """

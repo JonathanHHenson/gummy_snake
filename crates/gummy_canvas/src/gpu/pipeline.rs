@@ -9,7 +9,9 @@ mod primitives;
 mod surface_config;
 
 pub(super) use common::{align_to, to_wgpu_color};
-pub(super) use effects::{create_blend_ellipse_pipeline, create_pixel_prefix_pipeline};
+pub(super) use effects::{
+    create_blend_ellipse_pipeline, create_pixel_filter_pipeline, create_pixel_prefix_pipeline,
+};
 pub(super) use images::{create_image_pipeline, create_image_pipeline_for_blend_mode};
 pub(super) use layouts::{
     clip_bind_group_layout, model_bind_group_layout, pixel_prefix_bind_group_layout,

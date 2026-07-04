@@ -204,72 +204,26 @@ def reset_frame_pacing_diagnostics() -> None:
 
 @overload
 def background(value: ColorValue, /) -> None:
-    """Overload accepting color-compatible background arguments.
-    
-    Args:
-        value: The value value. Expected type: `ColorValue`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def background(gray: Number, /) -> None:
-    """Overload accepting color-compatible background arguments.
-    
-    Args:
-        gray: The gray value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def background(gray: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible background arguments.
-    
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def background(v1: Number, v2: Number, v3: Number, /) -> None:
-    """Overload accepting color-compatible background arguments.
-    
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def background(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible background arguments.
-    
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
@@ -299,72 +253,26 @@ def clear() -> None:
 
 @overload
 def color(value: ColorValue, /) -> Color:
-    """Overload accepting color-compatible arguments and returning a Color.
-    
-    Args:
-        value: The value value. Expected type: `ColorValue`.
-    
-    Returns:
-        The return value. Type: `Color`.
-    """
     ...
 
 
 @overload
 def color(gray: Number, /) -> Color:
-    """Overload accepting color-compatible arguments and returning a Color.
-    
-    Args:
-        gray: The gray value. Expected type: `Number`.
-    
-    Returns:
-        The return value. Type: `Color`.
-    """
     ...
 
 
 @overload
 def color(gray: Number, alpha: Number, /) -> Color:
-    """Overload accepting color-compatible arguments and returning a Color.
-    
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-    
-    Returns:
-        The return value. Type: `Color`.
-    """
     ...
 
 
 @overload
 def color(v1: Number, v2: Number, v3: Number, /) -> Color:
-    """Overload accepting color-compatible arguments and returning a Color.
-    
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-    
-    Returns:
-        The return value. Type: `Color`.
-    """
     ...
 
 
 @overload
 def color(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> Color:
-    """Overload accepting color-compatible arguments and returning a Color.
-    
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-    
-    Returns:
-        The return value. Type: `Color`.
-    """
     ...
 
 
@@ -418,72 +326,26 @@ def lerp_color(start: Color, stop: Color, amount: float) -> Color:
 
 @overload
 def fill(value: ColorValue, /) -> None:
-    """Overload accepting color-compatible fill arguments.
-    
-    Args:
-        value: The value value. Expected type: `ColorValue`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def fill(gray: Number, /) -> None:
-    """Overload accepting color-compatible fill arguments.
-    
-    Args:
-        gray: The gray value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def fill(gray: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible fill arguments.
-    
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def fill(v1: Number, v2: Number, v3: Number, /) -> None:
-    """Overload accepting color-compatible fill arguments.
-    
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def fill(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible fill arguments.
-    
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
@@ -527,72 +389,26 @@ def no_fill() -> None:
 
 @overload
 def stroke(value: ColorValue, /) -> None:
-    """Overload accepting color-compatible stroke arguments.
-    
-    Args:
-        value: The value value. Expected type: `ColorValue`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def stroke(gray: Number, /) -> None:
-    """Overload accepting color-compatible stroke arguments.
-    
-    Args:
-        gray: The gray value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def stroke(gray: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible stroke arguments.
-    
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def stroke(v1: Number, v2: Number, v3: Number, /) -> None:
-    """Overload accepting color-compatible stroke arguments.
-    
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def stroke(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible stroke arguments.
-    
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-    
-    Returns:
-        None.
-    """
     ...
 
 

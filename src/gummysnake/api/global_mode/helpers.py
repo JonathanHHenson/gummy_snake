@@ -45,29 +45,11 @@ def style_color_args(value: ColorArgument) -> tuple[Color | str | Number, ...]:
 
 @overload
 def xy(value: CoordinatePair, y: None = None) -> tuple[float, float]:
-    """Overload signature for xy().
-    
-    Args:
-        value: The value value. Expected type: `CoordinatePair`.
-        y: The y value. Expected type: `None`. Defaults to `None`.
-    
-    Returns:
-        The return value. Type: `tuple[float, float]`.
-    """
     ...
 
 
 @overload
 def xy(value: Number, y: Number) -> tuple[float, float]:
-    """Overload signature for xy().
-    
-    Args:
-        value: The value value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-    
-    Returns:
-        The return value. Type: `tuple[float, float]`.
-    """
     ...
 
 

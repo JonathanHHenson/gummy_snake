@@ -151,26 +151,10 @@ class Image(ImageDeferredMixin):
 
     @overload
     def __getitem__(self, key: tuple[int, int]) -> Color:
-        """Overload signature for   getitem  ().
-        
-        Args:
-            key: The key value. Expected type: `tuple[int, int]`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def __getitem__(self, key: tuple[slice, slice]) -> Image:
-        """Overload signature for   getitem  ().
-        
-        Args:
-            key: The key value. Expected type: `tuple[slice, slice]`.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     def __getitem__(self, key: tuple[int, int] | tuple[slice, slice]) -> Color | Image:
@@ -269,50 +253,16 @@ class Image(ImageDeferredMixin):
 
     @overload
     def copy(self) -> Image:
-        """Overload selecting full-image, region, or scaled-region copy behavior.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     @overload
     def copy(self, sx: int, sy: int, sw: int, sh: int, /) -> Image:
-        """Overload selecting full-image, region, or scaled-region copy behavior.
-        
-        Args:
-            sx: The sx value. Expected type: `int`.
-            sy: The sy value. Expected type: `int`.
-            sw: The sw value. Expected type: `int`.
-            sh: The sh value. Expected type: `int`.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     @overload
     def copy(
         self, sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /
     ) -> Image:
-        """Overload selecting full-image, region, or scaled-region copy behavior.
-        
-        Args:
-            sx: The sx value. Expected type: `int`.
-            sy: The sy value. Expected type: `int`.
-            sw: The sw value. Expected type: `int`.
-            sh: The sh value. Expected type: `int`.
-            dx: The dx value. Expected type: `int`.
-            dy: The dy value. Expected type: `int`.
-            dw: The dw value. Expected type: `int`.
-            dh: The dh value. Expected type: `int`.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     def copy(self, *args: int) -> Image:
@@ -337,42 +287,14 @@ class Image(ImageDeferredMixin):
 
     @overload
     def get(self) -> Image:
-        """Overload selecting full-image, pixel, or region read behavior.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     @overload
     def get(self, x: int, y: int) -> Color:
-        """Overload selecting full-image, pixel, or region read behavior.
-        
-        Args:
-            x: The x value. Expected type: `int`.
-            y: The y value. Expected type: `int`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def get(self, x: int, y: int, w: int, h: int) -> Image:
-        """Overload selecting full-image, pixel, or region read behavior.
-        
-        Args:
-            x: The x value. Expected type: `int`.
-            y: The y value. Expected type: `int`.
-            w: The w value. Expected type: `int`.
-            h: The h value. Expected type: `int`.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     def get(

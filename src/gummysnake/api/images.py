@@ -5,47 +5,20 @@ from __future__ import annotations
 from typing import Any, cast, overload
 
 from gummysnake import constants as c
+from gummysnake.api._context_call import context_call as _context_call
 from gummysnake.api.current import require_context
 from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.core.color import Color
 
 
-def _context_call(name: str, *args: Any, **kwargs: Any) -> Any:
-    return getattr(require_context(), name)(*args, **kwargs)
-
-
 @overload
-def image(source: Image | CanvasImage, x: float, y: float, /) -> None:
-    """Overload signature for image().
-    
-    Args:
-        source: The source value. Expected type: `Image | CanvasImage`.
-        x: The x value. Expected type: `float`.
-        y: The y value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
-    ...
+def image(source: Image | CanvasImage, x: float, y: float, /) -> None: ...
 
 
 @overload
 def image(
     source: Image | CanvasImage, x: float, y: float, width: float, height: float, /
-) -> None:
-    """Overload signature for image().
-    
-    Args:
-        source: The source value. Expected type: `Image | CanvasImage`.
-        x: The x value. Expected type: `float`.
-        y: The y value. Expected type: `float`.
-        width: The width value. Expected type: `float`.
-        height: The height value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
-    ...
+) -> None: ...
 
 
 @overload
@@ -60,32 +33,15 @@ def image(
     sw: float,
     sh: float,
     /,
-) -> None:
-    """Overload signature for image().
-    
-    Args:
-        source: The source value. Expected type: `Image | CanvasImage`.
-        x: The x value. Expected type: `float`.
-        y: The y value. Expected type: `float`.
-        width: The width value. Expected type: `float`.
-        height: The height value. Expected type: `float`.
-        sx: The sx value. Expected type: `float`.
-        sy: The sy value. Expected type: `float`.
-        sw: The sw value. Expected type: `float`.
-        sh: The sh value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
-    ...
+) -> None: ...
 
 
 def image(*args: Any) -> None:
     """Image using the active images context.
-    
+
     Args:
         *args: Additional positional arguments. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -118,82 +74,31 @@ def image(*args: Any) -> None:
 
 
 @overload
-def tint(value: Color | str, /) -> None:
-    """Overload signature for tint().
-    
-    Args:
-        value: The value value. Expected type: `Color | str`.
-    
-    Returns:
-        None.
-    """
-    ...
+def tint(value: Color | str, /) -> None: ...
 
 
 @overload
-def tint(gray: float, /) -> None:
-    """Overload signature for tint().
-    
-    Args:
-        gray: The gray value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
-    ...
+def tint(gray: float, /) -> None: ...
 
 
 @overload
-def tint(gray: float, alpha: float, /) -> None:
-    """Overload signature for tint().
-    
-    Args:
-        gray: The gray value. Expected type: `float`.
-        alpha: The alpha value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
-    ...
+def tint(gray: float, alpha: float, /) -> None: ...
 
 
 @overload
-def tint(v1: float, v2: float, v3: float, /) -> None:
-    """Overload signature for tint().
-    
-    Args:
-        v1: The v1 value. Expected type: `float`.
-        v2: The v2 value. Expected type: `float`.
-        v3: The v3 value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
-    ...
+def tint(v1: float, v2: float, v3: float, /) -> None: ...
 
 
 @overload
-def tint(v1: float, v2: float, v3: float, alpha: float, /) -> None:
-    """Overload signature for tint().
-    
-    Args:
-        v1: The v1 value. Expected type: `float`.
-        v2: The v2 value. Expected type: `float`.
-        v3: The v3 value. Expected type: `float`.
-        alpha: The alpha value. Expected type: `float`.
-    
-    Returns:
-        None.
-    """
-    ...
+def tint(v1: float, v2: float, v3: float, alpha: float, /) -> None: ...
 
 
 def tint(*args: Any) -> None:
     """Tint using the active images context.
-    
+
     Args:
         *args: Additional positional arguments. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -202,10 +107,10 @@ def tint(*args: Any) -> None:
 
 def no_tint() -> None:
     """Disable tint for subsequent operations.
-    
+
     Args:
         None.
-    
+
     Returns:
         None.
     """

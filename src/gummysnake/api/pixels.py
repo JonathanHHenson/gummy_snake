@@ -7,25 +7,21 @@ from pathlib import Path
 from typing import Any, cast, overload
 
 from gummysnake import constants as c
+from gummysnake.api._context_call import context_call as _context_call
 from gummysnake.api.current import require_context
 from gummysnake.assets.image import Image
 from gummysnake.core.color import Color
 from gummysnake.core.pixels import PixelBuffer
-
-
-def _context_call(name: str, *args: Any, **kwargs: Any) -> Any:
-    return getattr(require_context(), name)(*args, **kwargs)
-
 
 type PixelValue = Color | tuple[int, int, int] | tuple[int, int, int, int] | Image
 
 
 def load_pixels() -> PixelBuffer:
     """Load and return pixels.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `PixelBuffer`.
     """
@@ -34,10 +30,10 @@ def load_pixels() -> PixelBuffer:
 
 def load_pixel_bytes() -> bytes:
     """Load and return pixel bytes.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `bytes`.
     """
@@ -46,10 +42,10 @@ def load_pixel_bytes() -> bytes:
 
 def pixels() -> Sequence[int]:
     """Return pixels as a flat RGBA byte-value list.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `Sequence[int]`.
     """
@@ -59,10 +55,10 @@ def pixels() -> Sequence[int]:
 
 def pixel_array() -> list[list[tuple[int, int, int, int]]]:
     """Return pixels as rows of RGBA tuples.
-    
+
     Args:
         None.
-    
+
     Returns:
         The return value. Type: `list[list[tuple[int, int, int, int]]]`.
     """
@@ -71,11 +67,11 @@ def pixel_array() -> list[list[tuple[int, int, int, int]]]:
 
 def update_pixels(pixels: Sequence[int] | Buffer | None = None) -> None:
     """Update pixels using the active pixels context.
-    
+
     Args:
         pixels: The pixels value. Expected type: `Sequence[int] | Buffer | None`. Defaults to
             `None`.
-    
+
     Returns:
         None.
     """
@@ -83,59 +79,28 @@ def update_pixels(pixels: Sequence[int] | Buffer | None = None) -> None:
 
 
 @overload
-def get() -> Image:
-    """Overload selecting full-image, pixel, or region read behavior.
-    
-    Args:
-        None.
-    
-    Returns:
-        The return value. Type: `Image`.
-    """
-    ...
+def get() -> Image: ...
 
 
 @overload
-def get(x: int, y: int) -> Color:
-    """Overload selecting full-image, pixel, or region read behavior.
-    
-    Args:
-        x: The x value. Expected type: `int`.
-        y: The y value. Expected type: `int`.
-    
-    Returns:
-        The return value. Type: `Color`.
-    """
-    ...
+def get(x: int, y: int) -> Color: ...
 
 
 @overload
-def get(x: int, y: int, w: int, h: int) -> Image:
-    """Overload selecting full-image, pixel, or region read behavior.
-    
-    Args:
-        x: The x value. Expected type: `int`.
-        y: The y value. Expected type: `int`.
-        w: The w value. Expected type: `int`.
-        h: The h value. Expected type: `int`.
-    
-    Returns:
-        The return value. Type: `Image`.
-    """
-    ...
+def get(x: int, y: int, w: int, h: int) -> Image: ...
 
 
 def get(
     x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None
 ) -> Color | Image:
     """Get using the active pixels context.
-    
+
     Args:
         x: The x value. Expected type: `int | None`. Defaults to `None`.
         y: The y value. Expected type: `int | None`. Defaults to `None`.
         w: The w value. Expected type: `int | None`. Defaults to `None`.
         h: The h value. Expected type: `int | None`. Defaults to `None`.
-    
+
     Returns:
         The return value. Type: `Color | Image`.
     """
@@ -144,12 +109,12 @@ def get(
 
 def set(x: int, y: int, value: PixelValue) -> None:
     """Set using the active pixels context.
-    
+
     Args:
         x: The x value. Expected type: `int`.
         y: The y value. Expected type: `int`.
         value: The value value. Expected type: `PixelValue`.
-    
+
     Returns:
         None.
     """
@@ -157,83 +122,29 @@ def set(x: int, y: int, value: PixelValue) -> None:
 
 
 @overload
-def copy() -> Image:
-    """Overload selecting full-image, region, or scaled-region copy behavior.
-    
-    Args:
-        None.
-    
-    Returns:
-        The return value. Type: `Image`.
-    """
-    ...
+def copy() -> Image: ...
 
 
 @overload
-def copy(sx: int, sy: int, sw: int, sh: int, /) -> Image:
-    """Overload selecting full-image, region, or scaled-region copy behavior.
-    
-    Args:
-        sx: The sx value. Expected type: `int`.
-        sy: The sy value. Expected type: `int`.
-        sw: The sw value. Expected type: `int`.
-        sh: The sh value. Expected type: `int`.
-    
-    Returns:
-        The return value. Type: `Image`.
-    """
-    ...
+def copy(sx: int, sy: int, sw: int, sh: int, /) -> Image: ...
 
 
 @overload
-def copy(sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /) -> None:
-    """Overload selecting full-image, region, or scaled-region copy behavior.
-    
-    Args:
-        sx: The sx value. Expected type: `int`.
-        sy: The sy value. Expected type: `int`.
-        sw: The sw value. Expected type: `int`.
-        sh: The sh value. Expected type: `int`.
-        dx: The dx value. Expected type: `int`.
-        dy: The dy value. Expected type: `int`.
-        dw: The dw value. Expected type: `int`.
-        dh: The dh value. Expected type: `int`.
-    
-    Returns:
-        None.
-    """
-    ...
+def copy(sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /) -> None: ...
 
 
 @overload
 def copy(
     image: Image, sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /
-) -> None:
-    """Overload selecting full-image, region, or scaled-region copy behavior.
-    
-    Args:
-        image: The image value. Expected type: `Image`.
-        sx: The sx value. Expected type: `int`.
-        sy: The sy value. Expected type: `int`.
-        sw: The sw value. Expected type: `int`.
-        sh: The sh value. Expected type: `int`.
-        dx: The dx value. Expected type: `int`.
-        dy: The dy value. Expected type: `int`.
-        dw: The dw value. Expected type: `int`.
-        dh: The dh value. Expected type: `int`.
-    
-    Returns:
-        None.
-    """
-    ...
+) -> None: ...
 
 
 def copy(*args: Any) -> Image | None:
     """Copy using the active pixels context.
-    
+
     Args:
         *args: Additional positional arguments. Expected type: `Any`.
-    
+
     Returns:
         The return value. Type: `Image | None`.
     """
@@ -242,11 +153,11 @@ def copy(*args: Any) -> Image | None:
 
 def filter(mode: c.ImageFilter, value: float | None = None) -> None:
     """Filter using the active pixels context.
-    
+
     Args:
         mode: The mode value. Expected type: `c.ImageFilter`.
         value: The value value. Expected type: `float | None`. Defaults to `None`.
-    
+
     Returns:
         None.
     """
@@ -255,16 +166,16 @@ def filter(mode: c.ImageFilter, value: float | None = None) -> None:
 
 def save_canvas(path: str | Path, *, extension: str | None = None, overwrite: bool = True) -> Path:
     """Save canvas data to the requested destination.
-    
+
     Args:
         path: The path value. Expected type: `str | Path`.
         extension: The extension value. Expected type: `str | None`. Defaults to `None`.
         overwrite: The overwrite value. Expected type: `bool`. Defaults to `True`.
-    
+
     Returns:
         The return value. Type: `Path`.
     """
-    return _context_call("save_canvas", path, extension=extension, overwrite=overwrite)
+    return cast(Path, _context_call("save_canvas", path, extension=extension, overwrite=overwrite))
 
 
 def save_frames(
@@ -277,7 +188,7 @@ def save_frames(
     overwrite: bool = True,
 ) -> list[dict[str, object]]:
     """Save frames data to the requested destination.
-    
+
     Args:
         path_pattern: The path pattern value. Expected type: `str | Path`.
         extension: The extension value. Expected type: `str`. Defaults to `'png'`.
@@ -285,7 +196,7 @@ def save_frames(
         duration: The duration value. Expected type: `float | None`. Defaults to `None`.
         callback: The callback value. Expected type: `Any`. Defaults to `None`.
         overwrite: The overwrite value. Expected type: `bool`. Defaults to `True`.
-    
+
     Returns:
         The return value. Type: `list[dict[str, object]]`.
     """
@@ -311,13 +222,13 @@ def save_gif(
     overwrite: bool = True,
 ) -> Path:
     """Save gif data to the requested destination.
-    
+
     Args:
         path: The path value. Expected type: `str | Path`.
         count: The count value. Expected type: `int`. Defaults to `1`.
         duration: The duration value. Expected type: `float | None`. Defaults to `None`.
         overwrite: The overwrite value. Expected type: `bool`. Defaults to `True`.
-    
+
     Returns:
         The return value. Type: `Path`.
     """

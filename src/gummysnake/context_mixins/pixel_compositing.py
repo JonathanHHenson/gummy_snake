@@ -10,28 +10,27 @@ from gummysnake.context_mixins.helpers import blend_args
 
 def filter_pixels(ctx: Any, mode: c.ImageFilter, value: float | None = None) -> None:
     """Filter pixels.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         mode: The mode value. Expected type: `c.ImageFilter`.
         value: The value value. Expected type: `float | None`. Defaults to `None`.
-    
+
     Returns:
         None.
     """
-    ctx._record_performance_diagnostic("cpu_compositing_fallback")
-    ctx._record_performance_diagnostic("pixel_upload")
+    ctx._record_performance_diagnostic("gpu_region_effect_pass")
     ctx.renderer.filter_pixels(mode, value)
     ctx.pixels = []
 
 
 def blend_mode(ctx: Any, mode: c.BlendMode) -> None:
     """Blend mode.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         mode: The mode value. Expected type: `c.BlendMode`.
-    
+
     Returns:
         None.
     """
@@ -47,11 +46,11 @@ def blend_mode(ctx: Any, mode: c.BlendMode) -> None:
 
 def blend(ctx: Any, *args: Any) -> None:
     """Blend.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
         *args: Additional positional arguments. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -70,10 +69,10 @@ def blend(ctx: Any, *args: Any) -> None:
 
 def erase(ctx: Any) -> None:
     """Erase.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         None.
     """
@@ -83,10 +82,10 @@ def erase(ctx: Any) -> None:
 
 def no_erase(ctx: Any) -> None:
     """No erase.
-    
+
     Args:
         ctx: The ctx value. Expected type: `Any`.
-    
+
     Returns:
         None.
     """

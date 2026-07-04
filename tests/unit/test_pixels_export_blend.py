@@ -50,7 +50,7 @@ def test_load_pixel_bytes_and_update_pixels_accept_memoryview():
     assert gs.run(setup=setup, headless=True, max_frames=0).load_pixel_bytes() == bytes(8)
 
 
-def test_canvas_get_set_copy_helpers_and_filter_gpu_only_error():
+def test_canvas_get_set_copy_helpers_and_filter_use_gpu_region_effect():
     def setup():
         gs.create_canvas(3, 2)
         gs.background(0, 0, 0, 255)
@@ -60,11 +60,13 @@ def test_canvas_get_set_copy_helpers_and_filter_gpu_only_error():
         assert isinstance(region, gs.Image)
         gs.copy(1, 0, 1, 1, 2, 1, 1, 1)
         assert gs.get(2, 1) == gs.Color(10, 20, 30, 255)
-        with pytest.raises(ArgumentValidationError, match="CPU raster/compositing fallback"):
-            gs.filter(gs.INVERT)
+        gs.filter(gs.INVERT)
 
     context = gs.run(setup=setup, headless=True, max_frames=0)
-    assert context.get(2, 1) == gs.Color(10, 20, 30, 255)
+    assert context.get(2, 1) == gs.Color(245, 235, 225, 255)
+    counters = context.renderer_performance_counters()
+    assert counters["gpu_region_effect_passes"] >= 1
+    assert counters["cpu_fallbacks"] == 0
 
 
 def test_canvas_region_apis_use_physical_hidpi_regions():

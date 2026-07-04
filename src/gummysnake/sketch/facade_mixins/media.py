@@ -276,34 +276,12 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
 
     @overload
     def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None:
-        """Overload signature for image().
-        
-        Args:
-            image: The image value. Expected type: `Image | CanvasImage`.
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def image(
         self, image: Image | CanvasImage, x: float, y: float, width: float, height: float, /
     ) -> None:
-        """Overload signature for image().
-        
-        Args:
-            image: The image value. Expected type: `Image | CanvasImage`.
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            width: The width value. Expected type: `float`.
-            height: The height value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
@@ -320,22 +298,6 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
         sh: float,
         /,
     ) -> None:
-        """Overload signature for image().
-        
-        Args:
-            image: The image value. Expected type: `Image | CanvasImage`.
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            width: The width value. Expected type: `float`.
-            height: The height value. Expected type: `float`.
-            sx: The sx value. Expected type: `float`.
-            sy: The sy value. Expected type: `float`.
-            sw: The sw value. Expected type: `float`.
-            sh: The sh value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def image(self, *args: Any) -> None:
@@ -582,41 +544,14 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
 
     @overload
     def text_property(self, name: Literal["direction"], value: str | None = None) -> str:
-        """Overload signature for text property().
-        
-        Args:
-            name: The name value. Expected type: `Literal['direction']`.
-            value: The value value. Expected type: `str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         ...
 
     @overload
     def text_property(self, name: Literal["wrap"], value: str | None = None) -> str:
-        """Overload signature for text property().
-        
-        Args:
-            name: The name value. Expected type: `Literal['wrap']`.
-            value: The value value. Expected type: `str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         ...
 
     @overload
     def text_property(self, name: Literal["weight"], value: int | None = None) -> int:
-        """Overload signature for text property().
-        
-        Args:
-            name: The name value. Expected type: `Literal['weight']`.
-            value: The value value. Expected type: `int | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `int`.
-        """
         ...
 
     def text_property(self, name: str, value: str | int | None = None) -> str | int:
@@ -752,42 +687,14 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
 
     @overload
     def get(self) -> Image:
-        """Overload selecting full-image, pixel, or region read behavior.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     @overload
     def get(self, x: int, y: int) -> Color:
-        """Overload selecting full-image, pixel, or region read behavior.
-        
-        Args:
-            x: The x value. Expected type: `int`.
-            y: The y value. Expected type: `int`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def get(self, x: int, y: int, w: int, h: int) -> Image:
-        """Overload selecting full-image, pixel, or region read behavior.
-        
-        Args:
-            x: The x value. Expected type: `int`.
-            y: The y value. Expected type: `int`.
-            w: The w value. Expected type: `int`.
-            h: The h value. Expected type: `int`.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     def get(
@@ -821,50 +728,16 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
 
     @overload
     def copy(self) -> Image:
-        """Overload selecting full-image, region, or scaled-region copy behavior.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     @overload
     def copy(self, sx: int, sy: int, sw: int, sh: int, /) -> Image:
-        """Overload selecting full-image, region, or scaled-region copy behavior.
-        
-        Args:
-            sx: The sx value. Expected type: `int`.
-            sy: The sy value. Expected type: `int`.
-            sw: The sw value. Expected type: `int`.
-            sh: The sh value. Expected type: `int`.
-        
-        Returns:
-            The return value. Type: `Image`.
-        """
         ...
 
     @overload
     def copy(
         self, sx: int, sy: int, sw: int, sh: int, dx: int, dy: int, dw: int, dh: int, /
     ) -> None:
-        """Overload selecting full-image, region, or scaled-region copy behavior.
-        
-        Args:
-            sx: The sx value. Expected type: `int`.
-            sy: The sy value. Expected type: `int`.
-            sw: The sw value. Expected type: `int`.
-            sh: The sh value. Expected type: `int`.
-            dx: The dx value. Expected type: `int`.
-            dy: The dy value. Expected type: `int`.
-            dw: The dw value. Expected type: `int`.
-            dh: The dh value. Expected type: `int`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
@@ -881,22 +754,6 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
         dh: int,
         /,
     ) -> None:
-        """Overload selecting full-image, region, or scaled-region copy behavior.
-        
-        Args:
-            image: The image value. Expected type: `Image`.
-            sx: The sx value. Expected type: `int`.
-            sy: The sy value. Expected type: `int`.
-            sw: The sw value. Expected type: `int`.
-            sh: The sh value. Expected type: `int`.
-            dx: The dx value. Expected type: `int`.
-            dy: The dy value. Expected type: `int`.
-            dw: The dw value. Expected type: `int`.
-            dh: The dh value. Expected type: `int`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def copy(self, *args: Any) -> Image | None:
@@ -1015,22 +872,6 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
         mode: c.BlendMode,
         /,
     ) -> None:
-        """Overload signature for blend().
-        
-        Args:
-            sx: The sx value. Expected type: `int`.
-            sy: The sy value. Expected type: `int`.
-            sw: The sw value. Expected type: `int`.
-            sh: The sh value. Expected type: `int`.
-            dx: The dx value. Expected type: `int`.
-            dy: The dy value. Expected type: `int`.
-            dw: The dw value. Expected type: `int`.
-            dh: The dh value. Expected type: `int`.
-            mode: The mode value. Expected type: `c.BlendMode`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
@@ -1048,23 +889,6 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
         mode: c.BlendMode,
         /,
     ) -> None:
-        """Overload signature for blend().
-        
-        Args:
-            image: The image value. Expected type: `Image`.
-            sx: The sx value. Expected type: `int`.
-            sy: The sy value. Expected type: `int`.
-            sw: The sw value. Expected type: `int`.
-            sh: The sh value. Expected type: `int`.
-            dx: The dx value. Expected type: `int`.
-            dy: The dy value. Expected type: `int`.
-            dw: The dw value. Expected type: `int`.
-            dh: The dh value. Expected type: `int`.
-            mode: The mode value. Expected type: `c.BlendMode`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def blend(self, *args: Any) -> None:

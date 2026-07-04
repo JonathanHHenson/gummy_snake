@@ -29,6 +29,7 @@ impl GpuRenderer {
                 DrawCommand::FillPath { .. } => None,
                 DrawCommand::BlendEllipse { .. } => None,
                 DrawCommand::PixelPrefix { .. } => None,
+                DrawCommand::PixelFilter { .. } => None,
                 DrawCommand::Model { .. } => None,
                 DrawCommand::ModelWireframe { .. } => None,
                 DrawCommand::ModelInstances { .. } => None,
@@ -201,6 +202,7 @@ impl GpuRenderer {
                 }
                 DrawCommand::BlendEllipse { .. } => {}
                 DrawCommand::PixelPrefix { .. } => {}
+                DrawCommand::PixelFilter { .. } => {}
                 DrawCommand::Text { .. } => {}
                 DrawCommand::Model {
                     key,

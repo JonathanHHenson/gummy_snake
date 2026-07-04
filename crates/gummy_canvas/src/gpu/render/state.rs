@@ -93,6 +93,7 @@ impl GpuRenderer {
                 }
                 DrawCommand::BlendEllipse { .. }
                 | DrawCommand::PixelPrefix { .. }
+                | DrawCommand::PixelFilter { .. }
                 | DrawCommand::Model { .. }
                 | DrawCommand::ModelWireframe { .. }
                 | DrawCommand::ModelInstances { .. }

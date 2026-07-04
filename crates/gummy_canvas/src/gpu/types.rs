@@ -93,6 +93,14 @@ pub(super) struct BlendEllipseUniform {
     pub(super) _padding: [u32; 7],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub(super) struct PixelFilterUniform {
+    pub(super) mode: u32,
+    pub(super) value: f32,
+    pub(super) _padding: [u32; 2],
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GpuColor {
     pub r: u8,
@@ -182,6 +190,7 @@ pub struct GpuRenderer {
     pub(super) model_wireframe_pipeline: wgpu::RenderPipeline,
     pub(super) textured_model_pipeline: wgpu::RenderPipeline,
     pub(super) pixel_prefix_pipeline: wgpu::RenderPipeline,
+    pub(super) pixel_filter_pipeline: wgpu::RenderPipeline,
     pub(super) blend_ellipse_pipeline: wgpu::RenderPipeline,
     pub(super) model_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) stroke_path_bind_group_layout: wgpu::BindGroupLayout,

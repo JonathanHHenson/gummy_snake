@@ -304,41 +304,14 @@ class TextContextMixin:
 
     @overload
     def text_property(self, name: Literal["direction"], value: str | None = None) -> str:
-        """Overload signature for text property().
-        
-        Args:
-            name: The name value. Expected type: `Literal['direction']`.
-            value: The value value. Expected type: `str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         ...
 
     @overload
     def text_property(self, name: Literal["wrap"], value: str | None = None) -> str:
-        """Overload signature for text property().
-        
-        Args:
-            name: The name value. Expected type: `Literal['wrap']`.
-            value: The value value. Expected type: `str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         ...
 
     @overload
     def text_property(self, name: Literal["weight"], value: int | None = None) -> int:
-        """Overload signature for text property().
-        
-        Args:
-            name: The name value. Expected type: `Literal['weight']`.
-            value: The value value. Expected type: `int | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `int`.
-        """
         ...
 
     def text_property(self, name: str, value: str | int | None = None) -> str | int:

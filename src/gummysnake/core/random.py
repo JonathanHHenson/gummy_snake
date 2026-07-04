@@ -43,54 +43,21 @@ def random_seed(seed: int | float | str | bytes | bytearray | None) -> None:
 
 @overload
 def random() -> float:
-    """Overload signature for random().
-    
-    Args:
-        None.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     ...
 
 
 @overload
 def random(maximum: Number, /) -> float:
-    """Overload signature for random().
-    
-    Args:
-        maximum: The maximum value. Expected type: `Number`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     ...
 
 
 @overload
 def random[T](values: Sequence[T], /) -> T | None:
-    """Overload signature for random().
-    
-    Args:
-        values: The values value. Expected type: `Sequence[T]`.
-    
-    Returns:
-        The return value. Type: `T | None`.
-    """
     ...
 
 
 @overload
 def random(low: Number, high: Number, /) -> float:
-    """Overload signature for random().
-    
-    Args:
-        low: The low value. Expected type: `Number`.
-        high: The high value. Expected type: `Number`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     ...
 
 

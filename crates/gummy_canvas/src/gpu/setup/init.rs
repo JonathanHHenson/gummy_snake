@@ -105,6 +105,7 @@ impl GpuRenderer {
             model_wireframe_pipeline: pipelines.model_wireframe_pipeline,
             textured_model_pipeline: pipelines.textured_model_pipeline,
             pixel_prefix_pipeline: pipelines.pixel_prefix_pipeline,
+            pixel_filter_pipeline: pipelines.pixel_filter_pipeline,
             blend_ellipse_pipeline: pipelines.blend_ellipse_pipeline,
             model_bind_group_layout: pipelines.model_bind_group_layout,
             stroke_path_bind_group_layout: pipelines.stroke_path_bind_group_layout,

@@ -36,6 +36,7 @@ impl GpuRenderer {
                 }
                 DrawCommand::BlendEllipse { .. } => {}
                 DrawCommand::PixelPrefix { .. } => {}
+                DrawCommand::PixelFilter { .. } => {}
                 DrawCommand::ErasePrimitiveInstances { instances, .. } => {
                     procedural_instances += instances.len();
                 }

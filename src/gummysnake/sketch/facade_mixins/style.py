@@ -14,68 +14,22 @@ class SketchFacadeStyleMixin(SketchFacadeBaseMixin):
 
     @overload
     def color(self, value: ColorValue, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def color(self, gray: Number, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def color(self, gray: Number, alpha: Number, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def color(self, v1: Number, v2: Number, v3: Number, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def color(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     def color(self, *args: Any) -> Color:
@@ -126,68 +80,22 @@ class SketchFacadeStyleMixin(SketchFacadeBaseMixin):
 
     @overload
     def background(self, value: ColorValue, /) -> None:
-        """Overload accepting color-compatible background arguments.
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def background(self, gray: Number, /) -> None:
-        """Overload accepting color-compatible background arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def background(self, gray: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible background arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def background(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        """Overload accepting color-compatible background arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def background(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible background arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def background(self, *args: Any) -> None:
@@ -214,68 +122,22 @@ class SketchFacadeStyleMixin(SketchFacadeBaseMixin):
 
     @overload
     def fill(self, value: ColorValue, /) -> None:
-        """Overload accepting color-compatible fill arguments.
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def fill(self, gray: Number, /) -> None:
-        """Overload accepting color-compatible fill arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def fill(self, gray: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible fill arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def fill(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        """Overload accepting color-compatible fill arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def fill(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible fill arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def fill(self, *args: Any) -> None:
@@ -302,68 +164,22 @@ class SketchFacadeStyleMixin(SketchFacadeBaseMixin):
 
     @overload
     def stroke(self, value: ColorValue, /) -> None:
-        """Overload accepting color-compatible stroke arguments.
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def stroke(self, gray: Number, /) -> None:
-        """Overload accepting color-compatible stroke arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def stroke(self, gray: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible stroke arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def stroke(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        """Overload accepting color-compatible stroke arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def stroke(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible stroke arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def stroke(self, *args: Any) -> None:
@@ -489,68 +305,22 @@ class SketchFacadeStyleMixin(SketchFacadeBaseMixin):
 
     @overload
     def tint(self, value: ColorValue, /) -> None:
-        """Overload signature for tint().
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def tint(self, gray: Number, /) -> None:
-        """Overload signature for tint().
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def tint(self, gray: Number, alpha: Number, /) -> None:
-        """Overload signature for tint().
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def tint(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        """Overload signature for tint().
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def tint(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        """Overload signature for tint().
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def tint(self, *args: Any) -> None:

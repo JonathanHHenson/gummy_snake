@@ -58,68 +58,22 @@ class ThreeDContextMixin(
 
     @overload
     def color(self, value: ColorValue, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def color(self, gray: Number, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-
-        Args:
-            gray: The gray value. Expected type: `Number`.
-
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def color(self, gray: Number, alpha: Number, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def color(self, v1: Number, v2: Number, v3: Number, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     @overload
     def color(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> Color:
-        """Overload accepting color-compatible arguments and returning a Color.
-
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-
-        Returns:
-            The return value. Type: `Color`.
-        """
         ...
 
     def color(self, *args: Any) -> Color:

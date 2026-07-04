@@ -47,68 +47,22 @@ class ThreeDMaterialMixin:
 
     @overload
     def ambient_light(self, value: ColorValue, /) -> None:
-        """Overload accepting color-compatible ambient-light arguments.
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def ambient_light(self, gray: Number, /) -> None:
-        """Overload accepting color-compatible ambient-light arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def ambient_light(self, gray: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible ambient-light arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def ambient_light(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        """Overload accepting color-compatible ambient-light arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def ambient_light(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible ambient-light arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def ambient_light(self, *args: Any) -> None:
@@ -152,69 +106,22 @@ class ThreeDMaterialMixin:
 
     @overload
     def directional_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None:
-        """Overload accepting color-compatible directional-light arguments.
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def directional_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None:
-        """Overload accepting color-compatible directional-light arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def directional_light(
         self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
     ) -> None:
-        """Overload accepting color-compatible directional-light arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def directional_light(
         self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
     ) -> None:
-        """Overload accepting color-compatible directional-light arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
@@ -229,20 +136,6 @@ class ThreeDMaterialMixin:
         z: Number,
         /,
     ) -> None:
-        """Overload accepting color-compatible directional-light arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def directional_light(self, *args: Any) -> None:
@@ -266,69 +159,22 @@ class ThreeDMaterialMixin:
 
     @overload
     def point_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None:
-        """Overload accepting color-compatible point-light arguments.
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def point_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None:
-        """Overload accepting color-compatible point-light arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def point_light(
         self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
     ) -> None:
-        """Overload accepting color-compatible point-light arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def point_light(
         self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
     ) -> None:
-        """Overload accepting color-compatible point-light arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
@@ -343,20 +189,6 @@ class ThreeDMaterialMixin:
         z: Number,
         /,
     ) -> None:
-        """Overload accepting color-compatible point-light arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-            x: The x value. Expected type: `Number`.
-            y: The y value. Expected type: `Number`.
-            z: The z value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def point_light(self, *args: Any) -> None:
@@ -483,68 +315,22 @@ class ThreeDMaterialMixin:
 
     @overload
     def ambient_material(self, value: ColorValue, /) -> None:
-        """Overload accepting color-compatible ambient material arguments.
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def ambient_material(self, gray: Number, /) -> None:
-        """Overload accepting color-compatible ambient material arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def ambient_material(self, gray: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible ambient material arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def ambient_material(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        """Overload accepting color-compatible ambient material arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def ambient_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible ambient material arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def ambient_material(self, *args: Any) -> None:
@@ -564,68 +350,22 @@ class ThreeDMaterialMixin:
 
     @overload
     def specular_material(self, value: ColorValue, /) -> None:
-        """Overload accepting color-compatible specular material arguments.
-        
-        Args:
-            value: The value value. Expected type: `ColorValue`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def specular_material(self, gray: Number, /) -> None:
-        """Overload accepting color-compatible specular material arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def specular_material(self, gray: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible specular material arguments.
-        
-        Args:
-            gray: The gray value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def specular_material(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        """Overload accepting color-compatible specular material arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def specular_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        """Overload accepting color-compatible specular material arguments.
-        
-        Args:
-            v1: The v1 value. Expected type: `Number`.
-            v2: The v2 value. Expected type: `Number`.
-            v3: The v3 value. Expected type: `Number`.
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            None.
-        """
         ...
 
     def specular_material(self, *args: Any) -> None:

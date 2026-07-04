@@ -7,7 +7,6 @@ from typing import Any, cast
 
 from gummysnake.backend.canvas_runtime.renderer.batch_state import ModelBatchKey
 from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
-from gummysnake.core.transform import Matrix2D
 from gummysnake.drawing.renderer3d import (
     Camera3D,
     Light3D,
@@ -22,11 +21,6 @@ from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
     OrthographicProjection,
     PerspectiveProjection,
-)
-from gummysnake.drawing.software3d import (
-    ShadedFace,
-    rasterize_face_payload_region,
-    rasterize_faces_image_region,
 )
 from gummysnake.drawing.software3d.payloads import (
     camera_payload,
@@ -376,70 +370,3 @@ class ThreeDModelMixin:
         if drawn:
             self._count_renderer_counter("direct_model_draws")
         return drawn
-
-    def _draw_shaded_faces_direct(self, faces: list[dict[str, Any]]) -> bool:
-        require_canvas = getattr(self.renderer, "_require_canvas", None)
-        flush_line_batch = getattr(self.renderer, "_flush_line_batch", None)
-        if not callable(require_canvas):
-            return False
-        canvas = require_canvas()
-        draw = getattr(canvas, "shaded_faces", None)
-        if not callable(draw):
-            return False
-        if callable(flush_line_batch):
-            flush_line_batch()
-        draw(faces)
-        return True
-
-    def _draw_rasterized_3d_payload(
-        self,
-        faces: list[dict[str, Any]],
-        screen_transform: Matrix2D,
-        *,
-        texture: Any | None,
-    ) -> None:
-        overlay, overlay_x, overlay_y = rasterize_face_payload_region(
-            faces,
-            viewport_width=float(self.width),
-            viewport_height=float(self.height),
-            texture=texture,
-        )
-        overlay_style = self.state.style.copy()
-        overlay_style.fill_color = None
-        overlay_style.stroke_color = None
-        self.renderer.draw_image(
-            overlay,
-            float(overlay_x),
-            float(overlay_y),
-            float(overlay.width),
-            float(overlay.height),
-            overlay_style,
-            screen_transform,
-        )
-
-    def _draw_rasterized_3d_faces(
-        self, faces: list[ShadedFace], screen_transform: Matrix2D
-    ) -> None:
-        overlay, overlay_x, overlay_y = rasterize_faces_image_region(
-            faces,
-            viewport_width=float(self.width),
-            viewport_height=float(self.height),
-        )
-        overlay_style = self.state.style.copy()
-        overlay_style.fill_color = None
-        overlay_style.stroke_color = None
-        self.renderer.draw_image(
-            overlay,
-            float(overlay_x),
-            float(overlay_y),
-            float(overlay.width),
-            float(overlay.height),
-            overlay_style,
-            screen_transform,
-        )
-
-    def _stroke_3d_faces(self, faces: list[ShadedFace], screen_transform: Matrix2D) -> None:
-        stroke_style = self.state.style.copy()
-        stroke_style.fill_color = None
-        for face in faces:
-            self.renderer.polygon(list(face.points), stroke_style, screen_transform, close=True)

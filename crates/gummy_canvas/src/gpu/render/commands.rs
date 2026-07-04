@@ -269,6 +269,12 @@ impl GpuRenderer {
         }
     }
 
+    pub fn draw_pixel_filter(&mut self, mode: u32, value: f32) {
+        if mode > 0 {
+            self.commands.push(DrawCommand::PixelFilter { mode, value });
+        }
+    }
+
     pub fn draw_erase_primitive_instances(&mut self, instances: Vec<PrimitiveInstance>) {
         if !instances.is_empty() {
             self.commands.push(DrawCommand::ErasePrimitiveInstances {

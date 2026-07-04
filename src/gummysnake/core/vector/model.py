@@ -21,30 +21,10 @@ class Vector(VectorBasicMixin, VectorOpsMixin):
 
     @overload
     def __init__(self, x: Number = 0, y: Number = 0, z: Number = 0) -> None:
-        """Create a vector from numeric components.
-
-        Args:
-            x: The x component. Defaults to 0.
-            y: The y component. Defaults to 0.
-            z: The z component. Defaults to 0.
-
-        Returns:
-            None.
-        """
         ...
 
     @overload
     def __init__(self, x: Iterable[Number], y: Number = 0, z: Number = 0) -> None:
-        """Create a vector from an iterable of components.
-
-        Args:
-            x: Iterable containing two or three numeric components.
-            y: Ignored unless x is treated as a scalar. Defaults to 0.
-            z: Ignored unless x is treated as a scalar. Defaults to 0.
-
-        Returns:
-            None.
-        """
         ...
 
     def __init__(self, x: Number | Iterable[Number] = 0, y: Number = 0, z: Number = 0) -> None:
@@ -63,31 +43,11 @@ register_vector_type(Vector)
 
 @overload
 def create_vector(x: Number = 0, y: Number = 0, z: Number = 0) -> Vector:
-    """Overload accepting vector components or an iterable of components.
-
-    Args:
-        x: The x value. Expected type: `Number`. Defaults to `0`.
-        y: The y value. Expected type: `Number`. Defaults to `0`.
-        z: The z value. Expected type: `Number`. Defaults to `0`.
-
-    Returns:
-        The return value. Type: `Vector`.
-    """
     ...
 
 
 @overload
 def create_vector(x: Iterable[Number], y: Number = 0, z: Number = 0) -> Vector:
-    """Overload accepting vector components or an iterable of components.
-
-    Args:
-        x: The x value. Expected type: `Iterable[Number]`.
-        y: The y value. Expected type: `Number`. Defaults to `0`.
-        z: The z value. Expected type: `Number`. Defaults to `0`.
-
-    Returns:
-        The return value. Type: `Vector`.
-    """
     ...
 
 

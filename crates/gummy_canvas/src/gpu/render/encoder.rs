@@ -8,6 +8,7 @@ impl GpuRenderer {
                 command,
                 DrawCommand::BlendEllipse { .. }
                     | DrawCommand::PixelPrefix { .. }
+                    | DrawCommand::PixelFilter { .. }
                     | DrawCommand::Text { .. }
             )
         }) {
@@ -65,6 +66,14 @@ impl GpuRenderer {
                         *red_delta,
                         *green_delta,
                     );
+                    segment_start = index + 1;
+                }
+                DrawCommand::PixelFilter { mode, value } => {
+                    self.commands = commands[segment_start..index].to_vec();
+                    if !self.commands.is_empty() {
+                        self.encode_plain_commands(encoder, &mut render_offsets);
+                    }
+                    self.encode_pixel_filter_pass(encoder, *mode, *value);
                     segment_start = index + 1;
                 }
                 DrawCommand::Text { .. } => {

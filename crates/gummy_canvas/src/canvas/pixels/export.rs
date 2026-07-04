@@ -5,7 +5,16 @@ use std::fs::File;
 use std::io::BufWriter;
 
 impl Canvas {
-    pub(crate) fn filter_pixels_impl(&mut self, _mode: &str, _value: Option<f64>) -> PyResult<()> {
+    pub(crate) fn filter_pixels_impl(&mut self, mode: &str, value: Option<f64>) -> PyResult<()> {
+        let filter_mode = pixel_filter_mode(mode)?;
+        if self.texture_stale {
+            self.upload_stale_texture(false)?;
+        }
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_pixel_filter(filter_mode, pixel_filter_value(mode, value));
+            self.record_native_region_effect_draw(false);
+            return Ok(());
+        }
         self.prepare_cpu_composite()
     }
 
@@ -67,5 +76,28 @@ impl Canvas {
         } else if self.pixels_stale {
             self.read_gpu_pixels();
         }
+    }
+}
+
+fn pixel_filter_mode(mode: &str) -> PyResult<u32> {
+    match mode {
+        "gray" => Ok(1),
+        "invert" => Ok(2),
+        "threshold" => Ok(3),
+        "blur" => Ok(4),
+        "posterize" => Ok(5),
+        "erode" => Ok(6),
+        "dilate" => Ok(7),
+        _ => Err(PyValueError::new_err(format!(
+            "Unsupported image filter {mode:?}."
+        ))),
+    }
+}
+
+fn pixel_filter_value(mode: &str, value: Option<f64>) -> f32 {
+    match mode {
+        "threshold" => value.unwrap_or(0.5).clamp(0.0, 1.0) as f32,
+        "posterize" => value.unwrap_or(4.0).clamp(2.0, 255.0) as f32,
+        _ => value.unwrap_or(0.0) as f32,
     }
 }

@@ -20,27 +20,11 @@ ColorValue = Color | str
 
 @overload
 def create_camera() -> Camera3D:
-    """Overload accepting no camera, an existing camera, or camera basis values.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
 @overload
 def create_camera(camera: Camera3D, /) -> Camera3D:
-    """Overload accepting no camera, an existing camera, or camera basis values.
-
-    Args:
-        camera: The camera value. Expected type: `Camera3D`.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
@@ -57,22 +41,6 @@ def create_camera(
     up_z: Number,
     /,
 ) -> Camera3D:
-    """Overload accepting no camera, an existing camera, or camera basis values.
-
-    Args:
-        eye_x: The eye x value. Expected type: `Number`.
-        eye_y: The eye y value. Expected type: `Number`.
-        eye_z: The eye z value. Expected type: `Number`.
-        center_x: The center x value. Expected type: `Number`.
-        center_y: The center y value. Expected type: `Number`.
-        center_z: The center z value. Expected type: `Number`.
-        up_x: The up x value. Expected type: `Number`.
-        up_y: The up y value. Expected type: `Number`.
-        up_z: The up z value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
@@ -90,27 +58,11 @@ def create_camera(*args: Any) -> Camera3D:
 
 @overload
 def camera() -> Camera3D:
-    """Overload accepting no camera, an existing camera, or camera basis values.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
 @overload
 def camera(camera: Camera3D, /) -> Camera3D:
-    """Overload accepting no camera, an existing camera, or camera basis values.
-
-    Args:
-        camera: The camera value. Expected type: `Camera3D`.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
@@ -127,22 +79,6 @@ def camera(
     up_z: Number,
     /,
 ) -> Camera3D:
-    """Overload accepting no camera, an existing camera, or camera basis values.
-
-    Args:
-        eye_x: The eye x value. Expected type: `Number`.
-        eye_y: The eye y value. Expected type: `Number`.
-        eye_z: The eye z value. Expected type: `Number`.
-        center_x: The center x value. Expected type: `Number`.
-        center_y: The center y value. Expected type: `Number`.
-        center_z: The center z value. Expected type: `Number`.
-        up_x: The up x value. Expected type: `Number`.
-        up_y: The up y value. Expected type: `Number`.
-        up_z: The up z value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
@@ -212,72 +148,26 @@ def screen_to_world(x: Number, y: Number, depth: Number = 0.0) -> Vec3:
 
 @overload
 def perspective() -> PerspectiveProjection:
-    """Overload accepting optional perspective projection values.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `PerspectiveProjection`.
-    """
     ...
 
 
 @overload
 def perspective(fov: Number, /) -> PerspectiveProjection:
-    """Overload accepting optional perspective projection values.
-
-    Args:
-        fov: The fov value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `PerspectiveProjection`.
-    """
     ...
 
 
 @overload
 def perspective(fov: Number, aspect: Number, /) -> PerspectiveProjection:
-    """Overload accepting optional perspective projection values.
-
-    Args:
-        fov: The fov value. Expected type: `Number`.
-        aspect: The aspect value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `PerspectiveProjection`.
-    """
     ...
 
 
 @overload
 def perspective(fov: Number, aspect: Number, near: Number, /) -> PerspectiveProjection:
-    """Overload accepting optional perspective projection values.
-
-    Args:
-        fov: The fov value. Expected type: `Number`.
-        aspect: The aspect value. Expected type: `Number`.
-        near: The near value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `PerspectiveProjection`.
-    """
     ...
 
 
 @overload
 def perspective(fov: Number, aspect: Number, near: Number, far: Number, /) -> PerspectiveProjection:
-    """Overload accepting optional perspective projection values.
-
-    Args:
-        fov: The fov value. Expected type: `Number`.
-        aspect: The aspect value. Expected type: `Number`.
-        near: The near value. Expected type: `Number`.
-        far: The far value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `PerspectiveProjection`.
-    """
     ...
 
 
@@ -295,44 +185,16 @@ def perspective(*args: Any) -> PerspectiveProjection:
 
 @overload
 def ortho() -> OrthographicProjection:
-    """Overload accepting optional orthographic projection values.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `OrthographicProjection`.
-    """
     ...
 
 
 @overload
 def ortho(width: Number, height: Number, /) -> OrthographicProjection:
-    """Overload accepting optional orthographic projection values.
-
-    Args:
-        width: The width value. Expected type: `Number`.
-        height: The height value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `OrthographicProjection`.
-    """
     ...
 
 
 @overload
 def ortho(width: Number, height: Number, near: Number, far: Number, /) -> OrthographicProjection:
-    """Overload accepting optional orthographic projection values.
-
-    Args:
-        width: The width value. Expected type: `Number`.
-        height: The height value. Expected type: `Number`.
-        near: The near value. Expected type: `Number`.
-        far: The far value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `OrthographicProjection`.
-    """
     ...
 
 
@@ -374,41 +236,16 @@ def frustum(
 
 @overload
 def orbit_control() -> Camera3D:
-    """Overload accepting optional orbit-control sensitivities.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
 @overload
 def orbit_control(sensitivity_x: Number, /) -> Camera3D:
-    """Overload accepting optional orbit-control sensitivities.
-
-    Args:
-        sensitivity_x: The sensitivity x value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
 @overload
 def orbit_control(sensitivity_x: Number, sensitivity_y: Number, /) -> Camera3D:
-    """Overload accepting optional orbit-control sensitivities.
-
-    Args:
-        sensitivity_x: The sensitivity x value. Expected type: `Number`.
-        sensitivity_y: The sensitivity y value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
@@ -416,16 +253,6 @@ def orbit_control(sensitivity_x: Number, sensitivity_y: Number, /) -> Camera3D:
 def orbit_control(
     sensitivity_x: Number, sensitivity_y: Number, sensitivity_z: Number, /
 ) -> Camera3D:
-    """Overload accepting optional orbit-control sensitivities.
-
-    Args:
-        sensitivity_x: The sensitivity x value. Expected type: `Number`.
-        sensitivity_y: The sensitivity y value. Expected type: `Number`.
-        sensitivity_z: The sensitivity z value. Expected type: `Number`.
-
-    Returns:
-        The return value. Type: `Camera3D`.
-    """
     ...
 
 
@@ -443,72 +270,26 @@ def orbit_control(*args: Any) -> Camera3D:
 
 @overload
 def ambient_light(value: ColorValue, /) -> None:
-    """Overload accepting color-compatible ambient-light arguments.
-
-    Args:
-        value: The value value. Expected type: `ColorValue`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def ambient_light(gray: Number, /) -> None:
-    """Overload accepting color-compatible ambient-light arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def ambient_light(gray: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible ambient-light arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def ambient_light(v1: Number, v2: Number, v3: Number, /) -> None:
-    """Overload accepting color-compatible ambient-light arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def ambient_light(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible ambient-light arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
@@ -550,50 +331,16 @@ def no_lights() -> None:
 
 @overload
 def directional_light(value: ColorValue, x: Number, y: Number, z: Number, /) -> None:
-    """Overload accepting color-compatible directional-light arguments.
-
-    Args:
-        value: The value value. Expected type: `ColorValue`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def directional_light(gray: Number, x: Number, y: Number, z: Number, /) -> None:
-    """Overload accepting color-compatible directional-light arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def directional_light(gray: Number, alpha: Number, x: Number, y: Number, z: Number, /) -> None:
-    """Overload accepting color-compatible directional-light arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
@@ -601,19 +348,6 @@ def directional_light(gray: Number, alpha: Number, x: Number, y: Number, z: Numb
 def directional_light(
     v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
 ) -> None:
-    """Overload accepting color-compatible directional-light arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
@@ -628,20 +362,6 @@ def directional_light(
     z: Number,
     /,
 ) -> None:
-    """Overload accepting color-compatible directional-light arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
@@ -659,68 +379,21 @@ def directional_light(*args: Any) -> None:
 
 @overload
 def point_light(value: ColorValue, x: Number, y: Number, z: Number, /) -> None:
-    """Overload accepting color-compatible point-light arguments.
-
-    Args:
-        value: The value value. Expected type: `ColorValue`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def point_light(gray: Number, x: Number, y: Number, z: Number, /) -> None:
-    """Overload accepting color-compatible point-light arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def point_light(gray: Number, alpha: Number, x: Number, y: Number, z: Number, /) -> None:
-    """Overload accepting color-compatible point-light arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def point_light(v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /) -> None:
-    """Overload accepting color-compatible point-light arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
@@ -735,20 +408,6 @@ def point_light(
     z: Number,
     /,
 ) -> None:
-    """Overload accepting color-compatible point-light arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-        x: The x value. Expected type: `Number`.
-        y: The y value. Expected type: `Number`.
-        z: The z value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
@@ -841,72 +500,26 @@ def normal_material() -> None:
 
 @overload
 def ambient_material(value: ColorValue, /) -> None:
-    """Overload accepting color-compatible ambient material arguments.
-
-    Args:
-        value: The value value. Expected type: `ColorValue`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def ambient_material(gray: Number, /) -> None:
-    """Overload accepting color-compatible ambient material arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def ambient_material(gray: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible ambient material arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def ambient_material(v1: Number, v2: Number, v3: Number, /) -> None:
-    """Overload accepting color-compatible ambient material arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def ambient_material(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible ambient material arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
@@ -924,72 +537,26 @@ def ambient_material(*args: Any) -> None:
 
 @overload
 def specular_material(value: ColorValue, /) -> None:
-    """Overload accepting color-compatible specular material arguments.
-
-    Args:
-        value: The value value. Expected type: `ColorValue`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def specular_material(gray: Number, /) -> None:
-    """Overload accepting color-compatible specular material arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def specular_material(gray: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible specular material arguments.
-
-    Args:
-        gray: The gray value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def specular_material(v1: Number, v2: Number, v3: Number, /) -> None:
-    """Overload accepting color-compatible specular material arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
 @overload
 def specular_material(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-    """Overload accepting color-compatible specular material arguments.
-
-    Args:
-        v1: The v1 value. Expected type: `Number`.
-        v2: The v2 value. Expected type: `Number`.
-        v3: The v3 value. Expected type: `Number`.
-        alpha: The alpha value. Expected type: `Number`.
-
-    Returns:
-        None.
-    """
     ...
 
 
