@@ -346,14 +346,24 @@ class _PhysicalPayloadBuilder:
         self._register_query(relation.origin)
         self._register_query(relation.item)
         relation_id = relation.name or f"spatial_relation:{id(relation)}"
+        origin_position = self._serialize_spatial_point(relation.origin_position)
+        target_position = self._serialize_spatial_point(relation.target_position)
+        target_bounds = (
+            self._serialize_spatial_bounds(relation.target_bounds)
+            if relation.target_bounds is not None
+            else None
+        )
+        algorithm = self._serialize_spatial_algorithm(relation)
         node: dict[str, Any] = {
             "id": relation_id,
-            "index_id": relation_id,
+            "index_id": self._spatial_relation_index_id(
+                relation, target_position, target_bounds, algorithm
+            ),
             "origin_query": relation.origin.name,
             "item_query": relation.item.name,
-            "origin_position": self._serialize_spatial_point(relation.origin_position),
-            "target_position": self._serialize_spatial_point(relation.target_position),
-            "algorithm": self._serialize_spatial_algorithm(relation),
+            "origin_position": origin_position,
+            "target_position": target_position,
+            "algorithm": algorithm,
             "include_self": bool(relation.include_self),
             "pair_policy": relation.pair_policy,
         }
@@ -361,11 +371,26 @@ class _PhysicalPayloadBuilder:
             node["radius"] = self._serialize_expr(relation.radius)
         if relation.origin_bounds is not None:
             node["origin_bounds"] = self._serialize_spatial_bounds(relation.origin_bounds)
-        if relation.target_bounds is not None:
-            node["target_bounds"] = self._serialize_spatial_bounds(relation.target_bounds)
+        if target_bounds is not None:
+            node["target_bounds"] = target_bounds
         if relation.exact_filter is not None:
             node["exact_filter"] = self._serialize_expr(relation.exact_filter)
         return node
+
+    def _spatial_relation_index_id(
+        self,
+        relation: Any,
+        target_position: list[int],
+        target_bounds: dict[str, list[int]] | None,
+        algorithm: dict[str, Any],
+    ) -> str:
+        return (
+            "spatial_index:"
+            f"item={relation.item.name};"
+            f"target_position={target_position!r};"
+            f"target_bounds={target_bounds!r};"
+            f"algorithm={algorithm!r}"
+        )
 
     def _serialize_spatial_point(self, point: Any) -> list[int]:
         return [self._serialize_expr(expr) for expr in point.expressions]

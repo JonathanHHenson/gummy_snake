@@ -203,6 +203,20 @@ impl Column {
         }
     }
 
+    pub fn f64_slice(&self) -> Option<&[f64]> {
+        match self {
+            Self::F64(values) => Some(values.as_slice()),
+            _ => None,
+        }
+    }
+
+    pub fn f64_slice_mut(&mut self) -> Option<&mut [f64]> {
+        match self {
+            Self::F64(values) => Some(values.as_mut_slice()),
+            _ => None,
+        }
+    }
+
     pub fn set_f64(&mut self, row: usize, value: f64) -> Result<()> {
         if row >= self.len() {
             return Err(EcsError::RowOutOfBounds);
@@ -219,7 +233,7 @@ impl Column {
         Ok(())
     }
 
-    pub fn set_f64_rows(&mut self, rows: &[(usize, f64)]) -> Result<()> {
+    pub fn set_f64_rows(&mut self, rows: &[(usize, f64)]) -> Result<usize> {
         match self {
             Self::F64(values) => {
                 let len = values.len();
@@ -228,10 +242,14 @@ impl Column {
                         return Err(EcsError::RowOutOfBounds);
                     }
                 }
+                let mut written = 0usize;
                 for (row, value) in rows {
-                    values[*row] = *value;
+                    if values[*row] != *value {
+                        values[*row] = *value;
+                        written += 1;
+                    }
                 }
-                Ok(())
+                Ok(written)
             }
             column => Err(EcsError::ColumnTypeMismatch {
                 expected: column.family_name(),

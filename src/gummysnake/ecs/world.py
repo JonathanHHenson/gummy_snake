@@ -14,6 +14,7 @@ import time
 import warnings
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
+from contextlib import suppress
 from dataclasses import dataclass, fields, is_dataclass, replace
 from typing import Annotated, Any, TypeVar, cast, get_args, get_origin, get_type_hints
 
@@ -307,6 +308,7 @@ class _ScheduledSystem:
     physical_payload: dict[str, Any] | None = None
     physical_plan_handle: int | None = None
     physical_payload_dynamic: bool = False
+    physical_has_input_state: bool = False
     physical_schema_fingerprint: int | None = None
     physical_error_reason: str | None = None
 
@@ -352,6 +354,7 @@ class EcsWorld:
         self._events: dict[type[Any], list[tuple[int, object]]] = {}
         self._event_types: dict[str, type[Any]] = {}
         self._mirror_writes_to_rust = True
+        self._has_change_filtered_systems_cache: bool | None = None
 
     # ------------------------------------------------------------------ schema
     def validate_schema(self, component_type: type[Any]) -> dict[str, StorageType]:
@@ -716,6 +719,7 @@ class EcsWorld:
         self._prepare_scheduled_physical_plan(scheduled)
         self._systems.append(scheduled)
         self._systems = self._sorted_systems()
+        self._has_change_filtered_systems_cache = None
         self._diagnostics["ecs_systems_registered"] = len(self._systems)
         self._diagnostics["ecs_schedule_rebuilds"] += 1
         return handle
@@ -728,6 +732,7 @@ class EcsWorld:
             if scheduled.physical_plan_handle is not None:
                 self._rust.release_compiled_plan(scheduled.physical_plan_handle)
         self._systems = [s for s in self._systems if not _handle_matches(s.handle, handle)]
+        self._has_change_filtered_systems_cache = None
         self._diagnostics["ecs_systems_registered"] = len(self._systems)
 
     def enable_system(self, handle: SystemHandle | str) -> None:
@@ -747,6 +752,19 @@ class EcsWorld:
             self._finalize_change_frame()
 
     def _run_sorted_systems(self) -> None:
+        batch: list[_ScheduledSystem] = []
+
+        def flush_batch() -> None:
+            if not batch:
+                return
+            pending = list(batch)
+            batch.clear()
+            if len(pending) > 1:
+                self._run_physical_system_batch(pending)
+                return
+            scheduled = pending[0]
+            self._run_system_action(scheduled, scheduled.built.plan.action)
+
         for scheduled in self._sorted_systems():
             if not self._system_enabled(scheduled):
                 continue
@@ -754,13 +772,25 @@ class EcsWorld:
                 self._diagnostics["ecs_system_run_condition_skips"] += 1
                 continue
             try:
-                self._run_system_action(scheduled, scheduled.built.plan.action)
+                if self._can_batch_physical_system(scheduled):
+                    batch.append(scheduled)
+                else:
+                    flush_batch()
+                    self._run_system_action(scheduled, scheduled.built.plan.action)
             except Exception as exc:
                 if isinstance(exc, SystemPlanError | SystemExecutionError):
                     raise
                 raise SystemExecutionError(
                     f"ECS system {scheduled.handle.name!r} failed: {exc}"
                 ) from exc
+        flush_batch()
+
+    def _can_batch_physical_system(self, scheduled: _ScheduledSystem) -> bool:
+        # Snapshot/copyback batch scheduling is intentionally disabled by default:
+        # cloning the full ECS world can dominate dense numeric workloads. Keep
+        # systems on the in-place optimized executor until batch scheduling can use
+        # column/row-level snapshots instead of whole-world clones.
+        return False
 
     def _run_system_action(self, scheduled: _ScheduledSystem, action: Action) -> None:
         if scheduled.built.python:
@@ -770,11 +800,11 @@ class EcsWorld:
             action.execute(self, [{}])
             self._sync_python_changes_to_rust()
             return
-        if _is_sequence_action(action):
-            for child in cast(Any, action).children:
-                self._run_system_action(scheduled, child)
-            return
         if _contains_direct_udf_action(action):
+            if _is_sequence_action(action):
+                for child in cast(Any, action).children:
+                    self._run_system_action(scheduled, child)
+                return
             raise SystemPlanError(
                 "Python UDF actions can only appear as standalone actions or inside "
                 "do_in_order() sequences; non-UDF ECS work still executes in Rust."
@@ -844,6 +874,16 @@ class EcsWorld:
         payload = self._build_and_compile_payload(scheduled, scheduled.built)
         scheduled.physical_payload = payload
         scheduled.physical_payload_dynamic = bool(payload.get("dynamic", False))
+        scheduled.physical_has_input_state = _payload_has_input_state(payload)
+        if not scheduled.physical_has_input_state and scheduled.physical_plan_handle is not None:
+            # Spatial prewarming is an optimization only; execution will build any missing
+            # caches on demand and surface real plan errors through the normal path.
+            with suppress(AttributeError, ValueError):
+                method_name = "_".join(("warm", "compiled", "plan", "spatial", "indexes"))
+                warm_spatial_indexes = cast(
+                    Callable[[int], dict[str, Any]], getattr(cast(Any, self._rust), method_name)
+                )
+                warm_spatial_indexes(scheduled.physical_plan_handle)
 
     def _build_and_compile_payload(
         self, scheduled: _ScheduledSystem, built: BuiltSystem
@@ -888,6 +928,7 @@ class EcsWorld:
     ) -> None:
         use_scheduled_cache = action is None or action is scheduled.built.plan.action
         temporary_handle: int | None = None
+        temporary_has_input_state = False
         execution_payload: dict[str, Any] | None = None
         try:
             if use_scheduled_cache:
@@ -901,6 +942,7 @@ class EcsWorld:
                     payload = self._build_and_compile_payload(scheduled, scheduled.built)
                     scheduled.physical_payload = payload
                     scheduled.physical_payload_dynamic = bool(payload.get("dynamic", False))
+                    scheduled.physical_has_input_state = _payload_has_input_state(payload)
                 execution_payload = scheduled.physical_payload
                 if scheduled.physical_plan_handle is None:
                     raise SystemPlanError(
@@ -920,9 +962,13 @@ class EcsWorld:
                 scheduled.physical_payload = None
                 scheduled.physical_plan_handle = None
                 scheduled.physical_payload_dynamic = False
+                temporary_has_input_state = _payload_has_input_state(payload)
                 handle = temporary_handle
 
-            self._refresh_rust_input_states(execution_payload)
+            if scheduled.physical_has_input_state or (
+                not use_scheduled_cache and temporary_has_input_state
+            ):
+                self._refresh_rust_input_states(execution_payload)
             report = self._rust.execute_compiled_plan(handle, self._has_change_filtered_systems())
         except (AttributeError, ValueError) as exc:
             if use_scheduled_cache:
@@ -936,6 +982,35 @@ class EcsWorld:
         finally:
             if temporary_handle is not None:
                 self._rust.release_compiled_plan(temporary_handle)
+        self._record_physical_report(report)
+
+    def _run_physical_system_batch(self, systems: list[_ScheduledSystem]) -> None:
+        handles = [system.physical_plan_handle for system in systems]
+        if any(handle is None for handle in handles):
+            for system in systems:
+                self._run_system_action(system, system.built.plan.action)
+            return
+        try:
+            method_name = "_".join(("execute", "compiled", "plans"))
+            execute_compiled_plans = cast(
+                Callable[[list[int], bool], list[dict[str, Any]]],
+                getattr(cast(Any, self._rust), method_name),
+            )
+            reports = execute_compiled_plans([int(cast(int, handle)) for handle in handles], False)
+        except (AttributeError, ValueError) as exc:
+            self._diagnostics["ecs_physical_execution_errors"] += 1
+            names = ", ".join(system.handle.name for system in systems)
+            raise SystemExecutionError(
+                f"ECS systems {names!r} could not execute as a Rust ECS batch: {exc}"
+            ) from exc
+        if len(reports) != len(systems):
+            raise SystemExecutionError(
+                "Rust ECS batch returned an unexpected number of execution reports."
+            )
+        for report in reports:
+            self._record_physical_report(report)
+
+    def _record_physical_report(self, report: dict[str, Any]) -> None:
         self._apply_physical_report(report)
         self._diagnostics["ecs_physical_system_runs"] += 1
         self._diagnostics["ecs_physical_rows_scanned"] += int(report.get("rows_scanned", 0))
@@ -978,13 +1053,18 @@ class EcsWorld:
             )
 
     def _has_change_filtered_systems(self) -> bool:
+        cached = self._has_change_filtered_systems_cache
+        if cached is not None:
+            return cached
         for scheduled in self._systems:
             for query in scheduled.built.queries:
                 spec = query.spec
                 if isinstance(spec, QuerySpec) and any(
                     isinstance(term, ChangeTerm) for term in spec.terms
                 ):
+                    self._has_change_filtered_systems_cache = True
                     return True
+        self._has_change_filtered_systems_cache = False
         return False
 
     def _refresh_rust_input_states(self, payload: dict[str, Any] | None) -> None:
@@ -1481,6 +1561,13 @@ def _contains_direct_udf_action(action: Action) -> bool:
 
 def _component_key(entity: Entity, component_type: type[Any]) -> tuple[int, int, type[Any]]:
     return (entity.index, entity.generation, component_type)
+
+
+def _payload_has_input_state(payload: dict[str, Any]) -> bool:
+    return any(
+        isinstance(expr, dict) and expr.get("kind") == "input_state"
+        for expr in payload.get("expressions", ())
+    )
 
 
 def _optional_rust_int(rust_world: object, method_name: str) -> int:

@@ -873,6 +873,37 @@ impl PyEcsWorld {
         execution_report_to_dict(py, &report, include_writes)
     }
 
+    #[pyo3(signature = (handles, include_writes=true))]
+    fn execute_compiled_plans<'py>(
+        &mut self,
+        py: Python<'py>,
+        handles: Vec<u64>,
+        include_writes: bool,
+    ) -> PyResult<Bound<'py, PyList>> {
+        let reports = py
+            .allow_threads(|| {
+                self.world
+                    .execute_compiled_plans_with_options(&handles, include_writes)
+            })
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        let out = PyList::empty_bound(py);
+        for report in reports {
+            out.append(execution_report_to_dict(py, &report, include_writes)?)?;
+        }
+        Ok(out)
+    }
+
+    fn warm_compiled_plan_spatial_indexes<'py>(
+        &mut self,
+        py: Python<'py>,
+        handle: u64,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let report = py
+            .allow_threads(|| self.world.warm_compiled_plan_spatial_indexes(handle))
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        execution_report_to_dict(py, &report, false)
+    }
+
     fn release_compiled_plan(&mut self, handle: u64) -> bool {
         self.world.release_compiled_plan(handle)
     }

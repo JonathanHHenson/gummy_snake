@@ -1,4 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -104,6 +106,9 @@ enum ExprCacheKey {
 }
 
 const DIRECT_POINT_HASH_GRID_MAX_QUERY_CELLS: u64 = 1_000_000;
+const DIRECT_POINT_HASH_GRID_DENSE_MAX_CELLS: usize = 262_144;
+const DIRECT_POINT_HASH_GRID_DENSE_RECORD_MULTIPLIER: usize = 2;
+const DIRECT_POINT_HASH_GRID_DENSE_CELL_PADDING: i64 = 16;
 
 #[derive(Debug, Clone)]
 pub(crate) enum BuiltSpatialIndex {
@@ -125,7 +130,292 @@ pub(crate) struct DirectPointHashGrid {
     dimensions: Dimensions,
     cell_size: f64,
     buckets: HashMap<[i64; 3], Vec<usize>>,
+    dense_buckets: Option<DirectPointDenseBuckets>,
+    regular_grid: Option<DirectPointRegularGrid>,
     records: Vec<DirectPointRecord>,
+}
+
+#[derive(Debug, Clone)]
+struct DirectPointRegularGrid {
+    x0: f64,
+    y0: f64,
+    dx: f64,
+    dy: f64,
+    width: usize,
+    height: usize,
+    cells: Vec<Option<usize>>,
+}
+
+#[derive(Debug, Clone)]
+struct DirectPointDenseBuckets {
+    min_cell: [i64; 3],
+    spans: [usize; 3],
+    buckets: Vec<Vec<usize>>,
+}
+
+impl DirectPointRegularGrid {
+    fn new(records: &[DirectPointRecord]) -> Option<Self> {
+        if records.len() < 8 {
+            return None;
+        }
+        if records
+            .iter()
+            .any(|record| record.point.dimensions() != Dimensions::D2)
+        {
+            return None;
+        }
+        if records.len() >= 256 {
+            let sample_len = records.len().min(512);
+            let sample = &records[..sample_len];
+            let sample_xs = sorted_unique_axis(sample, 0);
+            let sample_ys = sorted_unique_axis(sample, 1);
+            if sample_xs.len().saturating_mul(sample_ys.len())
+                > sample_len.saturating_mul(DIRECT_POINT_HASH_GRID_DENSE_RECORD_MULTIPLIER)
+            {
+                return None;
+            }
+        }
+        let xs = sorted_unique_axis(records, 0);
+        let ys = sorted_unique_axis(records, 1);
+        let dx = regular_axis_spacing(&xs)?;
+        let dy = regular_axis_spacing(&ys)?;
+        let width = xs.len();
+        let height = ys.len();
+        let total = width.checked_mul(height)?;
+        let dense_budget = records
+            .len()
+            .saturating_mul(DIRECT_POINT_HASH_GRID_DENSE_RECORD_MULTIPLIER)
+            .max(4096);
+        if total > DIRECT_POINT_HASH_GRID_DENSE_MAX_CELLS || total > dense_budget {
+            return None;
+        }
+        let x0 = xs[0];
+        let y0 = ys[0];
+        let x_tolerance = regular_grid_tolerance(dx);
+        let y_tolerance = regular_grid_tolerance(dy);
+        let mut cells = vec![None; total];
+        for (record_index, record) in records.iter().enumerate() {
+            let ix = regular_grid_axis_index(record.point.coord(0), x0, dx, width, x_tolerance)?;
+            let iy = regular_grid_axis_index(record.point.coord(1), y0, dy, height, y_tolerance)?;
+            let cell_index = iy.checked_mul(width)?.checked_add(ix)?;
+            if cells[cell_index].replace(record_index).is_some() {
+                return None;
+            }
+        }
+        Some(Self {
+            x0,
+            y0,
+            dx,
+            dy,
+            width,
+            height,
+            cells,
+        })
+    }
+
+    fn visit_radius<F>(
+        &self,
+        records: &[DirectPointRecord],
+        origin_x: f64,
+        origin_y: f64,
+        radius: f64,
+        radius_sq: f64,
+        visit: &mut F,
+    ) -> Result<()>
+    where
+        F: FnMut(usize, &DirectPointRecord, f64) -> Result<()>,
+    {
+        let min_x = regular_grid_query_min(origin_x - radius, self.x0, self.dx);
+        let max_x = regular_grid_query_max(origin_x + radius, self.x0, self.dx);
+        let min_y = regular_grid_query_min(origin_y - radius, self.y0, self.dy);
+        let max_y = regular_grid_query_max(origin_y + radius, self.y0, self.dy);
+        let min_x = min_x.clamp(0, self.width.saturating_sub(1) as i64) as usize;
+        let max_x = max_x.clamp(0, self.width.saturating_sub(1) as i64) as usize;
+        let min_y = min_y.clamp(0, self.height.saturating_sub(1) as i64) as usize;
+        let max_y = max_y.clamp(0, self.height.saturating_sub(1) as i64) as usize;
+        if min_x > max_x || min_y > max_y {
+            return Ok(());
+        }
+        for iy in min_y..=max_y {
+            let row = iy * self.width;
+            for ix in min_x..=max_x {
+                let Some(record_index) = self.cells[row + ix] else {
+                    continue;
+                };
+                let record = &records[record_index];
+                let dx = record.point.coord(0) - origin_x;
+                let dy = record.point.coord(1) - origin_y;
+                let distance_sq = dx * dx + dy * dy;
+                if distance_sq <= radius_sq {
+                    visit(record_index, record, distance_sq)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+fn sorted_unique_axis(records: &[DirectPointRecord], axis: usize) -> Vec<f64> {
+    let mut values = records
+        .iter()
+        .map(|record| record.point.coord(axis))
+        .collect::<Vec<_>>();
+    values.sort_by(f64::total_cmp);
+    values.dedup_by(|left, right| *left == *right);
+    values
+}
+
+fn regular_axis_spacing(values: &[f64]) -> Option<f64> {
+    match values {
+        [] => None,
+        [_] => Some(1.0),
+        [first, second, rest @ ..] => {
+            let spacing = second - first;
+            if !spacing.is_finite() || spacing <= 0.0 {
+                return None;
+            }
+            let tolerance = regular_grid_tolerance(spacing);
+            let mut previous = *second;
+            for value in rest {
+                let delta = *value - previous;
+                if (delta - spacing).abs() > tolerance {
+                    return None;
+                }
+                previous = *value;
+            }
+            Some(spacing)
+        }
+    }
+}
+
+fn regular_grid_tolerance(spacing: f64) -> f64 {
+    spacing.abs().max(1.0) * 1.0e-9
+}
+
+fn regular_grid_axis_index(
+    value: f64,
+    origin: f64,
+    spacing: f64,
+    len: usize,
+    tolerance: f64,
+) -> Option<usize> {
+    let index = ((value - origin) / spacing).round();
+    if index < 0.0 || index > len.saturating_sub(1) as f64 {
+        return None;
+    }
+    let expected = origin + index * spacing;
+    if (expected - value).abs() > tolerance {
+        return None;
+    }
+    Some(index as usize)
+}
+
+fn regular_grid_query_min(value: f64, origin: f64, spacing: f64) -> i64 {
+    ((value - origin) / spacing - 1.0e-9).ceil() as i64
+}
+
+fn regular_grid_query_max(value: f64, origin: f64, spacing: f64) -> i64 {
+    ((value - origin) / spacing + 1.0e-9).floor() as i64
+}
+
+impl DirectPointDenseBuckets {
+    fn new(dimensions: Dimensions, cells: &[[i64; 3]]) -> Option<Self> {
+        if cells.is_empty() {
+            return None;
+        }
+        let axis_count = dimensions.len();
+        let mut min_cell = [i64::MAX; 3];
+        let mut max_cell = [i64::MIN; 3];
+        for cell in cells {
+            for axis in 0..axis_count {
+                min_cell[axis] = min_cell[axis].min(cell[axis]);
+                max_cell[axis] = max_cell[axis].max(cell[axis]);
+            }
+        }
+        for axis in 0..axis_count {
+            min_cell[axis] =
+                min_cell[axis].saturating_sub(DIRECT_POINT_HASH_GRID_DENSE_CELL_PADDING);
+            max_cell[axis] =
+                max_cell[axis].saturating_add(DIRECT_POINT_HASH_GRID_DENSE_CELL_PADDING);
+        }
+        for axis in axis_count..3 {
+            min_cell[axis] = 0;
+            max_cell[axis] = 0;
+        }
+        let mut spans = [1_usize; 3];
+        let mut total = 1_usize;
+        for axis in 0..axis_count {
+            let span = max_cell[axis]
+                .checked_sub(min_cell[axis])
+                .and_then(|value| value.checked_add(1))?;
+            let span = usize::try_from(span).ok()?;
+            spans[axis] = span;
+            total = total.checked_mul(span)?;
+        }
+        let dense_budget = cells
+            .len()
+            .saturating_mul(DIRECT_POINT_HASH_GRID_DENSE_RECORD_MULTIPLIER)
+            .max(4096);
+        if total > DIRECT_POINT_HASH_GRID_DENSE_MAX_CELLS || total > dense_budget {
+            return None;
+        }
+        Some(Self {
+            min_cell,
+            spans,
+            buckets: vec![Vec::new(); total],
+        })
+    }
+
+    fn push(&mut self, cell: [i64; 3], record_index: usize) {
+        if let Some(index) = self.bucket_index(cell) {
+            self.buckets[index].push(record_index);
+        }
+    }
+
+    fn try_push(&mut self, cell: [i64; 3], record_index: usize) -> bool {
+        let Some(index) = self.bucket_index(cell) else {
+            return false;
+        };
+        self.buckets[index].push(record_index);
+        true
+    }
+
+    fn remove(&mut self, cell: [i64; 3], record_index: usize) -> bool {
+        let Some(index) = self.bucket_index(cell) else {
+            return false;
+        };
+        let Some(bucket) = self.buckets.get_mut(index) else {
+            return false;
+        };
+        let Some(position) = bucket
+            .iter()
+            .position(|candidate| *candidate == record_index)
+        else {
+            return false;
+        };
+        bucket.swap_remove(position);
+        true
+    }
+
+    fn bucket(&self, cell: [i64; 3]) -> Option<&[usize]> {
+        self.bucket_index(cell)
+            .and_then(|index| self.buckets.get(index).map(Vec::as_slice))
+    }
+
+    fn bucket_index(&self, cell: [i64; 3]) -> Option<usize> {
+        let mut index = 0_usize;
+        let mut stride = 1_usize;
+        for axis in 0..3 {
+            let relative = cell[axis].checked_sub(self.min_cell[axis])?;
+            let relative = usize::try_from(relative).ok()?;
+            if relative >= self.spans[axis] {
+                return None;
+            }
+            index = index.checked_add(relative.checked_mul(stride)?)?;
+            stride = stride.checked_mul(self.spans[axis])?;
+        }
+        Some(index)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -178,10 +468,20 @@ struct SpatialBatchSpec {
     value: SpatialBatchValue,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FastAggregateKind {
+    Any,
+    Count,
+    Sum,
+    Mean,
+    Min,
+    Max,
+}
+
 #[derive(Debug, Clone)]
 struct FastSpatialBatchSpec {
     expr_index: usize,
-    kind: String,
+    kind: FastAggregateKind,
     value: FastSpatialBatchValue,
 }
 
@@ -211,9 +511,45 @@ struct SpatialLocalCounters {
 
 #[derive(Debug)]
 struct SpatialChunkResult {
+    row_start: usize,
     origins: Vec<Entity>,
-    values: Vec<Option<f64>>,
+    values: Vec<f64>,
+    present: Option<Vec<bool>>,
     counters: SpatialLocalCounters,
+}
+
+#[derive(Debug)]
+enum SpatialF64RowArray {
+    Dense(Vec<f64>),
+    Optional(Vec<Option<f64>>),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SpatialPrecomputeLayout {
+    SparseEntity,
+    QueryRows,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct F64WriteTarget {
+    query: String,
+    component: String,
+    field: String,
+}
+
+#[derive(Clone, Debug, Default)]
+struct QueryAccessSummary {
+    component_reads: HashMap<String, Vec<String>>,
+    component_writes: HashMap<String, Vec<String>>,
+    resource_reads: HashSet<String>,
+    resource_writes: HashSet<String>,
+    event_reads: HashSet<String>,
+    event_writes: HashSet<String>,
+    hidden_reads: HashSet<String>,
+    hidden_writes: HashSet<String>,
+    structural: bool,
+    f64_write_targets: Vec<F64WriteTarget>,
+    copyback_eligible: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -222,6 +558,28 @@ struct DirectF64SetSpec {
     component: String,
     field: String,
     value_expr: usize,
+}
+
+#[derive(Debug, Clone)]
+struct RowLocalTarget {
+    component: String,
+    field: String,
+}
+
+#[derive(Debug, Clone)]
+enum RowLocalAction {
+    Noop,
+    SetField {
+        field_slot: usize,
+        target_slot: usize,
+        value_expr: usize,
+    },
+    Sequence(Vec<RowLocalAction>),
+    When {
+        condition_expr: usize,
+        then_action: Box<RowLocalAction>,
+        otherwise_action: Option<Box<RowLocalAction>>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -286,8 +644,23 @@ enum CompiledF64Expr {
 struct CompiledF64ReadOnlyProgram<'a> {
     expressions: Vec<CompiledF64Expr>,
     aliases: Vec<usize>,
-    field_arrays: Vec<&'a [Option<(u32, f64)>]>,
-    spatial_arrays: Vec<&'a [Option<(u32, f64)>]>,
+    initial_values: Vec<(usize, f64)>,
+    field_arrays: Vec<CompiledF64Array<'a>>,
+    field_slot_by_key: HashMap<(String, String), usize>,
+    spatial_arrays: Vec<CompiledSpatialF64Array<'a>>,
+}
+
+#[derive(Clone, Copy)]
+enum CompiledF64Array<'a> {
+    SparseEntity(&'a [Option<(u32, f64)>]),
+    QueryRows(&'a [f64]),
+}
+
+#[derive(Clone, Copy)]
+enum CompiledSpatialF64Array<'a> {
+    SparseEntity(&'a [Option<(u32, f64)>]),
+    QueryRows(&'a [f64]),
+    QueryRowsOptional(&'a [Option<f64>]),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -402,23 +775,43 @@ impl DirectPointHashGrid {
             dimensions,
             cell_size,
             buckets: HashMap::new(),
+            dense_buckets: None,
+            regular_grid: None,
             records: Vec::new(),
         })
     }
 
     fn build_sorted_points(&mut self, records: Vec<DirectPointRecord>) -> Result<()> {
         self.buckets.clear();
-        self.records = records;
-        for (index, record) in self.records.iter().enumerate() {
+        self.dense_buckets = None;
+        self.regular_grid = None;
+        let mut cells = Vec::with_capacity(records.len());
+        for record in &records {
             if record.point.dimensions() != self.dimensions {
                 return Err(EcsError::InvalidSpatialInput(
                     "hash grid record dimensions do not match index dimensions".to_string(),
                 ));
             }
-            let cell = self.cell(&record.point)?;
+            cells.push(self.cell(&record.point)?);
+        }
+        self.records = records;
+        self.regular_grid = DirectPointRegularGrid::new(&self.records);
+        if let Some(mut dense) = DirectPointDenseBuckets::new(self.dimensions, &cells) {
+            for (index, cell) in cells.iter().enumerate() {
+                dense.push(*cell, index);
+            }
+            self.dense_buckets = Some(dense);
+            return Ok(());
+        }
+        self.build_sparse_buckets(cells);
+        Ok(())
+    }
+
+    fn build_sparse_buckets(&mut self, cells: Vec<[i64; 3]>) {
+        self.buckets.clear();
+        for (index, cell) in cells.into_iter().enumerate() {
             self.buckets.entry(cell).or_default().push(index);
         }
-        Ok(())
     }
 
     fn build_from_spatial_records(&mut self, records: &[SpatialRecord]) -> Result<()> {
@@ -436,6 +829,48 @@ impl DirectPointHashGrid {
             .collect::<Vec<_>>();
         direct.sort_by_key(|record| record.entity.raw());
         self.build_sorted_points(direct)
+    }
+
+    fn update_sorted_points(&mut self, records: &[DirectPointRecord]) -> Result<bool> {
+        if records.len() != self.records.len() || self.regular_grid.is_some() {
+            self.build_sorted_points(records.to_vec())?;
+            return Ok(false);
+        }
+        for (index, next) in records.iter().enumerate() {
+            if self.records[index].entity != next.entity {
+                self.build_sorted_points(records.to_vec())?;
+                return Ok(false);
+            }
+            if next.point.dimensions() != self.dimensions {
+                return Err(EcsError::InvalidSpatialInput(
+                    "hash grid record dimensions do not match index dimensions".to_string(),
+                ));
+            }
+            let old_cell = self.cell(&self.records[index].point)?;
+            let new_cell = self.cell(&next.point)?;
+            if old_cell != new_cell {
+                if let Some(dense) = &mut self.dense_buckets {
+                    if !dense.remove(old_cell, index) || !dense.try_push(new_cell, index) {
+                        self.build_sorted_points(records.to_vec())?;
+                        return Ok(false);
+                    }
+                } else {
+                    if let Some(bucket) = self.buckets.get_mut(&old_cell) {
+                        if let Some(position) =
+                            bucket.iter().position(|candidate| *candidate == index)
+                        {
+                            bucket.swap_remove(position);
+                        }
+                        if bucket.is_empty() {
+                            self.buckets.remove(&old_cell);
+                        }
+                    }
+                    self.buckets.entry(new_cell).or_default().push(index);
+                }
+            }
+            self.records[index] = next.clone();
+        }
+        Ok(true)
     }
 
     fn cell(&self, point: &SpatialPoint) -> Result<[i64; 3]> {
@@ -470,6 +905,20 @@ impl DirectPointHashGrid {
     where
         F: FnMut(&DirectPointRecord, f64) -> Result<()>,
     {
+        self.visit_radius_unordered_indexed(origin, radius, |_, record, distance_sq| {
+            visit(record, distance_sq)
+        })
+    }
+
+    fn visit_radius_unordered_indexed<F>(
+        &self,
+        origin: &SpatialPoint,
+        radius: f64,
+        mut visit: F,
+    ) -> Result<()>
+    where
+        F: FnMut(usize, &DirectPointRecord, f64) -> Result<()>,
+    {
         if origin.dimensions() != self.dimensions {
             return Err(EcsError::InvalidSpatialInput(
                 "query point dimensions do not match index dimensions".to_string(),
@@ -480,59 +929,119 @@ impl DirectPointHashGrid {
                 "query radius must be finite and non-negative".to_string(),
             ));
         }
+        let origin_x = origin.coord(0);
+        let origin_y = origin.coord(1);
+        let origin_z = if self.dimensions == Dimensions::D3 {
+            origin.coord(2)
+        } else {
+            0.0
+        };
+        let radius_sq = radius * radius;
+        if self.dimensions == Dimensions::D2 {
+            if let Some(regular_grid) = &self.regular_grid {
+                return regular_grid.visit_radius(
+                    &self.records,
+                    origin_x,
+                    origin_y,
+                    radius,
+                    radius_sq,
+                    &mut visit,
+                );
+            }
+        }
         let min_cell = self.cell_from_coords([
-            origin.coord(0) - radius,
-            origin.coord(1) - radius,
+            origin_x - radius,
+            origin_y - radius,
             if self.dimensions == Dimensions::D3 {
-                origin.coord(2) - radius
+                origin_z - radius
             } else {
                 0.0
             },
         ])?;
         let max_cell = self.cell_from_coords([
-            origin.coord(0) + radius,
-            origin.coord(1) + radius,
+            origin_x + radius,
+            origin_y + radius,
             if self.dimensions == Dimensions::D3 {
-                origin.coord(2) + radius
+                origin_z + radius
             } else {
                 0.0
             },
         ])?;
         validate_direct_point_cell_span(self.dimensions, min_cell, max_cell)?;
-        let radius_sq = radius * radius;
         for x in min_cell[0]..=max_cell[0] {
             for y in min_cell[1]..=max_cell[1] {
                 if self.dimensions == Dimensions::D2 {
-                    if let Some(bucket) = self.buckets.get(&[x, y, 0]) {
-                        for index in bucket {
-                            let record = &self.records[*index];
-                            let distance_sq = direct_distance_squared(
-                                origin,
-                                &record.point,
-                                self.dimensions.len(),
-                            );
-                            if distance_sq <= radius_sq {
-                                visit(record, distance_sq)?;
-                            }
-                        }
+                    let cell = [x, y, 0];
+                    if let Some(bucket) = self.direct_bucket(cell) {
+                        self.visit_radius_bucket_2d(
+                            bucket, origin_x, origin_y, radius_sq, &mut visit,
+                        )?;
                     }
                 } else {
                     for z in min_cell[2]..=max_cell[2] {
-                        if let Some(bucket) = self.buckets.get(&[x, y, z]) {
-                            for index in bucket {
-                                let record = &self.records[*index];
-                                let distance_sq = direct_distance_squared(
-                                    origin,
-                                    &record.point,
-                                    self.dimensions.len(),
-                                );
-                                if distance_sq <= radius_sq {
-                                    visit(record, distance_sq)?;
-                                }
-                            }
+                        let cell = [x, y, z];
+                        if let Some(bucket) = self.direct_bucket(cell) {
+                            self.visit_radius_bucket_3d(
+                                bucket, origin_x, origin_y, origin_z, radius_sq, &mut visit,
+                            )?;
                         }
                     }
                 }
+            }
+        }
+        Ok(())
+    }
+
+    fn direct_bucket(&self, cell: [i64; 3]) -> Option<&[usize]> {
+        if let Some(dense) = &self.dense_buckets {
+            return dense.bucket(cell);
+        }
+        self.buckets.get(&cell).map(Vec::as_slice)
+    }
+
+    fn visit_radius_bucket_2d<F>(
+        &self,
+        bucket: &[usize],
+        origin_x: f64,
+        origin_y: f64,
+        radius_sq: f64,
+        visit: &mut F,
+    ) -> Result<()>
+    where
+        F: FnMut(usize, &DirectPointRecord, f64) -> Result<()>,
+    {
+        for record_index in bucket {
+            let record = &self.records[*record_index];
+            let dx = record.point.coord(0) - origin_x;
+            let dy = record.point.coord(1) - origin_y;
+            let distance_sq = dx * dx + dy * dy;
+            if distance_sq <= radius_sq {
+                visit(*record_index, record, distance_sq)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn visit_radius_bucket_3d<F>(
+        &self,
+        bucket: &[usize],
+        origin_x: f64,
+        origin_y: f64,
+        origin_z: f64,
+        radius_sq: f64,
+        visit: &mut F,
+    ) -> Result<()>
+    where
+        F: FnMut(usize, &DirectPointRecord, f64) -> Result<()>,
+    {
+        for record_index in bucket {
+            let record = &self.records[*record_index];
+            let dx = record.point.coord(0) - origin_x;
+            let dy = record.point.coord(1) - origin_y;
+            let dz = record.point.coord(2) - origin_z;
+            let distance_sq = dx * dx + dy * dy + dz * dz;
+            if distance_sq <= radius_sq {
+                visit(*record_index, record, distance_sq)?;
             }
         }
         Ok(())
@@ -568,12 +1077,12 @@ impl DirectPointHashGrid {
         for x in min_cell[0]..=max_cell[0] {
             for y in min_cell[1]..=max_cell[1] {
                 if self.dimensions == Dimensions::D2 {
-                    if let Some(bucket) = self.buckets.get(&[x, y, 0]) {
+                    if let Some(bucket) = self.direct_bucket([x, y, 0]) {
                         self.push_aabb_matches(bucket, bounds, out);
                     }
                 } else {
                     for z in min_cell[2]..=max_cell[2] {
-                        if let Some(bucket) = self.buckets.get(&[x, y, z]) {
+                        if let Some(bucket) = self.direct_bucket([x, y, z]) {
                             self.push_aabb_matches(bucket, bounds, out);
                         }
                     }
@@ -682,6 +1191,8 @@ impl BuiltSpatialIndex {
         match self {
             Self::HashGrid(index) => index.query_radius_unordered(origin, radius, out),
             Self::DirectPointHashGrid(index) => index.query_radius_unordered(origin, radius, out),
+            Self::Quadtree(index) => index.query_radius_unordered(origin, radius, out),
+            Self::Octree(index) => index.query_radius_unordered(origin, radius, out),
             _ => self.query_radius(origin, radius, out),
         }
     }
@@ -702,6 +1213,7 @@ struct PlanExecutor<'a> {
     plan: &'a PhysicalPlan,
     query_rows: HashMap<String, Vec<Entity>>,
     query_indices: HashMap<String, usize>,
+    query_location_cache: HashMap<String, Vec<(usize, usize)>>,
     report: ExecutionReport,
     report_writes: bool,
     spatial_indexes: HashMap<String, BuiltSpatialIndex>,
@@ -713,9 +1225,11 @@ struct PlanExecutor<'a> {
     local_expr_bindings: Option<HashMap<String, Entity>>,
     numeric_field_cache_enabled: bool,
     numeric_field_cache: HashMap<String, HashMap<String, Vec<Option<(u32, f64)>>>>,
+    numeric_field_cache_rows: HashMap<String, HashMap<String, Vec<f64>>>,
     spatial_batch_spec_cache:
         HashMap<(String, Option<usize>, Option<usize>), Vec<SpatialBatchSpec>>,
     spatial_precomputed_f64: HashMap<usize, Vec<Option<(u32, f64)>>>,
+    spatial_precomputed_f64_rows: HashMap<usize, SpatialF64RowArray>,
     profile: bool,
     profile_eval_calls: usize,
     profile_expr_cache_hits: usize,
@@ -744,6 +1258,119 @@ impl World {
         handle: PhysicalPlanHandle,
         include_writes: bool,
     ) -> Result<ExecutionReport> {
+        let plan = self.validated_compiled_plan(handle)?;
+        self.execute_plan_with_options(plan.as_ref(), include_writes)
+    }
+
+    pub fn execute_compiled_plans_with_options(
+        &mut self,
+        handles: &[PhysicalPlanHandle],
+        include_writes: bool,
+    ) -> Result<Vec<ExecutionReport>> {
+        if handles.is_empty() {
+            return Ok(Vec::new());
+        }
+        if include_writes || handles.len() == 1 {
+            return handles
+                .iter()
+                .map(|handle| self.execute_compiled_plan_with_options(*handle, include_writes))
+                .collect();
+        }
+        let plans = handles
+            .iter()
+            .map(|handle| self.validated_compiled_plan(*handle))
+            .collect::<Result<Vec<_>>>()?;
+        let access = plans
+            .iter()
+            .map(|plan| self.query_access_summary(plan.as_ref()))
+            .collect::<Result<Vec<_>>>()?;
+        let mut query_sets: HashMap<(usize, String), HashSet<u64>> = HashMap::new();
+        for (plan_index, plan) in plans.iter().enumerate() {
+            for query in &plan.queries {
+                let rows = query_rows_for_world(self, plan.as_ref(), &query.name)?;
+                query_sets.insert(
+                    (plan_index, query.name.clone()),
+                    rows.into_iter().map(|entity| entity.raw()).collect(),
+                );
+            }
+        }
+
+        let mut waves: Vec<Vec<usize>> = Vec::new();
+        let mut current = Vec::new();
+        for plan_index in 0..plans.len() {
+            if !access[plan_index].copyback_eligible {
+                if !current.is_empty() {
+                    waves.push(std::mem::take(&mut current));
+                }
+                waves.push(vec![plan_index]);
+                continue;
+            }
+            let conflicts = current.iter().any(|other| {
+                query_access_conflicts(
+                    &access[*other],
+                    *other,
+                    &access[plan_index],
+                    plan_index,
+                    &query_sets,
+                )
+            });
+            if conflicts {
+                if !current.is_empty() {
+                    waves.push(std::mem::take(&mut current));
+                }
+            }
+            current.push(plan_index);
+        }
+        if !current.is_empty() {
+            waves.push(current);
+        }
+
+        let mut reports_by_index: Vec<Option<ExecutionReport>> = vec![None; plans.len()];
+        for wave in waves {
+            if wave.len() == 1 {
+                let plan_index = wave[0];
+                let report = self.execute_plan_with_options(plans[plan_index].as_ref(), false)?;
+                reports_by_index[plan_index] = Some(report);
+                continue;
+            }
+            let snapshot = self.clone();
+            let wave_results = install_on_ecs_worker_pool(|| {
+                wave.par_iter()
+                    .map(|plan_index| {
+                        let mut child = snapshot.clone();
+                        let report = child
+                            .execute_plan_with_options_inner(plans[*plan_index].as_ref(), false)?;
+                        Ok((*plan_index, child, report))
+                    })
+                    .collect::<Result<Vec<_>>>()
+            })?;
+            let mut wave_results = wave_results;
+            wave_results.sort_by_key(|(plan_index, _, _)| *plan_index);
+            for (plan_index, child, report) in wave_results {
+                self.copy_f64_write_targets_from(
+                    &child,
+                    plans[plan_index].as_ref(),
+                    &access[plan_index],
+                )?;
+                reports_by_index[plan_index] = Some(report);
+            }
+        }
+        reports_by_index
+            .into_iter()
+            .map(|report| {
+                report.ok_or_else(|| {
+                    EcsError::InvalidSchedule(
+                        "compiled ECS batch did not produce one report per plan".to_string(),
+                    )
+                })
+            })
+            .collect()
+    }
+
+    fn validated_compiled_plan(
+        &self,
+        handle: PhysicalPlanHandle,
+    ) -> Result<std::sync::Arc<PhysicalPlan>> {
         let plan = self.compiled_plan(handle).ok_or_else(|| {
             EcsError::InvalidPlan(format!("unknown compiled ECS plan handle {handle}"))
         })?;
@@ -755,7 +1382,76 @@ impl World {
                 plan.schema_fingerprint, current_schema_fingerprint
             )));
         }
-        self.execute_plan_with_options(plan.as_ref(), include_writes)
+        Ok(plan)
+    }
+
+    fn query_access_summary(&self, plan: &PhysicalPlan) -> Result<QueryAccessSummary> {
+        let mut access = QueryAccessSummary {
+            copyback_eligible: true,
+            ..QueryAccessSummary::default()
+        };
+        collect_action_query_access(self, plan, plan.root_action, &mut access)?;
+        if access.structural
+            || !access.resource_writes.is_empty()
+            || !access.event_writes.is_empty()
+            || !access.hidden_writes.is_empty()
+        {
+            access.copyback_eligible = false;
+        }
+        if access.f64_write_targets.is_empty() {
+            access.copyback_eligible = false;
+        }
+        Ok(access)
+    }
+
+    fn copy_f64_write_targets_from(
+        &mut self,
+        source: &World,
+        plan: &PhysicalPlan,
+        access: &QueryAccessSummary,
+    ) -> Result<()> {
+        let mut seen = HashSet::new();
+        for target in &access.f64_write_targets {
+            if !seen.insert(target.clone()) {
+                continue;
+            }
+            let entities = query_rows_for_world(self, plan, &target.query)?;
+            if entities.is_empty() {
+                continue;
+            }
+            let locations = self.locations_for_entities(entities.iter().copied())?;
+            let mut values = Vec::with_capacity(entities.len());
+            for entity in &entities {
+                values.push(source.get_field_f64(*entity, &target.component, &target.field)?);
+            }
+            self.set_field_f64_resolved_strided(
+                &target.component,
+                &target.field,
+                &locations,
+                &values,
+                0,
+                1,
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn warm_compiled_plan_spatial_indexes(
+        &mut self,
+        handle: PhysicalPlanHandle,
+    ) -> Result<ExecutionReport> {
+        let plan = self.compiled_plan(handle).ok_or_else(|| {
+            EcsError::InvalidPlan(format!("unknown compiled ECS plan handle {handle}"))
+        })?;
+        let current_schema_fingerprint = self.schema_fingerprint();
+        if plan.schema_fingerprint != current_schema_fingerprint {
+            return Err(EcsError::InvalidPlan(format!(
+                "compiled ECS plan handle {handle} was built for schema fingerprint {}, \
+                 but the world schema fingerprint is {}; recompile the plan",
+                plan.schema_fingerprint, current_schema_fingerprint
+            )));
+        }
+        self.warm_plan_spatial_indexes(plan.as_ref())
     }
 
     pub fn execute_plan(&mut self, plan: &PhysicalPlan) -> Result<ExecutionReport> {
@@ -768,6 +1464,68 @@ impl World {
         include_writes: bool,
     ) -> Result<ExecutionReport> {
         install_on_ecs_worker_pool(|| self.execute_plan_with_options_inner(plan, include_writes))
+    }
+
+    pub fn warm_plan_spatial_indexes(&mut self, plan: &PhysicalPlan) -> Result<ExecutionReport> {
+        install_on_ecs_worker_pool(|| self.warm_plan_spatial_indexes_inner(plan))
+    }
+
+    fn warm_plan_spatial_indexes_inner(&mut self, plan: &PhysicalPlan) -> Result<ExecutionReport> {
+        let mut query_rows = HashMap::new();
+        let mut query_indices = HashMap::new();
+        for (query_index, query) in plan.queries.iter().enumerate() {
+            query_indices.insert(query.name.clone(), query_index);
+            let mut rows = self.query_filter(query.filter.clone())?;
+            if let Some(allowed) = &query.allowed_entities {
+                let allowed = allowed
+                    .iter()
+                    .map(|entity| entity.raw())
+                    .collect::<HashSet<_>>();
+                rows.retain(|entity| allowed.contains(&entity.raw()));
+            }
+            query_rows.insert(query.name.clone(), rows);
+        }
+        let mut executor = PlanExecutor {
+            world: self,
+            plan,
+            query_rows,
+            query_indices,
+            query_location_cache: HashMap::new(),
+            report: ExecutionReport::default(),
+            report_writes: false,
+            spatial_indexes: HashMap::new(),
+            spatial_index_metadata: HashMap::new(),
+            spatial_relation_cache: HashMap::new(),
+            expr_cache: HashMap::new(),
+            local_expr_cache: None,
+            local_expr_bindings: None,
+            numeric_field_cache_enabled: false,
+            numeric_field_cache: HashMap::new(),
+            numeric_field_cache_rows: HashMap::new(),
+            spatial_batch_spec_cache: HashMap::new(),
+            spatial_precomputed_f64: HashMap::new(),
+            spatial_precomputed_f64_rows: HashMap::new(),
+            profile: false,
+            profile_eval_calls: 0,
+            profile_expr_cache_hits: 0,
+            profile_expr_cache_misses: 0,
+            profile_spatial_relation_hits: 0,
+            profile_spatial_relation_misses: 0,
+            profile_spatial_index_nanos: 0,
+            profile_spatial_query_nanos: 0,
+            profile_spatial_filter_nanos: 0,
+            profile_direct_aggregate_nanos: 0,
+            profile_direct_aggregate_hits: 0,
+        };
+        let query_names = executor.query_rows.keys().cloned().collect::<Vec<_>>();
+        for query_name in query_names {
+            executor.precompute_direct_spatial_aggregates_for_query(
+                &query_name,
+                SpatialPrecomputeLayout::SparseEntity,
+            )?;
+        }
+        executor.persist_spatial_index_cache();
+        Ok(std::mem::take(&mut executor.report))
     }
 
     fn execute_plan_with_options_inner(
@@ -803,6 +1561,7 @@ impl World {
             plan,
             query_rows,
             query_indices,
+            query_location_cache: HashMap::new(),
             report: ExecutionReport::default(),
             report_writes: include_writes,
             spatial_indexes: HashMap::new(),
@@ -813,8 +1572,10 @@ impl World {
             local_expr_bindings: None,
             numeric_field_cache_enabled: false,
             numeric_field_cache: HashMap::new(),
+            numeric_field_cache_rows: HashMap::new(),
             spatial_batch_spec_cache: HashMap::new(),
             spatial_precomputed_f64: HashMap::new(),
+            spatial_precomputed_f64_rows: HashMap::new(),
             profile,
             profile_eval_calls: 0,
             profile_expr_cache_hits: 0,
@@ -904,12 +1665,19 @@ impl World {
 
 impl<'a> PlanExecutor<'a> {
     fn execute_action(&mut self, action_index: usize, contexts: &[EvalContext]) -> Result<()> {
+        if !self.report_writes {
+            if let Some(query_name) = self.row_local_numeric_action_query(action_index, contexts) {
+                return self.execute_row_local_numeric_action(action_index, &query_name);
+            }
+        }
+
         match &self.plan.actions[action_index] {
             ActionNode::Noop => Ok(()),
             ActionNode::Sequence(children) => {
                 for child in children {
                     self.expr_cache.clear();
                     self.numeric_field_cache.clear();
+                    self.numeric_field_cache_rows.clear();
                     self.persist_spatial_index_cache();
                     self.spatial_relation_cache.clear();
                     self.execute_action(*child, contexts)?;
@@ -1102,6 +1870,7 @@ impl<'a> PlanExecutor<'a> {
                 plan: self.plan,
                 query_rows: self.query_rows.clone(),
                 query_indices: self.query_indices.clone(),
+                query_location_cache: self.query_location_cache.clone(),
                 report: ExecutionReport::default(),
                 report_writes: true,
                 spatial_indexes: shared_spatial_indexes,
@@ -1112,8 +1881,10 @@ impl<'a> PlanExecutor<'a> {
                 local_expr_bindings: None,
                 numeric_field_cache_enabled: false,
                 numeric_field_cache: HashMap::new(),
+                numeric_field_cache_rows: HashMap::new(),
                 spatial_batch_spec_cache: HashMap::new(),
                 spatial_precomputed_f64: HashMap::new(),
+                spatial_precomputed_f64_rows: HashMap::new(),
                 profile: self.profile,
                 profile_eval_calls: 0,
                 profile_expr_cache_hits: 0,
@@ -1191,6 +1962,7 @@ impl<'a> PlanExecutor<'a> {
                 plan: self.plan,
                 query_rows,
                 query_indices,
+                query_location_cache: HashMap::new(),
                 report: ExecutionReport::default(),
                 report_writes: self.report_writes,
                 spatial_indexes: HashMap::new(),
@@ -1201,8 +1973,10 @@ impl<'a> PlanExecutor<'a> {
                 local_expr_bindings: None,
                 numeric_field_cache_enabled: true,
                 numeric_field_cache: HashMap::new(),
+                numeric_field_cache_rows: HashMap::new(),
                 spatial_batch_spec_cache: HashMap::new(),
                 spatial_precomputed_f64: HashMap::new(),
+                spatial_precomputed_f64_rows: HashMap::new(),
                 profile,
                 profile_eval_calls: 0,
                 profile_expr_cache_hits: 0,
@@ -1367,6 +2141,400 @@ impl<'a> PlanExecutor<'a> {
         Ok(())
     }
 
+    fn row_local_numeric_action_query(
+        &self,
+        action_index: usize,
+        contexts: &[EvalContext],
+    ) -> Option<String> {
+        if contexts.len() != 1
+            || !contexts[0].bindings.is_empty()
+            || !contexts[0].loop_items.is_empty()
+        {
+            return None;
+        }
+        if !self.action_contains_when(action_index) {
+            return None;
+        }
+        let mut query_name = None;
+        if self.row_local_numeric_action_supported(action_index, &mut query_name) {
+            query_name
+        } else {
+            None
+        }
+    }
+
+    fn action_contains_when(&self, action_index: usize) -> bool {
+        match &self.plan.actions[action_index] {
+            ActionNode::When { .. } => true,
+            ActionNode::Sequence(children) | ActionNode::Parallel(children) => children
+                .iter()
+                .any(|child| self.action_contains_when(*child)),
+            ActionNode::ForEach { action, .. } => self.action_contains_when(*action),
+            ActionNode::Noop
+            | ActionNode::SetField { .. }
+            | ActionNode::EmitEvent { .. }
+            | ActionNode::AddComponent { .. }
+            | ActionNode::RemoveComponent { .. }
+            | ActionNode::AddTag { .. }
+            | ActionNode::RemoveTag { .. }
+            | ActionNode::Despawn { .. }
+            | ActionNode::Udf { .. } => false,
+        }
+    }
+
+    fn row_local_numeric_action_supported(
+        &self,
+        action_index: usize,
+        query_name: &mut Option<String>,
+    ) -> bool {
+        match &self.plan.actions[action_index] {
+            ActionNode::Noop => true,
+            ActionNode::Sequence(children) => children
+                .iter()
+                .all(|child| self.row_local_numeric_action_supported(*child, query_name)),
+            ActionNode::SetField { target, value } => {
+                let ExprNode::Field {
+                    query,
+                    component,
+                    field,
+                } = &self.plan.expressions[*target]
+                else {
+                    return false;
+                };
+                if !self.note_row_local_query(query_name, query) {
+                    return false;
+                }
+                if !self
+                    .world
+                    .storage_type_for_field(component, field)
+                    .is_ok_and(storage_type_is_numeric)
+                {
+                    return false;
+                }
+                self.expr_supports_f64(*value, &mut HashSet::new())
+                    && self.expr_uses_only_row_local_direct_fields(*value, query)
+            }
+            ActionNode::When {
+                condition,
+                then_action,
+                otherwise_action,
+            } => {
+                let Some(primary_query) = query_name.as_deref() else {
+                    return false;
+                };
+                self.expr_supports_f64(*condition, &mut HashSet::new())
+                    && self.expr_uses_only_row_local_direct_fields(*condition, primary_query)
+                    && self.row_local_numeric_action_supported(*then_action, query_name)
+                    && otherwise_action.is_none_or(|action| {
+                        self.row_local_numeric_action_supported(action, query_name)
+                    })
+            }
+            ActionNode::Parallel(_)
+            | ActionNode::ForEach { .. }
+            | ActionNode::EmitEvent { .. }
+            | ActionNode::AddComponent { .. }
+            | ActionNode::RemoveComponent { .. }
+            | ActionNode::AddTag { .. }
+            | ActionNode::RemoveTag { .. }
+            | ActionNode::Despawn { .. }
+            | ActionNode::Udf { .. } => false,
+        }
+    }
+
+    fn note_row_local_query(&self, query_name: &mut Option<String>, candidate: &str) -> bool {
+        match query_name {
+            Some(existing) => existing == candidate,
+            None => {
+                *query_name = Some(candidate.to_string());
+                true
+            }
+        }
+    }
+
+    fn expr_uses_only_row_local_direct_fields(&self, expr_index: usize, query_name: &str) -> bool {
+        self.expr_uses_only_row_local_direct_fields_inner(
+            expr_index,
+            query_name,
+            &mut HashSet::new(),
+        )
+    }
+
+    fn expr_uses_only_row_local_direct_fields_inner(
+        &self,
+        expr_index: usize,
+        query_name: &str,
+        seen: &mut HashSet<usize>,
+    ) -> bool {
+        if !seen.insert(expr_index) {
+            return true;
+        }
+        match &self.plan.expressions[expr_index] {
+            ExprNode::LiteralF64(_)
+            | ExprNode::LiteralI64(_)
+            | ExprNode::LiteralBool(_)
+            | ExprNode::LiteralValue(_)
+            | ExprNode::ResourceField { .. }
+            | ExprNode::InputState { .. }
+            | ExprNode::SpatialAggregate { .. } => true,
+            ExprNode::Field { query, .. } => query == query_name,
+            ExprNode::Unary { input, .. } | ExprNode::Attribute { input, .. } => {
+                self.expr_uses_only_row_local_direct_fields_inner(*input, query_name, seen)
+            }
+            ExprNode::Binary { left, right, .. } => {
+                self.expr_uses_only_row_local_direct_fields_inner(*left, query_name, seen)
+                    && self.expr_uses_only_row_local_direct_fields_inner(*right, query_name, seen)
+            }
+            ExprNode::LiteralString(_)
+            | ExprNode::EventStream { .. }
+            | ExprNode::ForEachItem { .. }
+            | ExprNode::ContextJoin { .. }
+            | ExprNode::Exists { .. }
+            | ExprNode::Aggregate { .. }
+            | ExprNode::SpatialMetadata { .. } => false,
+        }
+    }
+
+    fn compile_row_local_action(
+        &self,
+        action_index: usize,
+        query_name: &str,
+        program: &CompiledF64ReadOnlyProgram<'_>,
+        targets: &mut Vec<RowLocalTarget>,
+        target_slots: &mut HashMap<(String, String), usize>,
+    ) -> Result<RowLocalAction> {
+        match &self.plan.actions[action_index] {
+            ActionNode::Noop => Ok(RowLocalAction::Noop),
+            ActionNode::Sequence(children) => children
+                .iter()
+                .map(|child| {
+                    self.compile_row_local_action(
+                        *child,
+                        query_name,
+                        program,
+                        targets,
+                        target_slots,
+                    )
+                })
+                .collect::<Result<Vec<_>>>()
+                .map(RowLocalAction::Sequence),
+            ActionNode::SetField { target, value } => {
+                let ExprNode::Field {
+                    query,
+                    component,
+                    field,
+                } = &self.plan.expressions[*target]
+                else {
+                    return Err(EcsError::InvalidPlan(
+                        "row-local numeric action target must be a field".to_string(),
+                    ));
+                };
+                if query != query_name {
+                    return Err(EcsError::InvalidPlan(format!(
+                        "row-local numeric action cannot write query '{query}' from primary query '{query_name}'"
+                    )));
+                }
+                let key = (component.clone(), field.clone());
+                let field_slot = *program.field_slot_by_key.get(&key).ok_or_else(|| {
+                    EcsError::InvalidPlan(format!(
+                        "row-local numeric field cache missing target '{component}.{field}'"
+                    ))
+                })?;
+                let target_slot = if let Some(slot) = target_slots.get(&key) {
+                    *slot
+                } else {
+                    let slot = targets.len();
+                    target_slots.insert(key, slot);
+                    targets.push(RowLocalTarget {
+                        component: component.clone(),
+                        field: field.clone(),
+                    });
+                    slot
+                };
+                Ok(RowLocalAction::SetField {
+                    field_slot,
+                    target_slot,
+                    value_expr: *value,
+                })
+            }
+            ActionNode::When {
+                condition,
+                then_action,
+                otherwise_action,
+            } => Ok(RowLocalAction::When {
+                condition_expr: *condition,
+                then_action: Box::new(self.compile_row_local_action(
+                    *then_action,
+                    query_name,
+                    program,
+                    targets,
+                    target_slots,
+                )?),
+                otherwise_action: otherwise_action
+                    .map(|action| {
+                        self.compile_row_local_action(
+                            action,
+                            query_name,
+                            program,
+                            targets,
+                            target_slots,
+                        )
+                        .map(Box::new)
+                    })
+                    .transpose()?,
+            }),
+            other => Err(EcsError::InvalidPlan(format!(
+                "row-local numeric executor does not support action {other:?}"
+            ))),
+        }
+    }
+
+    fn execute_row_local_numeric_action(
+        &mut self,
+        action_index: usize,
+        query_name: &str,
+    ) -> Result<()> {
+        let rows = self.query_rows.get(query_name).cloned().ok_or_else(|| {
+            EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
+        })?;
+        if rows.is_empty() {
+            return Ok(());
+        }
+
+        let precompute_start = self.profile.then(Instant::now);
+        self.precompute_direct_spatial_aggregates_for_query(
+            query_name,
+            SpatialPrecomputeLayout::QueryRows,
+        )?;
+        if let Some(start) = precompute_start {
+            eprintln!(
+                "ecs_profile row_local_f64_precompute elapsed_ms={:.3}",
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+        let preload_start = self.profile.then(Instant::now);
+        self.preload_numeric_fields_for_query(query_name, SpatialPrecomputeLayout::QueryRows)?;
+        if let Some(start) = preload_start {
+            eprintln!(
+                "ecs_profile row_local_f64_preload elapsed_ms={:.3}",
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+        let locations = self.query_locations(query_name)?;
+        let program = compile_f64_readonly_program(
+            self.plan,
+            self.world,
+            query_name,
+            &self.numeric_field_cache,
+            &self.numeric_field_cache_rows,
+            &self.spatial_precomputed_f64,
+            &self.spatial_precomputed_f64_rows,
+        );
+        let mut targets = Vec::new();
+        let mut target_slots = HashMap::new();
+        let action = self.compile_row_local_action(
+            action_index,
+            query_name,
+            &program,
+            &mut targets,
+            &mut target_slots,
+        )?;
+        let target_count = targets.len();
+        if target_count == 0 {
+            return Ok(());
+        }
+
+        let expr_count = self.plan.expressions.len();
+        let field_count = program.field_arrays.len();
+        let field_dependents = build_row_local_field_dependents(&program);
+        let mut flat_values = vec![0.0; rows.len() * target_count];
+        let mut dirty = vec![false; rows.len() * target_count];
+        let eval_start = self.profile.then(Instant::now);
+        let world = &*self.world;
+        flat_values
+            .par_chunks_mut(target_count)
+            .zip(dirty.par_chunks_mut(target_count))
+            .zip(rows.par_iter().enumerate())
+            .try_for_each_init(
+                || {
+                    (
+                        vec![0.0; expr_count],
+                        vec![0_u32; expr_count],
+                        1_u32,
+                        vec![0.0; field_count],
+                    )
+                },
+                |(cache_values, cache_marks, cache_generation, field_values),
+                 ((out, dirty_row), (row_index, entity))| {
+                    invalidate_row_local_f64_cache(cache_marks, cache_generation);
+                    for (slot, value) in field_values.iter_mut().enumerate() {
+                        *value = compiled_field_f64_value(
+                            program.field_arrays[slot],
+                            row_index,
+                            *entity,
+                        )?;
+                    }
+                    execute_row_local_f64_action(
+                        &action,
+                        row_index,
+                        *entity,
+                        &program,
+                        world,
+                        cache_values,
+                        cache_marks,
+                        cache_generation,
+                        field_values,
+                        &field_dependents,
+                        out,
+                        dirty_row,
+                    )
+                },
+            )?;
+        if let Some(start) = eval_start {
+            eprintln!(
+                "ecs_profile row_local_f64_eval elapsed_ms={:.3}",
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+        self.report.rows_scanned += rows.len();
+
+        let apply_start = self.profile.then(Instant::now);
+        for (target_index, target) in targets.iter().enumerate() {
+            let all_dirty = (0..rows.len()).all(|row| dirty[row * target_count + target_index]);
+            if all_dirty {
+                self.report.fields_written += self.world.set_field_f64_resolved_strided(
+                    &target.component,
+                    &target.field,
+                    &locations,
+                    &flat_values,
+                    target_index,
+                    target_count,
+                )?;
+                continue;
+            }
+            let mut writes = Vec::new();
+            for (row_index, entity) in rows.iter().enumerate() {
+                if dirty[row_index * target_count + target_index] {
+                    writes.push((
+                        *entity,
+                        flat_values[row_index * target_count + target_index],
+                    ));
+                }
+            }
+            if !writes.is_empty() {
+                self.report.fields_written +=
+                    self.world
+                        .set_field_f64_many(&target.component, &target.field, &writes)?;
+            }
+        }
+        if let Some(start) = apply_start {
+            eprintln!(
+                "ecs_profile row_local_f64_apply elapsed_ms={:.3}",
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+        Ok(())
+    }
+
     fn execute_set(
         &mut self,
         target_index: usize,
@@ -1523,24 +2691,12 @@ impl<'a> PlanExecutor<'a> {
         let Some((_, _, _, query_names)) = specs.first() else {
             return Ok(());
         };
-        let precompute_start = self.profile.then(Instant::now);
-        if query_names.len() == 1 {
-            if let Some(query_name) = query_names.iter().next() {
-                self.precompute_direct_spatial_aggregates_for_query(query_name)?;
-            }
-        }
-        if let Some(start) = precompute_start {
-            eprintln!(
-                "ecs_profile direct_f64_precompute elapsed_ms={:.3}",
-                start.elapsed().as_secs_f64() * 1000.0
-            );
-        }
-        let collect_start = self.profile.then(Instant::now);
         let mut child_writes = (0..direct_specs.len())
             .map(|_| Vec::<(Entity, f64)>::new())
             .collect::<Vec<_>>();
-        let mut dense_apply: Option<(Vec<Entity>, Vec<f64>, usize)> = None;
+        let mut dense_apply: Option<(Vec<Entity>, Vec<(usize, usize)>, Vec<f64>, usize)> = None;
         let mut cache = vec![None; self.plan.expressions.len()];
+        let collect_start: Option<Instant>;
         if query_names.len() == 1 {
             let query_name = query_names
                 .iter()
@@ -1551,20 +2707,47 @@ impl<'a> PlanExecutor<'a> {
                 && contexts[0].bindings.is_empty()
                 && contexts[0].loop_items.is_empty()
             {
-                self.preload_numeric_fields_for_query(&query_name)?;
+                let precompute_start = self.profile.then(Instant::now);
+                self.precompute_direct_spatial_aggregates_for_query(
+                    &query_name,
+                    SpatialPrecomputeLayout::QueryRows,
+                )?;
+                if let Some(start) = precompute_start {
+                    eprintln!(
+                        "ecs_profile direct_f64_precompute elapsed_ms={:.3}",
+                        start.elapsed().as_secs_f64() * 1000.0
+                    );
+                }
+                collect_start = self.profile.then(Instant::now);
+                let preload_start = self.profile.then(Instant::now);
+                self.preload_numeric_fields_for_query(
+                    &query_name,
+                    SpatialPrecomputeLayout::QueryRows,
+                )?;
+                if let Some(start) = preload_start {
+                    eprintln!(
+                        "ecs_profile direct_f64_collect_preload elapsed_ms={:.3}",
+                        start.elapsed().as_secs_f64() * 1000.0
+                    );
+                }
                 let rows = self.query_rows.get(&query_name).cloned().ok_or_else(|| {
                     EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
                 })?;
                 let plan = self.plan;
                 let numeric_field_cache = &self.numeric_field_cache;
+                let numeric_field_cache_rows = &self.numeric_field_cache_rows;
                 let spatial_precomputed_f64 = &self.spatial_precomputed_f64;
+                let spatial_precomputed_f64_rows = &self.spatial_precomputed_f64_rows;
                 let world = &*self.world;
+                let compile_start = self.profile.then(Instant::now);
                 let compiled = compile_f64_readonly_program(
                     plan,
                     world,
                     &query_name,
                     numeric_field_cache,
+                    numeric_field_cache_rows,
                     spatial_precomputed_f64,
+                    spatial_precomputed_f64_rows,
                 );
                 let expr_count = self.plan.expressions.len();
                 let spec_count = direct_specs.len();
@@ -1572,6 +2755,12 @@ impl<'a> PlanExecutor<'a> {
                     &compiled,
                     direct_specs.iter().map(|spec| spec.value_expr),
                 );
+                if let Some(start) = compile_start {
+                    eprintln!(
+                        "ecs_profile direct_f64_collect_compile elapsed_ms={:.3}",
+                        start.elapsed().as_secs_f64() * 1000.0
+                    );
+                }
                 if self.profile {
                     eprintln!(
                         "ecs_profile direct_f64_eval linear={} order_len={}",
@@ -1580,15 +2769,23 @@ impl<'a> PlanExecutor<'a> {
                     );
                 }
                 let mut flat_values = vec![0.0; rows.len() * spec_count];
+                let eval_start = self.profile.then(Instant::now);
                 if let Some(eval_order) = eval_order {
                     flat_values
                         .par_chunks_mut(spec_count)
-                        .zip(rows.par_iter())
+                        .zip(rows.par_iter().enumerate())
                         .try_for_each_init(
-                            || vec![0.0; expr_count],
-                            |values, (out, entity)| {
+                            || {
+                                let mut values = vec![0.0; expr_count];
+                                for (index, value) in &compiled.initial_values {
+                                    values[*index] = *value;
+                                }
+                                values
+                            },
+                            |values, (out, (row_index, entity))| {
                                 eval_compiled_f64_linear_order(
                                     &eval_order,
+                                    row_index,
                                     *entity,
                                     &compiled,
                                     world,
@@ -1603,14 +2800,15 @@ impl<'a> PlanExecutor<'a> {
                 } else {
                     flat_values
                         .par_chunks_mut(spec_count)
-                        .zip(rows.par_iter())
+                        .zip(rows.par_iter().enumerate())
                         .try_for_each_init(
                             || vec![None; expr_count],
-                            |row_cache, (out, entity)| {
+                            |row_cache, (out, (row_index, entity))| {
                                 row_cache.fill(None);
                                 for (slot, spec) in direct_specs.iter().enumerate() {
                                     out[slot] = eval_compiled_f64_readonly(
                                         spec.value_expr,
+                                        row_index,
                                         *entity,
                                         &compiled,
                                         world,
@@ -1621,9 +2819,28 @@ impl<'a> PlanExecutor<'a> {
                             },
                         )?;
                 }
+                if let Some(start) = eval_start {
+                    eprintln!(
+                        "ecs_profile direct_f64_collect_eval elapsed_ms={:.3}",
+                        start.elapsed().as_secs_f64() * 1000.0
+                    );
+                }
                 self.report.rows_scanned += rows.len();
-                dense_apply = Some((rows, flat_values, spec_count));
+                let row_locations = self.query_locations(&query_name)?;
+                dense_apply = Some((rows, row_locations, flat_values, spec_count));
             } else {
+                let precompute_start = self.profile.then(Instant::now);
+                self.precompute_direct_spatial_aggregates_for_query(
+                    &query_name,
+                    SpatialPrecomputeLayout::SparseEntity,
+                )?;
+                if let Some(start) = precompute_start {
+                    eprintln!(
+                        "ecs_profile direct_f64_precompute elapsed_ms={:.3}",
+                        start.elapsed().as_secs_f64() * 1000.0
+                    );
+                }
+                collect_start = self.profile.then(Instant::now);
                 for base_ctx in contexts {
                     if base_ctx.bindings.contains_key(&query_name) {
                         cache.fill(None);
@@ -1656,6 +2873,7 @@ impl<'a> PlanExecutor<'a> {
                 }
             }
         } else {
+            collect_start = self.profile.then(Instant::now);
             for base_ctx in contexts {
                 let joined = self.expand_context_for_queries(base_ctx, query_names)?;
                 self.report.rows_scanned += joined.len();
@@ -1693,7 +2911,7 @@ impl<'a> PlanExecutor<'a> {
                 });
             target_slots.push(slot);
         }
-        if let Some((rows, flat_values, spec_count)) = dense_apply {
+        if let Some((rows, locations, flat_values, spec_count)) = dense_apply {
             let duplicate_targets = (0..unique_targets.len())
                 .map(|slot| {
                     target_slots
@@ -1704,7 +2922,6 @@ impl<'a> PlanExecutor<'a> {
                 .map(|count| count.saturating_sub(1))
                 .sum::<usize>();
             self.report.duplicate_writes += duplicate_targets * rows.len();
-            let locations = self.world.locations_for_entities(rows)?;
             for (child_index, spec) in direct_specs.iter().enumerate() {
                 self.report.fields_written += self.world.set_field_f64_resolved_strided(
                     &spec.component,
@@ -1740,7 +2957,24 @@ impl<'a> PlanExecutor<'a> {
         Ok(())
     }
 
-    fn preload_numeric_fields_for_query(&mut self, query_name: &str) -> Result<()> {
+    fn query_locations(&mut self, query_name: &str) -> Result<Vec<(usize, usize)>> {
+        if let Some(locations) = self.query_location_cache.get(query_name) {
+            return Ok(locations.clone());
+        }
+        let rows = self.query_rows.get(query_name).ok_or_else(|| {
+            EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
+        })?;
+        let locations = self.world.locations_for_entities(rows.iter().copied())?;
+        self.query_location_cache
+            .insert(query_name.to_string(), locations.clone());
+        Ok(locations)
+    }
+
+    fn preload_numeric_fields_for_query(
+        &mut self,
+        query_name: &str,
+        layout: SpatialPrecomputeLayout,
+    ) -> Result<()> {
         let rows = self.query_rows.get(query_name).cloned().ok_or_else(|| {
             EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
         })?;
@@ -1762,9 +2996,27 @@ impl<'a> PlanExecutor<'a> {
                 fields.push((component.clone(), field.clone()));
             }
         }
+        let locations = self.query_locations(query_name)?;
         for (component, field) in fields {
-            for entity in &rows {
-                self.entity_field_f64(*entity, &component, &field)?;
+            match layout {
+                SpatialPrecomputeLayout::SparseEntity => {
+                    let values = self.world.field_f64_cache_for_resolved_entities(
+                        &component, &field, &rows, &locations,
+                    )?;
+                    self.numeric_field_cache
+                        .entry(component)
+                        .or_default()
+                        .insert(field, values);
+                }
+                SpatialPrecomputeLayout::QueryRows => {
+                    let values = self
+                        .world
+                        .field_f64_rows_for_resolved_entities(&component, &field, &locations)?;
+                    self.numeric_field_cache_rows
+                        .entry(component)
+                        .or_default()
+                        .insert(field, values);
+                }
             }
         }
         Ok(())
@@ -2153,7 +3405,11 @@ impl<'a> PlanExecutor<'a> {
         values[row] = Some((entity.generation, value));
     }
 
-    fn precompute_direct_spatial_aggregates_for_query(&mut self, query_name: &str) -> Result<()> {
+    fn precompute_direct_spatial_aggregates_for_query(
+        &mut self,
+        query_name: &str,
+        layout: SpatialPrecomputeLayout,
+    ) -> Result<()> {
         let mut seen_relations = HashSet::new();
         let mut relations = Vec::new();
         for expr in &self.plan.expressions {
@@ -2170,30 +3426,46 @@ impl<'a> PlanExecutor<'a> {
         }
         let mut groups: Vec<(String, Vec<SpatialRelationNode>)> = Vec::new();
         for relation in relations {
+            let index_key = self.spatial_index_cache_key(&relation);
             if let Some((_, group)) = groups
                 .iter_mut()
-                .find(|(index_id, _)| index_id == &relation.index_id)
+                .find(|(candidate_key, _)| candidate_key == &index_key)
             {
                 group.push(relation);
             } else {
-                groups.push((relation.index_id.clone(), vec![relation]));
+                groups.push((index_key, vec![relation]));
             }
         }
         for (_, group) in groups {
             let Some(first_relation) = group.first() else {
                 continue;
             };
-            let Some(index) = self.build_direct_spatial_index_for_relation(first_relation)? else {
+            let Some((index_key, index)) =
+                self.build_direct_spatial_index_for_relation(first_relation)?
+            else {
                 continue;
             };
-            if group.len() > 1
-                && self.precompute_direct_spatial_relation_group_f64(&group, &index)?
+            if self.precompute_direct_spatial_relation_group_f64(&group, &index, layout)? {
+                self.spatial_indexes.insert(index_key, index);
+                continue;
+            }
+            if self
+                .precompute_multi_origin_direct_spatial_relation_group_f64(&group, &index, layout)?
             {
+                self.spatial_indexes.insert(index_key, index);
                 continue;
             }
             for relation in group {
+                if self.precompute_direct_spatial_relation_group_f64(
+                    std::slice::from_ref(&relation),
+                    &index,
+                    layout,
+                )? {
+                    continue;
+                }
                 self.precompute_direct_spatial_relation_f64(&relation, &index)?;
             }
+            self.spatial_indexes.insert(index_key, index);
         }
         Ok(())
     }
@@ -2201,7 +3473,7 @@ impl<'a> PlanExecutor<'a> {
     fn build_direct_spatial_index_for_relation(
         &mut self,
         relation: &SpatialRelationNode,
-    ) -> Result<Option<BuiltSpatialIndex>> {
+    ) -> Result<Option<(String, BuiltSpatialIndex)>> {
         if relation.target_bounds.is_some() {
             return Ok(None);
         }
@@ -2210,11 +3482,10 @@ impl<'a> PlanExecutor<'a> {
         else {
             return Ok(None);
         };
+        let index_key = self.spatial_index_cache_key(relation);
         if let Some(index) = self.take_fresh_spatial_index(relation) {
             self.report_algorithm_use(&index);
-            self.spatial_indexes
-                .insert(relation.index_id.clone(), index.clone());
-            return Ok(Some(index));
+            return Ok(Some((index_key, index)));
         }
         let item_rows = self
             .query_rows
@@ -2226,12 +3497,13 @@ impl<'a> PlanExecutor<'a> {
                     relation.item_query
                 ))
             })?;
+        let item_locations = self.query_locations(&relation.item_query)?;
         let mut target_coord_arrays = Vec::with_capacity(target_coords.len());
         for coord in &target_coords {
-            target_coord_arrays.push(self.build_fast_field_array(
-                &item_rows,
+            target_coord_arrays.push(self.world.field_f64_rows_for_resolved_entities(
                 &coord.component,
                 &coord.field,
+                &item_locations,
             )?);
         }
         let worker_count = rayon::current_num_threads().max(1);
@@ -2243,13 +3515,38 @@ impl<'a> PlanExecutor<'a> {
         if relation.algorithm.kind == "hash_grid" {
             let records = item_rows
                 .par_iter()
-                .map(|entity| {
+                .enumerate()
+                .map(|(row_index, entity)| {
                     Ok(DirectPointRecord {
                         entity: *entity,
-                        point: point_from_fast_arrays(&target_coord_arrays, *entity)?,
+                        point: point_from_row_arrays(&target_coord_arrays, row_index)?,
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
+            let signature = self.spatial_index_signature(relation);
+            let structural_revision = self.world.structural_revision();
+            let field_revision = self.spatial_dependency_revision(relation);
+            if let Some(mut cached) = self.world.take_spatial_index_cache(&index_key) {
+                if cached.signature == signature
+                    && cached.structural_revision == structural_revision
+                {
+                    if let BuiltSpatialIndex::DirectPointHashGrid(direct_index) = &mut cached.index
+                    {
+                        if direct_index.update_sorted_points(&records)? {
+                            self.report.spatial_index_incremental_updates += 1;
+                        } else {
+                            self.report.spatial_indexes_built += 1;
+                            self.report.spatial_index_full_rebuilds += 1;
+                        }
+                        self.spatial_index_metadata.insert(
+                            index_key.clone(),
+                            (signature, structural_revision, field_revision),
+                        );
+                        self.report_algorithm_use(&cached.index);
+                        return Ok(Some((index_key, cached.index)));
+                    }
+                }
+            }
             let mut direct_index = DirectPointHashGrid::new(
                 dimensions_from_u8(relation.algorithm.dimensions)?,
                 relation.algorithm.cell_size.unwrap_or(1.0),
@@ -2259,33 +3556,26 @@ impl<'a> PlanExecutor<'a> {
             self.report.spatial_index_full_rebuilds += 1;
             let index = BuiltSpatialIndex::DirectPointHashGrid(direct_index);
             self.spatial_index_metadata.insert(
-                relation.index_id.clone(),
-                (
-                    spatial_index_signature(relation),
-                    self.world.structural_revision(),
-                    self.spatial_dependency_revision(relation),
-                ),
+                index_key.clone(),
+                (signature, structural_revision, field_revision),
             );
             self.report_algorithm_use(&index);
-            self.spatial_indexes
-                .insert(relation.index_id.clone(), index.clone());
-            return Ok(Some(index));
+            return Ok(Some((index_key, index)));
         }
         let records = item_rows
             .par_iter()
-            .map(|entity| {
+            .enumerate()
+            .map(|(row_index, entity)| {
                 Ok(SpatialRecord {
                     entity: *entity,
-                    point: point_from_fast_arrays(&target_coord_arrays, *entity)?,
+                    point: point_from_row_arrays(&target_coord_arrays, row_index)?,
                     bounds: None,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
         let index = self.build_or_update_spatial_index(relation, records)?;
         self.report_algorithm_use(&index);
-        self.spatial_indexes
-            .insert(relation.index_id.clone(), index.clone());
-        Ok(Some(index))
+        Ok(Some((index_key, index)))
     }
 
     fn direct_spatial_relation_batch(
@@ -2327,24 +3617,16 @@ impl<'a> PlanExecutor<'a> {
         }))
     }
 
-    fn build_fast_field_array(
+    fn build_fast_field_array_with_locations(
         &self,
         entities: &[Entity],
+        locations: &[(usize, usize)],
         component: &str,
         field: &str,
     ) -> Result<FastFieldArray> {
-        let max_index = entities
-            .iter()
-            .map(|entity| entity.index as usize)
-            .max()
-            .unwrap_or(0);
-        let mut values = vec![None; max_index + 1];
-        for entity in entities {
-            values[entity.index as usize] = Some((
-                entity.generation,
-                self.world.get_field_f64(*entity, component, field)?,
-            ));
-        }
+        let values = self
+            .world
+            .field_f64_cache_for_resolved_entities(component, field, entities, locations)?;
         Ok(FastFieldArray {
             component: component.to_string(),
             field: field.to_string(),
@@ -2352,10 +3634,11 @@ impl<'a> PlanExecutor<'a> {
         })
     }
 
-    fn ensure_fast_field_array(
+    fn ensure_fast_field_array_with_locations(
         &self,
         arrays: &mut Vec<FastFieldArray>,
         entities: &[Entity],
+        locations: &[(usize, usize)],
         component: &str,
         field: &str,
     ) -> Result<usize> {
@@ -2365,7 +3648,9 @@ impl<'a> PlanExecutor<'a> {
         {
             return Ok(index);
         }
-        arrays.push(self.build_fast_field_array(entities, component, field)?);
+        arrays.push(
+            self.build_fast_field_array_with_locations(entities, locations, component, field)?,
+        );
         Ok(arrays.len() - 1)
     }
 
@@ -2373,13 +3658,15 @@ impl<'a> PlanExecutor<'a> {
         &mut self,
         relations: &[SpatialRelationNode],
         index: &BuiltSpatialIndex,
+        layout: SpatialPrecomputeLayout,
     ) -> Result<bool> {
+        let profile_start = self.profile.then(Instant::now);
         let Some(first) = relations.first() else {
             return Ok(false);
         };
         if relations
             .iter()
-            .any(|relation| !spatial_relations_same_base(first, relation))
+            .any(|relation| !spatial_relations_same_direct_precompute_group(first, relation))
         {
             return Ok(false);
         }
@@ -2408,12 +3695,14 @@ impl<'a> PlanExecutor<'a> {
                     first.item_query
                 ))
             })?;
+        let origin_locations = self.query_locations(&first.origin_query)?;
+        let item_locations = self.query_locations(&first.item_query)?;
         let mut origin_coord_arrays = Vec::with_capacity(origin_coords.len());
         for coord in &origin_coords {
-            origin_coord_arrays.push(self.build_fast_field_array(
-                &origin_rows,
+            origin_coord_arrays.push(self.world.field_f64_rows_for_resolved_entities(
                 &coord.component,
                 &coord.field,
+                &origin_locations,
             )?);
         }
         let target_coords = self
@@ -2436,9 +3725,10 @@ impl<'a> PlanExecutor<'a> {
                         {
                             FastSpatialBatchValue::DirectPointCoord { axis }
                         } else {
-                            let array_index = self.ensure_fast_field_array(
+                            let array_index = self.ensure_fast_field_array_with_locations(
                                 &mut item_field_arrays,
                                 &item_rows,
+                                &item_locations,
                                 &component,
                                 &field,
                             )?;
@@ -2453,9 +3743,12 @@ impl<'a> PlanExecutor<'a> {
                         minimum_distance,
                     },
                 };
+                let Some(kind) = fast_aggregate_kind(&spec.kind) else {
+                    return Ok(false);
+                };
                 specs.push(FastSpatialBatchSpec {
                     expr_index: spec.expr_index,
-                    kind: spec.kind,
+                    kind,
                     value,
                 });
             }
@@ -2466,6 +3759,17 @@ impl<'a> PlanExecutor<'a> {
                 query_radius_sq: batch.query_radius * batch.query_radius,
             });
         }
+        let item_record_field_arrays = if let BuiltSpatialIndex::DirectPointHashGrid(index) = index
+        {
+            item_field_arrays
+                .iter()
+                .map(|array| fast_field_array_record_values(array, &index.records))
+                .collect::<Result<Vec<_>>>()?
+        } else {
+            Vec::new()
+        };
+        let item_record_field_arrays_ref =
+            (!item_record_field_arrays.is_empty()).then_some(item_record_field_arrays.as_slice());
         let dimensions = dimensions_len(first.algorithm.dimensions)?;
         let result_exprs = batches
             .iter()
@@ -2475,6 +3779,7 @@ impl<'a> PlanExecutor<'a> {
         if result_count == 0 {
             return Ok(false);
         }
+        let result_values_are_dense = spatial_result_values_are_dense(&batches);
         let max_entity_index = origin_rows
             .iter()
             .map(|entity| entity.index as usize)
@@ -2484,25 +3789,62 @@ impl<'a> PlanExecutor<'a> {
             .iter()
             .map(|batch| batch.query_radius)
             .fold(0.0_f64, f64::max);
+        if layout == SpatialPrecomputeLayout::QueryRows {
+            if let BuiltSpatialIndex::DirectPointHashGrid(item_index) = index {
+                if item_index.regular_grid.is_none()
+                    && item_index.records.len() >= 1024
+                    && item_index.records.len().saturating_mul(4) < origin_rows.len()
+                    && self.precompute_inverted_direct_spatial_relation_group_f64(
+                        first,
+                        &batches,
+                        &origin_rows,
+                        &origin_coord_arrays,
+                        item_index,
+                        &item_field_arrays,
+                        item_record_field_arrays_ref,
+                        &result_exprs,
+                        result_count,
+                        max_radius,
+                    )?
+                {
+                    if let Some(start) = profile_start {
+                        eprintln!(
+                            "ecs_profile direct_spatial_group mode=same_origin_inverted origin={} item={} relations={} result_count={} origins={} elapsed_ms={:.3}",
+                            first.origin_query,
+                            first.item_query,
+                            relations.len(),
+                            result_count,
+                            origin_rows.len(),
+                            start.elapsed().as_secs_f64() * 1000.0
+                        );
+                    }
+                    return Ok(true);
+                }
+            }
+        }
         let worker_count = rayon::current_num_threads().max(1);
         let chunk_size = (origin_rows.len() / (worker_count * 4))
-            .clamp(32, 512)
+            .clamp(128, 1024)
             .max(1);
         let chunk_results = origin_rows
             .par_chunks(chunk_size)
-            .map(|chunk| {
+            .enumerate()
+            .map(|(chunk_index, chunk)| {
+                let row_start = chunk_index * chunk_size;
                 let mut candidates = Vec::new();
                 let mut counters = SpatialLocalCounters::default();
                 let mut origins = Vec::with_capacity(chunk.len());
                 let mut values = Vec::with_capacity(chunk.len() * result_count);
+                let mut present = (!result_values_are_dense)
+                    .then(|| Vec::with_capacity(chunk.len() * result_count));
                 let mut accumulators = batches
                     .iter()
                     .map(|batch| vec![SpatialBatchAccum::default(); batch.specs.len()])
                     .collect::<Vec<_>>();
                 let mut exact_counts = vec![0usize; batches.len()];
-                for origin_entity in chunk {
-                    let origin_entity = *origin_entity;
-                    let origin_point = point_from_fast_arrays(&origin_coord_arrays, origin_entity)?;
+                for (chunk_offset, origin_entity) in chunk.iter().copied().enumerate() {
+                    let origin_row = row_start + chunk_offset;
+                    let origin_point = point_from_row_arrays(&origin_coord_arrays, origin_row)?;
                     for accumulator in &mut accumulators {
                         accumulator.fill(SpatialBatchAccum::default());
                     }
@@ -2518,8 +3860,10 @@ impl<'a> PlanExecutor<'a> {
                                         first,
                                         &batches,
                                         &item_field_arrays,
+                                        None,
                                         origin_entity,
                                         &origin_point,
+                                        None,
                                         record.entity,
                                         &record.point,
                                         distance_sq,
@@ -2531,16 +3875,18 @@ impl<'a> PlanExecutor<'a> {
                             )?;
                         }
                         BuiltSpatialIndex::DirectPointHashGrid(index) => {
-                            index.visit_radius_unordered(
+                            index.visit_radius_unordered_indexed(
                                 &origin_point,
                                 max_radius,
-                                |record, distance_sq| {
+                                |record_index, record, distance_sq| {
                                     process_fast_spatial_record(
                                         first,
                                         &batches,
                                         &item_field_arrays,
+                                        item_record_field_arrays_ref,
                                         origin_entity,
                                         &origin_point,
+                                        Some(record_index),
                                         record.entity,
                                         &record.point,
                                         distance_sq,
@@ -2571,8 +3917,10 @@ impl<'a> PlanExecutor<'a> {
                                     first,
                                     &batches,
                                     &item_field_arrays,
+                                    None,
                                     origin_entity,
                                     &origin_point,
+                                    None,
                                     record.entity,
                                     &record.point,
                                     distance_sq,
@@ -2583,30 +3931,51 @@ impl<'a> PlanExecutor<'a> {
                             }
                         }
                     }
-                    origins.push(origin_entity);
+                    if layout == SpatialPrecomputeLayout::SparseEntity {
+                        origins.push(origin_entity);
+                    }
                     for (batch_index, batch) in batches.iter().enumerate() {
                         let exact_count = exact_counts[batch_index];
                         for (spec, accumulator) in
                             batch.specs.iter().zip(accumulators[batch_index].iter())
                         {
-                            let value = match spec.kind.as_str() {
-                                "any" => Some(bool_f64(exact_count > 0)),
-                                "count" => Some(exact_count as f64),
-                                "sum" => Some(accumulator.sum),
-                                "mean" if accumulator.count > 0 => {
+                            let value = match spec.kind {
+                                FastAggregateKind::Any => Some(bool_f64(exact_count > 0)),
+                                FastAggregateKind::Count => Some(exact_count as f64),
+                                FastAggregateKind::Sum => Some(accumulator.sum),
+                                FastAggregateKind::Mean if accumulator.count > 0 => {
                                     Some(accumulator.sum / accumulator.count as f64)
                                 }
-                                "min" if accumulator.count > 0 => Some(accumulator.min),
-                                "max" if accumulator.count > 0 => Some(accumulator.max),
+                                FastAggregateKind::Min if accumulator.count > 0 => {
+                                    Some(accumulator.min)
+                                }
+                                FastAggregateKind::Max if accumulator.count > 0 => {
+                                    Some(accumulator.max)
+                                }
                                 _ => None,
                             };
-                            values.push(value);
+                            if result_values_are_dense {
+                                values.push(value.unwrap_or(0.0));
+                            } else if let Some(present) = present.as_mut() {
+                                match value {
+                                    Some(value) => {
+                                        values.push(value);
+                                        present.push(true);
+                                    }
+                                    None => {
+                                        values.push(0.0);
+                                        present.push(false);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
                 Ok(SpatialChunkResult {
+                    row_start,
                     origins,
                     values,
+                    present,
                     counters,
                 })
             })
@@ -2616,33 +3985,780 @@ impl<'a> PlanExecutor<'a> {
         self.report.spatial_parallel_chunks += chunk_results.len();
         self.report.spatial_thread_scratch_reuses +=
             origin_rows.len().saturating_sub(chunk_results.len());
-        let mut result_arrays = result_exprs
-            .iter()
-            .map(|expr_index| (*expr_index, vec![None; max_entity_index + 1]))
-            .collect::<Vec<_>>();
-        for chunk in chunk_results {
-            let SpatialChunkResult {
-                origins,
-                values,
-                counters,
-            } = chunk;
-            self.report.spatial_candidate_rows += counters.candidate_rows;
-            self.report.rows_scanned += counters.rows_scanned;
-            self.report.spatial_exact_rows += counters.exact_rows;
-            self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
-            self.report.spatial_candidate_buffer_growths += counters.candidate_buffer_growths;
-            for (origin_index, origin) in origins.into_iter().enumerate() {
-                let base = origin_index * result_count;
-                for (slot, value) in values[base..base + result_count].iter().enumerate() {
-                    if let Some(value) = value {
-                        result_arrays[slot].1[origin.index as usize] =
-                            Some((origin.generation, *value));
+        match layout {
+            SpatialPrecomputeLayout::SparseEntity => {
+                let mut result_arrays = result_exprs
+                    .iter()
+                    .map(|expr_index| (*expr_index, vec![None; max_entity_index + 1]))
+                    .collect::<Vec<_>>();
+                for chunk in chunk_results {
+                    let SpatialChunkResult {
+                        row_start: _,
+                        origins,
+                        values,
+                        present,
+                        counters,
+                    } = chunk;
+                    let present = present.as_deref();
+                    self.report.spatial_candidate_rows += counters.candidate_rows;
+                    self.report.rows_scanned += counters.rows_scanned;
+                    self.report.spatial_exact_rows += counters.exact_rows;
+                    self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
+                    self.report.spatial_candidate_buffer_growths +=
+                        counters.candidate_buffer_growths;
+                    for (origin_index, origin) in origins.into_iter().enumerate() {
+                        let base = origin_index * result_count;
+                        for (slot, value) in values[base..base + result_count].iter().enumerate() {
+                            if present.is_none_or(|present| present[base + slot]) {
+                                result_arrays[slot].1[origin.index as usize] =
+                                    Some((origin.generation, *value));
+                            }
+                        }
                     }
+                }
+                for (expr_index, values) in result_arrays {
+                    self.spatial_precomputed_f64.insert(expr_index, values);
+                }
+            }
+            SpatialPrecomputeLayout::QueryRows if result_values_are_dense => {
+                let mut row_result_arrays = result_exprs
+                    .iter()
+                    .map(|expr_index| (*expr_index, vec![0.0; origin_rows.len()]))
+                    .collect::<Vec<_>>();
+                for chunk in chunk_results {
+                    let SpatialChunkResult {
+                        row_start,
+                        origins: _,
+                        values,
+                        present: _,
+                        counters,
+                    } = chunk;
+                    self.report.spatial_candidate_rows += counters.candidate_rows;
+                    self.report.rows_scanned += counters.rows_scanned;
+                    self.report.spatial_exact_rows += counters.exact_rows;
+                    self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
+                    self.report.spatial_candidate_buffer_growths +=
+                        counters.candidate_buffer_growths;
+                    for origin_index in 0..(values.len() / result_count) {
+                        let base = origin_index * result_count;
+                        let row_index = row_start + origin_index;
+                        for (slot, value) in values[base..base + result_count].iter().enumerate() {
+                            row_result_arrays[slot].1[row_index] = *value;
+                        }
+                    }
+                }
+                for (expr_index, values) in row_result_arrays {
+                    self.spatial_precomputed_f64_rows
+                        .insert(expr_index, SpatialF64RowArray::Dense(values));
+                }
+            }
+            SpatialPrecomputeLayout::QueryRows => {
+                let mut row_result_arrays = result_exprs
+                    .iter()
+                    .map(|expr_index| (*expr_index, vec![None; origin_rows.len()]))
+                    .collect::<Vec<_>>();
+                for chunk in chunk_results {
+                    let SpatialChunkResult {
+                        row_start,
+                        origins: _,
+                        values,
+                        present,
+                        counters,
+                    } = chunk;
+                    let Some(present) = present else {
+                        return Err(EcsError::InvalidPlan(
+                            "optional spatial row results missing presence flags".to_string(),
+                        ));
+                    };
+                    self.report.spatial_candidate_rows += counters.candidate_rows;
+                    self.report.rows_scanned += counters.rows_scanned;
+                    self.report.spatial_exact_rows += counters.exact_rows;
+                    self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
+                    self.report.spatial_candidate_buffer_growths +=
+                        counters.candidate_buffer_growths;
+                    for origin_index in 0..(values.len() / result_count) {
+                        let base = origin_index * result_count;
+                        let row_index = row_start + origin_index;
+                        for (slot, value) in values[base..base + result_count].iter().enumerate() {
+                            if present[base + slot] {
+                                row_result_arrays[slot].1[row_index] = Some(*value);
+                            }
+                        }
+                    }
+                }
+                for (expr_index, values) in row_result_arrays {
+                    self.spatial_precomputed_f64_rows
+                        .insert(expr_index, SpatialF64RowArray::Optional(values));
                 }
             }
         }
-        for (expr_index, values) in result_arrays {
-            self.spatial_precomputed_f64.insert(expr_index, values);
+        if let Some(start) = profile_start {
+            eprintln!(
+                "ecs_profile direct_spatial_group mode=same_origin origin={} item={} relations={} result_count={} origins={} elapsed_ms={:.3}",
+                first.origin_query,
+                first.item_query,
+                relations.len(),
+                result_count,
+                origin_rows.len(),
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+        Ok(true)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn precompute_inverted_direct_spatial_relation_group_f64(
+        &mut self,
+        relation: &SpatialRelationNode,
+        batches: &[FastDirectSpatialRelationBatch],
+        origin_rows: &[Entity],
+        _origin_coord_arrays: &[Vec<f64>],
+        item_index: &DirectPointHashGrid,
+        item_field_arrays: &[FastFieldArray],
+        item_record_field_arrays: Option<&[Vec<f64>]>,
+        result_exprs: &[usize],
+        result_count: usize,
+        max_radius: f64,
+    ) -> Result<bool> {
+        if result_count == 0 || origin_rows.is_empty() || item_index.records.is_empty() {
+            return Ok(false);
+        }
+        let result_values_are_dense = spatial_result_values_are_dense(batches);
+        let mut origin_index_relation = relation.clone();
+        origin_index_relation.index_id = format!("inverted_origin:{}", relation.index_id);
+        origin_index_relation.item_query = relation.origin_query.clone();
+        origin_index_relation.target_position = relation.origin_position.clone();
+        origin_index_relation.target_bounds = None;
+        let Some((origin_index_key, BuiltSpatialIndex::DirectPointHashGrid(origin_index))) =
+            self.build_direct_spatial_index_for_relation(&origin_index_relation)?
+        else {
+            return Ok(false);
+        };
+        if origin_index.regular_grid.is_none()
+            && item_index.records.len().saturating_mul(4) >= origin_rows.len()
+        {
+            self.spatial_indexes.insert(
+                origin_index_key,
+                BuiltSpatialIndex::DirectPointHashGrid(origin_index),
+            );
+            return Ok(false);
+        }
+
+        let mut spec_offsets = Vec::with_capacity(batches.len());
+        let mut offset = 0usize;
+        for batch in batches {
+            spec_offsets.push(offset);
+            offset += batch.specs.len();
+        }
+        if offset != result_count {
+            return Ok(false);
+        }
+
+        let mut accumulators = vec![SpatialBatchAccum::default(); origin_rows.len() * result_count];
+        let mut exact_counts = vec![0usize; origin_rows.len() * batches.len()];
+        let mut counters = SpatialLocalCounters::default();
+
+        for (item_record_index, item_record) in item_index.records.iter().enumerate() {
+            let item_entity = item_record.entity;
+            let item_point = &item_record.point;
+            origin_index.visit_radius_unordered_indexed(
+                item_point,
+                max_radius,
+                |origin_index, origin_record, distance_sq| {
+                    counters.candidate_rows += 1;
+                    if !relation.include_self && item_entity == origin_record.entity {
+                        return Ok(());
+                    }
+                    if relation.pair_policy == "unique_unordered"
+                        && item_entity.raw() <= origin_record.entity.raw()
+                    {
+                        counters.deduplicated_pairs += 1;
+                        return Ok(());
+                    }
+                    let mut inverse_distance_cache: Option<(f64, f64)> = None;
+                    for (batch_index, batch) in batches.iter().enumerate() {
+                        if distance_sq > batch.query_radius_sq {
+                            continue;
+                        }
+                        if let Some(distance_filter) = batch.distance_filter {
+                            if !distance_filter.matches(distance_sq) {
+                                continue;
+                            }
+                        }
+                        exact_counts[origin_index * batches.len() + batch_index] += 1;
+                        counters.rows_scanned += 1;
+                        counters.exact_rows += 1;
+                        let spec_offset = spec_offsets[batch_index];
+                        for (spec_index, spec) in batch.specs.iter().enumerate() {
+                            if matches!(
+                                spec.kind,
+                                FastAggregateKind::Any | FastAggregateKind::Count
+                            ) {
+                                continue;
+                            }
+                            let value = match &spec.value {
+                                FastSpatialBatchValue::Count => 1.0,
+                                FastSpatialBatchValue::DirectField { array_index } => {
+                                    if let Some(record_arrays) = item_record_field_arrays {
+                                        record_arrays[*array_index][item_record_index]
+                                    } else {
+                                        fast_field_array_value(
+                                            &item_field_arrays[*array_index],
+                                            item_entity,
+                                        )?
+                                    }
+                                }
+                                FastSpatialBatchValue::DirectPointCoord { axis } => {
+                                    item_point.coord(*axis)
+                                }
+                                FastSpatialBatchValue::NegDeltaOverDistance {
+                                    axis,
+                                    minimum_distance,
+                                } => {
+                                    let inverse_distance = match inverse_distance_cache {
+                                        Some((cached_minimum, value))
+                                            if cached_minimum == *minimum_distance =>
+                                        {
+                                            value
+                                        }
+                                        _ => {
+                                            let value =
+                                                1.0 / distance_sq.sqrt().max(*minimum_distance);
+                                            inverse_distance_cache =
+                                                Some((*minimum_distance, value));
+                                            value
+                                        }
+                                    };
+                                    let delta_axis =
+                                        item_point.coord(*axis) - origin_record.point.coord(*axis);
+                                    -delta_axis * inverse_distance
+                                }
+                            };
+                            let accumulator = &mut accumulators
+                                [origin_index * result_count + spec_offset + spec_index];
+                            match spec.kind {
+                                FastAggregateKind::Sum => accumulator.sum += value,
+                                FastAggregateKind::Mean => {
+                                    accumulator.count += 1;
+                                    accumulator.sum += value;
+                                }
+                                FastAggregateKind::Min => {
+                                    accumulator.count += 1;
+                                    accumulator.min = accumulator.min.min(value);
+                                }
+                                FastAggregateKind::Max => {
+                                    accumulator.count += 1;
+                                    accumulator.max = accumulator.max.max(value);
+                                }
+                                FastAggregateKind::Any | FastAggregateKind::Count => {}
+                            }
+                        }
+                    }
+                    Ok(())
+                },
+            )?;
+        }
+
+        if result_values_are_dense {
+            let mut row_result_arrays = result_exprs
+                .iter()
+                .map(|expr_index| (*expr_index, vec![0.0; origin_rows.len()]))
+                .collect::<Vec<_>>();
+            for origin_index in 0..origin_rows.len() {
+                for (batch_index, batch) in batches.iter().enumerate() {
+                    let exact_count = exact_counts[origin_index * batches.len() + batch_index];
+                    let spec_offset = spec_offsets[batch_index];
+                    for (spec_index, spec) in batch.specs.iter().enumerate() {
+                        let accumulator =
+                            &accumulators[origin_index * result_count + spec_offset + spec_index];
+                        let value = match spec.kind {
+                            FastAggregateKind::Any => bool_f64(exact_count > 0),
+                            FastAggregateKind::Count => exact_count as f64,
+                            FastAggregateKind::Sum => accumulator.sum,
+                            _ => 0.0,
+                        };
+                        row_result_arrays[spec_offset + spec_index].1[origin_index] = value;
+                    }
+                }
+            }
+            for (expr_index, values) in row_result_arrays {
+                self.spatial_precomputed_f64_rows
+                    .insert(expr_index, SpatialF64RowArray::Dense(values));
+            }
+        } else {
+            let mut row_result_arrays = result_exprs
+                .iter()
+                .map(|expr_index| (*expr_index, vec![None; origin_rows.len()]))
+                .collect::<Vec<_>>();
+            for origin_index in 0..origin_rows.len() {
+                for (batch_index, batch) in batches.iter().enumerate() {
+                    let exact_count = exact_counts[origin_index * batches.len() + batch_index];
+                    let spec_offset = spec_offsets[batch_index];
+                    for (spec_index, spec) in batch.specs.iter().enumerate() {
+                        let accumulator =
+                            &accumulators[origin_index * result_count + spec_offset + spec_index];
+                        let value = match spec.kind {
+                            FastAggregateKind::Any => Some(bool_f64(exact_count > 0)),
+                            FastAggregateKind::Count => Some(exact_count as f64),
+                            FastAggregateKind::Sum => Some(accumulator.sum),
+                            FastAggregateKind::Mean if accumulator.count > 0 => {
+                                Some(accumulator.sum / accumulator.count as f64)
+                            }
+                            FastAggregateKind::Min if accumulator.count > 0 => {
+                                Some(accumulator.min)
+                            }
+                            FastAggregateKind::Max if accumulator.count > 0 => {
+                                Some(accumulator.max)
+                            }
+                            _ => None,
+                        };
+                        if let Some(value) = value {
+                            row_result_arrays[spec_offset + spec_index].1[origin_index] =
+                                Some(value);
+                        }
+                    }
+                }
+            }
+            for (expr_index, values) in row_result_arrays {
+                self.spatial_precomputed_f64_rows
+                    .insert(expr_index, SpatialF64RowArray::Optional(values));
+            }
+        }
+        self.spatial_indexes.insert(
+            origin_index_key,
+            BuiltSpatialIndex::DirectPointHashGrid(origin_index),
+        );
+        self.report.spatial_candidate_rows += counters.candidate_rows;
+        self.report.rows_scanned += counters.rows_scanned;
+        self.report.spatial_exact_rows += counters.exact_rows;
+        self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
+        self.report.spatial_candidate_buffer_growths += counters.candidate_buffer_growths;
+        Ok(true)
+    }
+
+    fn precompute_multi_origin_direct_spatial_relation_group_f64(
+        &mut self,
+        relations: &[SpatialRelationNode],
+        index: &BuiltSpatialIndex,
+        layout: SpatialPrecomputeLayout,
+    ) -> Result<bool> {
+        let profile_start = self.profile.then(Instant::now);
+        let Some(first) = relations.first() else {
+            return Ok(false);
+        };
+        if relations.len() < 2
+            || relations.iter().any(|relation| {
+                !spatial_relations_same_multi_origin_precompute_group(first, relation)
+            })
+        {
+            return Ok(false);
+        }
+        if first.origin_bounds.is_some() || first.target_bounds.is_some() {
+            return Ok(false);
+        }
+        let origin_rows = self
+            .query_rows
+            .get(&first.origin_query)
+            .cloned()
+            .ok_or_else(|| {
+                EcsError::InvalidPlan(format!(
+                    "spatial origin query '{}' is not part of the plan",
+                    first.origin_query
+                ))
+            })?;
+        let item_rows = self
+            .query_rows
+            .get(&first.item_query)
+            .cloned()
+            .ok_or_else(|| {
+                EcsError::InvalidPlan(format!(
+                    "spatial item query '{}' is not part of the plan",
+                    first.item_query
+                ))
+            })?;
+        let origin_locations = self.query_locations(&first.origin_query)?;
+        let item_locations = self.query_locations(&first.item_query)?;
+        let target_coords = self
+            .match_direct_spatial_coords(&first.target_position, &first.item_query)
+            .unwrap_or_default();
+        let mut item_field_arrays: Vec<FastFieldArray> = Vec::new();
+        let mut origin_coord_arrays_by_relation = Vec::with_capacity(relations.len());
+        let mut batches = Vec::with_capacity(relations.len());
+        for relation in relations {
+            let Some(origin_coords) =
+                self.match_direct_spatial_coords(&relation.origin_position, &relation.origin_query)
+            else {
+                return Ok(false);
+            };
+            let mut origin_coord_arrays = Vec::with_capacity(origin_coords.len());
+            for coord in &origin_coords {
+                origin_coord_arrays.push(self.world.field_f64_rows_for_resolved_entities(
+                    &coord.component,
+                    &coord.field,
+                    &origin_locations,
+                )?);
+            }
+            let Some(batch) = self.direct_spatial_relation_batch(relation)? else {
+                return Ok(false);
+            };
+            let mut specs = Vec::with_capacity(batch.specs.len());
+            for spec in batch.specs {
+                let value = match spec.value {
+                    SpatialBatchValue::Count => FastSpatialBatchValue::Count,
+                    SpatialBatchValue::DirectField { component, field } => {
+                        if let Some(axis) = target_coords
+                            .iter()
+                            .position(|coord| coord.component == component && coord.field == field)
+                        {
+                            FastSpatialBatchValue::DirectPointCoord { axis }
+                        } else {
+                            let array_index = self.ensure_fast_field_array_with_locations(
+                                &mut item_field_arrays,
+                                &item_rows,
+                                &item_locations,
+                                &component,
+                                &field,
+                            )?;
+                            FastSpatialBatchValue::DirectField { array_index }
+                        }
+                    }
+                    SpatialBatchValue::NegDeltaOverDistance {
+                        axis,
+                        minimum_distance,
+                    } => FastSpatialBatchValue::NegDeltaOverDistance {
+                        axis,
+                        minimum_distance,
+                    },
+                };
+                let Some(kind) = fast_aggregate_kind(&spec.kind) else {
+                    return Ok(false);
+                };
+                specs.push(FastSpatialBatchSpec {
+                    expr_index: spec.expr_index,
+                    kind,
+                    value,
+                });
+            }
+            origin_coord_arrays_by_relation.push(origin_coord_arrays);
+            batches.push(FastDirectSpatialRelationBatch {
+                specs,
+                distance_filter: batch.distance_filter,
+                query_radius: batch.query_radius,
+                query_radius_sq: batch.query_radius * batch.query_radius,
+            });
+        }
+        let item_record_field_arrays = if let BuiltSpatialIndex::DirectPointHashGrid(index) = index
+        {
+            item_field_arrays
+                .iter()
+                .map(|array| fast_field_array_record_values(array, &index.records))
+                .collect::<Result<Vec<_>>>()?
+        } else {
+            Vec::new()
+        };
+        let item_record_field_arrays_ref =
+            (!item_record_field_arrays.is_empty()).then_some(item_record_field_arrays.as_slice());
+        let dimensions = dimensions_len(first.algorithm.dimensions)?;
+        let result_exprs = batches
+            .iter()
+            .flat_map(|batch| batch.specs.iter().map(|spec| spec.expr_index))
+            .collect::<Vec<_>>();
+        let result_count = result_exprs.len();
+        if result_count == 0 {
+            return Ok(false);
+        }
+        let result_values_are_dense = spatial_result_values_are_dense(&batches);
+        let max_entity_index = origin_rows
+            .iter()
+            .map(|entity| entity.index as usize)
+            .max()
+            .unwrap_or(0);
+        let worker_count = rayon::current_num_threads().max(1);
+        let chunk_size = (origin_rows.len() / (worker_count * 4))
+            .clamp(128, 1024)
+            .max(1);
+        let chunk_results = origin_rows
+            .par_chunks(chunk_size)
+            .enumerate()
+            .map(|(chunk_index, chunk)| {
+                let row_start = chunk_index * chunk_size;
+                let mut candidates = Vec::new();
+                let mut counters = SpatialLocalCounters::default();
+                let mut origins = Vec::with_capacity(chunk.len());
+                let mut values = Vec::with_capacity(chunk.len() * result_count);
+                let mut present = (!result_values_are_dense)
+                    .then(|| Vec::with_capacity(chunk.len() * result_count));
+                let mut accumulators = batches
+                    .iter()
+                    .map(|batch| vec![SpatialBatchAccum::default(); batch.specs.len()])
+                    .collect::<Vec<_>>();
+                let mut exact_counts = vec![0usize; batches.len()];
+                for (chunk_offset, origin_entity) in chunk.iter().copied().enumerate() {
+                    let origin_row = row_start + chunk_offset;
+                    for accumulator in &mut accumulators {
+                        accumulator.fill(SpatialBatchAccum::default());
+                    }
+                    exact_counts.fill(0);
+                    for relation_index in 0..batches.len() {
+                        let origin_point = point_from_row_arrays(
+                            &origin_coord_arrays_by_relation[relation_index],
+                            origin_row,
+                        )?;
+                        let batch = &batches[relation_index];
+                        let before_capacity = candidates.capacity();
+                        match index {
+                            BuiltSpatialIndex::HashGrid(index) => {
+                                index.visit_radius_unordered(
+                                    &origin_point,
+                                    batch.query_radius,
+                                    |record, distance_sq| {
+                                        process_fast_spatial_record(
+                                            &relations[relation_index],
+                                            &batches[relation_index..relation_index + 1],
+                                            &item_field_arrays,
+                                            None,
+                                            origin_entity,
+                                            &origin_point,
+                                            None,
+                                            record.entity,
+                                            &record.point,
+                                            distance_sq,
+                                            &mut accumulators[relation_index..relation_index + 1],
+                                            &mut exact_counts[relation_index..relation_index + 1],
+                                            &mut counters,
+                                        )
+                                    },
+                                )?;
+                            }
+                            BuiltSpatialIndex::DirectPointHashGrid(index) => {
+                                index.visit_radius_unordered_indexed(
+                                    &origin_point,
+                                    batch.query_radius,
+                                    |record_index, record, distance_sq| {
+                                        process_fast_spatial_record(
+                                            &relations[relation_index],
+                                            &batches[relation_index..relation_index + 1],
+                                            &item_field_arrays,
+                                            item_record_field_arrays_ref,
+                                            origin_entity,
+                                            &origin_point,
+                                            Some(record_index),
+                                            record.entity,
+                                            &record.point,
+                                            distance_sq,
+                                            &mut accumulators[relation_index..relation_index + 1],
+                                            &mut exact_counts[relation_index..relation_index + 1],
+                                            &mut counters,
+                                        )
+                                    },
+                                )?;
+                            }
+                            _ => {
+                                candidates.clear();
+                                index.query_radius_unordered(
+                                    &origin_point,
+                                    batch.query_radius,
+                                    &mut candidates,
+                                )?;
+                                if candidates.capacity() > before_capacity {
+                                    counters.candidate_buffer_growths += 1;
+                                }
+                                for record in candidates.iter() {
+                                    let distance_sq = direct_distance_squared(
+                                        &origin_point,
+                                        &record.point,
+                                        dimensions,
+                                    );
+                                    process_fast_spatial_record(
+                                        &relations[relation_index],
+                                        &batches[relation_index..relation_index + 1],
+                                        &item_field_arrays,
+                                        None,
+                                        origin_entity,
+                                        &origin_point,
+                                        None,
+                                        record.entity,
+                                        &record.point,
+                                        distance_sq,
+                                        &mut accumulators[relation_index..relation_index + 1],
+                                        &mut exact_counts[relation_index..relation_index + 1],
+                                        &mut counters,
+                                    )?;
+                                }
+                            }
+                        }
+                    }
+                    if layout == SpatialPrecomputeLayout::SparseEntity {
+                        origins.push(origin_entity);
+                    }
+                    for (relation_index, batch) in batches.iter().enumerate() {
+                        let exact_count = exact_counts[relation_index];
+                        for (spec, accumulator) in
+                            batch.specs.iter().zip(accumulators[relation_index].iter())
+                        {
+                            let value = match spec.kind {
+                                FastAggregateKind::Any => Some(bool_f64(exact_count > 0)),
+                                FastAggregateKind::Count => Some(exact_count as f64),
+                                FastAggregateKind::Sum => Some(accumulator.sum),
+                                FastAggregateKind::Mean if accumulator.count > 0 => {
+                                    Some(accumulator.sum / accumulator.count as f64)
+                                }
+                                FastAggregateKind::Min if accumulator.count > 0 => {
+                                    Some(accumulator.min)
+                                }
+                                FastAggregateKind::Max if accumulator.count > 0 => {
+                                    Some(accumulator.max)
+                                }
+                                _ => None,
+                            };
+                            if result_values_are_dense {
+                                values.push(value.unwrap_or(0.0));
+                            } else if let Some(present) = present.as_mut() {
+                                match value {
+                                    Some(value) => {
+                                        values.push(value);
+                                        present.push(true);
+                                    }
+                                    None => {
+                                        values.push(0.0);
+                                        present.push(false);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Ok(SpatialChunkResult {
+                    row_start,
+                    origins,
+                    values,
+                    present,
+                    counters,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.report.spatial_parallel_workers =
+            self.report.spatial_parallel_workers.max(worker_count);
+        self.report.spatial_parallel_chunks += chunk_results.len();
+        self.report.spatial_thread_scratch_reuses +=
+            origin_rows.len().saturating_sub(chunk_results.len());
+        match layout {
+            SpatialPrecomputeLayout::SparseEntity => {
+                let mut result_arrays = result_exprs
+                    .iter()
+                    .map(|expr_index| (*expr_index, vec![None; max_entity_index + 1]))
+                    .collect::<Vec<_>>();
+                for chunk in chunk_results {
+                    let SpatialChunkResult {
+                        row_start: _,
+                        origins,
+                        values,
+                        present,
+                        counters,
+                    } = chunk;
+                    let present = present.as_deref();
+                    self.report.spatial_candidate_rows += counters.candidate_rows;
+                    self.report.rows_scanned += counters.rows_scanned;
+                    self.report.spatial_exact_rows += counters.exact_rows;
+                    self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
+                    self.report.spatial_candidate_buffer_growths +=
+                        counters.candidate_buffer_growths;
+                    for (origin_index, origin) in origins.into_iter().enumerate() {
+                        let base = origin_index * result_count;
+                        for (slot, value) in values[base..base + result_count].iter().enumerate() {
+                            if present.is_none_or(|present| present[base + slot]) {
+                                result_arrays[slot].1[origin.index as usize] =
+                                    Some((origin.generation, *value));
+                            }
+                        }
+                    }
+                }
+                for (expr_index, values) in result_arrays {
+                    self.spatial_precomputed_f64.insert(expr_index, values);
+                }
+            }
+            SpatialPrecomputeLayout::QueryRows if result_values_are_dense => {
+                let mut row_result_arrays = result_exprs
+                    .iter()
+                    .map(|expr_index| (*expr_index, vec![0.0; origin_rows.len()]))
+                    .collect::<Vec<_>>();
+                for chunk in chunk_results {
+                    let SpatialChunkResult {
+                        row_start,
+                        origins: _,
+                        values,
+                        present: _,
+                        counters,
+                    } = chunk;
+                    self.report.spatial_candidate_rows += counters.candidate_rows;
+                    self.report.rows_scanned += counters.rows_scanned;
+                    self.report.spatial_exact_rows += counters.exact_rows;
+                    self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
+                    self.report.spatial_candidate_buffer_growths +=
+                        counters.candidate_buffer_growths;
+                    for origin_index in 0..(values.len() / result_count) {
+                        let base = origin_index * result_count;
+                        let row_index = row_start + origin_index;
+                        for (slot, value) in values[base..base + result_count].iter().enumerate() {
+                            row_result_arrays[slot].1[row_index] = *value;
+                        }
+                    }
+                }
+                for (expr_index, values) in row_result_arrays {
+                    self.spatial_precomputed_f64_rows
+                        .insert(expr_index, SpatialF64RowArray::Dense(values));
+                }
+            }
+            SpatialPrecomputeLayout::QueryRows => {
+                let mut row_result_arrays = result_exprs
+                    .iter()
+                    .map(|expr_index| (*expr_index, vec![None; origin_rows.len()]))
+                    .collect::<Vec<_>>();
+                for chunk in chunk_results {
+                    let SpatialChunkResult {
+                        row_start,
+                        origins: _,
+                        values,
+                        present,
+                        counters,
+                    } = chunk;
+                    let Some(present) = present else {
+                        return Err(EcsError::InvalidPlan(
+                            "optional spatial row results missing presence flags".to_string(),
+                        ));
+                    };
+                    self.report.spatial_candidate_rows += counters.candidate_rows;
+                    self.report.rows_scanned += counters.rows_scanned;
+                    self.report.spatial_exact_rows += counters.exact_rows;
+                    self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
+                    self.report.spatial_candidate_buffer_growths +=
+                        counters.candidate_buffer_growths;
+                    for origin_index in 0..(values.len() / result_count) {
+                        let base = origin_index * result_count;
+                        let row_index = row_start + origin_index;
+                        for (slot, value) in values[base..base + result_count].iter().enumerate() {
+                            if present[base + slot] {
+                                row_result_arrays[slot].1[row_index] = Some(*value);
+                            }
+                        }
+                    }
+                }
+                for (expr_index, values) in row_result_arrays {
+                    self.spatial_precomputed_f64_rows
+                        .insert(expr_index, SpatialF64RowArray::Optional(values));
+                }
+            }
+        }
+        if let Some(start) = profile_start {
+            eprintln!(
+                "ecs_profile direct_spatial_group mode=multi_origin origin={} item={} relations={} result_count={} origins={} elapsed_ms={:.3}",
+                first.origin_query,
+                first.item_query,
+                relations.len(),
+                result_count,
+                origin_rows.len(),
+                start.elapsed().as_secs_f64() * 1000.0
+            );
         }
         Ok(true)
     }
@@ -2671,9 +4787,11 @@ impl<'a> PlanExecutor<'a> {
         let distance_filter = relation
             .exact_filter
             .and_then(|expr| self.match_spatial_distance_filter(expr, relation));
-        if relation.exact_filter.is_some() && distance_filter.is_none() {
-            return Ok(());
-        }
+        let generic_exact_filter = if relation.exact_filter.is_some() && distance_filter.is_none() {
+            relation.exact_filter
+        } else {
+            None
+        };
         let query_radius = match (
             radius,
             distance_filter.and_then(|filter| filter.upper_radius_bound()),
@@ -2731,6 +4849,23 @@ impl<'a> PlanExecutor<'a> {
                 };
                 if let Some(distance_filter) = distance_filter {
                     if !distance_filter.matches(distance_sq) {
+                        return Ok(());
+                    }
+                }
+                if let Some(filter_expr) = generic_exact_filter {
+                    let mut filter_ctx = EvalContext::default();
+                    filter_ctx
+                        .bindings
+                        .insert(relation.origin_query.clone(), origin_entity);
+                    filter_ctx
+                        .bindings
+                        .insert(relation.item_query.clone(), record.entity);
+                    let mut filter_cache = vec![None; executor.plan.expressions.len()];
+                    if !truthy_f64(executor.eval_expr_f64(
+                        filter_expr,
+                        &filter_ctx,
+                        &mut filter_cache,
+                    )?) {
                         return Ok(());
                     }
                 }
@@ -3969,14 +6104,46 @@ impl<'a> PlanExecutor<'a> {
         complete
     }
 
+    fn spatial_index_signature(&self, relation: &SpatialRelationNode) -> String {
+        format!(
+            "{};item_query_fingerprint={}",
+            spatial_index_base_signature(relation),
+            self.query_fingerprint(&relation.item_query)
+        )
+    }
+
+    fn spatial_index_cache_key(&self, relation: &SpatialRelationNode) -> String {
+        format!(
+            "{}|{}",
+            relation.index_id,
+            self.spatial_index_signature(relation)
+        )
+    }
+
+    fn query_fingerprint(&self, query_name: &str) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        query_name.hash(&mut hasher);
+        if let Some(query) = self
+            .plan
+            .queries
+            .iter()
+            .find(|query| query.name == query_name)
+        {
+            query.filter.hash(&mut hasher);
+            query.allowed_entities.hash(&mut hasher);
+        }
+        hasher.finish()
+    }
+
     fn take_fresh_spatial_index(
         &mut self,
         relation: &SpatialRelationNode,
     ) -> Option<BuiltSpatialIndex> {
-        let signature = spatial_index_signature(relation);
+        let signature = self.spatial_index_signature(relation);
+        let index_key = self.spatial_index_cache_key(relation);
         let structural_revision = self.world.structural_revision();
         let field_revision = self.spatial_dependency_revision(relation);
-        let Some(cached) = self.world.take_spatial_index_cache(&relation.index_id) else {
+        let Some(cached) = self.world.take_spatial_index_cache(&index_key) else {
             return None;
         };
         if cached.signature == signature
@@ -3984,14 +6151,11 @@ impl<'a> PlanExecutor<'a> {
             && cached.field_revision == field_revision
         {
             self.report.spatial_index_reuses += 1;
-            self.spatial_index_metadata.insert(
-                relation.index_id.clone(),
-                (signature, structural_revision, field_revision),
-            );
+            self.spatial_index_metadata
+                .insert(index_key, (signature, structural_revision, field_revision));
             return Some(cached.index);
         }
-        self.world
-            .store_spatial_index_cache(relation.index_id.clone(), cached);
+        self.world.store_spatial_index_cache(index_key, cached);
         None
     }
 
@@ -4000,57 +6164,53 @@ impl<'a> PlanExecutor<'a> {
         relation: &SpatialRelationNode,
         records: Vec<SpatialRecord>,
     ) -> Result<BuiltSpatialIndex> {
-        let signature = spatial_index_signature(relation);
+        let signature = self.spatial_index_signature(relation);
+        let index_key = self.spatial_index_cache_key(relation);
         let structural_revision = self.world.structural_revision();
         let field_revision = self.spatial_dependency_revision(relation);
-        let index =
-            if let Some(mut cached) = self.world.take_spatial_index_cache(&relation.index_id) {
-                if cached.signature == signature {
-                    if cached.structural_revision == structural_revision
-                        && cached.field_revision == field_revision
-                    {
-                        self.report.spatial_index_reuses += 1;
-                        self.spatial_index_metadata.insert(
-                            relation.index_id.clone(),
-                            (signature, structural_revision, field_revision),
-                        );
-                        return Ok(cached.index);
-                    }
-                    if should_try_incremental_spatial_update(
-                        records.len(),
-                        cached.field_revision,
-                        field_revision,
-                    ) {
-                        if cached.index.update_incremental(&records)? {
-                            self.report.spatial_index_incremental_updates += 1;
-                        } else {
-                            self.report.spatial_indexes_built += 1;
-                            self.report.spatial_index_full_rebuilds += 1;
-                        }
+        let index = if let Some(mut cached) = self.world.take_spatial_index_cache(&index_key) {
+            if cached.signature == signature {
+                if cached.structural_revision == structural_revision
+                    && cached.field_revision == field_revision
+                {
+                    self.report.spatial_index_reuses += 1;
+                    self.spatial_index_metadata
+                        .insert(index_key, (signature, structural_revision, field_revision));
+                    return Ok(cached.index);
+                }
+                if should_try_incremental_spatial_update(
+                    records.len(),
+                    cached.field_revision,
+                    field_revision,
+                ) {
+                    if cached.index.update_incremental(&records)? {
+                        self.report.spatial_index_incremental_updates += 1;
                     } else {
-                        cached.index.build(&records)?;
                         self.report.spatial_indexes_built += 1;
                         self.report.spatial_index_full_rebuilds += 1;
                     }
-                    cached.index
                 } else {
-                    let mut index = build_spatial_index(&relation.algorithm)?;
-                    index.build(&records)?;
+                    cached.index.build(&records)?;
                     self.report.spatial_indexes_built += 1;
                     self.report.spatial_index_full_rebuilds += 1;
-                    index
                 }
+                cached.index
             } else {
                 let mut index = build_spatial_index(&relation.algorithm)?;
                 index.build(&records)?;
                 self.report.spatial_indexes_built += 1;
                 self.report.spatial_index_full_rebuilds += 1;
                 index
-            };
-        self.spatial_index_metadata.insert(
-            relation.index_id.clone(),
-            (signature, structural_revision, field_revision),
-        );
+            }
+        } else {
+            let mut index = build_spatial_index(&relation.algorithm)?;
+            index.build(&records)?;
+            self.report.spatial_indexes_built += 1;
+            self.report.spatial_index_full_rebuilds += 1;
+            index
+        };
+        self.spatial_index_metadata
+            .insert(index_key, (signature, structural_revision, field_revision));
         Ok(index)
     }
 
@@ -4059,20 +6219,19 @@ impl<'a> PlanExecutor<'a> {
         relation: &SpatialRelationNode,
         ctx: &EvalContext,
     ) -> Result<&BuiltSpatialIndex> {
-        if self.spatial_indexes.contains_key(&relation.index_id) {
+        let index_key = self.spatial_index_cache_key(relation);
+        if self.spatial_indexes.contains_key(&index_key) {
             self.report.spatial_index_reuses += 1;
         } else if let Some(index) = self.take_fresh_spatial_index(relation) {
             self.report_algorithm_use(&index);
-            self.spatial_indexes
-                .insert(relation.index_id.clone(), index);
+            self.spatial_indexes.insert(index_key.clone(), index);
         } else {
             let records = self.build_spatial_records(relation, ctx)?;
             let index = self.build_or_update_spatial_index(relation, records)?;
             self.report_algorithm_use(&index);
-            self.spatial_indexes
-                .insert(relation.index_id.clone(), index);
+            self.spatial_indexes.insert(index_key.clone(), index);
         }
-        self.spatial_indexes.get(&relation.index_id).ok_or_else(|| {
+        self.spatial_indexes.get(&index_key).ok_or_else(|| {
             EcsError::InvalidPlan(format!(
                 "spatial index '{}' was not built",
                 relation.index_id
@@ -4257,7 +6416,7 @@ impl<'a> PlanExecutor<'a> {
 fn fast_field_array_value(array: &FastFieldArray, entity: Entity) -> Result<f64> {
     let Some(Some((generation, value))) = array.values.get(entity.index as usize) else {
         return Err(EcsError::InvalidPlan(format!(
-            "fast numeric field array missing entity {}:{} for '{}.{}'",
+            "missing cached f64 value for entity {}:{} field {}.{}",
             entity.index, entity.generation, array.component, array.field
         )));
     };
@@ -4266,33 +6425,406 @@ fn fast_field_array_value(array: &FastFieldArray, entity: Entity) -> Result<f64>
             "fast numeric field array has stale entity generation for {}:{}",
             entity.index, entity.generation
         )));
-    }
+    };
     Ok(*value)
 }
 
-fn point_from_fast_arrays(arrays: &[FastFieldArray], entity: Entity) -> Result<SpatialPoint> {
+fn fast_field_array_record_values(
+    array: &FastFieldArray,
+    records: &[DirectPointRecord],
+) -> Result<Vec<f64>> {
+    records
+        .iter()
+        .map(|record| fast_field_array_value(array, record.entity))
+        .collect()
+}
+
+fn point_from_row_arrays(arrays: &[Vec<f64>], row_index: usize) -> Result<SpatialPoint> {
+    let row_value = |values: &Vec<f64>| -> Result<f64> {
+        values.get(row_index).copied().ok_or_else(|| {
+            EcsError::InvalidPlan(format!(
+                "spatial coordinate cache missing query row {row_index}"
+            ))
+        })
+    };
     match arrays {
-        [x, y] => SpatialPoint::point2(
-            fast_field_array_value(x, entity)?,
-            fast_field_array_value(y, entity)?,
-        ),
-        [x, y, z] => SpatialPoint::point3(
-            fast_field_array_value(x, entity)?,
-            fast_field_array_value(y, entity)?,
-            fast_field_array_value(z, entity)?,
-        ),
+        [x, y] => SpatialPoint::point2(row_value(x)?, row_value(y)?),
+        [x, y, z] => SpatialPoint::point3(row_value(x)?, row_value(y)?, row_value(z)?),
         _ => Err(EcsError::InvalidPlan(
             "spatial points must have 2 or 3 coordinates".to_string(),
         )),
     }
 }
 
+fn fast_aggregate_kind(kind: &str) -> Option<FastAggregateKind> {
+    match kind {
+        "any" => Some(FastAggregateKind::Any),
+        "count" => Some(FastAggregateKind::Count),
+        "sum" => Some(FastAggregateKind::Sum),
+        "mean" => Some(FastAggregateKind::Mean),
+        "min" => Some(FastAggregateKind::Min),
+        "max" => Some(FastAggregateKind::Max),
+        _ => None,
+    }
+}
+
+fn spatial_result_values_are_dense(batches: &[FastDirectSpatialRelationBatch]) -> bool {
+    batches.iter().all(|batch| {
+        batch.specs.iter().all(|spec| {
+            matches!(
+                spec.kind,
+                FastAggregateKind::Any | FastAggregateKind::Count | FastAggregateKind::Sum
+            )
+        })
+    })
+}
+
+fn add_query_access(map: &mut HashMap<String, Vec<String>>, component: &str, query: &str) {
+    let queries = map.entry(component.to_string()).or_default();
+    if !queries.iter().any(|candidate| candidate == query) {
+        queries.push(query.to_string());
+    }
+}
+
+fn collect_action_query_access(
+    world: &World,
+    plan: &PhysicalPlan,
+    action_index: usize,
+    access: &mut QueryAccessSummary,
+) -> Result<()> {
+    match &plan.actions[action_index] {
+        ActionNode::Noop => {}
+        ActionNode::SetField { target, value } => {
+            collect_expr_query_reads(plan, *value, access)?;
+            match &plan.expressions[*target] {
+                ExprNode::Field {
+                    query,
+                    component,
+                    field,
+                } => {
+                    add_query_access(&mut access.component_writes, component, query);
+                    if matches!(
+                        world.storage_type_for_field(component, field)?,
+                        StorageType::Float32 | StorageType::Float64
+                    ) {
+                        access.f64_write_targets.push(F64WriteTarget {
+                            query: query.clone(),
+                            component: component.clone(),
+                            field: field.clone(),
+                        });
+                    } else {
+                        access.copyback_eligible = false;
+                    }
+                }
+                ExprNode::ResourceField { resource, .. } => {
+                    access.resource_writes.insert(resource.clone());
+                    access.copyback_eligible = false;
+                }
+                _ => access.copyback_eligible = false,
+            }
+        }
+        ActionNode::Sequence(children) | ActionNode::Parallel(children) => {
+            for child in children {
+                collect_action_query_access(world, plan, *child, access)?;
+            }
+        }
+        ActionNode::When {
+            condition,
+            then_action,
+            otherwise_action,
+        } => {
+            collect_expr_query_reads(plan, *condition, access)?;
+            collect_action_query_access(world, plan, *then_action, access)?;
+            if let Some(otherwise_action) = otherwise_action {
+                collect_action_query_access(world, plan, *otherwise_action, access)?;
+            }
+        }
+        ActionNode::ForEach { source, action, .. } => {
+            collect_expr_query_reads(plan, *source, access)?;
+            collect_action_query_access(world, plan, *action, access)?;
+        }
+        ActionNode::EmitEvent { event_type, value } => {
+            collect_expr_query_reads(plan, *value, access)?;
+            access.event_writes.insert(event_type.clone());
+            access.copyback_eligible = false;
+        }
+        ActionNode::AddComponent {
+            component, value, ..
+        } => {
+            if let Some(value) = value {
+                collect_expr_query_reads(plan, *value, access)?;
+            }
+            access
+                .component_writes
+                .entry(component.clone())
+                .or_default();
+            access.structural = true;
+            access.copyback_eligible = false;
+        }
+        ActionNode::RemoveComponent { component, .. } => {
+            access
+                .component_writes
+                .entry(component.clone())
+                .or_default();
+            access.structural = true;
+            access.copyback_eligible = false;
+        }
+        ActionNode::AddTag { tag, .. } | ActionNode::RemoveTag { tag, .. } => {
+            access.hidden_writes.insert(format!("tag:{tag}"));
+            access.structural = true;
+            access.copyback_eligible = false;
+        }
+        ActionNode::Despawn { .. } => {
+            access.structural = true;
+            access.copyback_eligible = false;
+        }
+        ActionNode::Udf {
+            descriptor,
+            args,
+            side_effects,
+        } => {
+            for arg in args {
+                collect_expr_query_reads(plan, *arg, access)?;
+            }
+            access.hidden_reads.insert(format!("udf:{descriptor}"));
+            if *side_effects {
+                access.structural = true;
+            }
+            access.copyback_eligible = false;
+        }
+    }
+    Ok(())
+}
+
+fn collect_spatial_relation_query_reads(
+    plan: &PhysicalPlan,
+    relation: &SpatialRelationNode,
+    access: &mut QueryAccessSummary,
+) -> Result<()> {
+    access
+        .hidden_reads
+        .insert(format!("spatial:{}", relation.index_id));
+    for index in relation
+        .origin_position
+        .iter()
+        .chain(relation.target_position.iter())
+    {
+        collect_expr_query_reads(plan, *index, access)?;
+    }
+    if let Some(radius) = relation.radius {
+        collect_expr_query_reads(plan, radius, access)?;
+    }
+    for bounds in relation
+        .origin_bounds
+        .iter()
+        .chain(relation.target_bounds.iter())
+    {
+        for index in bounds.minimum.iter().chain(bounds.maximum.iter()) {
+            collect_expr_query_reads(plan, *index, access)?;
+        }
+    }
+    if let Some(exact_filter) = relation.exact_filter {
+        collect_expr_query_reads(plan, exact_filter, access)?;
+    }
+    Ok(())
+}
+
+fn collect_expr_query_reads(
+    plan: &PhysicalPlan,
+    expr_index: usize,
+    access: &mut QueryAccessSummary,
+) -> Result<()> {
+    match &plan.expressions[expr_index] {
+        ExprNode::Field {
+            query, component, ..
+        } => add_query_access(&mut access.component_reads, component, query),
+        ExprNode::ResourceField { resource, .. } => {
+            access.resource_reads.insert(resource.clone());
+        }
+        ExprNode::Unary { input, .. } | ExprNode::Attribute { input, .. } => {
+            collect_expr_query_reads(plan, *input, access)?;
+        }
+        ExprNode::Binary { left, right, .. } => {
+            collect_expr_query_reads(plan, *left, access)?;
+            collect_expr_query_reads(plan, *right, access)?;
+        }
+        ExprNode::ContextJoin { predicate, .. } | ExprNode::Exists { predicate, .. } => {
+            collect_expr_query_reads(plan, *predicate, access)?;
+        }
+        ExprNode::Aggregate {
+            relation,
+            value,
+            default,
+            ..
+        } => {
+            collect_expr_query_reads(plan, *relation, access)?;
+            if let Some(value) = value {
+                collect_expr_query_reads(plan, *value, access)?;
+            }
+            if let Some(default) = default {
+                collect_expr_query_reads(plan, *default, access)?;
+            }
+        }
+        ExprNode::InputState { name, .. } => {
+            access.hidden_reads.insert(format!("input:{name}"));
+        }
+        ExprNode::EventStream { event_type } => {
+            access.event_reads.insert(event_type.clone());
+        }
+        ExprNode::SpatialMetadata { relation, .. } => {
+            collect_spatial_relation_query_reads(plan, relation, access)?;
+        }
+        ExprNode::SpatialAggregate {
+            relation,
+            value,
+            default,
+            ..
+        } => {
+            collect_spatial_relation_query_reads(plan, relation, access)?;
+            if let Some(value) = value {
+                collect_expr_query_reads(plan, *value, access)?;
+            }
+            if let Some(default) = default {
+                collect_expr_query_reads(plan, *default, access)?;
+            }
+        }
+        ExprNode::LiteralF64(_)
+        | ExprNode::LiteralI64(_)
+        | ExprNode::LiteralBool(_)
+        | ExprNode::LiteralString(_)
+        | ExprNode::LiteralValue(_)
+        | ExprNode::ForEachItem { .. } => {}
+    }
+    Ok(())
+}
+
+fn sets_intersect(left: &HashSet<String>, right: &HashSet<String>) -> bool {
+    left.iter().any(|value| right.contains(value))
+}
+
+fn query_sets_disjoint(
+    left_plan: usize,
+    left_queries: &[String],
+    right_plan: usize,
+    right_queries: &[String],
+    query_sets: &HashMap<(usize, String), HashSet<u64>>,
+) -> bool {
+    if left_queries.is_empty() || right_queries.is_empty() {
+        return false;
+    }
+    for left_query in left_queries {
+        let Some(left_rows) = query_sets.get(&(left_plan, left_query.clone())) else {
+            return false;
+        };
+        for right_query in right_queries {
+            let Some(right_rows) = query_sets.get(&(right_plan, right_query.clone())) else {
+                return false;
+            };
+            if left_rows.iter().any(|entity| right_rows.contains(entity)) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn component_query_access_conflicts(
+    writer: &HashMap<String, Vec<String>>,
+    reader: &HashMap<String, Vec<String>>,
+    writer_plan: usize,
+    reader_plan: usize,
+    query_sets: &HashMap<(usize, String), HashSet<u64>>,
+) -> bool {
+    for (component, write_queries) in writer {
+        if let Some(read_queries) = reader.get(component) {
+            if !query_sets_disjoint(
+                writer_plan,
+                write_queries,
+                reader_plan,
+                read_queries,
+                query_sets,
+            ) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn query_access_conflicts(
+    left: &QueryAccessSummary,
+    left_index: usize,
+    right: &QueryAccessSummary,
+    right_index: usize,
+    query_sets: &HashMap<(usize, String), HashSet<u64>>,
+) -> bool {
+    if left.structural || right.structural {
+        return true;
+    }
+    if sets_intersect(&left.resource_writes, &right.resource_writes)
+        || sets_intersect(&left.resource_writes, &right.resource_reads)
+        || sets_intersect(&right.resource_writes, &left.resource_reads)
+        || sets_intersect(&left.event_writes, &right.event_writes)
+        || sets_intersect(&left.event_writes, &right.event_reads)
+        || sets_intersect(&right.event_writes, &left.event_reads)
+        || sets_intersect(&left.hidden_writes, &right.hidden_writes)
+        || sets_intersect(&left.hidden_writes, &right.hidden_reads)
+        || sets_intersect(&right.hidden_writes, &left.hidden_reads)
+    {
+        return true;
+    }
+    component_query_access_conflicts(
+        &left.component_writes,
+        &right.component_writes,
+        left_index,
+        right_index,
+        query_sets,
+    ) || component_query_access_conflicts(
+        &left.component_writes,
+        &right.component_reads,
+        left_index,
+        right_index,
+        query_sets,
+    ) || component_query_access_conflicts(
+        &right.component_writes,
+        &left.component_reads,
+        right_index,
+        left_index,
+        query_sets,
+    )
+}
+
+fn query_rows_for_world(
+    world: &mut World,
+    plan: &PhysicalPlan,
+    query_name: &str,
+) -> Result<Vec<Entity>> {
+    let query = plan
+        .queries
+        .iter()
+        .find(|query| query.name == query_name)
+        .ok_or_else(|| {
+            EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
+        })?;
+    let mut rows = world.query_filter(query.filter.clone())?;
+    if let Some(allowed) = &query.allowed_entities {
+        let allowed = allowed
+            .iter()
+            .map(|entity| entity.raw())
+            .collect::<HashSet<_>>();
+        rows.retain(|entity| allowed.contains(&entity.raw()));
+    }
+    Ok(rows)
+}
+
 fn process_fast_spatial_record(
     relation: &SpatialRelationNode,
     batches: &[FastDirectSpatialRelationBatch],
     item_field_arrays: &[FastFieldArray],
+    item_record_field_arrays: Option<&[Vec<f64>]>,
     origin_entity: Entity,
     origin_point: &SpatialPoint,
+    record_index: Option<usize>,
     record_entity: Entity,
     record_point: &SpatialPoint,
     distance_sq: f64,
@@ -4322,10 +6854,19 @@ fn process_fast_spatial_record(
         counters.exact_rows += 1;
         let mut inverse_distance_cache: Option<(f64, f64)> = None;
         for (spec_index, spec) in batch.specs.iter().enumerate() {
+            if matches!(spec.kind, FastAggregateKind::Any | FastAggregateKind::Count) {
+                continue;
+            }
             let value = match &spec.value {
                 FastSpatialBatchValue::Count => 1.0,
                 FastSpatialBatchValue::DirectField { array_index } => {
-                    fast_field_array_value(&item_field_arrays[*array_index], record_entity)?
+                    if let (Some(record_arrays), Some(record_index)) =
+                        (item_record_field_arrays, record_index)
+                    {
+                        record_arrays[*array_index][record_index]
+                    } else {
+                        fast_field_array_value(&item_field_arrays[*array_index], record_entity)?
+                    }
                 }
                 FastSpatialBatchValue::DirectPointCoord { axis } => record_point.coord(*axis),
                 FastSpatialBatchValue::NegDeltaOverDistance {
@@ -4347,10 +6888,24 @@ fn process_fast_spatial_record(
                 }
             };
             let accumulator = &mut accumulators[batch_index][spec_index];
-            accumulator.count += 1;
-            accumulator.sum += value;
-            accumulator.min = accumulator.min.min(value);
-            accumulator.max = accumulator.max.max(value);
+            match spec.kind {
+                FastAggregateKind::Sum => {
+                    accumulator.sum += value;
+                }
+                FastAggregateKind::Mean => {
+                    accumulator.count += 1;
+                    accumulator.sum += value;
+                }
+                FastAggregateKind::Min => {
+                    accumulator.count += 1;
+                    accumulator.min = accumulator.min.min(value);
+                }
+                FastAggregateKind::Max => {
+                    accumulator.count += 1;
+                    accumulator.max = accumulator.max.max(value);
+                }
+                FastAggregateKind::Any | FastAggregateKind::Count => {}
+            }
         }
     }
     Ok(())
@@ -4361,7 +6916,9 @@ fn compile_f64_readonly_program<'a>(
     _world: &World,
     query_name: &str,
     numeric_field_cache: &'a HashMap<String, HashMap<String, Vec<Option<(u32, f64)>>>>,
+    numeric_field_cache_rows: &'a HashMap<String, HashMap<String, Vec<f64>>>,
     spatial_precomputed_f64: &'a HashMap<usize, Vec<Option<(u32, f64)>>>,
+    spatial_precomputed_f64_rows: &'a HashMap<usize, SpatialF64RowArray>,
 ) -> CompiledF64ReadOnlyProgram<'a> {
     let mut expressions = Vec::with_capacity(plan.expressions.len());
     let mut field_arrays = Vec::new();
@@ -4385,6 +6942,20 @@ fn compile_f64_readonly_program<'a>(
                     CompiledF64Expr::Unsupported(format!(
                         "readonly f64 evaluator cannot read unbound query '{query}'"
                     ))
+                } else if let Some(values) = numeric_field_cache_rows
+                    .get(component)
+                    .and_then(|fields| fields.get(field))
+                {
+                    let key = (component.clone(), field.clone());
+                    let slot = if let Some(slot) = field_array_slots.get(&key) {
+                        *slot
+                    } else {
+                        let slot = field_arrays.len();
+                        field_arrays.push(CompiledF64Array::QueryRows(values.as_slice()));
+                        field_array_slots.insert(key, slot);
+                        slot
+                    };
+                    CompiledF64Expr::Field(slot)
                 } else if let Some(values) = numeric_field_cache
                     .get(component)
                     .and_then(|fields| fields.get(field))
@@ -4394,7 +6965,7 @@ fn compile_f64_readonly_program<'a>(
                         *slot
                     } else {
                         let slot = field_arrays.len();
-                        field_arrays.push(values.as_slice());
+                        field_arrays.push(CompiledF64Array::SparseEntity(values.as_slice()));
                         field_array_slots.insert(key, slot);
                         slot
                     };
@@ -4431,9 +7002,23 @@ fn compile_f64_readonly_program<'a>(
             },
             ExprNode::ContextJoin { predicate, .. } => CompiledF64Expr::Passthrough(*predicate),
             ExprNode::SpatialAggregate { .. } => {
-                if let Some(values) = spatial_precomputed_f64.get(&expr_index) {
+                if let Some(values) = spatial_precomputed_f64_rows.get(&expr_index) {
                     let slot = spatial_arrays.len();
-                    spatial_arrays.push(values.as_slice());
+                    match values {
+                        SpatialF64RowArray::Dense(values) => {
+                            spatial_arrays
+                                .push(CompiledSpatialF64Array::QueryRows(values.as_slice()));
+                        }
+                        SpatialF64RowArray::Optional(values) => {
+                            spatial_arrays.push(CompiledSpatialF64Array::QueryRowsOptional(
+                                values.as_slice(),
+                            ));
+                        }
+                    }
+                    CompiledF64Expr::SpatialAggregate(slot)
+                } else if let Some(values) = spatial_precomputed_f64.get(&expr_index) {
+                    let slot = spatial_arrays.len();
+                    spatial_arrays.push(CompiledSpatialF64Array::SparseEntity(values.as_slice()));
                     CompiledF64Expr::SpatialAggregate(slot)
                 } else {
                     CompiledF64Expr::Unsupported(format!(
@@ -4449,10 +7034,24 @@ fn compile_f64_readonly_program<'a>(
         expressions.push(compiled);
     }
     let aliases = build_compiled_f64_aliases(&expressions);
+    let initial_values = expressions
+        .iter()
+        .enumerate()
+        .filter_map(|(index, expression)| {
+            if aliases[index] == index {
+                if let CompiledF64Expr::Literal(value) = expression {
+                    return Some((index, *value));
+                }
+            }
+            None
+        })
+        .collect();
     CompiledF64ReadOnlyProgram {
         expressions,
         aliases,
+        initial_values,
         field_arrays,
+        field_slot_by_key: field_array_slots,
         spatial_arrays,
     }
 }
@@ -4545,6 +7144,7 @@ fn collect_compiled_f64_eval_order(
         return false;
     }
     visiting[expr_index] = true;
+    let emit = !matches!(program.expressions[expr_index], CompiledF64Expr::Literal(_));
     let supported = match &program.expressions[expr_index] {
         CompiledF64Expr::Literal(_)
         | CompiledF64Expr::Field(_)
@@ -4582,13 +7182,16 @@ fn collect_compiled_f64_eval_order(
     visiting[expr_index] = false;
     if supported {
         visited[expr_index] = true;
-        order.push(expr_index);
+        if emit {
+            order.push(expr_index);
+        }
     }
     supported
 }
 
 fn eval_compiled_f64_linear_order(
     order: &[usize],
+    row_index: usize,
     entity: Entity,
     program: &CompiledF64ReadOnlyProgram<'_>,
     world: &World,
@@ -4596,13 +7199,14 @@ fn eval_compiled_f64_linear_order(
 ) -> Result<()> {
     for expr_index in order {
         values[*expr_index] =
-            eval_compiled_f64_linear_node(*expr_index, entity, program, world, values)?;
+            eval_compiled_f64_linear_node(*expr_index, row_index, entity, program, world, values)?;
     }
     Ok(())
 }
 
 fn eval_compiled_f64_linear_node(
     expr_index: usize,
+    row_index: usize,
     entity: Entity,
     program: &CompiledF64ReadOnlyProgram<'_>,
     world: &World,
@@ -4611,35 +7215,10 @@ fn eval_compiled_f64_linear_node(
     match &program.expressions[expr_index] {
         CompiledF64Expr::Literal(value) => Ok(*value),
         CompiledF64Expr::Field(slot) => {
-            let array = program.field_arrays[*slot];
-            let Some(Some((generation, value))) = array.get(entity.index as usize) else {
-                return Err(EcsError::InvalidPlan(format!(
-                    "numeric field cache missing entity {}:{}",
-                    entity.index, entity.generation
-                )));
-            };
-            if *generation != entity.generation {
-                return Err(EcsError::InvalidPlan(format!(
-                    "numeric field cache has stale entity generation for {}:{}",
-                    entity.index, entity.generation
-                )));
-            }
-            Ok(*value)
+            compiled_field_f64_value(program.field_arrays[*slot], row_index, entity)
         }
         CompiledF64Expr::SpatialAggregate(slot) => {
-            let array = program.spatial_arrays[*slot];
-            let Some(Some((generation, value))) = array.get(entity.index as usize) else {
-                return Err(EcsError::InvalidPlan(format!(
-                    "spatial aggregate missing entity {}:{}",
-                    entity.index, entity.generation
-                )));
-            };
-            if *generation != entity.generation {
-                return Err(EcsError::InvalidPlan(
-                    "spatial aggregate has stale entity generation".to_string(),
-                ));
-            }
-            Ok(*value)
+            compiled_spatial_f64_value(program.spatial_arrays[*slot], row_index, entity)
         }
         CompiledF64Expr::ResourceField { resource, field } => {
             numeric_f64(&world.resource_field(resource, field)?)
@@ -4662,21 +7241,19 @@ fn eval_compiled_f64_linear_node(
     }
 }
 
-fn eval_compiled_f64_readonly(
-    expr_index: usize,
+fn compiled_field_f64_value(
+    array: CompiledF64Array<'_>,
+    row_index: usize,
     entity: Entity,
-    program: &CompiledF64ReadOnlyProgram<'_>,
-    world: &World,
-    cache: &mut [Option<f64>],
 ) -> Result<f64> {
-    let expr_index = program.aliases[expr_index];
-    if let Some(value) = cache[expr_index] {
-        return Ok(value);
-    }
-    let value = match &program.expressions[expr_index] {
-        CompiledF64Expr::Literal(value) => *value,
-        CompiledF64Expr::Field(slot) => {
-            let values = program.field_arrays[*slot];
+    match array {
+        CompiledF64Array::QueryRows(values) => values.get(row_index).copied().ok_or_else(|| {
+            EcsError::InvalidPlan(format!(
+                "numeric field cache missing query row {row_index} for entity {}:{}",
+                entity.index, entity.generation
+            ))
+        }),
+        CompiledF64Array::SparseEntity(values) => {
             let Some(Some((generation, value))) = values.get(entity.index as usize) else {
                 return Err(EcsError::InvalidPlan(format!(
                     "numeric field cache missing entity {}:{}",
@@ -4689,10 +7266,35 @@ fn eval_compiled_f64_readonly(
                     entity.index, entity.generation
                 )));
             }
-            *value
+            Ok(*value)
         }
-        CompiledF64Expr::SpatialAggregate(slot) => {
-            let values = program.spatial_arrays[*slot];
+    }
+}
+
+fn compiled_spatial_f64_value(
+    array: CompiledSpatialF64Array<'_>,
+    row_index: usize,
+    entity: Entity,
+) -> Result<f64> {
+    match array {
+        CompiledSpatialF64Array::QueryRows(values) => {
+            values.get(row_index).copied().ok_or_else(|| {
+                EcsError::InvalidPlan(format!(
+                    "spatial aggregate missing query row {row_index} for entity {}:{}",
+                    entity.index, entity.generation
+                ))
+            })
+        }
+        CompiledSpatialF64Array::QueryRowsOptional(values) => values
+            .get(row_index)
+            .and_then(|value| *value)
+            .ok_or_else(|| {
+                EcsError::InvalidPlan(format!(
+                    "spatial aggregate missing query row {row_index} for entity {}:{}",
+                    entity.index, entity.generation
+                ))
+            }),
+        CompiledSpatialF64Array::SparseEntity(values) => {
             let Some(Some((generation, value))) = values.get(entity.index as usize) else {
                 return Err(EcsError::InvalidPlan(format!(
                     "spatial aggregate missing entity {}:{}",
@@ -4704,7 +7306,205 @@ fn eval_compiled_f64_readonly(
                     "spatial aggregate has stale entity generation".to_string(),
                 ));
             }
-            *value
+            Ok(*value)
+        }
+    }
+}
+
+fn build_row_local_field_dependents(program: &CompiledF64ReadOnlyProgram<'_>) -> Vec<Vec<usize>> {
+    let mut dependents = vec![Vec::new(); program.field_arrays.len()];
+    let mut memo = vec![None; program.expressions.len()];
+    for expr_index in 0..program.expressions.len() {
+        let canonical = program.aliases[expr_index];
+        let deps = row_local_f64_field_dependencies(canonical, program, &mut memo);
+        for field_slot in deps {
+            if let Some(field_dependents) = dependents.get_mut(field_slot) {
+                field_dependents.push(canonical);
+            }
+        }
+    }
+    for field_dependents in &mut dependents {
+        field_dependents.sort_unstable();
+        field_dependents.dedup();
+    }
+    dependents
+}
+
+fn row_local_f64_field_dependencies(
+    expr_index: usize,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    memo: &mut [Option<Vec<usize>>],
+) -> Vec<usize> {
+    let expr_index = program.aliases[expr_index];
+    if let Some(deps) = memo[expr_index].clone() {
+        return deps;
+    }
+    let expression = program.expressions[expr_index].clone();
+    let mut deps = match expression {
+        CompiledF64Expr::Field(slot) => vec![slot],
+        CompiledF64Expr::Unary { input, .. } | CompiledF64Expr::Passthrough(input) => {
+            row_local_f64_field_dependencies(input, program, memo)
+        }
+        CompiledF64Expr::Binary { left, right, .. } => {
+            let mut deps = row_local_f64_field_dependencies(left, program, memo);
+            deps.extend(row_local_f64_field_dependencies(right, program, memo));
+            deps
+        }
+        CompiledF64Expr::Literal(_)
+        | CompiledF64Expr::SpatialAggregate(_)
+        | CompiledF64Expr::ResourceField { .. }
+        | CompiledF64Expr::InputState { .. }
+        | CompiledF64Expr::Unsupported(_) => Vec::new(),
+    };
+    deps.sort_unstable();
+    deps.dedup();
+    memo[expr_index] = Some(deps.clone());
+    deps
+}
+
+fn invalidate_row_local_f64_cache(cache_marks: &mut [u32], cache_generation: &mut u32) {
+    *cache_generation = cache_generation.wrapping_add(1);
+    if *cache_generation == 0 {
+        cache_marks.fill(0);
+        *cache_generation = 1;
+    }
+}
+
+fn execute_row_local_f64_action(
+    action: &RowLocalAction,
+    row_index: usize,
+    entity: Entity,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    world: &World,
+    cache_values: &mut [f64],
+    cache_marks: &mut [u32],
+    cache_generation: &mut u32,
+    field_values: &mut [f64],
+    field_dependents: &[Vec<usize>],
+    out: &mut [f64],
+    dirty: &mut [bool],
+) -> Result<()> {
+    match action {
+        RowLocalAction::Noop => Ok(()),
+        RowLocalAction::Sequence(children) => {
+            for child in children {
+                execute_row_local_f64_action(
+                    child,
+                    row_index,
+                    entity,
+                    program,
+                    world,
+                    cache_values,
+                    cache_marks,
+                    cache_generation,
+                    field_values,
+                    field_dependents,
+                    out,
+                    dirty,
+                )?;
+            }
+            Ok(())
+        }
+        RowLocalAction::SetField {
+            field_slot,
+            target_slot,
+            value_expr,
+        } => {
+            let value = eval_row_local_f64_expr(
+                *value_expr,
+                row_index,
+                entity,
+                program,
+                world,
+                cache_values,
+                cache_marks,
+                *cache_generation,
+                field_values,
+            )?;
+            field_values[*field_slot] = value;
+            if let Some(dependents) = field_dependents.get(*field_slot) {
+                for expr_index in dependents {
+                    cache_marks[*expr_index] = 0;
+                }
+            }
+            out[*target_slot] = value;
+            dirty[*target_slot] = true;
+            Ok(())
+        }
+        RowLocalAction::When {
+            condition_expr,
+            then_action,
+            otherwise_action,
+        } => {
+            let condition = eval_row_local_f64_expr(
+                *condition_expr,
+                row_index,
+                entity,
+                program,
+                world,
+                cache_values,
+                cache_marks,
+                *cache_generation,
+                field_values,
+            )?;
+            if truthy_f64(condition) {
+                execute_row_local_f64_action(
+                    then_action,
+                    row_index,
+                    entity,
+                    program,
+                    world,
+                    cache_values,
+                    cache_marks,
+                    cache_generation,
+                    field_values,
+                    field_dependents,
+                    out,
+                    dirty,
+                )
+            } else if let Some(otherwise_action) = otherwise_action {
+                execute_row_local_f64_action(
+                    otherwise_action,
+                    row_index,
+                    entity,
+                    program,
+                    world,
+                    cache_values,
+                    cache_marks,
+                    cache_generation,
+                    field_values,
+                    field_dependents,
+                    out,
+                    dirty,
+                )
+            } else {
+                Ok(())
+            }
+        }
+    }
+}
+
+fn eval_row_local_f64_expr(
+    expr_index: usize,
+    row_index: usize,
+    entity: Entity,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    world: &World,
+    cache_values: &mut [f64],
+    cache_marks: &mut [u32],
+    cache_generation: u32,
+    field_values: &[f64],
+) -> Result<f64> {
+    let expr_index = program.aliases[expr_index];
+    let cacheable = row_local_f64_expr_cacheable(&program.expressions[expr_index]);
+    if cacheable && cache_marks[expr_index] == cache_generation {
+        return Ok(cache_values[expr_index]);
+    }
+    let value = match &program.expressions[expr_index] {
+        CompiledF64Expr::Literal(value) => *value,
+        CompiledF64Expr::Field(slot) => field_values[*slot],
+        CompiledF64Expr::SpatialAggregate(slot) => {
+            compiled_spatial_f64_value(program.spatial_arrays[*slot], row_index, entity)?
         }
         CompiledF64Expr::ResourceField { resource, field } => {
             numeric_f64(&world.resource_field(resource, field)?)?
@@ -4715,38 +7515,194 @@ fn eval_compiled_f64_readonly(
                 .unwrap_or_else(|| default_input_state_value(name)),
         )?,
         CompiledF64Expr::Unary { op, input } => {
-            let input = eval_compiled_f64_readonly(*input, entity, program, world, cache)?;
+            let input = eval_row_local_f64_expr(
+                *input,
+                row_index,
+                entity,
+                program,
+                world,
+                cache_values,
+                cache_marks,
+                cache_generation,
+                field_values,
+            )?;
             eval_f64_unary_op(*op, input)
         }
         CompiledF64Expr::Binary { op, left, right } => match op {
             F64BinaryOp::And => {
-                let left = eval_compiled_f64_readonly(*left, entity, program, world, cache)?;
+                let left = eval_row_local_f64_expr(
+                    *left,
+                    row_index,
+                    entity,
+                    program,
+                    world,
+                    cache_values,
+                    cache_marks,
+                    cache_generation,
+                    field_values,
+                )?;
                 if truthy_f64(left) {
-                    bool_f64(truthy_f64(eval_compiled_f64_readonly(
-                        *right, entity, program, world, cache,
+                    bool_f64(truthy_f64(eval_row_local_f64_expr(
+                        *right,
+                        row_index,
+                        entity,
+                        program,
+                        world,
+                        cache_values,
+                        cache_marks,
+                        cache_generation,
+                        field_values,
                     )?))
                 } else {
                     0.0
                 }
             }
             F64BinaryOp::Or => {
-                let left = eval_compiled_f64_readonly(*left, entity, program, world, cache)?;
+                let left = eval_row_local_f64_expr(
+                    *left,
+                    row_index,
+                    entity,
+                    program,
+                    world,
+                    cache_values,
+                    cache_marks,
+                    cache_generation,
+                    field_values,
+                )?;
                 if truthy_f64(left) {
                     1.0
                 } else {
-                    bool_f64(truthy_f64(eval_compiled_f64_readonly(
-                        *right, entity, program, world, cache,
+                    bool_f64(truthy_f64(eval_row_local_f64_expr(
+                        *right,
+                        row_index,
+                        entity,
+                        program,
+                        world,
+                        cache_values,
+                        cache_marks,
+                        cache_generation,
+                        field_values,
                     )?))
                 }
             }
             op => {
-                let left = eval_compiled_f64_readonly(*left, entity, program, world, cache)?;
-                let right = eval_compiled_f64_readonly(*right, entity, program, world, cache)?;
+                let left = eval_row_local_f64_expr(
+                    *left,
+                    row_index,
+                    entity,
+                    program,
+                    world,
+                    cache_values,
+                    cache_marks,
+                    cache_generation,
+                    field_values,
+                )?;
+                let right = eval_row_local_f64_expr(
+                    *right,
+                    row_index,
+                    entity,
+                    program,
+                    world,
+                    cache_values,
+                    cache_marks,
+                    cache_generation,
+                    field_values,
+                )?;
+                eval_f64_binary_op(*op, left, right)
+            }
+        },
+        CompiledF64Expr::Passthrough(input) => eval_row_local_f64_expr(
+            *input,
+            row_index,
+            entity,
+            program,
+            world,
+            cache_values,
+            cache_marks,
+            cache_generation,
+            field_values,
+        )?,
+        CompiledF64Expr::Unsupported(message) => {
+            return Err(EcsError::InvalidPlan(message.clone()))
+        }
+    };
+    if cacheable {
+        cache_values[expr_index] = value;
+        cache_marks[expr_index] = cache_generation;
+    }
+    Ok(value)
+}
+
+fn row_local_f64_expr_cacheable(expression: &CompiledF64Expr) -> bool {
+    !matches!(expression, CompiledF64Expr::Unsupported(_))
+}
+
+fn eval_compiled_f64_readonly(
+    expr_index: usize,
+    row_index: usize,
+    entity: Entity,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    world: &World,
+    cache: &mut [Option<f64>],
+) -> Result<f64> {
+    let expr_index = program.aliases[expr_index];
+    if let Some(value) = cache[expr_index] {
+        return Ok(value);
+    }
+    let value = match &program.expressions[expr_index] {
+        CompiledF64Expr::Literal(value) => *value,
+        CompiledF64Expr::Field(slot) => {
+            compiled_field_f64_value(program.field_arrays[*slot], row_index, entity)?
+        }
+        CompiledF64Expr::SpatialAggregate(slot) => {
+            compiled_spatial_f64_value(program.spatial_arrays[*slot], row_index, entity)?
+        }
+        CompiledF64Expr::ResourceField { resource, field } => {
+            numeric_f64(&world.resource_field(resource, field)?)?
+        }
+        CompiledF64Expr::InputState { name, code } => numeric_f64(
+            &world
+                .input_state(name, *code)
+                .unwrap_or_else(|| default_input_state_value(name)),
+        )?,
+        CompiledF64Expr::Unary { op, input } => {
+            let input =
+                eval_compiled_f64_readonly(*input, row_index, entity, program, world, cache)?;
+            eval_f64_unary_op(*op, input)
+        }
+        CompiledF64Expr::Binary { op, left, right } => match op {
+            F64BinaryOp::And => {
+                let left =
+                    eval_compiled_f64_readonly(*left, row_index, entity, program, world, cache)?;
+                if truthy_f64(left) {
+                    bool_f64(truthy_f64(eval_compiled_f64_readonly(
+                        *right, row_index, entity, program, world, cache,
+                    )?))
+                } else {
+                    0.0
+                }
+            }
+            F64BinaryOp::Or => {
+                let left =
+                    eval_compiled_f64_readonly(*left, row_index, entity, program, world, cache)?;
+                if truthy_f64(left) {
+                    1.0
+                } else {
+                    bool_f64(truthy_f64(eval_compiled_f64_readonly(
+                        *right, row_index, entity, program, world, cache,
+                    )?))
+                }
+            }
+            op => {
+                let left =
+                    eval_compiled_f64_readonly(*left, row_index, entity, program, world, cache)?;
+                let right =
+                    eval_compiled_f64_readonly(*right, row_index, entity, program, world, cache)?;
                 eval_f64_binary_op(*op, left, right)
             }
         },
         CompiledF64Expr::Passthrough(input) => {
-            eval_compiled_f64_readonly(*input, entity, program, world, cache)?
+            eval_compiled_f64_readonly(*input, row_index, entity, program, world, cache)?
         }
         CompiledF64Expr::Unsupported(message) => {
             return Err(EcsError::InvalidPlan(message.clone()))
@@ -5075,11 +8031,42 @@ fn should_try_incremental_spatial_update(
     changed_field_writes <= incremental_write_budget
 }
 
-fn spatial_index_signature(relation: &SpatialRelationNode) -> String {
+fn spatial_index_base_signature(relation: &SpatialRelationNode) -> String {
     format!(
         "item={};target_pos={:?};target_bounds={:?};algorithm={:?}",
         relation.item_query, relation.target_position, relation.target_bounds, relation.algorithm
     )
+}
+
+fn spatial_relations_same_direct_precompute_group(
+    left: &SpatialRelationNode,
+    right: &SpatialRelationNode,
+) -> bool {
+    left.index_id == right.index_id
+        && left.origin_query == right.origin_query
+        && left.item_query == right.item_query
+        && left.origin_position == right.origin_position
+        && left.target_position == right.target_position
+        && left.origin_bounds == right.origin_bounds
+        && left.target_bounds == right.target_bounds
+        && left.algorithm == right.algorithm
+        && left.include_self == right.include_self
+        && left.pair_policy == right.pair_policy
+}
+
+fn spatial_relations_same_multi_origin_precompute_group(
+    left: &SpatialRelationNode,
+    right: &SpatialRelationNode,
+) -> bool {
+    left.index_id == right.index_id
+        && left.origin_query == right.origin_query
+        && left.item_query == right.item_query
+        && left.target_position == right.target_position
+        && left.origin_bounds == right.origin_bounds
+        && left.target_bounds == right.target_bounds
+        && left.algorithm == right.algorithm
+        && left.include_self == right.include_self
+        && left.pair_policy == right.pair_policy
 }
 
 fn spatial_relations_same_base(left: &SpatialRelationNode, right: &SpatialRelationNode) -> bool {
@@ -5846,6 +8833,239 @@ mod tests {
         );
         assert_eq!(report.fields_written, 1);
         assert!(report.writes.is_empty());
+    }
+
+    #[test]
+    fn spatial_aggregate_precomputes_generic_exact_filter() {
+        let (mut world, first) = world_with_motion();
+        world
+            .set_field(first, "Position", "y", EcsValue::F64(0.0))
+            .unwrap();
+        add_motion_entity(&mut world, 3.0, 0.0, 3.0);
+        add_motion_entity(&mut world, 4.0, 0.0, 7.0);
+        add_motion_entity(&mut world, 20.0, 0.0, 3.0);
+        let payload = BridgePlanPayload {
+            version: BRIDGE_PLAN_VERSION,
+            schema_fingerprint: Some(world.schema_fingerprint()),
+            queries: vec![
+                BridgeQueryPayload {
+                    name: "origin".to_string(),
+                    terms: vec![
+                        QueryTerm::WithComponent("Position".to_string()),
+                        QueryTerm::WithComponent("Velocity".to_string()),
+                    ],
+                    allowed_entities: None,
+                },
+                BridgeQueryPayload {
+                    name: "item".to_string(),
+                    terms: vec![
+                        QueryTerm::WithComponent("Position".to_string()),
+                        QueryTerm::WithComponent("Velocity".to_string()),
+                    ],
+                    allowed_entities: None,
+                },
+            ],
+            expressions: vec![
+                ExprNode::Field {
+                    query: "origin".to_string(),
+                    component: "Position".to_string(),
+                    field: "x".to_string(),
+                },
+                ExprNode::Field {
+                    query: "origin".to_string(),
+                    component: "Position".to_string(),
+                    field: "y".to_string(),
+                },
+                ExprNode::Field {
+                    query: "item".to_string(),
+                    component: "Position".to_string(),
+                    field: "x".to_string(),
+                },
+                ExprNode::Field {
+                    query: "item".to_string(),
+                    component: "Position".to_string(),
+                    field: "y".to_string(),
+                },
+                ExprNode::LiteralF64(5.0),
+                ExprNode::Field {
+                    query: "origin".to_string(),
+                    component: "Velocity".to_string(),
+                    field: "dx".to_string(),
+                },
+                ExprNode::Field {
+                    query: "item".to_string(),
+                    component: "Velocity".to_string(),
+                    field: "dx".to_string(),
+                },
+                ExprNode::Binary {
+                    op: "eq".to_string(),
+                    left: 6,
+                    right: 5,
+                },
+                ExprNode::SpatialAggregate {
+                    kind: "count".to_string(),
+                    relation: SpatialRelationNode {
+                        id: "same_velocity_neighbors".to_string(),
+                        index_id: "same_velocity_position_neighbors".to_string(),
+                        origin_query: "origin".to_string(),
+                        item_query: "item".to_string(),
+                        origin_position: vec![0, 1],
+                        target_position: vec![2, 3],
+                        radius: Some(4),
+                        origin_bounds: None,
+                        target_bounds: None,
+                        algorithm: crate::plan::SpatialAlgorithmNode {
+                            kind: "hash_grid".to_string(),
+                            dimensions: 2,
+                            cell_size: Some(8.0),
+                            bounds: None,
+                            capacity: None,
+                            bits: None,
+                        },
+                        include_self: false,
+                        pair_policy: "all".to_string(),
+                        exact_filter: Some(7),
+                    },
+                    value: None,
+                    default: None,
+                },
+            ],
+            actions: vec![ActionNode::SetField {
+                target: 1,
+                value: 8,
+            }],
+            root_action: 0,
+        };
+
+        let report = world.execute_bridge_plan(payload).unwrap();
+
+        assert_eq!(
+            world.get_field(first, "Position", "y").unwrap(),
+            EcsValue::F64(1.0)
+        );
+        assert!(report.spatial_exact_rows > 0);
+    }
+
+    #[test]
+    fn spatial_index_cache_distinguishes_same_named_relations_with_different_item_filters() {
+        let (mut world, marker) = world_with_motion();
+        world.add_tag(marker, "Marker").unwrap();
+        world
+            .set_field(marker, "Position", "x", EcsValue::F64(0.0))
+            .unwrap();
+        world
+            .set_field(marker, "Position", "y", EcsValue::F64(0.0))
+            .unwrap();
+        let red_near = add_motion_entity(&mut world, 1.0, 0.0, 0.0);
+        let red_far = add_motion_entity(&mut world, 100.0, 0.0, 0.0);
+        let blue_near_a = add_motion_entity(&mut world, 2.0, 0.0, 0.0);
+        let blue_near_b = add_motion_entity(&mut world, 3.0, 0.0, 0.0);
+        world.add_tag(red_near, "Red").unwrap();
+        world.add_tag(red_far, "Red").unwrap();
+        world.add_tag(blue_near_a, "Blue").unwrap();
+        world.add_tag(blue_near_b, "Blue").unwrap();
+
+        fn tagged_count_payload(world: &World, tag: &str) -> BridgePlanPayload {
+            BridgePlanPayload {
+                version: BRIDGE_PLAN_VERSION,
+                schema_fingerprint: Some(world.schema_fingerprint()),
+                queries: vec![
+                    BridgeQueryPayload {
+                        name: "origin".to_string(),
+                        terms: vec![
+                            QueryTerm::WithComponent("Position".to_string()),
+                            QueryTerm::WithComponent("Velocity".to_string()),
+                            QueryTerm::WithTag("Marker".to_string()),
+                        ],
+                        allowed_entities: None,
+                    },
+                    BridgeQueryPayload {
+                        name: "item".to_string(),
+                        terms: vec![
+                            QueryTerm::WithComponent("Position".to_string()),
+                            QueryTerm::WithTag(tag.to_string()),
+                        ],
+                        allowed_entities: None,
+                    },
+                ],
+                expressions: vec![
+                    ExprNode::Field {
+                        query: "origin".to_string(),
+                        component: "Position".to_string(),
+                        field: "x".to_string(),
+                    },
+                    ExprNode::Field {
+                        query: "origin".to_string(),
+                        component: "Position".to_string(),
+                        field: "y".to_string(),
+                    },
+                    ExprNode::Field {
+                        query: "item".to_string(),
+                        component: "Position".to_string(),
+                        field: "x".to_string(),
+                    },
+                    ExprNode::Field {
+                        query: "item".to_string(),
+                        component: "Position".to_string(),
+                        field: "y".to_string(),
+                    },
+                    ExprNode::LiteralF64(5.0),
+                    ExprNode::SpatialAggregate {
+                        kind: "count".to_string(),
+                        relation: SpatialRelationNode {
+                            id: "shared_named_neighbors".to_string(),
+                            index_id: "shared_named_index".to_string(),
+                            origin_query: "origin".to_string(),
+                            item_query: "item".to_string(),
+                            origin_position: vec![0, 1],
+                            target_position: vec![2, 3],
+                            radius: Some(4),
+                            origin_bounds: None,
+                            target_bounds: None,
+                            algorithm: crate::plan::SpatialAlgorithmNode {
+                                kind: "hash_grid".to_string(),
+                                dimensions: 2,
+                                cell_size: Some(8.0),
+                                bounds: None,
+                                capacity: None,
+                                bits: None,
+                            },
+                            include_self: false,
+                            pair_policy: "all".to_string(),
+                            exact_filter: None,
+                        },
+                        value: None,
+                        default: None,
+                    },
+                    ExprNode::Field {
+                        query: "origin".to_string(),
+                        component: "Velocity".to_string(),
+                        field: "dx".to_string(),
+                    },
+                ],
+                actions: vec![ActionNode::SetField {
+                    target: 6,
+                    value: 5,
+                }],
+                root_action: 0,
+            }
+        }
+
+        world
+            .execute_bridge_plan(tagged_count_payload(&world, "Red"))
+            .unwrap();
+        assert_eq!(
+            world.get_field(marker, "Velocity", "dx").unwrap(),
+            EcsValue::F64(1.0)
+        );
+
+        world
+            .execute_bridge_plan(tagged_count_payload(&world, "Blue"))
+            .unwrap();
+        assert_eq!(
+            world.get_field(marker, "Velocity", "dx").unwrap(),
+            EcsValue::F64(2.0)
+        );
     }
 
     #[test]

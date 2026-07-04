@@ -21,7 +21,7 @@ struct EntityLocation {
     row: usize,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct World {
     entities: EntityAllocator,
     schemas: SchemaRegistry,
@@ -42,6 +42,32 @@ pub struct World {
     field_revisions: HashMap<(String, String), u64>,
     spatial_index_cache: HashMap<String, CachedSpatialIndex>,
     diagnostics: Diagnostics,
+}
+
+impl Clone for World {
+    fn clone(&self) -> Self {
+        Self {
+            entities: self.entities.clone(),
+            schemas: self.schemas.clone(),
+            archetypes: self.archetypes.clone(),
+            archetype_by_key: self.archetype_by_key.clone(),
+            archetype_generation: self.archetype_generation,
+            locations: self.locations.clone(),
+            staged: self.staged.clone(),
+            query_cache: HashMap::new(),
+            filtered_query_cache: HashMap::new(),
+            resources: self.resources.clone(),
+            events: self.events.clone(),
+            compiled_plans: self.compiled_plans.clone(),
+            input_states: self.input_states.clone(),
+            current_frame: self.current_frame,
+            structural_revision: self.structural_revision,
+            field_revision: self.field_revision,
+            field_revisions: self.field_revisions.clone(),
+            spatial_index_cache: HashMap::new(),
+            diagnostics: self.diagnostics.clone(),
+        }
+    }
 }
 
 impl World {
@@ -370,6 +396,84 @@ impl World {
         Ok(locations)
     }
 
+    pub(crate) fn field_f64_cache_for_resolved_entities(
+        &self,
+        component: &str,
+        field: &str,
+        entities: &[Entity],
+        locations: &[(usize, usize)],
+    ) -> Result<Vec<Option<(u32, f64)>>> {
+        if entities.len() != locations.len() {
+            return Err(EcsError::InvalidPlan(
+                "resolved f64 cache requires one location per entity".to_string(),
+            ));
+        }
+        let max_index = entities
+            .iter()
+            .map(|entity| entity.index as usize)
+            .max()
+            .unwrap_or(0);
+        let mut values = vec![None; max_index + 1];
+        let Some((first_archetype, _)) = locations.first().copied() else {
+            return Ok(values);
+        };
+        if locations
+            .iter()
+            .all(|(archetype, _)| *archetype == first_archetype)
+        {
+            if let Some(column) =
+                self.archetypes[first_archetype].get_field_f64_slice(component, field)?
+            {
+                for (entity, (_, row)) in entities.iter().zip(locations.iter()) {
+                    let Some(value) = column.get(*row) else {
+                        return Err(EcsError::RowOutOfBounds);
+                    };
+                    values[entity.index as usize] = Some((entity.generation, *value));
+                }
+                return Ok(values);
+            }
+        }
+        for (entity, (archetype, row)) in entities.iter().zip(locations.iter()) {
+            values[entity.index as usize] = Some((
+                entity.generation,
+                self.archetypes[*archetype].get_field_f64(*row, component, field)?,
+            ));
+        }
+        Ok(values)
+    }
+
+    pub(crate) fn field_f64_rows_for_resolved_entities(
+        &self,
+        component: &str,
+        field: &str,
+        locations: &[(usize, usize)],
+    ) -> Result<Vec<f64>> {
+        let mut values = Vec::with_capacity(locations.len());
+        let Some((first_archetype, _)) = locations.first().copied() else {
+            return Ok(values);
+        };
+        if locations
+            .iter()
+            .all(|(archetype, _)| *archetype == first_archetype)
+        {
+            if let Some(column) =
+                self.archetypes[first_archetype].get_field_f64_slice(component, field)?
+            {
+                for (_, row) in locations {
+                    let Some(value) = column.get(*row) else {
+                        return Err(EcsError::RowOutOfBounds);
+                    };
+                    values.push(*value);
+                }
+                return Ok(values);
+            }
+        }
+        for (archetype, row) in locations {
+            values.push(self.archetypes[*archetype].get_field_f64(*row, component, field)?);
+        }
+        Ok(values)
+    }
+
     pub(crate) fn set_field_f64_resolved_strided(
         &mut self,
         component: &str,
@@ -403,12 +507,30 @@ impl World {
             .iter()
             .all(|(archetype, _)| *archetype == first_archetype)
         {
-            let mut rows = Vec::with_capacity(locations.len());
-            for (index, (_, row)) in locations.iter().enumerate() {
-                rows.push((*row, values[index * value_stride + value_offset]));
+            if let Some(column) =
+                self.archetypes[first_archetype].get_field_f64_slice_mut(component, field)?
+            {
+                let len = column.len();
+                for (_, row) in locations {
+                    if *row >= len {
+                        return Err(EcsError::RowOutOfBounds);
+                    }
+                }
+                for (index, (_, row)) in locations.iter().enumerate() {
+                    let value = values[index * value_stride + value_offset];
+                    if column[*row] != value {
+                        column[*row] = value;
+                        written += 1;
+                    }
+                }
+            } else {
+                let mut rows = Vec::with_capacity(locations.len());
+                for (index, (_, row)) in locations.iter().enumerate() {
+                    rows.push((*row, values[index * value_stride + value_offset]));
+                }
+                written =
+                    self.archetypes[first_archetype].set_field_f64_rows(component, field, &rows)?;
             }
-            self.archetypes[first_archetype].set_field_f64_rows(component, field, &rows)?;
-            written = rows.len();
         } else {
             let mut by_archetype: HashMap<usize, Vec<(usize, f64)>> = HashMap::new();
             for (index, (archetype, row)) in locations.iter().enumerate() {
@@ -418,8 +540,8 @@ impl World {
                     .push((*row, values[index * value_stride + value_offset]));
             }
             for (archetype, rows) in by_archetype {
-                self.archetypes[archetype].set_field_f64_rows(component, field, &rows)?;
-                written += rows.len();
+                written +=
+                    self.archetypes[archetype].set_field_f64_rows(component, field, &rows)?;
             }
         }
         self.note_field_revision_by(component, field, written as u64);

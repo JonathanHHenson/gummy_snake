@@ -157,7 +157,7 @@ impl ComponentTable {
         column.set_f64(row, value)
     }
 
-    pub fn set_field_f64_rows(&mut self, field_name: &str, rows: &[(usize, f64)]) -> Result<()> {
+    pub fn set_field_f64_rows(&mut self, field_name: &str, rows: &[(usize, f64)]) -> Result<usize> {
         let column = self
             .columns
             .get_mut(field_name)
@@ -188,6 +188,35 @@ impl ComponentTable {
                 field: field_name.to_string(),
             })?;
         column.get_f64(row)
+    }
+
+    pub fn get_field_f64_slice(&self, field_name: &str) -> Result<Option<&[f64]>> {
+        let column = self
+            .columns
+            .get(field_name)
+            .ok_or_else(|| EcsError::UnknownField {
+                component: self.schema_name.clone(),
+                field: field_name.to_string(),
+            })?;
+        Ok(column.f64_slice())
+    }
+
+    pub fn get_field_f64_slice_mut(&mut self, field_name: &str) -> Result<Option<&mut [f64]>> {
+        let column = self
+            .columns
+            .get_mut(field_name)
+            .ok_or_else(|| EcsError::UnknownField {
+                component: self.schema_name.clone(),
+                field: field_name.to_string(),
+            })?;
+        Ok(column.f64_slice_mut())
+    }
+
+    pub fn remove_row(&mut self, row: usize) -> Result<()> {
+        for column in self.columns.values_mut() {
+            column.swap_remove(row)?;
+        }
+        Ok(())
     }
 }
 
@@ -312,7 +341,7 @@ impl Archetype {
         component_name: &str,
         field_name: &str,
         rows: &[(usize, f64)],
-    ) -> Result<()> {
+    ) -> Result<usize> {
         let table = self
             .components
             .get_mut(component_name)
@@ -339,6 +368,34 @@ impl Archetype {
             .get(component_name)
             .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
         table.get_field_f64(row, field_name)
+    }
+
+    pub fn get_field_f64_slice(
+        &self,
+        component_name: &str,
+        field_name: &str,
+    ) -> Result<Option<&[f64]>> {
+        let table = self
+            .components
+            .get(component_name)
+            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
+        table.get_field_f64_slice(field_name)
+    }
+
+    pub fn get_field_f64_slice_mut(
+        &mut self,
+        component_name: &str,
+        field_name: &str,
+    ) -> Result<Option<&mut [f64]>> {
+        let table = self
+            .components
+            .get_mut(component_name)
+            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
+        table.get_field_f64_slice_mut(field_name)
+    }
+
+    pub fn has_component(&self, component_name: &str) -> bool {
+        self.key.contains_component(component_name)
     }
 }
 

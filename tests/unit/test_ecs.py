@@ -37,6 +37,12 @@ class Velocity:
 
 
 @dataclass
+class SensorOrigin:
+    x: float
+    y: float
+
+
+@dataclass
 class Box:
     width: Annotated[int, ecs_t.UInt16]
     height: Annotated[int, ecs_t.UInt16]
@@ -684,8 +690,56 @@ def test_spatial_hash_neighbors_and_join_aggregates() -> None:
     assert heroes == [(0, 1), (3, 1), (20, 0)]
     assert world.get_entity(Velocity, tags=[PLATFORM])[Velocity].dx == 2
     diagnostics = world.diagnostics()
-    assert diagnostics["ecs_spatial_indexes_built"] >= 2
-    assert diagnostics["ecs_spatial_indexes_built"] <= 4
+    assert diagnostics["ecs_spatial_index_cache_len"] >= 2
+    assert diagnostics["ecs_spatial_indexes_built"] <= 2
+    assert diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
+
+
+def test_spatial_relations_share_target_index_across_sensor_origins() -> None:
+    world = EcsWorld()
+    world.add_entity(Position(0, 0), SensorOrigin(1, 0), Velocity(0, 0), tags=[HERO])
+    world.add_entity(Position(0, 0), tags=[PLATFORM])
+    world.add_entity(Position(1, 0), tags=[PLATFORM])
+
+    @ecs.system(parallel=True)
+    def two_sensor_system(
+        hero: ecs.Query[ecs.Tag[HERO], Position, SensorOrigin, Velocity],
+        marker: ecs.Query[ecs.Tag[PLATFORM], Position],
+    ) -> None:
+        target = ecs.spatial.point2(marker[Position].x, marker[Position].y)
+        centered = ecs.spatial.join(
+            hero,
+            marker,
+            origin_position=ecs.spatial.point2(hero[Position].x, hero[Position].y),
+            target_position=target,
+            radius=0.25,
+            algorithm=ecs.spatial.HashGrid(cell_size=1.0),
+            allow_fallback=False,
+            name="center_marker_sensor",
+        )
+        offset = ecs.spatial.join(
+            hero,
+            marker,
+            origin_position=ecs.spatial.point2(hero[SensorOrigin].x, hero[SensorOrigin].y),
+            target_position=target,
+            radius=0.25,
+            algorithm=ecs.spatial.HashGrid(cell_size=1.0),
+            allow_fallback=False,
+            name="offset_marker_sensor",
+        )
+        hero[Velocity].dx.set_to(centered.count())
+        hero[Velocity].dy.set_to(offset.count())
+
+    world.add_system(two_sensor_system)
+    world.run_pre_draw_systems()
+
+    hero = world.get_entity(Position, Velocity, tags=[HERO])
+    assert hero[Velocity].dx == 1
+    assert hero[Velocity].dy == 1
+    diagnostics = world.diagnostics()
+    assert diagnostics["ecs_spatial_index_cache_len"] == 1
+    assert diagnostics["ecs_spatial_indexes_built"] <= 1
+    assert diagnostics["ecs_spatial_algorithm_hash_grid"] == 1
     assert diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
 
 
@@ -708,7 +762,8 @@ def test_spatial_tree_algorithms_execute_in_rust_without_fallbacks() -> None:
     diagnostics = world.diagnostics()
     assert diagnostics["ecs_physical_system_runs"] == 1
     assert diagnostics["ecs_spatial_algorithm_quadtree"] == 1
-    assert diagnostics["ecs_spatial_indexes_built"] == 1
+    assert diagnostics["ecs_spatial_index_cache_len"] == 1
+    assert diagnostics["ecs_spatial_indexes_built"] <= 1
     assert diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
     assert diagnostics.get("ecs_python_fallback_system_runs", 0) == 0
 

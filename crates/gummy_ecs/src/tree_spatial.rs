@@ -89,6 +89,25 @@ impl TreeNode {
         Ok(())
     }
 
+    fn query_aabb_unordered(
+        &self,
+        query: &SpatialAabb,
+        out: &mut Vec<SpatialRecord>,
+    ) -> Result<()> {
+        if !self.bounds.overlaps(query)? {
+            return Ok(());
+        }
+        for record in &self.records {
+            if record_overlaps(record, query)? {
+                out.push(record.clone());
+            }
+        }
+        for child in &self.children {
+            child.query_aabb_unordered(query, out)?;
+        }
+        Ok(())
+    }
+
     fn node_count(&self) -> usize {
         1 + self.children.iter().map(Self::node_count).sum::<usize>()
     }
@@ -173,6 +192,28 @@ impl TreeIndex {
         Ok(())
     }
 
+    fn query_aabb_unordered(
+        &self,
+        bounds: &SpatialAabb,
+        out: &mut Vec<SpatialRecord>,
+    ) -> Result<()> {
+        if bounds.dimensions() != self.dimensions {
+            return Err(EcsError::InvalidSpatialInput(
+                "tree query dimensions do not match index dimensions".to_string(),
+            ));
+        }
+        out.clear();
+        if let Some(root) = &self.root {
+            root.query_aabb_unordered(bounds, out)?;
+        }
+        for record in &self.overflow {
+            if record_overlaps(record, bounds)? {
+                out.push(record.clone());
+            }
+        }
+        Ok(())
+    }
+
     fn query_radius(
         &self,
         origin: &SpatialPoint,
@@ -195,6 +236,33 @@ impl TreeIndex {
             origin
                 .distance_squared(&record.point)
                 .is_ok_and(|distance_sq| distance_sq <= radius * radius)
+        });
+        Ok(())
+    }
+
+    fn query_radius_unordered(
+        &self,
+        origin: &SpatialPoint,
+        radius: f64,
+        out: &mut Vec<SpatialRecord>,
+    ) -> Result<()> {
+        if origin.dimensions() != self.dimensions {
+            return Err(EcsError::InvalidSpatialInput(
+                "tree radius query dimensions do not match index dimensions".to_string(),
+            ));
+        }
+        if !radius.is_finite() || radius < 0.0 {
+            return Err(EcsError::InvalidSpatialInput(
+                "query radius must be finite and non-negative".to_string(),
+            ));
+        }
+        let bounds = radius_bounds(origin, radius, self.dimensions)?;
+        self.query_aabb_unordered(&bounds, out)?;
+        let radius_sq = radius * radius;
+        out.retain(|record| {
+            origin
+                .distance_squared(&record.point)
+                .is_ok_and(|distance_sq| distance_sq <= radius_sq)
         });
         Ok(())
     }
@@ -231,6 +299,15 @@ impl QuadtreeIndex {
         Ok(Self {
             inner: TreeIndex::new(Dimensions::D2, bounds, capacity)?,
         })
+    }
+
+    pub fn query_radius_unordered(
+        &self,
+        origin: &SpatialPoint,
+        radius: f64,
+        out: &mut Vec<SpatialRecord>,
+    ) -> Result<()> {
+        self.inner.query_radius_unordered(origin, radius, out)
     }
 }
 
@@ -271,6 +348,15 @@ impl OctreeIndex {
         Ok(Self {
             inner: TreeIndex::new(Dimensions::D3, bounds, capacity)?,
         })
+    }
+
+    pub fn query_radius_unordered(
+        &self,
+        origin: &SpatialPoint,
+        radius: f64,
+        out: &mut Vec<SpatialRecord>,
+    ) -> Result<()> {
+        self.inner.query_radius_unordered(origin, radius, out)
     }
 }
 
