@@ -743,51 +743,41 @@ def set(target: FieldExpression, value: object) -> DefaultAction:
 
 
 def add_component_action(entity: EntityExpression, component: object | type[Any]) -> DefaultAction:
-    if not isinstance(entity, EntityExpression):
-        raise SystemPlanError(
-            "ECS structural actions require query.entity from an ecs.Query parameter."
-        )
     component_type = component if isinstance(component, type) else type(component)
     return DefaultAction(
         "add_component",
-        entity_query=entity.query,
+        entity_query=_require_entity_query(entity),
         component_type=component_type,
         component_value=None if isinstance(component, type) else component,
     )
 
 
 def remove_component_action(entity: EntityExpression, component_type: type[Any]) -> DefaultAction:
-    if not isinstance(entity, EntityExpression):
-        raise SystemPlanError(
-            "ECS structural actions require query.entity from an ecs.Query parameter."
-        )
     return DefaultAction(
-        "remove_component", entity_query=entity.query, component_type=component_type
+        "remove_component",
+        entity_query=_require_entity_query(entity),
+        component_type=component_type,
     )
 
 
 def add_tag_action(entity: EntityExpression, tag: object) -> DefaultAction:
-    if not isinstance(entity, EntityExpression):
-        raise SystemPlanError(
-            "ECS structural actions require query.entity from an ecs.Query parameter."
-        )
-    return DefaultAction("add_tag", entity_query=entity.query, tag=tag)
+    return DefaultAction("add_tag", entity_query=_require_entity_query(entity), tag=tag)
 
 
 def remove_tag_action(entity: EntityExpression, tag: object) -> DefaultAction:
-    if not isinstance(entity, EntityExpression):
-        raise SystemPlanError(
-            "ECS structural actions require query.entity from an ecs.Query parameter."
-        )
-    return DefaultAction("remove_tag", entity_query=entity.query, tag=tag)
+    return DefaultAction("remove_tag", entity_query=_require_entity_query(entity), tag=tag)
 
 
 def despawn_action(entity: EntityExpression) -> DefaultAction:
+    return DefaultAction("despawn", entity_query=_require_entity_query(entity))
+
+
+def _require_entity_query(entity: EntityExpression) -> QueryProxy:
     if not isinstance(entity, EntityExpression):
         raise SystemPlanError(
             "ECS structural actions require query.entity from an ecs.Query parameter."
         )
-    return DefaultAction("despawn", entity_query=entity.query)
+    return entity.query
 
 
 def _sequence_action(*actions: Action) -> DefaultAction:

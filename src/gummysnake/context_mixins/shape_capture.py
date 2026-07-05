@@ -11,71 +11,23 @@ from gummysnake.exceptions import ArgumentValidationError
 
 
 def begin_shape(ctx: Any, kind: c.ShapeKind | None = None) -> None:
-    """Begin shape.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        kind: The kind value. Expected type: `c.ShapeKind | None`. Defaults to `None`.
-
-    Returns:
-        None.
-    """
     if ctx.state.rust.shape_active:
         raise ArgumentValidationError("begin_shape() cannot be nested.")
     ctx.state.rust.begin_shape_capture(None if kind is None else kind.value)
 
 
 def reset_shape_capture(ctx: Any) -> None:
-    """Reset shape capture.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-
-    Returns:
-        None.
-    """
     ctx.state.rust.reset_shape_capture()
 
 
 def active_shape_vertices(ctx: Any) -> list[tuple[float, float]]:
-    """Active shape vertices.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-
-    Returns:
-        The return value. Type: `list[tuple[float, float]]`.
-    """
     return [tuple(point) for point in ctx.state.rust.active_vertices()]
-
-
-def extend_shape_vertices(ctx: Any, vertices: list[tuple[float, float]]) -> None:
-    """Extend shape vertices.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        vertices: The vertices value. Expected type: `list[tuple[float, float]]`.
-
-    Returns:
-        None.
-    """
-    ctx.state.rust.extend_vertices(vertices)
 
 
 @contextmanager
 def shape(
     ctx: Any, mode: c.ArcMode = c.OPEN, *, kind: c.ShapeKind | None = None
 ) -> Generator[None]:
-    """Shape.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        mode: The mode value. Expected type: `c.ArcMode`. Defaults to `c.OPEN`.
-        kind: The kind value. Expected type: `c.ShapeKind | None`. Defaults to `None`.
-
-    Returns:
-        The return value. Type: `Generator[None]`.
-    """
     ctx.begin_shape(kind)
     completed = False
     try:
@@ -88,16 +40,6 @@ def shape(
 
 
 def vertex(ctx: Any, x: float, y: float) -> None:
-    """Vertex.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        x: The x value. Expected type: `float`.
-        y: The y value. Expected type: `float`.
-
-    Returns:
-        None.
-    """
     if not ctx.state.rust.shape_active:
         raise ArgumentValidationError(
             "vertex() must be called between begin_shape() and end_shape()."
@@ -108,20 +50,6 @@ def vertex(ctx: Any, x: float, y: float) -> None:
 def bezier_vertex(
     ctx: Any, x2: float, y2: float, x3: float, y3: float, x4: float, y4: float
 ) -> None:
-    """Bezier vertex.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        x2: The x2 value. Expected type: `float`.
-        y2: The y2 value. Expected type: `float`.
-        x3: The x3 value. Expected type: `float`.
-        y3: The y3 value. Expected type: `float`.
-        x4: The x4 value. Expected type: `float`.
-        y4: The y4 value. Expected type: `float`.
-
-    Returns:
-        None.
-    """
     if not ctx.state.rust.shape_active:
         raise ArgumentValidationError(
             "bezier_vertex() must be called between begin_shape() and end_shape()."
@@ -132,18 +60,6 @@ def bezier_vertex(
 
 
 def quadratic_vertex(ctx: Any, cx: float, cy: float, x3: float, y3: float) -> None:
-    """Quadratic vertex.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        cx: The cx value. Expected type: `float`.
-        cy: The cy value. Expected type: `float`.
-        x3: The x3 value. Expected type: `float`.
-        y3: The y3 value. Expected type: `float`.
-
-    Returns:
-        None.
-    """
     if not ctx.state.rust.shape_active:
         raise ArgumentValidationError(
             "quadratic_vertex() must be called between begin_shape() and end_shape()."
@@ -152,16 +68,6 @@ def quadratic_vertex(ctx: Any, cx: float, cy: float, x3: float, y3: float) -> No
 
 
 def spline_vertex(ctx: Any, x: float, y: float) -> None:
-    """Spline vertex.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        x: The x value. Expected type: `float`.
-        y: The y value. Expected type: `float`.
-
-    Returns:
-        None.
-    """
     if not ctx.state.rust.shape_active:
         raise ArgumentValidationError(
             "spline_vertex() must be called between begin_shape() and end_shape()."
@@ -191,15 +97,6 @@ def spline_vertex(ctx: Any, x: float, y: float) -> None:
 
 
 def end_shape(ctx: Any, mode: c.ArcMode = c.OPEN) -> None:
-    """End shape.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        mode: The mode value. Expected type: `c.ArcMode`. Defaults to `c.OPEN`.
-
-    Returns:
-        None.
-    """
     if not ctx.state.rust.shape_active:
         raise ArgumentValidationError("end_shape() requires begin_shape().")
     if ctx.state.rust.contour_active:
@@ -236,14 +133,6 @@ def end_shape(ctx: Any, mode: c.ArcMode = c.OPEN) -> None:
 
 
 def begin_contour(ctx: Any) -> None:
-    """Begin contour.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-
-    Returns:
-        None.
-    """
     if not ctx.state.rust.shape_active:
         raise ArgumentValidationError("begin_contour() requires begin_shape().")
     if ctx.state.rust.contour_active:
@@ -260,14 +149,6 @@ def begin_contour(ctx: Any) -> None:
 
 
 def end_contour(ctx: Any) -> None:
-    """End contour.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-
-    Returns:
-        None.
-    """
     if not ctx.state.rust.shape_active or not ctx.state.rust.contour_active:
         raise ArgumentValidationError("end_contour() requires begin_contour().")
     if ctx.state.rust.contour_vertex_count() < 3:
@@ -277,14 +158,6 @@ def end_contour(ctx: Any) -> None:
 
 @contextmanager
 def contour(ctx: Any) -> Generator[None]:
-    """Contour.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-
-    Returns:
-        The return value. Type: `Generator[None]`.
-    """
     ctx.begin_contour()
     completed = False
     try:
@@ -297,28 +170,12 @@ def contour(ctx: Any) -> Generator[None]:
 
 
 def begin_clip(ctx: Any) -> None:
-    """Begin clip.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-
-    Returns:
-        None.
-    """
     if ctx.state.rust.shape_active:
         raise ArgumentValidationError("begin_clip() cannot be called inside begin_shape().")
     ctx.begin_shape()
 
 
 def clip(ctx: Any) -> None:
-    """Clip.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-
-    Returns:
-        None.
-    """
     if not ctx.state.rust.shape_active:
         raise ArgumentValidationError("clip() requires begin_clip().")
     if ctx.state.rust.contour_active:
@@ -338,27 +195,11 @@ def clip(ctx: Any) -> None:
 
 
 def end_clip(ctx: Any) -> None:
-    """End clip.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-
-    Returns:
-        None.
-    """
     ctx.renderer.end_clip()
 
 
 @contextmanager
 def clip_path(ctx: Any) -> Generator[None]:
-    """Clip path.
-
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-
-    Returns:
-        The return value. Type: `Generator[None]`.
-    """
     ctx.begin_clip()
     completed = False
     try:

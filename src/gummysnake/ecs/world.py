@@ -16,7 +16,16 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import suppress
 from dataclasses import dataclass, fields, is_dataclass, replace
-from typing import Annotated, Any, TypeVar, cast, get_args, get_origin, get_type_hints
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    TypeVar,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from gummysnake.ecs.actions import (
     Action,
@@ -58,6 +67,9 @@ from gummysnake.exceptions import (
     SystemPlanError,
 )
 from gummysnake.rust.ecs import create_ecs_world
+
+if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.context import SketchContext
 
 ComponentT = TypeVar("ComponentT")
 ResourceT = TypeVar("ResourceT")
@@ -325,7 +337,7 @@ class _RuntimeEventWriter:
 class EcsWorld:
     """Deterministic ECS world owned by one ``SketchContext``."""
 
-    def __init__(self, context: Any | None = None) -> None:
+    def __init__(self, context: SketchContext | None = None) -> None:
         self.context = context
         self._world_id = id(self)
         self._rust = create_ecs_world()
@@ -347,7 +359,6 @@ class EcsWorld:
         self._defer_spatial_invalidation = False
         self._spatial_invalidated_deferred = False
         self._ecs_frame = 0
-        self._component_snapshot: dict[tuple[int, int, type[Any]], object] = {}
         self._added_components: set[tuple[int, int, type[Any]]] = set()
         self._changed_components: set[tuple[int, int, type[Any]]] = set()
         self._removed_components: set[tuple[int, int, type[Any]]] = set()
@@ -1303,10 +1314,6 @@ class EcsWorld:
         else:
             self._diagnostics["ecs_ambiguity_warnings_suppressed"] += 1
 
-    def _note_row_update(self) -> None:
-        self._diagnostics["ecs_rows_updated"] += 1
-        self._invalidate_spatial_indexes()
-
     def _note_field_update(self, entity: Entity, component_type: type[Any]) -> None:
         self._diagnostics["ecs_rows_updated"] += 1
         self._changed_components.add(_component_key(entity, component_type))
@@ -1412,11 +1419,6 @@ class EcsWorld:
             )
         return [by_id[system_id] for system_id in ordered_ids]
 
-    def _component_values_snapshot(self) -> dict[tuple[int, int, type[Any]], object]:
-        # Component values are Rust-owned. This compatibility helper intentionally
-        # returns no value mirror; change detection is tracked by structural/write events.
-        return {}
-
     def _begin_change_frame(self) -> None:
         self._ecs_frame += 1
         self._rust.set_frame(self._ecs_frame)
@@ -1427,7 +1429,6 @@ class EcsWorld:
         self._diagnostics["ecs_change_detection_refreshes"] += 1
 
     def _finalize_change_frame(self) -> None:
-        self._component_snapshot = {}
         self._added_components.clear()
         self._changed_components.clear()
         self._removed_components.clear()

@@ -11,14 +11,6 @@ from gummysnake.exceptions import ArgumentValidationError
 
 
 def load_image(path: str | Path) -> Image:
-    """Load and return image.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-    
-    Returns:
-        The return value. Type: `Image`.
-    """
     image_path = resolve_asset_path(path)
     if not image_path.exists():
         raise ArgumentValidationError(f"Image file does not exist: {image_path!s}.")
@@ -30,27 +22,10 @@ def load_image(path: str | Path) -> Image:
 
 
 async def load_image_async(path: str | Path) -> Image:
-    """Load and return an image asynchronously.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-    
-    Returns:
-        The return value. Type: `Image`.
-    """
     return load_image(path)
 
 
 def create_image(width: int, height: int) -> Image:
-    """Create and return a image value.
-    
-    Args:
-        width: The width value. Expected type: `int`.
-        height: The height value. Expected type: `int`.
-    
-    Returns:
-        The return value. Type: `Image`.
-    """
     return Image(int(width), int(height))
 
 

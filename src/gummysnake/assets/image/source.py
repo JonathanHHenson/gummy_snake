@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, cast
+from collections.abc import Callable
+from typing import Protocol, cast
 
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -13,20 +14,10 @@ class ImageSource(Protocol):
     width: int
     height: int
 
-    def tobytes(self) -> bytes:
-        """Return this image source as packed RGBA bytes.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bytes`.
-        """
-        ...
+    def tobytes(self) -> bytes: ...
 
 
-class _ByteSourceCallback(Protocol):
-    def __call__(self) -> bytes | bytearray | memoryview: ...
+_ByteSourceCallback = Callable[[], bytes | bytearray | memoryview]
 
 
 def coerce_image_source(
@@ -34,16 +25,6 @@ def coerce_image_source(
     height: int | None,
     pixels: bytes | bytearray | None,
 ) -> tuple[int, int, bytes]:
-    """Coerce image source using the active image context.
-    
-    Args:
-        width: The width value. Expected type: `int | ImageSource`.
-        height: The height value. Expected type: `int | None`.
-        pixels: The pixels value. Expected type: `bytes | bytearray | None`.
-    
-    Returns:
-        The return value. Type: `tuple[int, int, bytes]`.
-    """
     if isinstance(width, int):
         if height is None:
             raise ArgumentValidationError("Image height is required.")
@@ -59,14 +40,14 @@ def coerce_image_source(
 
     image_width = int(width.width)
     image_height = int(width.height)
-    to_rgba_bytes: Any = getattr(width, "to_rgba_bytes", None)
-    tobytes: Any = getattr(width, "tobytes", None)
-    convert: Any = getattr(width, "convert", None)
+    to_rgba_bytes: object = getattr(width, "to_rgba_bytes", None)
+    tobytes: object = getattr(width, "tobytes", None)
+    convert: object = getattr(width, "convert", None)
     source = convert("RGBA") if callable(convert) else width
     if callable(to_rgba_bytes):
         payload = bytes(cast(_ByteSourceCallback, to_rgba_bytes)())
     else:
-        source_tobytes: Any = getattr(source, "tobytes", None)
+        source_tobytes: object = getattr(source, "tobytes", None)
         if callable(source_tobytes):
             payload = bytes(cast(_ByteSourceCallback, source_tobytes)())
         elif callable(tobytes):

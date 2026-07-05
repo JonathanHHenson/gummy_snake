@@ -250,26 +250,10 @@ class FastDrawScope:
 
     @property
     def width(self) -> int:
-        """Width.
-
-        Args:
-            None.
-
-        Returns:
-            The return value. Type: `int`.
-        """
         return self._context.width
 
     @property
     def height(self) -> int:
-        """Height.
-
-        Args:
-            None.
-
-        Returns:
-            The return value. Type: `int`.
-        """
         return self._context.height
 
     def _compose_transform3d(self, transform: Matrix4Payload) -> None:
@@ -397,15 +381,6 @@ class FastDrawScope:
         self._compose_transform3d(rotation)
 
     def point(self, x: float, y: float) -> None:
-        """Point.
-
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         context = self._context
         context.renderer.point(
             float(x),
@@ -415,17 +390,6 @@ class FastDrawScope:
         )
 
     def line(self, x1: float, y1: float, x2: float, y2: float) -> None:
-        """Line.
-
-        Args:
-            x1: The x1 value. Expected type: `float`.
-            y1: The y1 value. Expected type: `float`.
-            x2: The x2 value. Expected type: `float`.
-            y2: The y2 value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         context = self._context
         context.renderer.line(
             float(x1),
@@ -437,17 +401,6 @@ class FastDrawScope:
         )
 
     def rect(self, x: float, y: float, width: float, height: float | None = None) -> None:
-        """Rect.
-
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            width: The width value. Expected type: `float`.
-            height: The height value. Expected type: `float | None`. Defaults to `None`.
-
-        Returns:
-            None.
-        """
         context = self._context
         fx = float(x)
         fy = float(y)
@@ -483,30 +436,9 @@ class FastDrawScope:
         )
 
     def square(self, x: float, y: float, size: float) -> None:
-        """Square.
-
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            size: The size value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         self.rect(x, y, size, size)
 
     def ellipse(self, x: float, y: float, width: float, height: float | None = None) -> None:
-        """Ellipse.
-
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            width: The width value. Expected type: `float`.
-            height: The height value. Expected type: `float | None`. Defaults to `None`.
-
-        Returns:
-            None.
-        """
         context = self._context
         h = width if height is None else height
         ex, ey, ew, eh = resolve_ellipse(
@@ -526,16 +458,6 @@ class FastDrawScope:
         )
 
     def circle(self, x: float, y: float, diameter: float) -> None:
-        """Circle.
-
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            diameter: The diameter value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         context = self._context
         if context.state.style.ellipse_mode == c.CENTER:
             fx = float(x)
@@ -557,19 +479,6 @@ class FastDrawScope:
         self.ellipse(x, y, diameter, diameter)
 
     def triangle(self, x1: float, y1: float, x2: float, y2: float, x3: float, y3: float) -> None:
-        """Triangle.
-
-        Args:
-            x1: The x1 value. Expected type: `float`.
-            y1: The y1 value. Expected type: `float`.
-            x2: The x2 value. Expected type: `float`.
-            y2: The y2 value. Expected type: `float`.
-            x3: The x3 value. Expected type: `float`.
-            y3: The y3 value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         context = self._context
         values = (float(x1), float(y1), float(x2), float(y2), float(x3), float(y3))
         if _queue_fill_primitive(context, _PRIMITIVE_TRIANGLE, values):
@@ -609,17 +518,6 @@ class FastDrawScope:
     ) -> None: ...
 
     def image(self, image: Image | CanvasImage, x: float, y: float, *args: float) -> None:
-        """Image.
-
-        Args:
-            image: The image value. Expected type: `Image | CanvasImage`.
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            *args: Additional positional arguments. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         context = self._context
         if len(args) == 2:
             dx = float(x)
@@ -647,30 +545,12 @@ class FastDrawScope:
         context._draw_image_fast(image, x, y, *args)
 
     def text(self, value: SupportsText, x: float, y: float) -> None:
-        """Text.
-
-        Args:
-            value: The value value. Expected type: `SupportsText`.
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         context = self._context
         context.renderer.text(
             str(value), float(x), float(y), context.state.style, context.state.transform.matrix
         )
 
     def text_width(self, value: SupportsText) -> float:
-        """Text width.
-
-        Args:
-            value: The value value. Expected type: `SupportsText`.
-
-        Returns:
-            The return value. Type: `float`.
-        """
         context = self._context
         return context.renderer.text_width(str(value), context.state.style)
 
