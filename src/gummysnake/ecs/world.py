@@ -169,14 +169,6 @@ class MutEntity:
         )
 
 
-@dataclass
-class _EntitySlot:
-    """Lightweight Python handle metadata; component/tag data is Rust-owned."""
-
-    generation: int = 0
-    alive: bool = False
-
-
 class ComponentView:
     """Rust-backed component field view used at Python/UDF/draw boundaries."""
 
@@ -322,7 +314,6 @@ class _ScheduledSystem:
     physical_payload_dynamic: bool = False
     physical_has_input_state: bool = False
     physical_schema_fingerprint: int | None = None
-    physical_error_reason: str | None = None
 
 
 class _RuntimeEventWriter:
@@ -341,11 +332,9 @@ class EcsWorld:
         self.context = context
         self._world_id = id(self)
         self._rust = create_ecs_world()
-        self._slots: list[_EntitySlot] = []
         self._systems: list[_ScheduledSystem] = []
         self._system_sets: dict[str, _SystemSetConfig] = {}
         self._next_system_id = 1
-        self._resources: set[type[Any]] = set()
         self.strict = False
         self.warn_on_ambiguity = True
         self._diagnostics: Counter[str] = Counter()
@@ -364,7 +353,6 @@ class EcsWorld:
         self._removed_components: set[tuple[int, int, type[Any]]] = set()
         self._events: dict[type[Any], list[tuple[int, object]]] = {}
         self._event_types: dict[str, type[Any]] = {}
-        self._mirror_writes_to_rust = True
         self._has_change_filtered_systems_cache: bool | None = None
 
     # ------------------------------------------------------------------ schema
@@ -420,12 +408,6 @@ class EcsWorld:
             self._validate_value(component)
             component_values[type(component)] = component
         index, generation = self._rust.allocate_entity()
-        if index == len(self._slots):
-            self._slots.append(_EntitySlot(generation=generation, alive=True))
-        else:
-            slot = self._slots[index]
-            slot.generation = generation
-            slot.alive = True
         entity = Entity(index, generation, self._world_id)
         for component_type, component in component_values.items():
             self._rust.add_component_default(index, generation, _schema_name(component_type))
@@ -438,7 +420,7 @@ class EcsWorld:
         return entity
 
     def despawn_entity(self, entity: Entity) -> None:
-        slot = self._slot(entity)
+        self._slot(entity)
         removed_components = [
             self._component_type_for_schema(schema_name)
             for schema_name in self._rust.entity_components(entity.index, entity.generation)
@@ -446,7 +428,6 @@ class EcsWorld:
         self._rust.despawn_entity(entity.index, entity.generation)
         for component_type in removed_components:
             self._mark_component_removed(entity, component_type)
-        slot.alive = False
         self._diagnostics["ecs_entities_alive"] = self._rust.alive_count()
         self._diagnostics["ecs_entity_generation_reuses"] += 1
         self._invalidate_spatial_indexes()
@@ -547,7 +528,7 @@ class EcsWorld:
         rows = self._rust.query_component_fields([schema], required_tags, schema, list(field_names))
         return iter(rows)
 
-    def _slot(self, entity: Entity) -> _EntitySlot:
+    def _slot(self, entity: Entity) -> None:
         if entity.world_id != self._world_id:
             raise StaleEntityError("ECS entity belongs to a different world.")
         if entity.index < 0:
@@ -556,12 +537,6 @@ class EcsWorld:
             self._rust.validate_entity(entity.index, entity.generation)
         except ValueError as exc:
             raise StaleEntityError("ECS entity handle is stale.") from exc
-        if entity.index >= len(self._slots):
-            self._slots.extend(_EntitySlot() for _ in range(entity.index - len(self._slots) + 1))
-        slot = self._slots[entity.index]
-        slot.generation = entity.generation
-        slot.alive = True
-        return slot
 
     def _has_component(self, entity: Entity, component_type: type[Any]) -> bool:
         self.validate_schema(component_type)
@@ -612,7 +587,6 @@ class EcsWorld:
     # --------------------------------------------------------------- resources
     def set_resource(self, resource: object) -> None:
         self._validate_value(resource)
-        self._resources.add(type(resource))
         self._sync_resource_to_rust(type(resource), resource)
         self._note_resource_update()
 
@@ -626,7 +600,6 @@ class EcsWorld:
         self.validate_schema(resource_type)
         if not self._rust.has_resource(_schema_name(resource_type)):
             raise MissingResourceError(f"Missing ECS resource {resource_type.__name__}.")
-        self._resources.discard(resource_type)
         self._rust.remove_resource(_schema_name(resource_type))
         self._note_resource_update()
 
@@ -647,7 +620,6 @@ class EcsWorld:
             resource_type, field_name, value, self._schemas[resource_type][field_name]
         )
         self._rust.set_resource_field(_schema_name(resource_type), field_name, copy.deepcopy(value))
-        self._resources.add(resource_type)
         self._note_resource_update()
 
     def resource_snapshot(self, resource_type: type[Any]) -> object:
@@ -849,19 +821,23 @@ class EcsWorld:
         action = scheduled.built.plan.action
         if _is_direct_udf_action(action) or _contains_direct_udf_action(action):
             return
-        payload = self._build_and_compile_payload(scheduled, scheduled.built)
-        scheduled.physical_payload = payload
-        scheduled.physical_payload_dynamic = bool(payload.get("dynamic", False))
-        scheduled.physical_has_input_state = _payload_has_input_state(payload)
+        self._set_physical_payload(
+            scheduled, self._build_and_compile_payload(scheduled, scheduled.built)
+        )
         if not scheduled.physical_has_input_state and scheduled.physical_plan_handle is not None:
             # Spatial prewarming is an optimization only; execution will build any missing
             # caches on demand and surface real plan errors through the normal path.
             with suppress(AttributeError, ValueError):
-                method_name = "_".join(("warm", "compiled", "plan", "spatial", "indexes"))
                 warm_spatial_indexes = cast(
-                    Callable[[int], dict[str, Any]], getattr(cast(Any, self._rust), method_name)
+                    Callable[[int], dict[str, Any]],
+                    cast(Any, self._rust).warm_compiled_plan_spatial_indexes,
                 )
                 warm_spatial_indexes(scheduled.physical_plan_handle)
+
+    def _set_physical_payload(self, scheduled: _ScheduledSystem, payload: dict[str, Any]) -> None:
+        scheduled.physical_payload = payload
+        scheduled.physical_payload_dynamic = bool(payload.get("dynamic", False))
+        scheduled.physical_has_input_state = _payload_has_input_state(payload)
 
     def _build_and_compile_payload(
         self, scheduled: _ScheduledSystem, built: BuiltSystem
@@ -876,7 +852,6 @@ class EcsWorld:
             summary = self._rust.compile_bridge_plan(payload)
             scheduled.physical_plan_handle = int(summary["handle"])
             scheduled.physical_schema_fingerprint = schema_fingerprint
-            scheduled.physical_error_reason = None
             self._diagnostics["ecs_physical_plan_compiles"] += 1
             return payload
         except PhysicalPlanUnsupported as exc:
@@ -888,14 +863,12 @@ class EcsWorld:
             scheduled.physical_payload = None
             scheduled.physical_plan_handle = None
             scheduled.physical_schema_fingerprint = schema_fingerprint
-            scheduled.physical_error_reason = str(exc)
             self._diagnostics["ecs_physical_plan_errors"] += 1
             raise SystemPlanError(message) from exc
         except (AttributeError, ValueError) as exc:
             scheduled.physical_payload = None
             scheduled.physical_plan_handle = None
             scheduled.physical_schema_fingerprint = schema_fingerprint
-            scheduled.physical_error_reason = str(exc)
             self._diagnostics["ecs_physical_plan_compile_errors"] += 1
             raise SystemPlanError(
                 f"ECS system {scheduled.handle.name!r} could not compile for Rust ECS: {exc}"
@@ -917,10 +890,9 @@ class EcsWorld:
                     or scheduled.physical_payload_dynamic
                 )
                 if needs_recompile:
-                    payload = self._build_and_compile_payload(scheduled, scheduled.built)
-                    scheduled.physical_payload = payload
-                    scheduled.physical_payload_dynamic = bool(payload.get("dynamic", False))
-                    scheduled.physical_has_input_state = _payload_has_input_state(payload)
+                    self._set_physical_payload(
+                        scheduled, self._build_and_compile_payload(scheduled, scheduled.built)
+                    )
                 execution_payload = scheduled.physical_payload
                 if scheduled.physical_plan_handle is None:
                     raise SystemPlanError(
@@ -952,7 +924,6 @@ class EcsWorld:
             if use_scheduled_cache:
                 scheduled.physical_payload = None
                 scheduled.physical_plan_handle = None
-                scheduled.physical_error_reason = str(exc)
             self._diagnostics["ecs_physical_execution_errors"] += 1
             raise SystemExecutionError(
                 f"ECS system {scheduled.handle.name!r} could not execute in Rust ECS: {exc}"
@@ -1149,8 +1120,6 @@ class EcsWorld:
     def _sync_component_fields_to_rust(
         self, entity: Entity, component_type: type[Any], component: object
     ) -> None:
-        if not self._mirror_writes_to_rust:
-            return
         for field in fields(component_type):
             self._rust.set_field(
                 entity.index,
@@ -1163,8 +1132,6 @@ class EcsWorld:
     def _sync_component_field_to_rust(
         self, entity: Entity, component_type: type[Any], field_name: str, value: object
     ) -> None:
-        if not self._mirror_writes_to_rust:
-            return
         self._rust.set_field(
             entity.index,
             entity.generation,
@@ -1174,8 +1141,6 @@ class EcsWorld:
         )
 
     def _sync_resource_to_rust(self, resource_type: type[Any], resource: object) -> None:
-        if not self._mirror_writes_to_rust:
-            return
         self._rust.insert_resource(_schema_name(resource_type), _dataclass_field_dict(resource))
 
     def _apply_physical_report(self, report: dict[str, Any]) -> None:

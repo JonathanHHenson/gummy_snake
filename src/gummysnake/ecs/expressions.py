@@ -18,6 +18,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
+    from gummysnake.ecs.actions import EntityIteratorSource
     from gummysnake.ecs.world import EcsWorld, EntityView
 
 
@@ -307,7 +308,7 @@ class QueryProxy:
     def __getitem__(self, component_type: type[Any]) -> ComponentExpressionProxy:
         return ComponentExpressionProxy(self, component_type)
 
-    def as_iter(self, *component_types: type[Any]) -> object:
+    def as_iter(self, *component_types: type[Any]) -> EntityIteratorSource:
         from gummysnake.ecs.actions import EntityIteratorSource
         from gummysnake.ecs.specs import QuerySpec
         from gummysnake.exceptions import SystemPlanError

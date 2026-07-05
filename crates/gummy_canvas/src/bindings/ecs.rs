@@ -145,6 +145,23 @@ fn get_optional<'py>(dict: &Bound<'py, PyDict>, key: &str) -> PyResult<Option<Bo
     }
 }
 
+fn get_optional_parsed<T>(
+    dict: &Bound<'_, PyDict>,
+    key: &str,
+    parse: impl FnOnce(Bound<'_, PyAny>) -> PyResult<T>,
+) -> PyResult<Option<T>> {
+    get_optional(dict, key)?.map(parse).transpose()
+}
+
+fn require_dict<'a, 'py>(
+    value: &'a Bound<'py, PyAny>,
+    message: &'static str,
+) -> PyResult<&'a Bound<'py, PyDict>> {
+    value
+        .downcast::<PyDict>()
+        .map_err(|_| PyValueError::new_err(message))
+}
+
 fn parse_list<T>(
     value: &Bound<'_, PyAny>,
     field: &str,
@@ -187,9 +204,7 @@ fn parse_entity_payload(value: Bound<'_, PyAny>) -> PyResult<Entity> {
             generation: list.get_item(1)?.extract::<u32>()?,
         });
     }
-    let dict = value
-        .downcast::<PyDict>()
-        .map_err(|_| PyValueError::new_err("ECS entity handles must be tuples, lists, or dicts"))?;
+    let dict = require_dict(&value, "ECS entity handles must be tuples, lists, or dicts")?;
     Ok(Entity {
         index: get_required(dict, "index")?.extract::<u32>()?,
         generation: get_required(dict, "generation")?.extract::<u32>()?,
@@ -201,9 +216,7 @@ fn parse_entity_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<Enti
 }
 
 fn parse_spatial_bounds_expr(value: Bound<'_, PyAny>) -> PyResult<SpatialBoundsExprNode> {
-    let dict = value
-        .downcast::<PyDict>()
-        .map_err(|_| PyValueError::new_err("ECS spatial bounds nodes must be dicts"))?;
+    let dict = require_dict(&value, "ECS spatial bounds nodes must be dicts")?;
     Ok(SpatialBoundsExprNode {
         minimum: parse_usize_list(&get_required(dict, "minimum")?, "minimum")?,
         maximum: parse_usize_list(&get_required(dict, "maximum")?, "maximum")?,
@@ -211,31 +224,19 @@ fn parse_spatial_bounds_expr(value: Bound<'_, PyAny>) -> PyResult<SpatialBoundsE
 }
 
 fn parse_spatial_algorithm_node(value: Bound<'_, PyAny>) -> PyResult<SpatialAlgorithmNode> {
-    let dict = value
-        .downcast::<PyDict>()
-        .map_err(|_| PyValueError::new_err("ECS spatial algorithm nodes must be dicts"))?;
+    let dict = require_dict(&value, "ECS spatial algorithm nodes must be dicts")?;
     Ok(SpatialAlgorithmNode {
         kind: get_required(dict, "kind")?.extract::<String>()?,
         dimensions: get_required(dict, "dimensions")?.extract::<u8>()?,
-        cell_size: get_optional(dict, "cell_size")?
-            .map(|value| value.extract::<f64>())
-            .transpose()?,
-        bounds: get_optional(dict, "bounds")?
-            .map(|value| parse_f64_list(&value, "bounds"))
-            .transpose()?,
-        capacity: get_optional(dict, "capacity")?
-            .map(|value| value.extract::<usize>())
-            .transpose()?,
-        bits: get_optional(dict, "bits")?
-            .map(|value| value.extract::<u8>())
-            .transpose()?,
+        cell_size: get_optional_parsed(dict, "cell_size", |value| value.extract::<f64>())?,
+        bounds: get_optional_parsed(dict, "bounds", |value| parse_f64_list(&value, "bounds"))?,
+        capacity: get_optional_parsed(dict, "capacity", |value| value.extract::<usize>())?,
+        bits: get_optional_parsed(dict, "bits", |value| value.extract::<u8>())?,
     })
 }
 
 fn parse_spatial_relation_node(value: Bound<'_, PyAny>) -> PyResult<SpatialRelationNode> {
-    let dict = value
-        .downcast::<PyDict>()
-        .map_err(|_| PyValueError::new_err("ECS spatial relation nodes must be dicts"))?;
+    let dict = require_dict(&value, "ECS spatial relation nodes must be dicts")?;
     Ok(SpatialRelationNode {
         id: get_required(dict, "id")?.extract::<String>()?,
         index_id: get_required(dict, "index_id")?.extract::<String>()?,
@@ -249,27 +250,15 @@ fn parse_spatial_relation_node(value: Bound<'_, PyAny>) -> PyResult<SpatialRelat
             &get_required(dict, "target_position")?,
             "target_position",
         )?,
-        radius: get_optional(dict, "radius")?
-            .map(|value| value.extract::<usize>())
-            .transpose()?,
-        origin_bounds: get_optional(dict, "origin_bounds")?
-            .map(parse_spatial_bounds_expr)
-            .transpose()?,
-        target_bounds: get_optional(dict, "target_bounds")?
-            .map(parse_spatial_bounds_expr)
-            .transpose()?,
+        radius: get_optional_parsed(dict, "radius", |value| value.extract::<usize>())?,
+        origin_bounds: get_optional_parsed(dict, "origin_bounds", parse_spatial_bounds_expr)?,
+        target_bounds: get_optional_parsed(dict, "target_bounds", parse_spatial_bounds_expr)?,
         algorithm: parse_spatial_algorithm_node(get_required(dict, "algorithm")?)?,
-        include_self: get_optional(dict, "include_self")?
-            .map(|value| value.extract::<bool>())
-            .transpose()?
+        include_self: get_optional_parsed(dict, "include_self", |value| value.extract::<bool>())?
             .unwrap_or(false),
-        pair_policy: get_optional(dict, "pair_policy")?
-            .map(|value| value.extract::<String>())
-            .transpose()?
+        pair_policy: get_optional_parsed(dict, "pair_policy", |value| value.extract::<String>())?
             .unwrap_or_else(|| "all".to_string()),
-        exact_filter: get_optional(dict, "exact_filter")?
-            .map(|value| value.extract::<usize>())
-            .transpose()?,
+        exact_filter: get_optional_parsed(dict, "exact_filter", |value| value.extract::<usize>())?,
     })
 }
 
@@ -308,14 +297,12 @@ fn parse_query_term(value: Bound<'_, PyAny>) -> PyResult<QueryTerm> {
 }
 
 fn parse_query_payload(value: Bound<'_, PyAny>) -> PyResult<BridgeQueryPayload> {
-    let dict = value
-        .downcast::<PyDict>()
-        .map_err(|_| PyValueError::new_err("ECS bridge query payloads must be dicts"))?;
+    let dict = require_dict(&value, "ECS bridge query payloads must be dicts")?;
     let name = get_required(dict, "name")?.extract::<String>()?;
     let terms = parse_list(&get_required(dict, "terms")?, "terms", parse_query_term)?;
-    let allowed_entities = get_optional(dict, "allowed_entities")?
-        .map(|value| parse_entity_list(&value, "allowed_entities"))
-        .transpose()?;
+    let allowed_entities = get_optional_parsed(dict, "allowed_entities", |value| {
+        parse_entity_list(&value, "allowed_entities")
+    })?;
     Ok(BridgeQueryPayload {
         name,
         terms,
@@ -324,9 +311,7 @@ fn parse_query_payload(value: Bound<'_, PyAny>) -> PyResult<BridgeQueryPayload> 
 }
 
 fn parse_expr_node(value: Bound<'_, PyAny>) -> PyResult<ExprNode> {
-    let dict = value
-        .downcast::<PyDict>()
-        .map_err(|_| PyValueError::new_err("ECS bridge expression nodes must be dicts"))?;
+    let dict = require_dict(&value, "ECS bridge expression nodes must be dicts")?;
     let kind = get_required(dict, "kind")?.extract::<String>()?;
     match kind.as_str() {
         "literal_f64" | "f64" => Ok(ExprNode::LiteralF64(
@@ -362,9 +347,7 @@ fn parse_expr_node(value: Bound<'_, PyAny>) -> PyResult<ExprNode> {
         }),
         "input_state" => Ok(ExprNode::InputState {
             name: get_required(dict, "name")?.extract::<String>()?,
-            code: get_optional(dict, "code")?
-                .map(|value| value.extract::<i64>())
-                .transpose()?,
+            code: get_optional_parsed(dict, "code", |value| value.extract::<i64>())?,
         }),
         "for_each_item" => Ok(ExprNode::ForEachItem {
             slot: get_required(dict, "slot")?.extract::<usize>()?,
@@ -390,32 +373,22 @@ fn parse_expr_node(value: Bound<'_, PyAny>) -> PyResult<ExprNode> {
         "aggregate" => Ok(ExprNode::Aggregate {
             kind: get_required(dict, "aggregate")?.extract::<String>()?,
             relation: get_required(dict, "relation")?.extract::<usize>()?,
-            group_query: get_optional(dict, "group_query")?
-                .map(|value| value.extract::<String>())
-                .transpose()?,
-            value: get_optional(dict, "value")?
-                .map(|value| value.extract::<usize>())
-                .transpose()?,
-            default: get_optional(dict, "default")?
-                .map(|value| value.extract::<usize>())
-                .transpose()?,
+            group_query: get_optional_parsed(dict, "group_query", |value| {
+                value.extract::<String>()
+            })?,
+            value: get_optional_parsed(dict, "value", |value| value.extract::<usize>())?,
+            default: get_optional_parsed(dict, "default", |value| value.extract::<usize>())?,
         }),
         "spatial_metadata" => Ok(ExprNode::SpatialMetadata {
             relation: parse_spatial_relation_node(get_required(dict, "relation")?)?,
             kind: get_required(dict, "metadata")?.extract::<String>()?,
-            axis: get_optional(dict, "axis")?
-                .map(|value| value.extract::<usize>())
-                .transpose()?,
+            axis: get_optional_parsed(dict, "axis", |value| value.extract::<usize>())?,
         }),
         "spatial_aggregate" => Ok(ExprNode::SpatialAggregate {
             kind: get_required(dict, "aggregate")?.extract::<String>()?,
             relation: parse_spatial_relation_node(get_required(dict, "relation")?)?,
-            value: get_optional(dict, "value")?
-                .map(|value| value.extract::<usize>())
-                .transpose()?,
-            default: get_optional(dict, "default")?
-                .map(|value| value.extract::<usize>())
-                .transpose()?,
+            value: get_optional_parsed(dict, "value", |value| value.extract::<usize>())?,
+            default: get_optional_parsed(dict, "default", |value| value.extract::<usize>())?,
         }),
         other => Err(PyValueError::new_err(format!(
             "unknown ECS bridge expression kind '{other}'"
@@ -424,9 +397,7 @@ fn parse_expr_node(value: Bound<'_, PyAny>) -> PyResult<ExprNode> {
 }
 
 fn parse_action_node(value: Bound<'_, PyAny>) -> PyResult<ActionNode> {
-    let dict = value
-        .downcast::<PyDict>()
-        .map_err(|_| PyValueError::new_err("ECS bridge action nodes must be dicts"))?;
+    let dict = require_dict(&value, "ECS bridge action nodes must be dicts")?;
     let kind = get_required(dict, "kind")?.extract::<String>()?;
     match kind.as_str() {
         "noop" => Ok(ActionNode::Noop),
@@ -445,9 +416,9 @@ fn parse_action_node(value: Bound<'_, PyAny>) -> PyResult<ActionNode> {
         "when" => Ok(ActionNode::When {
             condition: get_required(dict, "condition")?.extract::<usize>()?,
             then_action: get_required(dict, "then_action")?.extract::<usize>()?,
-            otherwise_action: get_optional(dict, "otherwise_action")?
-                .map(|value| value.extract::<usize>())
-                .transpose()?,
+            otherwise_action: get_optional_parsed(dict, "otherwise_action", |value| {
+                value.extract::<usize>()
+            })?,
         }),
         "for_each" => Ok(ActionNode::ForEach {
             source: get_required(dict, "source")?.extract::<usize>()?,
@@ -461,9 +432,7 @@ fn parse_action_node(value: Bound<'_, PyAny>) -> PyResult<ActionNode> {
         "add_component" => Ok(ActionNode::AddComponent {
             query: get_required(dict, "query")?.extract::<String>()?,
             component: get_required(dict, "component")?.extract::<String>()?,
-            value: get_optional(dict, "value")?
-                .map(|value| value.extract::<usize>())
-                .transpose()?,
+            value: get_optional_parsed(dict, "value", |value| value.extract::<usize>())?,
         }),
         "remove_component" => Ok(ActionNode::RemoveComponent {
             query: get_required(dict, "query")?.extract::<String>()?,
@@ -483,10 +452,10 @@ fn parse_action_node(value: Bound<'_, PyAny>) -> PyResult<ActionNode> {
         "udf" => Ok(ActionNode::Udf {
             descriptor: get_required(dict, "descriptor")?.extract::<String>()?,
             args: parse_usize_list(&get_required(dict, "args")?, "args")?,
-            side_effects: get_optional(dict, "side_effects")?
-                .map(|value| value.extract::<bool>())
-                .transpose()?
-                .unwrap_or(false),
+            side_effects: get_optional_parsed(dict, "side_effects", |value| {
+                value.extract::<bool>()
+            })?
+            .unwrap_or(false),
         }),
         other => Err(PyValueError::new_err(format!(
             "unknown ECS bridge action kind '{other}'"
@@ -513,9 +482,9 @@ fn parse_bridge_plan_payload(payload: &Bound<'_, PyDict>) -> PyResult<BridgePlan
 
     Ok(BridgePlanPayload {
         version: get_required(payload, "version")?.extract::<u32>()?,
-        schema_fingerprint: get_optional(payload, "schema_fingerprint")?
-            .map(|value| value.extract::<u64>())
-            .transpose()?,
+        schema_fingerprint: get_optional_parsed(payload, "schema_fingerprint", |value| {
+            value.extract::<u64>()
+        })?,
         queries,
         expressions,
         actions,

@@ -61,7 +61,6 @@ class DefaultAction(Action):
     children: tuple[Action, ...] = ()
     target: FieldExpression | None = None
     value: Expression | None = None
-    source: object | None = None
     udf: UdfDefinition | None = None
     udf_args: tuple[object, ...] = ()
     event_writer: EventWriterProxy | None = None
@@ -711,18 +710,17 @@ def _require_entity_query(entity: EntityExpression) -> QueryProxy:
     return entity.query
 
 
-def _sequence_action(*actions: Action) -> DefaultAction:
-    if not actions:
-        return DefaultAction("noop")
+def _group_action(kind: str, *actions: Action) -> DefaultAction:
     _validate_actions(actions)
-    return DefaultAction("sequence", children=tuple(actions))
+    return DefaultAction(kind, children=tuple(actions)) if actions else DefaultAction("noop")
+
+
+def _sequence_action(*actions: Action) -> DefaultAction:
+    return _group_action("sequence", *actions)
 
 
 def _parallel_action(*actions: Action) -> DefaultAction:
-    _validate_actions(actions)
-    if not actions:
-        return DefaultAction("noop")
-    return DefaultAction("parallel", children=tuple(actions))
+    return _group_action("parallel", *actions)
 
 
 do = _DoFactory()
@@ -796,13 +794,9 @@ def _explain_action(action: Action, indent: int = 0) -> list[str]:
             lines = [f"{prefix}set {target} <- {_explain_expr(action.value)}"]
             lines.extend(_explain_expr_details(action.value, indent + 1))
             return lines
-        if action.kind == "sequence":
-            lines = [f"{prefix}do_in_order"]
-            for child in action.children:
-                lines.extend(_explain_action(child, indent + 1))
-            return lines
-        if action.kind == "parallel":
-            lines = [f"{prefix}do_in_parallel"]
+        if action.kind in {"sequence", "parallel"}:
+            label = "do_in_parallel" if action.kind == "parallel" else "do_in_order"
+            lines = [f"{prefix}{label}"]
             for child in action.children:
                 lines.extend(_explain_action(child, indent + 1))
             return lines

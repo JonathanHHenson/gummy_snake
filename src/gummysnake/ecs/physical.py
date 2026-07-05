@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.actions import (
     DefaultAction,
     EventIterableSource,
     ExpressionIterableSource,
     ForEachAction,
+    IterableSource,
     LoopItem,
     UdfCallExpression,
     UdfIterableSource,
@@ -36,6 +37,17 @@ from gummysnake.ecs.expressions import (
 from gummysnake.ecs.specs import ChangeTerm, QuerySpec, TagTerm, WithoutTerm
 from gummysnake.exceptions import SystemPlanError
 
+if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.ecs.spatial import (
+        Bounds2D,
+        Bounds3D,
+        SpatialAabb,
+        SpatialPoint,
+        SpatialRelation,
+    )
+    from gummysnake.ecs.systems import BuiltSystem
+    from gummysnake.ecs.world import EcsWorld
+
 BRIDGE_PLAN_VERSION = 2
 
 
@@ -50,7 +62,7 @@ class PhysicalPlanUnsupported(Exception):
 
 
 class _PhysicalPayloadBuilder:
-    def __init__(self, world: Any, built: Any) -> None:
+    def __init__(self, world: EcsWorld, built: BuiltSystem) -> None:
         self.world = world
         self.built = built
         self.expressions: list[dict[str, Any]] = []
@@ -336,7 +348,7 @@ class _PhysicalPayloadBuilder:
             return self._add_expr(node)
         return None
 
-    def _serialize_spatial_relation(self, relation: Any) -> dict[str, Any]:
+    def _serialize_spatial_relation(self, relation: SpatialRelation) -> dict[str, Any]:
         self._register_query(relation.origin)
         self._register_query(relation.item)
         relation_id = relation.name or f"spatial_relation:{id(relation)}"
@@ -373,7 +385,7 @@ class _PhysicalPayloadBuilder:
 
     def _spatial_relation_index_id(
         self,
-        relation: Any,
+        relation: SpatialRelation,
         target_position: list[int],
         target_bounds: dict[str, list[int]] | None,
         algorithm: dict[str, Any],
@@ -386,16 +398,16 @@ class _PhysicalPayloadBuilder:
             f"algorithm={algorithm!r}"
         )
 
-    def _serialize_spatial_point(self, point: Any) -> list[int]:
+    def _serialize_spatial_point(self, point: SpatialPoint) -> list[int]:
         return [self._serialize_expr(expr) for expr in point.expressions]
 
-    def _serialize_spatial_bounds(self, bounds: Any) -> dict[str, list[int]]:
+    def _serialize_spatial_bounds(self, bounds: SpatialAabb) -> dict[str, list[int]]:
         return {
             "minimum": self._serialize_spatial_point(bounds.min_point),
             "maximum": self._serialize_spatial_point(bounds.max_point),
         }
 
-    def _serialize_spatial_algorithm(self, relation: Any) -> dict[str, Any]:
+    def _serialize_spatial_algorithm(self, relation: SpatialRelation) -> dict[str, Any]:
         from gummysnake.ecs.spatial import (
             Bounds2D,
             Bounds3D,
@@ -451,17 +463,10 @@ class _PhysicalPayloadBuilder:
                     "value": self._serialize_expr(action.value),
                 }
             )
-        if action.kind == "sequence":
+        if action.kind in {"sequence", "parallel"}:
             return self._add_action(
                 {
-                    "kind": "sequence",
-                    "children": [self._serialize_action(child) for child in action.children],
-                }
-            )
-        if action.kind == "parallel":
-            return self._add_action(
-                {
-                    "kind": "parallel",
+                    "kind": action.kind,
                     "children": [self._serialize_action(child) for child in action.children],
                 }
             )
@@ -562,7 +567,7 @@ class _PhysicalPayloadBuilder:
             )
         return for_each
 
-    def _serialize_for_each_source(self, source: Any) -> int:
+    def _serialize_for_each_source(self, source: IterableSource) -> int:
         if isinstance(source, ExpressionIterableSource):
             return self._serialize_expr(source.expression)
         if isinstance(source, EventIterableSource):
@@ -592,7 +597,7 @@ class _PhysicalPayloadBuilder:
         return self._add_expr({"kind": "binary", "op": "or", "left": literal_true, "right": source})
 
 
-def build_physical_payload(world: Any, built: Any) -> dict[str, Any]:
+def build_physical_payload(world: EcsWorld, built: BuiltSystem) -> dict[str, Any]:
     """Build a Rust bridge payload or raise ``PhysicalPlanUnsupported``."""
 
     return _PhysicalPayloadBuilder(world, built).build()
@@ -630,17 +635,24 @@ def _bridge_literal_value(value: object) -> object:
     raise PhysicalPlanUnsupported(f"literal value {value!r} is not supported by Rust ECS execution")
 
 
-def _spatial_bounds_values(bounds: Any) -> list[float]:
+def _spatial_bounds_values(bounds: Bounds2D | Bounds3D) -> list[float]:
     if hasattr(bounds, "min_z"):
+        bounds3d = cast("Bounds3D", bounds)
         return [
-            float(bounds.min_x),
-            float(bounds.min_y),
-            float(bounds.min_z),
-            float(bounds.max_x),
-            float(bounds.max_y),
-            float(bounds.max_z),
+            float(bounds3d.min_x),
+            float(bounds3d.min_y),
+            float(bounds3d.min_z),
+            float(bounds3d.max_x),
+            float(bounds3d.max_y),
+            float(bounds3d.max_z),
         ]
-    return [float(bounds.min_x), float(bounds.min_y), float(bounds.max_x), float(bounds.max_y)]
+    bounds2d = cast("Bounds2D", bounds)
+    return [
+        float(bounds2d.min_x),
+        float(bounds2d.min_y),
+        float(bounds2d.max_x),
+        float(bounds2d.max_y),
+    ]
 
 
 __all__ = ["BRIDGE_PLAN_VERSION", "PhysicalPlanUnsupported", "build_physical_payload"]

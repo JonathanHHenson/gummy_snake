@@ -22,7 +22,7 @@ from gummysnake.ecs.expressions import (
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld, EntityView
+    from gummysnake.ecs.world import EcsWorld, Entity, EntityView
 
 Dimensions = Literal[2, 3]
 UpdatePolicy = Literal["auto", "rebuild_each_use", "rebuild_each_frame", "incremental"]
@@ -124,8 +124,7 @@ class HilbertCurve:
         if self.bits <= 0 or self.bits > 31:
             raise ValueError("HilbertCurve.bits must be in the range 1..31.")
         _validate_update(self.update)
-        if self.out_of_bounds not in {"overflow", "error"}:
-            raise ValueError("out_of_bounds must be 'overflow' or 'error'.")
+        _validate_out_of_bounds(self.out_of_bounds)
 
 
 SpatialAlgorithm = HashGrid | Quadtree | Octree | HilbertCurve
@@ -471,20 +470,9 @@ class _HashGridIndex(_SpatialIndex):
         min_cell = self._cell(tuple(value - radius for value in origin_point))
         max_cell = self._cell(tuple(value + radius for value in origin_point))
         candidates: dict[int, _SpatialRecord] = {}
-        ranges = [range(min_cell[axis], max_cell[axis] + 1) for axis in range(len(origin_point))]
-        if len(ranges) == 2:
-            for x in ranges[0]:
-                for y in ranges[1]:
-                    for record in self.grid.get((x, y), ()):  # deterministic after final sort
-                        candidates[record.entity.entity.index] = record
-        else:
-            for x in ranges[0]:
-                for y in ranges[1]:
-                    for z in ranges[2]:
-                        for record in self.grid.get(
-                            (x, y, z), ()
-                        ):  # deterministic after final sort
-                            candidates[record.entity.entity.index] = record
+        for cell in _iter_cells(min_cell, max_cell):
+            for record in self.grid.get(cell, ()):  # deterministic after final sort
+                candidates[record.entity.entity.index] = record
         return [candidates[key] for key in sorted(candidates)]
 
     def query_bounds(
@@ -716,7 +704,7 @@ def _distance_sq(left: tuple[float, ...], right: tuple[float, ...]) -> float:
     return sum((b - a) * (b - a) for a, b in zip(left, right, strict=True))
 
 
-def _entity_order_key(entity: Any) -> tuple[int, int, int]:
+def _entity_order_key(entity: Entity) -> tuple[int, int, int]:
     return (int(entity.world_id), int(entity.index), int(entity.generation))
 
 
@@ -793,6 +781,10 @@ def _validate_tree_config(capacity: int, max_depth: int, update: str, out_of_bou
     if max_depth <= 0:
         raise ValueError("Spatial tree max_depth must be positive.")
     _validate_update(update)
+    _validate_out_of_bounds(out_of_bounds)
+
+
+def _validate_out_of_bounds(out_of_bounds: str) -> None:
     if out_of_bounds not in {"overflow", "error"}:
         raise ValueError("out_of_bounds must be 'overflow' or 'error'.")
 

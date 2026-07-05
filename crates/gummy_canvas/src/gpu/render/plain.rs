@@ -15,31 +15,13 @@ impl GpuRenderer {
         encoder: &mut wgpu::CommandEncoder,
         render_offsets: &mut RenderBufferOffsets,
     ) {
-        let clear = self
-            .commands
-            .iter()
-            .rev()
-            .find_map(|command| match command {
-                DrawCommand::Clear(color) => Some(*color),
-                DrawCommand::Triangles { .. } => None,
-                DrawCommand::RetainedTriangles { .. } => None,
-                DrawCommand::PrimitiveInstances { .. } => None,
-                DrawCommand::RetainedPrimitiveInstances { .. } => None,
-                DrawCommand::StrokePath { .. } => None,
-                DrawCommand::FillPath { .. } => None,
-                DrawCommand::BlendEllipse { .. } => None,
-                DrawCommand::PixelPrefix { .. } => None,
-                DrawCommand::PixelFilter { .. } => None,
-                DrawCommand::Model { .. } => None,
-                DrawCommand::ModelWireframe { .. } => None,
-                DrawCommand::ModelInstances { .. } => None,
-                DrawCommand::TexturedModel { .. } => None,
-                DrawCommand::Text { .. } => None,
-                DrawCommand::ErasePrimitiveInstances { .. } => None,
-                DrawCommand::EraseStrokePath { .. } => None,
-                DrawCommand::EraseFillPath { .. } => None,
-                DrawCommand::Image { .. } | DrawCommand::ImageBatch { .. } => None,
-            });
+        let clear = self.commands.iter().rev().find_map(|command| {
+            if let DrawCommand::Clear(color) = command {
+                Some(*color)
+            } else {
+                None
+            }
+        });
         let last_clear_index = self
             .commands
             .iter()
@@ -122,14 +104,12 @@ impl GpuRenderer {
                         skip_until_last_clear = false;
                     }
                 }
+                _ if skip_until_last_clear => continue,
                 DrawCommand::Triangles {
                     vertices,
                     blend_mode,
                     clip_id,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     batcher.push_triangle_vertices(vertices.as_slice(), *blend_mode, *clip_id);
                 }
                 DrawCommand::RetainedTriangles {
@@ -137,9 +117,6 @@ impl GpuRenderer {
                     blend_mode,
                     clip_id,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     batcher.push_triangle_vertices(vertices.as_slice(), *blend_mode, *clip_id);
                 }
                 DrawCommand::PrimitiveInstances {
@@ -147,9 +124,6 @@ impl GpuRenderer {
                     blend_mode,
                     clip_id,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     batcher.draw_procedural_instances(instances, *blend_mode, *clip_id);
                 }
                 DrawCommand::RetainedPrimitiveInstances {
@@ -157,9 +131,6 @@ impl GpuRenderer {
                     blend_mode,
                     clip_id,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     batcher.draw_procedural_instances(instances, *blend_mode, *clip_id);
                 }
                 DrawCommand::StrokePath {
@@ -167,9 +138,6 @@ impl GpuRenderer {
                     blend_mode,
                     clip_id,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     let binding = stroke_path_bindings[command_index]
                         .as_ref()
                         .expect("stroke path bind group is prepared");
@@ -186,9 +154,6 @@ impl GpuRenderer {
                     blend_mode,
                     clip_id,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     let binding = stroke_path_bindings[command_index]
                         .as_ref()
                         .expect("path fill bind group is prepared");
@@ -209,9 +174,6 @@ impl GpuRenderer {
                     index_count,
                     uniform: _,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     batcher.draw_model(
                         self.model_meshes.get(key),
                         *index_count,
@@ -223,9 +185,6 @@ impl GpuRenderer {
                     index_count,
                     uniform: _,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     batcher.draw_model_wireframe(
                         self.model_meshes.get(key),
                         *index_count,
@@ -237,9 +196,6 @@ impl GpuRenderer {
                     index_count,
                     uniforms,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     let instance_count = u32::try_from(uniforms.len()).unwrap_or(u32::MAX);
                     batcher.draw_model_instances(
                         self.model_meshes.get(key),
@@ -255,9 +211,6 @@ impl GpuRenderer {
                     uniform: _,
                     linear,
                 } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     batcher.draw_textured_model(
                         self.model_meshes.get(model_key),
                         self.textures.get(texture_key),
@@ -268,15 +221,9 @@ impl GpuRenderer {
                 }
 
                 DrawCommand::ErasePrimitiveInstances { instances, clip_id } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     batcher.draw_erase_procedural_instances(instances, *clip_id);
                 }
                 DrawCommand::EraseStrokePath { records, clip_id } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     let binding = stroke_path_bindings[command_index]
                         .as_ref()
                         .expect("stroke path bind group is prepared");
@@ -288,9 +235,6 @@ impl GpuRenderer {
                     );
                 }
                 DrawCommand::EraseFillPath { records, clip_id } => {
-                    if skip_until_last_clear {
-                        continue;
-                    }
                     let binding = stroke_path_bindings[command_index]
                         .as_ref()
                         .expect("path fill bind group is prepared");
@@ -316,9 +260,6 @@ impl GpuRenderer {
                     ..
                 } => {
                     if command_index < skip_image_commands_until {
-                        continue;
-                    }
-                    if skip_until_last_clear {
                         continue;
                     }
                     skip_image_commands_until = batcher.draw_image_commands(

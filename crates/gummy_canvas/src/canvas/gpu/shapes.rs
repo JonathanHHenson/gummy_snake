@@ -880,13 +880,9 @@ pub(crate) fn path_fill_segment_records_with_contours(
     pixel_density: f64,
     color: Rgba,
 ) -> Vec<crate::gpu::StrokePathRecord> {
-    let contour_command_count: usize = contours
-        .iter()
-        .filter(|contour| contour.len() > 1)
-        .map(|contour| contour.len())
-        .sum();
-    let command_count =
-        segments.len() + usize::from(close && vertices.len() > 1) + contour_command_count;
+    let command_count = segments.len()
+        + usize::from(close && vertices.len() > 1)
+        + closed_contour_command_count(contours);
     let mut records = stroke_path_header(matrix, pixel_density, 0.0, color);
     records.push([command_count as f32, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
     for segment in segments {
@@ -906,12 +902,7 @@ pub(crate) fn path_fill_polygon_records(
     pixel_density: f64,
     color: Rgba,
 ) -> Vec<crate::gpu::StrokePathRecord> {
-    let contour_command_count: usize = contours
-        .iter()
-        .filter(|contour| contour.len() > 1)
-        .map(|contour| contour.len())
-        .sum();
-    let command_count = outer.len() + contour_command_count;
+    let command_count = outer.len() + closed_contour_command_count(contours);
     let mut records = stroke_path_header(matrix, pixel_density, 0.0, color);
     records.push([command_count as f32, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
     push_closed_line_loop_records(&mut records, outer);
@@ -950,6 +941,14 @@ fn path_fill_arc_records(
     ]);
     records.push([start as f32, stop as f32, 0.0, 0.0]);
     records
+}
+
+fn closed_contour_command_count(contours: &[Vec<Point>]) -> usize {
+    contours
+        .iter()
+        .filter(|contour| contour.len() > 1)
+        .map(|contour| contour.len())
+        .sum()
 }
 
 fn stroke_path_segment_records(
