@@ -7,16 +7,15 @@ import contextvars
 import inspect
 import threading
 from collections.abc import Awaitable, Callable
-from functools import partial
-from typing import Any, cast
+from typing import cast
 
 
 def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
     """Run an awaitable to completion from gummysnake's synchronous runtime paths.
-    
+
     Args:
         awaitable: The awaitable value. Expected type: `Awaitable[T]`.
-    
+
     Returns:
         The return value. Type: `T`.
     """
@@ -26,7 +25,7 @@ def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
     except RuntimeError:
         return asyncio.run(_await_value(awaitable))
 
-    result: Any = None
+    result: object = None
     error: BaseException | None = None
     context = contextvars.copy_context()
 
@@ -47,10 +46,10 @@ def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
 
 def resolve_maybe_awaitable[T](value: T | Awaitable[T]) -> T:
     """Return a value, awaiting it first when a callback returned an awaitable.
-    
+
     Args:
         value: The value value. Expected type: `T | Awaitable[T]`.
-    
+
     Returns:
         The return value. Type: `T`.
     """
@@ -64,32 +63,18 @@ async def _await_value[T](awaitable: Awaitable[T]) -> T:
     return await awaitable
 
 
-def call_maybe_async[T](callback: Callable[..., T | Awaitable[T]], *args: Any) -> T:
-    """Call a Gummy Snake callback and await its result when needed.
-    
-    Args:
-        callback: The callback value. Expected type: `Callable[..., T | Awaitable[T]]`.
-        *args: Additional positional arguments. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `T`.
-    """
+def call_maybe_async[T, **P](
+    callback: Callable[P, T | Awaitable[T]], *args: P.args, **kwargs: P.kwargs
+) -> T:
+    """Call a Gummy Snake callback and await its result when needed."""
 
-    return resolve_maybe_awaitable(callback(*args))
+    return resolve_maybe_awaitable(callback(*args, **kwargs))
 
 
 def call_maybe_async_with_optional_args[T](
-    callback: Callable[..., T | Awaitable[T]], *args: Any
+    callback: Callable[..., T | Awaitable[T]], *args: object
 ) -> T:
-    """Call callback with optional args without masking callback-internal TypeErrors.
-    
-    Args:
-        callback: The callback value. Expected type: `Callable[..., T | Awaitable[T]]`.
-        *args: Additional positional arguments. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `T`.
-    """
+    """Call callback with optional args without masking callback-internal TypeErrors."""
 
     accepts_args = _accepts_positional_args(callback, len(args)) if args else False
     if accepts_args is True:
@@ -104,7 +89,7 @@ def call_maybe_async_with_optional_args[T](
     return resolve_maybe_awaitable(value)
 
 
-def _accepts_positional_args(callback: Callable[..., Any], count: int) -> bool | None:
+def _accepts_positional_args(callback: Callable[..., object], count: int) -> bool | None:
     try:
         signature = inspect.signature(callback)
     except (TypeError, ValueError):
@@ -116,27 +101,3 @@ def _accepts_positional_args(callback: Callable[..., Any], count: int) -> bool |
         if parameter.kind in (parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD):
             positional_capacity += 1
     return positional_capacity >= count
-
-
-async def run_blocking_io[T](callback: Callable[..., T], *args: Any, **kwargs: Any) -> T:
-    """Run blocking IO without copying active Gummy Snake contextvars to the worker thread.
-    
-    Args:
-        callback: The callback value. Expected type: `Callable[..., T]`.
-        *args: Additional positional arguments. Expected type: `Any`.
-        **kwargs: Additional keyword arguments. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `T`.
-    """
-
-    loop = asyncio.get_running_loop()
-    call = partial(callback, *args, **kwargs)
-    from gummysnake.api.current import _ACTIVE_CONTEXT
-
-    token = _ACTIVE_CONTEXT.set(None)
-    try:
-        future = loop.run_in_executor(None, call)
-    finally:
-        _ACTIVE_CONTEXT.reset(token)
-    return await future

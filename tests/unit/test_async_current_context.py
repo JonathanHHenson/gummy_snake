@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from gummysnake._async import call_maybe_async_with_optional_args, run_blocking_io
+from gummysnake._async import call_maybe_async_with_optional_args
 from gummysnake.api.current import activate_context, get_active_context
 
 
@@ -19,17 +19,6 @@ def test_activate_context_restores_nested_contexts() -> None:
             assert get_active_context() is inner
         assert get_active_context() is outer
     assert get_active_context() is None
-
-
-def test_run_blocking_io_does_not_copy_active_context_to_worker() -> None:
-    sentinel = object()
-
-    async def run() -> object | None:
-        with activate_context(sentinel):
-            assert get_active_context() is sentinel
-            return await run_blocking_io(get_active_context)
-
-    assert asyncio.run(run()) is None
 
 
 def test_optional_arg_callback_preserves_no_arg_compatibility() -> None:

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from collections.abc import Callable
+from typing import Protocol, cast
 
 from gummysnake.context import SketchContext
 from gummysnake.core.color import Color
@@ -13,11 +14,13 @@ ColorValue = Color | str
 
 class SupportsText(Protocol):
     """Public SupportsText value."""
+
     def __str__(self) -> str: ...
 
 
 class SketchFacadeBaseMixin:
     """Public SketchFacadeBaseMixin value."""
+
     context: SketchContext | None
 
     @property
@@ -25,3 +28,7 @@ class SketchFacadeBaseMixin:
         if self.context is None:
             raise RuntimeError("Sketch context is not available until run() starts.")
         return self.context
+
+    def _ctx_call(self, name: str, *args: object, **kwargs: object) -> object:
+        method = cast(Callable[..., object], getattr(self._ctx, name))
+        return method(*args, **kwargs)
