@@ -16,17 +16,6 @@ def save_canvas(
     extension: str | None = None,
     overwrite: bool = True,
 ) -> Path:
-    """Save canvas.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        path: The path value. Expected type: `str | Path`.
-        extension: The extension value. Expected type: `str | None`. Defaults to `None`.
-        overwrite: The overwrite value. Expected type: `bool`. Defaults to `True`.
-    
-    Returns:
-        The return value. Type: `Path`.
-    """
     output = Path(path)
     if output.name in {"", "."}:
         raise ArgumentValidationError("save_canvas() requires a file path, not a directory.")
@@ -54,21 +43,6 @@ def save_frames(
     callback: Callable[[list[dict[str, object]]], object] | None = None,
     overwrite: bool = True,
 ) -> list[dict[str, object]]:
-    """Save frames.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        path_pattern: The path pattern value. Expected type: `str | Path`.
-        extension: The extension value. Expected type: `str`. Defaults to `'png'`.
-        count: The count value. Expected type: `int`. Defaults to `1`.
-        duration: The duration value. Expected type: `float | None`. Defaults to `None`.
-        callback: The callback value. Expected type: `Callable[[list[dict[str, object]]], object] |
-            None`. Defaults to `None`.
-        overwrite: The overwrite value. Expected type: `bool`. Defaults to `True`.
-    
-    Returns:
-        The return value. Type: `list[dict[str, object]]`.
-    """
     if count <= 0:
         raise ArgumentValidationError("save_frames() count must be positive.")
     suffix = extension if extension.startswith(".") else f".{extension}"
@@ -113,18 +87,6 @@ def save_gif(
     duration: float | None = None,
     overwrite: bool = True,
 ) -> Path:
-    """Save gif.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        path: The path value. Expected type: `str | Path`.
-        count: The count value. Expected type: `int`. Defaults to `1`.
-        duration: The duration value. Expected type: `float | None`. Defaults to `None`.
-        overwrite: The overwrite value. Expected type: `bool`. Defaults to `True`.
-    
-    Returns:
-        The return value. Type: `Path`.
-    """
     output = Path(path)
     if output.suffix == "":
         output = output.with_suffix(".gif")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, Protocol, overload
 
 from gummysnake import constants as c
@@ -29,7 +30,7 @@ _PRIMITIVE_TRIANGLE = 2
 _PRIMITIVE_ELLIPSE = 3
 
 
-def _queue_fill_primitive(context: Any, kind: int, coords: tuple[float, ...]) -> bool:
+def _queue_fill_primitive(context: SketchContext, kind: int, coords: tuple[float, ...]) -> bool:
     queue = getattr(context.renderer, "queue_fill_primitive_fast_path", None)
     if not callable(queue):
         return False
@@ -48,18 +49,7 @@ def _mat4_multiply(left: Matrix4Payload, right: Matrix4Payload) -> Matrix4Payloa
 
 def _mat4_is_translation(matrix: Matrix4Payload) -> bool:
     return (
-        matrix[0] == 1.0
-        and matrix[1] == 0.0
-        and matrix[2] == 0.0
-        and matrix[3] == 0.0
-        and matrix[4] == 0.0
-        and matrix[5] == 1.0
-        and matrix[6] == 0.0
-        and matrix[7] == 0.0
-        and matrix[8] == 0.0
-        and matrix[9] == 0.0
-        and matrix[10] == 1.0
-        and matrix[11] == 0.0
+        matrix[:12] == (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
         and matrix[15] == 1.0
     )
 
@@ -218,7 +208,12 @@ class _FastPushedScope:
         self._scope.push()
         return None
 
-    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         self._scope.pop()
         return None
 

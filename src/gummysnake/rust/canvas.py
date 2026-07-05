@@ -157,41 +157,14 @@ _canvas = cast(_CanvasModule | None, _loaded_canvas)
 
 
 def is_canvas_runtime_available() -> bool:
-    """Return whether the required ``gummysnake.rust._canvas`` runtime module is importable.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `bool`.
-    """
-
     return _canvas is not None
 
 
 def canvas_import_error() -> ImportError | None:
-    """Return the import error that made the Rust canvas runtime unavailable.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `ImportError | None`.
-    """
-
     return _CANVAS_IMPORT_ERROR
 
 
 def canvas_health_check() -> str:
-    """Report the Rust canvas bridge health state.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `str`.
-    """
-
     if _canvas is None:
         return "unavailable"
     try:
@@ -201,15 +174,6 @@ def canvas_health_check() -> str:
 
 
 def canvas_abi_version() -> int | None:
-    """Return the loaded canvas runtime ABI marker when available.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `int | None`.
-    """
-
     if _canvas is None:
         return None
     marker = getattr(_canvas, "canvas_abi_version", None)
@@ -226,15 +190,6 @@ def canvas_abi_version() -> int | None:
 
 
 def canvas_native_window_available() -> bool:
-    """Return whether the loaded canvas runtime has native window support.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `bool`.
-    """
-
     if _canvas is None:
         return False
     native_window_available = getattr(_canvas, "native_window_available", None)
@@ -242,15 +197,6 @@ def canvas_native_window_available() -> bool:
 
 
 def canvas_gpu_available() -> bool:
-    """Return whether the loaded canvas runtime can initialize a GPU adapter.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `bool`.
-    """
-
     if _canvas is None:
         return False
     gpu_available = getattr(_canvas, "gpu_available", None)
@@ -258,15 +204,6 @@ def canvas_gpu_available() -> bool:
 
 
 def canvas_gpu_status() -> str:
-    """Return an actionable GPU availability diagnostic for the loaded runtime.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `str`.
-    """
-
     if _canvas is None:
         return "unavailable: gummysnake.rust._canvas runtime is not installed"
     try:
@@ -283,15 +220,6 @@ def canvas_gpu_status() -> str:
 
 
 def require_canvas_runtime() -> _CanvasModule:
-    """Return the loaded canvas runtime or raise a backend capability error.
-
-    Args:
-        None.
-
-    Returns:
-        The return value. Type: `_CanvasModule`.
-    """
-
     if _canvas is not None:
         _validate_canvas_runtime(_canvas)
         return _canvas

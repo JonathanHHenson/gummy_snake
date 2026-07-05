@@ -40,23 +40,6 @@ class CanvasRendererImagesMixin:
         source: tuple[int, int, int, int] | None = None,
         cache: bool = True,
     ) -> None:
-        """Draw image.
-
-        Args:
-            image: The image value. Expected type: `Image | CanvasImage`.
-            dx: The dx value. Expected type: `float`.
-            dy: The dy value. Expected type: `float`.
-            dw: The dw value. Expected type: `float`.
-            dh: The dh value. Expected type: `float`.
-            style: The style value. Expected type: `StyleState`.
-            transform: The transform value. Expected type: `Matrix2D`.
-            source: The source value. Expected type: `tuple[int, int, int, int] | None`. Defaults to
-                `None`.
-            cache: The cache value. Expected type: `bool`. Defaults to `True`.
-
-        Returns:
-            None.
-        """
         _renderer(self)._flush_line_batch_only()
         _renderer(self)._flush_primitive_batch_only()
         _renderer(self)._flush_model_batch()

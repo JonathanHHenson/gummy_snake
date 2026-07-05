@@ -29,14 +29,6 @@ class CanvasRendererBridgeMixin:
     pixel_density: float
 
     def display_density(self) -> float:
-        """Display density.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         host = cast(_BridgeHost, self)
         if host._canvas is None:
             return 1.0

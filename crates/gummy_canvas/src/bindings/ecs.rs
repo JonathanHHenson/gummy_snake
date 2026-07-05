@@ -145,22 +145,23 @@ fn get_optional<'py>(dict: &Bound<'py, PyDict>, key: &str) -> PyResult<Option<Bo
     }
 }
 
-fn parse_usize_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<usize>> {
+fn parse_list<T>(
+    value: &Bound<'_, PyAny>,
+    field: &str,
+    mut parse_item: impl FnMut(Bound<'_, PyAny>) -> PyResult<T>,
+) -> PyResult<Vec<T>> {
     let list = value.downcast::<PyList>().map_err(|_| {
         PyValueError::new_err(format!("ECS bridge plan field '{field}' must be a list"))
     })?;
-    list.iter()
-        .map(|item| item.extract::<usize>())
-        .collect::<PyResult<Vec<_>>>()
+    list.iter().map(|item| parse_item(item)).collect()
+}
+
+fn parse_usize_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<usize>> {
+    parse_list(value, field, |item| item.extract::<usize>())
 }
 
 fn parse_f64_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<f64>> {
-    let list = value.downcast::<PyList>().map_err(|_| {
-        PyValueError::new_err(format!("ECS bridge plan field '{field}' must be a list"))
-    })?;
-    list.iter()
-        .map(|item| item.extract::<f64>())
-        .collect::<PyResult<Vec<_>>>()
+    parse_list(value, field, |item| item.extract::<f64>())
 }
 
 fn parse_entity_payload(value: Bound<'_, PyAny>) -> PyResult<Entity> {
@@ -196,12 +197,7 @@ fn parse_entity_payload(value: Bound<'_, PyAny>) -> PyResult<Entity> {
 }
 
 fn parse_entity_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<Entity>> {
-    let list = value.downcast::<PyList>().map_err(|_| {
-        PyValueError::new_err(format!("ECS bridge plan field '{field}' must be a list"))
-    })?;
-    list.iter()
-        .map(parse_entity_payload)
-        .collect::<PyResult<Vec<_>>>()
+    parse_list(value, field, parse_entity_payload)
 }
 
 fn parse_spatial_bounds_expr(value: Bound<'_, PyAny>) -> PyResult<SpatialBoundsExprNode> {
@@ -316,14 +312,7 @@ fn parse_query_payload(value: Bound<'_, PyAny>) -> PyResult<BridgeQueryPayload> 
         .downcast::<PyDict>()
         .map_err(|_| PyValueError::new_err("ECS bridge query payloads must be dicts"))?;
     let name = get_required(dict, "name")?.extract::<String>()?;
-    let terms_any = get_required(dict, "terms")?;
-    let terms_list = terms_any
-        .downcast::<PyList>()
-        .map_err(|_| PyValueError::new_err("ECS bridge query terms must be a list"))?;
-    let mut terms = Vec::with_capacity(terms_list.len());
-    for item in terms_list.iter() {
-        terms.push(parse_query_term(item)?);
-    }
+    let terms = parse_list(&get_required(dict, "terms")?, "terms", parse_query_term)?;
     let allowed_entities = get_optional(dict, "allowed_entities")?
         .map(|value| parse_entity_list(&value, "allowed_entities"))
         .transpose()?;
@@ -506,31 +495,21 @@ fn parse_action_node(value: Bound<'_, PyAny>) -> PyResult<ActionNode> {
 }
 
 fn parse_bridge_plan_payload(payload: &Bound<'_, PyDict>) -> PyResult<BridgePlanPayload> {
-    let queries_any = get_required(payload, "queries")?;
-    let expressions_any = get_required(payload, "expressions")?;
-    let actions_any = get_required(payload, "actions")?;
-    let queries_list = queries_any
-        .downcast::<PyList>()
-        .map_err(|_| PyValueError::new_err("ECS bridge queries must be a list"))?;
-    let expressions_list = expressions_any
-        .downcast::<PyList>()
-        .map_err(|_| PyValueError::new_err("ECS bridge expressions must be a list"))?;
-    let actions_list = actions_any
-        .downcast::<PyList>()
-        .map_err(|_| PyValueError::new_err("ECS bridge actions must be a list"))?;
-
-    let mut queries = Vec::with_capacity(queries_list.len());
-    for item in queries_list.iter() {
-        queries.push(parse_query_payload(item)?);
-    }
-    let mut expressions = Vec::with_capacity(expressions_list.len());
-    for item in expressions_list.iter() {
-        expressions.push(parse_expr_node(item)?);
-    }
-    let mut actions = Vec::with_capacity(actions_list.len());
-    for item in actions_list.iter() {
-        actions.push(parse_action_node(item)?);
-    }
+    let queries = parse_list(
+        &get_required(payload, "queries")?,
+        "queries",
+        parse_query_payload,
+    )?;
+    let expressions = parse_list(
+        &get_required(payload, "expressions")?,
+        "expressions",
+        parse_expr_node,
+    )?;
+    let actions = parse_list(
+        &get_required(payload, "actions")?,
+        "actions",
+        parse_action_node,
+    )?;
 
     Ok(BridgePlanPayload {
         version: get_required(payload, "version")?.extract::<u32>()?,

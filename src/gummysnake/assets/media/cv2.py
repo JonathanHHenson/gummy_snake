@@ -11,17 +11,6 @@ from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityErro
 def set_capture_dimensions(
     capture: Any, cv2_module: Any, *, width: int | None, height: int | None
 ) -> None:
-    """Set the capture dimensions value.
-    
-    Args:
-        capture: The capture value. Expected type: `Any`.
-        cv2_module: The cv2 module value. Expected type: `Any`.
-        width: The width value. Expected type: `int | None`.
-        height: The height value. Expected type: `int | None`.
-    
-    Returns:
-        None.
-    """
     set_prop = getattr(capture, "set", None)
     if not callable(set_prop):
         return
@@ -40,41 +29,17 @@ def set_capture_dimensions(
 
 
 def capture_is_open(capture: Any) -> bool:
-    """Capture is open using the active media context.
-    
-    Args:
-        capture: The capture value. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `bool`.
-    """
     is_opened = getattr(capture, "isOpened", None)
     return bool(is_opened()) if callable(is_opened) else False
 
 
 def release_capture(capture: Any) -> None:
-    """Release capture using the active media context.
-    
-    Args:
-        capture: The capture value. Expected type: `Any`.
-    
-    Returns:
-        None.
-    """
     release = getattr(capture, "release", None)
     if callable(release):
         release()
 
 
 def load_cv2_module() -> Any:
-    """Load and return cv2 module.
-    
-    Args:
-        None.
-    
-    Returns:
-        The return value. Type: `Any`.
-    """
     try:
         return import_module("cv2")
     except Exception as exc:  # pragma: no cover - import failure depends on environment

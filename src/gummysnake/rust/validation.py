@@ -6,29 +6,12 @@ ByteBuffer = bytes | bytearray | memoryview
 
 
 def validate_noise_octaves(octaves: int) -> None:
-    """Validate noise octaves using the active validation context.
-    
-    Args:
-        octaves: The octaves value. Expected type: `int`.
-    
-    Returns:
-        None.
-    """
     if octaves < 1:
         msg = "octaves must be at least 1."
         raise ValueError(msg)
 
 
 def validate_same_length(base: bytes, overlay: bytes) -> None:
-    """Validate same length using the active validation context.
-    
-    Args:
-        base: The base value. Expected type: `bytes`.
-        overlay: The overlay value. Expected type: `bytes`.
-    
-    Returns:
-        None.
-    """
     if len(base) != len(overlay):
         msg = f"Buffers must have the same length, got {len(base)} and {len(overlay)}."
         raise ValueError(msg)

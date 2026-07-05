@@ -61,80 +61,24 @@ class Color:
                 )
 
     def to_tuple(self) -> tuple[int, int, int, int]:
-        """Return this Color converted to tuple.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[int, int, int, int]`.
-        """
         return self.r, self.g, self.b, self.a
 
     def __iter__(self) -> Iterator[int]:
-        """Iterate over this value's public components.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Iterator[int]`.
-        """
         return iter(self.to_tuple())
 
     def with_red(self, red: Number) -> Color:
-        """With red for this Color.
-        
-        Args:
-            red: The red value. Expected type: `Number`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         return Color(_to_u8(float(red)), self.g, self.b, self.a)
 
     def with_green(self, green: Number) -> Color:
-        """With green for this Color.
-        
-        Args:
-            green: The green value. Expected type: `Number`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         return Color(self.r, _to_u8(float(green)), self.b, self.a)
 
     def with_blue(self, blue: Number) -> Color:
-        """With blue for this Color.
-        
-        Args:
-            blue: The blue value. Expected type: `Number`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         return Color(self.r, self.g, _to_u8(float(blue)), self.a)
 
     def with_alpha(self, alpha: Number) -> Color:
-        """With alpha for this Color.
-        
-        Args:
-            alpha: The alpha value. Expected type: `Number`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         return Color(self.r, self.g, self.b, _to_u8(float(alpha)))
 
     def contrast_ratio(self, other: Color) -> float:
-        """Contrast ratio for this Color.
-        
-        Args:
-            other: The other value. Expected type: `Color`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         first = _relative_luminance(self)
         second = _relative_luminance(other)
         lighter = max(first, second)
@@ -142,26 +86,10 @@ class Color:
         return (lighter + 0.05) / (darker + 0.05)
 
     def to_hex(self, *, include_alpha: bool = False) -> str:
-        """Return this Color converted to hex.
-        
-        Args:
-            include_alpha: The include alpha value. Expected type: `bool`. Defaults to `False`.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         channels = (self.r, self.g, self.b, self.a) if include_alpha else (self.r, self.g, self.b)
         return "#" + "".join(f"{channel:02x}" for channel in channels)
 
     def to_rgb_string(self) -> str:
-        """Return this Color converted to rgb string.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         if self.a == 255:
             return f"rgb({self.r}, {self.g}, {self.b})"
         return f"rgba({self.r}, {self.g}, {self.b}, {self.a / 255:g})"
@@ -174,17 +102,6 @@ class Color:
         mode: c.ColorMode = c.RGB,
         ranges: tuple[Number, Number, Number, Number] = (255, 255, 255, 255),
     ) -> Color:
-        """From args for this Color.
-        
-        Args:
-            args: The positional arguments value. Expected type: `Iterable[object]`.
-            mode: The mode value. Expected type: `c.ColorMode`. Defaults to `c.RGB`.
-            ranges: The ranges value. Expected type: `tuple[Number, Number, Number, Number]`.
-                Defaults to `(255, 255, 255, 255)`.
-        
-        Returns:
-            The return value. Type: `Color`.
-        """
         values = tuple(args)
         if len(values) == 1 and isinstance(values[0], Color):
             return values[0]
@@ -256,16 +173,6 @@ def _relative_luminance(value: Color) -> float:
 
 
 def lerp_color(start: Color, stop: Color, amount: Number) -> Color:
-    """Lerp color using the active color context.
-    
-    Args:
-        start: The start value. Expected type: `Color`.
-        stop: The stop value. Expected type: `Color`.
-        amount: The amount value. Expected type: `Number`.
-    
-    Returns:
-        The return value. Type: `Color`.
-    """
     t = float(amount)
     return Color(
         _to_u8(start.r + (stop.r - start.r) * t),
@@ -276,101 +183,37 @@ def lerp_color(start: Color, stop: Color, amount: Number) -> Color:
 
 
 def red(value: Color) -> int:
-    """Return the red component of a color.
-    
-    Args:
-        value: The value value. Expected type: `Color`.
-    
-    Returns:
-        The return value. Type: `int`.
-    """
     return value.r
 
 
 def green(value: Color) -> int:
-    """Return the green component of a color.
-    
-    Args:
-        value: The value value. Expected type: `Color`.
-    
-    Returns:
-        The return value. Type: `int`.
-    """
     return value.g
 
 
 def blue(value: Color) -> int:
-    """Return the blue component of a color.
-    
-    Args:
-        value: The value value. Expected type: `Color`.
-    
-    Returns:
-        The return value. Type: `int`.
-    """
     return value.b
 
 
 def alpha(value: Color) -> int:
-    """Return the alpha component of a color.
-    
-    Args:
-        value: The value value. Expected type: `Color`.
-    
-    Returns:
-        The return value. Type: `int`.
-    """
     return value.a
 
 
 def hue(value: Color) -> float:
-    """Return the hue component of a color.
-    
-    Args:
-        value: The value value. Expected type: `Color`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     h, _l, _s = colorsys.rgb_to_hls(value.r / 255.0, value.g / 255.0, value.b / 255.0)
     return h * 360.0
 
 
 def saturation(value: Color) -> float:
-    """Return the saturation component of a color.
-    
-    Args:
-        value: The value value. Expected type: `Color`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     _h, s, _v = colorsys.rgb_to_hsv(value.r / 255.0, value.g / 255.0, value.b / 255.0)
     return s * 100.0
 
 
 def brightness(value: Color) -> float:
-    """Return the brightness component of a color.
-    
-    Args:
-        value: The value value. Expected type: `Color`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     _h, _s, v = colorsys.rgb_to_hsv(value.r / 255.0, value.g / 255.0, value.b / 255.0)
     return v * 100.0
 
 
 def lightness(value: Color) -> float:
-    """Return the lightness component of a color.
-    
-    Args:
-        value: The value value. Expected type: `Color`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     _h, lightness_value, _s = colorsys.rgb_to_hls(
         value.r / 255.0,
         value.g / 255.0,
@@ -380,15 +223,6 @@ def lightness(value: Color) -> float:
 
 
 def palette_lerp(palette: Iterable[Color], amount: Number) -> Color:
-    """Interpolate across a palette and return the sampled color.
-    
-    Args:
-        palette: The palette value. Expected type: `Iterable[Color]`.
-        amount: The amount value. Expected type: `Number`.
-    
-    Returns:
-        The return value. Type: `Color`.
-    """
     colors = tuple(palette)
     if not colors:
         raise ArgumentValidationError("palette_lerp() requires at least one color.")

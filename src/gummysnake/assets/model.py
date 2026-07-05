@@ -17,17 +17,6 @@ def load_model(
     *,
     package: str | None = None,
 ) -> Model3D:
-    """Load a Wavefront OBJ asset into backend-neutral mesh data.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-        normalize: The normalize value. Expected type: `bool`. Defaults to `False`.
-        package: The package value. Expected type: `str | None`. Defaults to `None`.
-    
-    Returns:
-        The return value. Type: `Model3D`.
-    """
-
     source_path = Path(str(path))
     if source_path.suffix.lower() == ".stl":
         payload, source = _read_binary_asset(path, package=package)
@@ -42,16 +31,6 @@ async def load_model_async(
     *,
     package: str | None = None,
 ) -> Model3D:
-    """Load and return a model asynchronously.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-        normalize: The normalize value. Expected type: `bool`. Defaults to `False`.
-        package: The package value. Expected type: `str | None`. Defaults to `None`.
-    
-    Returns:
-        The return value. Type: `Model3D`.
-    """
     return load_model(path, normalize, package=package)
 
 

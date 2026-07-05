@@ -13,14 +13,6 @@ from gummysnake.exceptions import ArgumentValidationError
 
 
 def load_pixels(ctx: Any) -> PixelBuffer:
-    """Load pixels.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `PixelBuffer`.
-    """
     ctx._record_performance_diagnostic("pixel_readback")
     ctx._record_performance_diagnostic("pixel_list_conversion")
     pixels = ctx.renderer.load_pixels()
@@ -29,14 +21,6 @@ def load_pixels(ctx: Any) -> PixelBuffer:
 
 
 def load_pixel_bytes(ctx: Any) -> bytes:
-    """Load pixel bytes.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `bytes`.
-    """
     ctx._record_performance_diagnostic("pixel_readback")
     pixels = ctx.renderer.load_pixel_bytes()
     ctx._last_pixel_bytes = pixels
@@ -44,16 +28,6 @@ def load_pixel_bytes(ctx: Any) -> bytes:
 
 
 def update_pixels(ctx: Any, pixels: Sequence[int] | Buffer | None = None) -> None:
-    """Update pixels.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        pixels: The pixels value. Expected type: `Sequence[int] | Buffer | None`. Defaults to
-            `None`.
-    
-    Returns:
-        None.
-    """
     if pixels is not None:
         if (
             isinstance(pixels, memoryview)
@@ -92,16 +66,6 @@ def update_dirty_pixel_range(
     pixels: Sequence[int] | Buffer,
     dirty: tuple[int, int],
 ) -> bool:
-    """Update dirty pixel range.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        pixels: The pixels value. Expected type: `Sequence[int] | Buffer`.
-        dirty: The dirty value. Expected type: `tuple[int, int]`.
-    
-    Returns:
-        The return value. Type: `bool`.
-    """
     try:
         buffer_length = len(cast(Any, pixels))
     except TypeError:
@@ -139,18 +103,6 @@ def get_pixel(
     w: int | None = None,
     h: int | None = None,
 ) -> Color | Image:
-    """Get pixel.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        x: The x value. Expected type: `int | None`. Defaults to `None`.
-        y: The y value. Expected type: `int | None`. Defaults to `None`.
-        w: The w value. Expected type: `int | None`. Defaults to `None`.
-        h: The h value. Expected type: `int | None`. Defaults to `None`.
-    
-    Returns:
-        The return value. Type: `Color | Image`.
-    """
     if x is None and y is None:
         return ctx._canvas_image()
     if x is None or y is None:
@@ -178,18 +130,6 @@ def set_pixel(
     y: int,
     value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
 ) -> None:
-    """Set pixel.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        x: The x value. Expected type: `int`.
-        y: The y value. Expected type: `int`.
-        value: The value value. Expected type: `Color | tuple[int, int, int] | tuple[int, int, int,
-            int] | Image`.
-    
-    Returns:
-        None.
-    """
     density = ctx.state.canvas.pixel_density
     px = int(round(x * density))
     py = int(round(y * density))
@@ -222,15 +162,6 @@ def set_pixel(
 
 
 def copy_pixels(ctx: Any, *args: Any) -> Image | None:
-    """Copy pixels.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-        *args: Additional positional arguments. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `Image | None`.
-    """
     if len(args) == 0:
         return ctx.get()
     if isinstance(args[0], Image):
@@ -258,14 +189,6 @@ def copy_pixels(ctx: Any, *args: Any) -> Image | None:
 
 
 def canvas_image(ctx: Any) -> Image:
-    """Canvas image.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `Image`.
-    """
     ctx._record_performance_diagnostic("cpu_compositing_fallback")
     pixels = ctx.load_pixels()
     return Image(
@@ -276,14 +199,6 @@ def canvas_image(ctx: Any) -> Image:
 
 
 def pixel_array(ctx: Any) -> list[list[tuple[int, int, int, int]]]:
-    """Pixel array.
-    
-    Args:
-        ctx: The ctx value. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `list[list[tuple[int, int, int, int]]]`.
-    """
     pixels = cast(Sequence[int], ctx.pixels or ctx.load_pixels())
     width = ctx.state.canvas.physical_width
     rows: list[list[tuple[int, int, int, int]]] = []

@@ -14,14 +14,6 @@ _DECORATED_SKETCHES: dict[str, SketchBuilder] = {}
 
 
 def sketch(*, headless: bool | None = None) -> SketchBuilder:
-    """Sketch using the active lifecycle context.
-    
-    Args:
-        headless: The headless value. Expected type: `bool | None`. Defaults to `None`.
-    
-    Returns:
-        The return value. Type: `SketchBuilder`.
-    """
     return SketchBuilder(headless=headless)
 
 
@@ -43,53 +35,20 @@ def _caller_module_name() -> str:
 
 
 def preload[F: Callable[[], Any]](callback: F) -> F:
-    """Register a preload callback for the current module sketch.
-    
-    Args:
-        callback: The callback value. Expected type: `F`.
-    
-    Returns:
-        The return value. Type: `F`.
-    """
     return _module_builder(_caller_module_name()).preload(callback)
 
 
 def setup[F: Callable[[], Any]](callback: F) -> F:
-    """Setup using the active lifecycle context.
-    
-    Args:
-        callback: The callback value. Expected type: `F`.
-    
-    Returns:
-        The return value. Type: `F`.
-    """
     return _module_builder(_caller_module_name()).setup(callback)
 
 
 def draw[F: Callable[[], Any]](callback: F) -> F:
-    """Draw using the active lifecycle context.
-    
-    Args:
-        callback: The callback value. Expected type: `F`.
-    
-    Returns:
-        The return value. Type: `F`.
-    """
     return _module_builder(_caller_module_name()).draw(callback)
 
 
 def on[F: Callable[..., Any]](
     event_name: str | c.CallbackEventName | c.TouchEventName,
 ) -> Callable[[F], F]:
-    """On using the active lifecycle context.
-    
-    Args:
-        event_name: The event name value. Expected type: `str | c.CallbackEventName |
-            c.TouchEventName`.
-    
-    Returns:
-        The return value. Type: `Callable[[F], F]`.
-    """
     return _module_builder(_caller_module_name()).on(event_name)
 
 
@@ -118,52 +77,6 @@ def run(
     headless: bool | None = None,
     max_frames: int | None = None,
 ) -> SketchContext:
-    """Run using the active lifecycle context.
-    
-    Args:
-        preload: The preload value. Expected type: `Callable[[], Any] | None`. Defaults to `None`.
-        setup: The setup value. Expected type: `Callable[[], Any] | None`. Defaults to `None`.
-        draw: The draw value. Expected type: `Callable[[], Any] | None`. Defaults to `None`.
-        mouse_moved: The mouse moved value. Expected type: `Callable[..., None] | None`. Defaults to
-            `None`.
-        mouse_dragged: The mouse dragged value. Expected type: `Callable[..., None] | None`.
-            Defaults to `None`.
-        mouse_pressed: The mouse pressed value. Expected type: `Callable[..., None] | None`.
-            Defaults to `None`.
-        mouse_released: The mouse released value. Expected type: `Callable[..., None] | None`.
-            Defaults to `None`.
-        mouse_clicked: The mouse clicked value. Expected type: `Callable[..., None] | None`.
-            Defaults to `None`.
-        mouse_double_clicked: The mouse double clicked value. Expected type: `Callable[..., None] |
-            None`. Defaults to `None`.
-        mouse_wheel: The mouse wheel value. Expected type: `Callable[..., None] | None`. Defaults to
-            `None`.
-        key_pressed: The key pressed value. Expected type: `Callable[..., None] | None`. Defaults to
-            `None`.
-        key_released: The key released value. Expected type: `Callable[..., None] | None`. Defaults
-            to `None`.
-        key_typed: The key typed value. Expected type: `Callable[..., None] | None`. Defaults to
-            `None`.
-        touch_started: The touch started value. Expected type: `Callable[..., None] | None`.
-            Defaults to `None`.
-        touch_moved: The touch moved value. Expected type: `Callable[..., None] | None`. Defaults to
-            `None`.
-        touch_ended: The touch ended value. Expected type: `Callable[..., None] | None`. Defaults to
-            `None`.
-        touch_cancelled: The touch cancelled value. Expected type: `Callable[..., None] | None`.
-            Defaults to `None`.
-        device_moved: The device moved value. Expected type: `Callable[..., None] | None`. Defaults
-            to `None`.
-        device_turned: The device turned value. Expected type: `Callable[..., None] | None`.
-            Defaults to `None`.
-        device_shaken: The device shaken value. Expected type: `Callable[..., None] | None`.
-            Defaults to `None`.
-        headless: The headless value. Expected type: `bool | None`. Defaults to `None`.
-        max_frames: The max frames value. Expected type: `int | None`. Defaults to `None`.
-    
-    Returns:
-        The return value. Type: `SketchContext`.
-    """
     current_frame = inspect.currentframe()
     caller_frame = current_frame.f_back if current_frame is not None else None
     caller_globals = caller_frame.f_globals if caller_frame is not None else {}

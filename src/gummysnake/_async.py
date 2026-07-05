@@ -11,15 +11,6 @@ from typing import cast
 
 
 def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
-    """Run an awaitable to completion from gummysnake's synchronous runtime paths.
-
-    Args:
-        awaitable: The awaitable value. Expected type: `Awaitable[T]`.
-
-    Returns:
-        The return value. Type: `T`.
-    """
-
     try:
         asyncio.get_running_loop()
     except RuntimeError:
@@ -45,15 +36,6 @@ def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
 
 
 def resolve_maybe_awaitable[T](value: T | Awaitable[T]) -> T:
-    """Return a value, awaiting it first when a callback returned an awaitable.
-
-    Args:
-        value: The value value. Expected type: `T | Awaitable[T]`.
-
-    Returns:
-        The return value. Type: `T`.
-    """
-
     if inspect.isawaitable(value):
         return run_awaitable_blocking(cast(Awaitable[T], value))
     return cast(T, value)

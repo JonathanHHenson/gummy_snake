@@ -50,27 +50,11 @@ class _DualMethod:
 
 
 def register_vector_type(vector_type: type[Any]) -> None:
-    """Register vector type using the active vector context.
-
-    Args:
-        vector_type: The vector type value. Expected type: `type[Any]`.
-
-    Returns:
-        None.
-    """
     global _VECTOR_TYPE
     _VECTOR_TYPE = vector_type
 
 
 def make_vector(*args: Any) -> Any:
-    """Make vector using the active vector context.
-
-    Args:
-        *args: Additional positional arguments. Expected type: `Any`.
-
-    Returns:
-        The return value. Type: `Any`.
-    """
     if _VECTOR_TYPE is None:
         raise RuntimeError("Vector type has not been registered.")
     return _VECTOR_TYPE(*args)
@@ -81,16 +65,6 @@ def _components(
     y: Number | None = None,
     z: Number | None = None,
 ) -> tuple[float, float, float]:
-    """Normalize vector-like inputs into three numeric components.
-
-    Args:
-        value: A scalar, iterable, or registered vector-like value.
-        y: Optional y component when value is a scalar x component.
-        z: Optional z component when value is a scalar x component.
-
-    Returns:
-        A three-item tuple containing x, y, and z as floats.
-    """
     if _is_registered_vector(value):
         return value.x, value.y, value.z
     if y is not None or z is not None:

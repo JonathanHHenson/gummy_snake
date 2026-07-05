@@ -49,20 +49,7 @@ class Backend(Protocol):
         pixel_density: float | None = None,
         *,
         renderer: c.RendererMode = c.P2D,
-    ) -> None:
-        """Create canvas.
-        
-        Args:
-            width: The width value. Expected type: `int`.
-            height: The height value. Expected type: `int`.
-            pixel_density: The pixel density value. Expected type: `float | None`. Defaults to
-                `None`.
-            renderer: The renderer value. Expected type: `c.RendererMode`. Defaults to `c.P2D`.
-        
-        Returns:
-            None.
-        """
-        ...
+    ) -> None: ...
 
     def resize_canvas(
         self,
@@ -71,20 +58,7 @@ class Backend(Protocol):
         pixel_density: float | None = None,
         *,
         renderer: c.RendererMode = c.P2D,
-    ) -> None:
-        """Resize canvas.
-        
-        Args:
-            width: The width value. Expected type: `int`.
-            height: The height value. Expected type: `int`.
-            pixel_density: The pixel density value. Expected type: `float | None`. Defaults to
-                `None`.
-            renderer: The renderer value. Expected type: `c.RendererMode`. Defaults to `c.P2D`.
-        
-        Returns:
-            None.
-        """
-        ...
+    ) -> None: ...
 
     def display_density(self) -> float: ...
 

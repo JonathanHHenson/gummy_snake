@@ -29,29 +29,11 @@ class TextContextMixin:
     _accessibility_descriptions: list[dict[str, str]]
 
     def text(self, value: SupportsText, x: float, y: float) -> None:
-        """Text.
-        
-        Args:
-            value: The value value. Expected type: `SupportsText`.
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         self.renderer.text(
             str(value), float(x), float(y), self.state.style, self.state.transform.matrix
         )
 
     def text_size(self, size: float | None = None) -> float:
-        """Text size.
-        
-        Args:
-            size: The size value. Expected type: `float | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         if size is not None:
             if size <= 0:
                 raise ArgumentValidationError("text_size() must be positive.")
@@ -60,14 +42,6 @@ class TextContextMixin:
         return self.state.style.text_size
 
     def text_font(self, font: Font | str | None = None) -> Font:
-        """Text font.
-        
-        Args:
-            font: The font value. Expected type: `Font | str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `Font`.
-        """
         if font is not None:
             if isinstance(font, str):
                 font = Font(name=font)
@@ -76,14 +50,6 @@ class TextContextMixin:
         return self.state.style.text_font
 
     def text_style(self, style: c.TextStyle | None = None) -> c.TextStyle:
-        """Text style.
-        
-        Args:
-            style: The style value. Expected type: `c.TextStyle | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `c.TextStyle`.
-        """
         if style is not None:
             if style not in {c.NORMAL, c.ITALIC, c.BOLD, c.BOLDITALIC}:
                 raise ArgumentValidationError(f"Unsupported text style {style!r}.")
@@ -92,15 +58,6 @@ class TextContextMixin:
         return self.state.style.text_style
 
     def text_align(self, horizontal: c.TextAlign, vertical: c.TextAlign | None = None) -> None:
-        """Text align.
-        
-        Args:
-            horizontal: The horizontal value. Expected type: `c.TextAlign`.
-            vertical: The vertical value. Expected type: `c.TextAlign | None`. Defaults to `None`.
-        
-        Returns:
-            None.
-        """
         if horizontal not in {c.LEFT, c.CENTER, c.RIGHT}:
             raise ArgumentValidationError(f"Unsupported horizontal text alignment {horizontal!r}.")
         if vertical is not None and vertical not in {c.TOP, c.CENTER, c.BOTTOM, c.BASELINE}:
@@ -112,14 +69,6 @@ class TextContextMixin:
             cast(SketchContextHost, self)._mark_style_changed()
 
     def text_leading(self, value: float | None = None) -> float:
-        """Text leading.
-        
-        Args:
-            value: The value value. Expected type: `float | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("text_leading() must be positive.")
@@ -128,47 +77,15 @@ class TextContextMixin:
         return self.state.style.text_leading
 
     def text_width(self, value: SupportsText) -> float:
-        """Text width.
-        
-        Args:
-            value: The value value. Expected type: `SupportsText`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return self.renderer.text_width(str(value), self.state.style)
 
     def text_ascent(self) -> float:
-        """Text ascent.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return self.renderer.text_ascent(self.state.style)
 
     def text_descent(self) -> float:
-        """Text descent.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return self.renderer.text_descent(self.state.style)
 
     def font_ascent(self, font: Font | str | None = None) -> float:
-        """Font ascent.
-        
-        Args:
-            font: The font value. Expected type: `Font | str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         previous = self.state.style.text_font
         if font is not None:
             self.text_font(font)
@@ -178,14 +95,6 @@ class TextContextMixin:
         return value
 
     def font_descent(self, font: Font | str | None = None) -> float:
-        """Font descent.
-        
-        Args:
-            font: The font value. Expected type: `Font | str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         previous = self.state.style.text_font
         if font is not None:
             self.text_font(font)
@@ -195,15 +104,6 @@ class TextContextMixin:
         return value
 
     def font_width(self, value: SupportsText, font: Font | str | None = None) -> float:
-        """Font width.
-        
-        Args:
-            value: The value value. Expected type: `SupportsText`.
-            font: The font value. Expected type: `Font | str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         previous = self.state.style.text_font
         if font is not None:
             self.text_font(font)
@@ -213,16 +113,6 @@ class TextContextMixin:
         return width
 
     def text_bounds(self, value: SupportsText, x: float = 0.0, y: float = 0.0) -> dict[str, float]:
-        """Text bounds.
-        
-        Args:
-            value: The value value. Expected type: `SupportsText`.
-            x: The x value. Expected type: `float`. Defaults to `0.0`.
-            y: The y value. Expected type: `float`. Defaults to `0.0`.
-        
-        Returns:
-            The return value. Type: `dict[str, float]`.
-        """
         width = self.text_width(value)
         ascent = self.text_ascent()
         descent = self.text_descent()
@@ -235,17 +125,6 @@ class TextContextMixin:
         y: float = 0.0,
         font: Font | str | None = None,
     ) -> dict[str, float]:
-        """Font bounds.
-        
-        Args:
-            value: The value value. Expected type: `SupportsText`.
-            x: The x value. Expected type: `float`. Defaults to `0.0`.
-            y: The y value. Expected type: `float`. Defaults to `0.0`.
-            font: The font value. Expected type: `Font | str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `dict[str, float]`.
-        """
         previous = self.state.style.text_font
         if font is not None:
             self.text_font(font)
@@ -255,14 +134,6 @@ class TextContextMixin:
         return bounds
 
     def text_direction(self, value: str | None = None) -> str:
-        """Text direction.
-        
-        Args:
-            value: The value value. Expected type: `str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         if value is not None:
             if value not in {"ltr", "rtl"}:
                 raise ArgumentValidationError("text_direction() supports 'ltr' and 'rtl'.")
@@ -270,14 +141,6 @@ class TextContextMixin:
         return self._text_direction
 
     def text_wrap(self, value: str | None = None) -> str:
-        """Text wrap.
-        
-        Args:
-            value: The value value. Expected type: `str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         if value is not None:
             if value not in {"word", "char"}:
                 raise ArgumentValidationError("text_wrap() supports 'word' and 'char'.")
@@ -285,14 +148,6 @@ class TextContextMixin:
         return self._text_wrap
 
     def text_weight(self, value: int | None = None) -> int:
-        """Text weight.
-        
-        Args:
-            value: The value value. Expected type: `int | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `int`.
-        """
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("text_weight() must be positive.")
@@ -303,27 +158,15 @@ class TextContextMixin:
         return self._text_weight
 
     @overload
-    def text_property(self, name: Literal["direction"], value: str | None = None) -> str:
-        ...
+    def text_property(self, name: Literal["direction"], value: str | None = None) -> str: ...
 
     @overload
-    def text_property(self, name: Literal["wrap"], value: str | None = None) -> str:
-        ...
+    def text_property(self, name: Literal["wrap"], value: str | None = None) -> str: ...
 
     @overload
-    def text_property(self, name: Literal["weight"], value: int | None = None) -> int:
-        ...
+    def text_property(self, name: Literal["weight"], value: int | None = None) -> int: ...
 
     def text_property(self, name: str, value: str | int | None = None) -> str | int:
-        """Text property.
-        
-        Args:
-            name: The name value. Expected type: `str`.
-            value: The value value. Expected type: `str | int | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `str | int`.
-        """
         if name == "direction":
             return self.text_direction(None if value is None else str(value))
         if name == "wrap":
@@ -335,14 +178,6 @@ class TextContextMixin:
     def text_properties(
         self, **properties: Unpack[TextProperties]
     ) -> dict[str, str | int | float | c.TextStyle]:
-        """Text properties.
-        
-        Args:
-            **properties: Additional keyword arguments. Expected type: `Unpack[TextProperties]`.
-        
-        Returns:
-            The return value. Type: `dict[str, str | int | float | c.TextStyle]`.
-        """
         for name, value in properties.items():
             if name == "direction":
                 self.text_property("direction", cast(str, value))
@@ -360,15 +195,6 @@ class TextContextMixin:
         }
 
     def describe(self, description: SupportsText, *, label: str = "canvas") -> dict[str, str]:
-        """Describe.
-        
-        Args:
-            description: The description value. Expected type: `SupportsText`.
-            label: The label value. Expected type: `str`. Defaults to `'canvas'`.
-        
-        Returns:
-            The return value. Type: `dict[str, str]`.
-        """
         label_text = str(label).strip()
         description_text = str(description).strip()
         if not label_text:
@@ -385,35 +211,10 @@ class TextContextMixin:
         return entry
 
     def describe_element(self, name: SupportsText, description: SupportsText) -> dict[str, str]:
-        """Describe element.
-        
-        Args:
-            name: The name value. Expected type: `SupportsText`.
-            description: The description value. Expected type: `SupportsText`.
-        
-        Returns:
-            The return value. Type: `dict[str, str]`.
-        """
         return self.describe(description, label=str(name))
 
     def text_output(self) -> list[dict[str, str]]:
-        """Text output.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `list[dict[str, str]]`.
-        """
         return list(self._accessibility_descriptions)
 
     def grid_output(self) -> list[dict[str, str]]:
-        """Grid output.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `list[dict[str, str]]`.
-        """
         return self.text_output()

@@ -35,38 +35,13 @@ class StorageBuffer:
 
     @property
     def size(self) -> int:
-        """Return this StorageBuffer's size.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `int`.
-        """
         return len(self._values)
 
     def read(self) -> tuple[Number, ...]:
-        """Read for this StorageBuffer.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[Number, ...]`.
-        """
         self._ensure_open()
         return tuple(self._values)
 
     def update(self, data: Iterable[Number], *, offset: int = 0) -> None:
-        """Update for this StorageBuffer.
-        
-        Args:
-            data: The data value. Expected type: `Iterable[Number]`.
-            offset: The offset value. Expected type: `int`. Defaults to `0`.
-        
-        Returns:
-            None.
-        """
         self._ensure_open()
         start = int(offset)
         if start < 0:
@@ -78,14 +53,6 @@ class StorageBuffer:
         self._values[start:end] = incoming
 
     def close(self) -> None:
-        """Close this StorageBuffer.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         self.closed = True
         self._values.clear()
 
@@ -111,17 +78,6 @@ class ComputeShader:
     label: str | None = None
 
     def dispatch(self, x: int, y: int = 1, z: int = 1, **buffers: StorageBuffer) -> None:
-        """Dispatch for this ComputeShader.
-        
-        Args:
-            x: The x value. Expected type: `int`.
-            y: The y value. Expected type: `int`. Defaults to `1`.
-            z: The z value. Expected type: `int`. Defaults to `1`.
-            **buffers: Additional keyword arguments. Expected type: `StorageBuffer`.
-        
-        Returns:
-            None.
-        """
         if self.callback is None:
             raise ArgumentValidationError(
                 "ComputeShader dispatch requires a Python callback in the current native API."
@@ -139,45 +95,18 @@ class ComputeShader:
 
 
 def create_storage_buffer(data: Iterable[Number] | int, *, dtype: str = "float") -> StorageBuffer:
-    """Create and return a storage buffer value.
-    
-    Args:
-        data: The data value. Expected type: `Iterable[Number] | int`.
-        dtype: The dtype value. Expected type: `str`. Defaults to `'float'`.
-    
-    Returns:
-        The return value. Type: `StorageBuffer`.
-    """
     return StorageBuffer(data, dtype=dtype)
 
 
 def update_storage_buffer(
     buffer: StorageBuffer, data: Iterable[Number], *, offset: int = 0
 ) -> None:
-    """Update storage buffer using the active gpu context.
-    
-    Args:
-        buffer: The buffer value. Expected type: `StorageBuffer`.
-        data: The data value. Expected type: `Iterable[Number]`.
-        offset: The offset value. Expected type: `int`. Defaults to `0`.
-    
-    Returns:
-        None.
-    """
     if not isinstance(buffer, StorageBuffer):
         raise ArgumentValidationError("update_storage_buffer() requires a StorageBuffer.")
     buffer.update(data, offset=offset)
 
 
 def read_storage_buffer(buffer: StorageBuffer) -> tuple[Number, ...]:
-    """Read storage buffer using the active gpu context.
-    
-    Args:
-        buffer: The buffer value. Expected type: `StorageBuffer`.
-    
-    Returns:
-        The return value. Type: `tuple[Number, ...]`.
-    """
     if not isinstance(buffer, StorageBuffer):
         raise ArgumentValidationError("read_storage_buffer() requires a StorageBuffer.")
     return buffer.read()
@@ -189,16 +118,6 @@ def create_compute_shader(
     source: str | None = None,
     label: str | None = None,
 ) -> ComputeShader:
-    """Create and return a compute shader value.
-    
-    Args:
-        callback: The callback value. Expected type: `ComputeCallback | None`. Defaults to `None`.
-        source: The source value. Expected type: `str | None`. Defaults to `None`.
-        label: The label value. Expected type: `str | None`. Defaults to `None`.
-    
-    Returns:
-        The return value. Type: `ComputeShader`.
-    """
     if callback is None and (source is None or not source.strip()):
         raise ArgumentValidationError(
             "create_compute_shader() requires a callback or source metadata."
@@ -211,32 +130,12 @@ def create_compute_shader(
 def dispatch_compute(
     shader: ComputeShader, x: int, y: int = 1, z: int = 1, **buffers: StorageBuffer
 ) -> None:
-    """Dispatch compute using the active gpu context.
-    
-    Args:
-        shader: The shader value. Expected type: `ComputeShader`.
-        x: The x value. Expected type: `int`.
-        y: The y value. Expected type: `int`. Defaults to `1`.
-        z: The z value. Expected type: `int`. Defaults to `1`.
-        **buffers: Additional keyword arguments. Expected type: `StorageBuffer`.
-    
-    Returns:
-        None.
-    """
     if not isinstance(shader, ComputeShader):
         raise ArgumentValidationError("dispatch_compute() requires a ComputeShader.")
     shader.dispatch(x, y, z, **buffers)
 
 
 def webgpu_context() -> dict[str, object]:
-    """Webgpu context using the active gpu context.
-    
-    Args:
-        None.
-    
-    Returns:
-        The return value. Type: `dict[str, object]`.
-    """
     return {
         "backend": "gummy-snake-native-cpu-compute",
         "native_gpu": False,

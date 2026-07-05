@@ -39,64 +39,24 @@ class CanvasSound:
 
     @classmethod
     def from_file(cls, path: str | Path) -> CanvasSound:
-        """From file for this CanvasSound.
-        
-        Args:
-            path: The path value. Expected type: `str | Path`.
-        
-        Returns:
-            The return value. Type: `CanvasSound`.
-        """
         from gummysnake.rust.canvas import require_canvas_runtime
 
         return cls(require_canvas_runtime().CanvasSound.from_file(str(path)))
 
     @property
     def path(self) -> Path:
-        """Return the asset path.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Path`.
-        """
         return Path(self._rust_sound.path)
 
     @property
     def duration(self) -> float | None:
-        """Return this CanvasSound's duration.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float | None`.
-        """
         duration = self._rust_sound.duration
         return None if duration is None else float(duration)
 
     @property
     def byte_len(self) -> int:
-        """Return this CanvasSound's byte len.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `int`.
-        """
         return int(self._rust_sound.byte_len)
 
     def to_bytes(self) -> bytes:
-        """Return this CanvasSound converted to bytes.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bytes`.
-        """
         return self._rust_sound.to_bytes()
 
 
@@ -134,26 +94,10 @@ class Sound:
 
     @property
     def path(self) -> Path:
-        """Return the asset path.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Path`.
-        """
         return self._path
 
     @property
     def duration(self) -> float | None:
-        """Return this Sound's duration.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float | None`.
-        """
         if self._rust_sound is not None:
             return self._rust_sound.duration
         duration = getattr(self._source, "duration", None)
@@ -161,27 +105,11 @@ class Sound:
 
     @property
     def byte_len(self) -> int | None:
-        """Return this Sound's byte len.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `int | None`.
-        """
         if self._rust_sound is None:
             return None
         return self._rust_sound.byte_len
 
     def to_bytes(self) -> bytes:
-        """Return this Sound converted to bytes.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bytes`.
-        """
         if self._rust_sound is not None:
             return self._rust_sound.to_bytes()
         to_bytes = getattr(self._source, "to_bytes", None)
@@ -190,14 +118,6 @@ class Sound:
         raise BackendCapabilityError("Sound bytes are unavailable for this sound source.")
 
     def play(self) -> None:
-        """Start playback for this object.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         self.stop()
         player = self._create_player()
         self._queue_source(player)
@@ -216,37 +136,13 @@ class Sound:
         self._is_playing = True
 
     def loop(self) -> None:
-        """Loop this Sound.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         self.looping(True)
         self.play()
 
     def no_loop(self) -> None:
-        """Disable loop for subsequent operations.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         self.looping(False)
 
     def looping(self, value: bool | None = None) -> bool:
-        """Looping for this Sound.
-        
-        Args:
-            value: The value value. Expected type: `bool | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         if value is not None:
             self._loop = bool(value)
             if self._player is not None and hasattr(self._player, "loop"):
@@ -254,14 +150,6 @@ class Sound:
         return self._loop
 
     def pause(self) -> None:
-        """Pause playback for this object.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         if self._player is None:
             return
         pause = getattr(self._player, "pause", None)
@@ -270,14 +158,6 @@ class Sound:
         self._is_playing = False
 
     def stop(self) -> None:
-        """Stop this Sound.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         player = self._player
         if player is None:
             return
@@ -293,25 +173,9 @@ class Sound:
         self._player = None
 
     def close(self) -> None:
-        """Close this Sound.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         self.stop()
 
     def volume(self, value: float | None = None) -> float:
-        """Volume for this Sound.
-        
-        Args:
-            value: The value value. Expected type: `float | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         if value is not None:
             if value < 0:
                 raise ArgumentValidationError("Sound.volume() cannot be negative.")
@@ -321,14 +185,6 @@ class Sound:
         return self._volume
 
     def rate(self, value: float | None = None) -> float:
-        """Rate for this Sound.
-        
-        Args:
-            value: The value value. Expected type: `float | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("Sound.rate() must be positive.")
@@ -338,14 +194,6 @@ class Sound:
         return self._rate
 
     def pan(self, value: float | None = None) -> float:
-        """Return or set stereo pan for this sound.
-        
-        Args:
-            value: The value value. Expected type: `float | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         if value is not None:
             if not -1.0 <= value <= 1.0:
                 raise ArgumentValidationError("Sound.pan() must be between -1 and 1.")
@@ -355,14 +203,6 @@ class Sound:
         return self._pan
 
     def seek(self, seconds: float) -> None:
-        """Seek for this Sound.
-        
-        Args:
-            seconds: The seconds value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         if seconds < 0:
             raise ArgumentValidationError("Sound.seek() cannot be negative.")
         self._position = float(seconds)
@@ -372,14 +212,6 @@ class Sound:
                 seek(self._position)
 
     def time(self) -> float:
-        """Time for this Sound.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         if self._player is not None:
             time = getattr(self._player, "time", None)
             if callable(time):
@@ -390,36 +222,12 @@ class Sound:
         return self._position
 
     def is_playing(self) -> bool:
-        """Return whether playing is active.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return self._is_playing
 
     def is_paused(self) -> bool:
-        """Return whether paused is active.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return self._player is not None and not self._is_playing
 
     def on_ended(self, callback: Callable[[Sound], object]) -> Callable[[Sound], object]:
-        """On ended for this Sound.
-        
-        Args:
-            callback: The callback value. Expected type: `Callable[[Sound], object]`.
-        
-        Returns:
-            The return value. Type: `Callable[[Sound], object]`.
-        """
         if not callable(callback):
             raise ArgumentValidationError("Sound.on_ended() requires a callable.")
         self._ended_callbacks.append(callback)
@@ -486,14 +294,6 @@ class Sound:
 
 
 def load_sound(path: str | Path) -> Sound:
-    """Load and return sound.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-    
-    Returns:
-        The return value. Type: `Sound`.
-    """
     sound_path = resolve_asset_path(path)
     if not sound_path.exists():
         raise ArgumentValidationError(f"Sound file does not exist: {sound_path!s}.")
@@ -507,14 +307,6 @@ def load_sound(path: str | Path) -> Sound:
 
 
 async def load_sound_async(path: str | Path) -> Sound:
-    """Load and return a sound asynchronously.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-    
-    Returns:
-        The return value. Type: `Sound`.
-    """
     return load_sound(path)
 
 

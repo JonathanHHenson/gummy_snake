@@ -12,18 +12,6 @@ def resolve_rect(
     w: float,
     h: float,
 ) -> tuple[float, float, float, float]:
-    """Resolve rect.
-    
-    Args:
-        mode: The mode value. Expected type: `c.ShapeMode`.
-        x: The x value. Expected type: `float`.
-        y: The y value. Expected type: `float`.
-        w: The w value. Expected type: `float`.
-        h: The h value. Expected type: `float`.
-    
-    Returns:
-        The return value. Type: `tuple[float, float, float, float]`.
-    """
     from gummysnake.constants import CENTER, CORNER, CORNERS, RADIUS
 
     if mode == CORNER:
@@ -45,85 +33,25 @@ def resolve_ellipse(
     w: float,
     h: float,
 ) -> tuple[float, float, float, float]:
-    """Resolve ellipse.
-    
-    Args:
-        mode: The mode value. Expected type: `c.ShapeMode`.
-        x: The x value. Expected type: `float`.
-        y: The y value. Expected type: `float`.
-        w: The w value. Expected type: `float`.
-        h: The h value. Expected type: `float`.
-    
-    Returns:
-        The return value. Type: `tuple[float, float, float, float]`.
-    """
     return resolve_rect(mode, x, y, w, h)
 
 
 def bezier_point(a: float, b: float, c: float, d: float, t: float) -> float:
-    """Bezier point.
-    
-    Args:
-        a: The a value. Expected type: `float`.
-        b: The b value. Expected type: `float`.
-        c: The c value. Expected type: `float`.
-        d: The d value. Expected type: `float`.
-        t: The t value. Expected type: `float`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     mt = 1.0 - t
     return mt**3 * a + 3 * mt**2 * t * b + 3 * mt * t**2 * c + t**3 * d
 
 
 def bezier_tangent(a: float, b: float, c: float, d: float, t: float) -> float:
-    """Bezier tangent.
-    
-    Args:
-        a: The a value. Expected type: `float`.
-        b: The b value. Expected type: `float`.
-        c: The c value. Expected type: `float`.
-        d: The d value. Expected type: `float`.
-        t: The t value. Expected type: `float`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     mt = 1.0 - t
     return 3 * mt**2 * (b - a) + 6 * mt * t * (c - b) + 3 * t**2 * (d - c)
 
 
 def quadratic_point(a: float, b: float, c: float, t: float) -> float:
-    """Quadratic point.
-    
-    Args:
-        a: The a value. Expected type: `float`.
-        b: The b value. Expected type: `float`.
-        c: The c value. Expected type: `float`.
-        t: The t value. Expected type: `float`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     mt = 1.0 - t
     return mt**2 * a + 2 * mt * t * b + t**2 * c
 
 
 def spline_point(a: float, b: float, c: float, d: float, t: float, tightness: float = 0.0) -> float:
-    """Spline point.
-    
-    Args:
-        a: The a value. Expected type: `float`.
-        b: The b value. Expected type: `float`.
-        c: The c value. Expected type: `float`.
-        d: The d value. Expected type: `float`.
-        t: The t value. Expected type: `float`.
-        tightness: The tightness value. Expected type: `float`. Defaults to `0.0`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     s = (1.0 - tightness) / 2.0
     t2 = t * t
     t3 = t2 * t
@@ -138,19 +66,6 @@ def spline_point(a: float, b: float, c: float, d: float, t: float, tightness: fl
 def spline_tangent(
     a: float, b: float, c: float, d: float, t: float, tightness: float = 0.0
 ) -> float:
-    """Spline tangent.
-    
-    Args:
-        a: The a value. Expected type: `float`.
-        b: The b value. Expected type: `float`.
-        c: The c value. Expected type: `float`.
-        d: The d value. Expected type: `float`.
-        t: The t value. Expected type: `float`.
-        tightness: The tightness value. Expected type: `float`. Defaults to `0.0`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     s = (1.0 - tightness) / 2.0
     t2 = t * t
     return (
@@ -170,19 +85,6 @@ def flatten_spline(
     tightness: float = 0.0,
     steps: int = 24,
 ) -> list[tuple[float, float]]:
-    """Flatten spline.
-    
-    Args:
-        p0: The p0 value. Expected type: `tuple[float, float]`.
-        p1: The p1 value. Expected type: `tuple[float, float]`.
-        p2: The p2 value. Expected type: `tuple[float, float]`.
-        p3: The p3 value. Expected type: `tuple[float, float]`.
-        tightness: The tightness value. Expected type: `float`. Defaults to `0.0`.
-        steps: The steps value. Expected type: `int`. Defaults to `24`.
-    
-    Returns:
-        The return value. Type: `list[tuple[float, float]]`.
-    """
     return [
         (
             spline_point(p0[0], p1[0], p2[0], p3[0], index / steps, tightness),
@@ -200,18 +102,6 @@ def flatten_cubic(
     *,
     steps: int = 24,
 ) -> list[tuple[float, float]]:
-    """Flatten cubic.
-    
-    Args:
-        p0: The p0 value. Expected type: `tuple[float, float]`.
-        p1: The p1 value. Expected type: `tuple[float, float]`.
-        p2: The p2 value. Expected type: `tuple[float, float]`.
-        p3: The p3 value. Expected type: `tuple[float, float]`.
-        steps: The steps value. Expected type: `int`. Defaults to `24`.
-    
-    Returns:
-        The return value. Type: `list[tuple[float, float]]`.
-    """
     return [
         (
             bezier_point(p0[0], p1[0], p2[0], p3[0], index / steps),
@@ -228,17 +118,6 @@ def flatten_quadratic(
     *,
     steps: int = 24,
 ) -> list[tuple[float, float]]:
-    """Flatten quadratic.
-    
-    Args:
-        p0: The p0 value. Expected type: `tuple[float, float]`.
-        p1: The p1 value. Expected type: `tuple[float, float]`.
-        p2: The p2 value. Expected type: `tuple[float, float]`.
-        steps: The steps value. Expected type: `int`. Defaults to `24`.
-    
-    Returns:
-        The return value. Type: `list[tuple[float, float]]`.
-    """
     return [
         (
             quadratic_point(p0[0], p1[0], p2[0], index / steps),

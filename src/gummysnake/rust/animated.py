@@ -20,22 +20,6 @@ def animated_noise_rgba(
     falloff: float = 0.5,
     prefer_accelerated: bool = True,
 ) -> bytes:
-    """Return RGBA pixels for the accelerated noise demo field.
-    
-    Args:
-        width: The width value. Expected type: `int`.
-        height: The height value. Expected type: `int`.
-        density: The density value. Expected type: `float`.
-        time: The time value. Expected type: `float`.
-        seed: The seed value. Expected type: `int`. Defaults to `0`.
-        octaves: The octaves value. Expected type: `int`. Defaults to `4`.
-        falloff: The falloff value. Expected type: `float`. Defaults to `0.5`.
-        prefer_accelerated: The prefer accelerated value. Expected type: `bool`. Defaults to `True`.
-    
-    Returns:
-        The return value. Type: `bytes`.
-    """
-
     width = int(width)
     height = int(height)
     density = float(density)
@@ -74,20 +58,6 @@ def animated_noise_rgba_bytes(
     octaves: int,
     falloff: float,
 ) -> bytes:
-    """Animated noise rgba bytes.
-    
-    Args:
-        width: The width value. Expected type: `int`.
-        height: The height value. Expected type: `int`.
-        density: The density value. Expected type: `float`.
-        time: The time value. Expected type: `float`.
-        seed: The seed value. Expected type: `int`.
-        octaves: The octaves value. Expected type: `int`.
-        falloff: The falloff value. Expected type: `float`.
-    
-    Returns:
-        The return value. Type: `bytes`.
-    """
     physical_width = max(1, int(round(width * density)))
     physical_height = max(1, int(round(height * density)))
     pixels = bytearray(physical_width * physical_height * 4)

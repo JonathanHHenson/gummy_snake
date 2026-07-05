@@ -16,14 +16,12 @@ class ImageContextMixin:
     _performance_diagnostic_image_versions: dict[int, int]
 
     @overload
-    def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None:
-        ...
+    def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None: ...
 
     @overload
     def image(
         self, image: Image | CanvasImage, x: float, y: float, width: float, height: float, /
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def image(
@@ -38,21 +36,9 @@ class ImageContextMixin:
         sw: float,
         sh: float,
         /,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def image(self, image: Image | CanvasImage, x: float, y: float, *args: float) -> None:
-        """Image.
-        
-        Args:
-            image: The image value. Expected type: `Image | CanvasImage`.
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            *args: Additional positional arguments. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         self._draw_image_fast(image, x, y, *args)
 
     def _draw_image_fast(

@@ -17,16 +17,6 @@ def _backend(self: object) -> CanvasBackendHost:
 
 class CanvasBackendRuntimeMixin:
     def run(self, sketch: Sketch, *, max_frames: int | None = None) -> None:
-        """Run the sketch.
-        
-        Args:
-            sketch: The sketch value. Expected type: `Sketch`.
-            max_frames: The max frames value. Expected type: `int | None`. Defaults to `None`.
-        
-        Returns:
-            None.
-        """
-
         should_run_interactive = _backend(self)._interactive or (
             _backend(self)._headless is None
             and max_frames is None
@@ -39,26 +29,10 @@ class CanvasBackendRuntimeMixin:
             self._run_headless(sketch, max_frames=1 if max_frames is None else max_frames)
 
     def stop(self) -> None:
-        """Stop.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         _backend(self)._running = False
         _backend(self).renderer.close()
 
     def present(self) -> None:
-        """Present.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         _backend(self).renderer.present()
 
     def _run_headless(self, sketch: Sketch, *, max_frames: int) -> None:

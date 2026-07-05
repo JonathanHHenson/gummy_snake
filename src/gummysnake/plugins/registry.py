@@ -45,14 +45,6 @@ class PluginRegistry:
         self._installing_plugin_name: str | None = None
 
     def install(self, plugin: PluginProtocol) -> PluginProtocol:
-        """Install.
-        
-        Args:
-            plugin: The plugin value. Expected type: `PluginProtocol`.
-        
-        Returns:
-            The return value. Type: `PluginProtocol`.
-        """
         name = getattr(plugin, "name", plugin.__class__.__name__)
         if not name:
             raise ValueError("Plugin name cannot be empty.")
@@ -76,14 +68,6 @@ class PluginRegistry:
         return plugin
 
     def uninstall(self, plugin_or_name: PluginProtocol | str) -> None:
-        """Uninstall.
-        
-        Args:
-            plugin_or_name: The plugin or name value. Expected type: `PluginProtocol | str`.
-        
-        Returns:
-            None.
-        """
         name = plugin_or_name if isinstance(plugin_or_name, str) else plugin_or_name.name
         for index, entry in enumerate(self._entries):
             if entry.name == name:
@@ -96,49 +80,16 @@ class PluginRegistry:
         raise KeyError(f"Plugin {name!r} is not installed.")
 
     def clear(self) -> None:
-        """Clear.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         for name in list(self.names()):
             self.uninstall(name)
 
     def names(self) -> tuple[str, ...]:
-        """Names.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[str, ...]`.
-        """
         return tuple(entry.name for entry in self._entries)
 
     def has(self, name: str) -> bool:
-        """Has.
-        
-        Args:
-            name: The name value. Expected type: `str`.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return any(entry.name == name for entry in self._entries)
 
     def bind_runtime(self, context: SketchContext, sketch: Sketch) -> None:
-        """Bind runtime.
-        
-        Args:
-            context: The context value. Expected type: `SketchContext`.
-            sketch: The sketch value. Expected type: `Sketch`.
-        
-        Returns:
-            None.
-        """
         self._bound_contexts.add(context)
         self._bound_sketches.add(sketch)
         for api_name, api in self._apis.items():
@@ -146,15 +97,6 @@ class PluginRegistry:
             self._bind_api_to_sketch(sketch, api_name)
 
     def expose_api(self, name: str, api: PluginApi) -> None:
-        """Expose api.
-        
-        Args:
-            name: The name value. Expected type: `str`.
-            api: The api value. Expected type: `PluginApi`.
-        
-        Returns:
-            None.
-        """
         if not name.isidentifier():
             raise ValueError(f"Plugin API name {name!r} must be a valid Python identifier.")
         if name in self._apis:
@@ -171,14 +113,6 @@ class PluginRegistry:
         self._install_global_api(name)
 
     def remove_api(self, name: str) -> None:
-        """Remove api.
-        
-        Args:
-            name: The name value. Expected type: `str`.
-        
-        Returns:
-            None.
-        """
         if name not in self._apis:
             raise KeyError(f"Plugin API {name!r} is not registered.")
         self._apis.pop(name)
@@ -192,16 +126,6 @@ class PluginRegistry:
         self._uninstall_global_api(name)
 
     def call_api(self, name: str, *args: Any, **kwargs: Any) -> Any:
-        """Call api.
-        
-        Args:
-            name: The name value. Expected type: `str`.
-            *args: Additional positional arguments. Expected type: `Any`.
-            **kwargs: Additional keyword arguments. Expected type: `Any`.
-        
-        Returns:
-            The return value. Type: `Any`.
-        """
         try:
             api = self._apis[name]
         except KeyError as exc:
@@ -210,15 +134,6 @@ class PluginRegistry:
         return api(context, *args, **kwargs)
 
     def dispatch_lifecycle(self, hook_name: PluginHookName, context: SketchContext) -> None:
-        """Dispatch lifecycle.
-        
-        Args:
-            hook_name: The hook name value. Expected type: `PluginHookName`.
-            context: The context value. Expected type: `SketchContext`.
-        
-        Returns:
-            None.
-        """
         if hook_name not in LIFECYCLE_HOOKS:
             raise ValueError(f"Unknown lifecycle hook {hook_name!r}.")
         for entry in self._entries:
@@ -232,16 +147,6 @@ class PluginRegistry:
         context: SketchContext,
         event: MouseEvent | KeyboardEvent | TouchEvent,
     ) -> None:
-        """Dispatch event.
-        
-        Args:
-            hook_name: The hook name value. Expected type: `PluginHookName`.
-            context: The context value. Expected type: `SketchContext`.
-            event: The event value. Expected type: `MouseEvent | KeyboardEvent | TouchEvent`.
-        
-        Returns:
-            None.
-        """
         if hook_name not in EVENT_HOOKS:
             raise ValueError(f"Unknown event hook {hook_name!r}.")
         for entry in self._entries:
@@ -296,48 +201,16 @@ GLOBAL_PLUGIN_REGISTRY = PluginRegistry()
 
 
 def install_plugin(plugin: PluginProtocol) -> PluginProtocol:
-    """Install plugin.
-    
-    Args:
-        plugin: The plugin value. Expected type: `PluginProtocol`.
-    
-    Returns:
-        The return value. Type: `PluginProtocol`.
-    """
     return GLOBAL_PLUGIN_REGISTRY.install(plugin)
 
 
 def uninstall_plugin(plugin_or_name: PluginProtocol | str) -> None:
-    """Uninstall plugin.
-    
-    Args:
-        plugin_or_name: The plugin or name value. Expected type: `PluginProtocol | str`.
-    
-    Returns:
-        None.
-    """
     GLOBAL_PLUGIN_REGISTRY.uninstall(plugin_or_name)
 
 
 def clear_plugins() -> None:
-    """Clear plugins.
-    
-    Args:
-        None.
-    
-    Returns:
-        None.
-    """
     GLOBAL_PLUGIN_REGISTRY.clear()
 
 
 def list_plugins() -> tuple[str, ...]:
-    """List plugins.
-    
-    Args:
-        None.
-    
-    Returns:
-        The return value. Type: `tuple[str, ...]`.
-    """
     return GLOBAL_PLUGIN_REGISTRY.names()

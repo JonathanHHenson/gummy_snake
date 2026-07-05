@@ -127,14 +127,6 @@ class Image(ImageDeferredMixin):
         self._rust_image.replace_rgba_bytes(payload)
 
     def pixel_density(self, value: float | None = None) -> float:
-        """Return or validate this image pixel-density setting.
-
-        Args:
-            value: The value value. Expected type: `float | None`. Defaults to `None`.
-
-        Returns:
-            The return value. Type: `float`.
-        """
         if value is None or value == 1:
             return 1.0
         raise UnsupportedFeatureError(

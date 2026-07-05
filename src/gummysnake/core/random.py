@@ -17,59 +17,30 @@ _noise_falloff = 0.5
 
 
 def shared_rng() -> _random.Random:
-    """Return Gummy Snake's package-local RNG.
-    
-    Args:
-        None.
-    
-    Returns:
-        The return value. Type: `_random.Random`.
-    """
-
     return _random_generator
 
 
 def random_seed(seed: int | float | str | bytes | bytearray | None) -> None:
-    """Random seed using the active random context.
-    
-    Args:
-        seed: The seed value. Expected type: `int | float | str | bytes | bytearray | None`.
-    
-    Returns:
-        None.
-    """
     _random_generator.seed(seed)
 
 
 @overload
-def random() -> float:
-    ...
+def random() -> float: ...
 
 
 @overload
-def random(maximum: Number, /) -> float:
-    ...
+def random(maximum: Number, /) -> float: ...
 
 
 @overload
-def random[T](values: Sequence[T], /) -> T | None:
-    ...
+def random[T](values: Sequence[T], /) -> T | None: ...
 
 
 @overload
-def random(low: Number, high: Number, /) -> float:
-    ...
+def random(low: Number, high: Number, /) -> float: ...
 
 
 def random(*args: object) -> float | object | None:
-    """Return the random calculation result.
-    
-    Args:
-        *args: Additional positional arguments. Expected type: `object`.
-    
-    Returns:
-        The return value. Type: `float | object | None`.
-    """
     if len(args) == 0:
         return _random_generator.random()
     if len(args) == 1:
@@ -92,41 +63,15 @@ def random(*args: object) -> float | object | None:
 
 
 def random_gaussian(mean: Number = 0, sd: Number = 1) -> float:
-    """Random gaussian using the active random context.
-    
-    Args:
-        mean: The mean value. Expected type: `Number`. Defaults to `0`.
-        sd: The sd value. Expected type: `Number`. Defaults to `1`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     return _random_generator.gauss(float(mean), float(sd))
 
 
 def noise_seed(seed: int) -> None:
-    """Noise seed using the active random context.
-    
-    Args:
-        seed: The seed value. Expected type: `int`.
-    
-    Returns:
-        None.
-    """
     global _noise_seed
     _noise_seed = int(seed)
 
 
 def noise_detail(octaves: int, falloff: Number | None = None) -> None:
-    """Noise detail using the active random context.
-    
-    Args:
-        octaves: The octaves value. Expected type: `int`.
-        falloff: The falloff value. Expected type: `Number | None`. Defaults to `None`.
-    
-    Returns:
-        None.
-    """
     global _noise_octaves, _noise_falloff
     if octaves < 1:
         msg = "noise_detail() octave count must be at least 1."
@@ -137,16 +82,6 @@ def noise_detail(octaves: int, falloff: Number | None = None) -> None:
 
 
 def noise(x: Number = 0, y: Number = 0, z: Number = 0) -> float:
-    """Return the noise calculation result.
-    
-    Args:
-        x: The x value. Expected type: `Number`. Defaults to `0`.
-        y: The y value. Expected type: `Number`. Defaults to `0`.
-        z: The z value. Expected type: `Number`. Defaults to `0`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     return _noise_3d(
         float(x),
         float(y),

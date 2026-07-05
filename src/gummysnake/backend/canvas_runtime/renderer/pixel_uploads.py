@@ -16,14 +16,6 @@ def _renderer(self: object) -> CanvasRendererHost:
 
 
 def pixel_payload(self: object, pixels: Sequence[int] | Buffer) -> bytes | Buffer:
-    """Pixel payload.
-    
-    Args:
-        pixels: The pixels value. Expected type: `Sequence[int] | Buffer`.
-    
-    Returns:
-        The return value. Type: `bytes | Buffer`.
-    """
     if isinstance(pixels, bytes | bytearray | memoryview | PixelBuffer):
         return pixels
     try:
@@ -34,14 +26,6 @@ def pixel_payload(self: object, pixels: Sequence[int] | Buffer) -> bytes | Buffe
 
 
 def upload_dirty_pixel_range(self: object, pixels: PixelBuffer) -> bool:
-    """Upload dirty pixel range.
-    
-    Args:
-        pixels: The pixels value. Expected type: `PixelBuffer`.
-    
-    Returns:
-        The return value. Type: `bool`.
-    """
     dirty = pixels.dirty_range()
     if dirty is None:
         return False
@@ -82,19 +66,6 @@ def blend_image(
     destination: tuple[int, int, int, int],
     mode: c.BlendMode,
 ) -> None:
-    """Blend image.
-    
-    Args:
-        pixels: The pixels value. Expected type: `bytes | None`.
-        width: The width value. Expected type: `int | None`.
-        height: The height value. Expected type: `int | None`.
-        source: The source value. Expected type: `tuple[int, int, int, int]`.
-        destination: The destination value. Expected type: `tuple[int, int, int, int]`.
-        mode: The mode value. Expected type: `c.BlendMode`.
-    
-    Returns:
-        None.
-    """
     _renderer(self)._call(
         "region blending",
         _renderer(self)._require_canvas().blend_region,

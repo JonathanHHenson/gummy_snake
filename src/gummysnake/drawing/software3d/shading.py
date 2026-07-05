@@ -40,26 +40,6 @@ def shade_model_faces(
     cache_identity: object | None = None,
     model_transform: Matrix2D | None = None,
 ) -> list[ShadedFace]:
-    """Shade model faces.
-    
-    Args:
-        model: The model value. Expected type: `Model3D`.
-        camera: The camera value. Expected type: `Camera3D`.
-        projection: The projection value. Expected type: `Projection3D`.
-        viewport_width: The viewport width value. Expected type: `float`.
-        viewport_height: The viewport height value. Expected type: `float`.
-        base_material: The base material value. Expected type: `Material3D`.
-        lights: The lights value. Expected type: `tuple[Light3D, ...]`.
-        normal_material: The normal material value. Expected type: `bool`. Defaults to `False`.
-        cull_backfaces: The cull backfaces value. Expected type: `bool`. Defaults to `True`.
-        cache_identity: The cache identity value. Expected type: `object | None`. Defaults to
-            `None`.
-        model_transform: The model transform value. Expected type: `Matrix2D | None`. Defaults to
-            `None`.
-    
-    Returns:
-        The return value. Type: `list[ShadedFace]`.
-    """
     texture = texture_image(base_material)
     cache_key = shade_cache_key(
         model,
@@ -108,19 +88,6 @@ def project_model_faces(
     viewport_height: float,
     cull_backfaces: bool = True,
 ) -> list[ProjectedFace]:
-    """Project model faces.
-    
-    Args:
-        model: The model value. Expected type: `Model3D`.
-        camera: The camera value. Expected type: `Camera3D`.
-        projection: The projection value. Expected type: `Projection3D`.
-        viewport_width: The viewport width value. Expected type: `float`.
-        viewport_height: The viewport height value. Expected type: `float`.
-        cull_backfaces: The cull backfaces value. Expected type: `bool`. Defaults to `True`.
-    
-    Returns:
-        The return value. Type: `list[ProjectedFace]`.
-    """
     if viewport_width <= 0 or viewport_height <= 0:
         raise ArgumentValidationError("viewport dimensions must be positive.")
     validate_projection(projection)
@@ -153,15 +120,6 @@ def project_model_faces(
 
 
 def shaded_face_from_payload(face: dict[str, Any], *, texture: CanvasImage | None) -> ShadedFace:
-    """Shaded face from payload.
-    
-    Args:
-        face: The face value. Expected type: `dict[str, Any]`.
-        texture: The texture value. Expected type: `CanvasImage | None`.
-    
-    Returns:
-        The return value. Type: `ShadedFace`.
-    """
     texcoords_payload = face.get("texcoords")
     return ShadedFace(
         points=tuple((float(x), float(y)) for x, y in face["points"]),
@@ -187,26 +145,6 @@ def shade_cache_key(
     cache_identity: object | None = None,
     model_transform: Matrix2D | None = None,
 ) -> tuple[object, ...]:
-    """Shade cache key.
-    
-    Args:
-        model: The model value. Expected type: `Model3D`.
-        camera: The camera value. Expected type: `Camera3D`.
-        projection: The projection value. Expected type: `Projection3D`.
-        viewport_width: The viewport width value. Expected type: `float`.
-        viewport_height: The viewport height value. Expected type: `float`.
-        material: The material value. Expected type: `Material3D`.
-        lights: The lights value. Expected type: `tuple[Light3D, ...]`.
-        normal_material: The normal material value. Expected type: `bool`.
-        cull_backfaces: The cull backfaces value. Expected type: `bool`.
-        cache_identity: The cache identity value. Expected type: `object | None`. Defaults to
-            `None`.
-        model_transform: The model transform value. Expected type: `Matrix2D | None`. Defaults to
-            `None`.
-    
-    Returns:
-        The return value. Type: `tuple[object, ...]`.
-    """
     return (
         id(model) if cache_identity is None else cache_identity,
         camera,
@@ -226,14 +164,6 @@ def shade_cache_key(
 
 
 def texture_image(material: Material3D) -> CanvasImage | None:
-    """Texture image.
-    
-    Args:
-        material: The material value. Expected type: `Material3D`.
-    
-    Returns:
-        The return value. Type: `CanvasImage | None`.
-    """
     texture = material.texture
     if texture is None:
         return None

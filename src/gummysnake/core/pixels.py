@@ -24,15 +24,6 @@ class PixelBuffer(bytearray):
         self._dirty_end = None
 
     def __setitem__(self, key: Any, value: Any) -> None:
-        """Setitem.
-        
-        Args:
-            key: The key value. Expected type: `Any`.
-            value: The value value. Expected type: `Any`.
-        
-        Returns:
-            None.
-        """
         if isinstance(key, slice):
             start, stop, step = key.indices(len(self))
             changed = range(start, stop, step)
@@ -47,28 +38,12 @@ class PixelBuffer(bytearray):
         self._mark_dirty(index, index + 1)
 
     def __getitem__(self, key: Any) -> Any:
-        """Getitem.
-        
-        Args:
-            key: The key value. Expected type: `Any`.
-        
-        Returns:
-            The return value. Type: `Any`.
-        """
         value = super().__getitem__(key)
         if isinstance(key, slice):
             return list(value)
         return value
 
     def __eq__(self, value: object) -> bool:
-        """Eq.
-        
-        Args:
-            value: The value value. Expected type: `object`.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         if isinstance(value, list | tuple):
             return len(self) == len(value) and all(
                 left == right for left, right in zip(self, value, strict=True)
@@ -76,27 +51,11 @@ class PixelBuffer(bytearray):
         return super().__eq__(value)
 
     def dirty_range(self) -> tuple[int, int] | None:
-        """Dirty range.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[int, int] | None`.
-        """
         if self._dirty_start is None or self._dirty_end is None:
             return None
         return self._dirty_start, self._dirty_end
 
     def clear_dirty(self) -> None:
-        """Clear dirty.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         self._dirty_start = None
         self._dirty_end = None
 
@@ -120,14 +79,6 @@ class DirtyPixelRegion:
 
     @property
     def byte_slice(self) -> slice:
-        """Byte slice.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `slice`.
-        """
         return slice(self.byte_start, self.byte_end)
 
 
@@ -137,18 +88,6 @@ def dirty_pixel_region(
     physical_height: int,
     dirty: tuple[int, int],
 ) -> DirtyPixelRegion:
-    """Normalize a dirty byte range into one contiguous top-left RGBA upload region.
-    
-    Args:
-        buffer_length: The buffer length value. Expected type: `int`.
-        physical_width: The physical width value. Expected type: `int`.
-        physical_height: The physical height value. Expected type: `int`.
-        dirty: The dirty value. Expected type: `tuple[int, int]`.
-    
-    Returns:
-        The return value. Type: `DirtyPixelRegion`.
-    """
-
     if physical_width <= 0 or physical_height <= 0:
         return _invalid_region()
     total = physical_width * physical_height * 4

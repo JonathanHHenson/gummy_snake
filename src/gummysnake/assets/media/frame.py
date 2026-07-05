@@ -10,14 +10,6 @@ from gummysnake.exceptions import BackendCapabilityError
 
 
 def frame_to_image(frame: Any) -> Image:
-    """Frame to image using the active media context.
-    
-    Args:
-        frame: The frame value. Expected type: `Any`.
-    
-    Returns:
-        The return value. Type: `Image`.
-    """
     shape = getattr(frame, "shape", None)
     if shape is None:
         raise BackendCapabilityError(
@@ -37,17 +29,6 @@ def frame_to_image(frame: Any) -> Image:
 
 
 def convert_frame_bytes(frame: Any, width: int, height: int, channels: int) -> bytes:
-    """Convert frame bytes using the active media context.
-    
-    Args:
-        frame: The frame value. Expected type: `Any`.
-        width: The width value. Expected type: `int`.
-        height: The height value. Expected type: `int`.
-        channels: The channels value. Expected type: `int`.
-    
-    Returns:
-        The return value. Type: `bytes`.
-    """
     tobytes = getattr(frame, "tobytes", None)
     if not callable(tobytes):
         raise BackendCapabilityError(

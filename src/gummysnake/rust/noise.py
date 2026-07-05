@@ -18,21 +18,6 @@ def noise_3d(
     falloff: float = 0.5,
     prefer_accelerated: bool = True,
 ) -> float:
-    """Return deterministic Perlin-style noise using Rust when available.
-    
-    Args:
-        x: The x value. Expected type: `float`. Defaults to `0.0`.
-        y: The y value. Expected type: `float`. Defaults to `0.0`.
-        z: The z value. Expected type: `float`. Defaults to `0.0`.
-        seed: The seed value. Expected type: `int`. Defaults to `0`.
-        octaves: The octaves value. Expected type: `int`. Defaults to `4`.
-        falloff: The falloff value. Expected type: `float`. Defaults to `0.5`.
-        prefer_accelerated: The prefer accelerated value. Expected type: `bool`. Defaults to `True`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
-
     x = float(x)
     y = float(y)
     z = float(z)
@@ -55,20 +40,6 @@ def noise_3d_python(
     octaves: int = 4,
     falloff: float = 0.5,
 ) -> float:
-    """Pure-Python reference implementation for the accelerated noise path.
-    
-    Args:
-        x: The x value. Expected type: `float`. Defaults to `0.0`.
-        y: The y value. Expected type: `float`. Defaults to `0.0`.
-        z: The z value. Expected type: `float`. Defaults to `0.0`.
-        seed: The seed value. Expected type: `int`. Defaults to `0`.
-        octaves: The octaves value. Expected type: `int`. Defaults to `4`.
-        falloff: The falloff value. Expected type: `float`. Defaults to `0.5`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
-
     x = float(x)
     y = float(y)
     z = float(z)
@@ -90,17 +61,6 @@ def noise_3d_python(
 
 
 def perlin(x: float, y: float, z: float, seed: int) -> float:
-    """Perlin.
-    
-    Args:
-        x: The x value. Expected type: `float`.
-        y: The y value. Expected type: `float`.
-        z: The z value. Expected type: `float`.
-        seed: The seed value. Expected type: `int`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     x0 = math.floor(x)
     y0 = math.floor(y)
     z0 = math.floor(z)
@@ -128,17 +88,6 @@ def perlin(x: float, y: float, z: float, seed: int) -> float:
 
 
 def gradient(x: int, y: int, z: int, seed: int) -> tuple[float, float, float]:
-    """Gradient.
-    
-    Args:
-        x: The x value. Expected type: `int`.
-        y: The y value. Expected type: `int`.
-        z: The z value. Expected type: `int`.
-        seed: The seed value. Expected type: `int`.
-    
-    Returns:
-        The return value. Type: `tuple[float, float, float]`.
-    """
     hashed = hash_coords(x, y, z, seed)
     theta = (hashed & 0xFFFF) / 0xFFFF * math.tau
     phi = ((hashed >> 16) & 0xFFFF) / 0xFFFF * math.pi
@@ -147,45 +96,16 @@ def gradient(x: int, y: int, z: int, seed: int) -> tuple[float, float, float]:
 
 
 def hash_coords(x: int, y: int, z: int, seed: int) -> int:
-    """Hash coords.
-    
-    Args:
-        x: The x value. Expected type: `int`.
-        y: The y value. Expected type: `int`.
-        z: The z value. Expected type: `int`.
-        seed: The seed value. Expected type: `int`.
-    
-    Returns:
-        The return value. Type: `int`.
-    """
     value = (seed & 0xFFFFFFFF) ^ (x * 374761393) ^ (y * 668265263) ^ (z * 2246822519)
     value = (value ^ (value >> 13)) * 1274126177
     return (value ^ (value >> 16)) & 0xFFFFFFFF
 
 
 def fade(t: float) -> float:
-    """Fade.
-    
-    Args:
-        t: The t value. Expected type: `float`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     return t * t * t * (t * (t * 6 - 15) + 10)
 
 
 def lerp(a: float, b: float, t: float) -> float:
-    """Lerp.
-    
-    Args:
-        a: The a value. Expected type: `float`.
-        b: The b value. Expected type: `float`.
-        t: The t value. Expected type: `float`.
-    
-    Returns:
-        The return value. Type: `float`.
-    """
     return a + (b - a) * t
 
 

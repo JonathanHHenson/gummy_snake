@@ -22,17 +22,6 @@ def polygon(
     *,
     close: bool = True,
 ) -> None:
-    """Polygon.
-    
-    Args:
-        points: The points value. Expected type: `list[tuple[float, float]]`.
-        style: The style value. Expected type: `StyleState`.
-        transform: The transform value. Expected type: `Matrix2D`.
-        close: The close value. Expected type: `bool`. Defaults to `True`.
-    
-    Returns:
-        None.
-    """
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     current = (
@@ -62,18 +51,6 @@ def complex_polygon(
     *,
     close: bool = True,
 ) -> None:
-    """Complex polygon.
-    
-    Args:
-        outer: The outer value. Expected type: `list[tuple[float, float]]`.
-        contours: The contours value. Expected type: `list[list[tuple[float, float]]]`.
-        style: The style value. Expected type: `StyleState`.
-        transform: The transform value. Expected type: `Matrix2D`.
-        close: The close value. Expected type: `bool`. Defaults to `True`.
-    
-    Returns:
-        None.
-    """
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     current = (
@@ -98,17 +75,6 @@ def complex_polygon(
 def draw_captured_shape(
     self: Any, state: object, style: StyleState, transform: Matrix2D, *, close: bool = True
 ) -> None:
-    """Draw captured shape.
-    
-    Args:
-        state: The state value. Expected type: `object`.
-        style: The style value. Expected type: `StyleState`.
-        transform: The transform value. Expected type: `Matrix2D`.
-        close: The close value. Expected type: `bool`. Defaults to `True`.
-    
-    Returns:
-        None.
-    """
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     draw = (
@@ -157,16 +123,6 @@ def begin_clip(
     contours: list[list[tuple[float, float]]],
     transform: Matrix2D,
 ) -> None:
-    """Begin clip.
-    
-    Args:
-        outer: The outer value. Expected type: `list[tuple[float, float]]`.
-        contours: The contours value. Expected type: `list[list[tuple[float, float]]]`.
-        transform: The transform value. Expected type: `Matrix2D`.
-    
-    Returns:
-        None.
-    """
     _renderer(self)._flush_line_batch()
     current = (
         getattr(_renderer(self)._require_canvas(), "begin_clip_current", None)
@@ -189,15 +145,6 @@ def begin_clip(
 
 
 def begin_clip_captured_shape(self: Any, state: object, transform: Matrix2D) -> None:
-    """Begin clip captured shape.
-    
-    Args:
-        state: The state value. Expected type: `object`.
-        transform: The transform value. Expected type: `Matrix2D`.
-    
-    Returns:
-        None.
-    """
     _renderer(self)._flush_line_batch()
     current = (
         getattr(_renderer(self)._require_canvas(), "begin_clip_captured_current", None)
@@ -234,14 +181,6 @@ def begin_clip_captured_shape(self: Any, state: object, transform: Matrix2D) -> 
 
 
 def end_clip(self: object) -> None:
-    """End clip.
-    
-    Args:
-        None.
-    
-    Returns:
-        None.
-    """
     _renderer(self)._flush_line_batch()
     if _renderer(self)._clip_depth <= 0:
         raise ArgumentValidationError("end_clip() called without matching begin_clip().")

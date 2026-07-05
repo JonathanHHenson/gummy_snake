@@ -20,206 +20,65 @@ class Writer:
 
     @property
     def closed(self) -> bool:
-        """Closed for this Writer.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return self._file.closed
 
     def write(self, value: object = "") -> None:
-        """Write for this Writer.
-        
-        Args:
-            value: The value value. Expected type: `object`. Defaults to `''`.
-        
-        Returns:
-            None.
-        """
         self._file.write(str(value))
 
     def print(self, value: object = "") -> None:
-        """Write a value followed by a newline.
-        
-        Args:
-            value: The value value. Expected type: `object`. Defaults to `''`.
-        
-        Returns:
-            None.
-        """
         self._file.write(f"{value}\n")
 
     def close(self) -> None:
-        """Close this Writer.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         self._file.close()
 
     def __enter__(self) -> Writer:
-        """Enter the context manager and return the active value.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Writer`.
-        """
         return self
 
     def __exit__(self, *exc_info: object) -> None:
-        """Exit the context manager and restore any saved state.
-        
-        Args:
-            *exc_info: Additional positional arguments. Expected type: `object`.
-        
-        Returns:
-            None.
-        """
         self.close()
 
 
 def load_strings(path: str | Path, *, encoding: str = "utf-8") -> list[str]:
-    """Load and return strings.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-        encoding: The encoding value. Expected type: `str`. Defaults to `'utf-8'`.
-    
-    Returns:
-        The return value. Type: `list[str]`.
-    """
     return resolve_asset_path(path).read_text(encoding=encoding).splitlines()
 
 
 async def load_strings_async(path: str | Path, *, encoding: str = "utf-8") -> list[str]:
-    """Load and return strings asynchronously.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-        encoding: The encoding value. Expected type: `str`. Defaults to `'utf-8'`.
-    
-    Returns:
-        The return value. Type: `list[str]`.
-    """
     return load_strings(path, encoding=encoding)
 
 
 def save_strings(
     values: list[str] | tuple[str, ...], path: str | Path, *, encoding: str = "utf-8"
 ) -> None:
-    """Save strings data to the requested destination.
-    
-    Args:
-        values: The values value. Expected type: `list[str] | tuple[str, ...]`.
-        path: The path value. Expected type: `str | Path`.
-        encoding: The encoding value. Expected type: `str`. Defaults to `'utf-8'`.
-    
-    Returns:
-        None.
-    """
     Path(path).write_text("\n".join(str(value) for value in values), encoding=encoding)
 
 
 def load_json(path: str | Path, *, encoding: str = "utf-8") -> Any:
-    """Load and return json.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-        encoding: The encoding value. Expected type: `str`. Defaults to `'utf-8'`.
-    
-    Returns:
-        The return value. Type: `Any`.
-    """
     return json.loads(resolve_asset_path(path).read_text(encoding=encoding))
 
 
 async def load_json_async(path: str | Path, *, encoding: str = "utf-8") -> Any:
-    """Load and return JSON data asynchronously.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-        encoding: The encoding value. Expected type: `str`. Defaults to `'utf-8'`.
-    
-    Returns:
-        The return value. Type: `Any`.
-    """
     return load_json(path, encoding=encoding)
 
 
 def save_json(value: Any, path: str | Path, *, encoding: str = "utf-8", indent: int = 2) -> None:
-    """Save json data to the requested destination.
-    
-    Args:
-        value: The value value. Expected type: `Any`.
-        path: The path value. Expected type: `str | Path`.
-        encoding: The encoding value. Expected type: `str`. Defaults to `'utf-8'`.
-        indent: The indent value. Expected type: `int`. Defaults to `2`.
-    
-    Returns:
-        None.
-    """
     Path(path).write_text(json.dumps(value, indent=indent, ensure_ascii=False), encoding=encoding)
 
 
 def load_bytes(path: str | Path) -> bytes:
-    """Load and return bytes.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-    
-    Returns:
-        The return value. Type: `bytes`.
-    """
     return resolve_asset_path(path).read_bytes()
 
 
 async def load_bytes_async(path: str | Path) -> bytes:
-    """Load and return bytes asynchronously.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-    
-    Returns:
-        The return value. Type: `bytes`.
-    """
     return load_bytes(path)
 
 
 def save_bytes(
     values: bytes | bytearray | memoryview | list[int] | tuple[int, ...], path: str | Path
 ) -> None:
-    """Save bytes data to the requested destination.
-    
-    Args:
-        values: The values value. Expected type: `bytes | bytearray | memoryview | list[int] |
-            tuple[int, ...]`.
-        path: The path value. Expected type: `str | Path`.
-    
-    Returns:
-        None.
-    """
     Path(path).write_bytes(bytes(values))
 
 
 def create_writer(path: str | Path, *, encoding: str = "utf-8", append: bool = False) -> Writer:
-    """Create and return a writer value.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-        encoding: The encoding value. Expected type: `str`. Defaults to `'utf-8'`.
-        append: The append value. Expected type: `bool`. Defaults to `False`.
-    
-    Returns:
-        The return value. Type: `Writer`.
-    """
     return Writer(path, encoding=encoding, append=append)
 
 

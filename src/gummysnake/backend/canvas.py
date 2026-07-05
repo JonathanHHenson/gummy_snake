@@ -94,27 +94,9 @@ class CanvasBackend(
         self.reset_frame_pacing_diagnostics()
 
     def health_check(self) -> str:
-        """Return the underlying Rust canvas runtime health check.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
-
         return canvas_bridge.canvas_health_check()
 
     def gpu_status(self) -> str:
-        """Return an actionable GPU availability diagnostic for this canvas runtime.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
-
         canvas = self.renderer._canvas
         runtime_status = getattr(canvas, "gpu_status", None) if canvas is not None else None
         if callable(runtime_status):
@@ -143,14 +125,6 @@ class CanvasBackend(
         )
 
     def request_pointer_lock(self) -> bool:
-        """Request pointer lock from the active backend.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         callback = getattr(self.renderer.runtime_canvas(), "request_pointer_lock", None)
         if callable(callback):
             return bool(callback())
@@ -160,14 +134,6 @@ class CanvasBackend(
         )
 
     def exit_pointer_lock(self) -> bool:
-        """Exit pointer lock mode on the active backend.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         callback = getattr(self.renderer.runtime_canvas(), "exit_pointer_lock", None)
         if callable(callback):
             return bool(callback())
@@ -177,14 +143,6 @@ class CanvasBackend(
         )
 
     def set_pointer_lock_mode(self, mode: str) -> str:
-        """Set the pointer lock mode value.
-        
-        Args:
-            mode: The mode value. Expected type: `str`.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         self._pointer_lock_mode = mode
         canvas = self.renderer._canvas
         callback = getattr(canvas, "set_pointer_lock_mode", None) if canvas is not None else None
@@ -193,25 +151,9 @@ class CanvasBackend(
         return mode
 
     def pointer_lock_mode(self) -> str:
-        """Return or set the pointer-lock movement mode.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         return self._pointer_lock_mode
 
     def start_text_input(self) -> bool:
-        """Start text input for this CanvasBackend.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         callback = getattr(self.renderer.runtime_canvas(), "start_text_input", None)
         if callable(callback):
             return bool(callback())
@@ -220,14 +162,6 @@ class CanvasBackend(
         )
 
     def stop_text_input(self) -> bool:
-        """Stop text input for this CanvasBackend.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         callback = getattr(self.renderer.runtime_canvas(), "stop_text_input", None)
         if callable(callback):
             return bool(callback())
@@ -236,14 +170,6 @@ class CanvasBackend(
         )
 
     def text_input_active(self) -> bool:
-        """Text input active for this CanvasBackend.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         canvas = self.renderer._canvas
         callback = getattr(canvas, "text_input_active", None) if canvas is not None else None
         return bool(callback()) if callable(callback) else False
@@ -256,18 +182,6 @@ class CanvasBackend(
         *,
         renderer: c.RendererMode = c.P2D,
     ) -> None:
-        """Create and return a canvas value.
-        
-        Args:
-            width: The width value. Expected type: `int`.
-            height: The height value. Expected type: `int`.
-            pixel_density: The pixel density value. Expected type: `float | None`. Defaults to
-                `None`.
-            renderer: The renderer value. Expected type: `c.RendererMode`. Defaults to `c.P2D`.
-        
-        Returns:
-            None.
-        """
         self._ensure_supported_renderer(renderer)
         density = self.renderer.pixel_density if pixel_density is None else pixel_density
         self.renderer.resize(width, height, density, mode="headless", renderer=renderer)
@@ -281,29 +195,9 @@ class CanvasBackend(
         *,
         renderer: c.RendererMode = c.P2D,
     ) -> None:
-        """Resize canvas for this CanvasBackend.
-        
-        Args:
-            width: The width value. Expected type: `int`.
-            height: The height value. Expected type: `int`.
-            pixel_density: The pixel density value. Expected type: `float | None`. Defaults to
-                `None`.
-            renderer: The renderer value. Expected type: `c.RendererMode`. Defaults to `c.P2D`.
-        
-        Returns:
-            None.
-        """
         self.create_canvas(width, height, pixel_density, renderer=renderer)
 
     def display_density(self) -> float:
-        """Display density for this CanvasBackend.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return self.renderer.display_density()
 
     @staticmethod

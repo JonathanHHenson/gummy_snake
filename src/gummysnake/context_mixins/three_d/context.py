@@ -57,34 +57,21 @@ class ThreeDContextMixin(
     _frame_scroll_y: float
 
     @overload
-    def color(self, value: ColorValue, /) -> Color:
-        ...
+    def color(self, value: ColorValue, /) -> Color: ...
 
     @overload
-    def color(self, gray: Number, /) -> Color:
-        ...
+    def color(self, gray: Number, /) -> Color: ...
 
     @overload
-    def color(self, gray: Number, alpha: Number, /) -> Color:
-        ...
+    def color(self, gray: Number, alpha: Number, /) -> Color: ...
 
     @overload
-    def color(self, v1: Number, v2: Number, v3: Number, /) -> Color:
-        ...
+    def color(self, v1: Number, v2: Number, v3: Number, /) -> Color: ...
 
     @overload
-    def color(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> Color:
-        ...
+    def color(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> Color: ...
 
     def color(self, *args: Any) -> Color:
-        """Color.
-
-        Args:
-            *args: Additional positional arguments. Expected type: `Any`.
-
-        Returns:
-            The return value. Type: `Color`.
-        """
         raise NotImplementedError
 
     def _require_webgl_mode(self, api_name: str) -> None:

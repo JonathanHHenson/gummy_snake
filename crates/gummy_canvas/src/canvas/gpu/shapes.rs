@@ -359,28 +359,22 @@ impl Canvas {
         if rx <= 0.0 || ry <= 0.0 {
             return Ok(());
         }
+        let (x, y, width, height) = (cx - rx, cy - ry, rx * 2.0, ry * 2.0);
+        let matrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0);
         if style.erasing {
             if !self.can_queue_gpu_erase(style) {
                 return self.prepare_cpu_composite();
             }
             if style.fill.is_some() {
-                self.draw_gpu_erase_transformed_ellipse(
-                    cx - rx,
-                    cy - ry,
-                    rx * 2.0,
-                    ry * 2.0,
-                    (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
-                    1.0,
-                    0.0,
-                )?;
+                self.draw_gpu_erase_transformed_ellipse(x, y, width, height, matrix, 1.0, 0.0)?;
             }
             if style.stroke.is_some() {
                 self.draw_gpu_erase_transformed_ellipse(
-                    cx - rx,
-                    cy - ry,
-                    rx * 2.0,
-                    ry * 2.0,
-                    (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+                    x,
+                    y,
+                    width,
+                    height,
+                    matrix,
                     1.0,
                     stroke_width(style.stroke_weight, pixel_density),
                 )?;
@@ -389,11 +383,11 @@ impl Canvas {
         }
         if let Some(fill) = style.fill {
             self.draw_gpu_transformed_ellipse(
-                cx - rx,
-                cy - ry,
-                rx * 2.0,
-                ry * 2.0,
-                (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+                x,
+                y,
+                width,
+                height,
+                matrix,
                 1.0,
                 fill,
                 0.0,
@@ -402,11 +396,11 @@ impl Canvas {
         }
         if let Some(stroke) = style.stroke {
             self.draw_gpu_transformed_ellipse(
-                cx - rx,
-                cy - ry,
-                rx * 2.0,
-                ry * 2.0,
-                (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+                x,
+                y,
+                width,
+                height,
+                matrix,
                 1.0,
                 stroke,
                 stroke_width(style.stroke_weight, pixel_density),
@@ -537,18 +531,10 @@ impl Canvas {
         if points.len() < 3 {
             return Ok(());
         }
-        let mut instances = Vec::with_capacity(points.len() - 2);
-        for index in 1..points.len() - 1 {
-            instances.push(transformed_triangle_instance(
-                points[0],
-                points[index],
-                points[index + 1],
-                matrix,
-                pixel_density,
-                color,
-            ));
-        }
-        self.draw_gpu_primitive_instances(instances, blend_mode)
+        self.draw_gpu_primitive_instances(
+            transformed_polygon_fill_instances(points, matrix, pixel_density, color),
+            blend_mode,
+        )
     }
 
     pub(crate) fn draw_gpu_erase_transformed_polygon_fill(
@@ -560,18 +546,12 @@ impl Canvas {
         if points.len() < 3 {
             return Ok(());
         }
-        let mut instances = Vec::with_capacity(points.len() - 2);
-        for index in 1..points.len() - 1 {
-            instances.push(transformed_triangle_instance(
-                points[0],
-                points[index],
-                points[index + 1],
-                matrix,
-                pixel_density,
-                self.erase_color,
-            ));
-        }
-        self.draw_gpu_erase_primitive_instances(instances)
+        self.draw_gpu_erase_primitive_instances(transformed_polygon_fill_instances(
+            points,
+            matrix,
+            pixel_density,
+            self.erase_color,
+        ))
     }
 
     pub(crate) fn draw_gpu_transformed_ellipse(
@@ -702,6 +682,26 @@ fn transformed_rect_instance(
         PROCEDURAL_TRANSFORMED_RECT_KIND,
         0.0,
     )
+}
+
+fn transformed_polygon_fill_instances(
+    points: &[Point],
+    matrix: Matrix,
+    pixel_density: f64,
+    color: Rgba,
+) -> Vec<crate::gpu::PrimitiveInstance> {
+    (1..points.len() - 1)
+        .map(|index| {
+            transformed_triangle_instance(
+                points[0],
+                points[index],
+                points[index + 1],
+                matrix,
+                pixel_density,
+                color,
+            )
+        })
+        .collect()
 }
 
 fn transformed_ellipse_instance(
@@ -880,27 +880,19 @@ pub(crate) fn path_fill_segment_records_with_contours(
     pixel_density: f64,
     color: Rgba,
 ) -> Vec<crate::gpu::StrokePathRecord> {
-    let close_segment = close && vertices.len() > 1;
     let contour_command_count: usize = contours
         .iter()
         .filter(|contour| contour.len() > 1)
         .map(|contour| contour.len())
         .sum();
-    let command_count = segments.len() + usize::from(close_segment) + contour_command_count;
+    let command_count =
+        segments.len() + usize::from(close && vertices.len() > 1) + contour_command_count;
     let mut records = stroke_path_header(matrix, pixel_density, 0.0, color);
     records.push([command_count as f32, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
     for segment in segments {
         push_stroke_segment_records(&mut records, *segment);
     }
-    if close_segment {
-        push_stroke_segment_records(
-            &mut records,
-            crate::sketch_state::CapturedPathSegment::Line {
-                from: *vertices.last().expect("non-empty vertices"),
-                to: vertices[0],
-            },
-        );
-    }
+    push_closing_segment_records(&mut records, vertices, close);
     for contour in contours {
         push_closed_line_loop_records(&mut records, contour);
     }
@@ -969,23 +961,30 @@ fn stroke_path_segment_records(
     stroke_width: f64,
     color: Rgba,
 ) -> Vec<crate::gpu::StrokePathRecord> {
-    let close_segment = close && vertices.len() > 1;
-    let command_count = segments.len() + usize::from(close_segment);
+    let command_count = segments.len() + usize::from(close && vertices.len() > 1);
     let mut records = stroke_path_header(matrix, pixel_density, stroke_width, color);
     records.push([command_count as f32, 0.0, STROKE_PATH_SEGMENT_RECORDS, 0.0]);
     for segment in segments {
         push_stroke_segment_records(&mut records, *segment);
     }
-    if close_segment {
+    push_closing_segment_records(&mut records, vertices, close);
+    records
+}
+
+fn push_closing_segment_records(
+    records: &mut Vec<crate::gpu::StrokePathRecord>,
+    vertices: &[Point],
+    close: bool,
+) {
+    if close && vertices.len() > 1 {
         push_stroke_segment_records(
-            &mut records,
+            records,
             crate::sketch_state::CapturedPathSegment::Line {
                 from: *vertices.last().expect("non-empty vertices"),
                 to: vertices[0],
             },
         );
     }
-    records
 }
 
 fn push_closed_line_loop_records(

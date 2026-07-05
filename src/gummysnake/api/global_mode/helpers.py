@@ -17,6 +17,7 @@ class _Unset(Enum):
 
 class PointLike(Protocol):
     """Public PointLike value."""
+
     x: float
     y: float
 
@@ -30,39 +31,20 @@ type Unset = Literal[_Unset.TOKEN]
 
 
 def style_color_args(value: ColorArgument) -> tuple[Color | str | Number, ...]:
-    """Style color args.
-    
-    Args:
-        value: The value value. Expected type: `ColorArgument`.
-    
-    Returns:
-        The return value. Type: `tuple[Color | str | Number, ...]`.
-    """
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         return cast(tuple[Color | str | Number, ...], tuple(value))
     return cast(tuple[Color | str | Number, ...], (value,))
 
 
 @overload
-def xy(value: CoordinatePair, y: None = None) -> tuple[float, float]:
-    ...
+def xy(value: CoordinatePair, y: None = None) -> tuple[float, float]: ...
 
 
 @overload
-def xy(value: Number, y: Number) -> tuple[float, float]:
-    ...
+def xy(value: Number, y: Number) -> tuple[float, float]: ...
 
 
 def xy(value: CoordinatePair | Number, y: Number | None = None) -> tuple[float, float]:
-    """Xy.
-    
-    Args:
-        value: The value value. Expected type: `CoordinatePair | Number`.
-        y: The y value. Expected type: `Number | None`. Defaults to `None`.
-    
-    Returns:
-        The return value. Type: `tuple[float, float]`.
-    """
     if y is not None:
         return float(cast(float, value)), float(y)
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):

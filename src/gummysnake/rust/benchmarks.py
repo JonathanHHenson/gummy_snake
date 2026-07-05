@@ -25,29 +25,12 @@ class BenchmarkResult:
 
     @property
     def speedup(self) -> float | None:
-        """Speedup.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float | None`.
-        """
         if self.accelerated_seconds <= 0:
             return None
         return self.python_seconds / self.accelerated_seconds
 
 
 def benchmark_noise(samples: int = 2_000) -> BenchmarkResult:
-    """Time the selected procedural noise path against the Python fallback.
-    
-    Args:
-        samples: The samples value. Expected type: `int`. Defaults to `2000`.
-    
-    Returns:
-        The return value. Type: `BenchmarkResult`.
-    """
-
     coords = [
         (index * 0.017, index * 0.013, index * 0.011)
         for index in range(_validate_positive_samples(samples))
@@ -73,17 +56,6 @@ def benchmark_noise(samples: int = 2_000) -> BenchmarkResult:
 def benchmark_exclusion_blend(
     width: int = 256, height: int = 256, iterations: int = 25
 ) -> BenchmarkResult:
-    """Time the selected packed RGB exclusion blend path.
-    
-    Args:
-        width: The width value. Expected type: `int`. Defaults to `256`.
-        height: The height value. Expected type: `int`. Defaults to `256`.
-        iterations: The iterations value. Expected type: `int`. Defaults to `25`.
-    
-    Returns:
-        The return value. Type: `BenchmarkResult`.
-    """
-
     width = _validate_positive_samples(width)
     height = _validate_positive_samples(height)
     iterations = _validate_positive_samples(iterations)
@@ -115,14 +87,6 @@ def benchmark_exclusion_blend(
 
 
 def run_benchmarks() -> list[BenchmarkResult]:
-    """Run benchmarks.
-    
-    Args:
-        None.
-    
-    Returns:
-        The return value. Type: `list[BenchmarkResult]`.
-    """
     return [benchmark_noise(), benchmark_exclusion_blend()]
 
 

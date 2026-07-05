@@ -55,89 +55,32 @@ class Matrix2D:
 
     @property
     def a(self) -> float:
-        """A.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._component(0, "a"))
 
     @property
     def b(self) -> float:
-        """B.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._component(1, "b"))
 
     @property
     def c(self) -> float:
-        """C.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._component(2, "c"))
 
     @property
     def d(self) -> float:
-        """D.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._component(3, "d"))
 
     @property
     def e(self) -> float:
-        """E.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._component(4, "e"))
 
     @property
     def f(self) -> float:
-        """F.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._component(5, "f"))
 
     def _component(self, index: int, name: str) -> float:
         return float(getattr(self._handle, name))
 
     def as_tuple(self) -> tuple[float, float, float, float, float, float]:
-        """Return the compact affine tuple ``(a, b, c, d, e, f)``.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[float, float, float, float, float, float]`.
-        """
-
         as_tuple = getattr(self._handle, "as_tuple", None)
         if not callable(as_tuple):
             raise RuntimeError("The installed canvas runtime Matrix2D does not provide as_tuple().")
@@ -149,14 +92,6 @@ class Matrix2D:
         return result
 
     def multiply(self, other: Matrix2D) -> Matrix2D:
-        """Multiply.
-        
-        Args:
-            other: The other value. Expected type: `Matrix2D`.
-        
-        Returns:
-            The return value. Type: `Matrix2D`.
-        """
         if not isinstance(other, Matrix2D):
             return NotImplemented
         multiply = getattr(self._handle, "multiply", None)
@@ -174,15 +109,6 @@ class Matrix2D:
         )
 
     def transform_point(self, x: float, y: float) -> tuple[float, float]:
-        """Transform point.
-        
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-        
-        Returns:
-            The return value. Type: `tuple[float, float]`.
-        """
         transform_point = getattr(self._handle, "transform_point", None)
         if callable(transform_point):
             point = cast(Sequence[float], transform_point(float(x), float(y)))
@@ -193,14 +119,6 @@ class Matrix2D:
         return (a * x + c * y + e, b * x + d * y + f)
 
     def inverse(self) -> Matrix2D:
-        """Inverse.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Matrix2D`.
-        """
         inverse = getattr(self._handle, "inverse", None)
         if callable(inverse):
             return Matrix2D(_handle=inverse())
@@ -218,16 +136,6 @@ class Matrix2D:
         )
 
     def to_ndarray(self, *, shape: tuple[int, int] = (3, 3), copy: bool = True) -> Any:
-        """Export this matrix as a NumPy ``ndarray``.
-        
-        Args:
-            shape: The shape value. Expected type: `tuple[int, int]`. Defaults to `(3, 3)`.
-            copy: The copy value. Expected type: `bool`. Defaults to `True`.
-        
-        Returns:
-            The return value. Type: `Any`.
-        """
-
         try:
             import numpy as np
         except ImportError as exc:
@@ -252,15 +160,6 @@ class Matrix2D:
 
     @classmethod
     def from_ndarray(cls, value: Any) -> Matrix2D:
-        """Create a matrix from a NumPy-compatible array with shape ``(3, 3)`` or ``(2, 3)``.
-        
-        Args:
-            value: The value value. Expected type: `Any`.
-        
-        Returns:
-            The return value. Type: `Matrix2D`.
-        """
-
         try:
             import numpy as np
         except ImportError as exc:
@@ -293,27 +192,10 @@ class Matrix2D:
 
     @classmethod
     def identity(cls) -> Matrix2D:
-        """Identity.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Matrix2D`.
-        """
         return cls()
 
     @classmethod
     def translation(cls, x: float, y: float) -> Matrix2D:
-        """Translation.
-        
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-        
-        Returns:
-            The return value. Type: `Matrix2D`.
-        """
         matrix_type = _matrix_handle_type()
         translation = getattr(matrix_type, "translation", None)
         if callable(translation):
@@ -322,14 +204,6 @@ class Matrix2D:
 
     @classmethod
     def rotation(cls, angle: float) -> Matrix2D:
-        """Rotation.
-        
-        Args:
-            angle: The angle value. Expected type: `float`.
-        
-        Returns:
-            The return value. Type: `Matrix2D`.
-        """
         matrix_type = _matrix_handle_type()
         rotation = getattr(matrix_type, "rotation", None)
         if callable(rotation):
@@ -342,15 +216,6 @@ class Matrix2D:
 
     @classmethod
     def scaling(cls, x: float, y: float | None = None) -> Matrix2D:
-        """Scaling.
-        
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `Matrix2D`.
-        """
         matrix_type = _matrix_handle_type()
         scaling = getattr(matrix_type, "scaling", None)
         if callable(scaling):
@@ -360,14 +225,6 @@ class Matrix2D:
 
     @classmethod
     def shear_x(cls, angle: float) -> Matrix2D:
-        """Shear x.
-        
-        Args:
-            angle: The angle value. Expected type: `float`.
-        
-        Returns:
-            The return value. Type: `Matrix2D`.
-        """
         matrix_type = _matrix_handle_type()
         shear_x = getattr(matrix_type, "shear_x", None)
         if callable(shear_x):
@@ -378,14 +235,6 @@ class Matrix2D:
 
     @classmethod
     def shear_y(cls, angle: float) -> Matrix2D:
-        """Shear y.
-        
-        Args:
-            angle: The angle value. Expected type: `float`.
-        
-        Returns:
-            The return value. Type: `Matrix2D`.
-        """
         matrix_type = _matrix_handle_type()
         shear_y = getattr(matrix_type, "shear_y", None)
         if callable(shear_y):
@@ -395,49 +244,17 @@ class Matrix2D:
         return cls(1.0, math.tan(float(angle)), 0.0, 1.0, 0.0, 0.0)
 
     def __iter__(self):
-        """Iter.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value.
-        """
         return iter(self.as_tuple())
 
     def __eq__(self, other: object) -> bool:
-        """Eq.
-        
-        Args:
-            other: The other value. Expected type: `object`.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         if not isinstance(other, Matrix2D):
             return NotImplemented
         return self.as_tuple() == other.as_tuple()
 
     def __hash__(self) -> int:
-        """Hash.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `int`.
-        """
         return hash(self.as_tuple())
 
     def __repr__(self) -> str:
-        """Repr.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         return (
             f"Matrix2D(a={self.a!r}, b={self.b!r}, c={self.c!r}, "
             f"d={self.d!r}, e={self.e!r}, f={self.f!r})"

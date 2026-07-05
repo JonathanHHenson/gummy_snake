@@ -96,14 +96,6 @@ class CanvasRendererCore(
         self._abort_frame_on_native_close = False
 
     def set_current_style(self, style: StyleState) -> None:
-        """Set the current style value.
-
-        Args:
-            style: The style value. Expected type: `StyleState`.
-
-        Returns:
-            None.
-        """
         host = cast(CanvasRendererHost, self)
         host._flush_line_batch_only()
         host._flush_text_batch()
@@ -121,14 +113,6 @@ class CanvasRendererCore(
             self._rust_style_synced = True
 
     def set_current_matrix(self, transform: Matrix2D) -> None:
-        """Set the current matrix value.
-
-        Args:
-            transform: The transform value. Expected type: `Matrix2D`.
-
-        Returns:
-            None.
-        """
         self.remember_current_matrix(transform)
         if self._canvas is None:
             return
@@ -142,14 +126,6 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def push_canvas_state(self) -> None:
-        """Push the current canvas style and transform state.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -176,14 +152,6 @@ class CanvasRendererCore(
             self._call("canvas state push", callback)
 
     def pop_canvas_state(self) -> None:
-        """Pop the most recently pushed canvas style and transform state.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -198,15 +166,6 @@ class CanvasRendererCore(
             self._rust_style_synced = True
 
     def translate(self, x: float, y: float) -> None:
-        """Translate for this CanvasRendererCore.
-
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -219,14 +178,6 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def rotate(self, angle: float) -> None:
-        """Rotate for this CanvasRendererCore.
-
-        Args:
-            angle: The angle value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -239,15 +190,6 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def scale(self, x: float, y: float | None = None) -> None:
-        """Scale for this CanvasRendererCore.
-
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float | None`. Defaults to `None`.
-
-        Returns:
-            None.
-        """
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -260,14 +202,6 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def shear_x(self, angle: float) -> None:
-        """Shear x for this CanvasRendererCore.
-
-        Args:
-            angle: The angle value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -280,14 +214,6 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def shear_y(self, angle: float) -> None:
-        """Shear y for this CanvasRendererCore.
-
-        Args:
-            angle: The angle value. Expected type: `float`.
-
-        Returns:
-            None.
-        """
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -300,14 +226,6 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def apply_matrix(self, transform: Matrix2D) -> None:
-        """Apply matrix for this CanvasRendererCore.
-
-        Args:
-            transform: The transform value. Expected type: `Matrix2D`.
-
-        Returns:
-            None.
-        """
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -320,14 +238,6 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def reset_matrix(self) -> None:
-        """Reset matrix for this CanvasRendererCore.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -349,12 +259,4 @@ class CanvasRendererCore(
         )
 
     def remember_current_matrix(self, transform: Matrix2D) -> None:
-        """Remember current matrix for this CanvasRendererCore.
-
-        Args:
-            transform: The transform value. Expected type: `Matrix2D`.
-
-        Returns:
-            None.
-        """
         self._current_matrix_payload = self._matrix_payload(transform)

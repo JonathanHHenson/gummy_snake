@@ -7,15 +7,6 @@ from pathlib import Path
 
 
 def resolve_asset_path(path: str | Path) -> Path:
-    """Resolve an asset path relative to the calling sketch when possible.
-    
-    Args:
-        path: The path value. Expected type: `str | Path`.
-    
-    Returns:
-        The return value. Type: `Path`.
-    """
-
     asset_path = Path(path)
     if asset_path.is_absolute() or asset_path.exists():
         return asset_path

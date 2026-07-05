@@ -28,39 +28,13 @@ class Shader3D:
         self.uniforms = dict(self.uniforms)
 
     def set_uniform(self, name: str, value: ShaderUniformValue) -> None:
-        """Set uniform.
-        
-        Args:
-            name: The name value. Expected type: `str`.
-            value: The value value. Expected type: `ShaderUniformValue`.
-        
-        Returns:
-            None.
-        """
         self.uniforms[name] = value
 
     def uniform(self, name: str, value: ShaderUniformValue) -> Shader3D:
-        """Uniform.
-        
-        Args:
-            name: The name value. Expected type: `str`.
-            value: The value value. Expected type: `ShaderUniformValue`.
-        
-        Returns:
-            The return value. Type: `Shader3D`.
-        """
         self.set_uniform(name, value)
         return self
 
     def version(self) -> str:
-        """Version.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         if "#version 300 es" in self.vertex_source or "#version 300 es" in self.fragment_source:
             return "glsl-es-300"
         if "#version" in self.vertex_source or "#version" in self.fragment_source:
@@ -68,14 +42,6 @@ class Shader3D:
         return "glsl-es-100"
 
     def copy_to_context(self) -> Shader3D:
-        """Copy to context.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Shader3D`.
-        """
         return Shader3D(
             vertex_source=self.vertex_source,
             fragment_source=self.fragment_source,
@@ -85,14 +51,6 @@ class Shader3D:
         )
 
     def inspect_hooks(self) -> dict[str, bool]:
-        """Inspect hooks.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `dict[str, bool]`.
-        """
         combined = f"{self.vertex_source}\n{self.fragment_source}"
         return {
             "vertex": "void main" in self.vertex_source,
@@ -108,18 +66,6 @@ class Shader3D:
         fragment_source: str | None = None,
         uniforms: MutableMapping[str, ShaderUniformValue] | None = None,
     ) -> Shader3D:
-        """Modify.
-        
-        Args:
-            vertex_source: The vertex source value. Expected type: `str | None`. Defaults to `None`.
-            fragment_source: The fragment source value. Expected type: `str | None`. Defaults to
-                `None`.
-            uniforms: The uniforms value. Expected type: `MutableMapping[str, ShaderUniformValue] |
-                None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `Shader3D`.
-        """
         next_uniforms = dict(self.uniforms)
         if uniforms is not None:
             next_uniforms.update(uniforms)

@@ -29,28 +29,12 @@ class Vec3:
         return array.copy() if copy else array
 
     def to_array(self, *, copy: bool = True) -> Any:
-        """To array.
-        
-        Args:
-            copy: The copy value. Expected type: `bool`. Defaults to `True`.
-        
-        Returns:
-            The return value. Type: `Any`.
-        """
         np = _require_numpy("Vec3.to_array()")
         array = np.array((self.x, self.y, self.z), dtype=np.float64)
         return array.copy() if copy else array
 
     @classmethod
     def from_array(cls, value: Any) -> Vec3:
-        """From array.
-        
-        Args:
-            value: The value value. Expected type: `Any`.
-        
-        Returns:
-            The return value. Type: `Vec3`.
-        """
         np = _require_numpy("Vec3.from_array()")
         array = np.asarray(value, dtype=np.float64)
         if array.shape != (3,):
@@ -68,40 +52,14 @@ class Camera3D:
 
     @property
     def center(self) -> Vec3:
-        """Center.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Vec3`.
-        """
         return self.target
 
     def copy(self) -> Camera3D:
-        """Copy.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Camera3D`.
-        """
         return Camera3D(eye=self.eye, target=self.target, up=self.up)
 
     def set(
         self, *, eye: Vec3 | None = None, target: Vec3 | None = None, up: Vec3 | None = None
     ) -> Camera3D:
-        """Set.
-        
-        Args:
-            eye: The eye value. Expected type: `Vec3 | None`. Defaults to `None`.
-            target: The target value. Expected type: `Vec3 | None`. Defaults to `None`.
-            up: The up value. Expected type: `Vec3 | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `Camera3D`.
-        """
         return Camera3D(
             eye=self.eye if eye is None else eye,
             target=self.target if target is None else target,
@@ -109,29 +67,9 @@ class Camera3D:
         )
 
     def look_at(self, x: float, y: float, z: float) -> Camera3D:
-        """Look at.
-        
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            z: The z value. Expected type: `float`.
-        
-        Returns:
-            The return value. Type: `Camera3D`.
-        """
         return self.set(target=Vec3(float(x), float(y), float(z)))
 
     def move(self, x: float, y: float, z: float) -> Camera3D:
-        """Move.
-        
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            z: The z value. Expected type: `float`.
-        
-        Returns:
-            The return value. Type: `Camera3D`.
-        """
         delta = Vec3(float(x), float(y), float(z))
         return Camera3D(
             eye=Vec3(self.eye.x + delta.x, self.eye.y + delta.y, self.eye.z + delta.z),
@@ -140,15 +78,6 @@ class Camera3D:
         )
 
     def interpolate(self, other: Camera3D, amount: float) -> Camera3D:
-        """Interpolate.
-        
-        Args:
-            other: The other value. Expected type: `Camera3D`.
-            amount: The amount value. Expected type: `float`.
-        
-        Returns:
-            The return value. Type: `Camera3D`.
-        """
         t = float(amount)
         return Camera3D(
             eye=_lerp_vec3(self.eye, other.eye, t),

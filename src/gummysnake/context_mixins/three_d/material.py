@@ -46,83 +46,50 @@ class ThreeDMaterialMixin:
     _shader3d: Shader3D | None
 
     @overload
-    def ambient_light(self, value: ColorValue, /) -> None:
-        ...
+    def ambient_light(self, value: ColorValue, /) -> None: ...
 
     @overload
-    def ambient_light(self, gray: Number, /) -> None:
-        ...
+    def ambient_light(self, gray: Number, /) -> None: ...
 
     @overload
-    def ambient_light(self, gray: Number, alpha: Number, /) -> None:
-        ...
+    def ambient_light(self, gray: Number, alpha: Number, /) -> None: ...
 
     @overload
-    def ambient_light(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        ...
+    def ambient_light(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
 
     @overload
-    def ambient_light(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        ...
+    def ambient_light(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
 
     def ambient_light(self, *args: Any) -> None:
-        """Ambient light.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `Any`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("ambient_light")
         color = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
         self._lights3d.append(Light3D(kind=LightKind.AMBIENT, color=color))
 
     def lights(self) -> None:
-        """Lights.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("lights")
         self.no_lights()
         self.ambient_light(128)
         self.directional_light(255, 0, 0, -1)
 
     def no_lights(self) -> None:
-        """No lights.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("no_lights")
         self._lights3d = []
 
     @overload
-    def directional_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None:
-        ...
+    def directional_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None: ...
 
     @overload
-    def directional_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None:
-        ...
+    def directional_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None: ...
 
     @overload
     def directional_light(
         self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def directional_light(
         self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def directional_light(
@@ -135,18 +102,9 @@ class ThreeDMaterialMixin:
         y: Number,
         z: Number,
         /,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def directional_light(self, *args: Any) -> None:
-        """Directional light.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `Any`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("directional_light")
         color, tail = _three_d(self)._split_color_args(args, tail_count=3)
         self._lights3d.append(
@@ -158,24 +116,20 @@ class ThreeDMaterialMixin:
         )
 
     @overload
-    def point_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None:
-        ...
+    def point_light(self, value: ColorValue, x: Number, y: Number, z: Number, /) -> None: ...
 
     @overload
-    def point_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None:
-        ...
+    def point_light(self, gray: Number, x: Number, y: Number, z: Number, /) -> None: ...
 
     @overload
     def point_light(
         self, gray: Number, alpha: Number, x: Number, y: Number, z: Number, /
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def point_light(
         self, v1: Number, v2: Number, v3: Number, x: Number, y: Number, z: Number, /
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def point_light(
@@ -188,18 +142,9 @@ class ThreeDMaterialMixin:
         y: Number,
         z: Number,
         /,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def point_light(self, *args: Any) -> None:
-        """Point light.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `Any`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("point_light")
         color, tail = _three_d(self)._split_color_args(args, tail_count=3)
         self._lights3d.append(
@@ -212,14 +157,6 @@ class ThreeDMaterialMixin:
         )
 
     def spot_light(self, *args: Any) -> None:
-        """Spot light.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `Any`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("spot_light")
         try:
             color, tail = _three_d(self)._split_color_args(args, tail_count=8)
@@ -239,15 +176,6 @@ class ThreeDMaterialMixin:
         )
 
     def image_light(self, image: Image, intensity: float = 1.0) -> None:
-        """Image light.
-        
-        Args:
-            image: The image value. Expected type: `Image`.
-            intensity: The intensity value. Expected type: `float`. Defaults to `1.0`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("image_light")
         if not isinstance(image, Image):
             raise ArgumentValidationError("image_light() requires a Gummy Snake Image object.")
@@ -256,14 +184,6 @@ class ThreeDMaterialMixin:
         )
 
     def panorama(self, image: Image | None = None) -> Image | None:
-        """Panorama.
-        
-        Args:
-            image: The image value. Expected type: `Image | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `Image | None`.
-        """
         _three_d(self)._require_webgl_mode("panorama")
         if image is not None and not isinstance(image, Image):
             raise ArgumentValidationError("panorama() requires a Gummy Snake Image object.")
@@ -272,76 +192,37 @@ class ThreeDMaterialMixin:
         return cast(Image | None, self._panorama3d)
 
     def light_falloff(self, constant: float, linear: float, quadratic: float) -> None:
-        """Light falloff.
-        
-        Args:
-            constant: The constant value. Expected type: `float`.
-            linear: The linear value. Expected type: `float`.
-            quadratic: The quadratic value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("light_falloff")
         if constant < 0 or linear < 0 or quadratic < 0:
             raise ArgumentValidationError("light_falloff() values cannot be negative.")
         self._light_falloff3d = (float(constant), float(linear), float(quadratic))
 
     def specular_color(self, *args: Any) -> None:
-        """Specular color.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `Any`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("specular_color")
         self._specular_color3d = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
         self._material3d = _three_d(self)._replace_material(specular_color=self._specular_color3d)
 
     def normal_material(self) -> None:
-        """Normal material.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("normal_material")
         self._material3d = None
         self._normal_material3d = True
 
     @overload
-    def ambient_material(self, value: ColorValue, /) -> None:
-        ...
+    def ambient_material(self, value: ColorValue, /) -> None: ...
 
     @overload
-    def ambient_material(self, gray: Number, /) -> None:
-        ...
+    def ambient_material(self, gray: Number, /) -> None: ...
 
     @overload
-    def ambient_material(self, gray: Number, alpha: Number, /) -> None:
-        ...
+    def ambient_material(self, gray: Number, alpha: Number, /) -> None: ...
 
     @overload
-    def ambient_material(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        ...
+    def ambient_material(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
 
     @overload
-    def ambient_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        ...
+    def ambient_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
 
     def ambient_material(self, *args: Any) -> None:
-        """Ambient material.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `Any`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("ambient_material")
         self._material3d = _three_d(self)._replace_material(
             base_color=_three_d(self)._color_to_rgba(_three_d(self).color(*args)), texture=None
@@ -349,34 +230,21 @@ class ThreeDMaterialMixin:
         self._normal_material3d = False
 
     @overload
-    def specular_material(self, value: ColorValue, /) -> None:
-        ...
+    def specular_material(self, value: ColorValue, /) -> None: ...
 
     @overload
-    def specular_material(self, gray: Number, /) -> None:
-        ...
+    def specular_material(self, gray: Number, /) -> None: ...
 
     @overload
-    def specular_material(self, gray: Number, alpha: Number, /) -> None:
-        ...
+    def specular_material(self, gray: Number, alpha: Number, /) -> None: ...
 
     @overload
-    def specular_material(self, v1: Number, v2: Number, v3: Number, /) -> None:
-        ...
+    def specular_material(self, v1: Number, v2: Number, v3: Number, /) -> None: ...
 
     @overload
-    def specular_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None:
-        ...
+    def specular_material(self, v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
 
     def specular_material(self, *args: Any) -> None:
-        """Specular material.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `Any`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("specular_material")
         color = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
         self._material3d = _three_d(self)._replace_material(
@@ -385,28 +253,12 @@ class ThreeDMaterialMixin:
         self._normal_material3d = False
 
     def shininess(self, value: float) -> None:
-        """Shininess.
-        
-        Args:
-            value: The value value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("shininess")
         if value <= 0:
             raise ArgumentValidationError("shininess() must be positive.")
         self._material3d = _three_d(self)._replace_material(shininess=float(value))
 
     def emissive_material(self, *args: Any) -> None:
-        """Emissive material.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `Any`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("emissive_material")
         emissive = _three_d(self)._color_to_rgba(_three_d(self).color(*args))
         self._material3d = _three_d(self)._replace_material(
@@ -415,14 +267,6 @@ class ThreeDMaterialMixin:
         self._normal_material3d = False
 
     def metalness(self, value: float) -> None:
-        """Metalness.
-        
-        Args:
-            value: The value value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("metalness")
         if not 0.0 <= value <= 1.0:
             raise ArgumentValidationError("metalness() must be between 0 and 1.")
@@ -431,15 +275,6 @@ class ThreeDMaterialMixin:
     def texture_mode(
         self, mode: c.TextureCoordinateMode | str | None = None
     ) -> c.TextureCoordinateMode:
-        """Texture mode.
-        
-        Args:
-            mode: The mode value. Expected type: `c.TextureCoordinateMode | str | None`. Defaults to
-                `None`.
-        
-        Returns:
-            The return value. Type: `c.TextureCoordinateMode`.
-        """
         _three_d(self)._require_webgl_mode("texture_mode")
         if mode is not None:
             self._texture_mode3d = c.TextureCoordinateMode(mode)
@@ -450,17 +285,6 @@ class ThreeDMaterialMixin:
         wrap_x: c.TextureWrapMode | str | None = None,
         wrap_y: c.TextureWrapMode | str | None = None,
     ) -> tuple[c.TextureWrapMode, c.TextureWrapMode]:
-        """Texture wrap.
-        
-        Args:
-            wrap_x: The wrap x value. Expected type: `c.TextureWrapMode | str | None`. Defaults to
-                `None`.
-            wrap_y: The wrap y value. Expected type: `c.TextureWrapMode | str | None`. Defaults to
-                `None`.
-        
-        Returns:
-            The return value. Type: `tuple[c.TextureWrapMode, c.TextureWrapMode]`.
-        """
         _three_d(self)._require_webgl_mode("texture_wrap")
         if wrap_x is not None:
             x_mode = c.TextureWrapMode(wrap_x)
@@ -469,14 +293,6 @@ class ThreeDMaterialMixin:
         return self._texture_wrap3d or (c.CLAMP, c.CLAMP)
 
     def texture(self, image: Image) -> None:
-        """Texture.
-        
-        Args:
-            image: The image value. Expected type: `Image`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("texture")
         if not isinstance(image, Image):
             raise ArgumentValidationError("texture() requires a Gummy Snake Image object.")
@@ -494,42 +310,16 @@ class ThreeDMaterialMixin:
         self._normal_material3d = False
 
     def load_shader(self, vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
-        """Load shader.
-        
-        Args:
-            vertex_path: The vertex path value. Expected type: `str | Path`.
-            fragment_path: The fragment path value. Expected type: `str | Path`.
-        
-        Returns:
-            The return value. Type: `Shader3D`.
-        """
         from gummysnake.assets.shader import load_shader as _load_shader
 
         return _load_shader(vertex_path, fragment_path)
 
     def create_shader(self, vertex_source: str, fragment_source: str) -> Shader3D:
-        """Create shader.
-        
-        Args:
-            vertex_source: The vertex source value. Expected type: `str`.
-            fragment_source: The fragment source value. Expected type: `str`.
-        
-        Returns:
-            The return value. Type: `Shader3D`.
-        """
         from gummysnake.assets.shader import create_shader as _create_shader
 
         return _create_shader(vertex_source, fragment_source)
 
     def shader(self, shader: Shader3D) -> None:
-        """Shader.
-        
-        Args:
-            shader: The shader value. Expected type: `Shader3D`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("shader")
         if not self.backend.capabilities.shaders:
             enable_native_webgl = getattr(self.backend, "enable_native_webgl", None)
@@ -544,27 +334,10 @@ class ThreeDMaterialMixin:
         self._shader3d = shader
 
     def reset_shader(self) -> None:
-        """Reset shader.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("reset_shader")
         self._shader3d = None
 
     def set_shader_uniform(self, name: str, value: ShaderUniformValue) -> None:
-        """Set shader uniform.
-        
-        Args:
-            name: The name value. Expected type: `str`.
-            value: The value value. Expected type: `ShaderUniformValue`.
-        
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("set_shader_uniform")
         if self._shader3d is None:
             raise ShaderUniformError(

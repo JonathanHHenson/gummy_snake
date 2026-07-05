@@ -8,16 +8,6 @@ from gummysnake.core.random import shared_rng
 
 
 def shuffle[T](values: Sequence[T], *, in_place: bool = False) -> list[T] | MutableSequence[T]:
-    """Shuffle values using Gummy Snake's RNG controlled by ``random_seed()``.
-    
-    Args:
-        values: The values value. Expected type: `Sequence[T]`.
-        in_place: The in place value. Expected type: `bool`. Defaults to `False`.
-    
-    Returns:
-        The return value. Type: `list[T] | MutableSequence[T]`.
-    """
-
     if in_place:
         if not isinstance(values, MutableSequence):
             raise TypeError("shuffle(..., in_place=True) requires a mutable sequence.")

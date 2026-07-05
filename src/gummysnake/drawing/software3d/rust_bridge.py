@@ -40,24 +40,6 @@ def rust_project_shade_faces(
     cull_backfaces: bool,
     model_transform: Matrix2D | None = None,
 ) -> list[dict[str, Any]]:
-    """Rust project shade faces.
-    
-    Args:
-        model: The model value. Expected type: `Model3D`.
-        camera: The camera value. Expected type: `Camera3D`.
-        projection: The projection value. Expected type: `Projection3D`.
-        viewport_width: The viewport width value. Expected type: `float`.
-        viewport_height: The viewport height value. Expected type: `float`.
-        base_material: The base material value. Expected type: `Material3D`.
-        lights: The lights value. Expected type: `tuple[Light3D, ...]`.
-        normal_material: The normal material value. Expected type: `bool`.
-        cull_backfaces: The cull backfaces value. Expected type: `bool`.
-        model_transform: The model transform value. Expected type: `Matrix2D | None`. Defaults to
-            `None`.
-    
-    Returns:
-        The return value. Type: `list[dict[str, Any]]`.
-    """
     from gummysnake.rust.canvas import require_canvas_runtime
 
     runtime = require_canvas_runtime()

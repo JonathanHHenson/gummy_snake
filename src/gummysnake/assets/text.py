@@ -48,14 +48,6 @@ class Font:
 
 
 def load_font(path: str | Path) -> Font:
-    """Load and return font.
-
-    Args:
-        path: The path value. Expected type: `str | Path`.
-
-    Returns:
-        The return value. Type: `Font`.
-    """
     font_path = resolve_asset_path(path)
     if not font_path.exists():
         raise ArgumentValidationError(f"Font file does not exist: {font_path!s}.")
@@ -63,14 +55,6 @@ def load_font(path: str | Path) -> Font:
 
 
 async def load_font_async(path: str | Path) -> Font:
-    """Load and return a font asynchronously.
-
-    Args:
-        path: The path value. Expected type: `str | Path`.
-
-    Returns:
-        The return value. Type: `Font`.
-    """
     return load_font(path)
 
 

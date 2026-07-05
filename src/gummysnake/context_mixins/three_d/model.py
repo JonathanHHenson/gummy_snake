@@ -70,37 +70,13 @@ class ThreeDModelMixin:
 
     @property
     def width(self) -> int:
-        """Width.
-
-        Args:
-            None.
-
-        Returns:
-            The return value. Type: `int`.
-        """
         raise NotImplementedError
 
     @property
     def height(self) -> int:
-        """Height.
-
-        Args:
-            None.
-
-        Returns:
-            The return value. Type: `int`.
-        """
         raise NotImplementedError
 
     def model(self, shape: Mesh3D | Model3D) -> None:
-        """Model.
-
-        Args:
-            shape: The shape value. Expected type: `Mesh3D | Model3D`.
-
-        Returns:
-            None.
-        """
         _three_d(self)._require_webgl_mode("model")
         if isinstance(shape, Mesh3D):
             model = Model3D(meshes=(shape,))

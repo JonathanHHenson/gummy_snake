@@ -30,15 +30,6 @@ class ProjectedLine:
 
 
 def cube_model(size: float = 100.0) -> Model3D:
-    """Return a simple indexed cube model centered on the origin.
-
-    Args:
-        size: The size value. Expected type: `float`. Defaults to `100.0`.
-
-    Returns:
-        The return value. Type: `Model3D`.
-    """
-
     if size <= 0:
         raise ValueError("cube_model() size must be positive.")
     h = size / 2.0
@@ -71,19 +62,6 @@ def wireframe_segments(
     viewport_width: float,
     viewport_height: float,
 ) -> list[ProjectedLine]:
-    """Project model edges into 2D line segments.
-
-    Args:
-        model: The model value. Expected type: `Model3D`.
-        camera: The camera value. Expected type: `Camera3D`.
-        projection: The projection value. Expected type: `Projection3D`.
-        viewport_width: The viewport width value. Expected type: `float`.
-        viewport_height: The viewport height value. Expected type: `float`.
-
-    Returns:
-        The return value. Type: `list[ProjectedLine]`.
-    """
-
     if viewport_width <= 0 or viewport_height <= 0:
         raise ValueError("viewport dimensions must be positive.")
     _validate_projection(projection)

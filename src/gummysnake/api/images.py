@@ -37,14 +37,6 @@ def image(
 
 
 def image(*args: Any) -> None:
-    """Image using the active images context.
-
-    Args:
-        *args: Additional positional arguments. Expected type: `Any`.
-
-    Returns:
-        None.
-    """
     if len(args) == 5 and isinstance(args[0], Image | CanvasImage):
         context = require_context()
         source = cast(Image | CanvasImage, args[0])
@@ -94,26 +86,10 @@ def tint(v1: float, v2: float, v3: float, alpha: float, /) -> None: ...
 
 
 def tint(*args: Any) -> None:
-    """Tint using the active images context.
-
-    Args:
-        *args: Additional positional arguments. Expected type: `Any`.
-
-    Returns:
-        None.
-    """
     _context_call("tint", *args)
 
 
 def no_tint() -> None:
-    """Disable tint for subsequent operations.
-
-    Args:
-        None.
-
-    Returns:
-        None.
-    """
     _context_call("no_tint")
 
 

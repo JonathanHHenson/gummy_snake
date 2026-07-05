@@ -42,18 +42,6 @@ class CanvasRendererLifecycleMixin:
         mode: str = "headless",
         renderer: c.RendererMode = c.P2D,
     ) -> None:
-        """Resize.
-
-        Args:
-            width: The width value. Expected type: `int`.
-            height: The height value. Expected type: `int`.
-            pixel_density: The pixel density value. Expected type: `float`. Defaults to `1.0`.
-            mode: The mode value. Expected type: `str`. Defaults to `'headless'`.
-            renderer: The renderer value. Expected type: `c.RendererMode`. Defaults to `c.P2D`.
-
-        Returns:
-            None.
-        """
         host = cast(_LifecycleHost, self)
         cast(CanvasRendererHost, self)._flush_line_batch()
         canvas_type = host._canvas_type()
@@ -76,18 +64,6 @@ class CanvasRendererLifecycleMixin:
         pixel_density: float = 1.0,
         renderer: c.RendererMode | None = None,
     ) -> None:
-        """Resize canvas.
-
-        Args:
-            width: The width value. Expected type: `int`.
-            height: The height value. Expected type: `int`.
-            pixel_density: The pixel density value. Expected type: `float`. Defaults to `1.0`.
-            renderer: The renderer value. Expected type: `c.RendererMode | None`. Defaults to
-                `None`.
-
-        Returns:
-            None.
-        """
         host = cast(_LifecycleHost, self)
         cast(CanvasRendererHost, self)._flush_line_batch()
         renderer_mode = host.renderer_mode if renderer is None else renderer
@@ -105,14 +81,6 @@ class CanvasRendererLifecycleMixin:
             raise ArgumentValidationError(str(exc)) from exc
 
     def begin_frame(self) -> None:
-        """Begin frame.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
         host = cast(_LifecycleHost, self)
         host._abort_frame_on_native_close = True
         host._skip_canvas_end_frame = False
@@ -120,14 +88,6 @@ class CanvasRendererLifecycleMixin:
         host._require_canvas().begin_frame()
 
     def end_frame(self) -> None:
-        """End frame.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
         host = cast(_LifecycleHost, self)
         try:
             renderer = cast(CanvasRendererHost, self)
@@ -143,14 +103,6 @@ class CanvasRendererLifecycleMixin:
             host._abort_frame_on_native_close = False
 
     def present(self) -> None:
-        """Present.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
         host = cast(_LifecycleHost, self)
         cast(CanvasRendererHost, self)._flush_line_batch()
         if host._pump_native_events_if_due(force=True) or host._should_close():
@@ -159,14 +111,6 @@ class CanvasRendererLifecycleMixin:
         host._count("frames_presented")
 
     def close(self) -> None:
-        """Close.
-
-        Args:
-            None.
-
-        Returns:
-            None.
-        """
         host = cast(_LifecycleHost, self)
         host._abort_frame_on_native_close = False
         cast(CanvasRendererHost, self)._flush_line_batch()
@@ -174,37 +118,12 @@ class CanvasRendererLifecycleMixin:
             host._canvas.close()
 
     def runtime_canvas(self) -> Any:
-        """Return the underlying Rust canvas/runtime object for backend event-loop calls.
-
-        Args:
-            None.
-
-        Returns:
-            The return value. Type: `Any`.
-        """
-
         return cast(_LifecycleHost, self)._require_canvas()
 
     def clip_depth(self) -> int:
-        """Clip depth.
-
-        Args:
-            None.
-
-        Returns:
-            The return value. Type: `int`.
-        """
         return cast(_LifecycleHost, self)._clip_depth
 
     def restore_clip_depth(self, depth: int) -> None:
-        """Restore clip depth.
-
-        Args:
-            depth: The depth value. Expected type: `int`.
-
-        Returns:
-            None.
-        """
         host = cast(_LifecycleHost, self)
         if depth < 0:
             raise ArgumentValidationError("Clip depth cannot be negative.")
