@@ -480,7 +480,7 @@ class _PhysicalPayloadBuilder:
             return self._add_action(
                 {
                     "kind": "emit_event",
-                    "event_type": _event_type_name(event_type),
+                    "event_type": _schema_name(event_type),
                     "value": self._serialize_literal(action.event_value),
                 }
             )
@@ -570,7 +570,7 @@ class _PhysicalPayloadBuilder:
             return self._add_expr(
                 {
                     "kind": "event_stream",
-                    "event_type": _event_type_name(source.reader.event_type),
+                    "event_type": _schema_name(source.reader.event_type),
                 }
             )
         if isinstance(source, UdfIterableSource):
@@ -600,10 +600,6 @@ def build_physical_payload(world: Any, built: Any) -> dict[str, Any]:
 
 def _schema_name(component_type: type[Any]) -> str:
     return f"{component_type.__module__}.{component_type.__qualname__}"
-
-
-def _event_type_name(event_type: type[Any]) -> str:
-    return _schema_name(event_type)
 
 
 def _key_code(key: int | str) -> int:

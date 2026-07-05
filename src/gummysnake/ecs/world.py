@@ -454,26 +454,18 @@ class EcsWorld:
     def add_component(self, entity: Entity, component: object) -> None:
         self._validate_value(component)
         self._slot(entity)
-        component_type = type(component)
-        existed = self._has_component(entity, component_type)
-        if not existed:
-            self._rust.add_component_default(
-                entity.index, entity.generation, _schema_name(component_type)
-            )
-        self._sync_component_fields_to_rust(entity, component_type, component)
-        if existed:
-            self._note_field_update(entity, component_type)
-        else:
-            self._mark_component_added(entity, component_type)
-            self._diagnostics["ecs_structural_commands_applied"] += 1
-            self._invalidate_spatial_indexes()
+        self._upsert_component(entity, type(component), component)
 
     def set_component(
         self, entity: Entity, component: object, *, expected_type: type[Any] | None = None
     ) -> None:
         self._validate_value(component, expected_type)
         self._slot(entity)
-        component_type = expected_type or type(component)
+        self._upsert_component(entity, expected_type or type(component), component)
+
+    def _upsert_component(
+        self, entity: Entity, component_type: type[Any], component: object
+    ) -> None:
         existed = self._has_component(entity, component_type)
         if not existed:
             self._rust.add_component_default(
@@ -782,7 +774,10 @@ class EcsWorld:
             self._run_python_system(scheduled)
             return
         if _is_direct_udf_action(action):
-            action.execute(self, [{}])
+            udf_action = cast(DefaultAction, action)
+            if udf_action.udf is None:
+                raise SystemExecutionError("Malformed ECS UDF action.")
+            udf_action.udf.execute_action(self, udf_action.udf_args)
             return
         if _contains_direct_udf_action(action):
             if _is_sequence_action(action):
@@ -1038,21 +1033,6 @@ class EcsWorld:
             elif name == "key_down" and int_code is not None:
                 self._rust.set_input_state("key_down", _current_key_down(self, int_code), int_code)
 
-    def contexts_for_system(self, built: BuiltSystem) -> list[dict[object, Any]]:
-        query_rows: list[list[EntityView]] = []
-        for query in built.queries:
-            query_rows.append(self.match_query(cast(QuerySpec, query.spec)))
-        if not query_rows:
-            return [{}]
-        contexts: list[dict[object, Any]] = []
-        for combo in itertools.product(*query_rows):
-            ctx: dict[object, Any] = {}
-            for query, entity in zip(built.queries, combo, strict=True):
-                ctx[query] = entity
-            contexts.append(ctx)
-        self._diagnostics["ecs_rows_scanned"] += len(contexts)
-        return contexts
-
     def match_query(self, spec: QuerySpec) -> list[EntityView]:
         components: list[type[Any]] = []
         tags: list[object] = []
@@ -1103,11 +1083,6 @@ class EcsWorld:
             self._diagnostics["ecs_change_filtered_rows"] += len(matches)
         return matches
 
-    def expand_context_for_condition(
-        self, ctx: dict[object, Any], condition: Expression
-    ) -> list[dict[object, Any]]:
-        return list(self.iter_join_contexts_for(ctx, condition))
-
     def iter_join_contexts_for(
         self,
         base_ctx: dict[object, Any],
@@ -1118,18 +1093,7 @@ class EcsWorld:
         queries = expression_queries(expr)
         if include_query is not None:
             queries.add(include_query)
-        missing = sorted(
-            (query for query in queries if query not in base_ctx), key=lambda q: q.name
-        )
-        if not missing:
-            yield dict(base_ctx)
-            return
-        matches = [self.match_query(cast(QuerySpec, query.spec)) for query in missing]
-        for combo in itertools.product(*matches):
-            joined = dict(base_ctx)
-            for query, entity in zip(missing, combo, strict=True):
-                joined[query] = entity
-            yield joined
+        yield from self.iter_join_contexts_for_queries(base_ctx, queries)
 
     def iter_join_contexts_for_queries(
         self, base_ctx: dict[object, Any], queries: Iterable[QueryProxy]
@@ -1170,14 +1134,6 @@ class EcsWorld:
                 self.record_ambiguity(message)
                 return
             seen.update(targets)
-
-    def execute_parallel_children(
-        self, children: tuple[Action, ...], contexts: list[dict[object, Any]]
-    ) -> None:
-        del children, contexts
-        raise SystemExecutionError(
-            "Python ECS parallel execution has been removed; use the Rust physical executor."
-        )
 
     def materialize_udf_arg(self, arg: object) -> object:
         if isinstance(arg, QueryProxy):
@@ -1221,13 +1177,6 @@ class EcsWorld:
         if not self._mirror_writes_to_rust:
             return
         self._rust.insert_resource(_schema_name(resource_type), _dataclass_field_dict(resource))
-
-    def _sync_resource_field_to_rust(
-        self, resource_type: type[Any], field_name: str, value: object
-    ) -> None:
-        if not self._mirror_writes_to_rust:
-            return
-        self._rust.set_resource_field(_schema_name(resource_type), field_name, copy.deepcopy(value))
 
     def _apply_physical_report(self, report: dict[str, Any]) -> None:
         previous_defer_spatial = self._defer_spatial_invalidation

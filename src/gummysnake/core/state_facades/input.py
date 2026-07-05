@@ -69,462 +69,153 @@ class InputState:
 
     @property
     def mouse_x(self) -> float:
-        """Mouse x.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._rust.mouse_x)
 
     @property
     def mouse_y(self) -> float:
-        """Mouse y.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._rust.mouse_y)
 
     @property
     def previous_mouse_x(self) -> float:
-        """Previous mouse x.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._rust.previous_mouse_x)
 
     @previous_mouse_x.setter
     def previous_mouse_x(self, value: float) -> None:
-        """Previous mouse x.
-        
-        Args:
-            value: The value value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         self._rust.previous_mouse_x = float(value)
 
     @property
     def previous_mouse_y(self) -> float:
-        """Previous mouse y.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._rust.previous_mouse_y)
 
     @previous_mouse_y.setter
     def previous_mouse_y(self, value: float) -> None:
-        """Previous mouse y.
-        
-        Args:
-            value: The value value. Expected type: `float`.
-        
-        Returns:
-            None.
-        """
         self._rust.previous_mouse_y = float(value)
 
     @property
     def moved_x(self) -> float:
-        """Moved x.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._rust.moved_x)
 
     @property
     def moved_y(self) -> float:
-        """Moved y.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `float`.
-        """
         return float(self._rust.moved_y)
 
     @property
     def mouse_is_pressed(self) -> bool:
-        """Mouse is pressed.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return bool(self._rust.mouse_is_pressed)
 
     @mouse_is_pressed.setter
     def mouse_is_pressed(self, value: bool) -> None:
-        """Mouse is pressed.
-        
-        Args:
-            value: The value value. Expected type: `bool`.
-        
-        Returns:
-            None.
-        """
         self._rust.mouse_is_pressed = bool(value)
 
     @property
     def mouse_inside_window(self) -> bool:
-        """Mouse inside window.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return bool(self._rust.mouse_inside_window)
 
     @mouse_inside_window.setter
     def mouse_inside_window(self, value: bool) -> None:
-        """Mouse inside window.
-        
-        Args:
-            value: The value value. Expected type: `bool`.
-        
-        Returns:
-            None.
-        """
         self._rust.mouse_inside_window = bool(value)
 
     @property
     def mouse_button(self) -> str | None:
-        """Mouse button.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str | None`.
-        """
         return self._rust.mouse_button
 
     @mouse_button.setter
     def mouse_button(self, value: str | None) -> None:
-        """Mouse button.
-        
-        Args:
-            value: The value value. Expected type: `str | None`.
-        
-        Returns:
-            None.
-        """
         self._rust.mouse_button = value
 
     @property
     def key(self) -> str | None:
-        """Key.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str | None`.
-        """
         return self._rust.key
 
     @key.setter
     def key(self, value: str | None) -> None:
-        """Key.
-        
-        Args:
-            value: The value value. Expected type: `str | None`.
-        
-        Returns:
-            None.
-        """
         self._rust.key = value
 
     @property
     def key_code(self) -> int | None:
-        """Key code.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `int | None`.
-        """
         value = self._rust.key_code
         return None if value is None else int(value)
 
     @key_code.setter
     def key_code(self, value: int | None) -> None:
-        """Key code.
-        
-        Args:
-            value: The value value. Expected type: `int | None`.
-        
-        Returns:
-            None.
-        """
         self._rust.key_code = None if value is None else int(value)
 
     @property
     def code(self) -> str | None:
-        """Code.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str | None`.
-        """
         return self._rust.code
 
     @code.setter
     def code(self, value: str | None) -> None:
-        """Code.
-        
-        Args:
-            value: The value value. Expected type: `str | None`.
-        
-        Returns:
-            None.
-        """
         self._rust.code = value
 
     @property
     def text(self) -> str | None:
-        """Text.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str | None`.
-        """
         return self._rust.text
 
     @text.setter
     def text(self, value: str | None) -> None:
-        """Text.
-        
-        Args:
-            value: The value value. Expected type: `str | None`.
-        
-        Returns:
-            None.
-        """
         self._rust.text = value
 
     @property
     def text_input_active(self) -> bool:
-        """Text input active.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return bool(self._rust.text_input_active)
 
     @text_input_active.setter
     def text_input_active(self, value: bool) -> None:
-        """Text input active.
-        
-        Args:
-            value: The value value. Expected type: `bool`.
-        
-        Returns:
-            None.
-        """
         self._rust.text_input_active = bool(value)
 
     @property
     def key_is_pressed(self) -> bool:
-        """Key is pressed.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return bool(self._rust.key_is_pressed)
 
     @key_is_pressed.setter
     def key_is_pressed(self, value: bool) -> None:
-        """Key is pressed.
-        
-        Args:
-            value: The value value. Expected type: `bool`.
-        
-        Returns:
-            None.
-        """
         self._rust.key_is_pressed = bool(value)
 
     @property
     def touches(self) -> list[TouchPoint]:
-        """Touches.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `list[TouchPoint]`.
-        """
         return [TouchPoint(**dict(payload)) for payload in self._rust.touch_payload()]
 
     @touches.setter
     def touches(self, value: list[TouchPoint]) -> None:
-        """Touches.
-        
-        Args:
-            value: The value value. Expected type: `list[TouchPoint]`.
-        
-        Returns:
-            None.
-        """
         self._rust.update_touches(value)
 
     @property
     def touch_supported(self) -> bool:
-        """Touch supported.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return bool(self._rust.touch_supported)
 
     @touch_supported.setter
     def touch_supported(self, value: bool) -> None:
-        """Touch supported.
-        
-        Args:
-            value: The value value. Expected type: `bool`.
-        
-        Returns:
-            None.
-        """
         self._rust.touch_supported = bool(value)
 
     @property
     def pointer_locked(self) -> bool:
-        """Pointer locked.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return bool(self._rust.pointer_locked)
 
     @pointer_locked.setter
     def pointer_locked(self, value: bool) -> None:
-        """Pointer locked.
-        
-        Args:
-            value: The value value. Expected type: `bool`.
-        
-        Returns:
-            None.
-        """
         self._rust.pointer_locked = bool(value)
 
     @property
     def pointer_lock_mode(self) -> c.PointerLockMode:
-        """Pointer lock mode.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `c.PointerLockMode`.
-        """
         return c.PointerLockMode(str(self._rust.pointer_lock_mode))
 
     @pointer_lock_mode.setter
     def pointer_lock_mode(self, value: c.PointerLockMode | str) -> None:
-        """Pointer lock mode.
-        
-        Args:
-            value: The value value. Expected type: `c.PointerLockMode | str`.
-        
-        Returns:
-            None.
-        """
         self._rust.pointer_lock_mode = c.PointerLockMode(str(value)).value
 
     def set_key_down(self, key_code: int, pressed: bool) -> None:
-        """Set key down.
-        
-        Args:
-            key_code: The key code value. Expected type: `int`.
-            pressed: The pressed value. Expected type: `bool`.
-        
-        Returns:
-            None.
-        """
         self._rust.set_key_down(int(key_code), bool(pressed))
 
     def set_code_down(self, code: str, pressed: bool) -> None:
-        """Set code down.
-        
-        Args:
-            code: The code value. Expected type: `str`.
-            pressed: The pressed value. Expected type: `bool`.
-        
-        Returns:
-            None.
-        """
         self._rust.set_code_down(str(code), bool(pressed))
 
     def update_mouse(
         self, x: float, y: float, *, dx: float | None = None, dy: float | None = None
     ) -> None:
-        """Update mouse.
-        
-        Args:
-            x: The x value. Expected type: `float`.
-            y: The y value. Expected type: `float`.
-            dx: The dx value. Expected type: `float | None`. Defaults to `None`.
-            dy: The dy value. Expected type: `float | None`. Defaults to `None`.
-        
-        Returns:
-            None.
-        """
         self._rust.update_mouse(float(x), float(y), dx, dy)
 
     def update_touches(self, touches: list[TouchPoint]) -> None:
-        """Update touches.
-        
-        Args:
-            touches: The touches value. Expected type: `list[TouchPoint]`.
-        
-        Returns:
-            None.
-        """
         self._rust.update_touches(touches)
 
     def update_motion(
@@ -538,23 +229,6 @@ class InputState:
         rotation_z: float | None = None,
         orientation: str | None = None,
     ) -> MotionEvent:
-        """Update motion.
-        
-        Args:
-            acceleration_x: The acceleration x value. Expected type: `float | None`. Defaults to
-                `None`.
-            acceleration_y: The acceleration y value. Expected type: `float | None`. Defaults to
-                `None`.
-            acceleration_z: The acceleration z value. Expected type: `float | None`. Defaults to
-                `None`.
-            rotation_x: The rotation x value. Expected type: `float | None`. Defaults to `None`.
-            rotation_y: The rotation y value. Expected type: `float | None`. Defaults to `None`.
-            rotation_z: The rotation z value. Expected type: `float | None`. Defaults to `None`.
-            orientation: The orientation value. Expected type: `str | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `MotionEvent`.
-        """
         self.previous_acceleration_x = self.acceleration_x
         self.previous_acceleration_y = self.acceleration_y
         self.previous_acceleration_z = self.acceleration_z
@@ -600,14 +274,6 @@ class InputState:
         )
 
     def require_touch_supported(self) -> None:
-        """Require touch supported.
-        
-        Args:
-            None.
-        
-        Returns:
-            None.
-        """
         if not self.touch_supported:
             from gummysnake.exceptions import BackendCapabilityError
 
@@ -618,23 +284,7 @@ class InputState:
             )
 
     def key_is_down(self, key_code: int) -> bool:
-        """Key is down.
-        
-        Args:
-            key_code: The key code value. Expected type: `int`.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return bool(self._rust.key_is_down(int(key_code)))
 
     def code_is_down(self, code: str) -> bool:
-        """Code is down.
-        
-        Args:
-            code: The code value. Expected type: `str`.
-        
-        Returns:
-            The return value. Type: `bool`.
-        """
         return bool(self._rust.code_is_down(code))

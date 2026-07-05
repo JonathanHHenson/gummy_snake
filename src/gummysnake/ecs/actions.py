@@ -42,9 +42,6 @@ class Action:
     def plan(self) -> SystemPlan:
         return SystemPlan(self)
 
-    def execute(self, world: EcsWorld, contexts: list[dict[object, Any]]) -> None:
-        raise NotImplementedError
-
 
 @dataclass(frozen=True)
 class SystemPlan:
@@ -74,18 +71,6 @@ class DefaultAction(Action):
     component_value: object | None = None
     tag: object | None = None
 
-    def execute(self, world: EcsWorld, contexts: list[dict[object, Any]]) -> None:
-        del contexts
-        if self.kind == "udf":
-            if self.udf is None:
-                raise SystemExecutionError("Malformed ECS UDF action.")
-            self.udf.execute_action(world, self.udf_args)
-            return
-        raise SystemExecutionError(
-            "Non-UDF ECS actions must execute through the Rust physical executor; "
-            f"Python execution for action kind {self.kind!r} is disabled."
-        )
-
 
 @dataclass
 class WhenAction(Action):
@@ -100,26 +85,12 @@ class WhenAction(Action):
     def otherwise(self) -> _OtherwiseBranchBuilder:
         return _OtherwiseBranchBuilder(self)
 
-    def execute(self, world: EcsWorld, contexts: list[dict[object, Any]]) -> None:
-        del world, contexts
-        raise SystemExecutionError(
-            "Conditional ECS actions must execute through the Rust physical executor; "
-            "Python execution is disabled."
-        )
-
 
 @dataclass
 class ForEachAction(Action):
     source: IterableSource
     body: Action
     mode: str = "sequence"
-
-    def execute(self, world: EcsWorld, contexts: list[dict[object, Any]]) -> None:
-        del world, contexts
-        raise SystemExecutionError(
-            "for_each ECS actions must execute through the Rust physical executor; "
-            "Python execution is disabled."
-        )
 
 
 @dataclass(frozen=True, eq=False)
@@ -496,10 +467,7 @@ class _OtherwiseBranchBuilder:
 
 @dataclass(frozen=True)
 class IterableSource:
-    def iter_items(
-        self, world: EcsWorld, contexts: list[dict[object, Any]]
-    ) -> Iterable[tuple[dict[object, Any], Any]]:
-        raise NotImplementedError
+    """Marker base for Rust-serialized ECS for_each sources."""
 
 
 @dataclass(frozen=True)
@@ -510,16 +478,7 @@ class UdfIterableSource(IterableSource):
 
     def evaluate(self, world: EcsWorld) -> Iterable[Any]:
         result = self.definition.call_runtime(world, self.args)
-        if result is None:
-            return ()
-        return result
-
-    def iter_items(
-        self, world: EcsWorld, contexts: list[dict[object, Any]]
-    ) -> Iterable[tuple[dict[object, Any], Any]]:
-        del contexts
-        for item in self.evaluate(world):
-            yield {}, item
+        return () if result is None else result
 
 
 @dataclass(frozen=True)
@@ -527,30 +486,11 @@ class ExpressionIterableSource(IterableSource):
     expression: Expression
     item: LoopItem = field(default_factory=lambda: LoopItem("item"))
 
-    def iter_items(
-        self, world: EcsWorld, contexts: list[dict[object, Any]]
-    ) -> Iterable[tuple[dict[object, Any], Any]]:
-        queries = expression_queries(self.expression)
-        for base_ctx in contexts:
-            for ctx in world.iter_join_contexts_for_queries(base_ctx, queries):
-                value = self.expression.eval(ctx, world)
-                if value is None:
-                    continue
-                for item in value:
-                    yield ctx, item
-
 
 @dataclass(frozen=True)
 class EventIterableSource(IterableSource):
     reader: EventReaderProxy
     item: LoopItem = field(default_factory=lambda: LoopItem("event"))
-
-    def iter_items(
-        self, world: EcsWorld, contexts: list[dict[object, Any]]
-    ) -> Iterable[tuple[dict[object, Any], Any]]:
-        del contexts
-        for event in world.read_events(self.reader.event_type):
-            yield {}, event
 
 
 @dataclass(frozen=True)
@@ -558,15 +498,6 @@ class EntityIteratorSource(IterableSource):
     query: QueryProxy
     components: tuple[type[Any], ...]
     item: LoopItem = field(default_factory=lambda: LoopItem("entity"))
-
-    def iter_items(
-        self, world: EcsWorld, contexts: list[dict[object, Any]]
-    ) -> Iterable[tuple[dict[object, Any], Any]]:
-        del contexts
-        from gummysnake.ecs.specs import QuerySpec
-
-        for entity in world.match_query(cast(QuerySpec, self.query.spec)):
-            yield {}, entity
 
 
 @dataclass(frozen=True)

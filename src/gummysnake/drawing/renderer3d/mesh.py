@@ -103,21 +103,6 @@ class Mesh3D:
         face_offsets: Any | None = None,
         material: Material3D | None = None,
     ) -> Mesh3D:
-        """From arrays.
-        
-        Args:
-            vertices: The vertices value. Expected type: `Any`.
-            faces: The faces value. Expected type: `Sequence[Sequence[int]] | Any`. Defaults to
-                `()`.
-            normals: The normals value. Expected type: `Any`. Defaults to `()`.
-            texcoords: The texcoords value. Expected type: `Any`. Defaults to `()`.
-            face_indices: The face indices value. Expected type: `Any | None`. Defaults to `None`.
-            face_offsets: The face offsets value. Expected type: `Any | None`. Defaults to `None`.
-            material: The material value. Expected type: `Material3D | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `Mesh3D`.
-        """
         return cls(
             vertices,
             faces,
@@ -130,15 +115,6 @@ class Mesh3D:
 
     @classmethod
     def from_rust_handle(cls, rust_handle: Any, *, material: Material3D | None = None) -> Mesh3D:
-        """From rust handle.
-        
-        Args:
-            rust_handle: The rust handle value. Expected type: `Any`.
-            material: The material value. Expected type: `Material3D | None`. Defaults to `None`.
-        
-        Returns:
-            The return value. Type: `Mesh3D`.
-        """
         return cls(material=material, rust_handle=rust_handle)
 
     def _ensure_arrays(self) -> None:
@@ -164,14 +140,6 @@ class Mesh3D:
 
     @property
     def vertices(self) -> tuple[Vec3, ...]:
-        """Vertices.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[Vec3, ...]`.
-        """
         self._ensure_arrays()
         assert self._vertices is not None
         if self._vertices_cache is None:
@@ -180,14 +148,6 @@ class Mesh3D:
 
     @property
     def faces(self) -> tuple[tuple[int, ...], ...]:
-        """Faces.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[tuple[int, ...], ...]`.
-        """
         self._ensure_arrays()
         assert self._face_indices is not None
         assert self._face_offsets is not None
@@ -200,14 +160,6 @@ class Mesh3D:
 
     @property
     def normals(self) -> tuple[Vec3, ...]:
-        """Normals.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[Vec3, ...]`.
-        """
         self._ensure_arrays()
         assert self._normals is not None
         if self._normals_cache is None:
@@ -216,14 +168,6 @@ class Mesh3D:
 
     @property
     def texcoords(self) -> tuple[tuple[float, float], ...]:
-        """Texcoords.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[tuple[float, float], ...]`.
-        """
         self._ensure_arrays()
         assert self._texcoords is not None
         if self._texcoords_cache is None:
@@ -231,80 +175,32 @@ class Mesh3D:
         return self._texcoords_cache
 
     def vertex_array(self, *, copy: bool = False) -> Any:
-        """Vertex array.
-        
-        Args:
-            copy: The copy value. Expected type: `bool`. Defaults to `False`.
-        
-        Returns:
-            The return value. Type: `Any`.
-        """
         self._ensure_arrays()
         assert self._vertices is not None
         return _readonly_numpy_array(self._vertices, dtype="float64", copy=copy)
 
     def normal_array(self, *, copy: bool = False) -> Any:
-        """Normal array.
-        
-        Args:
-            copy: The copy value. Expected type: `bool`. Defaults to `False`.
-        
-        Returns:
-            The return value. Type: `Any`.
-        """
         self._ensure_arrays()
         assert self._normals is not None
         return _readonly_numpy_array(self._normals, dtype="float64", copy=copy)
 
     def texcoord_array(self, *, copy: bool = False) -> Any:
-        """Texcoord array.
-        
-        Args:
-            copy: The copy value. Expected type: `bool`. Defaults to `False`.
-        
-        Returns:
-            The return value. Type: `Any`.
-        """
         self._ensure_arrays()
         assert self._texcoords is not None
         return _readonly_numpy_array(self._texcoords, dtype="float64", copy=copy)
 
     def face_index_array(self, *, copy: bool = False) -> Any:
-        """Face index array.
-        
-        Args:
-            copy: The copy value. Expected type: `bool`. Defaults to `False`.
-        
-        Returns:
-            The return value. Type: `Any`.
-        """
         self._ensure_arrays()
         assert self._face_indices is not None
         return _readonly_numpy_array(self._face_indices, dtype="int64", copy=copy)
 
     def face_offset_array(self, *, copy: bool = False) -> Any:
-        """Face offset array.
-        
-        Args:
-            copy: The copy value. Expected type: `bool`. Defaults to `False`.
-        
-        Returns:
-            The return value. Type: `Any`.
-        """
         self._ensure_arrays()
         assert self._face_offsets is not None
         return _readonly_numpy_array(self._face_offsets, dtype="int64", copy=copy)
 
     @property
     def bounding_box(self) -> tuple[Vec3, Vec3]:
-        """Bounding box.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[Vec3, Vec3]`.
-        """
         vertices = self.vertices
         if not vertices:
             origin = Vec3(0.0, 0.0, 0.0)
@@ -323,14 +219,6 @@ class Mesh3D:
         )
 
     def edges(self) -> tuple[tuple[int, int], ...]:
-        """Edges.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[tuple[int, int], ...]`.
-        """
         edges: set[tuple[int, int]] = set()
         for face in self.faces:
             if len(face) < 2:
@@ -340,14 +228,6 @@ class Mesh3D:
         return tuple(sorted(edges))
 
     def normalized(self, size: float = 1.0) -> Mesh3D:
-        """Normalized.
-        
-        Args:
-            size: The size value. Expected type: `float`. Defaults to `1.0`.
-        
-        Returns:
-            The return value. Type: `Mesh3D`.
-        """
         min_corner, max_corner = self.bounding_box
         center = Vec3(
             (min_corner.x + max_corner.x) / 2.0,
@@ -377,36 +257,12 @@ class Mesh3D:
         )
 
     def flip_u(self) -> Mesh3D:
-        """Flip u.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Mesh3D`.
-        """
         return self.with_texcoords(tuple((1.0 - u, v) for u, v in self.texcoords))
 
     def flip_v(self) -> Mesh3D:
-        """Flip v.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Mesh3D`.
-        """
         return self.with_texcoords(tuple((u, 1.0 - v) for u, v in self.texcoords))
 
     def with_texcoords(self, texcoords: Sequence[Sequence[float]]) -> Mesh3D:
-        """With texcoords.
-        
-        Args:
-            texcoords: The texcoords value. Expected type: `Sequence[Sequence[float]]`.
-        
-        Returns:
-            The return value. Type: `Mesh3D`.
-        """
         return Mesh3D(
             vertices=self.vertices,
             faces=self.faces,
@@ -416,14 +272,6 @@ class Mesh3D:
         )
 
     def compute_face_normals(self) -> tuple[Vec3, ...]:
-        """Compute face normals.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `tuple[Vec3, ...]`.
-        """
         normals: list[Vec3] = []
         vertices = self.vertices
         for face in self.faces:
@@ -435,14 +283,6 @@ class Mesh3D:
         return tuple(normals)
 
     def with_computed_normals(self) -> Mesh3D:
-        """With computed normals.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Mesh3D`.
-        """
         face_normals = self.compute_face_normals()
         vertex_normals = [Vec3(0.0, 0.0, 0.0) for _ in self.vertices]
         counts = [0 for _ in self.vertices]
@@ -473,25 +313,9 @@ class Mesh3D:
         )
 
     def clear_colors(self) -> Mesh3D:
-        """Clear colors.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `Mesh3D`.
-        """
         return self
 
     def to_python(self) -> dict[str, object]:
-        """To python.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `dict[str, object]`.
-        """
         return {
             "vertices": self.vertices,
             "faces": self.faces,
@@ -503,14 +327,6 @@ class Mesh3D:
         }
 
     def __repr__(self) -> str:
-        """Repr.
-        
-        Args:
-            None.
-        
-        Returns:
-            The return value. Type: `str`.
-        """
         self._ensure_arrays()
         assert self._vertices is not None
         assert self._face_offsets is not None
