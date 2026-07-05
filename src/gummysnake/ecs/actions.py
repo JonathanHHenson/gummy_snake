@@ -494,24 +494,6 @@ class _OtherwiseBranchBuilder:
         return self.do(do_in_parallel(*actions))
 
 
-@dataclass
-class _ForEachBuilder:
-    source: IterableSource
-
-    @property
-    def item(self) -> LoopItem:
-        return cast(Any, self.source).item
-
-    def do(self, *actions: Action) -> ForEachAction:
-        return ForEachAction(self.source, _sequence_action(*actions), mode="sequence")
-
-    def do_in_order(self, *actions: Action) -> ForEachAction:
-        return ForEachAction(self.source, do_in_order(*actions), mode="sequence")
-
-    def do_in_parallel(self, *actions: Action) -> ForEachAction:
-        return ForEachAction(self.source, do_in_parallel(*actions), mode="parallel")
-
-
 @dataclass(frozen=True)
 class IterableSource:
     def iter_items(

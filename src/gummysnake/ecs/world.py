@@ -744,7 +744,6 @@ class EcsWorld:
     def run_pre_draw_systems(self) -> None:
         self._diagnostics["ecs_pre_draw_runs"] += 1
         self._begin_change_frame()
-        self._sync_python_changes_to_rust()
         self._invalidate_spatial_indexes(clear_only=True)
         try:
             self._run_sorted_systems()
@@ -752,19 +751,6 @@ class EcsWorld:
             self._finalize_change_frame()
 
     def _run_sorted_systems(self) -> None:
-        batch: list[_ScheduledSystem] = []
-
-        def flush_batch() -> None:
-            if not batch:
-                return
-            pending = list(batch)
-            batch.clear()
-            if len(pending) > 1:
-                self._run_physical_system_batch(pending)
-                return
-            scheduled = pending[0]
-            self._run_system_action(scheduled, scheduled.built.plan.action)
-
         for scheduled in self._sorted_systems():
             if not self._system_enabled(scheduled):
                 continue
@@ -772,25 +758,13 @@ class EcsWorld:
                 self._diagnostics["ecs_system_run_condition_skips"] += 1
                 continue
             try:
-                if self._can_batch_physical_system(scheduled):
-                    batch.append(scheduled)
-                else:
-                    flush_batch()
-                    self._run_system_action(scheduled, scheduled.built.plan.action)
+                self._run_system_action(scheduled, scheduled.built.plan.action)
             except Exception as exc:
                 if isinstance(exc, SystemPlanError | SystemExecutionError):
                     raise
                 raise SystemExecutionError(
                     f"ECS system {scheduled.handle.name!r} failed: {exc}"
                 ) from exc
-        flush_batch()
-
-    def _can_batch_physical_system(self, scheduled: _ScheduledSystem) -> bool:
-        # Snapshot/copyback batch scheduling is intentionally disabled by default:
-        # cloning the full ECS world can dominate dense numeric workloads. Keep
-        # systems on the in-place optimized executor until batch scheduling can use
-        # column/row-level snapshots instead of whole-world clones.
-        return False
 
     def _run_system_action(self, scheduled: _ScheduledSystem, action: Action) -> None:
         if scheduled.built.python:
@@ -798,7 +772,6 @@ class EcsWorld:
             return
         if _is_direct_udf_action(action):
             action.execute(self, [{}])
-            self._sync_python_changes_to_rust()
             return
         if _contains_direct_udf_action(action):
             if _is_sequence_action(action):
@@ -863,7 +836,6 @@ class EcsWorld:
         self._diagnostics["ecs_python_system_calls"] += 1
         self._diagnostics["ecs_python_system_barriers"] += 1
         self._diagnostics["ecs_python_system_entities_materialized"] += materialized_count
-        self._sync_python_changes_to_rust()
 
     def _prepare_scheduled_physical_plan(self, scheduled: _ScheduledSystem) -> None:
         if scheduled.built.python:
@@ -983,32 +955,6 @@ class EcsWorld:
             if temporary_handle is not None:
                 self._rust.release_compiled_plan(temporary_handle)
         self._record_physical_report(report)
-
-    def _run_physical_system_batch(self, systems: list[_ScheduledSystem]) -> None:
-        handles = [system.physical_plan_handle for system in systems]
-        if any(handle is None for handle in handles):
-            for system in systems:
-                self._run_system_action(system, system.built.plan.action)
-            return
-        try:
-            method_name = "_".join(("execute", "compiled", "plans"))
-            execute_compiled_plans = cast(
-                Callable[[list[int], bool], list[dict[str, Any]]],
-                getattr(cast(Any, self._rust), method_name),
-            )
-            reports = execute_compiled_plans([int(cast(int, handle)) for handle in handles], False)
-        except (AttributeError, ValueError) as exc:
-            self._diagnostics["ecs_physical_execution_errors"] += 1
-            names = ", ".join(system.handle.name for system in systems)
-            raise SystemExecutionError(
-                f"ECS systems {names!r} could not execute as a Rust ECS batch: {exc}"
-            ) from exc
-        if len(reports) != len(systems):
-            raise SystemExecutionError(
-                "Rust ECS batch returned an unexpected number of execution reports."
-            )
-        for report in reports:
-            self._record_physical_report(report)
 
     def _record_physical_report(self, report: dict[str, Any]) -> None:
         self._apply_physical_report(report)
@@ -1233,11 +1179,6 @@ class EcsWorld:
             self.validate_schema(event_type)
 
     # -------------------------------------------------------------- Rust sync
-    def _sync_python_changes_to_rust(self) -> None:
-        # Rust owns canonical ECS storage. Python component/resource views write through
-        # immediately, so there is no mirrored Python storage to flush before systems run.
-        return
-
     def _sync_component_fields_to_rust(
         self, entity: Entity, component_type: type[Any], component: object
     ) -> None:
@@ -1264,9 +1205,6 @@ class EcsWorld:
             field_name,
             copy.deepcopy(value),
         )
-
-    def _sync_resources_to_rust(self) -> None:
-        return
 
     def _sync_resource_to_rust(self, resource_type: type[Any], resource: object) -> None:
         if not self._mirror_writes_to_rust:

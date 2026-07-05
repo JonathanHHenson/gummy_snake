@@ -64,7 +64,6 @@ class _PhysicalPayloadBuilder:
             self._register_query(query)
 
     def build(self) -> dict[str, Any]:
-        self._reject_python_only_parameters()
         root_action = self._serialize_action(self.built.plan.action)
         queries = [self._query_payload(query) for query in self._queries.values()]
         return {
@@ -76,11 +75,6 @@ class _PhysicalPayloadBuilder:
             "root_action": root_action,
             "dynamic": self.dynamic,
         }
-
-    def _reject_python_only_parameters(self) -> None:
-        # Event readers/writers now serialize through event_stream/emit_event bridge nodes.
-        # Direct Python UDF actions remain the only intentional Rust-payload boundary.
-        return
 
     def _register_query(self, query: QueryProxy) -> None:
         existing = self._queries.get(query.name)

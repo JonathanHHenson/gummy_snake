@@ -10,6 +10,11 @@ from gummysnake import constants as c
 from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.core.geometry import resolve_ellipse, resolve_rect
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D
+from gummysnake.drawing.software3d.payloads import (
+    _IDENTITY4,
+    Matrix4Payload,
+    _coerce_matrix4_payload,
+)
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
@@ -29,28 +34,6 @@ def _queue_fill_primitive(context: Any, kind: int, coords: tuple[float, ...]) ->
     if not callable(queue):
         return False
     return bool(queue(kind, coords, context.state.style, context.state.transform.matrix))
-
-
-Matrix4Payload = tuple[float, ...]
-
-_IDENTITY4: Matrix4Payload = (
-    1.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    1.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    1.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    1.0,
-)
 
 
 def _mat4_multiply(left: Matrix4Payload, right: Matrix4Payload) -> Matrix4Payload:
@@ -360,17 +343,7 @@ class FastDrawScope:
         A flat 16-value sequence is interpreted as column-major. A nested 4x4 sequence is
         interpreted as conventional row-major rows and converted internally.
         """
-        values: Matrix4Payload
-        if len(matrix) == 16 and not isinstance(matrix[0], Sequence):
-            values = tuple(float(value) for value in matrix)  # type: ignore[arg-type]
-        elif len(matrix) == 4 and all(
-            isinstance(row, Sequence) and len(row) == 4 for row in matrix
-        ):
-            rows = matrix
-            values = tuple(float(rows[row][column]) for column in range(4) for row in range(4))  # type: ignore[index]
-        else:
-            raise ValueError("apply_matrix_3d() requires a flat 16-value or nested 4x4 matrix.")
-        self._compose_transform3d(values)
+        self._compose_transform3d(_coerce_matrix4_payload(matrix))
 
     def rotate(
         self,
@@ -613,14 +586,12 @@ class FastDrawScope:
         )
 
     @overload
-    def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None:
-        ...
+    def image(self, image: Image | CanvasImage, x: float, y: float, /) -> None: ...
 
     @overload
     def image(
         self, image: Image | CanvasImage, x: float, y: float, width: float, height: float, /
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @overload
     def image(
@@ -635,8 +606,7 @@ class FastDrawScope:
         sw: float,
         sh: float,
         /,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def image(self, image: Image | CanvasImage, x: float, y: float, *args: float) -> None:
         """Image.

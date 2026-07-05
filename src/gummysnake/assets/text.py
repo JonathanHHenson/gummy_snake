@@ -4,88 +4,55 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NoReturn
 
 from gummysnake.assets._paths import resolve_asset_path
 from gummysnake.exceptions import ArgumentValidationError, UnsupportedFeatureError
+
+_FONT_OUTLINE_DEFERRED = (
+    "is deferred until Gummy Snake has native font outline and shaping support in the "
+    "Rust canvas runtime."
+)
+
+
+def _raise_deferred_font_outline(method: str) -> NoReturn:
+    raise UnsupportedFeatureError(f"{method}() {_FONT_OUTLINE_DEFERRED}")
 
 
 @dataclass(frozen=True, slots=True)
 class Font:
     """Public Font value for Gummy Snake text features."""
+
     path: Path | None = None
     name: str | None = None
 
     def text_to_points(self, *args: object, **kwargs: object) -> list[object]:
-        """Text to points for this Font.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `object`.
-            **kwargs: Additional keyword arguments. Expected type: `object`.
-        
-        Returns:
-            The return value. Type: `list[object]`.
-        """
+        """Deferred font-outline point extraction."""
         del args, kwargs
-        raise UnsupportedFeatureError(
-            "Font.text_to_points() is deferred until Gummy Snake has native font outline and "
-            "shaping support in the Rust canvas runtime."
-        )
+        _raise_deferred_font_outline("Font.text_to_points")
 
     def text_to_paths(self, *args: object, **kwargs: object) -> list[object]:
-        """Text to paths for this Font.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `object`.
-            **kwargs: Additional keyword arguments. Expected type: `object`.
-        
-        Returns:
-            The return value. Type: `list[object]`.
-        """
+        """Deferred font-outline path extraction."""
         del args, kwargs
-        raise UnsupportedFeatureError(
-            "Font.text_to_paths() is deferred until Gummy Snake has native font outline and "
-            "shaping support in the Rust canvas runtime."
-        )
+        _raise_deferred_font_outline("Font.text_to_paths")
 
     def text_to_contours(self, *args: object, **kwargs: object) -> list[object]:
-        """Text to contours for this Font.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `object`.
-            **kwargs: Additional keyword arguments. Expected type: `object`.
-        
-        Returns:
-            The return value. Type: `list[object]`.
-        """
+        """Deferred font-outline contour extraction."""
         del args, kwargs
-        raise UnsupportedFeatureError(
-            "Font.text_to_contours() is deferred until Gummy Snake has native font outline and "
-            "shaping support in the Rust canvas runtime."
-        )
+        _raise_deferred_font_outline("Font.text_to_contours")
 
     def text_to_model(self, *args: object, **kwargs: object) -> object:
-        """Text to model for this Font.
-        
-        Args:
-            *args: Additional positional arguments. Expected type: `object`.
-            **kwargs: Additional keyword arguments. Expected type: `object`.
-        
-        Returns:
-            The return value. Type: `object`.
-        """
+        """Deferred font-outline model extraction."""
         del args, kwargs
-        raise UnsupportedFeatureError(
-            "Font.text_to_model() is deferred until Gummy Snake has native font outline and "
-            "shaping support in the Rust canvas runtime."
-        )
+        _raise_deferred_font_outline("Font.text_to_model")
 
 
 def load_font(path: str | Path) -> Font:
     """Load and return font.
-    
+
     Args:
         path: The path value. Expected type: `str | Path`.
-    
+
     Returns:
         The return value. Type: `Font`.
     """
@@ -97,10 +64,10 @@ def load_font(path: str | Path) -> Font:
 
 async def load_font_async(path: str | Path) -> Font:
     """Load and return a font asynchronously.
-    
+
     Args:
         path: The path value. Expected type: `str | Path`.
-    
+
     Returns:
         The return value. Type: `Font`.
     """
