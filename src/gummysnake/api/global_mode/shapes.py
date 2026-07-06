@@ -10,19 +10,12 @@ from gummysnake import constants as c
 from gummysnake.api.current import require_context
 from gummysnake.api.global_mode.helpers import CoordinatePair, Number, xy
 from gummysnake.core import geometry as _geometry
-
-_PRIMITIVE_RECT = 1
-_PRIMITIVE_TRIANGLE = 2
-_PRIMITIVE_ELLIPSE = 3
-
-
-def _queue_fill_primitive(context: Any, kind: int, coords: tuple[float, ...]) -> bool:
-    """Try the renderer's fast path for simple filled shapes."""
-
-    queue = getattr(context.renderer, "queue_fill_primitive_fast_path", None)
-    if not callable(queue):
-        return False
-    return bool(queue(kind, coords, context.state.style, context.state.transform.matrix))
+from gummysnake.drawing.primitive_fast_path import (
+    PRIMITIVE_ELLIPSE,
+    PRIMITIVE_RECT,
+    PRIMITIVE_TRIANGLE,
+    queue_fill_primitive,
+)
 
 
 @overload
@@ -69,9 +62,9 @@ def rect(x: float, y: float, w: float, h: float | None = None) -> None:
 
     context = require_context()
     if h is not None and context.state.style.rect_mode == c.CORNER:
-        if _queue_fill_primitive(
+        if queue_fill_primitive(
             context,
-            _PRIMITIVE_RECT,
+            PRIMITIVE_RECT,
             (float(x), float(y), float(w), float(h), 0.0, 0.0),
         ):
             return
@@ -105,9 +98,9 @@ def circle(x: float, y: float, diameter: float) -> None:
     context = require_context()
     if context.state.style.ellipse_mode == c.CENTER:
         d = float(diameter)
-        if _queue_fill_primitive(
+        if queue_fill_primitive(
             context,
-            _PRIMITIVE_ELLIPSE,
+            PRIMITIVE_ELLIPSE,
             (float(x) - d / 2.0, float(y) - d / 2.0, d, d, 0.0, 0.0),
         ):
             return
@@ -148,7 +141,7 @@ def triangle(*coords: Any) -> None:
             float(cast(float, coords[4])),
             float(cast(float, coords[5])),
         )
-        if _queue_fill_primitive(context, _PRIMITIVE_TRIANGLE, values):
+        if queue_fill_primitive(context, PRIMITIVE_TRIANGLE, values):
             return
         context.renderer.triangle(
             values[0],

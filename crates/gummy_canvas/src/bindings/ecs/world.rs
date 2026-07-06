@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use gummy_ecs::{ComponentSchema, Entity, FieldSchema, QueryFilter, QueryTerm, StorageType, World};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -8,6 +10,14 @@ use super::summaries::{execution_report_to_dict, physical_plan_summary_to_dict};
 use super::values::{
     component_row_from_dict, component_row_to_dict, ecs_value_to_py, py_to_ecs_value,
 };
+
+fn py_value_error(err: impl Display) -> PyErr {
+    PyValueError::new_err(err.to_string())
+}
+
+fn entity(index: u32, generation: u32) -> Entity {
+    Entity { index, generation }
+}
 
 #[pyclass(name = "EcsWorld")]
 pub(crate) struct PyEcsWorld {
@@ -32,20 +42,20 @@ impl PyEcsWorld {
         let entity = self
             .world
             .spawn_with_defaults(components)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         Ok((entity.index, entity.generation))
     }
 
     fn despawn_entity(&mut self, index: u32, generation: u32) -> PyResult<()> {
         self.world
-            .despawn(Entity { index, generation })
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .despawn(entity(index, generation))
+            .map_err(py_value_error)
     }
 
     fn validate_entity(&self, index: u32, generation: u32) -> PyResult<()> {
         self.world
-            .validate_entity(Entity { index, generation })
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .validate_entity(entity(index, generation))
+            .map_err(py_value_error)
     }
 
     fn register_schema(&mut self, name: String, fields: Vec<(String, String)>) -> PyResult<()> {
@@ -56,10 +66,10 @@ impl PyEcsWorld {
                     .map(|storage_type| FieldSchema::new(field_name, storage_type))
             })
             .collect::<gummy_ecs::Result<Vec<_>>>()
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         self.world
             .register_schema(ComponentSchema::new(name, fields))
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .map_err(py_value_error)
     }
 
     fn alive_count(&self) -> usize {
@@ -83,12 +93,12 @@ impl PyEcsWorld {
         let plan = self
             .world
             .compile_bridge_plan(payload)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         let dict = physical_plan_summary_to_dict(py, &plan)?;
         let handle = self
             .world
             .store_compiled_plan(plan)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         dict.set_item("handle", handle)?;
         Ok(dict)
     }
@@ -105,7 +115,7 @@ impl PyEcsWorld {
                 self.world
                     .execute_compiled_plan_with_options(handle, include_writes)
             })
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         execution_report_to_dict(py, &report, include_writes)
     }
 
@@ -121,7 +131,7 @@ impl PyEcsWorld {
                 self.world
                     .execute_compiled_plans_with_options(&handles, include_writes)
             })
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         let out = PyList::empty_bound(py);
         for report in reports {
             out.append(execution_report_to_dict(py, &report, include_writes)?)?;
@@ -136,7 +146,7 @@ impl PyEcsWorld {
     ) -> PyResult<Bound<'py, PyDict>> {
         let report = py
             .allow_threads(|| self.world.warm_compiled_plan_spatial_indexes(handle))
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         execution_report_to_dict(py, &report, false)
     }
 
@@ -180,7 +190,7 @@ impl PyEcsWorld {
         let payload = parse_bridge_plan_payload(payload)?;
         let report = py
             .allow_threads(|| self.world.execute_bridge_plan(payload))
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         execution_report_to_dict(py, &report, true)
     }
 
@@ -195,38 +205,38 @@ impl PyEcsWorld {
         component: String,
     ) -> PyResult<()> {
         self.world
-            .add_component_default(Entity { index, generation }, component)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .add_component_default(entity(index, generation), component)
+            .map_err(py_value_error)
     }
 
     fn remove_component(&mut self, index: u32, generation: u32, component: String) -> PyResult<()> {
         self.world
-            .remove_component(Entity { index, generation }, &component)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .remove_component(entity(index, generation), &component)
+            .map_err(py_value_error)
     }
 
     fn add_tag(&mut self, index: u32, generation: u32, tag: String) -> PyResult<()> {
         self.world
-            .add_tag(Entity { index, generation }, &tag)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .add_tag(entity(index, generation), &tag)
+            .map_err(py_value_error)
     }
 
     fn remove_tag(&mut self, index: u32, generation: u32, tag: String) -> PyResult<()> {
         self.world
-            .remove_tag(Entity { index, generation }, &tag)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .remove_tag(entity(index, generation), &tag)
+            .map_err(py_value_error)
     }
 
     fn entity_components(&self, index: u32, generation: u32) -> PyResult<Vec<String>> {
         self.world
-            .entity_components(Entity { index, generation })
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .entity_components(entity(index, generation))
+            .map_err(py_value_error)
     }
 
     fn entity_tags(&self, index: u32, generation: u32) -> PyResult<Vec<String>> {
         self.world
-            .entity_tags(Entity { index, generation })
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .entity_tags(entity(index, generation))
+            .map_err(py_value_error)
     }
 
     fn set_field(
@@ -239,8 +249,8 @@ impl PyEcsWorld {
     ) -> PyResult<()> {
         let value = py_to_ecs_value(value)?;
         self.world
-            .set_field(Entity { index, generation }, &component, &field, value)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .set_field(entity(index, generation), &component, &field, value)
+            .map_err(py_value_error)
     }
 
     fn get_field(
@@ -253,16 +263,13 @@ impl PyEcsWorld {
     ) -> PyResult<PyObject> {
         let value = self
             .world
-            .get_field(Entity { index, generation }, &component, &field)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .get_field(entity(index, generation), &component, &field)
+            .map_err(py_value_error)?;
         ecs_value_to_py(py, &value)
     }
 
     fn query_entities(&mut self, components: Vec<String>) -> PyResult<Vec<(u32, u32)>> {
-        let entities = self
-            .world
-            .query(components)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        let entities = self.world.query(components).map_err(py_value_error)?;
         Ok(entities
             .into_iter()
             .map(|entity| (entity.index, entity.generation))
@@ -289,7 +296,7 @@ impl PyEcsWorld {
         let entities = self
             .world
             .query_filter(QueryFilter::new(terms))
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         Ok(entities
             .into_iter()
             .map(|entity| (entity.index, entity.generation))
@@ -311,7 +318,7 @@ impl PyEcsWorld {
         let entities = self
             .world
             .query_filter(QueryFilter::new(terms))
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         let mut rows = Vec::with_capacity(entities.len());
         for entity in entities {
             let mut values = Vec::with_capacity(fields.len());
@@ -319,7 +326,7 @@ impl PyEcsWorld {
                 let value = self
                     .world
                     .get_field(entity, &component, field)
-                    .map_err(|err| PyValueError::new_err(err.to_string()))?;
+                    .map_err(py_value_error)?;
                 values.push(ecs_value_to_py(py, &value)?);
             }
             rows.push(PyTuple::new_bound(py, values).into_py(py));
@@ -330,7 +337,7 @@ impl PyEcsWorld {
     fn insert_resource(&mut self, name: String, fields: &Bound<'_, PyDict>) -> PyResult<()> {
         self.world
             .insert_resource(name, component_row_from_dict(fields)?)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .map_err(py_value_error)
     }
 
     fn remove_resource<'py>(
@@ -338,10 +345,7 @@ impl PyEcsWorld {
         py: Python<'py>,
         name: String,
     ) -> PyResult<Bound<'py, PyDict>> {
-        let row = self
-            .world
-            .remove_resource(&name)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+        let row = self.world.remove_resource(&name).map_err(py_value_error)?;
         component_row_to_dict(py, row)
     }
 
@@ -349,7 +353,7 @@ impl PyEcsWorld {
         let value = self
             .world
             .resource_field(&name, &field)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         ecs_value_to_py(py, &value)
     }
 
@@ -361,7 +365,7 @@ impl PyEcsWorld {
     ) -> PyResult<()> {
         self.world
             .set_resource_field(&name, &field, py_to_ecs_value(value)?)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .map_err(py_value_error)
     }
 
     fn has_resource(&self, name: String) -> bool {
@@ -383,7 +387,7 @@ impl PyEcsWorld {
     fn emit_event(&mut self, event_type: String, payload: &Bound<'_, PyAny>) -> PyResult<()> {
         self.world
             .emit_event(&event_type, py_to_ecs_value(payload)?)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+            .map_err(py_value_error)
     }
 
     fn read_events<'py>(
@@ -394,7 +398,7 @@ impl PyEcsWorld {
         let events = self
             .world
             .read_events(&event_type)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
+            .map_err(py_value_error)?;
         let out = PyList::empty_bound(py);
         for event in events {
             let item = PyDict::new_bound(py);
@@ -421,22 +425,20 @@ impl PyEcsWorld {
 
     fn stage_add_component(&mut self, index: u32, generation: u32, component: String) {
         self.world
-            .stage_add_component(Entity { index, generation }, component);
+            .stage_add_component(entity(index, generation), component);
     }
 
     fn stage_remove_component(&mut self, index: u32, generation: u32, component: String) {
         self.world
-            .stage_remove_component(Entity { index, generation }, component);
+            .stage_remove_component(entity(index, generation), component);
     }
 
     fn stage_despawn(&mut self, index: u32, generation: u32) {
-        self.world.stage_despawn(Entity { index, generation });
+        self.world.stage_despawn(entity(index, generation));
     }
 
     fn apply_staged(&mut self) -> PyResult<()> {
-        self.world
-            .apply_staged()
-            .map_err(|err| PyValueError::new_err(err.to_string()))
+        self.world.apply_staged().map_err(py_value_error)
     }
 
     fn staged_command_count(&self) -> usize {

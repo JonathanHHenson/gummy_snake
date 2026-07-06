@@ -7,7 +7,7 @@ from typing import Any, cast, overload
 from gummysnake import constants as c
 from gummysnake._fast_draw import FastDrawScope
 from gummysnake.api.current import require_context
-from gummysnake.core.color import Color
+from gummysnake.core.color import Color, _rgb255_color_from_args
 
 Number = int | float
 ColorValue = Color | str
@@ -184,17 +184,12 @@ def fill(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
 def fill(*args: Any) -> None:
     """Set the fill color used for closed shapes."""
     context = require_context()
-    if (
-        context.state.color_mode.mode == c.RGB
-        and context.state.color_mode.ranges == (255.0, 255.0, 255.0, 255.0)
-        and len(args) in {3, 4}
-        and all(isinstance(value, int | float) for value in args)
+    if color := _rgb255_color_from_args(
+        args,
+        mode=context.state.color_mode.mode,
+        ranges=context.state.color_mode.ranges,
     ):
-        red = int(round(max(0.0, min(255.0, float(args[0])))))
-        green = int(round(max(0.0, min(255.0, float(args[1])))))
-        blue = int(round(max(0.0, min(255.0, float(args[2])))))
-        alpha = int(round(max(0.0, min(255.0, float(args[3]))))) if len(args) == 4 else 255
-        context.state.style.fill_color = Color(red, green, blue, alpha)
+        context.state.style.fill_color = color
         context.state.style.mark_changed()
         return
     cast(Any, context).fill(*args)
@@ -228,17 +223,12 @@ def stroke(v1: Number, v2: Number, v3: Number, alpha: Number, /) -> None: ...
 def stroke(*args: Any) -> None:
     """Set the outline color used for shapes and lines."""
     context = require_context()
-    if (
-        context.state.color_mode.mode == c.RGB
-        and context.state.color_mode.ranges == (255.0, 255.0, 255.0, 255.0)
-        and len(args) in {3, 4}
-        and all(isinstance(value, int | float) for value in args)
+    if color := _rgb255_color_from_args(
+        args,
+        mode=context.state.color_mode.mode,
+        ranges=context.state.color_mode.ranges,
     ):
-        red = int(round(max(0.0, min(255.0, float(args[0])))))
-        green = int(round(max(0.0, min(255.0, float(args[1])))))
-        blue = int(round(max(0.0, min(255.0, float(args[2])))))
-        alpha = int(round(max(0.0, min(255.0, float(args[3]))))) if len(args) == 4 else 255
-        context.state.style.stroke_color = Color(red, green, blue, alpha)
+        context.state.style.stroke_color = color
         context.state.style.mark_changed()
         return
     cast(Any, context).stroke(*args)

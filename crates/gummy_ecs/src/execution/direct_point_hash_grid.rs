@@ -99,6 +99,18 @@ impl DirectPointHashGrid {
     }
 
     pub(super) fn build_from_spatial_records(&mut self, records: &[SpatialRecord]) -> Result<()> {
+        self.build_sorted_points(Self::sorted_direct_records(records)?)
+    }
+
+    pub(super) fn update_from_spatial_records(
+        &mut self,
+        records: &[SpatialRecord],
+    ) -> Result<bool> {
+        let direct = Self::sorted_direct_records(records)?;
+        self.update_sorted_points(&direct)
+    }
+
+    fn sorted_direct_records(records: &[SpatialRecord]) -> Result<Vec<DirectPointRecord>> {
         if records.iter().any(|record| record.bounds.is_some()) {
             return Err(EcsError::InvalidSpatialInput(
                 "direct point hash grid only supports point records".to_string(),
@@ -112,14 +124,17 @@ impl DirectPointHashGrid {
             })
             .collect::<Vec<_>>();
         direct.sort_by_key(|record| record.entity.raw());
-        self.build_sorted_points(direct)
+        Ok(direct)
     }
 
     pub(super) fn update_sorted_points(&mut self, records: &[DirectPointRecord]) -> Result<bool> {
-        if records.len() != self.records.len() || self.regular_grid.is_some() {
+        if records.len() != self.records.len() {
             self.build_sorted_points(records.to_vec())?;
             return Ok(false);
         }
+        // A moved point can break the exact regular-grid shortcut. The hash buckets
+        // are also populated during builds, so drop the shortcut and mutate them.
+        self.regular_grid = None;
         for (index, next) in records.iter().enumerate() {
             if self.records[index].entity != next.entity {
                 self.build_sorted_points(records.to_vec())?;

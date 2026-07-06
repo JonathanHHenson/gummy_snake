@@ -12,6 +12,7 @@ from gummysnake.sketch import EVENT_CALLBACK_NAMES, FunctionSketch, SketchBuilde
 
 type LifecycleCallback = Callable[[], object]
 type EventCallback = Callable[..., object]
+type ModuleGlobals = dict[str, object]
 
 _DECORATED_SKETCHES: dict[str, SketchBuilder] = {}
 
@@ -45,6 +46,43 @@ def _caller_module_name() -> str:
     caller_frame = current_frame.f_back.f_back if current_frame and current_frame.f_back else None
     caller_globals = caller_frame.f_globals if caller_frame is not None else {}
     return str(caller_globals.get("__name__", "__main__"))
+
+
+def _run_caller_globals() -> ModuleGlobals:
+    current_frame = inspect.currentframe()
+    run_frame = current_frame.f_back if current_frame is not None else None
+    caller_frame = run_frame.f_back if run_frame is not None else None
+    return dict(caller_frame.f_globals) if caller_frame is not None else {}
+
+
+def _decorated_builder(caller_globals: ModuleGlobals) -> SketchBuilder | None:
+    return _DECORATED_SKETCHES.get(str(caller_globals.get("__name__", "__main__")))
+
+
+def _lifecycle_callback(
+    name: str,
+    explicit: LifecycleCallback | None,
+    decorated: SketchBuilder | None,
+    caller_globals: ModuleGlobals,
+) -> LifecycleCallback | None:
+    decorated_callback = None if decorated is None else getattr(decorated, f"{name}_callback")
+    return cast(
+        LifecycleCallback | None, explicit or decorated_callback or caller_globals.get(name)
+    )
+
+
+def _event_callbacks(
+    explicit: ModuleGlobals,
+    decorated: SketchBuilder | None,
+    caller_globals: ModuleGlobals,
+) -> dict[str, EventCallback]:
+    callbacks: dict[str, EventCallback] = {}
+    decorated_callbacks = decorated.event_callbacks if decorated is not None else {}
+    for name in EVENT_CALLBACK_NAMES:
+        callback = explicit[name] or decorated_callbacks.get(name) or caller_globals.get(name)
+        if callable(callback):
+            callbacks[name] = cast(EventCallback, callback)
+    return callbacks
 
 
 def preload[F: LifecycleCallback](callback: F) -> F:
@@ -161,50 +199,14 @@ def run(
         The ``SketchContext`` used by the completed or running sketch.
     """
 
-    current_frame = inspect.currentframe()
-    caller_frame = current_frame.f_back if current_frame is not None else None
-    caller_globals = caller_frame.f_globals if caller_frame is not None else {}
-    decorated = _DECORATED_SKETCHES.get(str(caller_globals.get("__name__", "__main__")))
-    explicit_event_callbacks = {
-        "mouse_moved": mouse_moved,
-        "mouse_dragged": mouse_dragged,
-        "mouse_pressed": mouse_pressed,
-        "mouse_released": mouse_released,
-        "mouse_clicked": mouse_clicked,
-        "mouse_double_clicked": mouse_double_clicked,
-        "mouse_wheel": mouse_wheel,
-        "key_pressed": key_pressed,
-        "key_released": key_released,
-        "key_typed": key_typed,
-        "touch_started": touch_started,
-        "touch_moved": touch_moved,
-        "touch_ended": touch_ended,
-        "touch_cancelled": touch_cancelled,
-        "device_moved": device_moved,
-        "device_turned": device_turned,
-        "device_shaken": device_shaken,
-    }
-    event_callbacks: dict[str, EventCallback] = {}
-    decorated_event_callbacks = decorated.event_callbacks if decorated is not None else {}
-    for name in EVENT_CALLBACK_NAMES:
-        callback = (
-            explicit_event_callbacks[name]
-            or decorated_event_callbacks.get(name)
-            or caller_globals.get(name)
-        )
-        if callable(callback):
-            event_callbacks[name] = cast(EventCallback, callback)
+    caller_globals = _run_caller_globals()
+    decorated = _decorated_builder(caller_globals)
+    explicit_callbacks = locals()
     sketch = FunctionSketch(
-        preload=preload
-        or (decorated.preload_callback if decorated is not None else None)
-        or caller_globals.get("preload"),
-        setup=setup
-        or (decorated.setup_callback if decorated is not None else None)
-        or caller_globals.get("setup"),
-        draw=draw
-        or (decorated.draw_callback if decorated is not None else None)
-        or caller_globals.get("draw"),
-        event_callbacks=event_callbacks,
+        preload=_lifecycle_callback("preload", preload, decorated, caller_globals),
+        setup=_lifecycle_callback("setup", setup, decorated, caller_globals),
+        draw=_lifecycle_callback("draw", draw, decorated, caller_globals),
+        event_callbacks=_event_callbacks(explicit_callbacks, decorated, caller_globals),
         headless=headless,
     )
     return sketch.run(max_frames=max_frames)

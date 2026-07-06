@@ -24,13 +24,34 @@ class QueryProxy:
 
     @property
     def ctx(self) -> QueryProxy:
+        """Return this query proxy for APIs that name the current query context.
+
+        Returns:
+            This query proxy unchanged.
+        """
+
         return self
 
     @property
     def entity(self) -> EntityExpression:
+        """Build an expression for the entity matched by the current query row.
+
+        Returns:
+            A lazy entity expression for structural ECS actions.
+        """
+
         return EntityExpression(self)
 
     def __getitem__(self, component_type: type[Any]) -> ComponentExpressionProxy:
+        """Select a component from this query for field expressions.
+
+        Args:
+            component_type: Component class declared in this query.
+
+        Returns:
+            A proxy whose attributes are lazy field expressions.
+        """
+
         return ComponentExpressionProxy(self, component_type)
 
     def as_iter(self, *component_types: type[Any]) -> EntityIteratorSource:
@@ -73,6 +94,15 @@ class ResourceProxy:
     mutable: bool = False
 
     def __getitem__(self, resource_type: type[Any]) -> ComponentExpressionProxy:
+        """Select this resource for field expressions.
+
+        Args:
+            resource_type: Resource class declared for this resource parameter.
+
+        Returns:
+            A proxy whose attributes are lazy resource field expressions.
+        """
+
         if resource_type is not self.resource_type:
             raise KeyError(
                 f"Resource parameter {self.name!r} was declared for "
@@ -107,6 +137,16 @@ class FieldExpression(Expression):
     field_name: str
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
+        """Read this component or resource field for the current ECS row.
+
+        Args:
+            ctx: Query bindings for the current row.
+            world: ECS world used when reading resources.
+
+        Returns:
+            The current field value.
+        """
+
         if isinstance(self.source, QueryProxy):
             entity = ctx[self.source]
             return getattr(entity[self.component_type], self.field_name)
@@ -114,6 +154,14 @@ class FieldExpression(Expression):
         return getattr(value, self.field_name)
 
     def set_value(self, ctx: ExpressionContext, world: EcsWorld, value: Any) -> None:
+        """Write this component or mutable resource field for the current row.
+
+        Args:
+            ctx: Query bindings for the row being updated.
+            world: ECS world used when writing resources.
+            value: New value to store in the field.
+        """
+
         if isinstance(self.source, QueryProxy):
             entity = ctx[self.source]
             setattr(entity[self.component_type], self.field_name, value)
@@ -191,6 +239,16 @@ class EntityExpression(Expression):
     query: QueryProxy
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> EntityView:
+        """Return the entity currently matched by this query.
+
+        Args:
+            ctx: Query bindings for the current row.
+            world: ECS world for the row; ignored because the entity is in ``ctx``.
+
+        Returns:
+            The entity view bound to this query in the current row.
+        """
+
         del world
         return ctx[self.query]
 

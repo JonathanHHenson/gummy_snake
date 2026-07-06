@@ -96,6 +96,12 @@ class CanvasRendererCore(
         self._abort_frame_on_native_close = False
 
     def set_current_style(self, style: StyleState) -> None:
+        """Record the active drawing style and sync it to Rust when needed.
+
+        Args:
+            style: Current Python style state that future draw calls should use.
+        """
+
         host = cast(CanvasRendererHost, self)
         host._flush_line_batch_only()
         host._flush_text_batch()
@@ -113,6 +119,12 @@ class CanvasRendererCore(
             self._rust_style_synced = True
 
     def set_current_matrix(self, transform: Matrix2D) -> None:
+        """Record the active transform matrix and sync it to Rust when needed.
+
+        Args:
+            transform: Current Python transform matrix for future draw calls.
+        """
+
         self.remember_current_matrix(transform)
         if self._canvas is None:
             return
@@ -126,6 +138,8 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def push_canvas_state(self) -> None:
+        """Push the current style and transform state onto the Rust canvas stack."""
+
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -152,6 +166,8 @@ class CanvasRendererCore(
             self._call("canvas state push", callback)
 
     def pop_canvas_state(self) -> None:
+        """Pop the most recently pushed style and transform state from Rust."""
+
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -166,6 +182,13 @@ class CanvasRendererCore(
             self._rust_style_synced = True
 
     def translate(self, x: float, y: float) -> None:
+        """Move the Rust canvas coordinate system by a logical offset.
+
+        Args:
+            x: Horizontal offset in logical canvas units.
+            y: Vertical offset in logical canvas units.
+        """
+
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -178,6 +201,12 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def rotate(self, angle: float) -> None:
+        """Rotate the Rust canvas coordinate system.
+
+        Args:
+            angle: Rotation angle in radians.
+        """
+
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -190,6 +219,13 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def scale(self, x: float, y: float | None = None) -> None:
+        """Scale the Rust canvas coordinate system.
+
+        Args:
+            x: Horizontal scale factor, or the uniform factor when ``y`` is omitted.
+            y: Optional vertical scale factor.
+        """
+
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -202,6 +238,12 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def shear_x(self, angle: float) -> None:
+        """Shear the Rust canvas coordinate system along the x-axis.
+
+        Args:
+            angle: Shear angle in radians.
+        """
+
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -214,6 +256,12 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def shear_y(self, angle: float) -> None:
+        """Shear the Rust canvas coordinate system along the y-axis.
+
+        Args:
+            angle: Shear angle in radians.
+        """
+
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -226,6 +274,12 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def apply_matrix(self, transform: Matrix2D) -> None:
+        """Apply an additional transform matrix to the Rust canvas state.
+
+        Args:
+            transform: Matrix to combine with the current Rust transform.
+        """
+
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -238,6 +292,8 @@ class CanvasRendererCore(
             self._rust_transform_synced = True
 
     def reset_matrix(self) -> None:
+        """Reset the Rust canvas transform to the identity matrix."""
+
         if self._canvas is None:
             return
         if self.renderer_mode == c.P2D:
@@ -259,4 +315,10 @@ class CanvasRendererCore(
         )
 
     def remember_current_matrix(self, transform: Matrix2D) -> None:
+        """Cache the Python transform payload without forcing an immediate Rust call.
+
+        Args:
+            transform: Matrix that should be considered current by later draw calls.
+        """
+
         self._current_matrix_payload = self._matrix_payload(transform)

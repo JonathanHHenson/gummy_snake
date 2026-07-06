@@ -12,11 +12,17 @@ from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityErro
 class CaptureLike(Protocol):
     """Subset of OpenCV capture objects used by Gummy Snake."""
 
-    def set(self, prop: int, value: int) -> object: ...
+    def set(self, prop: int, value: int) -> object:
+        """Set a capture property by OpenCV property id."""
+        ...
 
-    def isOpened(self) -> bool: ...
+    def isOpened(self) -> bool:
+        """Return whether the capture is open."""
+        ...
 
-    def release(self) -> object: ...
+    def release(self) -> object:
+        """Release the capture device or file."""
+        ...
 
 
 def set_capture_dimensions(

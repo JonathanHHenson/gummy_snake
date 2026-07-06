@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, overload
 
 from gummysnake import constants as c
-from gummysnake.core.color import Color, lerp_color
+from gummysnake.core.color import Color, _rgb255_color_from_args, lerp_color
 from gummysnake.exceptions import ArgumentValidationError
 
 Number = int | float
@@ -28,18 +28,11 @@ class StyleContextMixin:
         )
 
     def _rgb255_color_from_args(self, args: tuple[Any, ...]) -> Color | None:
-        if (
-            self.state.color_mode.mode != c.RGB
-            or self.state.color_mode.ranges != (255.0, 255.0, 255.0, 255.0)
-            or len(args) not in {3, 4}
-            or not all(isinstance(value, int | float) for value in args)
-        ):
-            return None
-        red = round(max(0.0, min(255.0, float(args[0]))))
-        green = round(max(0.0, min(255.0, float(args[1]))))
-        blue = round(max(0.0, min(255.0, float(args[2]))))
-        alpha = round(max(0.0, min(255.0, float(args[3])))) if len(args) == 4 else 255
-        return Color(int(red), int(green), int(blue), int(alpha))
+        return _rgb255_color_from_args(
+            args,
+            mode=self.state.color_mode.mode,
+            ranges=self.state.color_mode.ranges,
+        )
 
     @overload
     def color(self, value: ColorValue, /) -> Color: ...

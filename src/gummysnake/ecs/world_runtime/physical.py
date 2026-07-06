@@ -43,6 +43,15 @@ _PHYSICAL_COUNTERS: tuple[str, ...] = (
     "spatial_thread_scratch_reuses",
     "spatial_candidate_buffer_growths",
 )
+_SPATIAL_WARM_COUNTERS: tuple[str, ...] = (
+    "spatial_indexes_built",
+    "spatial_index_reuses",
+    "spatial_index_full_rebuilds",
+    "spatial_index_incremental_updates",
+    "spatial_parallel_chunks",
+    "spatial_thread_scratch_reuses",
+    "spatial_candidate_buffer_growths",
+)
 
 
 def prepare_scheduled_physical_plan(world: EcsWorld, scheduled: _ScheduledSystem) -> None:
@@ -61,7 +70,7 @@ def prepare_scheduled_physical_plan(world: EcsWorld, scheduled: _ScheduledSystem
                 Callable[[int], dict[str, Any]],
                 cast(Any, world._rust).warm_compiled_plan_spatial_indexes,
             )
-            warm_spatial_indexes(scheduled.physical_plan_handle)
+            scheduled.physical_warm_report = warm_spatial_indexes(scheduled.physical_plan_handle)
 
 
 def set_physical_payload(scheduled: _ScheduledSystem, payload: dict[str, Any]) -> None:
@@ -69,6 +78,7 @@ def set_physical_payload(scheduled: _ScheduledSystem, payload: dict[str, Any]) -
     scheduled.physical_payload = payload
     scheduled.physical_payload_dynamic = bool(payload.get("dynamic", False))
     scheduled.physical_has_input_state = _payload_has_input_state(payload)
+    scheduled.physical_warm_report = None
 
 
 def build_and_compile_payload(
@@ -95,12 +105,14 @@ def build_and_compile_payload(
         )
         scheduled.physical_payload = None
         scheduled.physical_plan_handle = None
+        scheduled.physical_warm_report = None
         scheduled.physical_schema_fingerprint = schema_fingerprint
         world._diagnostics["ecs_physical_plan_errors"] += 1
         raise SystemPlanError(message) from exc
     except (AttributeError, ValueError) as exc:
         scheduled.physical_payload = None
         scheduled.physical_plan_handle = None
+        scheduled.physical_warm_report = None
         scheduled.physical_schema_fingerprint = schema_fingerprint
         world._diagnostics["ecs_physical_plan_compile_errors"] += 1
         raise SystemPlanError(
@@ -159,6 +171,7 @@ def run_physical_system(
         if use_scheduled_cache:
             scheduled.physical_payload = None
             scheduled.physical_plan_handle = None
+            scheduled.physical_warm_report = None
         world._diagnostics["ecs_physical_execution_errors"] += 1
         raise SystemExecutionError(
             f"ECS system {scheduled.handle.name!r} could not execute in Rust ECS: {exc}"
@@ -166,11 +179,45 @@ def run_physical_system(
     finally:
         if temporary_handle is not None:
             world._rust.release_compiled_plan(temporary_handle)
-    record_physical_report(world, report)
+    warm_report = scheduled.physical_warm_report if use_scheduled_cache else None
+    record_physical_report(world, report, warm_report=warm_report)
+    if use_scheduled_cache:
+        scheduled.physical_warm_report = None
 
 
-def record_physical_report(world: EcsWorld, report: dict[str, Any]) -> None:
+def record_spatial_warm_report(world: EcsWorld, report: dict[str, Any]) -> None:
+    """Fold Rust spatial prewarm cache counters into Python diagnostics."""
+    for counter in _SPATIAL_WARM_COUNTERS:
+        world._diagnostics[f"ecs_{counter}"] += int(report.get(counter, 0))
+    world._diagnostics["ecs_spatial_parallel_workers"] = max(
+        int(world._diagnostics.get("ecs_spatial_parallel_workers", 0)),
+        int(report.get("spatial_parallel_workers", 0)),
+    )
+
+
+def should_record_spatial_warm_report(
+    warm_report: dict[str, Any], execution_report: dict[str, Any]
+) -> bool:
+    """Return whether prewarmed spatial work was reused by the execution report."""
+    warm_cache_builds = int(warm_report.get("spatial_indexes_built", 0)) + int(
+        warm_report.get("spatial_index_incremental_updates", 0)
+    )
+    execution_cache_builds = int(execution_report.get("spatial_indexes_built", 0)) + int(
+        execution_report.get("spatial_index_incremental_updates", 0)
+    )
+    return (
+        warm_cache_builds > 0
+        and execution_cache_builds == 0
+        and int(execution_report.get("spatial_index_reuses", 0)) > 0
+    )
+
+
+def record_physical_report(
+    world: EcsWorld, report: dict[str, Any], *, warm_report: dict[str, Any] | None = None
+) -> None:
     """Fold a Rust ECS execution report into Python diagnostics and frame state."""
+    if warm_report is not None and should_record_spatial_warm_report(warm_report, report):
+        record_spatial_warm_report(world, warm_report)
     apply_physical_report(world, report)
     world._diagnostics["ecs_physical_system_runs"] += 1
     world._diagnostics["ecs_physical_rows_scanned"] += int(report.get("rows_scanned", 0))

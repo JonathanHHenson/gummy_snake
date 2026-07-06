@@ -39,24 +39,45 @@ class CanvasSound:
 
     @classmethod
     def from_file(cls, path: str | Path) -> CanvasSound:
+        """Load sound bytes and metadata through the Rust canvas runtime.
+
+        Args:
+            path: Sound file to read.
+
+        Returns:
+            A Rust-managed sound asset handle.
+        """
+
         from gummysnake.rust.canvas import require_canvas_runtime
 
         return cls(require_canvas_runtime().CanvasSound.from_file(str(path)))
 
     @property
     def path(self) -> Path:
+        """Path to the loaded sound file."""
+
         return Path(self._rust_sound.path)
 
     @property
     def duration(self) -> float | None:
+        """Sound duration in seconds, if the runtime could read it."""
+
         duration = self._rust_sound.duration
         return None if duration is None else float(duration)
 
     @property
     def byte_len(self) -> int:
+        """Number of encoded audio bytes stored by the runtime."""
+
         return int(self._rust_sound.byte_len)
 
     def to_bytes(self) -> bytes:
+        """Return the encoded audio bytes.
+
+        Returns:
+            The original sound file bytes owned by the Rust runtime.
+        """
+
         return self._rust_sound.to_bytes()
 
 
@@ -94,10 +115,14 @@ class Sound:
 
     @property
     def path(self) -> Path:
+        """Path used to create this sound."""
+
         return self._path
 
     @property
     def duration(self) -> float | None:
+        """Sound duration in seconds, if known."""
+
         if self._rust_sound is not None:
             return self._rust_sound.duration
         duration = getattr(self._source, "duration", None)
@@ -105,11 +130,19 @@ class Sound:
 
     @property
     def byte_len(self) -> int | None:
+        """Number of encoded audio bytes, if bytes are available."""
+
         if self._rust_sound is None:
             return None
         return self._rust_sound.byte_len
 
     def to_bytes(self) -> bytes:
+        """Return the encoded sound bytes.
+
+        Returns:
+            Audio file bytes for this sound.
+        """
+
         if self._rust_sound is not None:
             return self._rust_sound.to_bytes()
         to_bytes = getattr(self._source, "to_bytes", None)
@@ -118,6 +151,8 @@ class Sound:
         raise BackendCapabilityError("Sound bytes are unavailable for this sound source.")
 
     def play(self) -> None:
+        """Start playback from the current sound source."""
+
         self.stop()
         player = self._create_player()
         self._queue_source(player)
@@ -136,13 +171,26 @@ class Sound:
         self._is_playing = True
 
     def loop(self) -> None:
+        """Enable looping and start playback."""
+
         self.looping(True)
         self.play()
 
     def no_loop(self) -> None:
+        """Disable looping for future playback."""
+
         self.looping(False)
 
     def looping(self, value: bool | None = None) -> bool:
+        """Get or set whether the sound repeats when it reaches the end.
+
+        Args:
+            value: Optional new looping flag.
+
+        Returns:
+            The current looping flag.
+        """
+
         if value is not None:
             self._loop = bool(value)
             if self._player is not None and hasattr(self._player, "loop"):
@@ -150,6 +198,8 @@ class Sound:
         return self._loop
 
     def pause(self) -> None:
+        """Pause playback if a player is active."""
+
         if self._player is None:
             return
         pause = getattr(self._player, "pause", None)
@@ -158,6 +208,8 @@ class Sound:
         self._is_playing = False
 
     def stop(self) -> None:
+        """Stop playback, seek back to the start, and release the player."""
+
         player = self._player
         if player is None:
             return
@@ -173,9 +225,20 @@ class Sound:
         self._player = None
 
     def close(self) -> None:
+        """Stop playback and release any temporary playback resources."""
+
         self.stop()
 
     def volume(self, value: float | None = None) -> float:
+        """Get or set playback volume.
+
+        Args:
+            value: Optional non-negative volume value, where ``1.0`` is normal volume.
+
+        Returns:
+            The current volume value.
+        """
+
         if value is not None:
             if value < 0:
                 raise ArgumentValidationError("Sound.volume() cannot be negative.")
@@ -185,6 +248,15 @@ class Sound:
         return self._volume
 
     def rate(self, value: float | None = None) -> float:
+        """Get or set playback speed.
+
+        Args:
+            value: Optional positive speed multiplier, where ``1.0`` is normal speed.
+
+        Returns:
+            The current speed multiplier.
+        """
+
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("Sound.rate() must be positive.")
@@ -194,6 +266,15 @@ class Sound:
         return self._rate
 
     def pan(self, value: float | None = None) -> float:
+        """Get or set stereo pan.
+
+        Args:
+            value: Optional pan value from ``-1.0`` for left to ``1.0`` for right.
+
+        Returns:
+            The current pan value.
+        """
+
         if value is not None:
             if not -1.0 <= value <= 1.0:
                 raise ArgumentValidationError("Sound.pan() must be between -1 and 1.")
@@ -203,6 +284,12 @@ class Sound:
         return self._pan
 
     def seek(self, seconds: float) -> None:
+        """Move playback to a time in the sound.
+
+        Args:
+            seconds: Non-negative time position in seconds.
+        """
+
         if seconds < 0:
             raise ArgumentValidationError("Sound.seek() cannot be negative.")
         self._position = float(seconds)
@@ -212,6 +299,8 @@ class Sound:
                 seek(self._position)
 
     def time(self) -> float:
+        """Return the current playback position in seconds."""
+
         if self._player is not None:
             time = getattr(self._player, "time", None)
             if callable(time):
@@ -222,12 +311,25 @@ class Sound:
         return self._position
 
     def is_playing(self) -> bool:
+        """Return whether this sound is currently playing."""
+
         return self._is_playing
 
     def is_paused(self) -> bool:
+        """Return whether this sound has an active player that is paused."""
+
         return self._player is not None and not self._is_playing
 
     def on_ended(self, callback: Callable[[Sound], object]) -> Callable[[Sound], object]:
+        """Register a callback to run when playback ends.
+
+        Args:
+            callback: Function that accepts this ``Sound`` instance.
+
+        Returns:
+            The same callback, so the method can be used like a decorator.
+        """
+
         if not callable(callback):
             raise ArgumentValidationError("Sound.on_ended() requires a callable.")
         self._ended_callbacks.append(callback)

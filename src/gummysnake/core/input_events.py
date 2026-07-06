@@ -3,12 +3,31 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Protocol
 
 from gummysnake import constants as c
 from gummysnake.core.vector import Vector
 from gummysnake.exceptions import BackendCapabilityError
 
 _SPACE_KEY_NAMES = {"space", "spacebar"}
+
+
+class _MotionState(Protocol):
+    acceleration_x: float
+    acceleration_y: float
+    acceleration_z: float
+    previous_acceleration_x: float
+    previous_acceleration_y: float
+    previous_acceleration_z: float
+    rotation_x: float
+    rotation_y: float
+    rotation_z: float
+    previous_rotation_x: float
+    previous_rotation_y: float
+    previous_rotation_z: float
+    device_orientation: str
+    turn_axis: str | None
+    move_threshold: float
 
 
 @dataclass(slots=True)
@@ -163,6 +182,62 @@ class MotionEvent:
         return Vector(self.previous_rotation_x, self.previous_rotation_y, self.previous_rotation_z)
 
 
+def _update_motion_state(
+    state: _MotionState,
+    *,
+    acceleration_x: float | None = None,
+    acceleration_y: float | None = None,
+    acceleration_z: float | None = None,
+    rotation_x: float | None = None,
+    rotation_y: float | None = None,
+    rotation_z: float | None = None,
+    orientation: str | None = None,
+) -> MotionEvent:
+    state.previous_acceleration_x = state.acceleration_x
+    state.previous_acceleration_y = state.acceleration_y
+    state.previous_acceleration_z = state.acceleration_z
+    state.previous_rotation_x = state.rotation_x
+    state.previous_rotation_y = state.rotation_y
+    state.previous_rotation_z = state.rotation_z
+    if acceleration_x is not None:
+        state.acceleration_x = float(acceleration_x)
+    if acceleration_y is not None:
+        state.acceleration_y = float(acceleration_y)
+    if acceleration_z is not None:
+        state.acceleration_z = float(acceleration_z)
+    if rotation_x is not None:
+        state.rotation_x = float(rotation_x)
+    if rotation_y is not None:
+        state.rotation_y = float(rotation_y)
+    if rotation_z is not None:
+        state.rotation_z = float(rotation_z)
+    if orientation is not None:
+        state.device_orientation = str(orientation)
+    deltas = {
+        "x": abs(state.rotation_x - state.previous_rotation_x),
+        "y": abs(state.rotation_y - state.previous_rotation_y),
+        "z": abs(state.rotation_z - state.previous_rotation_z),
+    }
+    axis, amount = max(deltas.items(), key=lambda item: item[1])
+    state.turn_axis = axis if amount >= state.move_threshold else None
+    return MotionEvent(
+        acceleration_x=state.acceleration_x,
+        acceleration_y=state.acceleration_y,
+        acceleration_z=state.acceleration_z,
+        rotation_x=state.rotation_x,
+        rotation_y=state.rotation_y,
+        rotation_z=state.rotation_z,
+        orientation=state.device_orientation,
+        previous_acceleration_x=state.previous_acceleration_x,
+        previous_acceleration_y=state.previous_acceleration_y,
+        previous_acceleration_z=state.previous_acceleration_z,
+        previous_rotation_x=state.previous_rotation_x,
+        previous_rotation_y=state.previous_rotation_y,
+        previous_rotation_z=state.previous_rotation_z,
+        turn_axis=state.turn_axis,
+    )
+
+
 @dataclass(slots=True)
 class InputState:
     """Public InputState value."""
@@ -216,48 +291,15 @@ class InputState:
         rotation_z: float | None = None,
         orientation: str | None = None,
     ) -> MotionEvent:
-        self.previous_acceleration_x = self.acceleration_x
-        self.previous_acceleration_y = self.acceleration_y
-        self.previous_acceleration_z = self.acceleration_z
-        self.previous_rotation_x = self.rotation_x
-        self.previous_rotation_y = self.rotation_y
-        self.previous_rotation_z = self.rotation_z
-        if acceleration_x is not None:
-            self.acceleration_x = float(acceleration_x)
-        if acceleration_y is not None:
-            self.acceleration_y = float(acceleration_y)
-        if acceleration_z is not None:
-            self.acceleration_z = float(acceleration_z)
-        if rotation_x is not None:
-            self.rotation_x = float(rotation_x)
-        if rotation_y is not None:
-            self.rotation_y = float(rotation_y)
-        if rotation_z is not None:
-            self.rotation_z = float(rotation_z)
-        if orientation is not None:
-            self.device_orientation = str(orientation)
-        deltas = {
-            "x": abs(self.rotation_x - self.previous_rotation_x),
-            "y": abs(self.rotation_y - self.previous_rotation_y),
-            "z": abs(self.rotation_z - self.previous_rotation_z),
-        }
-        axis, amount = max(deltas.items(), key=lambda item: item[1])
-        self.turn_axis = axis if amount >= self.move_threshold else None
-        return MotionEvent(
-            acceleration_x=self.acceleration_x,
-            acceleration_y=self.acceleration_y,
-            acceleration_z=self.acceleration_z,
-            rotation_x=self.rotation_x,
-            rotation_y=self.rotation_y,
-            rotation_z=self.rotation_z,
-            orientation=self.device_orientation,
-            previous_acceleration_x=self.previous_acceleration_x,
-            previous_acceleration_y=self.previous_acceleration_y,
-            previous_acceleration_z=self.previous_acceleration_z,
-            previous_rotation_x=self.previous_rotation_x,
-            previous_rotation_y=self.previous_rotation_y,
-            previous_rotation_z=self.previous_rotation_z,
-            turn_axis=self.turn_axis,
+        return _update_motion_state(
+            self,
+            acceleration_x=acceleration_x,
+            acceleration_y=acceleration_y,
+            acceleration_z=acceleration_z,
+            rotation_x=rotation_x,
+            rotation_y=rotation_y,
+            rotation_z=rotation_z,
+            orientation=orientation,
         )
 
     def update_mouse(

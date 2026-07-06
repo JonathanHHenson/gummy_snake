@@ -94,9 +94,13 @@ class CanvasBackend(
         self.reset_frame_pacing_diagnostics()
 
     def health_check(self) -> str:
+        """Return a short status string from the Rust canvas runtime."""
+
         return canvas_bridge.canvas_health_check()
 
     def gpu_status(self) -> str:
+        """Return a human-readable GPU availability status."""
+
         canvas = self.renderer._canvas
         runtime_status = getattr(canvas, "gpu_status", None) if canvas is not None else None
         if callable(runtime_status):
@@ -125,6 +129,12 @@ class CanvasBackend(
         )
 
     def request_pointer_lock(self) -> bool:
+        """Ask the native runtime to lock pointer movement to the canvas.
+
+        Returns:
+            ``True`` when the runtime accepted the request.
+        """
+
         callback = getattr(self.renderer.runtime_canvas(), "request_pointer_lock", None)
         if callable(callback):
             return bool(callback())
@@ -134,6 +144,12 @@ class CanvasBackend(
         )
 
     def exit_pointer_lock(self) -> bool:
+        """Ask the native runtime to release pointer lock.
+
+        Returns:
+            ``True`` when the runtime accepted the request.
+        """
+
         callback = getattr(self.renderer.runtime_canvas(), "exit_pointer_lock", None)
         if callable(callback):
             return bool(callback())
@@ -143,6 +159,15 @@ class CanvasBackend(
         )
 
     def set_pointer_lock_mode(self, mode: str) -> str:
+        """Set how pointer coordinates behave while pointer lock is active.
+
+        Args:
+            mode: Pointer lock mode name understood by the runtime.
+
+        Returns:
+            The mode that was stored on the backend.
+        """
+
         self._pointer_lock_mode = mode
         canvas = self.renderer._canvas
         callback = getattr(canvas, "set_pointer_lock_mode", None) if canvas is not None else None
@@ -151,9 +176,17 @@ class CanvasBackend(
         return mode
 
     def pointer_lock_mode(self) -> str:
+        """Return the currently configured pointer-lock mode."""
+
         return self._pointer_lock_mode
 
     def start_text_input(self) -> bool:
+        """Start native text-input capture for keyboard text events.
+
+        Returns:
+            ``True`` when the runtime accepted the request.
+        """
+
         callback = getattr(self.renderer.runtime_canvas(), "start_text_input", None)
         if callable(callback):
             return bool(callback())
@@ -162,6 +195,12 @@ class CanvasBackend(
         )
 
     def stop_text_input(self) -> bool:
+        """Stop native text-input capture.
+
+        Returns:
+            ``True`` when the runtime accepted the request.
+        """
+
         callback = getattr(self.renderer.runtime_canvas(), "stop_text_input", None)
         if callable(callback):
             return bool(callback())
@@ -170,6 +209,8 @@ class CanvasBackend(
         )
 
     def text_input_active(self) -> bool:
+        """Return whether native text-input capture is active."""
+
         canvas = self.renderer._canvas
         callback = getattr(canvas, "text_input_active", None) if canvas is not None else None
         return bool(callback()) if callable(callback) else False
@@ -182,6 +223,15 @@ class CanvasBackend(
         *,
         renderer: c.RendererMode = c.P2D,
     ) -> None:
+        """Create or reset the Rust canvas surface.
+
+        Args:
+            width: Logical canvas width.
+            height: Logical canvas height.
+            pixel_density: Optional logical-to-physical pixel scale.
+            renderer: Requested renderer mode.
+        """
+
         self._ensure_supported_renderer(renderer)
         density = self.renderer.pixel_density if pixel_density is None else pixel_density
         self.renderer.resize(width, height, density, mode="headless", renderer=renderer)
@@ -195,9 +245,20 @@ class CanvasBackend(
         *,
         renderer: c.RendererMode = c.P2D,
     ) -> None:
+        """Resize the Rust canvas surface.
+
+        Args:
+            width: New logical canvas width.
+            height: New logical canvas height.
+            pixel_density: Optional logical-to-physical pixel scale.
+            renderer: Renderer mode to keep active after resizing.
+        """
+
         self.create_canvas(width, height, pixel_density, renderer=renderer)
 
     def display_density(self) -> float:
+        """Return the display scale reported by the canvas runtime."""
+
         return self.renderer.display_density()
 
     @staticmethod

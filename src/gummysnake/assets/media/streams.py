@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
-from gummysnake.assets.audio import AudioInput, create_audio_in
+from gummysnake.assets.audio import AudioBuffer, AudioInput, create_audio_in
 from gummysnake.assets.image import Image
 from gummysnake.assets.media.cv2 import (
     capture_is_open as _capture_is_open,
@@ -50,30 +50,44 @@ class _FrameStreamBase:
 
     @property
     def width(self) -> int:
+        """Current stream width in pixels."""
+
         return int(self._get_prop("CAP_PROP_FRAME_WIDTH") or 0)
 
     @property
     def height(self) -> int:
+        """Current stream height in pixels."""
+
         return int(self._get_prop("CAP_PROP_FRAME_HEIGHT") or 0)
 
     @property
     def is_playing(self) -> bool:
+        """Return whether this stream is actively advancing frames."""
+
         return self._playing
 
     def play(self) -> None:
+        """Start or resume frame advancement."""
+
         self._ensure_open()
         self._playing = True
 
     def pause(self) -> None:
+        """Pause frame advancement without closing the stream."""
+
         self._ensure_open()
         self._playing = False
 
     def current_frame(self) -> Image | None:
+        """Return a copy of the most recently read frame, if available."""
+
         if self._last_frame is None:
             return None
         return self._last_frame.copy()
 
     def close(self) -> None:
+        """Release the underlying capture object and stop playback."""
+
         if self._closed:
             return
         _release_capture(self._capture)
@@ -114,20 +128,28 @@ class Video(_FrameStreamBase):
 
     @property
     def path(self) -> Path:
+        """Path to the opened video file."""
+
         return self._path
 
     @property
     def fps(self) -> float | None:
+        """Video frames per second, if the backend reports it."""
+
         fps = float(self._get_prop("CAP_PROP_FPS") or 0.0)
         return fps if fps > 0 else None
 
     @property
     def frame_count(self) -> int | None:
+        """Total number of frames, if the backend reports it."""
+
         count = int(self._get_prop("CAP_PROP_FRAME_COUNT") or 0)
         return count if count > 0 else None
 
     @property
     def duration(self) -> float | None:
+        """Video duration in seconds, if frame count and FPS are known."""
+
         fps = self.fps
         frame_count = self.frame_count
         if fps is None or frame_count is None:
@@ -135,23 +157,47 @@ class Video(_FrameStreamBase):
         return frame_count / fps
 
     def stop(self) -> None:
+        """Pause playback and seek back to the beginning."""
+
         self._ensure_open()
         self._playing = False
         self.seek(0.0)
 
     def looping(self, value: bool | None = None) -> bool:
+        """Get or set whether the video restarts at the end.
+
+        Args:
+            value: Optional new looping flag.
+
+        Returns:
+            The current looping flag.
+        """
+
         if value is not None:
             self._loop = bool(value)
         return self._loop
 
     def loop(self) -> None:
+        """Enable looping and start playback."""
+
         self.looping(True)
         self.play()
 
     def no_loop(self) -> None:
+        """Disable looping for future playback."""
+
         self.looping(False)
 
     def speed(self, value: float | None = None) -> float:
+        """Get or set the video playback speed multiplier.
+
+        Args:
+            value: Optional positive speed multiplier, where ``1.0`` is normal speed.
+
+        Returns:
+            The current speed multiplier.
+        """
+
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("Video.speed() must be positive.")
@@ -159,12 +205,20 @@ class Video(_FrameStreamBase):
         return self._speed
 
     def time(self) -> float | None:
+        """Current video time in seconds, if the backend reports it."""
+
         milliseconds = self._get_prop("CAP_PROP_POS_MSEC")
         if milliseconds is None:
             return None
         return float(milliseconds) / 1000.0
 
     def seek(self, seconds: float) -> None:
+        """Move the video read position.
+
+        Args:
+            seconds: Non-negative target time in seconds.
+        """
+
         self._ensure_open()
         if seconds < 0:
             raise ArgumentValidationError("Video.seek() cannot be negative.")
@@ -176,6 +230,12 @@ class Video(_FrameStreamBase):
         self._last_frame = None
 
     def read(self) -> Image | None:
+        """Read the current or next video frame.
+
+        Returns:
+            A copy of the current frame as an ``Image``, or ``None`` at end of stream.
+        """
+
         self._ensure_open()
         if not self._playing and self._last_frame is not None:
             return self._last_frame.copy()
@@ -215,9 +275,17 @@ class Capture(_FrameStreamBase):
 
     @property
     def device(self) -> int | str:
+        """Camera device identifier used to open this capture."""
+
         return self._device
 
     def read(self) -> Image | None:
+        """Read a frame from the camera.
+
+        Returns:
+            A copy of the newest frame as an ``Image``, or ``None`` if no frame is available.
+        """
+
         self._ensure_open()
         if not self._playing and self._last_frame is not None:
             return self._last_frame.copy()
@@ -247,44 +315,83 @@ class AudioVideoCapture:
 
     @property
     def width(self) -> int:
+        """Video capture width in pixels."""
+
         return self.video.width
 
     @property
     def height(self) -> int:
+        """Video capture height in pixels."""
+
         return self.video.height
 
     @property
     def device(self) -> int | str:
+        """Camera device identifier used by the video stream."""
+
         return self.video.device
 
     @property
     def is_playing(self) -> bool:
+        """Return whether both video and audio capture are active."""
+
         return self.video.is_playing and self.audio.is_started
 
     def play(self) -> None:
+        """Start video and audio capture."""
+
         self.video.play()
         self.audio.start()
 
     def pause(self) -> None:
+        """Pause video and audio capture."""
+
         self.video.pause()
         self.audio.stop()
 
     def stop(self) -> None:
+        """Stop video and audio capture."""
+
         self.pause()
 
     def read(self) -> Image | None:
+        """Read a video frame from the combined capture.
+
+        Returns:
+            A copy of the newest frame as an ``Image``, or ``None`` if no frame is available.
+        """
+
         return self.video.read()
 
     def current_frame(self) -> Image | None:
+        """Return the most recently read video frame, if one exists."""
+
         return self.video.current_frame()
 
-    def read_audio(self, count: int | None = None):
+    def read_audio(self, count: int | None = None) -> AudioBuffer:
+        """Read audio samples from the microphone input.
+
+        Args:
+            count: Optional maximum number of samples to read.
+
+        Returns:
+            Audio samples from the underlying ``AudioInput``.
+        """
+
         return self.audio.read(count)
 
     def push_audio_samples(self, samples: list[float] | tuple[float, ...]) -> None:
+        """Append synthetic audio samples for tests or headless sketches.
+
+        Args:
+            samples: Sample amplitudes to add to the audio input buffer.
+        """
+
         self.audio.push_samples(samples)
 
     def close(self) -> None:
+        """Close the video capture and stop the audio input."""
+
         self.video.close()
         self.audio.stop()
 

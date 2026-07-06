@@ -20,6 +20,12 @@ from gummysnake._fast_draw_math import (
 )
 from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.core.geometry import resolve_ellipse, resolve_rect
+from gummysnake.drawing.primitive_fast_path import (
+    PRIMITIVE_ELLIPSE,
+    PRIMITIVE_RECT,
+    PRIMITIVE_TRIANGLE,
+    queue_fill_primitive,
+)
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D
 from gummysnake.drawing.software3d.payloads import (
     _IDENTITY4,
@@ -33,18 +39,6 @@ if TYPE_CHECKING:
 
 class SupportsText(Protocol):
     def __str__(self) -> str: ...
-
-
-_PRIMITIVE_RECT = 1
-_PRIMITIVE_TRIANGLE = 2
-_PRIMITIVE_ELLIPSE = 3
-
-
-def _queue_fill_primitive(context: SketchContext, kind: int, coords: tuple[float, ...]) -> bool:
-    queue = getattr(context.renderer, "queue_fill_primitive_fast_path", None)
-    if not callable(queue):
-        return False
-    return bool(queue(kind, coords, context.state.style, context.state.transform.matrix))
 
 
 class _FastPushedScope:
@@ -251,7 +245,7 @@ class FastDrawScope:
         fw = float(width)
         if height is not None and context.state.style.rect_mode == c.CORNER:
             fh = float(height)
-            if _queue_fill_primitive(context, _PRIMITIVE_RECT, (fx, fy, fw, fh, 0.0, 0.0)):
+            if queue_fill_primitive(context, PRIMITIVE_RECT, (fx, fy, fw, fh, 0.0, 0.0)):
                 return
             context.renderer.rect(
                 fx,
@@ -309,7 +303,7 @@ class FastDrawScope:
             d = float(diameter)
             left = fx - d / 2.0
             top = fy - d / 2.0
-            if _queue_fill_primitive(context, _PRIMITIVE_ELLIPSE, (left, top, d, d, 0.0, 0.0)):
+            if queue_fill_primitive(context, PRIMITIVE_ELLIPSE, (left, top, d, d, 0.0, 0.0)):
                 return
             context.renderer.ellipse(
                 left,
@@ -325,7 +319,7 @@ class FastDrawScope:
     def triangle(self, x1: float, y1: float, x2: float, y2: float, x3: float, y3: float) -> None:
         context = self._context
         values = (float(x1), float(y1), float(x2), float(y2), float(x3), float(y3))
-        if _queue_fill_primitive(context, _PRIMITIVE_TRIANGLE, values):
+        if queue_fill_primitive(context, PRIMITIVE_TRIANGLE, values):
             return
         context.renderer.triangle(
             values[0],

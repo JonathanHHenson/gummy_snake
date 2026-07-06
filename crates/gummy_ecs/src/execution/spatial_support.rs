@@ -250,10 +250,7 @@ impl BuiltSpatialIndex {
     ) -> Result<bool> {
         match self {
             Self::HashGrid(index) => index.update_incremental(records),
-            Self::DirectPointHashGrid(index) => {
-                index.build_from_spatial_records(records)?;
-                Ok(false)
-            }
+            Self::DirectPointHashGrid(index) => index.update_from_spatial_records(records),
             Self::Quadtree(index) => index.update_incremental(records),
             Self::Octree(index) => index.update_incremental(records),
             Self::Hilbert(index) => index.update_incremental(records),

@@ -14,7 +14,9 @@ class DecodedFrame(Protocol):
 
     shape: Sequence[int]
 
-    def tobytes(self) -> bytes: ...
+    def tobytes(self) -> bytes:
+        """Return contiguous decoded frame bytes."""
+        ...
 
 
 def frame_to_image(frame: DecodedFrame) -> Image:

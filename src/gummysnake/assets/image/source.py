@@ -14,7 +14,9 @@ class ImageSource(Protocol):
     width: int
     height: int
 
-    def tobytes(self) -> bytes: ...
+    def tobytes(self) -> bytes:
+        """Return packed RGBA bytes for the image source."""
+        ...
 
 
 _ByteSourceCallback = Callable[[], bytes | bytearray | memoryview]

@@ -45,36 +45,69 @@ class Image(ImageDeferredMixin):
 
     @classmethod
     def from_rust_image(cls, image: CanvasImage) -> Self:
+        """Wrap a Rust-owned canvas image handle in the public ``Image`` class.
+
+        Args:
+            image: Canvas image handle created by the Rust runtime.
+
+        Returns:
+            An ``Image`` that uses the same underlying pixel storage.
+        """
+
         return cls(image)
 
     @property
     def width(self) -> int:
+        """Image width in pixels."""
+
         return self._rust_image.width
 
     @property
     def height(self) -> int:
+        """Image height in pixels."""
+
         return self._rust_image.height
 
     @property
     def version(self) -> int:
+        """Change counter that increases when this image's pixels are modified."""
+
         return self._rust_image.version
 
     @property
     def cache_key(self) -> int:
+        """Stable key used by renderer caches for this Rust-owned image."""
+
         return self._rust_image.cache_key
 
     @property
     def rust_image(self) -> CanvasImage:
+        """Canvas image handle used internally by the Rust runtime."""
+
         return self._rust_image
 
     def to_rgba_bytes(self) -> bytes:
+        """Return the image pixels as packed RGBA bytes.
+
+        Returns:
+            A ``bytes`` object containing red, green, blue, and alpha bytes for each pixel.
+        """
+
         return self._rust_image.to_rgba_bytes()
 
     def tobytes(self) -> bytes:
+        """Return the image pixels as packed RGBA bytes.
+
+        Returns:
+            The same byte layout as ``to_rgba_bytes()``.
+        """
+
         return self.to_rgba_bytes()
 
     @property
     def pixels(self) -> list[int]:
+        """Image pixels as a mutable-style list of RGBA byte values."""
+
         return list(self.to_rgba_bytes())
 
     @overload
@@ -84,6 +117,15 @@ class Image(ImageDeferredMixin):
     def __getitem__(self, key: tuple[slice, slice]) -> Image: ...
 
     def __getitem__(self, key: tuple[int, int] | tuple[slice, slice]) -> Color | Image:
+        """Read one pixel or crop a rectangular region with index syntax.
+
+        Args:
+            key: ``(x, y)`` for one pixel, or ``(x_slice, y_slice)`` for an image region.
+
+        Returns:
+            A ``Color`` for one pixel, or a new ``Image`` for a sliced region.
+        """
+
         if not isinstance(key, tuple) or len(key) != 2:
             raise TypeError("Image indices must be (x, y) or (x_slice, y_slice).")
         x_key, y_key = key
@@ -100,6 +142,13 @@ class Image(ImageDeferredMixin):
         key: tuple[int, int],
         value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
     ) -> None:
+        """Set one pixel with index assignment.
+
+        Args:
+            key: ``(x, y)`` pixel coordinate to modify.
+            value: Color, RGB/RGBA tuple, or image to composite at that coordinate.
+        """
+
         if not isinstance(key, tuple) or len(key) != 2:
             raise TypeError("Image assignment indices must be (x, y).")
         x_key, y_key = key
@@ -108,9 +157,22 @@ class Image(ImageDeferredMixin):
         self.set(int(cast(int, x_key)), int(cast(int, y_key)), value)
 
     def load_pixels(self) -> list[int]:
+        """Return image pixels as RGBA byte values.
+
+        Returns:
+            A list containing four integer byte values for each pixel.
+        """
+
         return self.pixels
 
     def update_pixels(self, pixels: Buffer | list[int] | tuple[int, ...] | None = None) -> None:
+        """Replace all image pixels from an RGBA byte buffer.
+
+        Args:
+            pixels: Buffer or sequence containing exactly ``width * height * 4`` byte values.
+                Passing ``None`` leaves the image unchanged.
+        """
+
         if pixels is None:
             return
         try:
@@ -127,6 +189,15 @@ class Image(ImageDeferredMixin):
         self._rust_image.replace_rgba_bytes(payload)
 
     def pixel_density(self, value: float | None = None) -> float:
+        """Return or validate the image pixel density.
+
+        Args:
+            value: Optional requested density. Only ``1.0`` is currently supported for images.
+
+        Returns:
+            The image density, currently always ``1.0``.
+        """
+
         if value is None or value == 1:
             return 1.0
         raise UnsupportedFeatureError(
@@ -146,6 +217,16 @@ class Image(ImageDeferredMixin):
     ) -> Image: ...
 
     def copy(self, *args: int) -> Image:
+        """Copy this image or a region of it.
+
+        Args:
+            args: No arguments copies the whole image. Four integers copy ``sx, sy, sw, sh``.
+                Eight integers copy and resize ``sx, sy, sw, sh`` to ``dw, dh``.
+
+        Returns:
+            A new ``Image`` containing the copied pixels.
+        """
+
         if not args:
             return Image(self._rust_image.copy())
         if len(args) == 4:
@@ -169,6 +250,18 @@ class Image(ImageDeferredMixin):
     def get(
         self, x: int | None = None, y: int | None = None, w: int | None = None, h: int | None = None
     ) -> Color | Image:
+        """Read a pixel, copy the whole image, or crop a region.
+
+        Args:
+            x: Left pixel coordinate, or omitted to copy the whole image.
+            y: Top pixel coordinate, required when ``x`` is provided.
+            w: Region width when cropping.
+            h: Region height when cropping.
+
+        Returns:
+            A ``Color`` for one pixel, or a new ``Image`` for whole-image and region copies.
+        """
+
         if x is None and y is None:
             return self.copy()
         if x is None or y is None:
@@ -185,6 +278,14 @@ class Image(ImageDeferredMixin):
         y: int,
         value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
     ) -> None:
+        """Set a pixel or composite another image at a coordinate.
+
+        Args:
+            x: Horizontal pixel coordinate.
+            y: Vertical pixel coordinate.
+            value: Color, RGB/RGBA tuple, or image to composite with alpha.
+        """
+
         if isinstance(value, Image):
             self._rust_image.alpha_composite(value._rust_image, int(x), int(y))
             return
@@ -194,6 +295,13 @@ class Image(ImageDeferredMixin):
         self._put_pixel(int(x), int(y), cast(tuple[int, int, int, int], rgba))
 
     def resize(self, width: int, height: int) -> None:
+        """Resize this image in place.
+
+        Args:
+            width: New width in pixels. Use ``0`` to preserve aspect ratio from ``height``.
+            height: New height in pixels. Use ``0`` to preserve aspect ratio from ``width``.
+        """
+
         target_width = self.width if width == 0 else int(width)
         target_height = self.height if height == 0 else int(height)
         if width == 0 and height != 0:
@@ -207,9 +315,22 @@ class Image(ImageDeferredMixin):
         self._rust_image.resize(target_width, target_height)
 
     def mask(self, mask_image: Image) -> None:
+        """Apply another image's alpha channel as a mask.
+
+        Args:
+            mask_image: Image whose alpha values control this image's transparency.
+        """
+
         self._rust_image.mask(mask_image._rust_image)
 
     def filter(self, mode: c.ImageFilter, value: float | None = None) -> None:
+        """Apply an image filter in place.
+
+        Args:
+            mode: Filter to apply, such as ``GRAY``, ``INVERT``, or ``BLUR``.
+            value: Optional filter strength or threshold used by filters that need one.
+        """
+
         normalized = mode.value
         if normalized not in {
             c.GRAY,
@@ -224,6 +345,12 @@ class Image(ImageDeferredMixin):
         self._rust_image.filter(normalized, value)
 
     def save(self, path: str | Path) -> None:
+        """Save this image to a file.
+
+        Args:
+            path: Destination path. The file extension selects the image format.
+        """
+
         self._rust_image.save(path)
 
     def _crop(self, sx: int, sy: int, sw: int, sh: int) -> Image:

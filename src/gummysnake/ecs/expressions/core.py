@@ -37,6 +37,16 @@ class Expression:
         return cls
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
+        """Evaluate this expression for one ECS row.
+
+        Args:
+            ctx: Query bindings and cached values for the current row.
+            world: ECS world used to resolve resources, joins, and runtime state.
+
+        Returns:
+            The Python value produced by the expression.
+        """
+
         raise NotImplementedError
 
     __hash__ = object.__hash__
@@ -215,6 +225,16 @@ class LiteralExpression(Expression):
     value: Any
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
+        """Return the stored literal value for the current ECS row.
+
+        Args:
+            ctx: Query bindings for the row; ignored because literals are constant.
+            world: ECS world for the row; ignored because literals are constant.
+
+        Returns:
+            The literal Python value stored in this node.
+        """
+
         del ctx, world
         return self.value
 
@@ -227,6 +247,16 @@ class UnaryExpression(Expression):
     operand: Expression
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
+        """Evaluate the operand and apply this unary operator.
+
+        Args:
+            ctx: Query bindings and cache for the current row.
+            world: ECS world used by the operand expression.
+
+        Returns:
+            The negated value or boolean inverse, depending on ``op``.
+        """
+
         def compute() -> Any:
             value = self.operand.eval(ctx, world)
             if self.op == "neg":
@@ -247,6 +277,16 @@ class BinaryExpression(Expression):
     right: Expression
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
+        """Evaluate both sides and apply this binary operator.
+
+        Args:
+            ctx: Query bindings and cache for the current row.
+            world: ECS world used by child expressions.
+
+        Returns:
+            The arithmetic, comparison, or boolean result for this row.
+        """
+
         def compute() -> Any:
             left = self.left.eval(ctx, world)
             if self.op == "and":
@@ -293,6 +333,16 @@ class AttributeExpression(Expression):
     attribute: str
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
+        """Read an attribute from the evaluated base expression.
+
+        Args:
+            ctx: Query bindings and cache for the current row.
+            world: ECS world used by the base expression.
+
+        Returns:
+            The attribute value from the base expression result.
+        """
+
         return _cached_expression_eval(
             self, ctx, world, lambda: getattr(self.base.eval(ctx, world), self.attribute)
         )
@@ -306,6 +356,16 @@ class FunctionExpression(Expression):
     args: tuple[Expression, ...]
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
+        """Evaluate the arguments and apply this built-in helper function.
+
+        Args:
+            ctx: Query bindings and cache for the current row.
+            world: ECS world used by argument expressions.
+
+        Returns:
+            The numeric helper result for this row.
+        """
+
         def compute() -> Any:
             values = [arg.eval(ctx, world) for arg in self.args]
             if self.name == "sqrt":
@@ -337,6 +397,16 @@ class DeltatimeExpression(Expression):
     """Expression node that reads the current sketch delta time."""
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> float:
+        """Return the sketch delta time for the current ECS run.
+
+        Args:
+            ctx: Query bindings for the row; ignored by this expression.
+            world: ECS world whose sketch context stores the frame delta time.
+
+        Returns:
+            Seconds elapsed since the previous frame, or ``0.0`` without a context.
+        """
+
         del ctx
         context = world.context
         if context is None:
@@ -351,6 +421,16 @@ class KeyDownExpression(Expression):
     key: int | str
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> bool:
+        """Return whether the configured key is currently held down.
+
+        Args:
+            ctx: Query bindings for the row; ignored by this expression.
+            world: ECS world whose sketch context owns keyboard state.
+
+        Returns:
+            ``True`` when the key is down for the current frame.
+        """
+
         del ctx
         context = world.context
         return False if context is None else bool(context.key_is_down(self.key))

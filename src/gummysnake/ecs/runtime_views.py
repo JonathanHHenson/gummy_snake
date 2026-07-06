@@ -382,6 +382,7 @@ class _ScheduledSystem:
     physical_payload_dynamic: bool = False
     physical_has_input_state: bool = False
     physical_schema_fingerprint: int | None = None
+    physical_warm_report: dict[str, Any] | None = None
 
 
 class _RuntimeEventWriter:

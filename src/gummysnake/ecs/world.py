@@ -524,6 +524,8 @@ class EcsWorld:
         return system_runtime.has_change_filtered_systems(self)
 
     def match_query(self, spec: QuerySpec) -> list[EntityView]:
+        """Return entity views that satisfy ``spec`` in deterministic order."""
+
         return query_runtime.match_query(self, spec)
 
     def iter_join_contexts_for(
@@ -533,6 +535,8 @@ class EcsWorld:
         *,
         include_query: QueryProxy | None = None,
     ) -> Iterator[dict[object, Any]]:
+        """Yield query-binding contexts needed to evaluate ``expr``."""
+
         yield from query_runtime.iter_join_contexts_for(
             self, base_ctx, expr, include_query=include_query
         )
@@ -540,17 +544,25 @@ class EcsWorld:
     def iter_join_contexts_for_queries(
         self, base_ctx: dict[object, Any], queries: Iterable[QueryProxy]
     ) -> Iterator[dict[object, Any]]:
+        """Yield query-binding contexts for the requested query proxies."""
+
         yield from query_runtime.iter_join_contexts_for_queries(self, base_ctx, queries)
 
     def write_key(
         self, target: FieldExpression, ctx: dict[object, Any]
     ) -> tuple[int, type[Any], str] | tuple[str, type[Any], str]:
+        """Build the entity/resource, component, and field key for a write."""
+
         return query_runtime.write_key(target, ctx)
 
     def check_parallel_children(self, children: tuple[Action, ...]) -> None:
+        """Validate that parallel child actions do not contain ambiguous writes."""
+
         query_runtime.check_parallel_children(self, children)
 
     def materialize_udf_arg(self, arg: UdfArgument) -> query_runtime.MaterializedUdfArgument:
+        """Convert a UDF argument descriptor into the value passed to Python."""
+
         return query_runtime.materialize_udf_arg(self, arg)
 
     def _register_event_type(self, event_type: type[Any]) -> None:

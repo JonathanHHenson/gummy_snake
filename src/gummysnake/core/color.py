@@ -154,6 +154,27 @@ class Color:
         raise ArgumentValidationError(f"Unsupported color mode {mode!r}.")
 
 
+def _rgb255_color_from_args(
+    args: tuple[object, ...],
+    *,
+    mode: c.ColorMode,
+    ranges: tuple[Number, Number, Number, Number],
+) -> Color | None:
+    if (
+        mode != c.RGB
+        or ranges != (255.0, 255.0, 255.0, 255.0)
+        or len(args) not in {3, 4}
+        or not all(isinstance(value, int | float) for value in args)
+    ):
+        return None
+    numeric_args = cast(tuple[Number, ...], args)
+    red = _to_u8(float(numeric_args[0]))
+    green = _to_u8(float(numeric_args[1]))
+    blue = _to_u8(float(numeric_args[2]))
+    alpha = _to_u8(float(numeric_args[3])) if len(numeric_args) == 4 else 255
+    return Color(red, green, blue, alpha)
+
+
 def _parse_color_string(value: str) -> tuple[int, int, int, int]:
     normalized = value.strip().lower()
     if normalized in _NAMED_COLORS:

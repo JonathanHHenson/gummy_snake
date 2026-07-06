@@ -105,6 +105,16 @@ class GroupedAnyExpression(Expression):
     query: QueryProxy
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> bool:
+        """Return whether any row in the current group matches the expression.
+
+        Args:
+            ctx: Query bindings for the current outer row.
+            world: ECS world used to find joined rows for the group.
+
+        Returns:
+            ``True`` when at least one grouped row evaluates truthy.
+        """
+
         if self.query not in ctx:
             return False
         target_entity = ctx[self.query]
@@ -127,6 +137,16 @@ class GroupedValueAggregateExpression(Expression):
     default: EcsLiteralValue | None = None
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
+        """Compute this aggregate for rows grouped with the current query entity.
+
+        Args:
+            ctx: Query bindings for the current outer row.
+            world: ECS world used to find joined rows for the group.
+
+        Returns:
+            The count, sum, minimum, maximum, mean, or configured default value.
+        """
+
         if self.query not in ctx:
             return self._empty_group_value()
         values, count = self._matching_values(ctx, world)
@@ -198,6 +218,16 @@ class ExistsExpression(Expression):
     predicate: Expression
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> bool:
+        """Return whether the query has at least one row matching the predicate.
+
+        Args:
+            ctx: Query bindings from the outer expression scope.
+            world: ECS world used to search candidate rows.
+
+        Returns:
+            ``True`` when any candidate row makes the predicate truthy.
+        """
+
         for joined in world.iter_join_contexts_for(ctx, self.predicate, include_query=self.query):
             if bool(self.predicate.eval(joined, world)):
                 return True

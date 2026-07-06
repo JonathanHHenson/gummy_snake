@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from gummysnake import constants as c
-from gummysnake.core.input_events import MotionEvent, TouchPoint
+from gummysnake.core.input_events import MotionEvent, TouchPoint, _update_motion_state
 
 
 class InputState:
@@ -229,48 +229,15 @@ class InputState:
         rotation_z: float | None = None,
         orientation: str | None = None,
     ) -> MotionEvent:
-        self.previous_acceleration_x = self.acceleration_x
-        self.previous_acceleration_y = self.acceleration_y
-        self.previous_acceleration_z = self.acceleration_z
-        self.previous_rotation_x = self.rotation_x
-        self.previous_rotation_y = self.rotation_y
-        self.previous_rotation_z = self.rotation_z
-        if acceleration_x is not None:
-            self.acceleration_x = float(acceleration_x)
-        if acceleration_y is not None:
-            self.acceleration_y = float(acceleration_y)
-        if acceleration_z is not None:
-            self.acceleration_z = float(acceleration_z)
-        if rotation_x is not None:
-            self.rotation_x = float(rotation_x)
-        if rotation_y is not None:
-            self.rotation_y = float(rotation_y)
-        if rotation_z is not None:
-            self.rotation_z = float(rotation_z)
-        if orientation is not None:
-            self.device_orientation = str(orientation)
-        deltas = {
-            "x": abs(self.rotation_x - self.previous_rotation_x),
-            "y": abs(self.rotation_y - self.previous_rotation_y),
-            "z": abs(self.rotation_z - self.previous_rotation_z),
-        }
-        axis, amount = max(deltas.items(), key=lambda item: item[1])
-        self.turn_axis = axis if amount >= self.move_threshold else None
-        return MotionEvent(
-            acceleration_x=self.acceleration_x,
-            acceleration_y=self.acceleration_y,
-            acceleration_z=self.acceleration_z,
-            rotation_x=self.rotation_x,
-            rotation_y=self.rotation_y,
-            rotation_z=self.rotation_z,
-            orientation=self.device_orientation,
-            previous_acceleration_x=self.previous_acceleration_x,
-            previous_acceleration_y=self.previous_acceleration_y,
-            previous_acceleration_z=self.previous_acceleration_z,
-            previous_rotation_x=self.previous_rotation_x,
-            previous_rotation_y=self.previous_rotation_y,
-            previous_rotation_z=self.previous_rotation_z,
-            turn_axis=self.turn_axis,
+        return _update_motion_state(
+            self,
+            acceleration_x=acceleration_x,
+            acceleration_y=acceleration_y,
+            acceleration_z=acceleration_z,
+            rotation_x=rotation_x,
+            rotation_y=rotation_y,
+            rotation_z=rotation_z,
+            orientation=orientation,
         )
 
     def require_touch_supported(self) -> None:

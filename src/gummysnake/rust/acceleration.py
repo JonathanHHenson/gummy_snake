@@ -8,7 +8,14 @@ from typing import Protocol, cast
 class AcceleratedModule(Protocol):
     """Protocol implemented by the optional compiled acceleration module."""
 
-    def health_check(self) -> str: ...
+    def health_check(self) -> str:
+        """Return a short status string from the compiled acceleration module.
+
+        Returns:
+            Human-readable status text reported by the extension.
+        """
+
+        ...
 
     def noise3(
         self,
@@ -18,7 +25,22 @@ class AcceleratedModule(Protocol):
         seed: int,
         octaves: int,
         falloff: float,
-    ) -> float: ...
+    ) -> float:
+        """Compute deterministic 3D noise using the compiled extension.
+
+        Args:
+            x: First coordinate in noise space.
+            y: Second coordinate in noise space.
+            z: Third coordinate in noise space, often time for animation.
+            seed: Integer seed that selects the noise pattern.
+            octaves: Number of layered noise passes to combine.
+            falloff: Amplitude multiplier applied after each octave.
+
+        Returns:
+            A floating-point noise value.
+        """
+
+        ...
 
     def animated_noise_rgba(
         self,
@@ -29,9 +51,36 @@ class AcceleratedModule(Protocol):
         seed: int,
         octaves: int,
         falloff: float,
-    ) -> bytes: ...
+    ) -> bytes:
+        """Render an animated RGBA noise image using the compiled extension.
 
-    def exclusion_blend_rgb(self, base: bytes, overlay: bytes) -> bytes: ...
+        Args:
+            width: Output image width in pixels.
+            height: Output image height in pixels.
+            density: Pixel-density scale used for the generated pattern.
+            time: Animation time coordinate.
+            seed: Integer seed that selects the noise pattern.
+            octaves: Number of layered noise passes to combine.
+            falloff: Amplitude multiplier applied after each octave.
+
+        Returns:
+            RGBA bytes with four bytes per output pixel.
+        """
+
+        ...
+
+    def exclusion_blend_rgb(self, base: bytes, overlay: bytes) -> bytes:
+        """Blend two RGB byte buffers with the exclusion blend mode.
+
+        Args:
+            base: Base RGB pixels with three bytes per pixel.
+            overlay: Overlay RGB pixels with the same length as ``base``.
+
+        Returns:
+            Blended RGB bytes.
+        """
+
+        ...
 
 
 _loaded_accelerated: AcceleratedModule | None
