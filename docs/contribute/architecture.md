@@ -372,14 +372,16 @@ Use these rules of thumb:
   `src/gummysnake`.
 - Rust may use same-stem `foo.rs` hub files with `foo/` child modules when the
   file is an intentional declaration/re-export boundary. Current documented hubs
-  are `bindings.rs`, `canvas/gpu.rs`, `canvas/lifecycle.rs`, `canvas/pixels.rs`,
-  `canvas/primitives.rs`, `canvas/primitives/batches.rs`, `gpu/pipeline.rs`,
+  are `bindings.rs`, `bindings/ecs.rs`, `canvas/gpu.rs`,
+  `canvas/gpu/shapes.rs`, `canvas/lifecycle.rs`, `canvas/pixels.rs`, `canvas/primitives.rs`,
+  `canvas/primitives/batches.rs`, `gpu/pipeline.rs`,
   `gpu/render.rs`, `gpu/setup.rs`, `gpu/shaders.rs`,
   `gpu/shaders/primitive.rs`, `gpu/types.rs`, `runtime/desktop.rs`,
   `sketch_state.rs`, and `tests.rs` under
   `crates/gummy_canvas/src/`, plus `execution.rs`,
-  `execution/direct_point_hash_grid.rs`, `execution/f64_program.rs`, `plan.rs`,
-  `spatial.rs`, `spatial/hash_grid.rs`, `tree_spatial.rs`, and `world.rs` under
+  `execution/direct_point_hash_grid.rs`, `execution/f64_program.rs`,
+  `execution/tests.rs`, `plan.rs`, `spatial.rs`, `spatial/hash_grid.rs`,
+  `tree_spatial.rs`, and `world.rs` under
   `crates/gummy_ecs/src/`.
 - Run `uv run python scripts/structure_audit.py` after layout changes. It checks
   for confusing Python sibling module/package patterns, source-package test

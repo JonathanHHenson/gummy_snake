@@ -70,7 +70,9 @@ STALE_TEXT_PATTERNS = {
 }
 DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_canvas/src/bindings.rs"),
+    Path("crates/gummy_canvas/src/bindings/ecs.rs"),
     Path("crates/gummy_canvas/src/canvas/gpu.rs"),
+    Path("crates/gummy_canvas/src/canvas/gpu/shapes.rs"),
     Path("crates/gummy_canvas/src/canvas/lifecycle.rs"),
     Path("crates/gummy_canvas/src/canvas/pixels.rs"),
     Path("crates/gummy_canvas/src/canvas/primitives.rs"),
@@ -87,6 +89,7 @@ DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_ecs/src/execution.rs"),
     Path("crates/gummy_ecs/src/execution/direct_point_hash_grid.rs"),
     Path("crates/gummy_ecs/src/execution/f64_program.rs"),
+    Path("crates/gummy_ecs/src/execution/tests.rs"),
     Path("crates/gummy_ecs/src/plan.rs"),
     Path("crates/gummy_ecs/src/spatial.rs"),
     Path("crates/gummy_ecs/src/spatial/hash_grid.rs"),
