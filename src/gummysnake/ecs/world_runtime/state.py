@@ -1,0 +1,177 @@
+"""Private helpers for ECS world diagnostics and frame-local state."""
+
+from __future__ import annotations
+
+import warnings
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from gummysnake.ecs.runtime_views import Entity, SystemHandle, _ScheduledSystem, _SystemSetConfig
+from gummysnake.ecs.world_helpers import _component_key, _handle_matches, _optional_rust_int
+from gummysnake.exceptions import SystemPlanError
+
+if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.ecs.world import EcsWorld
+
+
+def configure(
+    world: EcsWorld, *, strict: bool | None = None, warn_on_ambiguity: bool | None = None
+) -> None:
+    """Update ECS diagnostic and ambiguity-handling options."""
+    if strict is not None:
+        world.strict = bool(strict)
+    if warn_on_ambiguity is not None:
+        world.warn_on_ambiguity = bool(warn_on_ambiguity)
+
+
+def diagnostics(world: EcsWorld) -> dict[str, Any]:
+    """Collect Python and Rust ECS diagnostic counters into a new dictionary."""
+    enabled = sum(1 for system in world._systems if system.enabled)
+    data: dict[str, Any] = dict(world._diagnostics)
+    spatial_index_cache_len = _optional_rust_int(world._rust, "spatial_index_cache_len")
+    structural_revision = _optional_rust_int(world._rust, "structural_revision")
+    field_revision = _optional_rust_int(world._rust, "field_revision")
+    data.update(
+        {
+            "ecs_systems_registered": len(world._systems),
+            "ecs_systems_enabled": enabled,
+            "ecs_entities_alive": world._rust.alive_count(),
+            "ecs_rust_core": "available",
+            "ecs_rust_entities_alive": world._rust.alive_count(),
+            "ecs_rust_component_schemas_total": world._rust.schema_count(),
+            "ecs_rust_compiled_plans": world._rust.compiled_plan_count(),
+            "ecs_spatial_index_cache_len": spatial_index_cache_len,
+            "ecs_rust_structural_revision": structural_revision,
+            "ecs_rust_field_revision": field_revision,
+            "ecs_strict": world.strict,
+            "ecs_warn_on_ambiguity": world.warn_on_ambiguity,
+            "messages": list(world._messages),
+        }
+    )
+    return data
+
+
+def reset_diagnostics(world: EcsWorld) -> None:
+    """Clear accumulated ECS diagnostic counters and messages."""
+    world._diagnostics.clear()
+    world._messages.clear()
+
+
+def record_ambiguity(world: EcsWorld, message: str) -> None:
+    """Record or raise an ambiguous ECS write/order diagnostic."""
+    if world.strict:
+        world._diagnostics["ecs_strict_mode_errors"] += 1
+        raise SystemPlanError(message)
+    world._diagnostics["ecs_ambiguity_warnings"] += 1
+    world._messages.append(message)
+    if world.warn_on_ambiguity:
+        warnings.warn(message, RuntimeWarning, stacklevel=3)
+    else:
+        world._diagnostics["ecs_ambiguity_warnings_suppressed"] += 1
+
+
+def note_field_update(world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
+    """Record a component field update and invalidate dependent caches."""
+    world._diagnostics["ecs_rows_updated"] += 1
+    world._changed_components.add(_component_key(entity, component_type))
+    invalidate_spatial_indexes(world)
+
+
+def note_resource_update(world: EcsWorld) -> None:
+    """Record a resource update and clear expression caches that may read it."""
+    world._diagnostics["ecs_resource_updates"] += 1
+    world._expression_eval_cache.clear()
+
+
+def invalidate_spatial_indexes(world: EcsWorld, *, clear_only: bool = False) -> None:
+    """Invalidate Python-side spatial and expression caches."""
+    if world._defer_spatial_invalidation and not clear_only:
+        world._spatial_invalidated_deferred = True
+        world._diagnostics["ecs_spatial_deferred_invalidations"] += 1
+        return
+    if not clear_only:
+        world._spatial_epoch += 1
+    world._spatial_index_cache.clear()
+    world._spatial_relation_cache.clear()
+    world._spatial_aggregate_cache.clear()
+    world._expression_eval_cache.clear()
+
+
+def configure_system_set(
+    world: EcsWorld,
+    name: str,
+    *,
+    order: int | None = None,
+    enabled: bool | None = None,
+    run_if: Callable[[], bool] | None = None,
+) -> None:
+    """Create or replace scheduling options for a named ECS system set."""
+    world._system_sets[name] = _SystemSetConfig(order=order, enabled=enabled, run_if=run_if)
+    world._diagnostics["ecs_schedule_rebuilds"] += 1
+
+
+def system_enabled(world: EcsWorld, scheduled: _ScheduledSystem) -> bool:
+    """Return whether a scheduled system is enabled after set-level overrides."""
+    config = world._system_sets.get(scheduled.set_name or "")
+    if config is not None and config.enabled is False:
+        return False
+    return scheduled.enabled
+
+
+def system_run_condition(world: EcsWorld, scheduled: _ScheduledSystem) -> bool:
+    """Evaluate set-level and system-level run conditions."""
+    config = world._system_sets.get(scheduled.set_name or "")
+    if config is not None and config.run_if is not None and not bool(config.run_if()):
+        return False
+    return scheduled.run_if is None or bool(scheduled.run_if())
+
+
+def begin_change_frame(world: EcsWorld) -> None:
+    """Start a new ECS change-detection frame."""
+    world._ecs_frame += 1
+    world._rust.set_frame(world._ecs_frame)
+    world._events = {
+        event_type: [(frame, event) for frame, event in events if frame >= world._ecs_frame - 1]
+        for event_type, events in world._events.items()
+    }
+    world._diagnostics["ecs_change_detection_refreshes"] += 1
+
+
+def finalize_change_frame(world: EcsWorld) -> None:
+    """Clear frame-local component change markers after systems run."""
+    world._added_components.clear()
+    world._changed_components.clear()
+    world._removed_components.clear()
+
+
+def mark_component_added(world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
+    """Record that a component was added during the current change frame."""
+    key = _component_key(entity, component_type)
+    world._added_components.add(key)
+    world._changed_components.add(key)
+    world._removed_components.discard(key)
+
+
+def mark_component_changed(world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
+    """Record that a component changed during the current change frame."""
+    key = _component_key(entity, component_type)
+    if key not in world._added_components:
+        world._changed_components.add(key)
+    invalidate_spatial_indexes(world)
+
+
+def mark_component_removed(world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
+    """Record that a component was removed during the current change frame."""
+    key = _component_key(entity, component_type)
+    world._removed_components.add(key)
+    world._added_components.discard(key)
+    world._changed_components.discard(key)
+
+
+def set_system_enabled(world: EcsWorld, handle: SystemHandle | str, enabled: bool) -> None:
+    """Enable or disable a registered ECS system by handle or name."""
+    for scheduled in world._systems:
+        if _handle_matches(scheduled.handle, handle):
+            scheduled.enabled = enabled
+            return
+    raise SystemPlanError(f"Unknown ECS system {handle!r}.")
