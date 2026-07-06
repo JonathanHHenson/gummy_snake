@@ -15,23 +15,18 @@ import warnings
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import suppress
-from dataclasses import dataclass, fields, is_dataclass, replace
+from dataclasses import fields, is_dataclass, replace
 from typing import (
     TYPE_CHECKING,
-    Annotated,
     Any,
     TypeVar,
     cast,
-    get_args,
-    get_origin,
     get_type_hints,
 )
 
 from gummysnake.ecs.actions import (
     Action,
     DefaultAction,
-    ForEachAction,
-    WhenAction,
     action_write_targets,
 )
 from gummysnake.ecs.expressions import (
@@ -41,6 +36,27 @@ from gummysnake.ecs.expressions import (
     expression_queries,
 )
 from gummysnake.ecs.physical import PhysicalPlanUnsupported, build_physical_payload
+from gummysnake.ecs.runtime_views import (
+    Entity,
+    EntityMutation,
+    EntityView,
+    MutEntity,
+    ResourceView,
+    SystemHandle,
+    _RuntimeEventWriter,
+    _ScheduledSystem,
+    _SystemSetConfig,
+)
+from gummysnake.ecs.schema_helpers import (
+    _dataclass_field_dict,
+    _event_payload_from_bridge,
+    _event_payload_to_bridge,
+    _schema_name,
+    _storage_type_for,
+    _tag_name,
+    _validate_event_value,
+    _validate_storage_value,
+)
 from gummysnake.ecs.specs import (
     ChangeTerm,
     EventSpec,
@@ -50,12 +66,17 @@ from gummysnake.ecs.specs import (
     WithoutTerm,
 )
 from gummysnake.ecs.systems import BuiltSystem, SystemDefinition
-from gummysnake.ecs.types import (
-    Bool,
-    Float64,
-    Int64,
-    StorageType,
-    String,
+from gummysnake.ecs.types import StorageType
+from gummysnake.ecs.world_helpers import (
+    _component_key,
+    _contains_direct_udf_action,
+    _current_delta_time,
+    _current_key_down,
+    _handle_matches,
+    _is_direct_udf_action,
+    _is_sequence_action,
+    _optional_rust_int,
+    _payload_has_input_state,
 )
 from gummysnake.exceptions import (
     ComponentSchemaError,
@@ -73,256 +94,6 @@ if TYPE_CHECKING:  # pragma: no cover
 
 ComponentT = TypeVar("ComponentT")
 ResourceT = TypeVar("ResourceT")
-_ENTITY_MUTATION_COMPONENT_UNSET = object()
-
-
-@dataclass(frozen=True)
-class Entity:
-    """Public generational ECS entity handle."""
-
-    index: int
-    generation: int
-    world_id: int
-
-    def __class_getitem__(cls, item: object) -> EntityAnnotation:
-        return EntityAnnotation(item, mutable=False)
-
-    def __getitem__(self, component_type: type[ComponentT]) -> ComponentT:
-        del component_type
-        raise TypeError(
-            "ecs.Entity[...] is a Python UDF/system annotation marker. Runtime component "
-            "access is available on EntityView objects materialized by explicit Python "
-            "ECS boundaries."
-        )
-
-    def add_component(self, component: object) -> None:
-        del component
-        raise TypeError("Raw Entity handles cannot mutate components directly; use EntityView.")
-
-    def remove_component(self, component_type: type[Any]) -> None:
-        del component_type
-        raise TypeError("Raw Entity handles cannot mutate components directly; use EntityView.")
-
-    def add_tag(self, tag: object) -> None:
-        del tag
-        raise TypeError("Raw Entity handles cannot mutate tags directly; use EntityView.")
-
-    def remove_tag(self, tag: object) -> None:
-        del tag
-        raise TypeError("Raw Entity handles cannot mutate tags directly; use EntityView.")
-
-    def despawn(self) -> None:
-        raise TypeError("Raw Entity handles cannot despawn directly; use EntityView.")
-
-
-@dataclass(frozen=True)
-class EntityAnnotation:
-    component_type: object
-    mutable: bool = False
-
-
-@dataclass(frozen=True)
-class EntityMutation:
-    """Declared entity mutations for explicit Python UDF/system parameters."""
-
-    component_type: object = _ENTITY_MUTATION_COMPONENT_UNSET
-    add: bool = False
-    remove: bool = False
-    update: bool = True
-
-    def __post_init__(self) -> None:
-        if self.component_type is _ENTITY_MUTATION_COMPONENT_UNSET:
-            raise SystemPlanError(
-                "EntityMutation must be parameterized as ecs.EntityMutation[Component](...)."
-            )
-        if not (self.add or self.remove or self.update):
-            raise SystemPlanError(
-                "EntityMutation must allow at least one of add, remove, or update."
-            )
-
-    def __class_getitem__(cls, item: object) -> _EntityMutationAlias:
-        return _EntityMutationAlias(item)
-
-
-@dataclass(frozen=True)
-class _EntityMutationAlias:
-    component_type: object
-
-    def __call__(
-        self, *, add: bool = False, remove: bool = False, update: bool = True
-    ) -> EntityMutation:
-        return EntityMutation(self.component_type, add=add, remove=remove, update=update)
-
-
-class MutEntity:
-    """Deprecated mutable entity annotation marker."""
-
-    def __class_getitem__(cls, item: object) -> EntityAnnotation:
-        raise SystemPlanError(
-            "ecs.MutEntity has been replaced by ecs.Entity[...] plus EntityMutation[...] "
-            "metadata on @ecs.udf(python=True) or @ecs.system(python=True)."
-        )
-
-    def __getitem__(self, component_type: type[ComponentT]) -> ComponentT:
-        raise TypeError(
-            "ecs.MutEntity is deprecated; use ecs.Entity[...] and EntityMutation metadata."
-        )
-
-
-class ComponentView:
-    """Rust-backed component field view used at Python/UDF/draw boundaries."""
-
-    __slots__ = (
-        "_world",
-        "_entity",
-        "_component_type",
-        "_schema_name",
-        "_field_names",
-        "_rust",
-    )
-
-    def __init__(self, world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
-        world.validate_schema(component_type)
-        object.__setattr__(self, "_world", world)
-        object.__setattr__(self, "_entity", entity)
-        object.__setattr__(self, "_component_type", component_type)
-        object.__setattr__(self, "_schema_name", _schema_name(component_type))
-        object.__setattr__(self, "_field_names", frozenset(world._schemas[component_type]))
-        object.__setattr__(self, "_rust", world._rust)
-
-    def __getattr__(self, field_name: str) -> Any:
-        if field_name.startswith("__") or field_name not in self._field_names:
-            raise AttributeError(field_name)
-        try:
-            return self._rust.get_field(
-                self._entity.index,
-                self._entity.generation,
-                self._schema_name,
-                field_name,
-            )
-        except ValueError as exc:
-            raise MissingComponentError(
-                f"Entity {self._entity.index}:{self._entity.generation} does not have "
-                f"component {self._component_type.__name__}."
-            ) from exc
-
-    def __setattr__(self, field_name: str, value: object) -> None:
-        if field_name.startswith("_"):
-            object.__setattr__(self, field_name, value)
-            return
-        if field_name not in self._field_names:
-            raise AttributeError(field_name)
-        self._world.set_component_field(self._entity, self._component_type, field_name, value)
-
-    def snapshot(self) -> object:
-        return self._world.component_snapshot(self._entity, self._component_type)
-
-    def __repr__(self) -> str:
-        return (
-            f"ComponentView({self._component_type.__name__}@"
-            f"{self._entity.index}:{self._entity.generation})"
-        )
-
-
-class ResourceView:
-    """Rust-backed resource field view returned by ``get_resource``."""
-
-    def __init__(self, world: EcsWorld, resource_type: type[Any]) -> None:
-        object.__setattr__(self, "_world", world)
-        object.__setattr__(self, "_resource_type", resource_type)
-
-    def __getattr__(self, field_name: str) -> Any:
-        if field_name.startswith("__"):
-            raise AttributeError(field_name)
-        return self._world.get_resource_field(self._resource_type, field_name)
-
-    def __setattr__(self, field_name: str, value: object) -> None:
-        if field_name.startswith("_"):
-            object.__setattr__(self, field_name, value)
-            return
-        self._world.set_resource_field(self._resource_type, field_name, value)
-
-    def snapshot(self) -> object:
-        return self._world.resource_snapshot(self._resource_type)
-
-    def __repr__(self) -> str:
-        return f"ResourceView({self._resource_type.__name__})"
-
-
-class EntityView:
-    """Mutable Python view over an entity's components."""
-
-    def __init__(self, world: EcsWorld, entity: Entity) -> None:
-        self._world = world
-        self.entity = entity
-
-    def __getitem__(self, component_type: type[ComponentT]) -> ComponentT:
-        return cast(ComponentT, ComponentView(self._world, self.entity, component_type))
-
-    def __setitem__(self, component_type: type[Any], value: object) -> None:
-        self._world.set_component(self.entity, value, expected_type=component_type)
-
-    def add_component(self, component: object) -> None:
-        self._world.add_component(self.entity, component)
-
-    def remove_component(self, component_type: type[Any]) -> None:
-        self._world.remove_component(self.entity, component_type)
-
-    def add_tag(self, tag: object) -> None:
-        self._world.add_tag(self.entity, tag)
-
-    def remove_tag(self, tag: object) -> None:
-        self._world.remove_tag(self.entity, tag)
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, EntityView) and self.entity == other.entity
-
-    def __hash__(self) -> int:
-        return hash(self.entity)
-
-    def __repr__(self) -> str:
-        return f"EntityView({self.entity.index}:{self.entity.generation})"
-
-
-@dataclass(frozen=True)
-class SystemHandle:
-    """Handle returned by ``gs.add_system``."""
-
-    id: int
-    name: str
-
-
-@dataclass
-class _SystemSetConfig:
-    order: int | None = None
-    enabled: bool | None = None
-    run_if: Callable[[], bool] | None = None
-
-
-@dataclass
-class _ScheduledSystem:
-    handle: SystemHandle
-    built: BuiltSystem
-    order: int
-    enabled: bool = True
-    before: tuple[SystemHandle | str, ...] = ()
-    after: tuple[SystemHandle | str, ...] = ()
-    run_if: Callable[[], bool] | None = None
-    set_name: str | None = None
-    physical_payload: dict[str, Any] | None = None
-    physical_plan_handle: int | None = None
-    physical_payload_dynamic: bool = False
-    physical_has_input_state: bool = False
-    physical_schema_fingerprint: int | None = None
-
-
-class _RuntimeEventWriter:
-    def __init__(self, world: EcsWorld, event_type: type[Any]) -> None:
-        self._world = world
-        self._event_type = event_type
-
-    def emit(self, event: object) -> None:
-        self._world.emit_event(event, expected_type=self._event_type)
 
 
 class EcsWorld:
@@ -1384,192 +1155,4 @@ class EcsWorld:
         raise SystemPlanError(f"Unknown ECS system {handle!r}.")
 
 
-def _handle_matches(handle: SystemHandle, value: SystemHandle | str) -> bool:
-    return handle == value if isinstance(value, SystemHandle) else handle.name == value
-
-
-def _is_direct_udf_action(action: Action) -> bool:
-    return isinstance(action, DefaultAction) and action.kind == "udf"
-
-
-def _is_sequence_action(action: Action) -> bool:
-    return isinstance(action, DefaultAction) and action.kind == "sequence"
-
-
-def _contains_direct_udf_action(action: Action) -> bool:
-    if _is_direct_udf_action(action):
-        return True
-    if isinstance(action, DefaultAction):
-        return any(_contains_direct_udf_action(child) for child in action.children)
-    if isinstance(action, ForEachAction):
-        return _contains_direct_udf_action(action.body)
-    if isinstance(action, WhenAction):
-        if any(_contains_direct_udf_action(branch) for _, branch in action.branches):
-            return True
-        return action.otherwise_action is not None and _contains_direct_udf_action(
-            action.otherwise_action
-        )
-    return False
-
-
-def _component_key(entity: Entity, component_type: type[Any]) -> tuple[int, int, type[Any]]:
-    return (entity.index, entity.generation, component_type)
-
-
-def _payload_has_input_state(payload: dict[str, Any]) -> bool:
-    return any(
-        isinstance(expr, dict) and expr.get("kind") == "input_state"
-        for expr in payload.get("expressions", ())
-    )
-
-
-def _optional_rust_int(rust_world: object, method_name: str) -> int:
-    method = getattr(rust_world, method_name, None)
-    if not callable(method):
-        return 0
-    return int(cast(Any, method()))
-
-
-def _validate_event_value(event: object) -> None:
-    if is_dataclass(event) or isinstance(event, bool | int | float | str):
-        return
-    raise ComponentSchemaError(
-        "ECS events must be dataclass instances or scalar bool/int/float/str values."
-    )
-
-
-def _event_payload_to_bridge(event: object) -> object:
-    if is_dataclass(event):
-        return _dataclass_field_dict(event)
-    return copy.deepcopy(event)
-
-
-def _event_payload_from_bridge(event_type: type[Any], payload: object) -> object:
-    if is_dataclass(event_type):
-        if not isinstance(payload, dict):
-            raise SystemExecutionError(
-                f"Rust ECS returned non-struct payload for event {event_type.__name__}."
-            )
-        return event_type(**copy.deepcopy(payload))
-    return copy.deepcopy(payload)
-
-
-def _schema_name(component_type: type[Any]) -> str:
-    return f"{component_type.__module__}.{component_type.__qualname__}"
-
-
-def _tag_name(tag: object) -> str:
-    value = str(tag)
-    if not value:
-        raise ComponentSchemaError("ECS tag values cannot be empty.")
-    return value
-
-
-def _current_delta_time(world: EcsWorld) -> float:
-    context = getattr(world, "context", None)
-    if context is None:
-        return 0.0
-    return float(getattr(context, "delta_time", 0.0))
-
-
-def _current_key_down(world: EcsWorld, key: int) -> bool:
-    context = getattr(world, "context", None)
-    if context is None:
-        return False
-    key_is_down = getattr(context, "key_is_down", None)
-    if not callable(key_is_down):
-        return False
-    return bool(key_is_down(key))
-
-
-def _dataclass_field_dict(value: object) -> dict[str, object]:
-    dataclass_value = cast(Any, value)
-    return {
-        field.name: copy.deepcopy(getattr(dataclass_value, field.name))
-        for field in fields(dataclass_value)
-    }
-
-
-def _storage_type_for(
-    annotation: object, component_type: type[Any], field_name: str
-) -> StorageType:
-    origin = get_origin(annotation)
-    args = get_args(annotation)
-    marker = None
-    if origin is Annotated:
-        annotation = args[0]
-        marker = next((arg for arg in args[1:] if isinstance(arg, StorageType)), None)
-        if marker is None:
-            raise ComponentSchemaError(
-                f"Unsupported ECS Annotated metadata for {component_type.__name__}.{field_name}."
-            )
-    if marker is not None:
-        return marker
-    if annotation is bool:
-        return Bool
-    if annotation is int:
-        return Int64
-    if annotation is float:
-        return Float64
-    if annotation is str:
-        return String
-    raise ComponentSchemaError(
-        f"Unsupported ECS field annotation for {component_type.__name__}.{field_name}: "
-        f"{annotation!r}. ECS supports bool, int, float, str, and Annotated storage markers."
-    )
-
-
-def _validate_storage_value(
-    component_type: type[Any], field_name: str, value: object, storage_type: StorageType
-) -> None:
-    if storage_type.fixed_length is not None:
-        if not isinstance(value, tuple | list) or len(value) != storage_type.fixed_length:
-            raise ComponentSchemaError(
-                f"{component_type.__name__}.{field_name} expects {storage_type.name} with "
-                f"{storage_type.fixed_length} numeric values, got {value!r}."
-            )
-        for item in value:
-            if not isinstance(item, int | float):
-                raise ComponentSchemaError(
-                    f"{component_type.__name__}.{field_name} expects numeric vector values, "
-                    f"got {value!r}."
-                )
-        return
-    if storage_type.element_type is not None and storage_type.python_type is list:
-        if not isinstance(value, list):
-            raise ComponentSchemaError(
-                f"{component_type.__name__}.{field_name} expects {storage_type.name}, "
-                f"got {value!r}."
-            )
-        for item in value:
-            _validate_storage_value(component_type, field_name, item, storage_type.element_type)
-        return
-    if storage_type.python_type is float:
-        if not isinstance(value, int | float):
-            raise ComponentSchemaError(
-                f"{component_type.__name__}.{field_name} expects {storage_type.name}, "
-                f"got {value!r}."
-            )
-        return
-    if storage_type.python_type is int:
-        if isinstance(value, bool) or not isinstance(value, int):
-            raise ComponentSchemaError(
-                f"{component_type.__name__}.{field_name} expects {storage_type.name}, "
-                f"got {value!r}."
-            )
-        if storage_type.min_value is not None and value < storage_type.min_value:
-            raise ValueError(
-                f"{component_type.__name__}.{field_name} underflows {storage_type.name}."
-            )
-        if storage_type.max_value is not None and value > storage_type.max_value:
-            raise ValueError(
-                f"{component_type.__name__}.{field_name} overflows {storage_type.name}."
-            )
-        return
-    if not isinstance(value, storage_type.python_type):
-        raise ComponentSchemaError(
-            f"{component_type.__name__}.{field_name} expects {storage_type.name}, got {value!r}."
-        )
-
-
-__all__ = ["EcsWorld", "Entity", "EntityView", "MutEntity", "SystemHandle"]
+__all__ = ["EcsWorld", "Entity", "EntityMutation", "EntityView", "MutEntity", "SystemHandle"]

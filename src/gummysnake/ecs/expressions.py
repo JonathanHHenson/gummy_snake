@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -17,7 +16,20 @@ from typing import (
     runtime_checkable,
 )
 
-if TYPE_CHECKING:
+from gummysnake.ecs.expression_tools import (
+    _cached_expression_eval,
+    all_of,
+    any_of,
+    dt,
+    ensure_expr,
+    exists,
+    expression_queries,
+    key_is_down,
+    literal,
+    replace_query,
+)
+
+if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.actions import EntityIteratorSource
     from gummysnake.ecs.world import EcsWorld, EntityView
 
@@ -619,146 +631,6 @@ class ExistsBuilder:
 
     def where(self, predicate: Expression) -> ExistsExpression:
         return ExistsExpression(self.query, ensure_expr(predicate))
-
-
-def _cached_expression_eval(
-    expr: Expression,
-    ctx: dict[object, Any],
-    world: EcsWorld,
-    compute: Callable[[], Any],
-) -> Any:
-    cache = getattr(world, "_expression_eval_cache", None)
-    if cache is None:
-        return compute()
-    key = (id(expr), _expression_context_key(ctx))
-    if key in cache:
-        world._diagnostics["ecs_expression_cache_hits"] += 1
-        return cache[key]
-    world._diagnostics["ecs_expression_cache_misses"] += 1
-    result = compute()
-    cache[key] = result
-    return result
-
-
-def _expression_context_key(ctx: dict[object, Any]) -> tuple[object, ...]:
-    parts: list[tuple[object, ...]] = []
-    for key, value in ctx.items():
-        if hasattr(value, "entity"):
-            entity = value.entity
-            parts.append(
-                ("entity", id(key), int(entity.world_id), int(entity.index), int(entity.generation))
-            )
-        else:
-            parts.append(("value", id(key), _expression_value_key(value)))
-    return tuple(sorted(parts))
-
-
-def _expression_value_key(value: object) -> object:
-    if value is None or isinstance(value, bool | int | float | str):
-        return value
-    if is_dataclass(value):
-        return repr(value)
-    return id(value)
-
-
-def ensure_expr(value: object) -> Expression:
-    if isinstance(value, Expression):
-        return value
-    return LiteralExpression(value)
-
-
-def all_of(*conditions: object) -> Expression:
-    if not conditions:
-        return LiteralExpression(True)
-    expr = ensure_expr(conditions[0])
-    for condition in conditions[1:]:
-        expr = expr & ensure_expr(condition)
-    return expr
-
-
-def any_of(*conditions: object) -> Expression:
-    if not conditions:
-        return LiteralExpression(False)
-    expr = ensure_expr(conditions[0])
-    for condition in conditions[1:]:
-        expr = expr | ensure_expr(condition)
-    return expr
-
-
-def literal(value: object) -> Expression:
-    return LiteralExpression(value)
-
-
-def dt() -> Expression:
-    return DeltatimeExpression()
-
-
-def key_is_down(key: int | str) -> Expression:
-    return KeyDownExpression(key)
-
-
-def exists(query: object) -> ExistsBuilder:
-    return ExistsBuilder(cast(QueryProxy, query))
-
-
-def expression_queries(expr: Expression) -> set[QueryProxy]:
-    found: set[QueryProxy] = set()
-
-    def collect(node: Expression) -> set[QueryProxy]:
-        if isinstance(node, FieldExpression) and isinstance(node.source, QueryProxy):
-            return {node.source}
-        if isinstance(node, EntityExpression):
-            return {node.query}
-        if isinstance(node, BinaryExpression):
-            return collect(node.left) | collect(node.right)
-        if isinstance(node, UnaryExpression):
-            return collect(node.operand)
-        if isinstance(node, FunctionExpression):
-            refs: set[QueryProxy] = set()
-            for arg in node.args:
-                refs.update(collect(arg))
-            return refs
-        if isinstance(node, AttributeExpression):
-            return collect(node.base)
-        if isinstance(node, GroupedAnyExpression | GroupedValueAggregateExpression):
-            # The grouped query is part of the outer row context. Queries used only by the
-            # aggregate input are expanded inside aggregate eval(), so they must not pre-expand
-            # the branch into the cross join the aggregate is meant to reduce.
-            return {node.query}
-        if isinstance(node, OuterQueryProvider):
-            return node._ecs_outer_queries()
-        if isinstance(node, ExistsExpression):
-            # The exists() query is evaluated inside ExistsExpression.eval(). Keep only
-            # external query references needed by its predicate in the outer row context.
-            refs = collect(node.predicate)
-            refs.discard(node.query)
-            return refs
-        return set()
-
-    found.update(collect(expr))
-    return found
-
-
-def replace_query(expr: Expression, old: QueryProxy, new: QueryProxy) -> Expression:
-    """Return ``expr`` with field/entity refs from one query alias replaced by another."""
-
-    if isinstance(expr, FieldExpression) and expr.source == old:
-        return FieldExpression(new, expr.component_type, expr.field_name)
-    if isinstance(expr, EntityExpression) and expr.query == old:
-        return EntityExpression(new)
-    if isinstance(expr, BinaryExpression):
-        return BinaryExpression(
-            expr.op, replace_query(expr.left, old, new), replace_query(expr.right, old, new)
-        )
-    if isinstance(expr, UnaryExpression):
-        return UnaryExpression(expr.op, replace_query(expr.operand, old, new))
-    if isinstance(expr, FunctionExpression):
-        return FunctionExpression(
-            expr.name, tuple(replace_query(arg, old, new) for arg in expr.args)
-        )
-    if isinstance(expr, AttributeExpression):
-        return AttributeExpression(replace_query(expr.base, old, new), expr.attribute)
-    return expr
 
 
 __all__ = [
