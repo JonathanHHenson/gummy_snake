@@ -30,11 +30,16 @@ TEXT_ROOTS = (
     Path("docs"),
     Path("scripts"),
     Path("crates/gummy_canvas/src"),
+    Path("crates/gummy_ecs/src"),
     Path("crates/gummy_accel/src"),
     Path("README.md"),
     Path("AGENTS.md"),
 )
-RUST_ROOTS = (Path("crates/gummy_canvas/src"), Path("crates/gummy_accel/src"))
+RUST_ROOTS = (
+    Path("crates/gummy_canvas/src"),
+    Path("crates/gummy_ecs/src"),
+    Path("crates/gummy_accel/src"),
+)
 TEXT_SUFFIXES = {".py", ".rs", ".md", ".toml", ".txt", ".yaml", ".yml", ".json"}
 SELF_REFERENTIAL_AUDIT_FILES = {
     Path("scripts/structure_audit.py"),
@@ -78,6 +83,9 @@ DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_canvas/src/runtime/desktop.rs"),
     Path("crates/gummy_canvas/src/sketch_state.rs"),
     Path("crates/gummy_canvas/src/tests.rs"),
+    Path("crates/gummy_ecs/src/execution.rs"),
+    Path("crates/gummy_ecs/src/execution/direct_point_hash_grid.rs"),
+    Path("crates/gummy_ecs/src/execution/f64_program.rs"),
 }
 
 

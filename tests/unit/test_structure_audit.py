@@ -76,6 +76,13 @@ def test_structure_audit_reports_undocumented_rust_hub(tmp_path: Path) -> None:
     assert "undocumented_rust_hub" in _codes(tmp_path)
 
 
+def test_structure_audit_checks_gummy_ecs_rust_hubs(tmp_path: Path) -> None:
+    _write(tmp_path / "crates/gummy_ecs/src/new_area.rs", "mod details;\n")
+    _write(tmp_path / "crates/gummy_ecs/src/new_area/details.rs", "")
+
+    assert "undocumented_rust_hub" in _codes(tmp_path)
+
+
 def test_structure_audit_enforces_generated_example_output_ignore(tmp_path: Path) -> None:
     (tmp_path / "examples").mkdir()
     assert "generated_example_output_policy" in _codes(tmp_path)
