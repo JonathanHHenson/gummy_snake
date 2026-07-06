@@ -47,6 +47,7 @@ from gummysnake.ecs.runtime_views import (
     _ScheduledSystem,
     _SystemSetConfig,
 )
+from gummysnake.ecs.scheduling_helpers import sorted_scheduled_systems
 from gummysnake.ecs.schema_helpers import (
     _dataclass_field_dict,
     _event_payload_from_bridge,
@@ -1043,66 +1044,8 @@ class EcsWorld:
             return False
         return scheduled.run_if is None or bool(scheduled.run_if())
 
-    def _effective_order(self, scheduled: _ScheduledSystem) -> int:
-        config = self._system_sets.get(scheduled.set_name or "")
-        return scheduled.order if config is None or config.order is None else config.order
-
     def _sorted_systems(self) -> list[_ScheduledSystem]:
-        systems = list(self._systems)
-        by_name = {system.handle.name: system for system in systems}
-        by_id = {system.handle.id: system for system in systems}
-        edges: dict[int, set[int]] = {system.handle.id: set() for system in systems}
-        incoming: dict[int, set[int]] = {system.handle.id: set() for system in systems}
-
-        def resolve(ref: SystemHandle | str) -> _ScheduledSystem:
-            if isinstance(ref, SystemHandle):
-                try:
-                    return by_id[ref.id]
-                except KeyError as exc:
-                    raise SystemPlanError(f"Unknown ECS system dependency {ref!r}.") from exc
-            try:
-                return by_name[ref]
-            except KeyError as exc:
-                raise SystemPlanError(f"Unknown ECS system dependency {ref!r}.") from exc
-
-        for system in systems:
-            for before_ref in system.before:
-                target = resolve(before_ref)
-                edges[system.handle.id].add(target.handle.id)
-                incoming[target.handle.id].add(system.handle.id)
-            for after_ref in system.after:
-                source = resolve(after_ref)
-                edges[source.handle.id].add(system.handle.id)
-                incoming[system.handle.id].add(source.handle.id)
-
-        stable = {
-            system.handle.id: (self._effective_order(system), system.handle.id)
-            for system in systems
-        }
-
-        def stable_key(system_id: int) -> tuple[int, int]:
-            return stable[system_id]
-
-        ready = sorted(
-            (system_id for system_id, deps in incoming.items() if not deps),
-            key=stable_key,
-        )
-        ordered_ids: list[int] = []
-        while ready:
-            system_id = ready.pop(0)
-            ordered_ids.append(system_id)
-            for target_id in sorted(edges[system_id], key=stable_key):
-                incoming[target_id].remove(system_id)
-                if not incoming[target_id]:
-                    ready.append(target_id)
-                    ready.sort(key=stable_key)
-        if len(ordered_ids) != len(systems):
-            cycle_ids = [system_id for system_id, deps in incoming.items() if deps]
-            cycle_names = [by_id[system_id].handle.name for system_id in cycle_ids]
-            raise SystemPlanError(
-                "ECS system dependency cycle detected: " + " -> ".join(sorted(cycle_names))
-            )
-        return [by_id[system_id] for system_id in ordered_ids]
+        return sorted_scheduled_systems(self._systems, self._system_sets)
 
     def _begin_change_frame(self) -> None:
         self._ecs_frame += 1
