@@ -41,180 +41,11 @@ from gummysnake.ecs.schema_helpers import (
 from gummysnake.ecs.specs import QuerySpec
 from gummysnake.ecs.systems import SystemDefinition
 from gummysnake.ecs.types import StorageType
-from gummysnake.ecs.world_runtime.entities import (
-    add_component as add_component_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    add_entity as add_entity_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    add_tag as add_tag_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    component_snapshot as component_snapshot_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    component_type_for_schema as component_type_for_schema_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    despawn_entity as despawn_entity_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    get_component_field as get_component_field_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    get_entity as get_entity_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    has_component as has_component_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    iter_component_fields as iter_component_fields_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    iter_entities as iter_entities_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    remove_component as remove_component_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    remove_tag as remove_tag_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    set_component as set_component_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    set_component_field as set_component_field_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    slot as slot_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    sync_component_field_to_rust as sync_component_field_to_rust_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    sync_component_fields_to_rust as sync_component_fields_to_rust_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    try_get_entity as try_get_entity_runtime,
-)
-from gummysnake.ecs.world_runtime.entities import (
-    upsert_component as upsert_component_runtime,
-)
-from gummysnake.ecs.world_runtime.query import (
-    check_parallel_children as check_parallel_children_runtime,
-)
-from gummysnake.ecs.world_runtime.query import (
-    iter_join_contexts_for as iter_join_contexts_for_runtime,
-)
-from gummysnake.ecs.world_runtime.query import (
-    iter_join_contexts_for_queries as iter_join_contexts_for_queries_runtime,
-)
-from gummysnake.ecs.world_runtime.query import (
-    match_query as match_query_runtime,
-)
-from gummysnake.ecs.world_runtime.query import (
-    materialize_udf_arg as materialize_udf_arg_runtime,
-)
-from gummysnake.ecs.world_runtime.query import (
-    write_key as write_key_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    clear_events as clear_events_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    emit_event as emit_event_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    get_resource as get_resource_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    get_resource_field as get_resource_field_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    read_events as read_events_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    register_event_type as register_event_type_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    remove_resource as remove_resource_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    resource_snapshot as resource_snapshot_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    set_resource as set_resource_runtime,
-)
-from gummysnake.ecs.world_runtime.resources import (
-    set_resource_field as set_resource_field_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    begin_change_frame as begin_change_frame_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    configure as configure_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    configure_system_set as configure_system_set_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    diagnostics as diagnostics_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    finalize_change_frame as finalize_change_frame_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    invalidate_spatial_indexes as invalidate_spatial_indexes_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    mark_component_added as mark_component_added_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    mark_component_changed as mark_component_changed_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    mark_component_removed as mark_component_removed_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    note_field_update as note_field_update_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    note_resource_update as note_resource_update_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    record_ambiguity as record_ambiguity_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    reset_diagnostics as reset_diagnostics_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    set_system_enabled as set_system_enabled_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    system_enabled as system_enabled_runtime,
-)
-from gummysnake.ecs.world_runtime.state import (
-    system_run_condition as system_run_condition_runtime,
-)
-from gummysnake.ecs.world_runtime.systems import (
-    add_system as add_system_runtime,
-)
-from gummysnake.ecs.world_runtime.systems import (
-    has_change_filtered_systems as has_change_filtered_systems_runtime,
-)
-from gummysnake.ecs.world_runtime.systems import (
-    remove_system as remove_system_runtime,
-)
-from gummysnake.ecs.world_runtime.systems import (
-    run_pre_draw_systems as run_pre_draw_systems_runtime,
-)
-from gummysnake.ecs.world_runtime.systems import (
-    run_sorted_systems as run_sorted_systems_runtime,
-)
-from gummysnake.ecs.world_runtime.systems import (
-    run_system_action as run_system_action_runtime,
-)
+from gummysnake.ecs.world_runtime import entities as entity_runtime
+from gummysnake.ecs.world_runtime import query as query_runtime
+from gummysnake.ecs.world_runtime import resources as resource_runtime
+from gummysnake.ecs.world_runtime import state as state_runtime
+from gummysnake.ecs.world_runtime import systems as system_runtime
 from gummysnake.exceptions import ComponentSchemaError
 from gummysnake.rust.ecs import create_ecs_world
 
@@ -322,7 +153,7 @@ class EcsWorld:
             A stable handle for the new Rust-owned entity.
         """
 
-        return add_entity_runtime(self, *components, tags=tags)
+        return entity_runtime.add_entity(self, *components, tags=tags)
 
     def despawn_entity(self, entity: Entity) -> None:
         """Remove an entity and all of its components.
@@ -331,7 +162,7 @@ class EcsWorld:
             entity: Entity handle that belongs to this world.
         """
 
-        despawn_entity_runtime(self, entity)
+        entity_runtime.despawn_entity(self, entity)
 
     def add_component(self, entity: Entity, component: object) -> None:
         """Add or replace a dataclass component on an entity.
@@ -341,7 +172,7 @@ class EcsWorld:
             component: Dataclass component instance to store.
         """
 
-        add_component_runtime(self, entity, component)
+        entity_runtime.add_component(self, entity, component)
 
     def set_component(
         self, entity: Entity, component: object, *, expected_type: type[Any] | None = None
@@ -354,12 +185,12 @@ class EcsWorld:
             expected_type: Component class for assignment through typed view APIs.
         """
 
-        set_component_runtime(self, entity, component, expected_type=expected_type)
+        entity_runtime.set_component(self, entity, component, expected_type=expected_type)
 
     def _upsert_component(
         self, entity: Entity, component_type: type[Any], component: object
     ) -> None:
-        upsert_component_runtime(self, entity, component_type, component)
+        entity_runtime.upsert_component(self, entity, component_type, component)
 
     def remove_component(self, entity: Entity, component_type: type[Any]) -> None:
         """Remove one component type from an entity.
@@ -369,7 +200,7 @@ class EcsWorld:
             component_type: Dataclass component class to remove.
         """
 
-        remove_component_runtime(self, entity, component_type)
+        entity_runtime.remove_component(self, entity, component_type)
 
     def add_tag(self, entity: Entity, tag: object) -> None:
         """Add a tag to an entity.
@@ -379,7 +210,7 @@ class EcsWorld:
             tag: Value converted to a string tag for filtering queries.
         """
 
-        add_tag_runtime(self, entity, tag)
+        entity_runtime.add_tag(self, entity, tag)
 
     def remove_tag(self, entity: Entity, tag: object) -> None:
         """Remove a tag from an entity.
@@ -389,7 +220,7 @@ class EcsWorld:
             tag: Value converted to the string tag to remove.
         """
 
-        remove_tag_runtime(self, entity, tag)
+        entity_runtime.remove_tag(self, entity, tag)
 
     def get_entity(self, *components: type[Any], tags: Iterable[object] = ()) -> EntityView:
         """Return the single entity matching component and tag filters.
@@ -402,7 +233,7 @@ class EcsWorld:
             An ``EntityView`` for the matching entity.
         """
 
-        return get_entity_runtime(self, *components, tags=tags)
+        return entity_runtime.get_entity(self, *components, tags=tags)
 
     def try_get_entity(
         self, *components: type[Any], tags: Iterable[object] = ()
@@ -417,7 +248,7 @@ class EcsWorld:
             An ``EntityView`` when exactly one entity matches, or ``None`` when no entity matches.
         """
 
-        return try_get_entity_runtime(self, *components, tags=tags)
+        return entity_runtime.try_get_entity(self, *components, tags=tags)
 
     def iter_entities(
         self, *components: type[Any], tags: Iterable[object] = ()
@@ -432,7 +263,7 @@ class EcsWorld:
             An iterator of ``EntityView`` objects in deterministic entity order.
         """
 
-        return iter_entities_runtime(self, *components, tags=tags)
+        return entity_runtime.iter_entities(self, *components, tags=tags)
 
     def iter_component_fields(
         self,
@@ -451,13 +282,13 @@ class EcsWorld:
             An iterator of tuples whose values match ``field_names`` order.
         """
 
-        return iter_component_fields_runtime(self, component_type, *field_names, tags=tags)
+        return entity_runtime.iter_component_fields(self, component_type, *field_names, tags=tags)
 
     def _slot(self, entity: Entity) -> None:
-        slot_runtime(self, entity)
+        entity_runtime.slot(self, entity)
 
     def _has_component(self, entity: Entity, component_type: type[Any]) -> bool:
-        return has_component_runtime(self, entity, component_type)
+        return entity_runtime.has_component(self, entity, component_type)
 
     def get_component_field(
         self, entity: Entity, component_type: type[Any], field_name: str
@@ -473,7 +304,7 @@ class EcsWorld:
             The current Rust-owned field value.
         """
 
-        return get_component_field_runtime(self, entity, component_type, field_name)
+        return entity_runtime.get_component_field(self, entity, component_type, field_name)
 
     def set_component_field(
         self, entity: Entity, component_type: type[Any], field_name: str, value: object
@@ -487,7 +318,7 @@ class EcsWorld:
             value: New value accepted by the field's ECS storage type.
         """
 
-        set_component_field_runtime(self, entity, component_type, field_name, value)
+        entity_runtime.set_component_field(self, entity, component_type, field_name, value)
 
     def component_snapshot(self, entity: Entity, component_type: type[Any]) -> object:
         """Copy a component's current fields into a new dataclass instance.
@@ -500,7 +331,7 @@ class EcsWorld:
             A new dataclass instance of ``component_type``.
         """
 
-        return component_snapshot_runtime(self, entity, component_type)
+        return entity_runtime.component_snapshot(self, entity, component_type)
 
     # --------------------------------------------------------------- resources
     def set_resource(self, resource: object) -> None:
@@ -510,7 +341,7 @@ class EcsWorld:
             resource: Dataclass resource instance to store or replace.
         """
 
-        set_resource_runtime(self, resource)
+        resource_runtime.set_resource(self, resource)
 
     def get_resource(self, resource_type: type[ResourceT]) -> ResourceT:
         """Return a mutable view for an existing resource.
@@ -522,7 +353,7 @@ class EcsWorld:
             A resource view typed as ``resource_type`` for field access.
         """
 
-        return get_resource_runtime(self, resource_type)
+        return resource_runtime.get_resource(self, resource_type)
 
     def remove_resource(self, resource_type: type[Any]) -> None:
         """Remove a resource from the ECS world.
@@ -531,7 +362,7 @@ class EcsWorld:
             resource_type: Dataclass resource class to remove.
         """
 
-        remove_resource_runtime(self, resource_type)
+        resource_runtime.remove_resource(self, resource_type)
 
     def get_resource_field(self, resource_type: type[Any], field_name: str) -> Any:
         """Read one field from an ECS resource.
@@ -544,7 +375,7 @@ class EcsWorld:
             The current Rust-owned resource field value.
         """
 
-        return get_resource_field_runtime(self, resource_type, field_name)
+        return resource_runtime.get_resource_field(self, resource_type, field_name)
 
     def set_resource_field(self, resource_type: type[Any], field_name: str, value: object) -> None:
         """Write one field on an ECS resource.
@@ -555,7 +386,7 @@ class EcsWorld:
             value: New value accepted by the field's ECS storage type.
         """
 
-        set_resource_field_runtime(self, resource_type, field_name, value)
+        resource_runtime.set_resource_field(self, resource_type, field_name, value)
 
     def resource_snapshot(self, resource_type: type[Any]) -> object:
         """Copy a resource's current fields into a new dataclass instance.
@@ -567,7 +398,7 @@ class EcsWorld:
             A new dataclass instance of ``resource_type``.
         """
 
-        return resource_snapshot_runtime(self, resource_type)
+        return resource_runtime.resource_snapshot(self, resource_type)
 
     # ---------------------------------------------------------------- events
     def emit_event(self, event: object, *, expected_type: type[Any] | None = None) -> None:
@@ -578,7 +409,7 @@ class EcsWorld:
             expected_type: Optional event class used when a typed writer validates payloads.
         """
 
-        emit_event_runtime(self, event, expected_type=expected_type)
+        resource_runtime.emit_event(self, event, expected_type=expected_type)
 
     def read_events(self, event_type: type[ComponentT]) -> tuple[ComponentT, ...]:
         """Read queued events of one dataclass type.
@@ -590,7 +421,7 @@ class EcsWorld:
             A tuple of copied event instances in emission order.
         """
 
-        return read_events_runtime(self, event_type)
+        return resource_runtime.read_events(self, event_type)
 
     def clear_events(self, event_type: type[Any] | None = None) -> None:
         """Clear queued ECS events.
@@ -599,7 +430,7 @@ class EcsWorld:
             event_type: Event class to clear, or ``None`` to clear all event types.
         """
 
-        clear_events_runtime(self, event_type)
+        resource_runtime.clear_events(self, event_type)
 
     # ---------------------------------------------------------------- systems
     def add_system(
@@ -630,7 +461,7 @@ class EcsWorld:
             A handle that can enable, disable, or remove the registered system.
         """
 
-        return add_system_runtime(
+        return system_runtime.add_system(
             self,
             system,
             order=order,
@@ -649,7 +480,7 @@ class EcsWorld:
             handle: System handle or system name returned by ``add_system()``.
         """
 
-        remove_system_runtime(self, handle)
+        system_runtime.remove_system(self, handle)
 
     def enable_system(self, handle: SystemHandle | str) -> None:
         """Allow a scheduled ECS system to run again.
@@ -672,19 +503,19 @@ class EcsWorld:
     def run_pre_draw_systems(self) -> None:
         """Run enabled ECS systems once using the sketch pre-draw lifecycle order."""
 
-        run_pre_draw_systems_runtime(self)
+        system_runtime.run_pre_draw_systems(self)
 
     def _run_sorted_systems(self) -> None:
-        run_sorted_systems_runtime(self)
+        system_runtime.run_sorted_systems(self)
 
     def _run_system_action(self, scheduled: _ScheduledSystem, action: Action) -> None:
-        run_system_action_runtime(self, scheduled, action)
+        system_runtime.run_system_action(self, scheduled, action)
 
     def _has_change_filtered_systems(self) -> bool:
-        return has_change_filtered_systems_runtime(self)
+        return system_runtime.has_change_filtered_systems(self)
 
     def match_query(self, spec: QuerySpec) -> list[EntityView]:
-        return match_query_runtime(self, spec)
+        return query_runtime.match_query(self, spec)
 
     def iter_join_contexts_for(
         self,
@@ -693,40 +524,42 @@ class EcsWorld:
         *,
         include_query: QueryProxy | None = None,
     ) -> Iterator[dict[object, Any]]:
-        yield from iter_join_contexts_for_runtime(self, base_ctx, expr, include_query=include_query)
+        yield from query_runtime.iter_join_contexts_for(
+            self, base_ctx, expr, include_query=include_query
+        )
 
     def iter_join_contexts_for_queries(
         self, base_ctx: dict[object, Any], queries: Iterable[QueryProxy]
     ) -> Iterator[dict[object, Any]]:
-        yield from iter_join_contexts_for_queries_runtime(self, base_ctx, queries)
+        yield from query_runtime.iter_join_contexts_for_queries(self, base_ctx, queries)
 
     def write_key(
         self, target: FieldExpression, ctx: dict[object, Any]
     ) -> tuple[int, type[Any], str] | tuple[str, type[Any], str]:
-        return write_key_runtime(target, ctx)
+        return query_runtime.write_key(target, ctx)
 
     def check_parallel_children(self, children: tuple[Action, ...]) -> None:
-        check_parallel_children_runtime(self, children)
+        query_runtime.check_parallel_children(self, children)
 
     def materialize_udf_arg(self, arg: object) -> object:
-        return materialize_udf_arg_runtime(self, arg)
+        return query_runtime.materialize_udf_arg(self, arg)
 
     def _register_event_type(self, event_type: type[Any]) -> None:
-        register_event_type_runtime(self, event_type)
+        resource_runtime.register_event_type(self, event_type)
 
     # -------------------------------------------------------------- Rust sync
     def _sync_component_fields_to_rust(
         self, entity: Entity, component_type: type[Any], component: object
     ) -> None:
-        sync_component_fields_to_rust_runtime(self, entity, component_type, component)
+        entity_runtime.sync_component_fields_to_rust(self, entity, component_type, component)
 
     def _sync_component_field_to_rust(
         self, entity: Entity, component_type: type[Any], field_name: str, value: object
     ) -> None:
-        sync_component_field_to_rust_runtime(self, entity, component_type, field_name, value)
+        entity_runtime.sync_component_field_to_rust(self, entity, component_type, field_name, value)
 
     def _component_type_for_schema(self, schema_name: str) -> type[Any]:
-        return component_type_for_schema_runtime(self, schema_name)
+        return entity_runtime.component_type_for_schema(self, schema_name)
 
     # -------------------------------------------------------------- diagnostics
     def configure(
@@ -739,7 +572,7 @@ class EcsWorld:
             warn_on_ambiguity: When true, log warnings for duplicate-write resolution.
         """
 
-        configure_runtime(self, strict=strict, warn_on_ambiguity=warn_on_ambiguity)
+        state_runtime.configure(self, strict=strict, warn_on_ambiguity=warn_on_ambiguity)
 
     def diagnostics(self) -> dict[str, Any]:
         """Return ECS counters and diagnostic messages.
@@ -748,12 +581,12 @@ class EcsWorld:
             A dictionary of diagnostic names to values.
         """
 
-        return diagnostics_runtime(self)
+        return state_runtime.diagnostics(self)
 
     def reset_diagnostics(self) -> None:
         """Reset ECS diagnostic counters and messages."""
 
-        reset_diagnostics_runtime(self)
+        state_runtime.reset_diagnostics(self)
 
     def record_ambiguity(self, message: str) -> None:
         """Record an ambiguity diagnostic message.
@@ -762,16 +595,16 @@ class EcsWorld:
             message: Human-readable explanation of the ambiguous write or schedule.
         """
 
-        record_ambiguity_runtime(self, message)
+        state_runtime.record_ambiguity(self, message)
 
     def _note_field_update(self, entity: Entity, component_type: type[Any]) -> None:
-        note_field_update_runtime(self, entity, component_type)
+        state_runtime.note_field_update(self, entity, component_type)
 
     def _note_resource_update(self) -> None:
-        note_resource_update_runtime(self)
+        state_runtime.note_resource_update(self)
 
     def _invalidate_spatial_indexes(self, *, clear_only: bool = False) -> None:
-        invalidate_spatial_indexes_runtime(self, clear_only=clear_only)
+        state_runtime.invalidate_spatial_indexes(self, clear_only=clear_only)
 
     def configure_system_set(
         self,
@@ -790,34 +623,34 @@ class EcsWorld:
             run_if: Optional run condition applied to systems in the set.
         """
 
-        configure_system_set_runtime(self, name, order=order, enabled=enabled, run_if=run_if)
+        state_runtime.configure_system_set(self, name, order=order, enabled=enabled, run_if=run_if)
 
     def _system_enabled(self, scheduled: _ScheduledSystem) -> bool:
-        return system_enabled_runtime(self, scheduled)
+        return state_runtime.system_enabled(self, scheduled)
 
     def _system_run_condition(self, scheduled: _ScheduledSystem) -> bool:
-        return system_run_condition_runtime(self, scheduled)
+        return state_runtime.system_run_condition(self, scheduled)
 
     def _sorted_systems(self) -> list[_ScheduledSystem]:
         return sorted_scheduled_systems(self._systems, self._system_sets)
 
     def _begin_change_frame(self) -> None:
-        begin_change_frame_runtime(self)
+        state_runtime.begin_change_frame(self)
 
     def _finalize_change_frame(self) -> None:
-        finalize_change_frame_runtime(self)
+        state_runtime.finalize_change_frame(self)
 
     def _mark_component_added(self, entity: Entity, component_type: type[Any]) -> None:
-        mark_component_added_runtime(self, entity, component_type)
+        state_runtime.mark_component_added(self, entity, component_type)
 
     def _mark_component_changed(self, entity: Entity, component_type: type[Any]) -> None:
-        mark_component_changed_runtime(self, entity, component_type)
+        state_runtime.mark_component_changed(self, entity, component_type)
 
     def _mark_component_removed(self, entity: Entity, component_type: type[Any]) -> None:
-        mark_component_removed_runtime(self, entity, component_type)
+        state_runtime.mark_component_removed(self, entity, component_type)
 
     def _set_system_enabled(self, handle: SystemHandle | str, enabled: bool) -> None:
-        set_system_enabled_runtime(self, handle, enabled)
+        state_runtime.set_system_enabled(self, handle, enabled)
 
 
 __all__ = ["EcsWorld", "Entity", "EntityMutation", "EntityView", "MutEntity", "SystemHandle"]

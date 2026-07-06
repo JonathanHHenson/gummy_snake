@@ -63,5 +63,3 @@ def action_query_refs(action: Action) -> builtins.set[QueryProxy]:
             refs.update(expression_queries(action.source.expression))
         refs.update(action_query_refs(action.body))
     return refs
-
-

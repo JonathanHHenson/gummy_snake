@@ -463,53 +463,8 @@ impl<'a> PlanExecutor<'a> {
         expr_index: usize,
         out: &mut BTreeSet<String>,
     ) -> Result<()> {
-        match &self.plan.expressions[expr_index] {
-            ExprNode::Field { query, .. } => {
-                out.insert(query.clone());
-            }
-            ExprNode::Unary { input, .. } => self.collect_expr_queries(*input, out)?,
-            ExprNode::Attribute { input, .. } => self.collect_expr_queries(*input, out)?,
-            ExprNode::Binary { left, right, .. } => {
-                self.collect_expr_queries(*left, out)?;
-                self.collect_expr_queries(*right, out)?;
-            }
-            ExprNode::ContextJoin {
-                left_query,
-                right_query,
-                predicate,
-            } => {
-                out.insert(left_query.clone());
-                out.insert(right_query.clone());
-                self.collect_expr_queries(*predicate, out)?;
-            }
-            ExprNode::Exists { query, predicate } => {
-                let mut inner = BTreeSet::new();
-                self.collect_expr_queries(*predicate, &mut inner)?;
-                inner.remove(query);
-                out.extend(inner);
-            }
-            ExprNode::Aggregate { group_query, .. } => {
-                if let Some(query) = group_query {
-                    out.insert(query.clone());
-                }
-            }
-            ExprNode::SpatialMetadata { relation, .. } => {
-                out.insert(relation.origin_query.clone());
-                out.insert(relation.item_query.clone());
-            }
-            ExprNode::SpatialAggregate { relation, .. } => {
-                out.insert(relation.origin_query.clone());
-            }
-            ExprNode::LiteralF64(_)
-            | ExprNode::LiteralI64(_)
-            | ExprNode::LiteralBool(_)
-            | ExprNode::LiteralString(_)
-            | ExprNode::LiteralValue(_)
-            | ExprNode::ResourceField { .. }
-            | ExprNode::InputState { .. }
-            | ExprNode::EventStream { .. }
-            | ExprNode::ForEachItem { .. } => {}
-        }
+        let mut cache = HashMap::new();
+        out.extend(self.expr_queries_cached(expr_index, &mut cache)?);
         Ok(())
     }
 }

@@ -7,15 +7,15 @@ use crate::plan::SpatialRelationNode;
 
 use super::super::spatial_helpers::{
     dimensions_len, direct_distance_squared, fast_aggregate_kind, fast_field_array_record_values,
-    point_from_row_arrays, process_fast_spatial_record,
-    spatial_relations_same_direct_precompute_group, spatial_result_values_are_dense,
+    fast_spatial_aggregate_value, point_from_row_arrays, process_fast_spatial_record,
+    push_fast_spatial_aggregate_value, spatial_relations_same_direct_precompute_group,
+    spatial_result_values_are_dense,
 };
 use super::super::spatial_support::{
-    BuiltSpatialIndex, FastAggregateKind, FastDirectSpatialRelationBatch, FastFieldArray,
-    FastSpatialBatchSpec, FastSpatialBatchValue, SpatialBatchAccum, SpatialBatchValue,
-    SpatialChunkResult, SpatialLocalCounters, SpatialPrecomputeLayout,
+    BuiltSpatialIndex, FastDirectSpatialRelationBatch, FastFieldArray, FastSpatialBatchSpec,
+    FastSpatialBatchValue, SpatialBatchAccum, SpatialBatchValue, SpatialChunkResult,
+    SpatialLocalCounters, SpatialPrecomputeLayout,
 };
-use super::super::value_ops::bool_f64;
 use super::super::PlanExecutor;
 
 impl<'a> PlanExecutor<'a> {
@@ -304,35 +304,14 @@ impl<'a> PlanExecutor<'a> {
                         for (spec, accumulator) in
                             batch.specs.iter().zip(accumulators[batch_index].iter())
                         {
-                            let value = match spec.kind {
-                                FastAggregateKind::Any => Some(bool_f64(exact_count > 0)),
-                                FastAggregateKind::Count => Some(exact_count as f64),
-                                FastAggregateKind::Sum => Some(accumulator.sum),
-                                FastAggregateKind::Mean if accumulator.count > 0 => {
-                                    Some(accumulator.sum / accumulator.count as f64)
-                                }
-                                FastAggregateKind::Min if accumulator.count > 0 => {
-                                    Some(accumulator.min)
-                                }
-                                FastAggregateKind::Max if accumulator.count > 0 => {
-                                    Some(accumulator.max)
-                                }
-                                _ => None,
-                            };
-                            if result_values_are_dense {
-                                values.push(value.unwrap_or(0.0));
-                            } else if let Some(present) = present.as_mut() {
-                                match value {
-                                    Some(value) => {
-                                        values.push(value);
-                                        present.push(true);
-                                    }
-                                    None => {
-                                        values.push(0.0);
-                                        present.push(false);
-                                    }
-                                }
-                            }
+                            let value =
+                                fast_spatial_aggregate_value(spec.kind, exact_count, accumulator);
+                            push_fast_spatial_aggregate_value(
+                                &mut values,
+                                &mut present,
+                                result_values_are_dense,
+                                value,
+                            );
                         }
                     }
                 }

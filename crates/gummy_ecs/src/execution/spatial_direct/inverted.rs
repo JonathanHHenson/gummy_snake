@@ -3,12 +3,15 @@ use crate::error::Result;
 use crate::plan::SpatialRelationNode;
 
 use super::super::direct_point_hash_grid::DirectPointHashGrid;
-use super::super::spatial_helpers::{fast_field_array_value, spatial_result_values_are_dense};
+use super::super::spatial_helpers::{
+    accumulate_fast_spatial_value, fast_field_array_value, fast_spatial_aggregate_value,
+    spatial_result_values_are_dense,
+};
 use super::super::spatial_support::{
     BuiltSpatialIndex, FastAggregateKind, FastDirectSpatialRelationBatch, FastFieldArray,
     FastSpatialBatchValue, SpatialBatchAccum, SpatialF64RowArray, SpatialLocalCounters,
 };
-use super::super::value_ops::bool_f64;
+
 use super::super::PlanExecutor;
 
 impl<'a> PlanExecutor<'a> {
@@ -142,22 +145,7 @@ impl<'a> PlanExecutor<'a> {
                             };
                             let accumulator = &mut accumulators
                                 [origin_index * result_count + spec_offset + spec_index];
-                            match spec.kind {
-                                FastAggregateKind::Sum => accumulator.sum += value,
-                                FastAggregateKind::Mean => {
-                                    accumulator.count += 1;
-                                    accumulator.sum += value;
-                                }
-                                FastAggregateKind::Min => {
-                                    accumulator.count += 1;
-                                    accumulator.min = accumulator.min.min(value);
-                                }
-                                FastAggregateKind::Max => {
-                                    accumulator.count += 1;
-                                    accumulator.max = accumulator.max.max(value);
-                                }
-                                FastAggregateKind::Any | FastAggregateKind::Count => {}
-                            }
+                            accumulate_fast_spatial_value(spec.kind, value, accumulator);
                         }
                     }
                     Ok(())
@@ -177,12 +165,9 @@ impl<'a> PlanExecutor<'a> {
                     for (spec_index, spec) in batch.specs.iter().enumerate() {
                         let accumulator =
                             &accumulators[origin_index * result_count + spec_offset + spec_index];
-                        let value = match spec.kind {
-                            FastAggregateKind::Any => bool_f64(exact_count > 0),
-                            FastAggregateKind::Count => exact_count as f64,
-                            FastAggregateKind::Sum => accumulator.sum,
-                            _ => 0.0,
-                        };
+                        let value =
+                            fast_spatial_aggregate_value(spec.kind, exact_count, accumulator)
+                                .unwrap_or(0.0);
                         row_result_arrays[spec_offset + spec_index].1[origin_index] = value;
                     }
                 }
@@ -203,21 +188,8 @@ impl<'a> PlanExecutor<'a> {
                     for (spec_index, spec) in batch.specs.iter().enumerate() {
                         let accumulator =
                             &accumulators[origin_index * result_count + spec_offset + spec_index];
-                        let value = match spec.kind {
-                            FastAggregateKind::Any => Some(bool_f64(exact_count > 0)),
-                            FastAggregateKind::Count => Some(exact_count as f64),
-                            FastAggregateKind::Sum => Some(accumulator.sum),
-                            FastAggregateKind::Mean if accumulator.count > 0 => {
-                                Some(accumulator.sum / accumulator.count as f64)
-                            }
-                            FastAggregateKind::Min if accumulator.count > 0 => {
-                                Some(accumulator.min)
-                            }
-                            FastAggregateKind::Max if accumulator.count > 0 => {
-                                Some(accumulator.max)
-                            }
-                            _ => None,
-                        };
+                        let value =
+                            fast_spatial_aggregate_value(spec.kind, exact_count, accumulator);
                         if let Some(value) = value {
                             row_result_arrays[spec_offset + spec_index].1[origin_index] =
                                 Some(value);

@@ -10,6 +10,7 @@ use super::spatial_support::{
     BuiltSpatialIndex, FastAggregateKind, FastDirectSpatialRelationBatch, FastFieldArray,
     FastSpatialBatchValue, SpatialBatchAccum, SpatialLocalCounters,
 };
+use super::value_ops::bool_f64;
 
 pub(in crate::execution) fn fast_field_array_value(
     array: &FastFieldArray,
@@ -85,6 +86,69 @@ pub(in crate::execution) fn spatial_result_values_are_dense(
     })
 }
 
+pub(in crate::execution) fn accumulate_fast_spatial_value(
+    kind: FastAggregateKind,
+    value: f64,
+    accumulator: &mut SpatialBatchAccum,
+) {
+    match kind {
+        FastAggregateKind::Sum => accumulator.sum += value,
+        FastAggregateKind::Mean => {
+            accumulator.count += 1;
+            accumulator.sum += value;
+        }
+        FastAggregateKind::Min => {
+            accumulator.count += 1;
+            accumulator.min = accumulator.min.min(value);
+        }
+        FastAggregateKind::Max => {
+            accumulator.count += 1;
+            accumulator.max = accumulator.max.max(value);
+        }
+        FastAggregateKind::Any | FastAggregateKind::Count => {}
+    }
+}
+
+pub(in crate::execution) fn fast_spatial_aggregate_value(
+    kind: FastAggregateKind,
+    exact_count: usize,
+    accumulator: &SpatialBatchAccum,
+) -> Option<f64> {
+    match kind {
+        FastAggregateKind::Any => Some(bool_f64(exact_count > 0)),
+        FastAggregateKind::Count => Some(exact_count as f64),
+        FastAggregateKind::Sum => Some(accumulator.sum),
+        FastAggregateKind::Mean if accumulator.count > 0 => {
+            Some(accumulator.sum / accumulator.count as f64)
+        }
+        FastAggregateKind::Min if accumulator.count > 0 => Some(accumulator.min),
+        FastAggregateKind::Max if accumulator.count > 0 => Some(accumulator.max),
+        _ => None,
+    }
+}
+
+pub(in crate::execution) fn push_fast_spatial_aggregate_value(
+    values: &mut Vec<f64>,
+    present: &mut Option<Vec<bool>>,
+    result_values_are_dense: bool,
+    value: Option<f64>,
+) {
+    if result_values_are_dense {
+        values.push(value.unwrap_or(0.0));
+    } else if let Some(present) = present.as_mut() {
+        match value {
+            Some(value) => {
+                values.push(value);
+                present.push(true);
+            }
+            None => {
+                values.push(0.0);
+                present.push(false);
+            }
+        }
+    }
+}
+
 pub(in crate::execution) fn process_fast_spatial_record(
     relation: &SpatialRelationNode,
     batches: &[FastDirectSpatialRelationBatch],
@@ -156,24 +220,7 @@ pub(in crate::execution) fn process_fast_spatial_record(
                 }
             };
             let accumulator = &mut accumulators[batch_index][spec_index];
-            match spec.kind {
-                FastAggregateKind::Sum => {
-                    accumulator.sum += value;
-                }
-                FastAggregateKind::Mean => {
-                    accumulator.count += 1;
-                    accumulator.sum += value;
-                }
-                FastAggregateKind::Min => {
-                    accumulator.count += 1;
-                    accumulator.min = accumulator.min.min(value);
-                }
-                FastAggregateKind::Max => {
-                    accumulator.count += 1;
-                    accumulator.max = accumulator.max.max(value);
-                }
-                FastAggregateKind::Any | FastAggregateKind::Count => {}
-            }
+            accumulate_fast_spatial_value(spec.kind, value, accumulator);
         }
     }
     Ok(())
