@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-import io
 import math
-import wave
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from gummysnake.assets._audio_codec import (
+    MemorySoundSource,
+    decode_sound,
+    unit_interval,
+    wav_bytes,
+)
 from gummysnake.assets.sound import Sound
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -19,27 +23,37 @@ FilterType = Literal["lowpass", "highpass"]
 
 @dataclass(frozen=True, slots=True)
 class AudioBuffer:
-    """Public buffer object for AudioBuffer data."""
+    """Immutable mono audio samples.
+
+    Attributes:
+        samples: Normalized sample values, usually between ``-1.0`` and ``1.0``.
+        sample_rate: Number of samples per second.
+    """
 
     samples: tuple[float, ...]
     sample_rate: int = 44_100
 
     @property
     def duration(self) -> float:
+        """Length of the buffer in seconds.
+
+        Returns:
+            ``len(samples) / sample_rate`` as a floating-point number.
+        """
         return len(self.samples) / float(self.sample_rate)
 
     def to_sound(self, path: str | Path = "generated.wav") -> Sound:
-        payload = _wav_bytes(self.samples, sample_rate=self.sample_rate)
-        return Sound(_MemorySoundSource(payload, duration=self.duration), path=Path(path))
+        """Encode this buffer as a playable ``Sound``.
 
+        Args:
+            path: Display path to attach to the generated sound. The bytes stay
+                in memory until playback needs a temporary file.
 
-class _MemorySoundSource:
-    def __init__(self, payload: bytes, *, duration: float) -> None:
-        self._payload = payload
-        self.duration = duration
-
-    def to_bytes(self) -> bytes:
-        return self._payload
+        Returns:
+            A ``Sound`` containing this buffer encoded as 16-bit PCM WAV data.
+        """
+        payload = wav_bytes(self.samples, sample_rate=self.sample_rate)
+        return Sound(MemorySoundSource(payload, duration=self.duration), path=Path(path))
 
 
 class Amplitude:
@@ -48,28 +62,72 @@ class Amplitude:
     def __init__(
         self, source: Sound | AudioBuffer | Sequence[float] | None = None, *, smoothing: float = 0.0
     ) -> None:
+        """Create an RMS amplitude analyzer.
+
+        Args:
+            source: Optional sound, audio buffer, or sample sequence to analyze
+                when ``analyze()`` is called without samples.
+            smoothing: Blend factor from ``0`` to ``1``. Larger values make the
+                reported level change more slowly.
+        """
         self._source = source
-        self._smoothing = _unit_interval(smoothing, "smoothing")
+        self._smoothing = unit_interval(smoothing, "smoothing")
         self._level = 0.0
 
     def set_input(self, source: Sound | AudioBuffer | Sequence[float] | None) -> None:
+        """Replace the default input used by ``analyze()``.
+
+        Args:
+            source: Sound, audio buffer, sample sequence, or ``None`` for silence.
+        """
         self._source = source
 
     def smoothing(self, value: float | None = None) -> float:
+        """Read or update the smoothing amount.
+
+        Args:
+            value: New smoothing amount from ``0`` to ``1``. Leave as ``None`` to
+                read the current value.
+
+        Returns:
+            The current smoothing amount.
+        """
         if value is not None:
-            self._smoothing = _unit_interval(value, "smoothing")
+            self._smoothing = unit_interval(value, "smoothing")
         return self._smoothing
 
     def analyze(self, samples: Sequence[float] | None = None) -> float:
+        """Measure RMS amplitude.
+
+        Args:
+            samples: Optional sample sequence to analyze for this call. When
+                omitted, the analyzer uses the current input source.
+
+        Returns:
+            Smoothed RMS level between silence and the input amplitude.
+        """
         data = _samples_from_source(samples if samples is not None else self._source)
         raw = 0.0 if not data else math.sqrt(sum(sample * sample for sample in data) / len(data))
         self._level = self._level * self._smoothing + raw * (1.0 - self._smoothing)
         return self._level
 
     def level(self, samples: Sequence[float] | None = None) -> float:
+        """Alias for ``analyze()``.
+
+        Args:
+            samples: Optional sample sequence to analyze for this call.
+
+        Returns:
+            The current smoothed RMS level.
+        """
         return self.analyze(samples)
 
     def get_level(self) -> float:
+        """Return the most recently analyzed level.
+
+        Returns:
+            Last value produced by ``analyze()`` or ``0.0`` before analysis.
+        """
         return self._level
 
 
@@ -83,17 +141,40 @@ class FFT:
         bins: int = 1024,
         smoothing: float = 0.0,
     ) -> None:
+        """Create a deterministic frequency analyzer.
+
+        Args:
+            source: Optional sound, audio buffer, or sample sequence to analyze
+                when methods are called without samples.
+            bins: Number of frequency bins to report.
+            smoothing: Blend factor from ``0`` to ``1``. Larger values make the
+                spectrum change more slowly.
+        """
         if bins <= 0:
             raise ArgumentValidationError("FFT bins must be positive.")
         self._source = source
         self._bins = int(bins)
-        self._smoothing = _unit_interval(smoothing, "smoothing")
+        self._smoothing = unit_interval(smoothing, "smoothing")
         self._spectrum = tuple(0.0 for _ in range(self._bins))
 
     def set_input(self, source: Sound | AudioBuffer | Sequence[float] | None) -> None:
+        """Replace the default input used by ``waveform()`` and ``spectrum()``.
+
+        Args:
+            source: Sound, audio buffer, sample sequence, or ``None`` for silence.
+        """
         self._source = source
 
     def waveform(self, samples: Sequence[float] | None = None) -> tuple[float, ...]:
+        """Return a fixed-size waveform window.
+
+        Args:
+            samples: Optional sample sequence to use for this call. When omitted,
+                the analyzer uses the current input source.
+
+        Returns:
+            Exactly ``bins * 2`` samples, truncated or padded with zeros.
+        """
         data = list(_samples_from_source(samples if samples is not None else self._source))
         target = self._bins * 2
         if len(data) >= target:
@@ -101,6 +182,14 @@ class FFT:
         return tuple(data + [0.0] * (target - len(data)))
 
     def spectrum(self, samples: Sequence[float] | None = None) -> tuple[float, ...]:
+        """Return normalized frequency magnitudes.
+
+        Args:
+            samples: Optional sample sequence to analyze for this call.
+
+        Returns:
+            ``bins`` smoothed magnitude values clamped to ``0`` through ``1``.
+        """
         wave_samples = self.waveform(samples)
         n = len(wave_samples)
         magnitudes: list[float] = []
@@ -119,6 +208,14 @@ class FFT:
         return self._spectrum
 
     def analyze(self, samples: Sequence[float] | None = None) -> tuple[float, ...]:
+        """Alias for ``spectrum()``.
+
+        Args:
+            samples: Optional sample sequence to analyze for this call.
+
+        Returns:
+            The current smoothed frequency spectrum.
+        """
         return self.spectrum(samples)
 
 
@@ -128,23 +225,42 @@ class Oscillator:
     def __init__(
         self, waveform: WaveformName = "sine", *, frequency: float = 440.0, amplitude: float = 1.0
     ) -> None:
+        """Create an oscillator for deterministic sound synthesis.
+
+        Args:
+            waveform: Shape of the generated wave: ``"sine"``, ``"square"``,
+                ``"triangle"``, or ``"sawtooth"``.
+            frequency: Wave frequency in Hertz.
+            amplitude: Output level from ``0`` to ``1``.
+        """
         if waveform not in {"sine", "square", "triangle", "sawtooth"}:
             raise ArgumentValidationError("Unsupported oscillator waveform.")
         if frequency <= 0:
             raise ArgumentValidationError("Oscillator frequency must be positive.")
         self.waveform = waveform
         self.frequency = float(frequency)
-        self.amplitude = _unit_interval(amplitude, "amplitude")
+        self.amplitude = unit_interval(amplitude, "amplitude")
         self.is_started = False
         self.phase = 0.0
 
     def start(self) -> None:
+        """Mark the oscillator as started for sketch state tracking."""
         self.is_started = True
 
     def stop(self) -> None:
+        """Mark the oscillator as stopped for sketch state tracking."""
         self.is_started = False
 
     def freq(self, value: float | None = None) -> float:
+        """Read or update the oscillator frequency.
+
+        Args:
+            value: New positive frequency in Hertz. Leave as ``None`` to read the
+                current value.
+
+        Returns:
+            Current frequency in Hertz.
+        """
         if value is not None:
             if value <= 0:
                 raise ArgumentValidationError("Oscillator frequency must be positive.")
@@ -152,11 +268,29 @@ class Oscillator:
         return self.frequency
 
     def amp(self, value: float | None = None) -> float:
+        """Read or update the oscillator amplitude.
+
+        Args:
+            value: New amplitude from ``0`` to ``1``. Leave as ``None`` to read
+                the current value.
+
+        Returns:
+            Current amplitude.
+        """
         if value is not None:
-            self.amplitude = _unit_interval(value, "amplitude")
+            self.amplitude = unit_interval(value, "amplitude")
         return self.amplitude
 
     def sample(self, duration: float, *, sample_rate: int = 44_100) -> AudioBuffer:
+        """Generate oscillator samples.
+
+        Args:
+            duration: Number of seconds to generate.
+            sample_rate: Number of samples per second.
+
+        Returns:
+            An ``AudioBuffer`` containing the generated mono samples.
+        """
         if duration < 0:
             raise ArgumentValidationError("Oscillator sample duration cannot be negative.")
         count = int(round(duration * sample_rate))
@@ -168,6 +302,15 @@ class Oscillator:
         return AudioBuffer(tuple(samples), sample_rate=sample_rate)
 
     def to_sound(self, duration: float, *, sample_rate: int = 44_100) -> Sound:
+        """Generate a playable ``Sound`` from oscillator samples.
+
+        Args:
+            duration: Number of seconds to generate.
+            sample_rate: Number of samples per second.
+
+        Returns:
+            A generated ``Sound`` encoded as in-memory WAV data.
+        """
         return self.sample(duration, sample_rate=sample_rate).to_sound()
 
     def _value_at_phase(self, phase: float) -> float:
@@ -182,7 +325,14 @@ class Oscillator:
 
 @dataclass(slots=True)
 class Envelope:
-    """Public Envelope value for Gummy Snake audio features."""
+    """ADSR envelope used to shape generated audio.
+
+    Attributes:
+        attack: Seconds to rise from silence to full level.
+        decay: Seconds to move from full level to sustain level.
+        sustain: Held level from ``0`` to ``1`` while the note gate is open.
+        release: Seconds to fade out after the note gate closes.
+    """
 
     attack: float = 0.01
     decay: float = 0.1
@@ -192,9 +342,17 @@ class Envelope:
     def __post_init__(self) -> None:
         if self.attack < 0 or self.decay < 0 or self.release < 0:
             raise ArgumentValidationError("Envelope times cannot be negative.")
-        self.sustain = _unit_interval(self.sustain, "sustain")
+        self.sustain = unit_interval(self.sustain, "sustain")
 
     def set_adsr(self, attack: float, decay: float, sustain: float, release: float) -> None:
+        """Update all ADSR envelope values.
+
+        Args:
+            attack: Seconds to rise from silence to full level.
+            decay: Seconds to move from full level to sustain level.
+            sustain: Held level from ``0`` to ``1``.
+            release: Seconds to fade out after the note gate closes.
+        """
         self.attack = float(attack)
         self.decay = float(decay)
         self.sustain = float(sustain)
@@ -202,6 +360,16 @@ class Envelope:
         self.__post_init__()
 
     def value_at(self, time_seconds: float, *, gate_duration: float | None = None) -> float:
+        """Evaluate the envelope at a time point.
+
+        Args:
+            time_seconds: Seconds from the start of the note.
+            gate_duration: Optional note length. When provided, release begins
+                after this many seconds.
+
+        Returns:
+            Envelope level from ``0`` to ``1``.
+        """
         t = max(0.0, float(time_seconds))
         if self.attack > 0 and t < self.attack:
             return t / self.attack
@@ -216,6 +384,15 @@ class Envelope:
         return max(0.0, self.sustain * (1.0 - release_t / self.release))
 
     def apply(self, buffer: AudioBuffer, *, gate_duration: float | None = None) -> AudioBuffer:
+        """Apply this envelope to every sample in a buffer.
+
+        Args:
+            buffer: Audio samples to shape.
+            gate_duration: Optional note length used to start the release phase.
+
+        Returns:
+            A new ``AudioBuffer`` with the same sample rate and shaped samples.
+        """
         return AudioBuffer(
             tuple(
                 sample * self.value_at(index / buffer.sample_rate, gate_duration=gate_duration)
@@ -226,7 +403,7 @@ class Envelope:
 
 
 class AudioFilter:
-    """Public AudioFilter value for Gummy Snake audio features."""
+    """Simple one-pole filter for deterministic sample processing."""
 
     def __init__(
         self,
@@ -235,6 +412,15 @@ class AudioFilter:
         frequency: float = 1_000.0,
         resonance: float = 0.0,
     ) -> None:
+        """Create a low-pass or high-pass audio filter.
+
+        Args:
+            filter_type: ``"lowpass"`` to smooth high frequencies or
+                ``"highpass"`` to reduce low frequencies.
+            frequency: Cutoff frequency in Hertz.
+            resonance: Reserved for future richer filters; stored for API
+                compatibility but not used by this one-pole implementation.
+        """
         if filter_type not in {"lowpass", "highpass"}:
             raise ArgumentValidationError("create_filter() supports 'lowpass' and 'highpass'.")
         if frequency <= 0:
@@ -246,6 +432,15 @@ class AudioFilter:
     def process(
         self, buffer: AudioBuffer | Sequence[float], *, sample_rate: int = 44_100
     ) -> AudioBuffer:
+        """Filter an audio buffer or sample sequence.
+
+        Args:
+            buffer: ``AudioBuffer`` or raw sample sequence to process.
+            sample_rate: Sample rate to use when ``buffer`` is a raw sequence.
+
+        Returns:
+            A new ``AudioBuffer`` with filtered samples.
+        """
         source = (
             buffer
             if isinstance(buffer, AudioBuffer)
@@ -277,22 +472,43 @@ class AudioInput:
     """
 
     def __init__(self, *, sample_rate: int = 44_100) -> None:
+        """Create a deterministic audio input buffer.
+
+        Args:
+            sample_rate: Number of samples per second for pushed sample data.
+        """
         self.sample_rate = int(sample_rate)
         self.is_started = False
         self._buffer = AudioBuffer((), sample_rate=self.sample_rate)
 
     def start(self) -> None:
+        """Mark this input as started."""
         self.is_started = True
 
     def stop(self) -> None:
+        """Mark this input as stopped."""
         self.is_started = False
 
     def push_samples(self, samples: Sequence[float]) -> None:
+        """Replace the current input buffer with explicit samples.
+
+        Args:
+            samples: Sample values to make available through ``read()``.
+        """
         self._buffer = AudioBuffer(
             tuple(float(sample) for sample in samples), sample_rate=self.sample_rate
         )
 
     def read(self, count: int | None = None) -> AudioBuffer:
+        """Read samples from the current input buffer.
+
+        Args:
+            count: Optional maximum number of samples to return. Leave as
+                ``None`` to read the full buffer.
+
+        Returns:
+            An ``AudioBuffer`` containing the requested samples.
+        """
         if count is None:
             return self._buffer
         samples = self._buffer.samples[: max(0, int(count))]
@@ -302,6 +518,15 @@ class AudioInput:
 def create_amplitude(
     source: Sound | AudioBuffer | Sequence[float] | None = None, *, smoothing: float = 0.0
 ) -> Amplitude:
+    """Create an amplitude analyzer.
+
+    Args:
+        source: Optional sound, audio buffer, or samples to analyze by default.
+        smoothing: Blend factor from ``0`` to ``1`` for slower level changes.
+
+    Returns:
+        A new ``Amplitude`` analyzer.
+    """
     return Amplitude(source, smoothing=smoothing)
 
 
@@ -311,28 +536,78 @@ def create_fft(
     bins: int = 1024,
     smoothing: float = 0.0,
 ) -> FFT:
+    """Create a frequency analyzer.
+
+    Args:
+        source: Optional sound, audio buffer, or samples to analyze by default.
+        bins: Number of frequency bins to report.
+        smoothing: Blend factor from ``0`` to ``1`` for slower spectrum changes.
+
+    Returns:
+        A new ``FFT`` analyzer.
+    """
     return FFT(source, bins=bins, smoothing=smoothing)
 
 
 def create_oscillator(
     waveform: WaveformName = "sine", *, frequency: float = 440.0, amplitude: float = 1.0
 ) -> Oscillator:
+    """Create a deterministic oscillator.
+
+    Args:
+        waveform: Wave shape: ``"sine"``, ``"square"``, ``"triangle"``, or
+            ``"sawtooth"``.
+        frequency: Wave frequency in Hertz.
+        amplitude: Output level from ``0`` to ``1``.
+
+    Returns:
+        A new ``Oscillator``.
+    """
     return Oscillator(waveform, frequency=frequency, amplitude=amplitude)
 
 
 def create_envelope(
     attack: float = 0.01, decay: float = 0.1, sustain: float = 0.7, release: float = 0.2
 ) -> Envelope:
+    """Create an ADSR envelope.
+
+    Args:
+        attack: Seconds to rise from silence to full level.
+        decay: Seconds to move from full level to sustain level.
+        sustain: Held level from ``0`` to ``1``.
+        release: Seconds to fade out after the note gate closes.
+
+    Returns:
+        A new ``Envelope``.
+    """
     return Envelope(attack=attack, decay=decay, sustain=sustain, release=release)
 
 
 def create_filter(
     filter_type: FilterType = "lowpass", *, frequency: float = 1_000.0, resonance: float = 0.0
 ) -> AudioFilter:
+    """Create a low-pass or high-pass audio filter.
+
+    Args:
+        filter_type: ``"lowpass"`` or ``"highpass"``.
+        frequency: Cutoff frequency in Hertz.
+        resonance: Reserved for future richer filters and currently stored only.
+
+    Returns:
+        A new ``AudioFilter``.
+    """
     return AudioFilter(filter_type, frequency=frequency, resonance=resonance)
 
 
 def create_audio_in(*, sample_rate: int = 44_100) -> AudioInput:
+    """Create a headless-safe audio input buffer.
+
+    Args:
+        sample_rate: Number of samples per second for pushed sample data.
+
+    Returns:
+        A new ``AudioInput``.
+    """
     return AudioInput(sample_rate=sample_rate)
 
 
@@ -342,58 +617,8 @@ def _samples_from_source(source: Sound | AudioBuffer | Sequence[float] | None) -
     if isinstance(source, AudioBuffer):
         return source.samples
     if isinstance(source, Sound):
-        return _decode_sound(source)
+        return decode_sound(source)
     return tuple(float(sample) for sample in source)
-
-
-def _decode_sound(sound: Sound) -> tuple[float, ...]:
-    payload = sound.to_bytes()
-    try:
-        with wave.open(io.BytesIO(payload), "rb") as wav:
-            channels = wav.getnchannels()
-            sample_width = wav.getsampwidth()
-            frames = wav.readframes(wav.getnframes())
-    except wave.Error as exc:
-        raise ArgumentValidationError("Sound analysis currently requires PCM WAV bytes.") from exc
-    if sample_width not in {1, 2, 4}:
-        raise ArgumentValidationError("Unsupported PCM sample width for sound analysis.")
-    samples: list[float] = []
-    step = sample_width * channels
-    for offset in range(0, len(frames), step):
-        channel_values = []
-        for channel in range(channels):
-            start = offset + channel * sample_width
-            raw = frames[start : start + sample_width]
-            if sample_width == 1:
-                value = (raw[0] - 128) / 128.0
-            else:
-                value = int.from_bytes(raw, "little", signed=True) / float(
-                    2 ** (sample_width * 8 - 1)
-                )
-            channel_values.append(value)
-        samples.append(sum(channel_values) / len(channel_values))
-    return tuple(samples)
-
-
-def _wav_bytes(samples: Sequence[float], *, sample_rate: int) -> bytes:
-    output = io.BytesIO()
-    with wave.open(output, "wb") as wav:
-        wav.setnchannels(1)
-        wav.setsampwidth(2)
-        wav.setframerate(sample_rate)
-        payload = bytearray()
-        for sample in samples:
-            clamped = max(-1.0, min(1.0, float(sample)))
-            payload.extend(int(round(clamped * 32767.0)).to_bytes(2, "little", signed=True))
-        wav.writeframes(bytes(payload))
-    return output.getvalue()
-
-
-def _unit_interval(value: float, name: str) -> float:
-    numeric = float(value)
-    if not 0.0 <= numeric <= 1.0:
-        raise ArgumentValidationError(f"{name} must be between 0 and 1.")
-    return numeric
 
 
 __all__ = [

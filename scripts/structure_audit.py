@@ -79,6 +79,7 @@ DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_canvas/src/gpu/render.rs"),
     Path("crates/gummy_canvas/src/gpu/setup.rs"),
     Path("crates/gummy_canvas/src/gpu/shaders.rs"),
+    Path("crates/gummy_canvas/src/gpu/shaders/primitive.rs"),
     Path("crates/gummy_canvas/src/gpu/types.rs"),
     Path("crates/gummy_canvas/src/runtime/desktop.rs"),
     Path("crates/gummy_canvas/src/sketch_state.rs"),
@@ -87,6 +88,10 @@ DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_ecs/src/execution/direct_point_hash_grid.rs"),
     Path("crates/gummy_ecs/src/execution/f64_program.rs"),
     Path("crates/gummy_ecs/src/plan.rs"),
+    Path("crates/gummy_ecs/src/spatial.rs"),
+    Path("crates/gummy_ecs/src/spatial/hash_grid.rs"),
+    Path("crates/gummy_ecs/src/tree_spatial.rs"),
+    Path("crates/gummy_ecs/src/world.rs"),
 }
 
 
