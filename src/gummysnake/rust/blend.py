@@ -12,6 +12,7 @@ def exclusion_blend_rgb(
     *,
     prefer_accelerated: bool = True,
 ) -> bytes:
+    """Blend two RGB buffers with exclusion mode using acceleration when available."""
     base_bytes = bytes(base)
     overlay_bytes = bytes(overlay)
     validate_same_length(base_bytes, overlay_bytes)
@@ -22,6 +23,7 @@ def exclusion_blend_rgb(
 
 
 def exclusion_blend_rgb_python(base: ByteBuffer, overlay: ByteBuffer) -> bytes:
+    """Blend two RGB buffers with the pure-Python exclusion fallback."""
     base_bytes = bytes(base)
     overlay_bytes = bytes(overlay)
     validate_same_length(base_bytes, overlay_bytes)

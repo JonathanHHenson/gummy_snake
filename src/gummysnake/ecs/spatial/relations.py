@@ -7,8 +7,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, cast
 
+from gummysnake.ecs.expression_tools import ExpressionInput
 from gummysnake.ecs.expressions import Expression, QueryProxy, ensure_expr, replace_query
 from gummysnake.ecs.specs import QuerySpec
+from gummysnake.ecs.value_types import EcsLiteralValue
 
 from .config import (
     Dimensions,
@@ -218,7 +220,7 @@ class SpatialRelation:
 
         return SpatialMetadataExpression(self, "distance")
 
-    def where(self, predicate: object) -> SpatialRelation:
+    def where(self, predicate: ExpressionInput) -> SpatialRelation:
         """Return a copy of the relation with an additional exact-match filter.
 
         Args:
@@ -250,7 +252,7 @@ class SpatialRelation:
 
         return SpatialAggregateExpression("count", self)
 
-    def sum(self, value: object) -> SpatialAggregateExpression:
+    def sum(self, value: ExpressionInput) -> SpatialAggregateExpression:
         """Build an expression containing the sum of a value over matched items.
 
         Args:
@@ -262,7 +264,9 @@ class SpatialRelation:
 
         return SpatialAggregateExpression("sum", self, ensure_expr(value))
 
-    def min(self, value: object, *, default: object | None = None) -> SpatialAggregateExpression:
+    def min(
+        self, value: ExpressionInput, *, default: EcsLiteralValue | None = None
+    ) -> SpatialAggregateExpression:
         """Build an expression containing the smallest value over matched items.
 
         Args:
@@ -275,7 +279,9 @@ class SpatialRelation:
 
         return SpatialAggregateExpression("min", self, ensure_expr(value), default)
 
-    def max(self, value: object, *, default: object | None = None) -> SpatialAggregateExpression:
+    def max(
+        self, value: ExpressionInput, *, default: EcsLiteralValue | None = None
+    ) -> SpatialAggregateExpression:
         """Build an expression containing the largest value over matched items.
 
         Args:
@@ -288,7 +294,9 @@ class SpatialRelation:
 
         return SpatialAggregateExpression("max", self, ensure_expr(value), default)
 
-    def mean(self, value: object, *, default: object | None = None) -> SpatialAggregateExpression:
+    def mean(
+        self, value: ExpressionInput, *, default: EcsLiteralValue | None = None
+    ) -> SpatialAggregateExpression:
         """Build an expression containing the average value over matched items.
 
         Args:

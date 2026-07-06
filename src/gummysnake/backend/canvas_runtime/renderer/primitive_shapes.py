@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import cast
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
@@ -21,7 +21,7 @@ def _renderer(self: object) -> CanvasRendererHost:
     return cast(CanvasRendererHost, self)
 
 
-def background(self: object, color: Color) -> None:
+def background(self: CanvasRendererHost, color: Color) -> None:
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     _renderer(self)._call(
@@ -29,13 +29,15 @@ def background(self: object, color: Color) -> None:
     )
 
 
-def clear(self: object) -> None:
+def clear(self: CanvasRendererHost) -> None:
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     _renderer(self)._call("canvas clearing", _renderer(self)._require_canvas().clear)
 
 
-def point(self: object, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
+def point(
+    self: CanvasRendererHost, x: float, y: float, style: StyleState, transform: Matrix2D
+) -> None:
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
     current = (
@@ -57,7 +59,7 @@ def point(self: object, x: float, y: float, style: StyleState, transform: Matrix
 
 
 def line(
-    self: Any,
+    self: CanvasRendererHost,
     x1: float,
     y1: float,
     x2: float,
@@ -93,7 +95,7 @@ def line(
 
 
 def rect(
-    self: Any,
+    self: CanvasRendererHost,
     x: float,
     y: float,
     width: float,
@@ -138,7 +140,7 @@ def rect(
 
 
 def triangle(
-    self: Any,
+    self: CanvasRendererHost,
     x1: float,
     y1: float,
     x2: float,
@@ -185,7 +187,7 @@ def triangle(
 
 
 def quad(
-    self: Any,
+    self: CanvasRendererHost,
     x1: float,
     y1: float,
     x2: float,
@@ -229,7 +231,7 @@ def quad(
 
 
 def ellipse(
-    self: Any,
+    self: CanvasRendererHost,
     x: float,
     y: float,
     width: float,
@@ -267,7 +269,7 @@ def ellipse(
 
 
 def arc(
-    self: object,
+    self: CanvasRendererHost,
     x: float,
     y: float,
     width: float,

@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from gummysnake.ecs.expression_tools import ensure_expr
+from gummysnake.ecs.expression_tools import ExpressionInput, ensure_expr
 from gummysnake.ecs.expressions.core import Expression, ExpressionContext
 from gummysnake.ecs.expressions.proxies import QueryProxy
+from gummysnake.ecs.value_types import EcsLiteralValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.world import EcsWorld
@@ -15,6 +16,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
 @dataclass(frozen=True, eq=False)
 class GroupedExpression(Expression):
+    """Builder for aggregates grouped by a query's current entity."""
+
     expression: Expression
     query: QueryProxy
 
@@ -28,7 +31,7 @@ class GroupedExpression(Expression):
 
         return GroupedValueAggregateExpression("count", self.expression, self.query)
 
-    def sum(self, value: object | None = None) -> GroupedValueAggregateExpression:
+    def sum(self, value: ExpressionInput | None = None) -> GroupedValueAggregateExpression:
         """Sum ``value`` for matching rows; omitted values count each row as ``1``.
 
         Args:
@@ -43,7 +46,7 @@ class GroupedExpression(Expression):
         )
 
     def min(
-        self, value: object, *, default: object | None = None
+        self, value: ExpressionInput, *, default: EcsLiteralValue | None = None
     ) -> GroupedValueAggregateExpression:
         """Return a lazy aggregate for the smallest value in each matching group.
 
@@ -60,7 +63,7 @@ class GroupedExpression(Expression):
         )
 
     def max(
-        self, value: object, *, default: object | None = None
+        self, value: ExpressionInput, *, default: EcsLiteralValue | None = None
     ) -> GroupedValueAggregateExpression:
         """Return a lazy aggregate for the largest value in each matching group.
 
@@ -77,7 +80,7 @@ class GroupedExpression(Expression):
         )
 
     def mean(
-        self, value: object, *, default: object | None = None
+        self, value: ExpressionInput, *, default: EcsLiteralValue | None = None
     ) -> GroupedValueAggregateExpression:
         """Return a lazy aggregate for the average value in each matching group.
 
@@ -96,6 +99,8 @@ class GroupedExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class GroupedAnyExpression(Expression):
+    """Expression node that checks whether any grouped row matches."""
+
     expression: Expression
     query: QueryProxy
 
@@ -113,11 +118,13 @@ class GroupedAnyExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class GroupedValueAggregateExpression(Expression):
+    """Expression node that computes a grouped numeric aggregate."""
+
     kind: str
     expression: Expression
     query: QueryProxy
     value: Expression | None = None
-    default: object | None = None
+    default: EcsLiteralValue | None = None
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
         if self.query not in ctx:
@@ -185,6 +192,8 @@ class GroupedValueAggregateExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class ExistsExpression(Expression):
+    """Expression node that checks whether a query has any matching row."""
+
     query: QueryProxy
     predicate: Expression
 
@@ -197,9 +206,11 @@ class ExistsExpression(Expression):
 
 @dataclass(frozen=True)
 class ExistsBuilder:
+    """Builder returned by ecs.exists(query) before a predicate is supplied."""
+
     query: QueryProxy
 
-    def where(self, predicate: object) -> ExistsExpression:
+    def where(self, predicate: ExpressionInput) -> ExistsExpression:
         """Build a lazy boolean expression that checks for any matching row.
 
         Args:

@@ -6,8 +6,9 @@ import builtins
 import inspect
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, get_origin, get_type_hints, overload
+from typing import TYPE_CHECKING, Any, Literal, get_origin, get_type_hints, overload
 
+from gummysnake.ecs.expression_tools import ExpressionInput
 from gummysnake.ecs.expressions import (
     EntityExpression,
     Expression,
@@ -15,12 +16,15 @@ from gummysnake.ecs.expressions import (
     QueryProxy,
     ensure_expr,
 )
-from gummysnake.ecs.specs import EventReaderProxy, EventWriterProxy
+from gummysnake.ecs.specs import EventReaderProxy, EventWriterProxy, Query
 from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.world import EcsWorld
+
+
+type UdfArgument = QueryProxy | Query | ExpressionInput
 
 
 class Action:
@@ -63,7 +67,7 @@ class DefaultAction(Action):
     target: FieldExpression | None = None
     value: Expression | None = None
     udf: UdfDefinition | None = None
-    udf_args: tuple[object, ...] = ()
+    udf_args: tuple[UdfArgument, ...] = ()
     event_writer: EventWriterProxy | None = None
     event_value: EcsEventValue | None = None
     entity_query: QueryProxy | None = None
@@ -79,7 +83,7 @@ class WhenAction(Action):
     branches: list[tuple[Expression, Action]] = field(default_factory=list)
     otherwise_action: Action | None = None
 
-    def when(self, condition: object) -> _WhenBranchBuilder:
+    def when(self, condition: ExpressionInput) -> _WhenBranchBuilder:
         """Add a conditional branch to this chain.
 
         Args:
@@ -139,7 +143,7 @@ class UdfIterableSource(IterableSource):
     """Loop source backed by a Python UDF that returns iterable values."""
 
     definition: UdfDefinition
-    args: tuple[object, ...]
+    args: tuple[UdfArgument, ...]
     item: LoopItem = field(default_factory=lambda: LoopItem("item"))
 
     def evaluate(self, world: EcsWorld) -> Iterable[Any]:
@@ -195,7 +199,7 @@ class UdfDefinition:
     mutations: dict[str, frozenset[object]] = field(default_factory=dict)
 
     def __call__(
-        self, *args: object
+        self, *args: UdfArgument
     ) -> DefaultAction | UdfIterableSource | UdfCallExpression | None:
         """Create a logical UDF expression, iterable source, or Python UDF action.
 
@@ -219,7 +223,7 @@ class UdfDefinition:
             return None
         return action
 
-    def call_runtime(self, world: EcsWorld, args: tuple[object, ...]) -> Any:
+    def call_runtime(self, world: EcsWorld, args: tuple[UdfArgument, ...]) -> Any:
         """Run this Python UDF with ECS arguments converted to Python values.
 
         Args:
@@ -233,7 +237,7 @@ class UdfDefinition:
         materialized = [world.materialize_udf_arg(arg) for arg in args]
         return self.function(*materialized)
 
-    def execute_action(self, world: EcsWorld, args: tuple[object, ...]) -> None:
+    def execute_action(self, world: EcsWorld, args: tuple[UdfArgument, ...]) -> None:
         """Run this Python UDF as a side-effect action and count the call.
 
         Args:
@@ -243,6 +247,23 @@ class UdfDefinition:
 
         self.call_runtime(world, args)
         world._diagnostics["ecs_udf_calls"] += 1
+
+
+@dataclass(frozen=True)
+class UdfIterableDefinition(UdfDefinition):
+    """Metadata for a Python UDF that produces values for ``ecs.for_each``."""
+
+    def __call__(self, *args: UdfArgument) -> UdfIterableSource:
+        """Create an iterable ECS loop source from this Python UDF.
+
+        Args:
+            args: Values or ECS expressions passed to the decorated UDF.
+
+        Returns:
+            An iterable source accepted by ``ecs.for_each``.
+        """
+
+        return UdfIterableSource(self, tuple(args))
 
 
 def validate_mutation_metadata(
@@ -299,7 +320,7 @@ class UdfCallExpression(Expression):
     """Lazy expression node for a Rust-backed ECS UDF call."""
 
     definition: UdfDefinition
-    args: tuple[object, ...]
+    args: tuple[UdfArgument, ...]
 
     def eval(self, ctx: dict[object, Any], world: EcsWorld) -> Any:
         """Reject Python evaluation for Rust-backed UDF expression nodes.
@@ -318,6 +339,90 @@ class UdfCallExpression(Expression):
         )
 
 
+@dataclass(frozen=True)
+class _UdfDecorator:
+    reads: tuple[type[Any], ...] = ()
+    writes: tuple[type[Any], ...] = ()
+    structural: bool = False
+    python: bool = False
+    mutations: Mapping[str, object] | None = None
+
+    def __call__(self, callback: Callable[..., Any]) -> UdfDefinition:
+        """Create a UDF definition for the decorated callback."""
+
+        return _build_udf_definition(
+            callback,
+            reads=self.reads,
+            writes=self.writes,
+            structural=self.structural,
+            python=self.python,
+            mutations=self.mutations,
+        )
+
+
+class _PythonUdfDecorator(_UdfDecorator):
+    @overload
+    def __call__(self, callback: Callable[..., Iterable[Any]]) -> UdfIterableDefinition: ...
+
+    @overload
+    def __call__(self, callback: Callable[..., Any]) -> UdfDefinition: ...
+
+    def __call__(self, callback: Callable[..., Any]) -> UdfDefinition:
+        """Create a Python UDF definition, preserving iterable-source typing when possible."""
+
+        return super().__call__(callback)
+
+
+def _build_udf_definition(
+    callback: Callable[..., Any],
+    *,
+    reads: tuple[type[Any], ...],
+    writes: tuple[type[Any], ...],
+    structural: bool,
+    python: bool,
+    mutations: Mapping[str, object] | None,
+) -> UdfDefinition:
+    if mutations and not python:
+        raise SystemPlanError(
+            "@ecs.udf mutations={...} metadata is only valid with @ecs.udf(python=True)."
+        )
+    normalized_mutations = validate_mutation_metadata(callback, mutations)
+    hints = get_type_hints(callback, include_extras=True)
+    signature = inspect.signature(callback)
+    for parameter in signature.parameters.values():
+        if parameter.name not in hints:
+            raise SystemPlanError(
+                f"ECS UDF {callback.__name__} parameter {parameter.name!r} needs a type annotation."
+            )
+        if not python and hints[parameter.name] is not Expression:
+            raise SystemPlanError(
+                f"Rust-backed ECS UDF {callback.__name__} parameter {parameter.name!r} "
+                "must be annotated as ecs.Expression[T]. Use @ecs.udf(python=True) "
+                "for runtime Python vector/materialized inputs."
+            )
+    if "return" not in hints:
+        raise SystemPlanError(f"ECS UDF {callback.__name__} needs a return annotation.")
+    if not python and hints["return"] is not Expression:
+        raise SystemPlanError(
+            f"Rust-backed ECS UDF {callback.__name__} return type must be ecs.Expression[T]."
+        )
+    definition_type = (
+        UdfIterableDefinition
+        if python and _is_iterable_annotation(hints["return"])
+        else UdfDefinition
+    )
+    return definition_type(
+        callback,
+        hints["return"],
+        reads=reads,
+        writes=writes,
+        structural=structural,
+        side_effects=False,
+        python=python,
+        mutations=normalized_mutations,
+    )
+
+
 @overload
 def udf(function: Callable[..., Any], /) -> UdfDefinition: ...
 
@@ -330,9 +435,22 @@ def udf(
     writes: Iterable[type[Any]] = (),
     structural: bool = False,
     side_effects: bool = False,
-    python: bool = False,
+    python: Literal[True] = True,
     mutations: Mapping[str, object] | None = None,
-) -> Callable[[Callable[..., Any]], UdfDefinition]: ...
+) -> _PythonUdfDecorator: ...
+
+
+@overload
+def udf(
+    function: None = None,
+    *,
+    reads: Iterable[type[Any]] = (),
+    writes: Iterable[type[Any]] = (),
+    structural: bool = False,
+    side_effects: bool = False,
+    python: Literal[False] = False,
+    mutations: Mapping[str, object] | None = None,
+) -> _UdfDecorator: ...
 
 
 def udf(
@@ -344,7 +462,7 @@ def udf(
     side_effects: bool = False,
     python: bool = False,
     mutations: Mapping[str, object] | None = None,
-) -> Callable[[Callable[..., Any]], UdfDefinition] | UdfDefinition:
+) -> _UdfDecorator | UdfDefinition:
     """Declare a typed function that an ECS system can reference.
 
     Rust-backed UDFs describe pure expression work for the ECS planner and must annotate
@@ -373,49 +491,20 @@ def udf(
             "on @ecs.udf(python=True)."
         )
 
-    def decorate(callback: Callable[..., Any]) -> UdfDefinition:
-        if mutations and not python:
-            raise SystemPlanError(
-                "@ecs.udf mutations={...} metadata is only valid with @ecs.udf(python=True)."
-            )
-        normalized_mutations = validate_mutation_metadata(callback, mutations)
-        hints = get_type_hints(callback, include_extras=True)
-        signature = inspect.signature(callback)
-        for parameter in signature.parameters.values():
-            if parameter.name not in hints:
-                raise SystemPlanError(
-                    f"ECS UDF {callback.__name__} parameter {parameter.name!r} needs a "
-                    "type annotation."
-                )
-            if not python and hints[parameter.name] is not Expression:
-                raise SystemPlanError(
-                    f"Rust-backed ECS UDF {callback.__name__} parameter {parameter.name!r} "
-                    "must be annotated as ecs.Expression[T]. Use @ecs.udf(python=True) "
-                    "for runtime Python vector/materialized inputs."
-                )
-        if "return" not in hints:
-            raise SystemPlanError(f"ECS UDF {callback.__name__} needs a return annotation.")
-        if not python and hints["return"] is not Expression:
-            raise SystemPlanError(
-                f"Rust-backed ECS UDF {callback.__name__} return type must be ecs.Expression[T]."
-            )
-        return UdfDefinition(
-            callback,
-            hints["return"],
-            reads=tuple(reads),
-            writes=tuple(writes),
-            structural=structural,
-            side_effects=False,
-            python=python,
-            mutations=normalized_mutations,
-        )
-
+    decorator_type = _PythonUdfDecorator if python else _UdfDecorator
+    decorator = decorator_type(
+        reads=tuple(reads),
+        writes=tuple(writes),
+        structural=structural,
+        python=python,
+        mutations=mutations,
+    )
     if function is not None:
-        return decorate(function)
-    return decorate
+        return decorator(function)
+    return decorator
 
 
-def set(target: FieldExpression, value: object) -> DefaultAction:
+def set(target: FieldExpression, value: ExpressionInput) -> DefaultAction:
     """Build an ECS action that assigns a value to a component or resource field.
 
     Args:

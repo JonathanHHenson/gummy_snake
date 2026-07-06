@@ -48,6 +48,7 @@ def create_vector(x: Iterable[Number], y: Number = 0, z: Number = 0) -> Vector: 
 
 
 def create_vector(x: Number | Iterable[Number] = 0, y: Number = 0, z: Number = 0) -> Vector:
+    """Create a mutable 2D or 3D vector."""
     return Vector(x, y, z)
 
 

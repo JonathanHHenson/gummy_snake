@@ -259,10 +259,10 @@ class CanvasRendererPixelsMixin:
         )
 
     def _pixel_payload(self, pixels: Sequence[int] | Buffer) -> bytes | Buffer:
-        return _pixel_payload_impl(self, pixels)
+        return _pixel_payload_impl(_renderer(self), pixels)
 
     def _upload_dirty_pixel_range(self, pixels: PixelBuffer) -> bool:
-        return _upload_dirty_pixel_range_impl(self, pixels)
+        return _upload_dirty_pixel_range_impl(_renderer(self), pixels)
 
     def _blend_image(
         self,
@@ -273,4 +273,4 @@ class CanvasRendererPixelsMixin:
         destination: tuple[int, int, int, int],
         mode: c.BlendMode,
     ) -> None:
-        _blend_image_impl(self, pixels, width, height, source, destination, mode)
+        _blend_image_impl(_renderer(self), pixels, width, height, source, destination, mode)

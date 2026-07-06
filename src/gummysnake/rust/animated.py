@@ -20,6 +20,7 @@ def animated_noise_rgba(
     falloff: float = 0.5,
     prefer_accelerated: bool = True,
 ) -> bytes:
+    """Generate an RGBA animated noise image as bytes."""
     width = int(width)
     height = int(height)
     density = float(density)

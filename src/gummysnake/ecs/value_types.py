@@ -29,8 +29,25 @@ class SupportsStr(Protocol):
         ...
 
 
-type EcsEventValue = DataclassInstance | bool | int | float | str
+type EcsScalarValue = bool | int | float | str
+type EcsStoredValue = EcsScalarValue | tuple[int | float, ...] | list[EcsStoredValue]
+type EcsLiteralValue = (
+    EcsScalarValue
+    | DataclassInstance
+    | list[EcsLiteralValue]
+    | tuple[EcsLiteralValue, ...]
+    | dict[str, EcsLiteralValue]
+)
+type EcsEventValue = DataclassInstance | EcsScalarValue
 type EcsTag = SupportsStr
 
 
-__all__ = ["DataclassInstance", "EcsEventValue", "EcsTag", "SupportsStr"]
+__all__ = [
+    "DataclassInstance",
+    "EcsEventValue",
+    "EcsLiteralValue",
+    "EcsScalarValue",
+    "EcsStoredValue",
+    "EcsTag",
+    "SupportsStr",
+]

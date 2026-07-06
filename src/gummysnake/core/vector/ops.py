@@ -40,7 +40,7 @@ class VectorOpsMixin:
         target.x += dx
         target.y += dy
         target.z += dz
-        return target
+        return cast(Self, target)
 
     @_DualMethod
     def sub(
@@ -57,7 +57,7 @@ class VectorOpsMixin:
         target.x -= dx
         target.y -= dy
         target.z -= dz
-        return target
+        return cast(Self, target)
 
     @_DualMethod
     def mult(
@@ -70,7 +70,7 @@ class VectorOpsMixin:
         target.x *= float(cast(Number, factor))
         target.y *= float(cast(Number, factor))
         target.z *= float(cast(Number, factor))
-        return target
+        return cast(Self, target)
 
     @_DualMethod
     def div(
@@ -86,7 +86,7 @@ class VectorOpsMixin:
         target.x /= divisor
         target.y /= divisor
         target.z /= divisor
-        return target
+        return cast(Self, target)
 
     def heading(self) -> float:
         return gs_math.atan2(self.y, self.x)
@@ -176,7 +176,7 @@ class VectorOpsMixin:
         target.x = gs_math.lerp(target.x, dx, t)
         target.y = gs_math.lerp(target.y, dy, t)
         target.z = gs_math.lerp(target.z, dz, t)
-        return target
+        return cast(Self, target)
 
     @_DualMethod
     def slerp(
@@ -263,8 +263,8 @@ class VectorOpsMixin:
 
     @staticmethod
     def random_2d() -> Any:
-        vector = make_vector(0, 0, 0)
-        return vector.from_angle(shared_rng().random() * math.tau)
+        angle = shared_rng().random() * math.tau
+        return make_vector(math.cos(angle), math.sin(angle), 0)
 
     @staticmethod
     def random_3d() -> Any:

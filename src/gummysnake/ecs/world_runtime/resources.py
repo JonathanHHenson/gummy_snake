@@ -14,7 +14,7 @@ from gummysnake.ecs.schema_helpers import (
     _validate_event_value,
     _validate_storage_value,
 )
-from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsStoredValue
 from gummysnake.exceptions import ComponentSchemaError, MissingResourceError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -45,19 +45,23 @@ def remove_resource(world: EcsWorld, resource_type: type[Any]) -> None:
     world._note_resource_update()
 
 
-def get_resource_field(world: EcsWorld, resource_type: type[Any], field_name: str) -> Any:
+def get_resource_field(
+    world: EcsWorld, resource_type: type[Any], field_name: str
+) -> EcsStoredValue:
     """Read a single field from an existing ECS resource."""
     world.validate_schema(resource_type)
     if field_name not in world._schemas[resource_type]:
         raise AttributeError(field_name)
     try:
-        return world._rust.resource_field(_schema_name(resource_type), field_name)
+        return cast(
+            EcsStoredValue, world._rust.resource_field(_schema_name(resource_type), field_name)
+        )
     except ValueError as exc:
         raise MissingResourceError(f"Missing ECS resource {resource_type.__name__}.") from exc
 
 
 def set_resource_field(
-    world: EcsWorld, resource_type: type[Any], field_name: str, value: object
+    world: EcsWorld, resource_type: type[Any], field_name: str, value: EcsStoredValue
 ) -> None:
     """Validate and write one field on an existing ECS resource."""
     world.validate_schema(resource_type)
@@ -70,7 +74,7 @@ def set_resource_field(
     world._note_resource_update()
 
 
-def resource_snapshot(world: EcsWorld, resource_type: type[Any]) -> object:
+def resource_snapshot(world: EcsWorld, resource_type: type[Any]) -> DataclassInstance:
     """Copy an ECS resource into a new dataclass instance."""
     world.validate_schema(resource_type)
     resource_constructor = cast(type[Any], resource_type)

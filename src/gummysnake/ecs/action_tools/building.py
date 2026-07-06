@@ -17,9 +17,12 @@ from gummysnake.ecs.actions import (
     LoopItem,
     WhenAction,
 )
+from gummysnake.ecs.expression_tools import ExpressionInput
 from gummysnake.ecs.expressions import Expression, ensure_expr
-from gummysnake.ecs.specs import EventReaderProxy
+from gummysnake.ecs.specs import EventReader, EventReaderProxy
 from gummysnake.exceptions import SystemPlanError
+
+type ForEachSource = IterableSource | EventReaderProxy | EventReader | Expression
 
 
 class _IterableSourceWithItem(Protocol):
@@ -442,7 +445,7 @@ def conditional(*, parallel: bool = False) -> _ConditionalContext:
     return _ConditionalContext(parallel=parallel)
 
 
-def when(condition: object, *, parallel: bool | None = None) -> _BranchContext:
+def when(condition: ExpressionInput, *, parallel: bool | None = None) -> _BranchContext:
     """Return a builder or context manager for a conditional ECS branch.
 
     Args:
@@ -473,7 +476,7 @@ def otherwise(*, parallel: bool | None = None) -> _BranchContext:
     return _BranchContext(None, parallel=parallel, otherwise=True)
 
 
-def _iterable_source_for(source: object) -> IterableSource:
+def _iterable_source_for(source: ForEachSource) -> IterableSource:
     if isinstance(source, IterableSource):
         return source
     if isinstance(source, EventReaderProxy):
@@ -487,7 +490,7 @@ def _iterable_source_for(source: object) -> IterableSource:
 
 
 def for_each(
-    source: object, *, loop_parallel: bool = False, block_parallel: bool = False
+    source: ForEachSource, *, loop_parallel: bool = False, block_parallel: bool = False
 ) -> _ForEachContext:
     """Return a context manager that records a loop over an ECS iterable source.
 

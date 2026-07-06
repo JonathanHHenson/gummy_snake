@@ -18,6 +18,7 @@ def noise_3d(
     falloff: float = 0.5,
     prefer_accelerated: bool = True,
 ) -> float:
+    """Return 3D noise using acceleration when available."""
     x = float(x)
     y = float(y)
     z = float(z)
@@ -40,6 +41,7 @@ def noise_3d_python(
     octaves: int = 4,
     falloff: float = 0.5,
 ) -> float:
+    """Return the pure-Python 3D noise fallback value."""
     x = float(x)
     y = float(y)
     z = float(z)

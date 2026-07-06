@@ -36,6 +36,9 @@ from gummysnake.backend.canvas_runtime.renderer.primitive_batches import (
 from gummysnake.backend.canvas_runtime.renderer.primitive_batches import (
     queue_primitive_batch as _queue_primitive_batch_impl,
 )
+from gummysnake.backend.canvas_runtime.renderer.primitive_paths import (
+    CapturedShapeState,
+)
 from gummysnake.backend.canvas_runtime.renderer.primitive_paths import begin_clip as _begin_clip
 from gummysnake.backend.canvas_runtime.renderer.primitive_paths import (
     begin_clip_captured_shape as _begin_clip_captured_shape,
@@ -68,13 +71,13 @@ def _renderer(self: object) -> CanvasRendererHost:
 
 class CanvasRendererPrimitivesMixin:
     def background(self, color: Color) -> None:
-        _background(self, color)
+        _background(_renderer(self), color)
 
     def clear(self) -> None:
-        _clear(self)
+        _clear(_renderer(self))
 
     def point(self, x: float, y: float, style: StyleState, transform: Matrix2D) -> None:
-        _point(self, x, y, style, transform)
+        _point(_renderer(self), x, y, style, transform)
 
     def line(
         self,
@@ -85,7 +88,7 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        _line(self, x1, y1, x2, y2, style, transform)
+        _line(_renderer(self), x1, y1, x2, y2, style, transform)
 
     def polygon(
         self,
@@ -95,7 +98,7 @@ class CanvasRendererPrimitivesMixin:
         *,
         close: bool = True,
     ) -> None:
-        _polygon(self, points, style, transform, close=close)
+        _polygon(_renderer(self), points, style, transform, close=close)
 
     def complex_polygon(
         self,
@@ -106,12 +109,17 @@ class CanvasRendererPrimitivesMixin:
         *,
         close: bool = True,
     ) -> None:
-        _complex_polygon(self, outer, contours, style, transform, close=close)
+        _complex_polygon(_renderer(self), outer, contours, style, transform, close=close)
 
     def draw_captured_shape(
-        self, state: object, style: StyleState, transform: Matrix2D, *, close: bool = True
+        self,
+        state: CapturedShapeState,
+        style: StyleState,
+        transform: Matrix2D,
+        *,
+        close: bool = True,
     ) -> None:
-        _draw_captured_shape(self, state, style, transform, close=close)
+        _draw_captured_shape(_renderer(self), state, style, transform, close=close)
 
     def begin_clip(
         self,
@@ -119,13 +127,13 @@ class CanvasRendererPrimitivesMixin:
         contours: list[list[tuple[float, float]]],
         transform: Matrix2D,
     ) -> None:
-        _begin_clip(self, outer, contours, transform)
+        _begin_clip(_renderer(self), outer, contours, transform)
 
-    def begin_clip_captured_shape(self, state: object, transform: Matrix2D) -> None:
-        _begin_clip_captured_shape(self, state, transform)
+    def begin_clip_captured_shape(self, state: CapturedShapeState, transform: Matrix2D) -> None:
+        _begin_clip_captured_shape(_renderer(self), state, transform)
 
     def end_clip(self) -> None:
-        _end_clip(self)
+        _end_clip(_renderer(self))
 
     def rect(
         self,
@@ -136,7 +144,7 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        _rect(self, x, y, width, height, style, transform)
+        _rect(_renderer(self), x, y, width, height, style, transform)
 
     def triangle(
         self,
@@ -149,7 +157,7 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        _triangle(self, x1, y1, x2, y2, x3, y3, style, transform)
+        _triangle(_renderer(self), x1, y1, x2, y2, x3, y3, style, transform)
 
     def quad(
         self,
@@ -164,7 +172,7 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        _quad(self, x1, y1, x2, y2, x3, y3, x4, y4, style, transform)
+        _quad(_renderer(self), x1, y1, x2, y2, x3, y3, x4, y4, style, transform)
 
     def ellipse(
         self,
@@ -175,7 +183,7 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        _ellipse(self, x, y, width, height, style, transform)
+        _ellipse(_renderer(self), x, y, width, height, style, transform)
 
     def arc(
         self,
@@ -189,10 +197,10 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        _arc(self, x, y, width, height, start, stop, mode, style, transform)
+        _arc(_renderer(self), x, y, width, height, start, stop, mode, style, transform)
 
     def _flush_line_batch(self) -> None:
-        _flush_line_batch_impl(self)
+        _flush_line_batch_impl(_renderer(self))
 
     def queue_fill_primitive_fast_path(
         self,
@@ -201,7 +209,7 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> bool:
-        return _queue_fill_primitive_fast_path_impl(self, kind, coords, style, transform)
+        return _queue_fill_primitive_fast_path_impl(_renderer(self), kind, coords, style, transform)
 
     def _queue_primitive_batch(
         self,
@@ -210,13 +218,13 @@ class CanvasRendererPrimitivesMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> bool:
-        return _queue_primitive_batch_impl(self, kind, coords, style, transform)
+        return _queue_primitive_batch_impl(_renderer(self), kind, coords, style, transform)
 
     def _flush_batches_before_primitive_batch(self) -> None:
-        _flush_batches_before_primitive_batch_impl(self)
+        _flush_batches_before_primitive_batch_impl(_renderer(self))
 
     def _flush_line_batch_only(self) -> None:
-        _flush_line_batch_only_impl(self)
+        _flush_line_batch_only_impl(_renderer(self))
 
     def _flush_primitive_batch_only(self) -> None:
-        _flush_primitive_batch_only_impl(self)
+        _flush_primitive_batch_only_impl(_renderer(self))

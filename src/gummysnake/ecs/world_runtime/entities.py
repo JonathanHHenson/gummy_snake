@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.runtime_views import Entity, EntityView
 from gummysnake.ecs.schema_helpers import _schema_name, _tag_name, _validate_storage_value
-from gummysnake.ecs.value_types import DataclassInstance, EcsTag
+from gummysnake.ecs.value_types import DataclassInstance, EcsStoredValue, EcsTag
 from gummysnake.exceptions import (
     EntityNotFoundError,
     MissingComponentError,
@@ -196,15 +196,18 @@ def has_component(world: EcsWorld, entity: Entity, component_type: type[Any]) ->
 
 def get_component_field(
     world: EcsWorld, entity: Entity, component_type: type[Any], field_name: str
-) -> Any:
+) -> EcsStoredValue:
     """Read one field from an entity component."""
     slot(world, entity)
     world.validate_schema(component_type)
     if field_name not in world._schemas[component_type]:
         raise AttributeError(field_name)
     try:
-        return world._rust.get_field(
-            entity.index, entity.generation, _schema_name(component_type), field_name
+        return cast(
+            EcsStoredValue,
+            world._rust.get_field(
+                entity.index, entity.generation, _schema_name(component_type), field_name
+            ),
         )
     except ValueError as exc:
         raise MissingComponentError(
@@ -218,7 +221,7 @@ def set_component_field(
     entity: Entity,
     component_type: type[Any],
     field_name: str,
-    value: object,
+    value: EcsStoredValue,
 ) -> None:
     """Validate and write one field on an entity component."""
     slot(world, entity)
@@ -232,7 +235,9 @@ def set_component_field(
     world._note_field_update(entity, component_type)
 
 
-def component_snapshot(world: EcsWorld, entity: Entity, component_type: type[Any]) -> object:
+def component_snapshot(
+    world: EcsWorld, entity: Entity, component_type: type[Any]
+) -> DataclassInstance:
     """Copy a component's fields into a new dataclass instance."""
     slot(world, entity)
     world.validate_schema(component_type)
@@ -259,7 +264,11 @@ def sync_component_fields_to_rust(
 
 
 def sync_component_field_to_rust(
-    world: EcsWorld, entity: Entity, component_type: type[Any], field_name: str, value: object
+    world: EcsWorld,
+    entity: Entity,
+    component_type: type[Any],
+    field_name: str,
+    value: EcsStoredValue,
 ) -> None:
     """Copy one Python value into Rust-owned component storage."""
     world._rust.set_field(

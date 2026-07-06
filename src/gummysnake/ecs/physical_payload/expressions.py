@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from gummysnake.ecs.actions import LoopItem, UdfCallExpression
 from gummysnake.ecs.expressions import (
     AttributeExpression,
@@ -28,6 +30,7 @@ from gummysnake.ecs.physical_payload.types import (
     PayloadState,
     PhysicalPlanUnsupported,
 )
+from gummysnake.ecs.value_types import EcsLiteralValue
 from gummysnake.exceptions import SystemPlanError
 
 
@@ -194,7 +197,7 @@ class ExpressionSerializer:
     def serialize_literal(self, value: object) -> int:
         """Serialize a literal value and return its bridge expression index."""
 
-        literal = bridge_literal_value(value)
+        literal = bridge_literal_value(cast(EcsLiteralValue, value))
         return self._add_literal_expr(literal)
 
     def _add_literal_expr(self, value: BridgeLiteral) -> int:

@@ -12,6 +12,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 def canvas_module() -> _CanvasModule:
+    """Return the required Rust canvas module used for image byte operations."""
     from gummysnake.rust.canvas import require_canvas_runtime
 
     return require_canvas_runtime()
@@ -24,6 +25,7 @@ def resize_rgba(
     target_width: int,
     target_height: int,
 ) -> bytearray:
+    """Resize an RGBA byte buffer with the Rust canvas runtime."""
     return bytearray(
         canvas_module().image_resize_rgba(
             source_width,
@@ -43,6 +45,7 @@ def mask_rgba(
     mask_height: int,
     mask_pixels: bytes,
 ) -> bytearray:
+    """Apply an RGBA mask buffer to an RGBA image buffer."""
     return bytearray(
         canvas_module().image_mask_rgba(
             width,
@@ -62,6 +65,7 @@ def filter_rgba(
     mode: c.ImageFilter,
     value: float | None,
 ) -> bytearray:
+    """Apply a supported image filter to an RGBA byte buffer."""
     normalized = mode.value
     if normalized not in {
         c.GRAY,
@@ -77,6 +81,7 @@ def filter_rgba(
 
 
 def crop_rgba(width: int, height: int, pixels: bytes, sx: int, sy: int, sw: int, sh: int) -> bytes:
+    """Copy a rectangular RGBA region from an image buffer."""
     target_width = max(0, sw)
     target_height = max(0, sh)
     if target_width == 0 or target_height == 0:
@@ -104,6 +109,7 @@ def alpha_composite_rgba(
     dx: int,
     dy: int,
 ) -> bytearray:
+    """Alpha-composite a source RGBA buffer onto a destination buffer."""
     return bytearray(
         canvas_module().image_alpha_composite_rgba(
             width,

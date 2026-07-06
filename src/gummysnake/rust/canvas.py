@@ -157,14 +157,17 @@ _canvas = cast(_CanvasModule | None, _loaded_canvas)
 
 
 def is_canvas_runtime_available() -> bool:
+    """Return whether the required Rust canvas module imported successfully."""
     return _canvas is not None
 
 
 def canvas_import_error() -> ImportError | None:
+    """Return the import error from loading the Rust canvas runtime, if any."""
     return _CANVAS_IMPORT_ERROR
 
 
 def canvas_health_check() -> str:
+    """Return a short status string from the Rust canvas runtime."""
     if _canvas is None:
         return "unavailable"
     try:
@@ -174,6 +177,7 @@ def canvas_health_check() -> str:
 
 
 def canvas_abi_version() -> int | None:
+    """Return the canvas ABI version exposed by the Rust runtime."""
     if _canvas is None:
         return None
     marker = getattr(_canvas, "canvas_abi_version", None)
@@ -190,6 +194,7 @@ def canvas_abi_version() -> int | None:
 
 
 def canvas_native_window_available() -> bool:
+    """Return whether the Rust canvas runtime can open native windows."""
     if _canvas is None:
         return False
     native_window_available = getattr(_canvas, "native_window_available", None)
@@ -197,6 +202,7 @@ def canvas_native_window_available() -> bool:
 
 
 def canvas_gpu_available() -> bool:
+    """Return whether GPU drawing is available in the Rust canvas runtime."""
     if _canvas is None:
         return False
     gpu_available = getattr(_canvas, "gpu_available", None)
@@ -204,6 +210,7 @@ def canvas_gpu_available() -> bool:
 
 
 def canvas_gpu_status() -> str:
+    """Return a human-readable GPU availability status."""
     if _canvas is None:
         return "unavailable: gummysnake.rust._canvas runtime is not installed"
     try:
@@ -220,6 +227,7 @@ def canvas_gpu_status() -> str:
 
 
 def require_canvas_runtime() -> _CanvasModule:
+    """Return the Rust canvas runtime or raise a capability error with rebuild guidance."""
     if _canvas is not None:
         _validate_canvas_runtime(_canvas)
         return _canvas

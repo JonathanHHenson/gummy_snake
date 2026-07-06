@@ -50,14 +50,16 @@ class _DualMethod:
 
 
 def register_vector_type(vector_type: type[Any]) -> None:
+    """Register the concrete Vector class used by shared vector helpers."""
     global _VECTOR_TYPE
     _VECTOR_TYPE = vector_type
 
 
-def make_vector(*args: Any) -> Any:
+def make_vector(*args: Any) -> _VectorFullOps:
+    """Create a Vector using the registered concrete Vector class."""
     if _VECTOR_TYPE is None:
         raise RuntimeError("Vector type has not been registered.")
-    return _VECTOR_TYPE(*args)
+    return cast(_VectorFullOps, _VECTOR_TYPE(*args))
 
 
 def _components(
@@ -65,6 +67,7 @@ def _components(
     y: Number | None = None,
     z: Number | None = None,
 ) -> tuple[float, float, float]:
+    """Normalize vector-like input into three float components."""
     if _is_registered_vector(value):
         return value.x, value.y, value.z
     if y is not None or z is not None:

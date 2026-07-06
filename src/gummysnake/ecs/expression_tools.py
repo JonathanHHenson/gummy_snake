@@ -6,9 +6,15 @@ from collections.abc import Callable
 from dataclasses import is_dataclass
 from typing import TYPE_CHECKING, Any, cast
 
+from gummysnake.ecs.value_types import EcsLiteralValue
+
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.expressions import ExistsBuilder, Expression, QueryProxy
+    from gummysnake.ecs.specs import Query
     from gummysnake.ecs.world import EcsWorld
+
+
+type ExpressionInput = Expression | EcsLiteralValue
 
 
 def _cached_expression_eval(
@@ -51,7 +57,7 @@ def _expression_value_key(value: object) -> object:
     return id(value)
 
 
-def ensure_expr(value: object) -> Expression:
+def ensure_expr(value: ExpressionInput) -> Expression:
     from gummysnake.ecs.expressions import Expression, LiteralExpression
 
     if isinstance(value, Expression):
@@ -59,7 +65,7 @@ def ensure_expr(value: object) -> Expression:
     return LiteralExpression(value)
 
 
-def all_of(*conditions: object) -> Expression:
+def all_of(*conditions: ExpressionInput) -> Expression:
     """Combine conditions with lazy ECS ``and``.
 
     Args:
@@ -78,7 +84,7 @@ def all_of(*conditions: object) -> Expression:
     return expr
 
 
-def any_of(*conditions: object) -> Expression:
+def any_of(*conditions: ExpressionInput) -> Expression:
     """Combine conditions with lazy ECS ``or``.
 
     Args:
@@ -97,7 +103,7 @@ def any_of(*conditions: object) -> Expression:
     return expr
 
 
-def literal(value: object) -> Expression:
+def literal(value: EcsLiteralValue) -> Expression:
     """Wrap a Python value as a lazy ECS literal expression.
 
     Args:
@@ -136,7 +142,7 @@ def key_is_down(key: int | str) -> Expression:
     return KeyDownExpression(key)
 
 
-def exists(query: object) -> ExistsBuilder:
+def exists(query: QueryProxy | Query) -> ExistsBuilder:
     """Create an ``exists(query).where(...)`` builder.
 
     Args:

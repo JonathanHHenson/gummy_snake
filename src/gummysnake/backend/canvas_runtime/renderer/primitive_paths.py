@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from collections.abc import Iterable
+from typing import Protocol, cast
 
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
 from gummysnake.core.state import StyleState
@@ -10,12 +11,23 @@ from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import ArgumentValidationError
 
 
-def _renderer(self: object) -> CanvasRendererHost:
+class CapturedShapeState(Protocol):
+    def shape_vertices(self) -> Iterable[Iterable[float]]: ...
+    def shape_contours(self) -> Iterable[Iterable[tuple[float, float]]]: ...
+    def reset_shape_capture(self) -> None: ...
+
+
+def captured_point(point: Iterable[float]) -> tuple[float, float]:
+    x, y = tuple(point)[:2]
+    return float(x), float(y)
+
+
+def _renderer(self: CanvasRendererHost) -> CanvasRendererHost:
     return cast(CanvasRendererHost, self)
 
 
 def polygon(
-    self: object,
+    self: CanvasRendererHost,
     points: list[tuple[float, float]],
     style: StyleState,
     transform: Matrix2D,
@@ -43,7 +55,7 @@ def polygon(
 
 
 def complex_polygon(
-    self: object,
+    self: CanvasRendererHost,
     outer: list[tuple[float, float]],
     contours: list[list[tuple[float, float]]],
     style: StyleState,
@@ -73,7 +85,12 @@ def complex_polygon(
 
 
 def draw_captured_shape(
-    self: Any, state: object, style: StyleState, transform: Matrix2D, *, close: bool = True
+    self: CanvasRendererHost,
+    state: CapturedShapeState,
+    style: StyleState,
+    transform: Matrix2D,
+    *,
+    close: bool = True,
 ) -> None:
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
@@ -99,9 +116,8 @@ def draw_captured_shape(
         )
         return
     _renderer(self)._count("shape_buffer_extractions")
-    state_obj = cast(Any, state)
-    outer = [tuple(point) for point in state_obj.shape_vertices()]
-    contours = [list(contour) for contour in state_obj.shape_contours()]
+    outer = [captured_point(point) for point in state.shape_vertices()]
+    contours = [list(contour) for contour in state.shape_contours()]
     if contours:
         self.complex_polygon(
             outer,
@@ -112,13 +128,11 @@ def draw_captured_shape(
         )
     else:
         self.polygon(outer, style, transform, close=close)
-    reset = getattr(state_obj, "reset_shape_capture", None)
-    if callable(reset):
-        reset()
+    state.reset_shape_capture()
 
 
 def begin_clip(
-    self: object,
+    self: CanvasRendererHost,
     outer: list[tuple[float, float]],
     contours: list[list[tuple[float, float]]],
     transform: Matrix2D,
@@ -144,7 +158,9 @@ def begin_clip(
     _renderer(self)._clip_depth += 1
 
 
-def begin_clip_captured_shape(self: Any, state: object, transform: Matrix2D) -> None:
+def begin_clip_captured_shape(
+    self: CanvasRendererHost, state: CapturedShapeState, transform: Matrix2D
+) -> None:
     _renderer(self)._flush_line_batch()
     current = (
         getattr(_renderer(self)._require_canvas(), "begin_clip_captured_current", None)
@@ -169,18 +185,15 @@ def begin_clip_captured_shape(self: Any, state: object, transform: Matrix2D) -> 
         _renderer(self)._clip_depth += 1
         return
     _renderer(self)._count("shape_buffer_extractions")
-    state_obj = cast(Any, state)
     self.begin_clip(
-        [tuple(point) for point in state_obj.shape_vertices()],
-        [list(contour) for contour in state_obj.shape_contours()],
+        [captured_point(point) for point in state.shape_vertices()],
+        [list(contour) for contour in state.shape_contours()],
         transform,
     )
-    reset = getattr(state_obj, "reset_shape_capture", None)
-    if callable(reset):
-        reset()
+    state.reset_shape_capture()
 
 
-def end_clip(self: object) -> None:
+def end_clip(self: CanvasRendererHost) -> None:
     _renderer(self)._flush_line_batch()
     if _renderer(self)._clip_depth <= 0:
         raise ArgumentValidationError("end_clip() called without matching begin_clip().")

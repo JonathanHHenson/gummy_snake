@@ -17,7 +17,7 @@ from typing import (
     get_type_hints,
 )
 
-from gummysnake.ecs.actions import Action
+from gummysnake.ecs.actions import Action, UdfArgument
 from gummysnake.ecs.expressions import (
     Expression,
     FieldExpression,
@@ -41,7 +41,7 @@ from gummysnake.ecs.schema_helpers import (
 from gummysnake.ecs.specs import QuerySpec
 from gummysnake.ecs.systems import SystemDefinition
 from gummysnake.ecs.types import StorageType
-from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsStoredValue, EcsTag
 from gummysnake.ecs.world_runtime import entities as entity_runtime
 from gummysnake.ecs.world_runtime import query as query_runtime
 from gummysnake.ecs.world_runtime import resources as resource_runtime
@@ -299,7 +299,7 @@ class EcsWorld:
 
     def get_component_field(
         self, entity: Entity, component_type: type[Any], field_name: str
-    ) -> Any:
+    ) -> EcsStoredValue:
         """Read one field from an entity component.
 
         Args:
@@ -314,7 +314,7 @@ class EcsWorld:
         return entity_runtime.get_component_field(self, entity, component_type, field_name)
 
     def set_component_field(
-        self, entity: Entity, component_type: type[Any], field_name: str, value: object
+        self, entity: Entity, component_type: type[Any], field_name: str, value: EcsStoredValue
     ) -> None:
         """Write one field on an entity component.
 
@@ -327,7 +327,7 @@ class EcsWorld:
 
         entity_runtime.set_component_field(self, entity, component_type, field_name, value)
 
-    def component_snapshot(self, entity: Entity, component_type: type[Any]) -> object:
+    def component_snapshot(self, entity: Entity, component_type: type[Any]) -> DataclassInstance:
         """Copy a component's current fields into a new dataclass instance.
 
         Args:
@@ -371,7 +371,7 @@ class EcsWorld:
 
         resource_runtime.remove_resource(self, resource_type)
 
-    def get_resource_field(self, resource_type: type[Any], field_name: str) -> Any:
+    def get_resource_field(self, resource_type: type[Any], field_name: str) -> EcsStoredValue:
         """Read one field from an ECS resource.
 
         Args:
@@ -384,7 +384,9 @@ class EcsWorld:
 
         return resource_runtime.get_resource_field(self, resource_type, field_name)
 
-    def set_resource_field(self, resource_type: type[Any], field_name: str, value: object) -> None:
+    def set_resource_field(
+        self, resource_type: type[Any], field_name: str, value: EcsStoredValue
+    ) -> None:
         """Write one field on an ECS resource.
 
         Args:
@@ -395,7 +397,7 @@ class EcsWorld:
 
         resource_runtime.set_resource_field(self, resource_type, field_name, value)
 
-    def resource_snapshot(self, resource_type: type[Any]) -> object:
+    def resource_snapshot(self, resource_type: type[Any]) -> DataclassInstance:
         """Copy a resource's current fields into a new dataclass instance.
 
         Args:
@@ -548,7 +550,7 @@ class EcsWorld:
     def check_parallel_children(self, children: tuple[Action, ...]) -> None:
         query_runtime.check_parallel_children(self, children)
 
-    def materialize_udf_arg(self, arg: object) -> object:
+    def materialize_udf_arg(self, arg: UdfArgument) -> query_runtime.MaterializedUdfArgument:
         return query_runtime.materialize_udf_arg(self, arg)
 
     def _register_event_type(self, event_type: type[Any]) -> None:
@@ -561,7 +563,7 @@ class EcsWorld:
         entity_runtime.sync_component_fields_to_rust(self, entity, component_type, component)
 
     def _sync_component_field_to_rust(
-        self, entity: Entity, component_type: type[Any], field_name: str, value: object
+        self, entity: Entity, component_type: type[Any], field_name: str, value: EcsStoredValue
     ) -> None:
         entity_runtime.sync_component_field_to_rust(self, entity, component_type, field_name, value)
 

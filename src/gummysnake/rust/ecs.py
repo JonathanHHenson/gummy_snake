@@ -169,10 +169,12 @@ _canvas = cast(_EcsCanvasModule | None, _loaded_canvas)
 
 
 def ecs_import_error() -> ImportError | None:
+    """Return the import error from loading the Rust ECS bridge, if any."""
     return _ECS_IMPORT_ERROR
 
 
 def ecs_abi_version() -> int | None:
+    """Return the ECS ABI version exposed by the Rust canvas runtime."""
     if _canvas is None:
         return None
     marker = getattr(_canvas, "ecs_abi_version", None)
@@ -186,6 +188,7 @@ def ecs_abi_version() -> int | None:
 
 
 def is_ecs_runtime_available() -> bool:
+    """Return whether the required Rust ECS bridge is available and compatible."""
     try:
         require_ecs_runtime()
     except BackendCapabilityError:
@@ -194,6 +197,7 @@ def is_ecs_runtime_available() -> bool:
 
 
 def ecs_health_check() -> str:
+    """Return a short status string from the Rust ECS bridge."""
     if _canvas is None:
         return "unavailable"
     health = getattr(_canvas, "ecs_health_check", None)
@@ -206,6 +210,7 @@ def ecs_health_check() -> str:
 
 
 def require_ecs_runtime() -> _EcsCanvasModule:
+    """Return the Rust ECS bridge or raise a capability error with rebuild guidance."""
     if _canvas is None:
         raise BackendCapabilityError(
             "The Rust ECS runtime is unavailable because gummysnake.rust._canvas could not "
@@ -227,10 +232,12 @@ def require_ecs_runtime() -> _EcsCanvasModule:
 
 
 def create_ecs_world() -> _RustEcsWorld:
+    """Create a Rust-owned ECS world used by the Python ECS facade."""
     return require_ecs_runtime().EcsWorld()
 
 
 def create_spatial_index_registry() -> _RustEcsSpatialIndexRegistry:
+    """Create a Rust-owned registry for compiled ECS spatial indexes."""
     runtime = require_ecs_runtime()
     if not hasattr(runtime, "EcsSpatialIndexRegistry"):
         raise BackendCapabilityError(

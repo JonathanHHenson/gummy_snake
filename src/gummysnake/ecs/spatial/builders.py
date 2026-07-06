@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
-from gummysnake.ecs.expressions import QueryProxy, ensure_expr
+from typing import TYPE_CHECKING
+
+from gummysnake.ecs.expressions import Expression, QueryProxy, ensure_expr
 from gummysnake.exceptions import SystemPlanError
 
 from .config import FallbackPolicy, HashGrid, PairPolicy, SpatialAlgorithm, _default_cell_size
 from .relations import SpatialAabb, SpatialPoint, SpatialRelation
 from .runtime import _validate_relation
 
+if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.ecs.specs import Query
 
-def point2(x: object, y: object) -> SpatialPoint:
+
+type SpatialExprInput = Expression | int | float
+
+
+def point2(x: SpatialExprInput, y: SpatialExprInput) -> SpatialPoint:
     """Create a lazy 2D point from two ECS expressions or values.
 
     Args:
@@ -24,7 +32,7 @@ def point2(x: object, y: object) -> SpatialPoint:
     return SpatialPoint((ensure_expr(x), ensure_expr(y)))
 
 
-def point3(x: object, y: object, z: object) -> SpatialPoint:
+def point3(x: SpatialExprInput, y: SpatialExprInput, z: SpatialExprInput) -> SpatialPoint:
     """Create a lazy 3D point from three ECS expressions or values.
 
     Args:
@@ -39,7 +47,12 @@ def point3(x: object, y: object, z: object) -> SpatialPoint:
     return SpatialPoint((ensure_expr(x), ensure_expr(y), ensure_expr(z)))
 
 
-def aabb2(min_x: object, min_y: object, max_x: object, max_y: object) -> SpatialAabb:
+def aabb2(
+    min_x: SpatialExprInput,
+    min_y: SpatialExprInput,
+    max_x: SpatialExprInput,
+    max_y: SpatialExprInput,
+) -> SpatialAabb:
     """Create a lazy 2D axis-aligned bounding box.
 
     Args:
@@ -56,12 +69,12 @@ def aabb2(min_x: object, min_y: object, max_x: object, max_y: object) -> Spatial
 
 
 def aabb3(
-    min_x: object,
-    min_y: object,
-    min_z: object,
-    max_x: object,
-    max_y: object,
-    max_z: object,
+    min_x: SpatialExprInput,
+    min_y: SpatialExprInput,
+    min_z: SpatialExprInput,
+    max_x: SpatialExprInput,
+    max_y: SpatialExprInput,
+    max_z: SpatialExprInput,
 ) -> SpatialAabb:
     """Create a lazy 3D axis-aligned bounding box.
 
@@ -81,10 +94,10 @@ def aabb3(
 
 
 def neighbors(
-    query: object,
+    query: QueryProxy | Query,
     *,
     position: SpatialPoint,
-    radius: object,
+    radius: SpatialExprInput,
     algorithm: SpatialAlgorithm | None = None,
     include_self: bool = False,
     allow_fallback: FallbackPolicy = None,
@@ -128,12 +141,12 @@ def neighbors(
 
 
 def join(
-    origin: object,
-    target: object,
+    origin: QueryProxy | Query,
+    target: QueryProxy | Query,
     *,
     origin_position: SpatialPoint,
     target_position: SpatialPoint,
-    radius: object | None = None,
+    radius: SpatialExprInput | None = None,
     bounds: object | None = None,
     algorithm: SpatialAlgorithm | None = None,
     include_self: bool = False,
@@ -185,8 +198,8 @@ def join(
 
 
 def overlaps(
-    origin: object,
-    target: object,
+    origin: QueryProxy | Query,
+    target: QueryProxy | Query,
     *,
     origin_bounds: SpatialAabb,
     target_bounds: SpatialAabb,

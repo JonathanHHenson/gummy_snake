@@ -6,11 +6,12 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
-from gummysnake.ecs.expression_tools import _cached_expression_eval, ensure_expr
+from gummysnake.ecs.expression_tools import ExpressionInput, _cached_expression_eval, ensure_expr
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.expressions.aggregates import GroupedExpression
     from gummysnake.ecs.expressions.proxies import QueryProxy
+    from gummysnake.ecs.specs import Query
     from gummysnake.ecs.world import EcsWorld
 
 
@@ -47,73 +48,73 @@ class Expression:
             "cannot build ECS plans."
         )
 
-    def __add__(self, other: object) -> Expression:
+    def __add__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("add", self, ensure_expr(other))
 
-    def __radd__(self, other: object) -> Expression:
+    def __radd__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("add", ensure_expr(other), self)
 
-    def __sub__(self, other: object) -> Expression:
+    def __sub__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("sub", self, ensure_expr(other))
 
-    def __rsub__(self, other: object) -> Expression:
+    def __rsub__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("sub", ensure_expr(other), self)
 
-    def __mul__(self, other: object) -> Expression:
+    def __mul__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("mul", self, ensure_expr(other))
 
-    def __rmul__(self, other: object) -> Expression:
+    def __rmul__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("mul", ensure_expr(other), self)
 
-    def __truediv__(self, other: object) -> Expression:
+    def __truediv__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("truediv", self, ensure_expr(other))
 
-    def __rtruediv__(self, other: object) -> Expression:
+    def __rtruediv__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("truediv", ensure_expr(other), self)
 
-    def __floordiv__(self, other: object) -> Expression:
+    def __floordiv__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("floordiv", self, ensure_expr(other))
 
-    def __mod__(self, other: object) -> Expression:
+    def __mod__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("mod", self, ensure_expr(other))
 
-    def __pow__(self, other: object) -> Expression:
+    def __pow__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("pow", self, ensure_expr(other))
 
-    def __rpow__(self, other: object) -> Expression:
+    def __rpow__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("pow", ensure_expr(other), self)
 
     def __neg__(self) -> Expression:
         return UnaryExpression("neg", self)
 
-    def __lt__(self, other: object) -> Expression:
+    def __lt__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("lt", self, ensure_expr(other))
 
-    def __le__(self, other: object) -> Expression:
+    def __le__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("le", self, ensure_expr(other))
 
-    def __gt__(self, other: object) -> Expression:
+    def __gt__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("gt", self, ensure_expr(other))
 
-    def __ge__(self, other: object) -> Expression:
+    def __ge__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("ge", self, ensure_expr(other))
 
-    def __eq__(self, other: object) -> Expression:  # type: ignore[override]
+    def __eq__(self, other: ExpressionInput) -> Expression:  # type: ignore[override]
         return BinaryExpression("eq", self, ensure_expr(other))
 
-    def __ne__(self, other: object) -> Expression:  # type: ignore[override]
+    def __ne__(self, other: ExpressionInput) -> Expression:  # type: ignore[override]
         return BinaryExpression("ne", self, ensure_expr(other))
 
-    def __and__(self, other: object) -> Expression:
+    def __and__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("and", self, ensure_expr(other))
 
-    def __rand__(self, other: object) -> Expression:
+    def __rand__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("and", ensure_expr(other), self)
 
-    def __or__(self, other: object) -> Expression:
+    def __or__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("or", self, ensure_expr(other))
 
-    def __ror__(self, other: object) -> Expression:
+    def __ror__(self, other: ExpressionInput) -> Expression:
         return BinaryExpression("or", ensure_expr(other), self)
 
     def __invert__(self) -> Expression:
@@ -149,7 +150,7 @@ class Expression:
 
         return FunctionExpression("ceil", (self,))
 
-    def clamp(self, minimum: object, maximum: object) -> Expression:
+    def clamp(self, minimum: ExpressionInput, maximum: ExpressionInput) -> Expression:
         """Return a lazy expression limited to a minimum and maximum value.
 
         Args:
@@ -162,7 +163,7 @@ class Expression:
 
         return FunctionExpression("clamp", (self, ensure_expr(minimum), ensure_expr(maximum)))
 
-    def clamp_min(self, minimum: object) -> Expression:
+    def clamp_min(self, minimum: ExpressionInput) -> Expression:
         """Return a lazy expression that is never lower than ``minimum``.
 
         Args:
@@ -174,7 +175,7 @@ class Expression:
 
         return FunctionExpression("max", (self, ensure_expr(minimum)))
 
-    def clamp_max(self, maximum: object) -> Expression:
+    def clamp_max(self, maximum: ExpressionInput) -> Expression:
         """Return a lazy expression that is never higher than ``maximum``.
 
         Args:
@@ -186,7 +187,7 @@ class Expression:
 
         return FunctionExpression("min", (self, ensure_expr(maximum)))
 
-    def group_by(self, query: object) -> GroupedExpression:
+    def group_by(self, query: QueryProxy | Query) -> GroupedExpression:
         """Group aggregate results by the entity currently bound to ``query``.
 
         Args:
@@ -209,6 +210,8 @@ class Expression:
 
 @dataclass(frozen=True, eq=False)
 class LiteralExpression(Expression):
+    """Expression node that stores a literal Python value."""
+
     value: Any
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> Any:
@@ -218,6 +221,8 @@ class LiteralExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class UnaryExpression(Expression):
+    """Expression node for unary operators such as negation and logical not."""
+
     op: str
     operand: Expression
 
@@ -235,6 +240,8 @@ class UnaryExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class BinaryExpression(Expression):
+    """Expression node for arithmetic, comparison, and boolean operators."""
+
     op: str
     left: Expression
     right: Expression
@@ -280,6 +287,8 @@ class BinaryExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class AttributeExpression(Expression):
+    """Expression node that reads an attribute from another expression value."""
+
     base: Expression
     attribute: str
 
@@ -291,6 +300,8 @@ class AttributeExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class FunctionExpression(Expression):
+    """Expression node for built-in numeric helper functions."""
+
     name: str
     args: tuple[Expression, ...]
 
@@ -323,6 +334,8 @@ class FunctionExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class DeltatimeExpression(Expression):
+    """Expression node that reads the current sketch delta time."""
+
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> float:
         del ctx
         context = world.context
@@ -333,6 +346,8 @@ class DeltatimeExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class KeyDownExpression(Expression):
+    """Expression node that checks whether a keyboard key is held."""
+
     key: int | str
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> bool:

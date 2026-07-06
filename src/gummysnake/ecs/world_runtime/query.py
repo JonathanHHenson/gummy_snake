@@ -6,15 +6,19 @@ import itertools
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.actions import Action, action_write_targets
+from gummysnake.ecs.actions import Action, UdfArgument, action_write_targets
+from gummysnake.ecs.expression_tools import ExpressionInput
 from gummysnake.ecs.expressions import Expression, FieldExpression, QueryProxy, expression_queries
 from gummysnake.ecs.runtime_views import EntityView
-from gummysnake.ecs.specs import ChangeTerm, QuerySpec, TagTerm, WithoutTerm
+from gummysnake.ecs.specs import ChangeTerm, Query, QuerySpec, TagTerm, WithoutTerm
 from gummysnake.ecs.world_helpers import _component_key
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.world import EcsWorld
+
+
+type MaterializedUdfArgument = list[EntityView] | ExpressionInput
 
 
 def match_query(world: EcsWorld, spec: QuerySpec) -> list[EntityView]:
@@ -129,10 +133,14 @@ def check_parallel_children(world: EcsWorld, children: tuple[Action, ...]) -> No
         seen.update(targets)
 
 
-def materialize_udf_arg(world: EcsWorld, arg: object) -> object:
+def materialize_udf_arg(world: EcsWorld, arg: UdfArgument) -> MaterializedUdfArgument:
     """Convert a query proxy UDF argument into concrete entity views when needed."""
     if isinstance(arg, QueryProxy):
         return world.match_query(cast(QuerySpec, arg.spec))
+    if isinstance(arg, Query):
+        raise SystemPlanError(
+            "ECS UDF arguments require system query proxies, not ecs.Query markers."
+        )
     return arg
 
 

@@ -25,6 +25,7 @@ def coerce_image_source(
     height: int | None,
     pixels: bytes | bytearray | None,
 ) -> tuple[int, int, bytes]:
+    """Normalize Image constructor inputs to width, height, and RGBA bytes."""
     if isinstance(width, int):
         if height is None:
             raise ArgumentValidationError("Image height is required.")

@@ -30,6 +30,7 @@ class ProjectedLine:
 
 
 def cube_model(size: float = 100.0) -> Model3D:
+    """Create a simple cube model centered on the origin."""
     if size <= 0:
         raise ValueError("cube_model() size must be positive.")
     h = size / 2.0
@@ -62,6 +63,7 @@ def wireframe_segments(
     viewport_width: float,
     viewport_height: float,
 ) -> list[ProjectedLine]:
+    """Project model edges into 2D viewport line segments."""
     if viewport_width <= 0 or viewport_height <= 0:
         raise ValueError("viewport dimensions must be positive.")
     _validate_projection(projection)

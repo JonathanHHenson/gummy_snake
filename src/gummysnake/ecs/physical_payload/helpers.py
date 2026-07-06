@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 from gummysnake.ecs.physical_payload.types import BridgeLiteral, PhysicalPlanUnsupported
 from gummysnake.ecs.schema_helpers import _schema_name
+from gummysnake.ecs.value_types import EcsLiteralValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from _typeshed import DataclassInstance
@@ -32,7 +33,7 @@ def key_code(key: int | str) -> int:
     )
 
 
-def bridge_literal_value(value: object) -> BridgeLiteral:
+def bridge_literal_value(value: EcsLiteralValue) -> BridgeLiteral:
     """Convert a Python literal/dataclass tree into a Rust bridge literal value."""
 
     if is_dataclass(value) and not isinstance(value, type):

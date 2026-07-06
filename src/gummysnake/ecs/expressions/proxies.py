@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, get_args, get_origin, get_type_hints
 
+from gummysnake.ecs.expression_tools import ExpressionInput
 from gummysnake.ecs.expressions.core import Expression, ExpressionContext
 from gummysnake.ecs.value_types import DataclassInstance, EcsTag
 
@@ -16,6 +17,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
 @dataclass(frozen=True, eq=False)
 class QueryProxy:
+    """Plan-build placeholder for an ECS query parameter."""
+
     name: str
     spec: QuerySpec | type[Query]
 
@@ -63,6 +66,8 @@ class QueryProxy:
 
 @dataclass(frozen=True, eq=False)
 class ResourceProxy:
+    """Plan-build placeholder for an ECS resource parameter."""
+
     name: str
     resource_type: type[Any]
     mutable: bool = False
@@ -82,6 +87,8 @@ class ResourceProxy:
 
 @dataclass(frozen=True, eq=False)
 class ComponentExpressionProxy:
+    """Proxy that exposes component fields as lazy expressions."""
+
     source: QueryProxy | ResourceProxy
     component_type: type[Any]
 
@@ -93,6 +100,8 @@ class ComponentExpressionProxy:
 
 @dataclass(frozen=True, eq=False)
 class FieldExpression(Expression):
+    """Lazy expression for a component or resource field."""
+
     source: QueryProxy | ResourceProxy
     component_type: type[Any]
     field_name: str
@@ -119,7 +128,7 @@ class FieldExpression(Expression):
         resource = world.get_resource(self.component_type)
         setattr(resource, self.field_name, value)
 
-    def set_to(self, value: object) -> None:
+    def set_to(self, value: ExpressionInput) -> None:
         """Append a logical field assignment to the active ECS system build block.
 
         Args:
@@ -133,7 +142,7 @@ class FieldExpression(Expression):
             set(self, value), operation=f"{self.component_type.__name__}.{self.field_name}.set_to()"
         )
 
-    def increase_by(self, amount: object) -> None:
+    def increase_by(self, amount: ExpressionInput) -> None:
         """Append ``field = field + amount`` to the active ECS system build block.
 
         Args:
@@ -143,7 +152,7 @@ class FieldExpression(Expression):
         self._ensure_numeric_update(amount, "increase_by")
         self.set_to(self + amount)
 
-    def decrease_by(self, amount: object) -> None:
+    def decrease_by(self, amount: ExpressionInput) -> None:
         """Append ``field = field - amount`` to the active ECS system build block.
 
         Args:
@@ -177,6 +186,8 @@ class FieldExpression(Expression):
 
 @dataclass(frozen=True, eq=False)
 class EntityExpression(Expression):
+    """Lazy expression for the entity matched by a query row."""
+
     query: QueryProxy
 
     def eval(self, ctx: ExpressionContext, world: EcsWorld) -> EntityView:

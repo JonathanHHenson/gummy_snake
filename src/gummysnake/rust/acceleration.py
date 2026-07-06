@@ -48,18 +48,22 @@ accelerated = cast(AcceleratedModule | None, _loaded_accelerated)
 
 
 def acceleration_provider(prefer_accelerated: bool = True) -> AcceleratedModule | None:
+    """Return the optional acceleration module when it is available and requested."""
     return accelerated if prefer_accelerated else None
 
 
 def is_acceleration_available() -> bool:
+    """Return whether the optional acceleration extension was imported successfully."""
     return acceleration_provider() is not None
 
 
 def acceleration_import_error() -> ImportError | None:
+    """Return the import error from loading the optional acceleration module, if any."""
     return _ACCELERATION_IMPORT_ERROR
 
 
 def health_check() -> str:
+    """Return a short status string for the acceleration layer."""
     if accelerated is None:
         return "python-fallback"
     return str(accelerated.health_check())

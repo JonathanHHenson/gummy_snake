@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 from gummysnake import constants as c
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
 from gummysnake.core.state import StyleState
@@ -15,28 +13,23 @@ _PRIMITIVE_ELLIPSE = 3
 _PRIMITIVE_LINE = 4
 
 
-def _renderer(self: object) -> CanvasRendererHost:
-    return cast(CanvasRendererHost, self)
-
-
-def flush_line_batch(self: object) -> None:
-    _renderer(self)._flush_line_batch_only()
-    _renderer(self)._flush_primitive_batch_only()
-    _renderer(self)._flush_image_batch()
-    _renderer(self)._flush_model_batch()
-    _renderer(self)._flush_text_batch()
+def flush_line_batch(self: CanvasRendererHost) -> None:
+    self._flush_line_batch_only()
+    self._flush_primitive_batch_only()
+    self._flush_image_batch()
+    self._flush_model_batch()
+    self._flush_text_batch()
 
 
 def queue_fill_primitive_fast_path(
-    self: Any,
+    self: CanvasRendererHost,
     kind: int,
     coords: tuple[float, ...],
     style: StyleState,
     transform: Matrix2D,
 ) -> bool:
-    renderer = _renderer(self)
     fill_color = style.fill_rgba
-    canvas = getattr(renderer, "_canvas", None)
+    canvas = getattr(self, "_canvas", None)
     batch_fill = getattr(canvas, "batch_fill_primitives", None) if canvas is not None else None
     if (
         kind == _PRIMITIVE_LINE
@@ -48,79 +41,77 @@ def queue_fill_primitive_fast_path(
     ):
         return False
 
-    matrix_payload = renderer._matrix_payload(transform)
-    self._flush_batches_before_primitive_batch()
-    primitive_batch = renderer._primitive_batch_state
+    matrix_payload = self._matrix_payload(transform)
+    flush_batches_before_primitive_batch(self)
+    primitive_batch = self._primitive_batch_state
     if primitive_batch.has_records() and not primitive_batch.matches_fill(matrix_payload):
-        renderer._flush_primitive_batch_only()
-    renderer._primitive_batch_state.append_fill((kind, *coords, *fill_color), matrix_payload)
+        self._flush_primitive_batch_only()
+    self._primitive_batch_state.append_fill((kind, *coords, *fill_color), matrix_payload)
     return True
 
 
 def queue_primitive_batch(
-    self: Any,
+    self: CanvasRendererHost,
     kind: int,
     coords: tuple[float, float, float, float, float, float],
     style: StyleState,
     transform: Matrix2D,
 ) -> bool:
-    if self.queue_fill_primitive_fast_path(kind, coords, style, transform):
+    if queue_fill_primitive_fast_path(self, kind, coords, style, transform):
         return True
 
-    renderer = _renderer(self)
-    canvas = renderer._require_canvas()
-    matrix_payload = renderer._matrix_payload(transform)
+    canvas = self._require_canvas()
+    matrix_payload = self._matrix_payload(transform)
     batch_mixed = getattr(canvas, "batch_primitives_mixed", None)
     if callable(batch_mixed):
-        self._flush_batches_before_primitive_batch()
-        primitive_batch = renderer._primitive_batch_state
+        flush_batches_before_primitive_batch(self)
+        primitive_batch = self._primitive_batch_state
         if primitive_batch.has_records() and not primitive_batch.matches_mixed():
-            renderer._flush_primitive_batch_only()
-        renderer._primitive_batch_state.append_mixed(
-            (kind, *coords, renderer._style_payload(style), matrix_payload)
+            self._flush_primitive_batch_only()
+        self._primitive_batch_state.append_mixed(
+            (kind, *coords, self._style_payload(style), matrix_payload)
         )
         return True
 
     current = (
         getattr(canvas, "batch_primitives_current", None)
-        if renderer._can_use_current_state(style, transform)
+        if self._can_use_current_state(style, transform)
         else None
     )
     if callable(current):
-        self._flush_batches_before_primitive_batch()
-        primitive_batch = renderer._primitive_batch_state
+        flush_batches_before_primitive_batch(self)
+        primitive_batch = self._primitive_batch_state
         if primitive_batch.has_records() and not primitive_batch.matches_current():
-            renderer._flush_primitive_batch_only()
-        renderer._primitive_batch_state.append_current((kind, *coords))
+            self._flush_primitive_batch_only()
+        self._primitive_batch_state.append_current((kind, *coords))
         return True
 
     batch = getattr(canvas, "batch_primitives", None)
     if not callable(batch):
         return False
-    style_payload = renderer._style_payload(style)
-    self._flush_batches_before_primitive_batch()
-    primitive_batch = renderer._primitive_batch_state
+    style_payload = self._style_payload(style)
+    flush_batches_before_primitive_batch(self)
+    primitive_batch = self._primitive_batch_state
     if primitive_batch.has_records() and not primitive_batch.matches_styled(
         style_payload,
         matrix_payload,
     ):
-        renderer._flush_primitive_batch_only()
-    renderer._primitive_batch_state.append_styled((kind, *coords), style_payload, matrix_payload)
+        self._flush_primitive_batch_only()
+    self._primitive_batch_state.append_styled((kind, *coords), style_payload, matrix_payload)
     return True
 
 
-def flush_batches_before_primitive_batch(self: object) -> None:
-    renderer = _renderer(self)
-    if renderer._line_batch_state.has_records():
-        renderer._flush_line_batch_only()
-    if renderer._text_batch:
-        renderer._flush_text_batch()
-    renderer._flush_image_batch()
-    renderer._flush_model_batch()
+def flush_batches_before_primitive_batch(self: CanvasRendererHost) -> None:
+    if self._line_batch_state.has_records():
+        self._flush_line_batch_only()
+    if self._text_batch:
+        self._flush_text_batch()
+    self._flush_image_batch()
+    self._flush_model_batch()
 
 
-def flush_line_batch_only(self: object) -> None:
-    renderer = _renderer(self)
+def flush_line_batch_only(self: CanvasRendererHost) -> None:
+    renderer = self
     if not renderer._line_batch_state.has_records():
         return
     snapshot = renderer._line_batch_state.drain()
@@ -153,8 +144,8 @@ def flush_line_batch_only(self: object) -> None:
         renderer._call("line drawing", canvas.line, x1, y1, x2, y2, style, matrix)
 
 
-def flush_primitive_batch_only(self: object) -> None:
-    renderer = _renderer(self)
+def flush_primitive_batch_only(self: CanvasRendererHost) -> None:
+    renderer = self
     if not renderer._primitive_batch_state.has_records():
         return
     snapshot = renderer._primitive_batch_state.drain()
