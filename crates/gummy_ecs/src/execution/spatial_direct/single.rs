@@ -6,7 +6,8 @@ use crate::spatial::SpatialRecord;
 
 use super::super::spatial_helpers::{dimensions_len, direct_distance_squared};
 use super::super::spatial_support::{
-    BuiltSpatialIndex, SpatialBatchAccum, SpatialBatchValue, SpatialPrecomputeLayout,
+    effective_query_radius, BuiltSpatialIndex, SpatialBatchAccum, SpatialBatchValue,
+    SpatialPrecomputeLayout,
 };
 use super::super::value_ops::{bool_f64, literal_expr_numeric, truthy_f64};
 use super::super::{EvalContext, PlanExecutor};
@@ -106,15 +107,7 @@ impl<'a> PlanExecutor<'a> {
         } else {
             None
         };
-        let query_radius = match (
-            radius,
-            distance_filter.and_then(|filter| filter.upper_radius_bound()),
-        ) {
-            (Some(radius), Some(bound)) => Some(radius.min(bound)),
-            (Some(radius), None) => Some(radius),
-            (None, Some(bound)) => Some(bound),
-            (None, None) => None,
-        };
+        let query_radius = effective_query_radius(radius, distance_filter);
         let Some(query_radius) = query_radius else {
             return Ok(());
         };

@@ -60,12 +60,6 @@ impl DirectPointDenseBuckets {
         })
     }
 
-    pub(super) fn push(&mut self, cell: [i64; 3], record_index: usize) {
-        if let Some(index) = self.bucket_index(cell) {
-            self.buckets[index].push(record_index);
-        }
-    }
-
     pub(super) fn try_push(&mut self, cell: [i64; 3], record_index: usize) -> bool {
         let Some(index) = self.bucket_index(cell) else {
             return false;
@@ -99,8 +93,8 @@ impl DirectPointDenseBuckets {
     fn bucket_index(&self, cell: [i64; 3]) -> Option<usize> {
         let mut index = 0_usize;
         let mut stride = 1_usize;
-        for axis in 0..3 {
-            let relative = cell[axis].checked_sub(self.min_cell[axis])?;
+        for (axis, coord) in cell.iter().enumerate() {
+            let relative = coord.checked_sub(self.min_cell[axis])?;
             let relative = usize::try_from(relative).ok()?;
             if relative >= self.spans[axis] {
                 return None;

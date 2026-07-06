@@ -75,17 +75,7 @@ impl<'a> PlanExecutor<'a> {
                 unreachable!("parallel set fast path only receives set actions");
             };
             let mut query_names = self.expr_queries_cached(value, &mut expr_query_cache)?;
-            match &self.plan.expressions[target] {
-                ExprNode::Field { query, .. } => {
-                    query_names.insert(query.clone());
-                }
-                ExprNode::ResourceField { .. } => {}
-                other => {
-                    return Err(EcsError::InvalidPlan(format!(
-                        "set target must be a field or resource field, got {other:?}"
-                    )))
-                }
-            }
+            self.add_set_target_query(target, &mut query_names)?;
             specs.push((*child, target, value, query_names));
         }
 
@@ -275,17 +265,7 @@ impl<'a> PlanExecutor<'a> {
     ) -> Result<()> {
         let mut query_names = BTreeSet::new();
         self.collect_expr_queries(value_index, &mut query_names)?;
-        match &self.plan.expressions[target_index] {
-            ExprNode::Field { query, .. } => {
-                query_names.insert(query.clone());
-            }
-            ExprNode::ResourceField { .. } => {}
-            other => {
-                return Err(EcsError::InvalidPlan(format!(
-                    "set target must be a field or resource field, got {other:?}"
-                )))
-            }
-        }
+        self.add_set_target_query(target_index, &mut query_names)?;
 
         let mut targets_seen = HashSet::new();
         for base_ctx in contexts {

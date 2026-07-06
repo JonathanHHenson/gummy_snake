@@ -200,17 +200,7 @@ impl<'a> PlanExecutor<'a> {
     ) -> Result<()> {
         let mut query_names = BTreeSet::new();
         self.collect_expr_queries(value_index, &mut query_names)?;
-        match &self.plan.expressions[target_index] {
-            ExprNode::Field { query, .. } => {
-                query_names.insert(query.clone());
-            }
-            ExprNode::ResourceField { .. } => {}
-            other => {
-                return Err(EcsError::InvalidPlan(format!(
-                    "set target must be a field or resource field, got {other:?}"
-                )))
-            }
-        }
+        self.add_set_target_query(target_index, &mut query_names)?;
 
         let mut targets_seen = HashSet::new();
         for base_ctx in contexts {
@@ -222,6 +212,23 @@ impl<'a> PlanExecutor<'a> {
             }
         }
         Ok(())
+    }
+
+    pub(in crate::execution) fn add_set_target_query(
+        &self,
+        target_index: usize,
+        query_names: &mut BTreeSet<String>,
+    ) -> Result<()> {
+        match &self.plan.expressions[target_index] {
+            ExprNode::Field { query, .. } => {
+                query_names.insert(query.clone());
+                Ok(())
+            }
+            ExprNode::ResourceField { .. } => Ok(()),
+            other => Err(EcsError::InvalidPlan(format!(
+                "set target must be a field or resource field, got {other:?}"
+            ))),
+        }
     }
 
     fn execute_when(

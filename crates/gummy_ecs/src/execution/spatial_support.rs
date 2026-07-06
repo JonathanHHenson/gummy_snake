@@ -190,6 +190,21 @@ impl SpatialDistanceFilter {
     }
 }
 
+pub(in crate::execution) fn effective_query_radius(
+    radius: Option<f64>,
+    distance_filter: Option<SpatialDistanceFilter>,
+) -> Option<f64> {
+    match (
+        radius,
+        distance_filter.and_then(SpatialDistanceFilter::upper_radius_bound),
+    ) {
+        (Some(radius), Some(bound)) => Some(radius.min(bound)),
+        (Some(radius), None) => Some(radius),
+        (None, Some(bound)) => Some(bound),
+        (None, None) => None,
+    }
+}
+
 fn compare_f64(left: f64, comparison: NumericComparison, right: f64) -> bool {
     match comparison {
         NumericComparison::LessThan => left < right,

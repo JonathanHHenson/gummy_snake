@@ -81,7 +81,8 @@ impl DirectPointHashGrid {
         self.regular_grid = DirectPointRegularGrid::new(&self.records);
         if let Some(mut dense) = DirectPointDenseBuckets::new(self.dimensions, &cells) {
             for (index, cell) in cells.iter().enumerate() {
-                dense.push(*cell, index);
+                let pushed = dense.try_push(*cell, index);
+                debug_assert!(pushed, "validated dense bucket cell should be in range");
             }
             self.dense_buckets = Some(dense);
             return Ok(());
@@ -185,20 +186,6 @@ impl DirectPointHashGrid {
         Ok(cell)
     }
 
-    fn visit_radius_unordered<F>(
-        &self,
-        origin: &SpatialPoint,
-        radius: f64,
-        mut visit: F,
-    ) -> Result<()>
-    where
-        F: FnMut(&DirectPointRecord, f64) -> Result<()>,
-    {
-        self.visit_radius_unordered_indexed(origin, radius, |_, record, distance_sq| {
-            visit(record, distance_sq)
-        })
-    }
-
     pub(super) fn visit_radius_unordered_indexed<F>(
         &self,
         origin: &SpatialPoint,
@@ -261,24 +248,64 @@ impl DirectPointHashGrid {
         let min_cell = self.query_cell(origin_x - radius, origin_y - radius, origin_z - radius)?;
         let max_cell = self.query_cell(origin_x + radius, origin_y + radius, origin_z + radius)?;
         validate_direct_point_cell_span(self.dimensions, min_cell, max_cell)?;
+        if self.dimensions == Dimensions::D2 {
+            return self.visit_hash_grid_radius_2d(
+                min_cell, max_cell, origin_x, origin_y, radius_sq, visit,
+            );
+        }
+        self.visit_hash_grid_radius_3d(
+            min_cell,
+            max_cell,
+            [origin_x, origin_y, origin_z],
+            radius_sq,
+            visit,
+        )
+    }
+
+    fn visit_hash_grid_radius_2d<F>(
+        &self,
+        min_cell: [i64; 3],
+        max_cell: [i64; 3],
+        origin_x: f64,
+        origin_y: f64,
+        radius_sq: f64,
+        visit: &mut F,
+    ) -> Result<()>
+    where
+        F: FnMut(usize, &DirectPointRecord, f64) -> Result<()>,
+    {
         for x in min_cell[0]..=max_cell[0] {
             for y in min_cell[1]..=max_cell[1] {
-                if self.dimensions == Dimensions::D2 {
-                    if let Some(bucket) = self.direct_bucket([x, y, 0]) {
-                        self.visit_radius_bucket_2d(bucket, origin_x, origin_y, radius_sq, visit)?;
-                    }
-                } else {
-                    let origin = [origin_x, origin_y, origin_z];
-                    self.visit_z_radius_buckets(
-                        x,
-                        y,
-                        min_cell[2],
-                        max_cell[2],
-                        origin,
-                        radius_sq,
-                        visit,
-                    )?;
+                if let Some(bucket) = self.direct_bucket([x, y, 0]) {
+                    self.visit_radius_bucket_2d(bucket, origin_x, origin_y, radius_sq, visit)?;
                 }
+            }
+        }
+        Ok(())
+    }
+
+    fn visit_hash_grid_radius_3d<F>(
+        &self,
+        min_cell: [i64; 3],
+        max_cell: [i64; 3],
+        origin: [f64; 3],
+        radius_sq: f64,
+        visit: &mut F,
+    ) -> Result<()>
+    where
+        F: FnMut(usize, &DirectPointRecord, f64) -> Result<()>,
+    {
+        for x in min_cell[0]..=max_cell[0] {
+            for y in min_cell[1]..=max_cell[1] {
+                self.visit_z_radius_buckets(
+                    x,
+                    y,
+                    min_cell[2],
+                    max_cell[2],
+                    origin,
+                    radius_sq,
+                    visit,
+                )?;
             }
         }
         Ok(())
@@ -381,7 +408,7 @@ impl DirectPointHashGrid {
         out: &mut Vec<SpatialRecord>,
     ) -> Result<()> {
         out.clear();
-        self.visit_radius_unordered(origin, radius, |record, _| {
+        self.visit_radius_unordered_indexed(origin, radius, |_, record, _| {
             out.push(SpatialRecord {
                 entity: record.entity,
                 point: record.point.clone(),

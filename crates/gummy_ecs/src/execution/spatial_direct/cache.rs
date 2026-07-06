@@ -4,8 +4,8 @@ use crate::plan::{ExprNode, SpatialRelationNode};
 use crate::spatial::SpatialPoint;
 
 use super::super::spatial_support::{
-    DirectSpatialCoord, DirectSpatialRelationBatch, FastFieldArray, SpatialChunkResult,
-    SpatialF64RowArray, SpatialLocalCounters, SpatialPrecomputeLayout,
+    effective_query_radius, DirectSpatialCoord, DirectSpatialRelationBatch, FastFieldArray,
+    SpatialChunkResult, SpatialF64RowArray, SpatialLocalCounters, SpatialPrecomputeLayout,
 };
 use super::super::value_ops::literal_expr_numeric;
 use super::super::PlanExecutor;
@@ -173,15 +173,7 @@ impl<'a> PlanExecutor<'a> {
         if relation.exact_filter.is_some() && distance_filter.is_none() {
             return Ok(None);
         }
-        let query_radius = match (
-            radius,
-            distance_filter.and_then(|filter| filter.upper_radius_bound()),
-        ) {
-            (Some(radius), Some(bound)) => Some(radius.min(bound)),
-            (Some(radius), None) => Some(radius),
-            (None, Some(bound)) => Some(bound),
-            (None, None) => None,
-        };
+        let query_radius = effective_query_radius(radius, distance_filter);
         let Some(query_radius) = query_radius else {
             return Ok(None);
         };

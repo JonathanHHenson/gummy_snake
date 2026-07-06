@@ -39,7 +39,7 @@ class OuterQueryProvider(Protocol):
     def _ecs_outer_queries(self) -> set[QueryProxy]: ...
 
 
-class Vector(list[Any]):
+class Vector[T](list[T]):
     """Row-aligned vector materialization buffer for explicit Python UDF/system boundaries."""
 
 
@@ -162,6 +162,12 @@ class Expression:
         return FunctionExpression("min", (self, ensure_expr(maximum)))
 
     def group_by(self, query: object) -> GroupedExpression:
+        """Group aggregate results by the entity currently bound to ``query``.
+
+        Returns:
+            A grouped expression with helpers such as ``count()``, ``sum()``, and ``mean()``.
+        """
+
         return GroupedExpression(self, cast(QueryProxy, query))
 
     def __getattr__(self, attribute: str) -> Expression:
@@ -321,6 +327,15 @@ class QueryProxy:
         return ComponentExpressionProxy(self, component_type)
 
     def as_iter(self, *component_types: type[Any]) -> EntityIteratorSource:
+        """Use each matched entity as an ``ecs.for_each`` source.
+
+        Args:
+            component_types: Component classes to materialize; each must be in this query.
+
+        Returns:
+            An iterable source for ``ecs.for_each``.
+        """
+
         from gummysnake.ecs.actions import EntityIteratorSource
         from gummysnake.ecs.specs import QuerySpec
         from gummysnake.exceptions import SystemPlanError
@@ -511,12 +526,22 @@ class GroupedExpression(Expression):
     query: QueryProxy
 
     def any(self) -> GroupedAnyExpression:
+        """Return true when any row in this group matches the source expression."""
+
         return GroupedAnyExpression(self.expression, self.query)
 
     def count(self) -> GroupedValueAggregateExpression:
+        """Count matching rows in each group and return a lazy numeric aggregate."""
+
         return GroupedValueAggregateExpression("count", self.expression, self.query)
 
     def sum(self, value: object | None = None) -> GroupedValueAggregateExpression:
+        """Sum ``value`` for matching rows; omitted values count each row as ``1``.
+
+        Returns:
+            A lazy numeric aggregate expression.
+        """
+
         return GroupedValueAggregateExpression(
             "sum", self.expression, self.query, ensure_expr(1 if value is None else value)
         )
@@ -524,6 +549,12 @@ class GroupedExpression(Expression):
     def min(
         self, value: object, *, default: object | None = None
     ) -> GroupedValueAggregateExpression:
+        """Return a lazy aggregate for the smallest value in each matching group.
+
+        Args:
+            default: Value to use when a group has no matching rows.
+        """
+
         return GroupedValueAggregateExpression(
             "min", self.expression, self.query, ensure_expr(value), default
         )
@@ -531,6 +562,12 @@ class GroupedExpression(Expression):
     def max(
         self, value: object, *, default: object | None = None
     ) -> GroupedValueAggregateExpression:
+        """Return a lazy aggregate for the largest value in each matching group.
+
+        Args:
+            default: Value to use when a group has no matching rows.
+        """
+
         return GroupedValueAggregateExpression(
             "max", self.expression, self.query, ensure_expr(value), default
         )
@@ -538,6 +575,12 @@ class GroupedExpression(Expression):
     def mean(
         self, value: object, *, default: object | None = None
     ) -> GroupedValueAggregateExpression:
+        """Return a lazy aggregate for the average value in each matching group.
+
+        Args:
+            default: Value to use when a group has no matching rows.
+        """
+
         return GroupedValueAggregateExpression(
             "mean", self.expression, self.query, ensure_expr(value), default
         )
@@ -629,7 +672,13 @@ class ExistsExpression(Expression):
 class ExistsBuilder:
     query: QueryProxy
 
-    def where(self, predicate: Expression) -> ExistsExpression:
+    def where(self, predicate: object) -> ExistsExpression:
+        """Build a lazy boolean expression that checks for any matching row.
+
+        Args:
+            predicate: Value or expression evaluated for each candidate row.
+        """
+
         return ExistsExpression(self.query, ensure_expr(predicate))
 
 

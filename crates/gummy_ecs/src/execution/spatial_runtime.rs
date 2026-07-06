@@ -10,7 +10,8 @@ use crate::spatial::{SpatialAabb, SpatialPoint, SpatialRecord};
 use super::aggregate_eval::{aggregate_empty, aggregate_finish};
 use super::spatial_helpers::{dimensions_len, point_bounds, spatial_relations_same_base};
 use super::spatial_support::{
-    comparison_from_op, reverse_comparison, NumericComparison, SpatialDistanceFilter,
+    comparison_from_op, effective_query_radius, reverse_comparison, NumericComparison,
+    SpatialDistanceFilter,
 };
 use super::value_ops::{literal_expr_numeric, numeric_f64, truthy};
 use super::{EvalContext, PlanExecutor};
@@ -370,15 +371,7 @@ impl<'a> PlanExecutor<'a> {
         let distance_filter = relation
             .exact_filter
             .and_then(|expr| self.match_spatial_distance_filter(expr, relation));
-        let query_radius = match (
-            radius,
-            distance_filter.and_then(|filter| filter.upper_radius_bound()),
-        ) {
-            (Some(radius), Some(bound)) => Some(radius.min(bound)),
-            (Some(radius), None) => Some(radius),
-            (None, Some(bound)) => Some(bound),
-            (None, None) => None,
-        };
+        let query_radius = effective_query_radius(radius, distance_filter);
         let profile = self.profile;
         let mut candidates = Vec::new();
         let index_start = profile.then(Instant::now);

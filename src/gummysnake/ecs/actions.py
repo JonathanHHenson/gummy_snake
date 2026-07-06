@@ -26,6 +26,12 @@ class Action:
     """Abstract base class for complete ECS actions."""
 
     def plan(self) -> SystemPlan:
+        """Wrap this action tree in a system plan.
+
+        Returns:
+            A plan object that can explain or serialize the action tree.
+        """
+
         return SystemPlan(self)
 
 
@@ -36,6 +42,12 @@ class SystemPlan:
     action: Action
 
     def explain(self) -> str:
+        """Describe the plan in a human-readable form.
+
+        Returns:
+            Multiline text showing the action tree that the ECS planner will execute.
+        """
+
         from gummysnake.ecs.action_tools.explain import explain_action
 
         return "\n".join(explain_action(self.action))
@@ -67,9 +79,24 @@ class WhenAction(Action):
     otherwise_action: Action | None = None
 
     def when(self, condition: object) -> _WhenBranchBuilder:
+        """Add a conditional branch to this chain.
+
+        Args:
+            condition: Value or ECS expression that decides whether the branch runs.
+
+        Returns:
+            A builder used to attach actions to the branch.
+        """
+
         return _WhenBranchBuilder(self, ensure_expr(condition))
 
     def otherwise(self) -> _OtherwiseBranchBuilder:
+        """Add the fallback branch for this conditional chain.
+
+        Returns:
+            A builder used to attach actions that run when no ``when`` branch matches.
+        """
+
         return _OtherwiseBranchBuilder(self)
 
 
@@ -135,7 +162,21 @@ class UdfDefinition:
     python: bool = False
     mutations: dict[str, frozenset[object]] = field(default_factory=dict)
 
-    def __call__(self, *args: object) -> DefaultAction | UdfIterableSource | UdfCallExpression:
+    def __call__(
+        self, *args: object
+    ) -> DefaultAction | UdfIterableSource | UdfCallExpression | None:
+        """Create a logical UDF expression, iterable source, or Python UDF action.
+
+        Args:
+            args: Values or ECS expressions passed to the decorated UDF.
+
+        Returns:
+            A lazy expression for Rust-backed UDFs, an iterable source for Python UDFs
+            that return iterables, or an action node for non-iterable Python UDFs. When
+            called inside an active ECS system build block, non-iterable Python UDFs append
+            their action immediately and return ``None``.
+        """
+
         if not self.python:
             return UdfCallExpression(self, tuple(args))
         if _is_iterable_annotation(self.return_annotation):
@@ -143,7 +184,7 @@ class UdfDefinition:
         action = DefaultAction("udf", udf=self, udf_args=tuple(args))
         if active_build_session():
             append_action(action, operation=f"@ecs.udf(python=True) {self.function.__name__}()")
-            return None  # type: ignore[return-value]
+            return None
         return action
 
     def call_runtime(self, world: EcsWorld, args: tuple[object, ...]) -> Any:
@@ -243,6 +284,28 @@ def udf(
     python: bool = False,
     mutations: dict[str, object] | None = None,
 ) -> Callable[[Callable[..., Any]], UdfDefinition] | UdfDefinition:
+    """Declare a typed function that an ECS system can reference.
+
+    Rust-backed UDFs describe pure expression work for the ECS planner and must annotate
+    parameters and return values as ``ecs.Expression[T]``. Use ``python=True`` only when
+    the function must run Python code at ECS runtime.
+
+    Args:
+        function: Function to decorate when ``@ecs.udf`` is used without parentheses.
+        reads: Component types read by a Python UDF. Reserved for compatibility metadata.
+        writes: Component types written by a Python UDF. Reserved for compatibility metadata.
+        structural: Whether the Python UDF may change entity structure. Reserved for
+            compatibility metadata.
+        side_effects: Deprecated compatibility flag. Passing ``True`` raises an error;
+            use ``python=True`` and explicit ``mutations`` metadata instead.
+        python: Run the UDF as an explicit Python runtime boundary instead of compiling it
+            into a Rust-executed expression plan.
+        mutations: Entity mutation declarations keyed by Python UDF parameter name.
+
+    Returns:
+        A UDF definition, or a decorator that creates one.
+    """
+
     if side_effects:
         raise SystemPlanError(
             "@ecs.udf(side_effects=...) has been replaced by explicit mutations={...} metadata "

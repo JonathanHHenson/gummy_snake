@@ -7,7 +7,7 @@ from dataclasses import is_dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.expressions import Expression, QueryProxy
+    from gummysnake.ecs.expressions import ExistsBuilder, Expression, QueryProxy
     from gummysnake.ecs.world import EcsWorld
 
 
@@ -136,7 +136,7 @@ def key_is_down(key: int | str) -> Expression:
     return KeyDownExpression(key)
 
 
-def exists(query: object) -> Any:
+def exists(query: object) -> ExistsBuilder:
     """Create an ``exists(query).where(...)`` builder.
 
     Args:
@@ -165,8 +165,6 @@ def expression_queries(expr: Expression) -> set[QueryProxy]:
         UnaryExpression,
     )
 
-    found: set[QueryProxy] = set()
-
     def collect(node: Expression) -> set[QueryProxy]:
         if isinstance(node, FieldExpression) and isinstance(node.source, QueryProxy):
             return {node.source}
@@ -193,8 +191,7 @@ def expression_queries(expr: Expression) -> set[QueryProxy]:
             return refs
         return set()
 
-    found.update(collect(expr))
-    return found
+    return collect(expr)
 
 
 def replace_query(expr: Expression, old: QueryProxy, new: QueryProxy) -> Expression:

@@ -269,7 +269,7 @@ class _BranchContext:
         scope = session.current_conditional
         if scope is None:
             raise SystemPlanError(
-                "ecs.when() and ecs.otherwise() can only be used inside with ecs.conditional():."
+                "ecs.when() and ecs.otherwise() can only be used inside with ecs.conditional()."
             )
         if scope.active_branch:
             raise SystemPlanError(
