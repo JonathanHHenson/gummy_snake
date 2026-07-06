@@ -183,6 +183,22 @@ impl<'a> PlanExecutor<'a> {
         child_report: ExecutionReport,
         targets_seen: &mut HashSet<WriteKey>,
     ) -> Result<()> {
+        self.merge_parallel_counters(&child_report);
+        self.report.events.extend(child_report.events);
+        if child_report.writes.is_empty() {
+            self.report.fields_written += child_report.fields_written;
+            self.report.resource_fields_written += child_report.resource_fields_written;
+        }
+        for write in child_report.writes {
+            self.apply_parallel_write(&write, targets_seen)?;
+            if self.report_writes {
+                self.report.writes.push(write);
+            }
+        }
+        Ok(())
+    }
+
+    fn merge_parallel_counters(&mut self, child_report: &ExecutionReport) {
         self.report.rows_scanned += child_report.rows_scanned;
         self.report.events_emitted += child_report.events_emitted;
         self.report.structural_commands += child_report.structural_commands;
@@ -208,50 +224,47 @@ impl<'a> PlanExecutor<'a> {
         self.report.spatial_thread_scratch_reuses += child_report.spatial_thread_scratch_reuses;
         self.report.spatial_candidate_buffer_growths +=
             child_report.spatial_candidate_buffer_growths;
-        self.report.events.extend(child_report.events);
-        if child_report.writes.is_empty() {
-            self.report.fields_written += child_report.fields_written;
-            self.report.resource_fields_written += child_report.resource_fields_written;
-        }
-        for write in child_report.writes {
-            match &write {
-                ExecutionWrite::ComponentField {
-                    entity,
-                    component,
-                    field,
-                    value,
-                } => {
-                    let key = WriteKey::Component {
-                        entity: *entity,
-                        component: component.clone(),
-                        field: field.clone(),
-                    };
-                    if !targets_seen.insert(key) {
-                        self.report.duplicate_writes += 1;
-                    }
-                    self.world
-                        .set_field(*entity, component, field, value.clone())?;
-                    self.report.fields_written += 1;
+    }
+
+    fn apply_parallel_write(
+        &mut self,
+        write: &ExecutionWrite,
+        targets_seen: &mut HashSet<WriteKey>,
+    ) -> Result<()> {
+        match write {
+            ExecutionWrite::ComponentField {
+                entity,
+                component,
+                field,
+                value,
+            } => {
+                let key = WriteKey::Component {
+                    entity: *entity,
+                    component: component.clone(),
+                    field: field.clone(),
+                };
+                if !targets_seen.insert(key) {
+                    self.report.duplicate_writes += 1;
                 }
-                ExecutionWrite::ResourceField {
-                    resource,
-                    field,
-                    value,
-                } => {
-                    let key = WriteKey::Resource {
-                        resource: resource.clone(),
-                        field: field.clone(),
-                    };
-                    if !targets_seen.insert(key) {
-                        self.report.duplicate_writes += 1;
-                    }
-                    self.world
-                        .set_resource_field(resource, field, value.clone())?;
-                    self.report.resource_fields_written += 1;
-                }
+                self.world
+                    .set_field(*entity, component, field, value.clone())?;
+                self.report.fields_written += 1;
             }
-            if self.report_writes {
-                self.report.writes.push(write);
+            ExecutionWrite::ResourceField {
+                resource,
+                field,
+                value,
+            } => {
+                let key = WriteKey::Resource {
+                    resource: resource.clone(),
+                    field: field.clone(),
+                };
+                if !targets_seen.insert(key) {
+                    self.report.duplicate_writes += 1;
+                }
+                self.world
+                    .set_resource_field(resource, field, value.clone())?;
+                self.report.resource_fields_written += 1;
             }
         }
         Ok(())

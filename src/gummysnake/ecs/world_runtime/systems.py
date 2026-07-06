@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, cast
 
 from gummysnake.ecs.actions import Action, DefaultAction
 from gummysnake.ecs.runtime_views import SystemHandle, _ScheduledSystem
@@ -34,7 +35,7 @@ def add_system(
     name: str | None = None,
     before: tuple[SystemHandle | str, ...],
     after: tuple[SystemHandle | str, ...],
-    run_if: object,
+    run_if: Callable[[], bool] | None,
     set_name: str | None,
 ) -> SystemHandle:
     """Validate, compile, and schedule one ECS system."""
@@ -53,7 +54,7 @@ def add_system(
         bool(enabled),
         before=before,
         after=after,
-        run_if=cast(Any, run_if),
+        run_if=run_if,
         set_name=set_name,
     )
     prepare_scheduled_physical_plan(world, scheduled)
@@ -120,7 +121,7 @@ def run_system_action(world: EcsWorld, scheduled: _ScheduledSystem, action: Acti
         return
     if _contains_direct_udf_action(action):
         if _is_sequence_action(action):
-            for child in cast(Any, action).children:
+            for child in cast(DefaultAction, action).children:
                 run_system_action(world, scheduled, child)
             return
         raise SystemPlanError(

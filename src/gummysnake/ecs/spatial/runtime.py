@@ -12,6 +12,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
+from gummysnake.ecs.specs import QuerySpec
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -125,7 +126,7 @@ def _get_or_build_index(relation: SpatialRelation, world: EcsWorld) -> _SpatialI
 
 def _build_records(relation: SpatialRelation, world: EcsWorld) -> list[_SpatialRecord]:
     records: list[_SpatialRecord] = []
-    for entity in world.match_query(cast(Any, relation.item.spec)):
+    for entity in world.match_query(cast(QuerySpec, relation.item.spec)):
         ctx: dict[object, Any] = {relation.item: entity}
         point = relation.target_position.eval(ctx, world)
         bounds = None if relation.target_bounds is None else relation.target_bounds.eval(ctx, world)

@@ -215,17 +215,7 @@ impl World {
         &mut self,
         handle: PhysicalPlanHandle,
     ) -> Result<ExecutionReport> {
-        let plan = self.compiled_plan(handle).ok_or_else(|| {
-            EcsError::InvalidPlan(format!("unknown compiled ECS plan handle {handle}"))
-        })?;
-        let current_schema_fingerprint = self.schema_fingerprint();
-        if plan.schema_fingerprint != current_schema_fingerprint {
-            return Err(EcsError::InvalidPlan(format!(
-                "compiled ECS plan handle {handle} was built for schema fingerprint {}, \
-                 but the world schema fingerprint is {}; recompile the plan",
-                plan.schema_fingerprint, current_schema_fingerprint
-            )));
-        }
+        let plan = self.validated_compiled_plan(handle)?;
         self.warm_plan_spatial_indexes(plan.as_ref())
     }
 

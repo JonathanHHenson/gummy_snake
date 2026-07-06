@@ -257,6 +257,15 @@ class EcsWorld:
 
     # ------------------------------------------------------------------ schema
     def validate_schema(self, component_type: type[Any]) -> dict[str, StorageType]:
+        """Validate and cache a dataclass ECS schema.
+
+        Args:
+            component_type: Dataclass type used as a component, resource, or event payload.
+
+        Returns:
+            Mapping from dataclass field names to Rust storage types.
+        """
+
         cached = self._schemas.get(component_type)
         if cached is not None:
             return cached

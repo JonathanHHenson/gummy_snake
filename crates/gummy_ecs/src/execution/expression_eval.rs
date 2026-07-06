@@ -124,36 +124,9 @@ impl<'a> PlanExecutor<'a> {
         if self.profile {
             self.profile_eval_calls += 1;
         }
-        let use_local_cache = ctx.loop_items.is_empty()
-            && self
-                .local_expr_bindings
-                .as_ref()
-                .is_some_and(|bindings| bindings == &ctx.bindings);
-        if use_local_cache {
-            if let Some(cache) = self.local_expr_cache.as_ref() {
-                if let Some(Some(value)) = cache.get(expr_index) {
-                    if self.profile {
-                        self.profile_expr_cache_hits += 1;
-                    }
-                    return Ok(value.clone());
-                }
-            }
-            if self.profile {
-                self.profile_expr_cache_misses += 1;
-            }
-        } else {
-            let cache_key = self.expr_cache_key(expr_index, ctx);
-            if let Some(key) = &cache_key {
-                if let Some(value) = self.expr_cache.get(key) {
-                    if self.profile {
-                        self.profile_expr_cache_hits += 1;
-                    }
-                    return Ok(value.clone());
-                }
-            }
-            if self.profile {
-                self.profile_expr_cache_misses += 1;
-            }
+        let use_local_cache = self.should_use_local_expr_cache(ctx);
+        if let Some(value) = self.cached_expr_value(expr_index, ctx, use_local_cache) {
+            return Ok(value);
         }
         let result = match &self.plan.expressions[expr_index] {
             ExprNode::LiteralF64(value) => Ok(EcsValue::F64(*value)),
@@ -278,20 +251,61 @@ impl<'a> PlanExecutor<'a> {
             }
         };
         if let Ok(value) = &result {
-            if use_local_cache {
-                if let Some(cache) = self.local_expr_cache.as_mut() {
-                    if let Some(slot) = cache.get_mut(expr_index) {
-                        *slot = Some(value.clone());
-                    }
-                }
-            } else {
-                let cache_key = self.expr_cache_key(expr_index, ctx);
-                if let Some(key) = cache_key {
-                    self.expr_cache.insert(key, value.clone());
-                }
-            }
+            self.store_expr_value(expr_index, ctx, use_local_cache, value);
         }
         result
+    }
+
+    fn should_use_local_expr_cache(&self, ctx: &EvalContext) -> bool {
+        ctx.loop_items.is_empty()
+            && self
+                .local_expr_bindings
+                .as_ref()
+                .is_some_and(|bindings| bindings == &ctx.bindings)
+    }
+
+    fn cached_expr_value(
+        &mut self,
+        expr_index: usize,
+        ctx: &EvalContext,
+        use_local_cache: bool,
+    ) -> Option<EcsValue> {
+        let cached = if use_local_cache {
+            self.local_expr_cache
+                .as_ref()
+                .and_then(|cache| cache.get(expr_index))
+                .and_then(|slot| slot.as_ref())
+                .cloned()
+        } else {
+            self.expr_cache_key(expr_index, ctx)
+                .and_then(|key| self.expr_cache.get(&key).cloned())
+        };
+        if self.profile {
+            if cached.is_some() {
+                self.profile_expr_cache_hits += 1;
+            } else {
+                self.profile_expr_cache_misses += 1;
+            }
+        }
+        cached
+    }
+
+    fn store_expr_value(
+        &mut self,
+        expr_index: usize,
+        ctx: &EvalContext,
+        use_local_cache: bool,
+        value: &EcsValue,
+    ) {
+        if use_local_cache {
+            if let Some(cache) = self.local_expr_cache.as_mut() {
+                if let Some(slot) = cache.get_mut(expr_index) {
+                    *slot = Some(value.clone());
+                }
+            }
+        } else if let Some(key) = self.expr_cache_key(expr_index, ctx) {
+            self.expr_cache.insert(key, value.clone());
+        }
     }
 
     fn expr_cache_key(&self, expr_index: usize, ctx: &EvalContext) -> Option<ExprCacheKey> {

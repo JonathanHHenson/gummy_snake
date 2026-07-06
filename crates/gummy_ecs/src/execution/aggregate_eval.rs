@@ -40,14 +40,7 @@ pub(in crate::execution) fn aggregate_finish(
     match kind {
         "any" => Ok(EcsValue::Bool(count > 0)),
         "count" => Ok(EcsValue::I64(count as i64)),
-        "sum" => Ok(EcsValue::F64(
-            values
-                .iter()
-                .map(numeric_f64)
-                .collect::<Result<Vec<_>>>()?
-                .into_iter()
-                .sum(),
-        )),
+        "sum" => Ok(EcsValue::F64(numeric_sum(&values)?)),
         "min" => {
             let mut iter = values.iter().map(numeric_f64);
             let mut best = iter
@@ -74,16 +67,17 @@ pub(in crate::execution) fn aggregate_finish(
             if values.is_empty() {
                 return aggregate_empty(kind, default, executor, ctx);
             }
-            let sum = values
-                .iter()
-                .map(numeric_f64)
-                .collect::<Result<Vec<_>>>()?
-                .into_iter()
-                .sum::<f64>();
+            let sum = numeric_sum(&values)?;
             Ok(EcsValue::F64(sum / values.len() as f64))
         }
         other => Err(EcsError::InvalidPlan(format!(
             "unsupported aggregate kind '{other}'"
         ))),
     }
+}
+
+fn numeric_sum(values: &[EcsValue]) -> Result<f64> {
+    values
+        .iter()
+        .try_fold(0.0, |sum, value| Ok(sum + numeric_f64(value)?))
 }

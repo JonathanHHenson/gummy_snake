@@ -6,6 +6,7 @@ from dataclasses import fields, is_dataclass
 from typing import TYPE_CHECKING, cast
 
 from gummysnake.ecs.physical_payload.types import BridgeLiteral, PhysicalPlanUnsupported
+from gummysnake.ecs.schema_helpers import _schema_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from _typeshed import DataclassInstance
@@ -16,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 def schema_name(component_type: type[object]) -> str:
     """Return the fully qualified schema name used by the Rust ECS bridge."""
 
-    return f"{component_type.__module__}.{component_type.__qualname__}"
+    return _schema_name(component_type)
 
 
 def key_code(key: int | str) -> int:

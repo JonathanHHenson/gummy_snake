@@ -111,6 +111,12 @@ class EventWriterProxy:
     event_type: type[Any]
 
     def emit(self, event: object) -> None:
+        """Queue an event from inside an ECS system build block.
+
+        Args:
+            event: Event instance matching this writer's event type.
+        """
+
         from gummysnake.ecs.actions import append_action, emit_event
         from gummysnake.exceptions import SystemPlanError
 

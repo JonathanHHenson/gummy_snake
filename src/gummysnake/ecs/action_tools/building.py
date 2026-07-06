@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextvars
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Any, cast, overload
+from typing import Protocol, cast, overload
 
 from gummysnake.ecs.actions import (
     Action,
@@ -20,6 +20,10 @@ from gummysnake.ecs.actions import (
 from gummysnake.ecs.expressions import Expression, ensure_expr
 from gummysnake.ecs.specs import EventReaderProxy
 from gummysnake.exceptions import SystemPlanError
+
+
+class _IterableSourceWithItem(Protocol):
+    item: LoopItem
 
 
 @dataclass
@@ -191,6 +195,8 @@ class _BlockContext:
 
 
 class _DoFactory:
+    """Factory and context manager behind the public ``ecs.do`` helper."""
+
     def __init__(self) -> None:
         self._entered: list[_BlockContext] = []
 
@@ -201,6 +207,8 @@ class _DoFactory:
     def __call__(self, action: Action, /, *actions: Action, parallel: bool = False) -> Action: ...
 
     def __call__(self, *actions: Action, parallel: bool = False) -> Action | _BlockContext:
+        """Create a grouped action or open a plan-build block."""
+
         if actions:
             return _parallel_action(*actions) if parallel else _sequence_action(*actions)
         return _BlockContext(parallel=parallel)
@@ -327,7 +335,7 @@ class _ForEachContext:
 
     @property
     def item(self) -> LoopItem:
-        return cast(Any, self.source).item
+        return cast(_IterableSourceWithItem, self.source).item
 
     def __enter__(self) -> LoopItem:
         self._session = _require_session("with ecs.for_each")

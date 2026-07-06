@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.expressions import Expression, QueryProxy, ensure_expr, replace_query
+from gummysnake.ecs.specs import QuerySpec
 
 from .config import (
     Dimensions,
@@ -302,7 +303,7 @@ class SpatialRelation:
 
     def iter_contexts(self, ctx: dict[object, Any], world: EcsWorld) -> Iterable[dict[object, Any]]:
         if self.origin not in ctx:
-            for origin in world.match_query(cast(Any, self.origin.spec)):
+            for origin in world.match_query(cast(QuerySpec, self.origin.spec)):
                 origin_ctx = dict(ctx)
                 origin_ctx[self.origin] = origin
                 yield from self.iter_contexts(origin_ctx, world)

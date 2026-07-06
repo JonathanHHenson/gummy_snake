@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+from typing import TYPE_CHECKING
 
 from gummysnake.ecs.actions import (
     Action,
@@ -11,6 +12,10 @@ from gummysnake.ecs.actions import (
     ForEachAction,
     WhenAction,
 )
+
+if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.ecs.spatial import SpatialRelation
+
 from gummysnake.ecs.expressions import (
     AttributeExpression,
     BinaryExpression,
@@ -154,13 +159,13 @@ def _explain_spatial_expr(expr: Expression) -> str | None:
     return None
 
 
-def _collect_spatial_relations(expr: Expression) -> tuple[object, ...]:
+def _collect_spatial_relations(expr: Expression) -> tuple[SpatialRelation, ...]:
     from gummysnake.ecs.spatial import SpatialAggregateExpression, SpatialMetadataExpression
 
-    found: list[object] = []
+    found: list[SpatialRelation] = []
     seen: builtins.set[int] = builtins.set()
 
-    def add_relation(relation: object) -> None:
+    def add_relation(relation: SpatialRelation) -> None:
         key = id(relation)
         if key not in seen:
             seen.add(key)
@@ -201,29 +206,21 @@ def _collect_spatial_relations(expr: Expression) -> tuple[object, ...]:
     return tuple(found)
 
 
-def _explain_spatial_relation(relation: object) -> str:
-    algorithm = getattr(relation, "algorithm", None)
-    kind = getattr(algorithm, "kind", type(algorithm).__name__ if algorithm is not None else "none")
-    name = getattr(relation, "name", None) or getattr(
-        getattr(relation, "item", None), "name", "relation"
-    )
-    dimensions = getattr(relation, "dimensions", "?")
-    origin = getattr(getattr(relation, "origin", None), "name", "?")
-    target = getattr(getattr(relation, "item", None), "name", "?")
+def _explain_spatial_relation(relation: SpatialRelation) -> str:
+    algorithm = relation.algorithm
+    kind = algorithm.kind if algorithm is not None else "none"
+    name = relation.name or relation.item.name
     predicates: list[str] = []
-    if getattr(relation, "radius", None) is not None:
+    if relation.radius is not None:
         predicates.append("radius")
-    if getattr(relation, "origin_bounds", None) is not None:
+    if relation.origin_bounds is not None:
         predicates.append("aabb")
-    if getattr(relation, "exact_filter", None) is not None:
+    if relation.exact_filter is not None:
         predicates.append("exact_filter")
-    pair_policy = getattr(relation, "pair_policy", "all")
     predicate_text = ",".join(predicates) if predicates else "all"
     return (
         "spatial_relation "
-        f"name={name} algorithm={kind} dimensions={dimensions} "
-        f"origin={origin} target={target} predicates={predicate_text} "
-        f"pair_policy={pair_policy}"
+        f"name={name} algorithm={kind} dimensions={relation.dimensions} "
+        f"origin={relation.origin.name} target={relation.item.name} predicates={predicate_text} "
+        f"pair_policy={relation.pair_policy}"
     )
-
-

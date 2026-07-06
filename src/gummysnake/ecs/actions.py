@@ -102,6 +102,8 @@ class WhenAction(Action):
 
 @dataclass
 class ForEachAction(Action):
+    """Loop action over an ECS iterable source."""
+
     source: IterableSource
     body: Action
     mode: str = "sequence"
@@ -153,6 +155,8 @@ class EntityIteratorSource(IterableSource):
 
 @dataclass(frozen=True)
 class UdfDefinition:
+    """Metadata for a function decorated with ``@ecs.udf``."""
+
     function: Callable[..., Any]
     return_annotation: object
     reads: tuple[type[Any], ...] = ()
