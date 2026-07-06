@@ -56,7 +56,16 @@ class EcsContextMixin:
     def set_resource(self, resource: object) -> None:
         self.ecs.set_resource(resource)
 
-    def get_resource(self, resource_type: type[Any]) -> object:
+    def get_resource[ResourceT](self, resource_type: type[ResourceT]) -> ResourceT:
+        """Return a mutable view for an existing ECS resource.
+
+        Args:
+            resource_type: Dataclass resource class to access.
+
+        Returns:
+            A resource view typed as ``resource_type`` for convenient field access.
+        """
+
         return self.ecs.get_resource(resource_type)
 
     def remove_resource(self, resource_type: type[Any]) -> None:
@@ -65,7 +74,16 @@ class EcsContextMixin:
     def emit_event(self, event: object) -> None:
         self.ecs.emit_event(event)
 
-    def read_events(self, event_type: type[Any]) -> tuple[Any, ...]:
+    def read_events[EventT](self, event_type: type[EventT]) -> tuple[EventT, ...]:
+        """Read events of one type emitted in the current ECS frame.
+
+        Args:
+            event_type: Dataclass event class to read.
+
+        Returns:
+            A tuple of copied event instances in emission order.
+        """
+
         return self.ecs.read_events(event_type)
 
     def clear_events(self, event_type: type[Any] | None = None) -> None:

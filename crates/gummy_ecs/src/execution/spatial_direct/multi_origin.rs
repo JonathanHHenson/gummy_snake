@@ -13,7 +13,7 @@ use super::super::spatial_helpers::{
 use super::super::spatial_support::{
     BuiltSpatialIndex, FastAggregateKind, FastDirectSpatialRelationBatch, FastFieldArray,
     FastSpatialBatchSpec, FastSpatialBatchValue, SpatialBatchAccum, SpatialBatchValue,
-    SpatialChunkResult, SpatialF64RowArray, SpatialLocalCounters, SpatialPrecomputeLayout,
+    SpatialChunkResult, SpatialLocalCounters, SpatialPrecomputeLayout,
 };
 use super::super::value_ops::bool_f64;
 use super::super::PlanExecutor;
@@ -320,118 +320,20 @@ impl<'a> PlanExecutor<'a> {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
+        let chunk_count = chunk_results.len();
         self.report.spatial_parallel_workers =
             self.report.spatial_parallel_workers.max(worker_count);
-        self.report.spatial_parallel_chunks += chunk_results.len();
-        self.report.spatial_thread_scratch_reuses +=
-            origin_rows.len().saturating_sub(chunk_results.len());
-        match layout {
-            SpatialPrecomputeLayout::SparseEntity => {
-                let mut result_arrays = result_exprs
-                    .iter()
-                    .map(|expr_index| (*expr_index, vec![None; max_entity_index + 1]))
-                    .collect::<Vec<_>>();
-                for chunk in chunk_results {
-                    let SpatialChunkResult {
-                        row_start: _,
-                        origins,
-                        values,
-                        present,
-                        counters,
-                    } = chunk;
-                    let present = present.as_deref();
-                    self.report.spatial_candidate_rows += counters.candidate_rows;
-                    self.report.rows_scanned += counters.rows_scanned;
-                    self.report.spatial_exact_rows += counters.exact_rows;
-                    self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
-                    self.report.spatial_candidate_buffer_growths +=
-                        counters.candidate_buffer_growths;
-                    for (origin_index, origin) in origins.into_iter().enumerate() {
-                        let base = origin_index * result_count;
-                        for (slot, value) in values[base..base + result_count].iter().enumerate() {
-                            if present.is_none_or(|present| present[base + slot]) {
-                                result_arrays[slot].1[origin.index as usize] =
-                                    Some((origin.generation, *value));
-                            }
-                        }
-                    }
-                }
-                for (expr_index, values) in result_arrays {
-                    self.spatial_precomputed_f64.insert(expr_index, values);
-                }
-            }
-            SpatialPrecomputeLayout::QueryRows if result_values_are_dense => {
-                let mut row_result_arrays = result_exprs
-                    .iter()
-                    .map(|expr_index| (*expr_index, vec![0.0; origin_rows.len()]))
-                    .collect::<Vec<_>>();
-                for chunk in chunk_results {
-                    let SpatialChunkResult {
-                        row_start,
-                        origins: _,
-                        values,
-                        present: _,
-                        counters,
-                    } = chunk;
-                    self.report.spatial_candidate_rows += counters.candidate_rows;
-                    self.report.rows_scanned += counters.rows_scanned;
-                    self.report.spatial_exact_rows += counters.exact_rows;
-                    self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
-                    self.report.spatial_candidate_buffer_growths +=
-                        counters.candidate_buffer_growths;
-                    for origin_index in 0..(values.len() / result_count) {
-                        let base = origin_index * result_count;
-                        let row_index = row_start + origin_index;
-                        for (slot, value) in values[base..base + result_count].iter().enumerate() {
-                            row_result_arrays[slot].1[row_index] = *value;
-                        }
-                    }
-                }
-                for (expr_index, values) in row_result_arrays {
-                    self.spatial_precomputed_f64_rows
-                        .insert(expr_index, SpatialF64RowArray::Dense(values));
-                }
-            }
-            SpatialPrecomputeLayout::QueryRows => {
-                let mut row_result_arrays = result_exprs
-                    .iter()
-                    .map(|expr_index| (*expr_index, vec![None; origin_rows.len()]))
-                    .collect::<Vec<_>>();
-                for chunk in chunk_results {
-                    let SpatialChunkResult {
-                        row_start,
-                        origins: _,
-                        values,
-                        present,
-                        counters,
-                    } = chunk;
-                    let Some(present) = present else {
-                        return Err(EcsError::InvalidPlan(
-                            "optional spatial row results missing presence flags".to_string(),
-                        ));
-                    };
-                    self.report.spatial_candidate_rows += counters.candidate_rows;
-                    self.report.rows_scanned += counters.rows_scanned;
-                    self.report.spatial_exact_rows += counters.exact_rows;
-                    self.report.spatial_deduplicated_pairs += counters.deduplicated_pairs;
-                    self.report.spatial_candidate_buffer_growths +=
-                        counters.candidate_buffer_growths;
-                    for origin_index in 0..(values.len() / result_count) {
-                        let base = origin_index * result_count;
-                        let row_index = row_start + origin_index;
-                        for (slot, value) in values[base..base + result_count].iter().enumerate() {
-                            if present[base + slot] {
-                                row_result_arrays[slot].1[row_index] = Some(*value);
-                            }
-                        }
-                    }
-                }
-                for (expr_index, values) in row_result_arrays {
-                    self.spatial_precomputed_f64_rows
-                        .insert(expr_index, SpatialF64RowArray::Optional(values));
-                }
-            }
-        }
+        self.report.spatial_parallel_chunks += chunk_count;
+        self.report.spatial_thread_scratch_reuses += origin_rows.len().saturating_sub(chunk_count);
+        self.store_spatial_chunk_results_f64(
+            layout,
+            chunk_results,
+            &result_exprs,
+            result_count,
+            origin_rows.len(),
+            max_entity_index,
+            result_values_are_dense,
+        )?;
         if let Some(start) = profile_start {
             eprintln!(
                 "ecs_profile direct_spatial_group mode=multi_origin origin={} item={} relations={} result_count={} origins={} elapsed_ms={:.3}",

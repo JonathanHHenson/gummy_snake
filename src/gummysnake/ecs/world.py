@@ -7,7 +7,6 @@ integration at the boundary.
 
 from __future__ import annotations
 
-import copy
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import fields, is_dataclass
@@ -15,14 +14,10 @@ from typing import (
     TYPE_CHECKING,
     Any,
     TypeVar,
-    cast,
     get_type_hints,
 )
 
-from gummysnake.ecs.actions import (
-    Action,
-    DefaultAction,
-)
+from gummysnake.ecs.actions import Action
 from gummysnake.ecs.expressions import (
     Expression,
     FieldExpression,
@@ -41,26 +36,71 @@ from gummysnake.ecs.scheduling_helpers import sorted_scheduled_systems
 from gummysnake.ecs.schema_helpers import (
     _schema_name,
     _storage_type_for,
-    _tag_name,
     _validate_storage_value,
 )
-from gummysnake.ecs.specs import (
-    ChangeTerm,
-    QuerySpec,
-)
+from gummysnake.ecs.specs import QuerySpec
 from gummysnake.ecs.systems import SystemDefinition
 from gummysnake.ecs.types import StorageType
-from gummysnake.ecs.world_helpers import (
-    _contains_direct_udf_action,
-    _handle_matches,
-    _is_direct_udf_action,
-    _is_sequence_action,
+from gummysnake.ecs.world_runtime.entities import (
+    add_component as add_component_runtime,
 )
-from gummysnake.ecs.world_runtime.physical import (
-    prepare_scheduled_physical_plan,
-    run_physical_system,
+from gummysnake.ecs.world_runtime.entities import (
+    add_entity as add_entity_runtime,
 )
-from gummysnake.ecs.world_runtime.python_system import run_python_system
+from gummysnake.ecs.world_runtime.entities import (
+    add_tag as add_tag_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    component_snapshot as component_snapshot_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    component_type_for_schema as component_type_for_schema_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    despawn_entity as despawn_entity_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    get_component_field as get_component_field_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    get_entity as get_entity_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    has_component as has_component_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    iter_component_fields as iter_component_fields_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    iter_entities as iter_entities_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    remove_component as remove_component_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    remove_tag as remove_tag_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    set_component as set_component_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    set_component_field as set_component_field_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    slot as slot_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    sync_component_field_to_rust as sync_component_field_to_rust_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    sync_component_fields_to_rust as sync_component_fields_to_rust_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    try_get_entity as try_get_entity_runtime,
+)
+from gummysnake.ecs.world_runtime.entities import (
+    upsert_component as upsert_component_runtime,
+)
 from gummysnake.ecs.world_runtime.query import (
     check_parallel_children as check_parallel_children_runtime,
 )
@@ -157,14 +197,25 @@ from gummysnake.ecs.world_runtime.state import (
 from gummysnake.ecs.world_runtime.state import (
     system_run_condition as system_run_condition_runtime,
 )
-from gummysnake.exceptions import (
-    ComponentSchemaError,
-    EntityNotFoundError,
-    MissingComponentError,
-    StaleEntityError,
-    SystemExecutionError,
-    SystemPlanError,
+from gummysnake.ecs.world_runtime.systems import (
+    add_system as add_system_runtime,
 )
+from gummysnake.ecs.world_runtime.systems import (
+    has_change_filtered_systems as has_change_filtered_systems_runtime,
+)
+from gummysnake.ecs.world_runtime.systems import (
+    remove_system as remove_system_runtime,
+)
+from gummysnake.ecs.world_runtime.systems import (
+    run_pre_draw_systems as run_pre_draw_systems_runtime,
+)
+from gummysnake.ecs.world_runtime.systems import (
+    run_sorted_systems as run_sorted_systems_runtime,
+)
+from gummysnake.ecs.world_runtime.systems import (
+    run_system_action as run_system_action_runtime,
+)
+from gummysnake.exceptions import ComponentSchemaError
 from gummysnake.rust.ecs import create_ecs_world
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -252,113 +303,127 @@ class EcsWorld:
 
     # ---------------------------------------------------------------- entities
     def add_entity(self, *components: object, tags: Iterable[object] = ()) -> Entity:
-        component_values: dict[type[Any], object] = {}
-        for component in components:
-            self._validate_value(component)
-            component_values[type(component)] = component
-        index, generation = self._rust.allocate_entity()
-        entity = Entity(index, generation, self._world_id)
-        for component_type, component in component_values.items():
-            self._rust.add_component_default(index, generation, _schema_name(component_type))
-            self._sync_component_fields_to_rust(entity, component_type, component)
-            self._mark_component_added(entity, component_type)
-        for tag in tags:
-            self._rust.add_tag(index, generation, _tag_name(tag))
-        self._diagnostics["ecs_entities_alive"] = self._rust.alive_count()
-        self._invalidate_spatial_indexes()
-        return entity
+        """Create an entity with dataclass components and optional tags.
+
+        Args:
+            components: Dataclass component instances to attach to the new entity.
+            tags: Optional tag values used for query filtering.
+
+        Returns:
+            A stable handle for the new Rust-owned entity.
+        """
+
+        return add_entity_runtime(self, *components, tags=tags)
 
     def despawn_entity(self, entity: Entity) -> None:
-        self._slot(entity)
-        removed_components = [
-            self._component_type_for_schema(schema_name)
-            for schema_name in self._rust.entity_components(entity.index, entity.generation)
-        ]
-        self._rust.despawn_entity(entity.index, entity.generation)
-        for component_type in removed_components:
-            self._mark_component_removed(entity, component_type)
-        self._diagnostics["ecs_entities_alive"] = self._rust.alive_count()
-        self._diagnostics["ecs_entity_generation_reuses"] += 1
-        self._invalidate_spatial_indexes()
+        """Remove an entity and all of its components.
+
+        Args:
+            entity: Entity handle that belongs to this world.
+        """
+
+        despawn_entity_runtime(self, entity)
 
     def add_component(self, entity: Entity, component: object) -> None:
-        self._validate_value(component)
-        self._slot(entity)
-        self._upsert_component(entity, type(component), component)
+        """Add or replace a dataclass component on an entity.
+
+        Args:
+            entity: Entity handle to update.
+            component: Dataclass component instance to store.
+        """
+
+        add_component_runtime(self, entity, component)
 
     def set_component(
         self, entity: Entity, component: object, *, expected_type: type[Any] | None = None
     ) -> None:
-        self._validate_value(component, expected_type)
-        self._slot(entity)
-        self._upsert_component(entity, expected_type or type(component), component)
+        """Store a component value in a specific component slot.
+
+        Args:
+            entity: Entity handle to update.
+            component: Dataclass component instance to store.
+            expected_type: Component class for assignment through typed view APIs.
+        """
+
+        set_component_runtime(self, entity, component, expected_type=expected_type)
 
     def _upsert_component(
         self, entity: Entity, component_type: type[Any], component: object
     ) -> None:
-        existed = self._has_component(entity, component_type)
-        if not existed:
-            self._rust.add_component_default(
-                entity.index, entity.generation, _schema_name(component_type)
-            )
-        self._sync_component_fields_to_rust(entity, component_type, component)
-        if existed:
-            self._note_field_update(entity, component_type)
-        else:
-            self._mark_component_added(entity, component_type)
-            self._diagnostics["ecs_structural_commands_applied"] += 1
-            self._invalidate_spatial_indexes()
+        upsert_component_runtime(self, entity, component_type, component)
 
     def remove_component(self, entity: Entity, component_type: type[Any]) -> None:
-        self._slot(entity)
-        if not self._has_component(entity, component_type):
-            raise MissingComponentError(component_type.__name__)
-        self._rust.remove_component(entity.index, entity.generation, _schema_name(component_type))
-        self._mark_component_removed(entity, component_type)
-        self._diagnostics["ecs_structural_commands_applied"] += 1
-        self._invalidate_spatial_indexes()
+        """Remove one component type from an entity.
+
+        Args:
+            entity: Entity handle to update.
+            component_type: Dataclass component class to remove.
+        """
+
+        remove_component_runtime(self, entity, component_type)
 
     def add_tag(self, entity: Entity, tag: object) -> None:
-        self._slot(entity)
-        tag_name = _tag_name(tag)
-        if tag_name not in self._rust.entity_tags(entity.index, entity.generation):
-            self._rust.add_tag(entity.index, entity.generation, tag_name)
-            self._diagnostics["ecs_structural_commands_applied"] += 1
-            self._invalidate_spatial_indexes()
+        """Add a tag to an entity.
+
+        Args:
+            entity: Entity handle to update.
+            tag: Value converted to a string tag for filtering queries.
+        """
+
+        add_tag_runtime(self, entity, tag)
 
     def remove_tag(self, entity: Entity, tag: object) -> None:
-        self._slot(entity)
-        tag_name = _tag_name(tag)
-        if tag_name in self._rust.entity_tags(entity.index, entity.generation):
-            self._rust.remove_tag(entity.index, entity.generation, tag_name)
-            self._diagnostics["ecs_structural_commands_applied"] += 1
-            self._invalidate_spatial_indexes()
+        """Remove a tag from an entity.
+
+        Args:
+            entity: Entity handle to update.
+            tag: Value converted to the string tag to remove.
+        """
+
+        remove_tag_runtime(self, entity, tag)
 
     def get_entity(self, *components: type[Any], tags: Iterable[object] = ()) -> EntityView:
-        matches = list(self.iter_entities(*components, tags=tags))
-        if len(matches) != 1:
-            raise EntityNotFoundError(f"Expected exactly one ECS entity, found {len(matches)}.")
-        return matches[0]
+        """Return the single entity matching component and tag filters.
+
+        Args:
+            components: Component classes that the entity must have.
+            tags: Tag values that the entity must have.
+
+        Returns:
+            An ``EntityView`` for the matching entity.
+        """
+
+        return get_entity_runtime(self, *components, tags=tags)
 
     def try_get_entity(
         self, *components: type[Any], tags: Iterable[object] = ()
     ) -> EntityView | None:
-        matches = list(self.iter_entities(*components, tags=tags))
-        if len(matches) > 1:
-            raise EntityNotFoundError(f"Expected zero or one ECS entity, found {len(matches)}.")
-        return matches[0] if matches else None
+        """Return zero or one entity matching component and tag filters.
+
+        Args:
+            components: Component classes that the entity must have.
+            tags: Tag values that the entity must have.
+
+        Returns:
+            An ``EntityView`` when exactly one entity matches, or ``None`` when no entity matches.
+        """
+
+        return try_get_entity_runtime(self, *components, tags=tags)
 
     def iter_entities(
         self, *components: type[Any], tags: Iterable[object] = ()
     ) -> Iterator[EntityView]:
-        required_components = [_schema_name(component) for component in components]
-        for component in components:
-            self.validate_schema(component)
-        required_tags = [_tag_name(tag) for tag in tags]
-        for index, generation in self._rust.query_filtered(
-            required_components, required_tags, [], []
-        ):
-            yield EntityView(self, Entity(index, generation, self._world_id))
+        """Iterate entities matching component and tag filters.
+
+        Args:
+            components: Component classes that each entity must have.
+            tags: Tag values that each entity must have.
+
+        Returns:
+            An iterator of ``EntityView`` objects in deterministic entity order.
+        """
+
+        return iter_entities_runtime(self, *components, tags=tags)
 
     def iter_component_fields(
         self,
@@ -366,100 +431,165 @@ class EcsWorld:
         *field_names: str,
         tags: Iterable[object] = (),
     ) -> Iterator[tuple[Any, ...]]:
-        """Iterate selected component fields using one Rust-backed batch read."""
-        self.validate_schema(component_type)
-        schema = _schema_name(component_type)
-        schema_fields = self._schemas[component_type]
-        for field_name in field_names:
-            if field_name not in schema_fields:
-                raise AttributeError(field_name)
-        required_tags = [_tag_name(tag) for tag in tags]
-        rows = self._rust.query_component_fields([schema], required_tags, schema, list(field_names))
-        return iter(rows)
+        """Read selected component fields with one Rust-backed batch call.
+
+        Args:
+            component_type: Dataclass component class to read.
+            field_names: Names of fields to include in each returned tuple.
+            tags: Optional tag values that each entity must have.
+
+        Returns:
+            An iterator of tuples whose values match ``field_names`` order.
+        """
+
+        return iter_component_fields_runtime(self, component_type, *field_names, tags=tags)
 
     def _slot(self, entity: Entity) -> None:
-        if entity.world_id != self._world_id:
-            raise StaleEntityError("ECS entity belongs to a different world.")
-        if entity.index < 0:
-            raise StaleEntityError("ECS entity index is invalid.")
-        try:
-            self._rust.validate_entity(entity.index, entity.generation)
-        except ValueError as exc:
-            raise StaleEntityError("ECS entity handle is stale.") from exc
+        slot_runtime(self, entity)
 
     def _has_component(self, entity: Entity, component_type: type[Any]) -> bool:
-        self.validate_schema(component_type)
-        return _schema_name(component_type) in self._rust.entity_components(
-            entity.index, entity.generation
-        )
+        return has_component_runtime(self, entity, component_type)
 
     def get_component_field(
         self, entity: Entity, component_type: type[Any], field_name: str
     ) -> Any:
-        self._slot(entity)
-        self.validate_schema(component_type)
-        if field_name not in self._schemas[component_type]:
-            raise AttributeError(field_name)
-        try:
-            return self._rust.get_field(
-                entity.index, entity.generation, _schema_name(component_type), field_name
-            )
-        except ValueError as exc:
-            raise MissingComponentError(
-                f"Entity {entity.index}:{entity.generation} does not have "
-                f"component {component_type.__name__}."
-            ) from exc
+        """Read one field from an entity component.
+
+        Args:
+            entity: Entity handle whose component should be read.
+            component_type: Dataclass component class that owns the field.
+            field_name: Dataclass field name to read.
+
+        Returns:
+            The current Rust-owned field value.
+        """
+
+        return get_component_field_runtime(self, entity, component_type, field_name)
 
     def set_component_field(
         self, entity: Entity, component_type: type[Any], field_name: str, value: object
     ) -> None:
-        self._slot(entity)
-        self.validate_schema(component_type)
-        if field_name not in self._schemas[component_type]:
-            raise AttributeError(field_name)
-        _validate_storage_value(
-            component_type, field_name, value, self._schemas[component_type][field_name]
-        )
-        self._sync_component_field_to_rust(entity, component_type, field_name, value)
-        self._note_field_update(entity, component_type)
+        """Write one field on an entity component.
+
+        Args:
+            entity: Entity handle whose component should be updated.
+            component_type: Dataclass component class that owns the field.
+            field_name: Dataclass field name to update.
+            value: New value accepted by the field's ECS storage type.
+        """
+
+        set_component_field_runtime(self, entity, component_type, field_name, value)
 
     def component_snapshot(self, entity: Entity, component_type: type[Any]) -> object:
-        self._slot(entity)
-        self.validate_schema(component_type)
-        component_constructor = cast(type[Any], component_type)
-        values = {
-            field.name: self.get_component_field(entity, component_type, field.name)
-            for field in fields(component_constructor)
-        }
-        return component_constructor(**values)
+        """Copy a component's current fields into a new dataclass instance.
+
+        Args:
+            entity: Entity handle whose component should be copied.
+            component_type: Dataclass component class to copy.
+
+        Returns:
+            A new dataclass instance of ``component_type``.
+        """
+
+        return component_snapshot_runtime(self, entity, component_type)
 
     # --------------------------------------------------------------- resources
     def set_resource(self, resource: object) -> None:
+        """Store a dataclass singleton resource in the ECS world.
+
+        Args:
+            resource: Dataclass resource instance to store or replace.
+        """
+
         set_resource_runtime(self, resource)
 
     def get_resource(self, resource_type: type[ResourceT]) -> ResourceT:
+        """Return a mutable view for an existing resource.
+
+        Args:
+            resource_type: Dataclass resource class to access.
+
+        Returns:
+            A resource view typed as ``resource_type`` for field access.
+        """
+
         return get_resource_runtime(self, resource_type)
 
     def remove_resource(self, resource_type: type[Any]) -> None:
+        """Remove a resource from the ECS world.
+
+        Args:
+            resource_type: Dataclass resource class to remove.
+        """
+
         remove_resource_runtime(self, resource_type)
 
     def get_resource_field(self, resource_type: type[Any], field_name: str) -> Any:
+        """Read one field from an ECS resource.
+
+        Args:
+            resource_type: Dataclass resource class that owns the field.
+            field_name: Dataclass field name to read.
+
+        Returns:
+            The current Rust-owned resource field value.
+        """
+
         return get_resource_field_runtime(self, resource_type, field_name)
 
     def set_resource_field(self, resource_type: type[Any], field_name: str, value: object) -> None:
+        """Write one field on an ECS resource.
+
+        Args:
+            resource_type: Dataclass resource class that owns the field.
+            field_name: Dataclass field name to update.
+            value: New value accepted by the field's ECS storage type.
+        """
+
         set_resource_field_runtime(self, resource_type, field_name, value)
 
     def resource_snapshot(self, resource_type: type[Any]) -> object:
+        """Copy a resource's current fields into a new dataclass instance.
+
+        Args:
+            resource_type: Dataclass resource class to copy.
+
+        Returns:
+            A new dataclass instance of ``resource_type``.
+        """
+
         return resource_snapshot_runtime(self, resource_type)
 
     # ---------------------------------------------------------------- events
     def emit_event(self, event: object, *, expected_type: type[Any] | None = None) -> None:
+        """Queue an ECS event for readers in the current frame.
+
+        Args:
+            event: Dataclass event instance to enqueue.
+            expected_type: Optional event class used when a typed writer validates payloads.
+        """
+
         emit_event_runtime(self, event, expected_type=expected_type)
 
     def read_events(self, event_type: type[ComponentT]) -> tuple[ComponentT, ...]:
+        """Read queued events of one dataclass type.
+
+        Args:
+            event_type: Dataclass event class to read.
+
+        Returns:
+            A tuple of copied event instances in emission order.
+        """
+
         return read_events_runtime(self, event_type)
 
     def clear_events(self, event_type: type[Any] | None = None) -> None:
+        """Clear queued ECS events.
+
+        Args:
+            event_type: Event class to clear, or ``None`` to clear all event types.
+        """
+
         clear_events_runtime(self, event_type)
 
     # ---------------------------------------------------------------- systems
@@ -475,109 +605,74 @@ class EcsWorld:
         run_if: Callable[[], bool] | None = None,
         set: str | None = None,
     ) -> SystemHandle:
-        if not isinstance(system, SystemDefinition):
-            raise SystemPlanError("gs.add_system() expects a function decorated with @ecs.system.")
-        built = system.build()
-        system_name = name or built.name
-        if any(s.handle.name == system_name for s in self._systems):
-            raise SystemPlanError(f"ECS system name {system_name!r} is already registered.")
-        handle = SystemHandle(self._next_system_id, system_name)
-        self._next_system_id += 1
-        scheduled = _ScheduledSystem(
-            handle,
-            built,
-            int(order),
-            bool(enabled),
+        """Register an ``@ecs.system`` with this world.
+
+        Args:
+            system: Function decorated with ``@ecs.system``.
+            order: Numeric ordering key used before dependency constraints.
+            enabled: Whether the system should run immediately after registration.
+            name: Optional unique system name. Defaults to the decorated function name.
+            before: Systems that should run after this system.
+            after: Systems that should run before this system.
+            run_if: Optional callback checked before each scheduled run.
+            set: Optional system-set name for shared configuration.
+
+        Returns:
+            A handle that can enable, disable, or remove the registered system.
+        """
+
+        return add_system_runtime(
+            self,
+            system,
+            order=order,
+            enabled=enabled,
+            name=name,
             before=tuple(before),
             after=tuple(after),
             run_if=run_if,
             set_name=set,
         )
-        prepare_scheduled_physical_plan(self, scheduled)
-        self._systems.append(scheduled)
-        self._systems = self._sorted_systems()
-        self._has_change_filtered_systems_cache = None
-        self._diagnostics["ecs_systems_registered"] = len(self._systems)
-        self._diagnostics["ecs_schedule_rebuilds"] += 1
-        return handle
 
     def remove_system(self, handle: SystemHandle | str) -> None:
-        removed = [s for s in self._systems if _handle_matches(s.handle, handle)]
-        if not removed:
-            raise SystemPlanError(f"Unknown ECS system {handle!r}.")
-        for scheduled in removed:
-            if scheduled.physical_plan_handle is not None:
-                self._rust.release_compiled_plan(scheduled.physical_plan_handle)
-        self._systems = [s for s in self._systems if not _handle_matches(s.handle, handle)]
-        self._has_change_filtered_systems_cache = None
-        self._diagnostics["ecs_systems_registered"] = len(self._systems)
+        """Unregister a scheduled ECS system.
+
+        Args:
+            handle: System handle or system name returned by ``add_system()``.
+        """
+
+        remove_system_runtime(self, handle)
 
     def enable_system(self, handle: SystemHandle | str) -> None:
+        """Allow a scheduled ECS system to run again.
+
+        Args:
+            handle: System handle or system name to enable.
+        """
+
         self._set_system_enabled(handle, True)
 
     def disable_system(self, handle: SystemHandle | str) -> None:
+        """Temporarily prevent a scheduled ECS system from running.
+
+        Args:
+            handle: System handle or system name to disable.
+        """
+
         self._set_system_enabled(handle, False)
 
     def run_pre_draw_systems(self) -> None:
-        self._diagnostics["ecs_pre_draw_runs"] += 1
-        self._begin_change_frame()
-        self._invalidate_spatial_indexes(clear_only=True)
-        try:
-            self._run_sorted_systems()
-        finally:
-            self._finalize_change_frame()
+        """Run enabled ECS systems once using the sketch pre-draw lifecycle order."""
+
+        run_pre_draw_systems_runtime(self)
 
     def _run_sorted_systems(self) -> None:
-        for scheduled in self._sorted_systems():
-            if not self._system_enabled(scheduled):
-                continue
-            if not self._system_run_condition(scheduled):
-                self._diagnostics["ecs_system_run_condition_skips"] += 1
-                continue
-            try:
-                self._run_system_action(scheduled, scheduled.built.plan.action)
-            except Exception as exc:
-                if isinstance(exc, SystemPlanError | SystemExecutionError):
-                    raise
-                raise SystemExecutionError(
-                    f"ECS system {scheduled.handle.name!r} failed: {exc}"
-                ) from exc
+        run_sorted_systems_runtime(self)
 
     def _run_system_action(self, scheduled: _ScheduledSystem, action: Action) -> None:
-        if scheduled.built.python:
-            run_python_system(self, scheduled)
-            return
-        if _is_direct_udf_action(action):
-            udf_action = cast(DefaultAction, action)
-            if udf_action.udf is None:
-                raise SystemExecutionError("Malformed ECS UDF action.")
-            udf_action.udf.execute_action(self, udf_action.udf_args)
-            return
-        if _contains_direct_udf_action(action):
-            if _is_sequence_action(action):
-                for child in cast(Any, action).children:
-                    self._run_system_action(scheduled, child)
-                return
-            raise SystemPlanError(
-                "Python UDF actions can only appear as standalone actions or inside "
-                "do_in_order() sequences; non-UDF ECS work still executes in Rust."
-            )
-        run_physical_system(self, scheduled, action)
+        run_system_action_runtime(self, scheduled, action)
 
     def _has_change_filtered_systems(self) -> bool:
-        cached = self._has_change_filtered_systems_cache
-        if cached is not None:
-            return cached
-        for scheduled in self._systems:
-            for query in scheduled.built.queries:
-                spec = query.spec
-                if isinstance(spec, QuerySpec) and any(
-                    isinstance(term, ChangeTerm) for term in spec.terms
-                ):
-                    self._has_change_filtered_systems_cache = True
-                    return True
-        self._has_change_filtered_systems_cache = False
-        return False
+        return has_change_filtered_systems_runtime(self)
 
     def match_query(self, spec: QuerySpec) -> list[EntityView]:
         return match_query_runtime(self, spec)
@@ -614,48 +709,50 @@ class EcsWorld:
     def _sync_component_fields_to_rust(
         self, entity: Entity, component_type: type[Any], component: object
     ) -> None:
-        for field in fields(component_type):
-            self._rust.set_field(
-                entity.index,
-                entity.generation,
-                _schema_name(component_type),
-                field.name,
-                copy.deepcopy(getattr(component, field.name)),
-            )
+        sync_component_fields_to_rust_runtime(self, entity, component_type, component)
 
     def _sync_component_field_to_rust(
         self, entity: Entity, component_type: type[Any], field_name: str, value: object
     ) -> None:
-        self._rust.set_field(
-            entity.index,
-            entity.generation,
-            _schema_name(component_type),
-            field_name,
-            copy.deepcopy(value),
-        )
+        sync_component_field_to_rust_runtime(self, entity, component_type, field_name, value)
 
     def _component_type_for_schema(self, schema_name: str) -> type[Any]:
-        event_type = self._event_types.get(schema_name)
-        if event_type is not None:
-            return event_type
-        for component_type in self._schemas:
-            if _schema_name(component_type) == schema_name:
-                return component_type
-        raise SystemExecutionError(f"Rust ECS returned unknown component schema {schema_name!r}.")
+        return component_type_for_schema_runtime(self, schema_name)
 
     # -------------------------------------------------------------- diagnostics
     def configure(
         self, *, strict: bool | None = None, warn_on_ambiguity: bool | None = None
     ) -> None:
+        """Configure duplicate-write handling for this ECS world.
+
+        Args:
+            strict: When true, reject ambiguous duplicate writes instead of resolving them.
+            warn_on_ambiguity: When true, log warnings for duplicate-write resolution.
+        """
+
         configure_runtime(self, strict=strict, warn_on_ambiguity=warn_on_ambiguity)
 
     def diagnostics(self) -> dict[str, Any]:
+        """Return ECS counters and diagnostic messages.
+
+        Returns:
+            A dictionary of diagnostic names to values.
+        """
+
         return diagnostics_runtime(self)
 
     def reset_diagnostics(self) -> None:
+        """Reset ECS diagnostic counters and messages."""
+
         reset_diagnostics_runtime(self)
 
     def record_ambiguity(self, message: str) -> None:
+        """Record an ambiguity diagnostic message.
+
+        Args:
+            message: Human-readable explanation of the ambiguous write or schedule.
+        """
+
         record_ambiguity_runtime(self, message)
 
     def _note_field_update(self, entity: Entity, component_type: type[Any]) -> None:
@@ -675,6 +772,15 @@ class EcsWorld:
         enabled: bool | None = None,
         run_if: Callable[[], bool] | None = None,
     ) -> None:
+        """Configure default scheduling options for a named system set.
+
+        Args:
+            name: System-set name used by ``add_system(..., set=name)``.
+            order: Optional order applied to systems in the set.
+            enabled: Optional enabled state applied to systems in the set.
+            run_if: Optional run condition applied to systems in the set.
+        """
+
         configure_system_set_runtime(self, name, order=order, enabled=enabled, run_if=run_if)
 
     def _system_enabled(self, scheduled: _ScheduledSystem) -> bool:

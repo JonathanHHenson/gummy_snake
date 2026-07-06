@@ -1,7 +1,7 @@
-"""Legacy Python spatial relation evaluation helpers.
+"""Python materialization helpers for ECS spatial relations.
 
 Scheduled ECS systems use the Rust physical executor. These helpers support explicit
-Python/UDF boundaries that need to materialize spatial relations in Python.
+Python UDF/system boundaries that need to materialize spatial relations in Python.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.runtime_views import Entity, EntityView
-    from gummysnake.ecs.spatial import SpatialRelation
+    from gummysnake.ecs.spatial.relations import SpatialRelation
     from gummysnake.ecs.world import EcsWorld
 
 

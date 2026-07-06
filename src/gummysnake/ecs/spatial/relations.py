@@ -1,144 +1,42 @@
-"""Generic ECS spatial relation APIs.
-
-The public API models spatial work as lazy relations over ECS query rows. Scheduled
-systems serialize these relations into Rust physical plans, where hash-grid,
-quadtree, octree, and 2D Hilbert backends execute behind the shared spatial trait.
-"""
+"""Lazy spatial relation objects used by ECS system plans."""
 
 from __future__ import annotations
 
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.expressions import (
-    Expression,
-    QueryProxy,
-    ensure_expr,
-    replace_query,
+from gummysnake.ecs.expressions import Expression, QueryProxy, ensure_expr, replace_query
+
+from .config import (
+    Dimensions,
+    FallbackPolicy,
+    PairPolicy,
+    SpatialAlgorithm,
+    _validate_positive_or_zero_finite,
 )
-from gummysnake.ecs.spatial_runtime import (
+from .runtime import (
     _aabb_overlaps,
     _distance_sq,
     _entity_order_key,
     _get_or_build_index,
     _spatial_context_key,
-    _validate_relation,
 )
-from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.world import EcsWorld
 
-Dimensions = Literal[2, 3]
-UpdatePolicy = Literal["auto", "rebuild_each_use", "rebuild_each_frame", "incremental"]
-OutOfBoundsPolicy = Literal["overflow", "error"]
-FallbackPolicy = bool | None
-PairPolicy = Literal["all", "unique_unordered"]
-
-
-@dataclass(frozen=True)
-class Bounds2D:
-    min_x: float
-    min_y: float
-    max_x: float
-    max_y: float
-
-    def __post_init__(self) -> None:
-        _validate_finite_bounds((self.min_x, self.min_y, self.max_x, self.max_y), 2)
-        if self.min_x > self.max_x or self.min_y > self.max_y:
-            raise ValueError("Bounds2D minimum values must be <= maximum values.")
-
-
-@dataclass(frozen=True)
-class Bounds3D:
-    min_x: float
-    min_y: float
-    min_z: float
-    max_x: float
-    max_y: float
-    max_z: float
-
-    def __post_init__(self) -> None:
-        _validate_finite_bounds(
-            (self.min_x, self.min_y, self.min_z, self.max_x, self.max_y, self.max_z), 3
-        )
-        if self.min_x > self.max_x or self.min_y > self.max_y or self.min_z > self.max_z:
-            raise ValueError("Bounds3D minimum values must be <= maximum values.")
-
-
-@dataclass(frozen=True)
-class HashGrid:
-    cell_size: float
-    dimensions: Dimensions | None = None
-    update: UpdatePolicy = "auto"
-
-    kind: str = "hash_grid"
-
-    def __post_init__(self) -> None:
-        _validate_positive_finite(self.cell_size, "HashGrid.cell_size")
-        _validate_dimensions(self.dimensions)
-        _validate_update(self.update)
-
-
-@dataclass(frozen=True)
-class Quadtree:
-    bounds: Bounds2D
-    capacity: int = 16
-    max_depth: int = 16
-    update: UpdatePolicy = "auto"
-    out_of_bounds: OutOfBoundsPolicy = "overflow"
-
-    kind: str = "quadtree"
-    dimensions: Dimensions = 2
-
-    def __post_init__(self) -> None:
-        _validate_tree_config(self.capacity, self.max_depth, self.update, self.out_of_bounds)
-
-
-@dataclass(frozen=True)
-class Octree:
-    bounds: Bounds3D
-    capacity: int = 16
-    max_depth: int = 12
-    update: UpdatePolicy = "auto"
-    out_of_bounds: OutOfBoundsPolicy = "overflow"
-
-    kind: str = "octree"
-    dimensions: Dimensions = 3
-
-    def __post_init__(self) -> None:
-        _validate_tree_config(self.capacity, self.max_depth, self.update, self.out_of_bounds)
-
-
-@dataclass(frozen=True)
-class HilbertCurve:
-    bounds: Bounds2D | Bounds3D
-    bits: int = 16
-    dimensions: Dimensions | None = None
-    update: UpdatePolicy = "auto"
-    out_of_bounds: OutOfBoundsPolicy = "overflow"
-
-    kind: str = "hilbert_curve"
-
-    def __post_init__(self) -> None:
-        inferred = 2 if isinstance(self.bounds, Bounds2D) else 3
-        dimensions = inferred if self.dimensions is None else self.dimensions
-        _validate_dimensions(dimensions)
-        if dimensions != inferred:
-            raise ValueError("HilbertCurve dimensions must match the provided bounds object.")
-        if self.bits <= 0 or self.bits > 31:
-            raise ValueError("HilbertCurve.bits must be in the range 1..31.")
-        _validate_update(self.update)
-        _validate_out_of_bounds(self.out_of_bounds)
-
-
-SpatialAlgorithm = HashGrid | Quadtree | Octree | HilbertCurve
-
 
 @dataclass(frozen=True)
 class SpatialPoint:
+    """Lazy 2D or 3D point built from ECS expressions.
+
+    Args:
+        expressions: Coordinate expressions for the point. Use ``point2()`` or ``point3()``
+            in user code so dimensionality is checked consistently.
+    """
+
     expressions: tuple[Expression, ...]
 
     @property
@@ -157,6 +55,13 @@ class SpatialPoint:
 
 @dataclass(frozen=True)
 class SpatialAabb:
+    """Lazy axis-aligned bounding box built from ECS expressions.
+
+    Args:
+        min_point: Minimum corner of the box.
+        max_point: Maximum corner of the box.
+    """
+
     min_point: SpatialPoint
     max_point: SpatialPoint
 
@@ -195,18 +100,30 @@ class SpatialAabb:
 
 @dataclass(frozen=True)
 class SpatialDeltaProxy:
+    """Lazy ``x``, ``y``, and optional ``z`` deltas for a spatial relation."""
+
     relation: SpatialRelation
 
     @property
     def x(self) -> Expression:
+        """Horizontal distance from the relation origin to the matched item."""
+
         return SpatialMetadataExpression(self.relation, "delta", 0)
 
     @property
     def y(self) -> Expression:
+        """Vertical distance from the relation origin to the matched item."""
+
         return SpatialMetadataExpression(self.relation, "delta", 1)
 
     @property
     def z(self) -> Expression:
+        """Depth distance for 3D spatial relations.
+
+        Raises:
+            AttributeError: If the relation is 2D.
+        """
+
         if self.relation.dimensions != 3:
             raise AttributeError("2D spatial relations do not have delta.z.")
         return SpatialMetadataExpression(self.relation, "delta", 2)
@@ -214,6 +131,8 @@ class SpatialDeltaProxy:
 
 @dataclass(frozen=True, eq=False)
 class SpatialMetadataExpression(Expression):
+    """Lazy expression for relation distance or delta metadata."""
+
     relation: SpatialRelation
     kind: str
     axis: int | None = None
@@ -241,6 +160,26 @@ class SpatialMetadataExpression(Expression):
 
 @dataclass(frozen=True)
 class SpatialRelation:
+    """Lazy relation that joins ECS query rows by position or bounds.
+
+    Args:
+        origin: Query rows that start the spatial lookup.
+        item: Query rows that may match each origin row.
+        origin_position: Point expression for the origin rows.
+        target_position: Point expression for candidate item rows.
+        radius: Optional distance limit for point-based relations.
+        bounds: Reserved compatibility field for bounds-style relations.
+        origin_bounds: Optional bounding box expression for origin rows.
+        target_bounds: Optional bounding box expression for item rows.
+        algorithm: Spatial index configuration used by the Rust executor.
+        include_self: Whether an entity can match itself when origin and item queries overlap.
+        allow_fallback: Whether legacy Python materialization is allowed at explicit Python
+            boundaries.
+        name: Optional human-readable name used in explain output and diagnostics.
+        exact_filter: Additional lazy predicate applied after spatial candidate lookup.
+        pair_policy: ``"all"`` for every ordered pair, or ``"unique_unordered"`` for each pair once.
+    """
+
     origin: QueryProxy
     item: QueryProxy
     origin_position: SpatialPoint
@@ -262,37 +201,103 @@ class SpatialRelation:
 
     @property
     def delta(self) -> SpatialDeltaProxy:
+        """Per-axis distance from each origin row to each matched item row."""
+
         return SpatialDeltaProxy(self)
 
     @property
     def distance_sq(self) -> Expression:
+        """Squared distance between each origin row and matched item row."""
+
         return SpatialMetadataExpression(self, "distance_sq")
 
     @property
     def distance(self) -> Expression:
+        """Distance between each origin row and matched item row."""
+
         return SpatialMetadataExpression(self, "distance")
 
     def where(self, predicate: object) -> SpatialRelation:
+        """Return a copy of the relation with an additional exact-match filter.
+
+        Args:
+            predicate: ECS expression evaluated after broad-phase spatial candidates are found.
+
+        Returns:
+            A new relation that keeps only candidates where ``predicate`` is true.
+        """
+
         predicate_expr = ensure_expr(predicate)
         exact = predicate_expr if self.exact_filter is None else self.exact_filter & predicate_expr
         return replace(self, exact_filter=exact)
 
     def any(self) -> SpatialAggregateExpression:
+        """Build an expression that is true when at least one item matches.
+
+        Returns:
+            A lazy boolean aggregate expression for this relation.
+        """
+
         return SpatialAggregateExpression("any", self)
 
     def count(self) -> SpatialAggregateExpression:
+        """Build an expression containing the number of matching items.
+
+        Returns:
+            A lazy integer aggregate expression for this relation.
+        """
+
         return SpatialAggregateExpression("count", self)
 
     def sum(self, value: object) -> SpatialAggregateExpression:
+        """Build an expression containing the sum of a value over matched items.
+
+        Args:
+            value: ECS expression or Python value to evaluate for each matched item.
+
+        Returns:
+            A lazy aggregate expression for this relation.
+        """
+
         return SpatialAggregateExpression("sum", self, ensure_expr(value))
 
     def min(self, value: object, *, default: object | None = None) -> SpatialAggregateExpression:
+        """Build an expression containing the smallest value over matched items.
+
+        Args:
+            value: ECS expression or Python value to evaluate for each matched item.
+            default: Value to use when the relation has no matches.
+
+        Returns:
+            A lazy aggregate expression for this relation.
+        """
+
         return SpatialAggregateExpression("min", self, ensure_expr(value), default)
 
     def max(self, value: object, *, default: object | None = None) -> SpatialAggregateExpression:
+        """Build an expression containing the largest value over matched items.
+
+        Args:
+            value: ECS expression or Python value to evaluate for each matched item.
+            default: Value to use when the relation has no matches.
+
+        Returns:
+            A lazy aggregate expression for this relation.
+        """
+
         return SpatialAggregateExpression("max", self, ensure_expr(value), default)
 
     def mean(self, value: object, *, default: object | None = None) -> SpatialAggregateExpression:
+        """Build an expression containing the average value over matched items.
+
+        Args:
+            value: ECS expression or Python value to evaluate for each matched item.
+            default: Value to use when the relation has no matches.
+
+        Returns:
+            A lazy aggregate expression for this relation.
+        """
+
         return SpatialAggregateExpression("mean", self, ensure_expr(value), default)
 
     def iter_contexts(self, ctx: dict[object, Any], world: EcsWorld) -> Iterable[dict[object, Any]]:
@@ -365,6 +370,15 @@ class SpatialRelation:
 
 @dataclass(frozen=True, eq=False)
 class SpatialAggregateExpression(Expression):
+    """Lazy aggregate expression computed from a ``SpatialRelation``.
+
+    Args:
+        kind: Aggregate operation name, such as ``"count"`` or ``"mean"``.
+        relation: Spatial relation to aggregate.
+        value: Optional expression evaluated for each matched item.
+        default: Optional value used when ``min``, ``max``, or ``mean`` has no matches.
+    """
+
     kind: str
     relation: SpatialRelation
     value: Expression | None = None
@@ -430,206 +444,3 @@ class SpatialAggregateExpression(Expression):
 
     def _ecs_outer_queries(self) -> set[QueryProxy]:
         return {self.relation.origin}
-
-
-def point2(x: object, y: object) -> SpatialPoint:
-    return SpatialPoint((ensure_expr(x), ensure_expr(y)))
-
-
-def point3(x: object, y: object, z: object) -> SpatialPoint:
-    return SpatialPoint((ensure_expr(x), ensure_expr(y), ensure_expr(z)))
-
-
-def aabb2(min_x: object, min_y: object, max_x: object, max_y: object) -> SpatialAabb:
-    return SpatialAabb(point2(min_x, min_y), point2(max_x, max_y))
-
-
-def aabb3(
-    min_x: object,
-    min_y: object,
-    min_z: object,
-    max_x: object,
-    max_y: object,
-    max_z: object,
-) -> SpatialAabb:
-    return SpatialAabb(point3(min_x, min_y, min_z), point3(max_x, max_y, max_z))
-
-
-def neighbors(
-    query: object,
-    *,
-    position: SpatialPoint,
-    radius: object,
-    algorithm: SpatialAlgorithm | None = None,
-    include_self: bool = False,
-    allow_fallback: FallbackPolicy = None,
-    name: str | None = None,
-) -> SpatialRelation:
-    origin = _as_query_proxy(query, "neighbors query")
-    if not isinstance(position, SpatialPoint):
-        raise SystemPlanError(
-            "spatial.neighbors() position must be spatial.point2(...) or point3(...)."
-        )
-    item = QueryProxy(f"{origin.name}.item", origin.spec)
-    relation = SpatialRelation(
-        origin=origin,
-        item=item,
-        origin_position=position,
-        target_position=position.replace_query(origin, item),
-        radius=ensure_expr(radius),
-        algorithm=algorithm or HashGrid(_default_cell_size(radius), dimensions=position.dimensions),
-        include_self=include_self,
-        allow_fallback=allow_fallback,
-        name=name,
-    )
-    _validate_relation(relation)
-    return relation
-
-
-def join(
-    origin: object,
-    target: object,
-    *,
-    origin_position: SpatialPoint,
-    target_position: SpatialPoint,
-    radius: object | None = None,
-    bounds: object | None = None,
-    algorithm: SpatialAlgorithm | None = None,
-    include_self: bool = False,
-    allow_fallback: FallbackPolicy = None,
-    name: str | None = None,
-) -> SpatialRelation:
-    origin_query = _as_query_proxy(origin, "join origin")
-    target_query = _as_query_proxy(target, "join target")
-    if not isinstance(origin_position, SpatialPoint) or not isinstance(
-        target_position, SpatialPoint
-    ):
-        raise SystemPlanError(
-            "spatial.join() positions must be spatial.point2(...) or point3(...)."
-        )
-    relation = SpatialRelation(
-        origin=origin_query,
-        item=target_query,
-        origin_position=origin_position,
-        target_position=target_position,
-        radius=None if radius is None else ensure_expr(radius),
-        bounds=bounds,
-        algorithm=algorithm
-        or HashGrid(_default_cell_size(radius), dimensions=origin_position.dimensions),
-        include_self=include_self,
-        allow_fallback=allow_fallback,
-        name=name,
-    )
-    _validate_relation(relation)
-    return relation
-
-
-def overlaps(
-    origin: object,
-    target: object,
-    *,
-    origin_bounds: SpatialAabb,
-    target_bounds: SpatialAabb,
-    algorithm: SpatialAlgorithm | None = None,
-    include_self: bool = False,
-    pair_policy: PairPolicy = "all",
-    allow_fallback: FallbackPolicy = None,
-    name: str | None = None,
-) -> SpatialRelation:
-    origin_query = _as_query_proxy(origin, "overlaps origin")
-    target_query = _as_query_proxy(target, "overlaps target")
-    if not isinstance(origin_bounds, SpatialAabb) or not isinstance(target_bounds, SpatialAabb):
-        raise SystemPlanError("spatial.overlaps() bounds must be spatial.aabb2(...) or aabb3(...).")
-    if pair_policy not in {"all", "unique_unordered"}:
-        raise SystemPlanError("spatial.overlaps() pair_policy must be 'all' or 'unique_unordered'.")
-    relation = SpatialRelation(
-        origin=origin_query,
-        item=target_query,
-        origin_position=origin_bounds.center(),
-        target_position=target_bounds.center(),
-        origin_bounds=origin_bounds,
-        target_bounds=target_bounds,
-        algorithm=algorithm or HashGrid(1.0, dimensions=origin_bounds.dimensions),
-        include_self=include_self,
-        allow_fallback=allow_fallback,
-        name=name,
-        pair_policy=pair_policy,
-    )
-    _validate_relation(relation)
-    return relation
-
-
-def _as_query_proxy(value: object, role: str) -> QueryProxy:
-    if not isinstance(value, QueryProxy):
-        raise SystemPlanError(f"spatial.{role} must be an ecs.Query system parameter.")
-    return value
-
-
-def _default_cell_size(radius: object | None) -> float:
-    if isinstance(radius, int | float):
-        _validate_positive_finite(float(radius), "spatial radius/cell_size")
-        return float(radius) if float(radius) > 0 else 1.0
-    return 1.0
-
-
-def _validate_dimensions(dimensions: int | None) -> None:
-    if dimensions is not None and dimensions not in {2, 3}:
-        raise ValueError("Spatial dimensions must be 2, 3, or None for inference.")
-
-
-def _validate_update(update: str) -> None:
-    if update not in {"auto", "rebuild_each_use", "rebuild_each_frame", "incremental"}:
-        raise ValueError(
-            "Spatial update must be 'auto', 'rebuild_each_use', 'rebuild_each_frame', "
-            "or 'incremental'."
-        )
-
-
-def _validate_tree_config(capacity: int, max_depth: int, update: str, out_of_bounds: str) -> None:
-    if capacity <= 0:
-        raise ValueError("Spatial tree capacity must be positive.")
-    if max_depth <= 0:
-        raise ValueError("Spatial tree max_depth must be positive.")
-    _validate_update(update)
-    _validate_out_of_bounds(out_of_bounds)
-
-
-def _validate_out_of_bounds(out_of_bounds: str) -> None:
-    if out_of_bounds not in {"overflow", "error"}:
-        raise ValueError("out_of_bounds must be 'overflow' or 'error'.")
-
-
-def _validate_positive_finite(value: float, name: str) -> None:
-    if not math.isfinite(value) or value <= 0:
-        raise ValueError(f"{name} must be finite and positive.")
-
-
-def _validate_positive_or_zero_finite(value: float, name: str) -> None:
-    if not math.isfinite(value) or value < 0:
-        raise ValueError(f"{name} must be finite and non-negative.")
-
-
-def _validate_finite_bounds(values: tuple[float, ...], dimensions: int) -> None:
-    if len(values) != dimensions * 2 or any(not math.isfinite(value) for value in values):
-        raise ValueError("Spatial bounds must contain finite min/max coordinates.")
-
-
-__all__ = [
-    "Bounds2D",
-    "Bounds3D",
-    "HashGrid",
-    "HilbertCurve",
-    "Octree",
-    "Quadtree",
-    "SpatialAabb",
-    "SpatialAggregateExpression",
-    "SpatialPoint",
-    "SpatialRelation",
-    "aabb2",
-    "aabb3",
-    "join",
-    "neighbors",
-    "overlaps",
-    "point2",
-    "point3",
-]
