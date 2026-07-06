@@ -2,28 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator, Sequence
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Protocol, cast, overload
+from typing import Any, cast, overload
 
 from gummysnake import constants as c
 from gummysnake.api.current import require_context
-from gummysnake.api.global_mode.helpers import xy
+from gummysnake.api.global_mode.helpers import CoordinatePair, Number, xy
 from gummysnake.core import geometry as _geometry
 
-
-class PointLike(Protocol):
-    x: float
-    y: float
-
-
-CoordinatePair = Sequence[float] | PointLike
 _PRIMITIVE_RECT = 1
 _PRIMITIVE_TRIANGLE = 2
 _PRIMITIVE_ELLIPSE = 3
 
 
 def _queue_fill_primitive(context: Any, kind: int, coords: tuple[float, ...]) -> bool:
+    """Try the renderer's fast path for simple filled shapes."""
+
     queue = getattr(context.renderer, "queue_fill_primitive_fast_path", None)
     if not callable(queue):
         return False
@@ -38,8 +33,13 @@ def point(position: CoordinatePair, /) -> None: ...
 def point(x: float, y: float, /) -> None: ...
 
 
-def point(x: Any, y: float | None = None) -> None:
-    px, py = xy(x, y)
+def point(x: CoordinatePair | Number, y: Number | None = None) -> None:
+    """Draw a single point at a coordinate or point-like object."""
+
+    if y is None:
+        px, py = xy(cast(CoordinatePair, x))
+    else:
+        px, py = xy(cast(Number, x), y)
     require_context().point(px, py)
 
 
@@ -52,6 +52,8 @@ def line(x1: float, y1: float, x2: float, y2: float, /) -> None: ...
 
 
 def line(*args: Any) -> None:
+    """Draw a straight line between two points."""
+
     if len(args) == 2:
         x1, y1 = xy(args[0])
         x2, y2 = xy(args[1])
@@ -63,6 +65,8 @@ def line(*args: Any) -> None:
 
 
 def rect(x: float, y: float, w: float, h: float | None = None) -> None:
+    """Draw a rectangle with the current style and rect mode."""
+
     context = require_context()
     if h is not None and context.state.style.rect_mode == c.CORNER:
         if _queue_fill_primitive(
@@ -84,14 +88,20 @@ def rect(x: float, y: float, w: float, h: float | None = None) -> None:
 
 
 def square(x: float, y: float, size: float) -> None:
+    """Draw a square with the current style and rect mode."""
+
     require_context().square(x, y, size)
 
 
 def ellipse(x: float, y: float, w: float, h: float | None = None) -> None:
+    """Draw an ellipse with the current style and ellipse mode."""
+
     require_context().ellipse(x, y, w, h)
 
 
 def circle(x: float, y: float, diameter: float) -> None:
+    """Draw a circle with the current style and ellipse mode."""
+
     context = require_context()
     if context.state.style.ellipse_mode == c.CENTER:
         d = float(diameter)
@@ -122,6 +132,8 @@ def triangle(x1: float, y1: float, x2: float, y2: float, x3: float, y3: float, /
 
 
 def triangle(*coords: Any) -> None:
+    """Draw a triangle from three points or six coordinates."""
+
     if len(coords) == 3:
         points = [xy(point) for point in coords]
         require_context().triangle(*(value for point in points for value in point))
@@ -173,6 +185,8 @@ def quad(
 
 
 def quad(*coords: Any) -> None:
+    """Draw a four-sided shape from points or coordinates."""
+
     if len(coords) == 4:
         points = [xy(point) for point in coords]
         require_context().quad(*(value for point in points for value in point))
@@ -192,68 +206,98 @@ def arc(
     stop: float,
     mode: c.ArcMode = c.OPEN,
 ) -> None:
+    """Draw part of an ellipse between two angles."""
+
     require_context().arc(x, y, width, height, start, stop, mode)
 
 
 def begin_shape(kind: c.ShapeKind | None = None) -> None:
+    """Start collecting vertices for a custom shape."""
+
     require_context().begin_shape(kind)
 
 
 @contextmanager
 def shape(mode: c.ArcMode = c.OPEN, *, kind: c.ShapeKind | None = None) -> Generator[None]:
+    """Build a custom shape inside a with block."""
+
     with require_context().shape(mode, kind=kind):
         yield
 
 
 def begin_contour() -> None:
+    """Start a contour, often used to make a hole in a shape."""
+
     require_context().begin_contour()
 
 
 @contextmanager
 def contour() -> Generator[None]:
+    """Build a contour inside the current shape with a with block."""
+
     with require_context().contour():
         yield
 
 
 def end_contour() -> None:
+    """Finish the current contour."""
+
     require_context().end_contour()
 
 
 def begin_clip() -> None:
+    """Start collecting vertices for a clipping path."""
+
     require_context().begin_clip()
 
 
 @contextmanager
 def clip_path() -> Generator[None]:
+    """Create a clipping path inside a with block."""
+
     with require_context().clip_path():
         yield
 
 
 def clip() -> None:
+    """Apply the current shape as a clipping path."""
+
     require_context().clip()
 
 
 def end_clip() -> None:
+    """Finish the current clipping path."""
+
     require_context().end_clip()
 
 
 def vertex(x: float, y: float) -> None:
+    """Add one vertex to the current custom shape."""
+
     require_context().vertex(x, y)
 
 
 def bezier_vertex(x2: float, y2: float, x3: float, y3: float, x4: float, y4: float) -> None:
+    """Add a cubic Bézier curve segment to the current shape."""
+
     require_context().bezier_vertex(x2, y2, x3, y3, x4, y4)
 
 
 def quadratic_vertex(cx: float, cy: float, x3: float, y3: float) -> None:
+    """Add a quadratic curve segment to the current shape."""
+
     require_context().quadratic_vertex(cx, cy, x3, y3)
 
 
 def spline_vertex(x: float, y: float) -> None:
+    """Add a spline control point to the current shape."""
+
     require_context().spline_vertex(x, y)
 
 
 def end_shape(mode: c.ArcMode = c.OPEN) -> None:
+    """Finish and draw the current custom shape."""
+
     require_context().end_shape(mode)
 
 
@@ -267,6 +311,8 @@ def bezier(
     x4: float,
     y4: float,
 ) -> None:
+    """Draw a cubic Bézier curve through four control points."""
+
     require_context().bezier(x1, y1, x2, y2, x3, y3, x4, y4)
 
 
@@ -280,28 +326,42 @@ def spline(
     x4: float,
     y4: float,
 ) -> None:
+    """Draw a smooth spline through four control points."""
+
     require_context().spline(x1, y1, x2, y2, x3, y3, x4, y4)
 
 
 def bezier_point(a: float, b: float, c: float, d: float, t: float) -> float:
+    """Return one coordinate value on a cubic Bézier curve."""
+
     return _geometry.bezier_point(a, b, c, d, t)
 
 
 def bezier_tangent(a: float, b: float, c: float, d: float, t: float) -> float:
+    """Return the tangent value on a cubic Bézier curve."""
+
     return _geometry.bezier_tangent(a, b, c, d, t)
 
 
 def spline_point(a: float, b: float, c: float, d: float, t: float) -> float:
+    """Return one coordinate value on a spline curve."""
+
     return require_context().spline_point(a, b, c, d, t)
 
 
 def spline_tangent(a: float, b: float, c: float, d: float, t: float) -> float:
+    """Return the tangent value on a spline curve."""
+
     return require_context().spline_tangent(a, b, c, d, t)
 
 
 def spline_property(name: str, value: float | None = None) -> float:
+    """Get or set one spline drawing property by name."""
+
     return require_context().spline_property(name, value)
 
 
 def spline_properties(**properties: float) -> dict[str, float]:
+    """Set spline drawing properties and return current values."""
+
     return require_context().spline_properties(**properties)

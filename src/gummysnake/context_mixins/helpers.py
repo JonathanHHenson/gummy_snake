@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Container, Sequence
-from typing import Any, NamedTuple
+from typing import NamedTuple, cast
 
 from gummysnake import constants as c
 from gummysnake.assets.image import CanvasImage, Image
@@ -20,6 +20,10 @@ class ImageDrawArgs(NamedTuple):
     source: tuple[int, int, int, int] | None
 
 
+type IntLike = str | int | float
+type BlendArg = Image | IntLike | c.BlendMode
+
+
 class BlendArgs(NamedTuple):
     source_image: Image | None
     source_rect: tuple[int, int, int, int]
@@ -27,12 +31,20 @@ class BlendArgs(NamedTuple):
     mode: c.BlendMode
 
 
-def coerce_int(value: Any) -> int:
+def coerce_int(value: IntLike) -> int:
     if isinstance(value, str | int | float):
         return int(value)
     raise ArgumentValidationError(
         f"Expected an integer-compatible value, got {type(value).__name__}."
     )
+
+
+def blend_coordinate(value: BlendArg) -> int:
+    if isinstance(value, Image | c.BlendMode):
+        raise ArgumentValidationError(
+            "blend() rectangle values must be integer-compatible numbers."
+        )
+    return coerce_int(cast(IntLike, value))
 
 
 def rgba_bytes(value: Color | Sequence[int]) -> bytes:
@@ -80,7 +92,7 @@ def image_draw_args(
 
 
 def blend_args(
-    args: tuple[Any, ...],
+    args: tuple[BlendArg, ...],
     supported_modes: Container[c.BlendMode],
     *,
     backend_name: str,
@@ -104,11 +116,21 @@ def blend_args(
         )
     return BlendArgs(
         source_image,
-        (coerce_int(sx), coerce_int(sy), coerce_int(sw), coerce_int(sh)),
-        (coerce_int(dx), coerce_int(dy), coerce_int(dw), coerce_int(dh)),
+        (
+            blend_coordinate(sx),
+            blend_coordinate(sy),
+            blend_coordinate(sw),
+            blend_coordinate(sh),
+        ),
+        (
+            blend_coordinate(dx),
+            blend_coordinate(dy),
+            blend_coordinate(dw),
+            blend_coordinate(dh),
+        ),
         mode,
     )
 
 
-def copy_ints(values: tuple[Any, ...]) -> tuple[int, ...]:
+def copy_ints(values: tuple[IntLike, ...]) -> tuple[int, ...]:
     return tuple(int(value) for value in values)

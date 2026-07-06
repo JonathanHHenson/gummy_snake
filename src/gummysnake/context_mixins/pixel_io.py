@@ -2,17 +2,31 @@
 
 from __future__ import annotations
 
-from collections.abc import Buffer, Sequence
-from typing import Any, cast
+from collections.abc import Buffer, Sequence, Sized
+from typing import TYPE_CHECKING, cast
 
 from gummysnake.assets.image import Image
-from gummysnake.context_mixins.helpers import copy_ints, rgba_bytes
+from gummysnake.context_mixins.helpers import IntLike, copy_ints, rgba_bytes
 from gummysnake.core.color import Color
 from gummysnake.core.pixels import PixelBuffer, dirty_pixel_region
 from gummysnake.exceptions import ArgumentValidationError
 
+if TYPE_CHECKING:
+    from gummysnake.context_mixins.pixels import PixelContextMixin
 
-def load_pixels(ctx: Any) -> PixelBuffer:
+
+type CopyArg = Image | IntLike
+
+
+def copy_pixel_ints(values: tuple[CopyArg, ...]) -> tuple[int, ...]:
+    """Validate and coerce copy() coordinate arguments."""
+    if any(isinstance(value, Image) for value in values):
+        raise ArgumentValidationError("copy() numeric arguments must be integer-compatible values.")
+    return copy_ints(cast(tuple[IntLike, ...], values))
+
+
+def load_pixels(ctx: PixelContextMixin) -> PixelBuffer:
+    """Read the full canvas into the context's mutable pixel buffer."""
     ctx._record_performance_diagnostic("pixel_readback")
     ctx._record_performance_diagnostic("pixel_list_conversion")
     pixels = ctx.renderer.load_pixels()
@@ -20,14 +34,16 @@ def load_pixels(ctx: Any) -> PixelBuffer:
     return pixels
 
 
-def load_pixel_bytes(ctx: Any) -> bytes:
+def load_pixel_bytes(ctx: PixelContextMixin) -> bytes:
+    """Read the full canvas as immutable RGBA bytes."""
     ctx._record_performance_diagnostic("pixel_readback")
     pixels = ctx.renderer.load_pixel_bytes()
     ctx._last_pixel_bytes = pixels
     return pixels
 
 
-def update_pixels(ctx: Any, pixels: Sequence[int] | Buffer | None = None) -> None:
+def update_pixels(ctx: PixelContextMixin, pixels: Sequence[int] | Buffer | None = None) -> None:
+    """Upload the context pixel buffer, using dirty ranges when available."""
     if pixels is not None:
         if (
             isinstance(pixels, memoryview)
@@ -62,14 +78,14 @@ def update_pixels(ctx: Any, pixels: Sequence[int] | Buffer | None = None) -> Non
 
 
 def update_dirty_pixel_range(
-    ctx: Any,
+    ctx: PixelContextMixin,
     pixels: Sequence[int] | Buffer,
     dirty: tuple[int, int],
 ) -> bool:
-    try:
-        buffer_length = len(cast(Any, pixels))
-    except TypeError:
+    """Upload only the dirty byte range from a pixel buffer when it is valid."""
+    if not isinstance(pixels, Sized):
         return False
+    buffer_length = len(pixels)
     region = dirty_pixel_region(
         buffer_length,
         int(ctx.state.canvas.physical_width),
@@ -97,12 +113,13 @@ def update_dirty_pixel_range(
 
 
 def get_pixel(
-    ctx: Any,
+    ctx: PixelContextMixin,
     x: int | None = None,
     y: int | None = None,
     w: int | None = None,
     h: int | None = None,
 ) -> Color | Image:
+    """Read a single pixel, image region, or full-canvas image from the canvas."""
     if x is None and y is None:
         return ctx._canvas_image()
     if x is None or y is None:
@@ -125,11 +142,12 @@ def get_pixel(
 
 
 def set_pixel(
-    ctx: Any,
+    ctx: PixelContextMixin,
     x: int,
     y: int,
     value: Color | tuple[int, int, int] | tuple[int, int, int, int] | Image,
 ) -> None:
+    """Write one color or image patch into the canvas pixel buffer."""
     density = ctx.state.canvas.pixel_density
     px = int(round(x * density))
     py = int(round(y * density))
@@ -161,7 +179,8 @@ def set_pixel(
     ctx.pixels = []
 
 
-def copy_pixels(ctx: Any, *args: Any) -> Image | None:
+def copy_pixels(ctx: PixelContextMixin, *args: CopyArg) -> Image | None:
+    """Implement the overloaded copy() pixel-region forms."""
     if len(args) == 0:
         return ctx.get()
     if isinstance(args[0], Image):
@@ -170,15 +189,15 @@ def copy_pixels(ctx: Any, *args: Any) -> Image | None:
                 "copy(image, sx, sy, sw, sh, dx, dy, dw, dh) requires nine arguments."
             )
         source = args[0]
-        sx, sy, sw, sh, dx, dy, dw, dh = copy_ints(args[1:])
+        sx, sy, sw, sh, dx, dy, dw, dh = copy_pixel_ints(args[1:])
         patch = source.copy(sx, sy, sw, sh, 0, 0, dw, dh)
         ctx.set(dx, dy, patch)
         return None
     if len(args) == 4:
-        sx, sy, sw, sh = copy_ints(args)
+        sx, sy, sw, sh = copy_pixel_ints(args)
         return ctx.get(sx, sy, sw, sh)
     if len(args) == 8:
-        sx, sy, sw, sh, dx, dy, dw, dh = copy_ints(args)
+        sx, sy, sw, sh, dx, dy, dw, dh = copy_pixel_ints(args)
         patch = ctx.get(sx, sy, sw, sh)
         if not isinstance(patch, Image):
             raise ArgumentValidationError("copy() source region must produce an Image.")
@@ -188,7 +207,8 @@ def copy_pixels(ctx: Any, *args: Any) -> Image | None:
     raise ArgumentValidationError("copy() accepts 0, 4, 8, or image plus 8 numeric arguments.")
 
 
-def canvas_image(ctx: Any) -> Image:
+def canvas_image(ctx: PixelContextMixin) -> Image:
+    """Build an Image snapshot from the current physical canvas pixels."""
     ctx._record_performance_diagnostic("cpu_compositing_fallback")
     pixels = ctx.load_pixels()
     return Image(
@@ -198,7 +218,8 @@ def canvas_image(ctx: Any) -> Image:
     )
 
 
-def pixel_array(ctx: Any) -> list[list[tuple[int, int, int, int]]]:
+def pixel_array(ctx: PixelContextMixin) -> list[list[tuple[int, int, int, int]]]:
+    """Return loaded pixels as rows of RGBA tuples for compatibility helpers."""
     pixels = cast(Sequence[int], ctx.pixels or ctx.load_pixels())
     width = ctx.state.canvas.physical_width
     rows: list[list[tuple[int, int, int, int]]] = []

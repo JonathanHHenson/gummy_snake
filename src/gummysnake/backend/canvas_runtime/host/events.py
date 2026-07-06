@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Iterable, Mapping
-from typing import TYPE_CHECKING, Any, cast
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, cast
 
 from gummysnake.backend.canvas_runtime import events as canvas_events
 from gummysnake.backend.canvas_runtime.host._protocols import CanvasBackendHost
@@ -14,6 +14,7 @@ from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityErro
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
 
 if TYPE_CHECKING:
+    from gummysnake.context import SketchContext
     from gummysnake.sketch import Sketch
 
 _TEXTURE_LIMIT_RE = re.compile(r"GPU texture limit of (\d+)")
@@ -33,6 +34,8 @@ def _backend(self: object) -> CanvasBackendHost:
 
 
 class CanvasBackendEventsMixin:
+    """Translate Rust canvas runtime events into Gummy Snake input callbacks."""
+
     def _dispatch_pending_events(self, sketch: Sketch) -> None:
         canvas = _backend(self).renderer.runtime_canvas()
         poll_events = getattr(canvas, "poll_events", None)
@@ -47,10 +50,12 @@ class CanvasBackendEventsMixin:
             _backend(self)._record_pacing_duration("event_poll", poll_duration_ms)
         if not isinstance(events, Iterable):
             raise BackendCapabilityError("Canvas poll_events() must return an iterable.")
-        for payload in cast(Iterable[object], events):
+        for payload in cast(Iterable[canvas_events.CanvasEventSource], events):
             self._dispatch_canvas_event(sketch, payload)
 
-    def _dispatch_canvas_event(self, sketch: Sketch, payload: object) -> None:
+    def _dispatch_canvas_event(
+        self, sketch: Sketch, payload: canvas_events.CanvasEventSource
+    ) -> None:
         context = _backend(self)._sketch_context(sketch)
         event_payload = canvas_events.event_mapping(payload)
         event_type = str(event_payload.get("type", ""))
@@ -61,40 +66,40 @@ class CanvasBackendEventsMixin:
         handler(sketch, context, event_payload)
 
     def _dispatch_mouse_canvas_event(
-        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+        self, sketch: Sketch, context: SketchContext, payload: canvas_events.CanvasEventPayload
     ) -> None:
         context.dispatch_mouse_event(self._mouse_event(payload))
 
     def _dispatch_mouse_window_state_event(
-        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+        self, sketch: Sketch, context: SketchContext, payload: canvas_events.CanvasEventPayload
     ) -> None:
         context.update_mouse_inside_window(
             canvas_events.bool_payload(payload, "inside_window", default=False)
         )
 
     def _dispatch_keyboard_canvas_event(
-        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+        self, sketch: Sketch, context: SketchContext, payload: canvas_events.CanvasEventPayload
     ) -> None:
         context.dispatch_keyboard_event(self._keyboard_event(payload))
 
     def _dispatch_touch_canvas_event(
-        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+        self, sketch: Sketch, context: SketchContext, payload: canvas_events.CanvasEventPayload
     ) -> None:
         context.dispatch_touch_event(self._touch_event(payload, context))
 
     def _dispatch_resize_canvas_event(
-        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+        self, sketch: Sketch, context: SketchContext, payload: canvas_events.CanvasEventPayload
     ) -> None:
         self._handle_resize_event(payload)
         context._sync_canvas_state()
 
     def _dispatch_close_canvas_event(
-        self, sketch: Sketch, context: Any, payload: Mapping[str, object]
+        self, sketch: Sketch, context: SketchContext, payload: canvas_events.CanvasEventPayload
     ) -> None:
         sketch.stop()
         _backend(self).stop()
 
-    def _mouse_event(self, payload: Mapping[str, object]) -> MouseEvent:
+    def _mouse_event(self, payload: canvas_events.CanvasEventPayload) -> MouseEvent:
         x = canvas_events.float_payload(payload, "x", default=0.0)
         y = canvas_events.float_payload(payload, "y", default=0.0)
         dx = canvas_events.float_payload(payload, "dx", default=0.0)
@@ -124,7 +129,7 @@ class CanvasBackendEventsMixin:
             type=str(payload["type"]),
         )
 
-    def _keyboard_event(self, payload: Mapping[str, object]) -> KeyboardEvent:
+    def _keyboard_event(self, payload: canvas_events.CanvasEventPayload) -> KeyboardEvent:
         key = payload.get("key")
         text = payload.get("text")
         key_text = text if payload.get("type") == "key_typed" and text is not None else key
@@ -142,7 +147,9 @@ class CanvasBackendEventsMixin:
             type=str(payload["type"]),
         )
 
-    def _touch_event(self, payload: Mapping[str, object], context: Any) -> TouchEvent:
+    def _touch_event(
+        self, payload: canvas_events.CanvasEventPayload, context: SketchContext
+    ) -> TouchEvent:
         touch_id = canvas_events.int_payload(payload, "id")
         x = canvas_events.float_payload(payload, "x", default=0.0)
         y = canvas_events.float_payload(payload, "y", default=0.0)
@@ -168,7 +175,7 @@ class CanvasBackendEventsMixin:
             touches=touches, changed_touches=[changed_touch], type=str(payload["type"])
         )
 
-    def _handle_resize_event(self, payload: Mapping[str, object]) -> None:
+    def _handle_resize_event(self, payload: canvas_events.CanvasEventPayload) -> None:
         width = canvas_events.int_payload(payload, "width")
         height = canvas_events.int_payload(payload, "height")
         pixel_density = canvas_events.float_payload(

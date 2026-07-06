@@ -290,6 +290,14 @@ class AudioVideoCapture:
 
 
 def create_video(path: str | Path) -> Video:
+    """Open a video file for frame-by-frame reading.
+
+    Args:
+        path: File path to an existing video.
+
+    Returns:
+        A Video stream ready to play, seek, and read frames.
+    """
     video_path = Path(path).expanduser()
     if not video_path.exists():
         raise ArgumentValidationError(f"Video file does not exist: {video_path!s}.")
@@ -302,6 +310,14 @@ def create_video(path: str | Path) -> Video:
 
 
 async def create_video_async(path: str | Path) -> Video:
+    """Open a video file using the async asset-loading API.
+
+    Args:
+        path: File path to an existing video.
+
+    Returns:
+        A Video stream ready to play, seek, and read frames.
+    """
     return create_video(path)
 
 
@@ -312,6 +328,17 @@ def create_capture(
     width: int | None = None,
     height: int | None = None,
 ) -> Capture | AudioInput | AudioVideoCapture:
+    """Open a camera, microphone, or combined capture stream.
+
+    Args:
+        kind: Capture type: "video"/"camera", "audio"/"microphone", or "av".
+        device: Camera device index or name.
+        width: Optional requested camera frame width.
+        height: Optional requested camera frame height.
+
+    Returns:
+        A Capture, AudioInput, or AudioVideoCapture for the requested input.
+    """
     normalized_kind = kind.lower()
     if normalized_kind in _AUDIO_KINDS:
         audio = create_audio_in()
@@ -346,6 +373,17 @@ async def create_capture_async(
     width: int | None = None,
     height: int | None = None,
 ) -> Capture | AudioInput | AudioVideoCapture:
+    """Open a capture stream using the async asset-loading API.
+
+    Args:
+        kind: Capture type: "video"/"camera", "audio"/"microphone", or "av".
+        device: Camera device index or name.
+        width: Optional requested camera frame width.
+        height: Optional requested camera frame height.
+
+    Returns:
+        A Capture, AudioInput, or AudioVideoCapture for the requested input.
+    """
     return create_capture(kind, device=device, width=width, height=height)
 
 

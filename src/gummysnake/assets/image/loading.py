@@ -11,6 +11,14 @@ from gummysnake.exceptions import ArgumentValidationError
 
 
 def load_image(path: str | Path) -> Image:
+    """Load an image file for drawing in a sketch.
+
+    Args:
+        path: File path to the image, relative to the sketch or project.
+
+    Returns:
+        An ``Image`` object ready for ``image()`` and pixel operations.
+    """
     image_path = resolve_asset_path(path)
     if not image_path.exists():
         raise ArgumentValidationError(f"Image file does not exist: {image_path!s}.")
@@ -22,10 +30,27 @@ def load_image(path: str | Path) -> Image:
 
 
 async def load_image_async(path: str | Path) -> Image:
+    """Load an image file from async sketch code.
+
+    Args:
+        path: File path to the image, relative to the sketch or project.
+
+    Returns:
+        An ``Image`` object ready for ``image()`` and pixel operations.
+    """
     return load_image(path)
 
 
 def create_image(width: int, height: int) -> Image:
+    """Create a blank image with transparent pixels.
+
+    Args:
+        width: Image width in pixels.
+        height: Image height in pixels.
+
+    Returns:
+        A new mutable ``Image``.
+    """
     return Image(int(width), int(height))
 
 

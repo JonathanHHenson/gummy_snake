@@ -31,6 +31,7 @@ type Unset = Literal[_Unset.TOKEN]
 
 
 def style_color_args(value: ColorArgument) -> tuple[Color | str | Number, ...]:
+    """Turn a color value into arguments for fill and stroke calls."""
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         return cast(tuple[Color | str | Number, ...], tuple(value))
     return cast(tuple[Color | str | Number, ...], (value,))
@@ -45,6 +46,7 @@ def xy(value: Number, y: Number) -> tuple[float, float]: ...
 
 
 def xy(value: CoordinatePair | Number, y: Number | None = None) -> tuple[float, float]:
+    """Convert a point, pair, or separate numbers into an ``(x, y)`` tuple."""
     if y is not None:
         return float(cast(float, value)), float(y)
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):

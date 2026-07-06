@@ -11,6 +11,7 @@ from gummysnake.assets.gpu import (
     ComputeShader,
     Number,
     StorageBuffer,
+    WebGpuContextInfo,
 )
 from gummysnake.assets.gpu import (
     create_compute_shader as _create_compute_shader,
@@ -116,7 +117,7 @@ class SketchFacadeCanvasMixin(SketchFacadeBaseMixin):
     ) -> None:
         _dispatch_compute(shader, x, y, z, **buffers)
 
-    def webgpu_context(self) -> dict[str, object]:
+    def webgpu_context(self) -> WebGpuContextInfo:
         return _webgpu_context()
 
     def resize_canvas(self, width: int, height: int, *, pixel_density: float | None = None) -> None:

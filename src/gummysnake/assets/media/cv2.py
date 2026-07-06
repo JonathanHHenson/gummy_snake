@@ -3,14 +3,33 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from types import ModuleType
+from typing import Protocol
 
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
 
+class CaptureLike(Protocol):
+    """Subset of OpenCV capture objects used by Gummy Snake."""
+
+    def set(self, prop: int, value: int) -> object: ...
+
+    def isOpened(self) -> bool: ...
+
+    def release(self) -> object: ...
+
+
 def set_capture_dimensions(
-    capture: Any, cv2_module: Any, *, width: int | None, height: int | None
+    capture: CaptureLike, cv2_module: ModuleType, *, width: int | None, height: int | None
 ) -> None:
+    """Request capture dimensions on an OpenCV capture object.
+
+    Args:
+        capture: OpenCV-style capture object.
+        cv2_module: Imported ``cv2`` module used for property constants.
+        width: Optional requested frame width.
+        height: Optional requested frame height.
+    """
     set_prop = getattr(capture, "set", None)
     if not callable(set_prop):
         return
@@ -28,18 +47,36 @@ def set_capture_dimensions(
             set_prop(prop, int(height))
 
 
-def capture_is_open(capture: Any) -> bool:
+def capture_is_open(capture: CaptureLike) -> bool:
+    """Return whether an OpenCV capture object is open.
+
+    Args:
+        capture: OpenCV-style capture object.
+
+    Returns:
+        ``True`` when the capture reports that it is open.
+    """
     is_opened = getattr(capture, "isOpened", None)
     return bool(is_opened()) if callable(is_opened) else False
 
 
-def release_capture(capture: Any) -> None:
+def release_capture(capture: CaptureLike) -> None:
+    """Release an OpenCV capture object if it supports release.
+
+    Args:
+        capture: OpenCV-style capture object.
+    """
     release = getattr(capture, "release", None)
     if callable(release):
         release()
 
 
-def load_cv2_module() -> Any:
+def load_cv2_module() -> ModuleType:
+    """Import OpenCV or raise a Gummy Snake capability error.
+
+    Returns:
+        The imported ``cv2`` module.
+    """
     try:
         return import_module("cv2")
     except Exception as exc:  # pragma: no cover - import failure depends on environment
@@ -49,4 +86,10 @@ def load_cv2_module() -> Any:
         ) from exc
 
 
-__all__ = ["capture_is_open", "load_cv2_module", "release_capture", "set_capture_dimensions"]
+__all__ = [
+    "CaptureLike",
+    "capture_is_open",
+    "load_cv2_module",
+    "release_capture",
+    "set_capture_dimensions",
+]

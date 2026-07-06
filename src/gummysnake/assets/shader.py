@@ -10,6 +10,15 @@ from gummysnake.exceptions import ArgumentValidationError
 
 
 def load_shader(vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
+    """Load vertex and fragment shader source files.
+
+    Args:
+        vertex_path: File path to the vertex shader source.
+        fragment_path: File path to the fragment shader source.
+
+    Returns:
+        A ``Shader3D`` value containing both shader sources.
+    """
     vertex_file = resolve_asset_path(vertex_path)
     fragment_file = resolve_asset_path(fragment_path)
     try:
@@ -33,10 +42,28 @@ def load_shader(vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
 
 
 async def load_shader_async(vertex_path: str | Path, fragment_path: str | Path) -> Shader3D:
+    """Load vertex and fragment shader files from async sketch code.
+
+    Args:
+        vertex_path: File path to the vertex shader source.
+        fragment_path: File path to the fragment shader source.
+
+    Returns:
+        A ``Shader3D`` value containing both shader sources.
+    """
     return load_shader(vertex_path, fragment_path)
 
 
 def create_shader(vertex_source: str, fragment_source: str) -> Shader3D:
+    """Create a shader from source strings.
+
+    Args:
+        vertex_source: Vertex shader source code.
+        fragment_source: Fragment shader source code.
+
+    Returns:
+        A ``Shader3D`` value containing both shader sources.
+    """
     if not isinstance(vertex_source, str) or not vertex_source.strip():
         raise ArgumentValidationError("create_shader() requires non-empty vertex shader source.")
     if not isinstance(fragment_source, str) or not fragment_source.strip():

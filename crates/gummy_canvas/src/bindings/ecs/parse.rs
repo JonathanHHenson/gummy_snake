@@ -83,6 +83,13 @@ fn parse_f64_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<f64>> {
     parse_list(value, field, |item| item.extract::<f64>())
 }
 
+fn entity_from_parts(index: Bound<'_, PyAny>, generation: Bound<'_, PyAny>) -> PyResult<Entity> {
+    Ok(Entity {
+        index: index.extract::<u32>()?,
+        generation: generation.extract::<u32>()?,
+    })
+}
+
 fn parse_entity_payload(value: Bound<'_, PyAny>) -> PyResult<Entity> {
     if let Ok(tuple) = value.downcast::<PyTuple>() {
         if tuple.len() != 2 {
@@ -90,10 +97,7 @@ fn parse_entity_payload(value: Bound<'_, PyAny>) -> PyResult<Entity> {
                 "ECS entity handle tuples must contain (index, generation)",
             ));
         }
-        return Ok(Entity {
-            index: tuple.get_item(0)?.extract::<u32>()?,
-            generation: tuple.get_item(1)?.extract::<u32>()?,
-        });
+        return entity_from_parts(tuple.get_item(0)?, tuple.get_item(1)?);
     }
     if let Ok(list) = value.downcast::<PyList>() {
         if list.len() != 2 {
@@ -101,10 +105,7 @@ fn parse_entity_payload(value: Bound<'_, PyAny>) -> PyResult<Entity> {
                 "ECS entity handle lists must contain [index, generation]",
             ));
         }
-        return Ok(Entity {
-            index: list.get_item(0)?.extract::<u32>()?,
-            generation: list.get_item(1)?.extract::<u32>()?,
-        });
+        return entity_from_parts(list.get_item(0)?, list.get_item(1)?);
     }
     let dict = require_dict(&value, "ECS entity handles must be tuples, lists, or dicts")?;
     Ok(Entity {

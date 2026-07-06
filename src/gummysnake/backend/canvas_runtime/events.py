@@ -3,10 +3,21 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Protocol, cast
 
 from gummysnake import constants as c
 from gummysnake.exceptions import BackendCapabilityError
+
+type CanvasEventValue = None | bool | int | float | str
+type CanvasEventPayload = Mapping[str, CanvasEventValue]
+
+
+class _CanvasEventRecord(Protocol):
+    def as_dict(self) -> CanvasEventPayload: ...
+
+
+type CanvasEventSource = CanvasEventPayload | _CanvasEventRecord
+
 
 MOUSE_EVENT_TYPES = {
     "mouse_moved",
@@ -21,7 +32,7 @@ MOUSE_EVENT_TYPES = {
 KEYBOARD_EVENT_TYPES = {"key_pressed", "key_released", "key_typed"}
 TOUCH_EVENT_TYPES = {"touch_started", "touch_moved", "touch_ended", "touch_cancelled"}
 
-SPECIAL_KEY_CODES = {
+SPECIAL_KEY_CODES: dict[str, int] = {
     "space": ord(" "),
     "spacebar": ord(" "),
     "backspace": c.BACKSPACE,
@@ -49,7 +60,7 @@ SPECIAL_KEY_CODES = {
     "right_arrow": c.RIGHT_ARROW,
 }
 
-MOUSE_BUTTONS = {
+MOUSE_BUTTONS: dict[str | int | float, str] = {
     "left": c.LEFT_BUTTON,
     "primary": c.LEFT_BUTTON,
     "1": c.LEFT_BUTTON,
@@ -65,68 +76,74 @@ MOUSE_BUTTONS = {
 }
 
 
-def event_mapping(payload: object) -> Mapping[str, object]:
+def event_mapping(payload: CanvasEventSource) -> CanvasEventPayload:
+    """Return a plain mapping for a Rust canvas event payload."""
     if isinstance(payload, Mapping):
-        return cast(Mapping[str, object], payload)
+        return cast(CanvasEventPayload, payload)
     as_dict = getattr(payload, "as_dict", None)
     if callable(as_dict):
         value = as_dict()
         if isinstance(value, Mapping):
-            return cast(Mapping[str, object], value)
+            return cast(CanvasEventPayload, value)
     raise BackendCapabilityError("Canvas runtime events must be mappings or expose as_dict().")
 
 
 def float_payload(
-    payload: Mapping[str, object],
+    payload: CanvasEventPayload,
     key: str,
     *,
     default: float | None = None,
 ) -> float:
-    value: Any = payload.get(key, default)
+    """Read a required or defaulted event field as a float."""
+    value = payload.get(key, default)
     if value is None:
         raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
     return float(value)
 
 
 def int_payload(
-    payload: Mapping[str, object],
+    payload: CanvasEventPayload,
     key: str,
     *,
     default: int | None = None,
 ) -> int:
-    value: Any = payload.get(key, default)
+    """Read a required or defaulted event field as an integer."""
+    value = payload.get(key, default)
     if value is None:
         raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
     return int(value)
 
 
 def bool_payload(
-    payload: Mapping[str, object],
+    payload: CanvasEventPayload,
     key: str,
     *,
     default: bool | None = None,
 ) -> bool:
-    value: Any = payload.get(key, default)
+    """Read a required or defaulted event field as a boolean."""
+    value = payload.get(key, default)
     if value is None:
         raise BackendCapabilityError(f"Canvas event payload is missing {key!r}.")
     return bool_value(value)
 
 
-def optional_int(value: object) -> int | None:
-    raw_value: Any = value
-    return None if raw_value is None else int(raw_value)
+def optional_int(value: CanvasEventValue) -> int | None:
+    """Convert a nullable event value to an integer."""
+    return None if value is None else int(value)
 
 
-def optional_float(value: object) -> float | None:
-    raw_value: Any = value
-    return None if raw_value is None else float(raw_value)
+def optional_float(value: CanvasEventValue) -> float | None:
+    """Convert a nullable event value to a float."""
+    return None if value is None else float(value)
 
 
-def optional_bool(value: object) -> bool | None:
+def optional_bool(value: CanvasEventValue) -> bool | None:
+    """Convert a nullable event value to a boolean."""
     return None if value is None else bool_value(value)
 
 
-def bool_value(value: object) -> bool:
+def bool_value(value: CanvasEventValue) -> bool:
+    """Interpret common string and numeric event values as booleans."""
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
@@ -134,7 +151,8 @@ def bool_value(value: object) -> bool:
     return bool(value)
 
 
-def normalize_mouse_button(button: object) -> str | None:
+def normalize_mouse_button(button: CanvasEventValue) -> str | None:
+    """Map a canvas runtime mouse button value to Gummy Snake's button names."""
     if button is None:
         return None
     normalized = MOUSE_BUTTONS.get(button)
@@ -143,7 +161,8 @@ def normalize_mouse_button(button: object) -> str | None:
     return MOUSE_BUTTONS.get(str(button).lower(), str(button))
 
 
-def normalize_key_code(key_code: object, key: str | None = None) -> int | None:
+def normalize_key_code(key_code: CanvasEventValue, key: str | None = None) -> int | None:
+    """Map a canvas runtime key code value to a public keyboard code."""
     if key_code is None:
         if key is not None and len(key) == 1:
             return ord(key)

@@ -4,30 +4,47 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING
 
 from gummysnake import constants as c
 from gummysnake.exceptions import ArgumentValidationError
 
+if TYPE_CHECKING:
+    from gummysnake.context_mixins.shapes import ShapeContextMixin
 
-def begin_shape(ctx: Any, kind: c.ShapeKind | None = None) -> None:
+
+def _require_shape_active(ctx: ShapeContextMixin, message: str) -> None:
+    if not ctx.state.rust.shape_active:
+        raise ArgumentValidationError(message)
+
+
+def _require_contour_closed(ctx: ShapeContextMixin, message: str) -> None:
+    if ctx.state.rust.contour_active:
+        raise ArgumentValidationError(message)
+
+
+def begin_shape(ctx: ShapeContextMixin, kind: c.ShapeKind | None = None) -> None:
+    """Begin recording vertices for a shape path."""
     if ctx.state.rust.shape_active:
         raise ArgumentValidationError("begin_shape() cannot be nested.")
     ctx.state.rust.begin_shape_capture(None if kind is None else kind.value)
 
 
-def reset_shape_capture(ctx: Any) -> None:
+def reset_shape_capture(ctx: ShapeContextMixin) -> None:
+    """Clear any active shape capture state."""
     ctx.state.rust.reset_shape_capture()
 
 
-def active_shape_vertices(ctx: Any) -> list[tuple[float, float]]:
+def active_shape_vertices(ctx: ShapeContextMixin) -> list[tuple[float, float]]:
+    """Return vertices currently recorded for the active shape."""
     return [tuple(point) for point in ctx.state.rust.active_vertices()]
 
 
 @contextmanager
 def shape(
-    ctx: Any, mode: c.ArcMode = c.OPEN, *, kind: c.ShapeKind | None = None
+    ctx: ShapeContextMixin, mode: c.ArcMode = c.OPEN, *, kind: c.ShapeKind | None = None
 ) -> Generator[None]:
+    """Context manager that begins and finalizes a captured shape."""
     ctx.begin_shape(kind)
     completed = False
     try:
@@ -39,39 +56,37 @@ def shape(
             ctx._reset_shape_capture()
 
 
-def vertex(ctx: Any, x: float, y: float) -> None:
-    if not ctx.state.rust.shape_active:
-        raise ArgumentValidationError(
-            "vertex() must be called between begin_shape() and end_shape()."
-        )
+def vertex(ctx: ShapeContextMixin, x: float, y: float) -> None:
+    """Add a straight vertex to the active shape."""
+    _require_shape_active(ctx, "vertex() must be called between begin_shape() and end_shape().")
     ctx.state.rust.add_vertex(float(x), float(y))
 
 
 def bezier_vertex(
-    ctx: Any, x2: float, y2: float, x3: float, y3: float, x4: float, y4: float
+    ctx: ShapeContextMixin, x2: float, y2: float, x3: float, y3: float, x4: float, y4: float
 ) -> None:
-    if not ctx.state.rust.shape_active:
-        raise ArgumentValidationError(
-            "bezier_vertex() must be called between begin_shape() and end_shape()."
-        )
+    """Add a cubic Bézier segment to the active shape."""
+    _require_shape_active(
+        ctx, "bezier_vertex() must be called between begin_shape() and end_shape()."
+    )
     ctx.state.rust.add_cubic_vertex(
         float(x2), float(y2), float(x3), float(y3), float(x4), float(y4)
     )
 
 
-def quadratic_vertex(ctx: Any, cx: float, cy: float, x3: float, y3: float) -> None:
-    if not ctx.state.rust.shape_active:
-        raise ArgumentValidationError(
-            "quadratic_vertex() must be called between begin_shape() and end_shape()."
-        )
+def quadratic_vertex(ctx: ShapeContextMixin, cx: float, cy: float, x3: float, y3: float) -> None:
+    """Add a quadratic Bézier segment to the active shape."""
+    _require_shape_active(
+        ctx, "quadratic_vertex() must be called between begin_shape() and end_shape()."
+    )
     ctx.state.rust.add_quadratic_vertex(float(cx), float(cy), float(x3), float(y3))
 
 
-def spline_vertex(ctx: Any, x: float, y: float) -> None:
-    if not ctx.state.rust.shape_active:
-        raise ArgumentValidationError(
-            "spline_vertex() must be called between begin_shape() and end_shape()."
-        )
+def spline_vertex(ctx: ShapeContextMixin, x: float, y: float) -> None:
+    """Add a spline-smoothed segment to the active shape."""
+    _require_shape_active(
+        ctx, "spline_vertex() must be called between begin_shape() and end_shape()."
+    )
     vertices = ctx._active_shape_vertices()
     point = (float(x), float(y))
     if not vertices:
@@ -96,11 +111,10 @@ def spline_vertex(ctx: Any, x: float, y: float) -> None:
     )
 
 
-def end_shape(ctx: Any, mode: c.ArcMode = c.OPEN) -> None:
-    if not ctx.state.rust.shape_active:
-        raise ArgumentValidationError("end_shape() requires begin_shape().")
-    if ctx.state.rust.contour_active:
-        raise ArgumentValidationError("end_shape() requires end_contour() first.")
+def end_shape(ctx: ShapeContextMixin, mode: c.ArcMode = c.OPEN) -> None:
+    """Finish the active shape and send it to the renderer."""
+    _require_shape_active(ctx, "end_shape() requires begin_shape().")
+    _require_contour_closed(ctx, "end_shape() requires end_contour() first.")
     draw_captured = getattr(ctx.renderer, "draw_captured_shape", None)
     if callable(draw_captured):
         draw_captured(
@@ -132,11 +146,10 @@ def end_shape(ctx: Any, mode: c.ArcMode = c.OPEN) -> None:
         ctx._reset_shape_capture()
 
 
-def begin_contour(ctx: Any) -> None:
-    if not ctx.state.rust.shape_active:
-        raise ArgumentValidationError("begin_contour() requires begin_shape().")
-    if ctx.state.rust.contour_active:
-        raise ArgumentValidationError("begin_contour() cannot be nested.")
+def begin_contour(ctx: ShapeContextMixin) -> None:
+    """Begin an interior contour for the active freeform shape."""
+    _require_shape_active(ctx, "begin_contour() requires begin_shape().")
+    _require_contour_closed(ctx, "begin_contour() cannot be nested.")
     if ctx.state.rust.shape_kind is not None:
         raise ArgumentValidationError(
             "begin_contour() is supported only for freeform begin_shape() paths."
@@ -148,7 +161,8 @@ def begin_contour(ctx: Any) -> None:
     ctx.state.rust.begin_contour_capture()
 
 
-def end_contour(ctx: Any) -> None:
+def end_contour(ctx: ShapeContextMixin) -> None:
+    """Finish the active shape contour."""
     if not ctx.state.rust.shape_active or not ctx.state.rust.contour_active:
         raise ArgumentValidationError("end_contour() requires begin_contour().")
     if ctx.state.rust.contour_vertex_count() < 3:
@@ -157,7 +171,8 @@ def end_contour(ctx: Any) -> None:
 
 
 @contextmanager
-def contour(ctx: Any) -> Generator[None]:
+def contour(ctx: ShapeContextMixin) -> Generator[None]:
+    """Context manager that begins and finalizes a contour."""
     ctx.begin_contour()
     completed = False
     try:
@@ -169,17 +184,17 @@ def contour(ctx: Any) -> Generator[None]:
             ctx.state.rust.reset_contour_capture()
 
 
-def begin_clip(ctx: Any) -> None:
+def begin_clip(ctx: ShapeContextMixin) -> None:
+    """Begin recording a shape path to use as a clip mask."""
     if ctx.state.rust.shape_active:
         raise ArgumentValidationError("begin_clip() cannot be called inside begin_shape().")
     ctx.begin_shape()
 
 
-def clip(ctx: Any) -> None:
-    if not ctx.state.rust.shape_active:
-        raise ArgumentValidationError("clip() requires begin_clip().")
-    if ctx.state.rust.contour_active:
-        raise ArgumentValidationError("clip() requires end_contour() first.")
+def clip(ctx: ShapeContextMixin) -> None:
+    """Finish the active clip path and apply it to future drawing."""
+    _require_shape_active(ctx, "clip() requires begin_clip().")
+    _require_contour_closed(ctx, "clip() requires end_contour() first.")
     begin_clip_captured = getattr(ctx.renderer, "begin_clip_captured_shape", None)
     if callable(begin_clip_captured):
         begin_clip_captured(ctx.state.rust, ctx.state.transform.matrix)
@@ -194,12 +209,14 @@ def clip(ctx: Any) -> None:
         ctx._reset_shape_capture()
 
 
-def end_clip(ctx: Any) -> None:
+def end_clip(ctx: ShapeContextMixin) -> None:
+    """Remove the current renderer clip path."""
     ctx.renderer.end_clip()
 
 
 @contextmanager
-def clip_path(ctx: Any) -> Generator[None]:
+def clip_path(ctx: ShapeContextMixin) -> Generator[None]:
+    """Context manager that records and applies a clip path."""
     ctx.begin_clip()
     completed = False
     try:

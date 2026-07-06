@@ -20,15 +20,18 @@ from gummysnake.api.global_mode.helpers import (
 
 
 def push() -> None:
+    """Save the current drawing style and transform state."""
     require_context().push()
 
 
 def pop() -> None:
+    """Restore the most recently saved drawing style and transform state."""
     require_context().pop()
 
 
 @contextmanager
 def pushed() -> Generator[None]:
+    """Temporarily save drawing state for the body of a ``with`` block."""
     context = require_context()
     context.push()
     try:
@@ -50,6 +53,7 @@ def style(
     image_mode: c.ShapeMode | None = None,
     blend_mode: c.BlendMode | None = None,
 ) -> Generator[None]:
+    """Temporarily apply drawing style options inside a ``with`` block."""
     context = require_context()
     context.push()
     try:
@@ -87,6 +91,7 @@ def transform(
     rotate: float | None = None,
     scale: ScaleArgument | Unset = _UNSET,
 ) -> Generator[None]:
+    """Temporarily apply transform changes inside a ``with`` block."""
     context = require_context()
     context.push()
     try:
@@ -107,32 +112,40 @@ def transform(
 
 
 def translate(x: float, y: float) -> None:
+    """Move the drawing origin by ``x`` and ``y`` canvas units."""
     require_context().translate(x, y)
 
 
 def rotate(angle: float) -> None:
+    """Rotate future drawing by ``angle`` in the current angle mode."""
     require_context().rotate(angle)
 
 
 def scale(x: float, y: float | None = None) -> None:
+    """Resize future drawing horizontally and optionally vertically."""
     require_context().scale(x, y)
 
 
 def shear_x(angle: float) -> None:
+    """Slant future drawing along the x-axis by ``angle``."""
     require_context().shear_x(angle)
 
 
 def shear_y(angle: float) -> None:
+    """Slant future drawing along the y-axis by ``angle``."""
     require_context().shear_y(angle)
 
 
 def apply_matrix(a: float, b: float, c: float, d: float, e: float, f: float) -> None:
+    """Apply a custom 2D transform matrix to future drawing."""
     require_context().apply_matrix(a, b, c, d, e, f)
 
 
 def reset_matrix() -> None:
+    """Reset transforms so future drawing uses the default coordinate system."""
     require_context().reset_matrix()
 
 
 def angle_mode(mode: c.AngleMode) -> None:
+    """Choose whether angle values use radians or degrees."""
     require_context().angle_mode(mode)

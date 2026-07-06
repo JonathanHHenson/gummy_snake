@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from gummysnake import constants as c
-from gummysnake.context_mixins.helpers import blend_args
+from gummysnake.context_mixins.helpers import BlendArg, blend_args
+
+if TYPE_CHECKING:
+    from gummysnake.context_mixins.pixels import PixelContextMixin
 
 
-def filter_pixels(ctx: Any, mode: c.ImageFilter, value: float | None = None) -> None:
+def filter_pixels(ctx: PixelContextMixin, mode: c.ImageFilter, value: float | None = None) -> None:
+    """Apply an image filter to the current canvas pixels."""
     ctx._record_performance_diagnostic("gpu_region_effect_pass")
     ctx.renderer.filter_pixels(mode, value)
     ctx.pixels = []
 
 
-def blend_mode(ctx: Any, mode: c.BlendMode) -> None:
+def blend_mode(ctx: PixelContextMixin, mode: c.BlendMode) -> None:
+    """Set the blend mode after checking backend support."""
     if mode not in ctx.backend.capabilities.blend_modes:
         from gummysnake.exceptions import ArgumentValidationError
 
@@ -25,7 +30,8 @@ def blend_mode(ctx: Any, mode: c.BlendMode) -> None:
     ctx._mark_style_changed()
 
 
-def blend(ctx: Any, *args: Any) -> None:
+def blend(ctx: PixelContextMixin, *args: BlendArg) -> None:
+    """Blend a source region into a destination region on the canvas."""
     parsed = blend_args(
         args,
         ctx.backend.capabilities.blend_modes,
@@ -39,11 +45,13 @@ def blend(ctx: Any, *args: Any) -> None:
     )
 
 
-def erase(ctx: Any) -> None:
+def erase(ctx: PixelContextMixin) -> None:
+    """Enable erase mode for later drawing operations."""
     ctx.state.style.erasing = True
     ctx._mark_style_changed()
 
 
-def no_erase(ctx: Any) -> None:
+def no_erase(ctx: PixelContextMixin) -> None:
+    """Disable erase mode for later drawing operations."""
     ctx.state.style.erasing = False
     ctx._mark_style_changed()

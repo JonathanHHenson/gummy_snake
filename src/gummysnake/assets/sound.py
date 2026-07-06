@@ -294,6 +294,14 @@ class Sound:
 
 
 def load_sound(path: str | Path) -> Sound:
+    """Load a sound file for playback and byte access.
+
+    Args:
+        path: File path or package-relative asset path to an existing sound.
+
+    Returns:
+        A Sound object with playback controls and metadata.
+    """
     sound_path = resolve_asset_path(path)
     if not sound_path.exists():
         raise ArgumentValidationError(f"Sound file does not exist: {sound_path!s}.")
@@ -307,6 +315,14 @@ def load_sound(path: str | Path) -> Sound:
 
 
 async def load_sound_async(path: str | Path) -> Sound:
+    """Load a sound file using the async asset-loading API.
+
+    Args:
+        path: File path or package-relative asset path to an existing sound.
+
+    Returns:
+        A Sound object with playback controls and metadata.
+    """
     return load_sound(path)
 
 

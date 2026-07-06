@@ -48,6 +48,14 @@ class Font:
 
 
 def load_font(path: str | Path) -> Font:
+    """Load a font file for text drawing.
+
+    Args:
+        path: File path to the font, relative to the sketch or project.
+
+    Returns:
+        A ``Font`` value for ``text_font()`` and related text APIs.
+    """
     font_path = resolve_asset_path(path)
     if not font_path.exists():
         raise ArgumentValidationError(f"Font file does not exist: {font_path!s}.")
@@ -55,6 +63,14 @@ def load_font(path: str | Path) -> Font:
 
 
 async def load_font_async(path: str | Path) -> Font:
+    """Load a font file from async sketch code.
+
+    Args:
+        path: File path to the font, relative to the sketch or project.
+
+    Returns:
+        A ``Font`` value for ``text_font()`` and related text APIs.
+    """
     return load_font(path)
 
 

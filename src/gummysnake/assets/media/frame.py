@@ -2,14 +2,30 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any, cast
+from collections.abc import Callable, Sequence
+from typing import Protocol, cast
 
 from gummysnake.assets.image import Image
 from gummysnake.exceptions import BackendCapabilityError
 
 
-def frame_to_image(frame: Any) -> Image:
+class DecodedFrame(Protocol):
+    """Array-like decoded frame shape used by media helpers."""
+
+    shape: Sequence[int]
+
+    def tobytes(self) -> bytes: ...
+
+
+def frame_to_image(frame: DecodedFrame) -> Image:
+    """Convert a decoded grayscale/BGR/BGRA frame into a Gummy Snake image.
+
+    Args:
+        frame: Array-like decoded frame with ``shape`` and ``tobytes()``.
+
+    Returns:
+        An ``Image`` containing RGBA pixels converted by the Rust canvas runtime.
+    """
     shape = getattr(frame, "shape", None)
     if shape is None:
         raise BackendCapabilityError(
@@ -28,7 +44,18 @@ def frame_to_image(frame: Any) -> Image:
     raise BackendCapabilityError("Decoded media frames must have 1, 3, or 4 channels.")
 
 
-def convert_frame_bytes(frame: Any, width: int, height: int, channels: int) -> bytes:
+def convert_frame_bytes(frame: DecodedFrame, width: int, height: int, channels: int) -> bytes:
+    """Convert decoded frame bytes into RGBA bytes.
+
+    Args:
+        frame: Array-like decoded frame with contiguous byte data.
+        width: Frame width in pixels.
+        height: Frame height in pixels.
+        channels: Number of source channels: 1, 3, or 4.
+
+    Returns:
+        RGBA bytes produced by the Rust canvas runtime.
+    """
     tobytes = getattr(frame, "tobytes", None)
     if not callable(tobytes):
         raise BackendCapabilityError(
@@ -47,4 +74,4 @@ def convert_frame_bytes(frame: Any, width: int, height: int, channels: int) -> b
         ) from exc
 
 
-__all__ = ["convert_frame_bytes", "frame_to_image"]
+__all__ = ["DecodedFrame", "convert_frame_bytes", "frame_to_image"]

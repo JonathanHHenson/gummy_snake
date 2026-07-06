@@ -61,24 +61,31 @@ class Color:
                 )
 
     def to_tuple(self) -> tuple[int, int, int, int]:
+        """Return the color as red, green, blue, and alpha channels."""
         return self.r, self.g, self.b, self.a
 
     def __iter__(self) -> Iterator[int]:
+        """Iterate over red, green, blue, and alpha channels."""
         return iter(self.to_tuple())
 
     def with_red(self, red: Number) -> Color:
+        """Return a copy with a different red channel."""
         return Color(_to_u8(float(red)), self.g, self.b, self.a)
 
     def with_green(self, green: Number) -> Color:
+        """Return a copy with a different green channel."""
         return Color(self.r, _to_u8(float(green)), self.b, self.a)
 
     def with_blue(self, blue: Number) -> Color:
+        """Return a copy with a different blue channel."""
         return Color(self.r, self.g, _to_u8(float(blue)), self.a)
 
     def with_alpha(self, alpha: Number) -> Color:
+        """Return a copy with a different alpha channel."""
         return Color(self.r, self.g, self.b, _to_u8(float(alpha)))
 
     def contrast_ratio(self, other: Color) -> float:
+        """Return the WCAG contrast ratio between this color and another color."""
         first = _relative_luminance(self)
         second = _relative_luminance(other)
         lighter = max(first, second)
@@ -86,10 +93,12 @@ class Color:
         return (lighter + 0.05) / (darker + 0.05)
 
     def to_hex(self, *, include_alpha: bool = False) -> str:
+        """Return a CSS-style hexadecimal color string."""
         channels = (self.r, self.g, self.b, self.a) if include_alpha else (self.r, self.g, self.b)
         return "#" + "".join(f"{channel:02x}" for channel in channels)
 
     def to_rgb_string(self) -> str:
+        """Return a CSS-style rgb() or rgba() color string."""
         if self.a == 255:
             return f"rgb({self.r}, {self.g}, {self.b})"
         return f"rgba({self.r}, {self.g}, {self.b}, {self.a / 255:g})"
@@ -102,6 +111,7 @@ class Color:
         mode: c.ColorMode = c.RGB,
         ranges: tuple[Number, Number, Number, Number] = (255, 255, 255, 255),
     ) -> Color:
+        """Build a Color from grayscale, RGB/HSB/HSL, another Color, or a string."""
         values = tuple(args)
         if len(values) == 1 and isinstance(values[0], Color):
             return values[0]
@@ -162,6 +172,10 @@ def _parse_color_string(value: str) -> tuple[int, int, int, int]:
     raise ArgumentValidationError(f"Unknown color string {value!r}.")
 
 
+def _rgb_unit(value: Color) -> tuple[float, float, float]:
+    return value.r / 255.0, value.g / 255.0, value.b / 255.0
+
+
 def _relative_luminance(value: Color) -> float:
     def channel(component: int) -> float:
         normalized = component / 255.0
@@ -173,6 +187,7 @@ def _relative_luminance(value: Color) -> float:
 
 
 def lerp_color(start: Color, stop: Color, amount: Number) -> Color:
+    """Blend between two colors by a 0-to-1 amount."""
     t = float(amount)
     return Color(
         _to_u8(start.r + (stop.r - start.r) * t),
@@ -183,46 +198,51 @@ def lerp_color(start: Color, stop: Color, amount: Number) -> Color:
 
 
 def red(value: Color) -> int:
+    """Return the red channel of a color."""
     return value.r
 
 
 def green(value: Color) -> int:
+    """Return the green channel of a color."""
     return value.g
 
 
 def blue(value: Color) -> int:
+    """Return the blue channel of a color."""
     return value.b
 
 
 def alpha(value: Color) -> int:
+    """Return the alpha channel of a color."""
     return value.a
 
 
 def hue(value: Color) -> float:
-    h, _l, _s = colorsys.rgb_to_hls(value.r / 255.0, value.g / 255.0, value.b / 255.0)
+    """Return the color hue in degrees."""
+    h, _l, _s = colorsys.rgb_to_hls(*_rgb_unit(value))
     return h * 360.0
 
 
 def saturation(value: Color) -> float:
-    _h, s, _v = colorsys.rgb_to_hsv(value.r / 255.0, value.g / 255.0, value.b / 255.0)
+    """Return HSV saturation as a percentage."""
+    _h, s, _v = colorsys.rgb_to_hsv(*_rgb_unit(value))
     return s * 100.0
 
 
 def brightness(value: Color) -> float:
-    _h, _s, v = colorsys.rgb_to_hsv(value.r / 255.0, value.g / 255.0, value.b / 255.0)
+    """Return HSV brightness as a percentage."""
+    _h, _s, v = colorsys.rgb_to_hsv(*_rgb_unit(value))
     return v * 100.0
 
 
 def lightness(value: Color) -> float:
-    _h, lightness_value, _s = colorsys.rgb_to_hls(
-        value.r / 255.0,
-        value.g / 255.0,
-        value.b / 255.0,
-    )
+    """Return HSL lightness as a percentage."""
+    _h, lightness_value, _s = colorsys.rgb_to_hls(*_rgb_unit(value))
     return lightness_value * 100.0
 
 
 def palette_lerp(palette: Iterable[Color], amount: Number) -> Color:
+    """Pick an interpolated color from a color palette."""
     colors = tuple(palette)
     if not colors:
         raise ArgumentValidationError("palette_lerp() requires at least one color.")

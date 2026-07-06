@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from gummysnake import constants as c
 
+type Point2D = tuple[float, float]
+
 
 def resolve_rect(
     mode: c.ShapeMode,
@@ -12,6 +14,7 @@ def resolve_rect(
     w: float,
     h: float,
 ) -> tuple[float, float, float, float]:
+    """Resolve a rectangle command to top-left x/y plus width and height."""
     from gummysnake.constants import CENTER, CORNER, CORNERS, RADIUS
 
     if mode == CORNER:
@@ -33,25 +36,30 @@ def resolve_ellipse(
     w: float,
     h: float,
 ) -> tuple[float, float, float, float]:
+    """Resolve an ellipse command to top-left x/y plus width and height."""
     return resolve_rect(mode, x, y, w, h)
 
 
 def bezier_point(a: float, b: float, c: float, d: float, t: float) -> float:
+    """Evaluate a cubic Bézier coordinate at position t."""
     mt = 1.0 - t
     return mt**3 * a + 3 * mt**2 * t * b + 3 * mt * t**2 * c + t**3 * d
 
 
 def bezier_tangent(a: float, b: float, c: float, d: float, t: float) -> float:
+    """Evaluate a cubic Bézier tangent at position t."""
     mt = 1.0 - t
     return 3 * mt**2 * (b - a) + 6 * mt * t * (c - b) + 3 * t**2 * (d - c)
 
 
 def quadratic_point(a: float, b: float, c: float, t: float) -> float:
+    """Evaluate a quadratic Bézier coordinate at position t."""
     mt = 1.0 - t
     return mt**2 * a + 2 * mt * t * b + t**2 * c
 
 
 def spline_point(a: float, b: float, c: float, d: float, t: float, tightness: float = 0.0) -> float:
+    """Evaluate a spline coordinate at position t."""
     s = (1.0 - tightness) / 2.0
     t2 = t * t
     t3 = t2 * t
@@ -66,6 +74,7 @@ def spline_point(a: float, b: float, c: float, d: float, t: float, tightness: fl
 def spline_tangent(
     a: float, b: float, c: float, d: float, t: float, tightness: float = 0.0
 ) -> float:
+    """Evaluate a spline tangent at position t."""
     s = (1.0 - tightness) / 2.0
     t2 = t * t
     return (
@@ -77,14 +86,15 @@ def spline_tangent(
 
 
 def flatten_spline(
-    p0: tuple[float, float],
-    p1: tuple[float, float],
-    p2: tuple[float, float],
-    p3: tuple[float, float],
+    p0: Point2D,
+    p1: Point2D,
+    p2: Point2D,
+    p3: Point2D,
     *,
     tightness: float = 0.0,
     steps: int = 24,
-) -> list[tuple[float, float]]:
+) -> list[Point2D]:
+    """Approximate a spline segment with straight line points."""
     return [
         (
             spline_point(p0[0], p1[0], p2[0], p3[0], index / steps, tightness),
@@ -95,13 +105,14 @@ def flatten_spline(
 
 
 def flatten_cubic(
-    p0: tuple[float, float],
-    p1: tuple[float, float],
-    p2: tuple[float, float],
-    p3: tuple[float, float],
+    p0: Point2D,
+    p1: Point2D,
+    p2: Point2D,
+    p3: Point2D,
     *,
     steps: int = 24,
-) -> list[tuple[float, float]]:
+) -> list[Point2D]:
+    """Approximate a cubic Bézier segment with straight line points."""
     return [
         (
             bezier_point(p0[0], p1[0], p2[0], p3[0], index / steps),
@@ -112,12 +123,13 @@ def flatten_cubic(
 
 
 def flatten_quadratic(
-    p0: tuple[float, float],
-    p1: tuple[float, float],
-    p2: tuple[float, float],
+    p0: Point2D,
+    p1: Point2D,
+    p2: Point2D,
     *,
     steps: int = 24,
-) -> list[tuple[float, float]]:
+) -> list[Point2D]:
+    """Approximate a quadratic Bézier segment with straight line points."""
     return [
         (
             quadratic_point(p0[0], p1[0], p2[0], index / steps),

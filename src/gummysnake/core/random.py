@@ -17,10 +17,12 @@ _noise_falloff = 0.5
 
 
 def shared_rng() -> _random.Random:
+    """Return the shared random-number generator used by Gummy Snake helpers."""
     return _random_generator
 
 
 def random_seed(seed: int | float | str | bytes | bytearray | None) -> None:
+    """Set the seed used by random() and random_gaussian()."""
     _random_generator.seed(seed)
 
 
@@ -41,6 +43,7 @@ def random(low: Number, high: Number, /) -> float: ...
 
 
 def random(*args: object) -> float | object | None:
+    """Return a random float, a random range value, or a random sequence item."""
     if len(args) == 0:
         return _random_generator.random()
     if len(args) == 1:
@@ -63,15 +66,18 @@ def random(*args: object) -> float | object | None:
 
 
 def random_gaussian(mean: Number = 0, sd: Number = 1) -> float:
+    """Return a normally distributed random number."""
     return _random_generator.gauss(float(mean), float(sd))
 
 
 def noise_seed(seed: int) -> None:
+    """Set the seed used by the noise() helper."""
     global _noise_seed
     _noise_seed = int(seed)
 
 
 def noise_detail(octaves: int, falloff: Number | None = None) -> None:
+    """Set the octave count and optional falloff used by noise()."""
     global _noise_octaves, _noise_falloff
     if octaves < 1:
         msg = "noise_detail() octave count must be at least 1."
@@ -82,6 +88,7 @@ def noise_detail(octaves: int, falloff: Number | None = None) -> None:
 
 
 def noise(x: Number = 0, y: Number = 0, z: Number = 0) -> float:
+    """Return deterministic 3D Perlin-style noise at a coordinate."""
     return _noise_3d(
         float(x),
         float(y),

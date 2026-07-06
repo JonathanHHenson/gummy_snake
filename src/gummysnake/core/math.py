@@ -13,6 +13,7 @@ _angle_mode = c.RADIANS
 
 
 def set_angle_mode(mode: c.AngleMode) -> None:
+    """Choose whether trigonometry helpers read and return radians or degrees."""
     global _angle_mode
     if mode not in {c.RADIANS, c.DEGREES}:
         msg = f"Unsupported angle mode {mode!r}."
@@ -21,6 +22,7 @@ def set_angle_mode(mode: c.AngleMode) -> None:
 
 
 def get_angle_mode() -> c.AngleMode:
+    """Return the current angle mode used by trigonometry helpers."""
     return _angle_mode
 
 
@@ -40,6 +42,7 @@ def map_value(
     stop2: Number,
     within_bounds: bool = False,
 ) -> float:
+    """Map a number from one range into another range."""
     if stop1 == start1:
         msg = "map_value() input range cannot be zero."
         raise ValueError(msg)
@@ -54,18 +57,22 @@ def map_value(
 
 
 def constrain(value: Number, low: Number, high: Number) -> float:
+    """Clamp a number so it stays between low and high."""
     return max(float(low), min(float(high), float(value)))
 
 
 def norm(value: Number, start: Number, stop: Number) -> float:
+    """Convert a value in a range to a 0-to-1 percentage."""
     return map_value(value, start, stop, 0, 1)
 
 
 def lerp(start: Number, stop: Number, amount: Number) -> float:
+    """Linearly interpolate between start and stop by amount."""
     return float(start) + (float(stop) - float(start)) * float(amount)
 
 
 def dist(*values: Number) -> float:
+    """Return the 2D or 3D distance between two points."""
     if len(values) == 4:
         x1, y1, x2, y2 = values
         return math.hypot(float(x2) - float(x1), float(y2) - float(y1))
@@ -81,61 +88,79 @@ def dist(*values: Number) -> float:
 
 
 def mag(*values: Number) -> float:
+    """Return the length of a vector described by numeric components."""
     return math.sqrt(sum(float(value) ** 2 for value in values))
 
 
 def radians(degrees: Number) -> float:
+    """Convert an angle from degrees to radians."""
     return math.radians(float(degrees))
 
 
 def degrees(radians_value: Number) -> float:
+    """Convert an angle from radians to degrees."""
     return math.degrees(float(radians_value))
 
 
 def sin(angle: Number) -> float:
+    """Return the sine of an angle using the current angle mode."""
     return math.sin(_to_radians(angle))
 
 
 def cos(angle: Number) -> float:
+    """Return the cosine of an angle using the current angle mode."""
     return math.cos(_to_radians(angle))
 
 
 def tan(angle: Number) -> float:
+    """Return the tangent of an angle using the current angle mode."""
     return math.tan(_to_radians(angle))
 
 
 def asin(value: Number) -> float:
+    """Return the inverse sine using the current angle mode."""
     return _from_radians(math.asin(float(value)))
 
 
 def acos(value: Number) -> float:
+    """Return the inverse cosine using the current angle mode."""
     return _from_radians(math.acos(float(value)))
 
 
 def atan(value: Number) -> float:
+    """Return the inverse tangent using the current angle mode."""
     return _from_radians(math.atan(float(value)))
 
 
 def atan2(y: Number, x: Number) -> float:
+    """Return the angle from the x-axis to point (x, y)."""
     return _from_radians(math.atan2(float(y), float(x)))
 
 
 def sq(value: Number) -> float:
+    """Return a number multiplied by itself."""
     return float(value) * float(value)
 
 
 def fract(value: Number) -> float:
+    """Return the fractional part of a number."""
     return float(value) - math.floor(float(value))
 
 
+def _number_items(
+    values: Sequence[Number] | Number, rest: tuple[Number, ...]
+) -> tuple[Number, ...]:
+    return (values, *rest) if isinstance(values, int | float) else tuple(values)
+
+
 def min_value(values: Sequence[Number] | Number, *rest: Number) -> float:
-    items = (values, *rest) if isinstance(values, int | float) else tuple(values)
-    return float(min(items))
+    """Return the smallest value from separate numbers or a sequence."""
+    return float(min(_number_items(values, rest)))
 
 
 def max_value(values: Sequence[Number] | Number, *rest: Number) -> float:
-    items = (values, *rest) if isinstance(values, int | float) else tuple(values)
-    return float(max(items))
+    """Return the largest value from separate numbers or a sequence."""
+    return float(max(_number_items(values, rest)))
 
 
 __all__ = [

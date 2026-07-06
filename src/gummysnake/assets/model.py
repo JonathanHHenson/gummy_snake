@@ -17,6 +17,16 @@ def load_model(
     *,
     package: str | None = None,
 ) -> Model3D:
+    """Load an OBJ or STL model for 3D drawing.
+
+    Args:
+        path: Model file path, or package resource name when ``package`` is set.
+        normalize: Whether to normalize the model after loading.
+        package: Optional package name to load the model from package resources.
+
+    Returns:
+        A ``Model3D`` object that can be drawn in ``WEBGL`` sketches.
+    """
     source_path = Path(str(path))
     if source_path.suffix.lower() == ".stl":
         payload, source = _read_binary_asset(path, package=package)
@@ -31,6 +41,16 @@ async def load_model_async(
     *,
     package: str | None = None,
 ) -> Model3D:
+    """Load an OBJ or STL model from async sketch code.
+
+    Args:
+        path: Model file path, or package resource name when ``package`` is set.
+        normalize: Whether to normalize the model after loading.
+        package: Optional package name to load the model from package resources.
+
+    Returns:
+        A ``Model3D`` object that can be drawn in ``WEBGL`` sketches.
+    """
     return load_model(path, normalize, package=package)
 
 
