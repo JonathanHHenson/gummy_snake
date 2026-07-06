@@ -377,8 +377,8 @@ Use these rules of thumb:
   `gpu/render.rs`, `gpu/setup.rs`, `gpu/shaders.rs`, `gpu/types.rs`,
   `runtime/desktop.rs`, `sketch_state.rs`, and `tests.rs` under
   `crates/gummy_canvas/src/`, plus `execution.rs`,
-  `execution/direct_point_hash_grid.rs`, and `execution/f64_program.rs` under
-  `crates/gummy_ecs/src/`.
+  `execution/direct_point_hash_grid.rs`, `execution/f64_program.rs`, and
+  `plan.rs` under `crates/gummy_ecs/src/`.
 - Run `uv run python scripts/structure_audit.py` after layout changes. It checks
   for confusing Python sibling module/package patterns, source-package test
   fixtures, stale renamed package references, generated example output policy,

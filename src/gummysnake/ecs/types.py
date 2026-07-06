@@ -17,6 +17,12 @@ class StorageType:
     fixed_length: int | None = None
 
     def __repr__(self) -> str:
+        """Return the short marker name shown in annotations and errors.
+
+        Returns:
+            The ECS storage marker name, such as ``"Float32"`` or ``"Vec2F64"``.
+        """
+
         return self.name
 
 
@@ -44,6 +50,12 @@ def List(element_type: StorageType = Float64) -> StorageType:
 
     The Python MVP stores these as list-like dataclass values while preserving the
     explicit storage marker for the Rust-backed column implementation.
+
+    Args:
+        element_type: Storage marker for each value stored in the list.
+
+    Returns:
+        A storage marker describing a list column with the requested element type.
     """
 
     if not isinstance(element_type, StorageType):

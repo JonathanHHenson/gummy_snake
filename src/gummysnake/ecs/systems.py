@@ -32,9 +32,21 @@ class SystemDefinition:
 
     @property
     def display_name(self) -> str:
+        """Return the scheduler name shown in diagnostics and explain output.
+
+        Returns:
+            The explicit system name, or the decorated function name when no name was given.
+        """
+
         return self.name or self.function.__name__
 
     def build(self) -> BuiltSystem:
+        """Build the logical ECS plan recorded by this system function.
+
+        Returns:
+            A built system containing query/resource/event proxies and a serializable plan.
+        """
+
         signature = inspect.signature(self.function)
         hints = get_type_hints(self.function, include_extras=True)
         args: list[object] = []
@@ -120,11 +132,19 @@ class SystemDefinition:
         )
 
     def explain(self) -> str:
+        """Describe the system plan in beginner-readable text.
+
+        Returns:
+            Multiline text showing the actions the ECS planner will execute.
+        """
+
         return self.build().plan.explain()
 
 
 @dataclass(frozen=True)
 class BuiltSystem:
+    """Compiled ECS system metadata ready for registration with an ``EcsWorld``."""
+
     definition: SystemDefinition
     plan: SystemPlan
     queries: tuple[QueryProxy, ...]
@@ -134,6 +154,12 @@ class BuiltSystem:
 
     @property
     def name(self) -> str:
+        """Return the system name used by the scheduler.
+
+        Returns:
+            The explicit system name, or the decorated function name when no name was given.
+        """
+
         return self.definition.name or self.definition.function.__name__
 
 
@@ -174,6 +200,17 @@ def system(
     context-managed logical plan and must return ``None``. ``python=True`` opts
     into runtime Python execution explicitly and never acts as a fallback for
     invalid Rust plans.
+
+    Args:
+        function: Function to decorate when ``@ecs.system`` is used without parentheses.
+        name: Optional scheduler name to show in diagnostics instead of the function name.
+        parallel: Whether Rust may execute independent recorded actions in parallel.
+        python: Run this system as an explicit Python runtime boundary.
+        queries: Query metadata for unannotated parameters in Python systems.
+        mutations: Entity mutation metadata for Python systems.
+
+    Returns:
+        A system definition, or a decorator that creates one.
     """
 
     if python and parallel:

@@ -86,6 +86,7 @@ DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_ecs/src/execution.rs"),
     Path("crates/gummy_ecs/src/execution/direct_point_hash_grid.rs"),
     Path("crates/gummy_ecs/src/execution/f64_program.rs"),
+    Path("crates/gummy_ecs/src/plan.rs"),
 }
 
 

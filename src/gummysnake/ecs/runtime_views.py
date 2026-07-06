@@ -72,6 +72,12 @@ class Entity:
 
 @dataclass(frozen=True)
 class EntityAnnotation:
+    """Annotation marker created by ``ecs.Entity[Component]``.
+
+    The marker is consumed when planning explicit Python ECS boundaries; raw entity
+    handles still need an ``EntityView`` before component data can be read or changed.
+    """
+
     component_type: object
     mutable: bool = False
 

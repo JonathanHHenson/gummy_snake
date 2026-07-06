@@ -41,28 +41,8 @@ pub(in crate::execution) fn aggregate_finish(
         "any" => Ok(EcsValue::Bool(count > 0)),
         "count" => Ok(EcsValue::I64(count as i64)),
         "sum" => Ok(EcsValue::F64(numeric_sum(&values)?)),
-        "min" => {
-            let mut iter = values.iter().map(numeric_f64);
-            let mut best = iter
-                .next()
-                .transpose()?
-                .ok_or_else(|| EcsError::InvalidPlan("min aggregate has no values".to_string()))?;
-            for value in iter {
-                best = best.min(value?);
-            }
-            Ok(EcsValue::F64(best))
-        }
-        "max" => {
-            let mut iter = values.iter().map(numeric_f64);
-            let mut best = iter
-                .next()
-                .transpose()?
-                .ok_or_else(|| EcsError::InvalidPlan("max aggregate has no values".to_string()))?;
-            for value in iter {
-                best = best.max(value?);
-            }
-            Ok(EcsValue::F64(best))
-        }
+        "min" => Ok(EcsValue::F64(numeric_extreme(&values, "min", f64::min)?)),
+        "max" => Ok(EcsValue::F64(numeric_extreme(&values, "max", f64::max)?)),
         "mean" => {
             if values.is_empty() {
                 return aggregate_empty(kind, default, executor, ctx);
@@ -80,4 +60,16 @@ fn numeric_sum(values: &[EcsValue]) -> Result<f64> {
     values
         .iter()
         .try_fold(0.0, |sum, value| Ok(sum + numeric_f64(value)?))
+}
+
+fn numeric_extreme(values: &[EcsValue], kind: &str, choose: fn(f64, f64) -> f64) -> Result<f64> {
+    let mut iter = values.iter().map(numeric_f64);
+    let mut best = iter
+        .next()
+        .transpose()?
+        .ok_or_else(|| EcsError::InvalidPlan(format!("{kind} aggregate has no values")))?;
+    for value in iter {
+        best = choose(best, value?);
+    }
+    Ok(best)
 }

@@ -443,7 +443,16 @@ def conditional(*, parallel: bool = False) -> _ConditionalContext:
 
 
 def when(condition: object, *, parallel: bool | None = None) -> _BranchContext:
-    """Return a builder or context manager for a conditional ECS branch."""
+    """Return a builder or context manager for a conditional ECS branch.
+
+    Args:
+        condition: Value or ECS expression that decides whether the branch runs.
+        parallel: Override whether actions inside this branch may run in parallel.
+
+    Returns:
+        A context manager inside ``with ecs.conditional()`` blocks, or a branch builder for
+        the older direct action-building style.
+    """
 
     expr = ensure_expr(condition)
     if active_build_session():
@@ -452,7 +461,14 @@ def when(condition: object, *, parallel: bool | None = None) -> _BranchContext:
 
 
 def otherwise(*, parallel: bool | None = None) -> _BranchContext:
-    """Return a context manager for the fallback branch of an ECS conditional."""
+    """Return a context manager for the fallback branch of an ECS conditional.
+
+    Args:
+        parallel: Override whether actions inside the fallback branch may run in parallel.
+
+    Returns:
+        A context manager used inside ``with ecs.conditional()`` blocks.
+    """
 
     return _BranchContext(None, parallel=parallel, otherwise=True)
 
@@ -473,7 +489,16 @@ def _iterable_source_for(source: object) -> IterableSource:
 def for_each(
     source: object, *, loop_parallel: bool = False, block_parallel: bool = False
 ) -> _ForEachContext:
-    """Return a context manager that records a loop over an ECS iterable source."""
+    """Return a context manager that records a loop over an ECS iterable source.
+
+    Args:
+        source: Event reader, iterable UDF source, or iterable ECS expression to loop over.
+        loop_parallel: Whether each loop item may be processed independently in parallel.
+        block_parallel: Whether actions recorded inside one loop item may run in parallel.
+
+    Returns:
+        A context manager whose ``item`` is the current loop value expression.
+    """
 
     return _ForEachContext(
         _iterable_source_for(source),

@@ -114,6 +114,16 @@ class LoopItem(Expression):
     name: str
 
     def eval(self, ctx: dict[object, Any], world: EcsWorld) -> Any:
+        """Return the current loop item from the expression context.
+
+        Args:
+            ctx: Current ECS expression bindings.
+            world: ECS world provided by the expression evaluator.
+
+        Returns:
+            The item value bound for this ``ecs.for_each`` iteration.
+        """
+
         del world
         return ctx[self]
 
@@ -125,29 +135,46 @@ class IterableSource:
 
 @dataclass(frozen=True)
 class UdfIterableSource(IterableSource):
+    """Loop source backed by a Python UDF that returns iterable values."""
+
     definition: UdfDefinition
     args: tuple[object, ...]
     item: LoopItem = field(default_factory=lambda: LoopItem("item"))
 
     def evaluate(self, world: EcsWorld) -> Iterable[Any]:
+        """Run the Python UDF and return values for ``ecs.for_each``.
+
+        Args:
+            world: ECS world used to materialize lazy UDF arguments.
+
+        Returns:
+            Iterable values produced by the UDF, or an empty tuple when it returns ``None``.
+        """
+
         result = self.definition.call_runtime(world, self.args)
         return () if result is None else result
 
 
 @dataclass(frozen=True)
 class ExpressionIterableSource(IterableSource):
+    """Loop source that reads iterable values from an ECS expression."""
+
     expression: Expression
     item: LoopItem = field(default_factory=lambda: LoopItem("item"))
 
 
 @dataclass(frozen=True)
 class EventIterableSource(IterableSource):
+    """Loop source that visits events from an ``ecs.EventReader`` parameter."""
+
     reader: EventReaderProxy
     item: LoopItem = field(default_factory=lambda: LoopItem("event"))
 
 
 @dataclass(frozen=True)
 class EntityIteratorSource(IterableSource):
+    """Loop source describing entity rows from a query iterator."""
+
     query: QueryProxy
     components: tuple[type[Any], ...]
     item: LoopItem = field(default_factory=lambda: LoopItem("entity"))
@@ -192,10 +219,27 @@ class UdfDefinition:
         return action
 
     def call_runtime(self, world: EcsWorld, args: tuple[object, ...]) -> Any:
+        """Run this Python UDF with ECS arguments converted to Python values.
+
+        Args:
+            world: ECS world that owns the entities, resources, and event queues.
+            args: Lazy ECS values or expressions passed to the UDF in the system plan.
+
+        Returns:
+            The value returned by the decorated Python function.
+        """
+
         materialized = [world.materialize_udf_arg(arg) for arg in args]
         return self.function(*materialized)
 
     def execute_action(self, world: EcsWorld, args: tuple[object, ...]) -> None:
+        """Run this Python UDF as a side-effect action and count the call.
+
+        Args:
+            world: ECS world that owns the action runtime state.
+            args: Lazy ECS values or expressions passed to the UDF in the system plan.
+        """
+
         self.call_runtime(world, args)
         world._diagnostics["ecs_udf_calls"] += 1
 
@@ -251,10 +295,22 @@ def _is_iterable_annotation(annotation: object) -> bool:
 
 @dataclass(frozen=True, eq=False)
 class UdfCallExpression(Expression):
+    """Lazy expression node for a Rust-backed ECS UDF call."""
+
     definition: UdfDefinition
     args: tuple[object, ...]
 
     def eval(self, ctx: dict[object, Any], world: EcsWorld) -> Any:
+        """Reject Python evaluation for Rust-backed UDF expression nodes.
+
+        Args:
+            ctx: Current ECS expression bindings.
+            world: ECS world that would provide runtime storage.
+
+        Returns:
+            This method always raises because Rust-backed UDFs execute in Rust plans only.
+        """
+
         del ctx, world
         raise SystemExecutionError(
             f"Rust-backed ECS UDF {self.definition.function.__name__!r} cannot execute in Python."
@@ -274,7 +330,7 @@ def udf(
     structural: bool = False,
     side_effects: bool = False,
     python: bool = False,
-    mutations: dict[str, object] | None = None,
+    mutations: Mapping[str, object] | None = None,
 ) -> Callable[[Callable[..., Any]], UdfDefinition]: ...
 
 
@@ -286,7 +342,7 @@ def udf(
     structural: bool = False,
     side_effects: bool = False,
     python: bool = False,
-    mutations: dict[str, object] | None = None,
+    mutations: Mapping[str, object] | None = None,
 ) -> Callable[[Callable[..., Any]], UdfDefinition] | UdfDefinition:
     """Declare a typed function that an ECS system can reference.
 
