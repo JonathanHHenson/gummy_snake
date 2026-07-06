@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
 from gummysnake._async import call_maybe_async_with_optional_args
 from gummysnake.api.current import activate_context, get_active_context
 
+if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.context import SketchContext
+
 
 def test_activate_context_restores_nested_contexts() -> None:
-    outer = object()
-    inner = object()
+    outer = cast("SketchContext", object())
+    inner = cast("SketchContext", object())
 
     assert get_active_context() is None
     with activate_context(outer):

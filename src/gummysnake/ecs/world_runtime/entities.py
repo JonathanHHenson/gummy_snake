@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.runtime_views import Entity, EntityView
 from gummysnake.ecs.schema_helpers import _schema_name, _tag_name, _validate_storage_value
+from gummysnake.ecs.value_types import DataclassInstance, EcsTag
 from gummysnake.exceptions import (
     EntityNotFoundError,
     MissingComponentError,
@@ -20,9 +21,11 @@ if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.world import EcsWorld
 
 
-def add_entity(world: EcsWorld, *components: object, tags: Iterable[object] = ()) -> Entity:
+def add_entity(
+    world: EcsWorld, *components: DataclassInstance, tags: Iterable[EcsTag] = ()
+) -> Entity:
     """Validate components and create one Rust-owned entity."""
-    component_values: dict[type[Any], object] = {}
+    component_values: dict[type[Any], DataclassInstance] = {}
     for component in components:
         world._validate_value(component)
         component_values[type(component)] = component
@@ -54,7 +57,7 @@ def despawn_entity(world: EcsWorld, entity: Entity) -> None:
     world._invalidate_spatial_indexes()
 
 
-def add_component(world: EcsWorld, entity: Entity, component: object) -> None:
+def add_component(world: EcsWorld, entity: Entity, component: DataclassInstance) -> None:
     """Validate and add or replace one component on an entity."""
     world._validate_value(component)
     slot(world, entity)
@@ -62,7 +65,11 @@ def add_component(world: EcsWorld, entity: Entity, component: object) -> None:
 
 
 def set_component(
-    world: EcsWorld, entity: Entity, component: object, *, expected_type: type[Any] | None = None
+    world: EcsWorld,
+    entity: Entity,
+    component: DataclassInstance,
+    *,
+    expected_type: type[Any] | None = None,
 ) -> None:
     """Validate and store a component in a specific component slot."""
     world._validate_value(component, expected_type)
@@ -71,7 +78,7 @@ def set_component(
 
 
 def upsert_component(
-    world: EcsWorld, entity: Entity, component_type: type[Any], component: object
+    world: EcsWorld, entity: Entity, component_type: type[Any], component: DataclassInstance
 ) -> None:
     """Insert a missing component or update an existing component's fields."""
     existed = has_component(world, entity, component_type)
@@ -99,7 +106,7 @@ def remove_component(world: EcsWorld, entity: Entity, component_type: type[Any])
     world._invalidate_spatial_indexes()
 
 
-def add_tag(world: EcsWorld, entity: Entity, tag: object) -> None:
+def add_tag(world: EcsWorld, entity: Entity, tag: EcsTag) -> None:
     """Add a tag if the entity does not already have it."""
     slot(world, entity)
     tag_name = _tag_name(tag)
@@ -109,7 +116,7 @@ def add_tag(world: EcsWorld, entity: Entity, tag: object) -> None:
         world._invalidate_spatial_indexes()
 
 
-def remove_tag(world: EcsWorld, entity: Entity, tag: object) -> None:
+def remove_tag(world: EcsWorld, entity: Entity, tag: EcsTag) -> None:
     """Remove a tag if the entity currently has it."""
     slot(world, entity)
     tag_name = _tag_name(tag)
@@ -119,7 +126,7 @@ def remove_tag(world: EcsWorld, entity: Entity, tag: object) -> None:
         world._invalidate_spatial_indexes()
 
 
-def get_entity(world: EcsWorld, *components: type[Any], tags: Iterable[object] = ()) -> EntityView:
+def get_entity(world: EcsWorld, *components: type[Any], tags: Iterable[EcsTag] = ()) -> EntityView:
     """Return exactly one entity matching component and tag filters."""
     matches = list(iter_entities(world, *components, tags=tags))
     if len(matches) != 1:
@@ -128,7 +135,7 @@ def get_entity(world: EcsWorld, *components: type[Any], tags: Iterable[object] =
 
 
 def try_get_entity(
-    world: EcsWorld, *components: type[Any], tags: Iterable[object] = ()
+    world: EcsWorld, *components: type[Any], tags: Iterable[EcsTag] = ()
 ) -> EntityView | None:
     """Return zero or one entity matching component and tag filters."""
     matches = list(iter_entities(world, *components, tags=tags))
@@ -138,7 +145,7 @@ def try_get_entity(
 
 
 def iter_entities(
-    world: EcsWorld, *components: type[Any], tags: Iterable[object] = ()
+    world: EcsWorld, *components: type[Any], tags: Iterable[EcsTag] = ()
 ) -> Iterator[EntityView]:
     """Yield entity views matching component and tag filters."""
     required_components = [_schema_name(component) for component in components]
@@ -153,7 +160,7 @@ def iter_component_fields(
     world: EcsWorld,
     component_type: type[Any],
     *field_names: str,
-    tags: Iterable[object] = (),
+    tags: Iterable[EcsTag] = (),
 ) -> Iterator[tuple[Any, ...]]:
     """Read selected component fields through one Rust-backed batch call."""
     world.validate_schema(component_type)
@@ -238,7 +245,7 @@ def component_snapshot(world: EcsWorld, entity: Entity, component_type: type[Any
 
 
 def sync_component_fields_to_rust(
-    world: EcsWorld, entity: Entity, component_type: type[Any], component: object
+    world: EcsWorld, entity: Entity, component_type: type[Any], component: DataclassInstance
 ) -> None:
     """Copy every dataclass field from Python into Rust-owned component storage."""
     for field in fields(component_type):

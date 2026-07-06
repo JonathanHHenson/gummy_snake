@@ -30,6 +30,8 @@ from gummysnake.drawing.renderer3d.types import (
     PerspectiveProjection,
     Projection3D,
     Vec3,
+    VertexPropertyScalar,
+    VertexPropertyValue,
 )
 
 __all__ = [
@@ -50,6 +52,8 @@ __all__ = [
     "ShaderUniformValue",
     "Texture3D",
     "Vec3",
+    "VertexPropertyScalar",
+    "VertexPropertyValue",
     "_mesh_rust_handle",
     "_ensure_model_rust_handle",
     "_model_rust_handle",

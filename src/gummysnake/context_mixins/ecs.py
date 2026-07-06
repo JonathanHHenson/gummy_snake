@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from gummysnake.ecs.systems import SystemDefinition
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.ecs.world import EcsWorld, Entity, EntityView, SystemHandle
 
 
@@ -14,34 +15,34 @@ class EcsContextMixin:
 
     ecs: EcsWorld
 
-    def add_entity(self, *components: object, tags: Iterable[object] = ()) -> Entity:
+    def add_entity(self, *components: DataclassInstance, tags: Iterable[EcsTag] = ()) -> Entity:
         return self.ecs.add_entity(*components, tags=tags)
 
     def despawn_entity(self, entity: Entity) -> None:
         self.ecs.despawn_entity(entity)
 
-    def add_component(self, entity: Entity, component: object) -> None:
+    def add_component(self, entity: Entity, component: DataclassInstance) -> None:
         self.ecs.add_component(entity, component)
 
     def remove_component(self, entity: Entity, component_type: type[Any]) -> None:
         self.ecs.remove_component(entity, component_type)
 
-    def add_tag(self, entity: Entity, tag: object) -> None:
+    def add_tag(self, entity: Entity, tag: EcsTag) -> None:
         self.ecs.add_tag(entity, tag)
 
-    def remove_tag(self, entity: Entity, tag: object) -> None:
+    def remove_tag(self, entity: Entity, tag: EcsTag) -> None:
         self.ecs.remove_tag(entity, tag)
 
-    def get_entity(self, *components: type[Any], tags: Iterable[object] = ()) -> EntityView:
+    def get_entity(self, *components: type[Any], tags: Iterable[EcsTag] = ()) -> EntityView:
         return self.ecs.get_entity(*components, tags=tags)
 
     def try_get_entity(
-        self, *components: type[Any], tags: Iterable[object] = ()
+        self, *components: type[Any], tags: Iterable[EcsTag] = ()
     ) -> EntityView | None:
         return self.ecs.try_get_entity(*components, tags=tags)
 
     def iter_entities(
-        self, *components: type[Any], tags: Iterable[object] = ()
+        self, *components: type[Any], tags: Iterable[EcsTag] = ()
     ) -> Iterator[EntityView]:
         return self.ecs.iter_entities(*components, tags=tags)
 
@@ -49,11 +50,11 @@ class EcsContextMixin:
         self,
         component_type: type[Any],
         *field_names: str,
-        tags: Iterable[object] = (),
+        tags: Iterable[EcsTag] = (),
     ) -> Iterator[tuple[Any, ...]]:
         return self.ecs.iter_component_fields(component_type, *field_names, tags=tags)
 
-    def set_resource(self, resource: object) -> None:
+    def set_resource(self, resource: DataclassInstance) -> None:
         self.ecs.set_resource(resource)
 
     def get_resource[ResourceT](self, resource_type: type[ResourceT]) -> ResourceT:
@@ -71,7 +72,7 @@ class EcsContextMixin:
     def remove_resource(self, resource_type: type[Any]) -> None:
         self.ecs.remove_resource(resource_type)
 
-    def emit_event(self, event: object) -> None:
+    def emit_event(self, event: EcsEventValue) -> None:
         self.ecs.emit_event(event)
 
     def read_events[EventT](self, event_type: type[EventT]) -> tuple[EventT, ...]:

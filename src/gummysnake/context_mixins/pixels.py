@@ -28,7 +28,7 @@ from gummysnake.context_mixins.pixel_io import (
 )
 from gummysnake.context_mixins.pixel_io import update_pixels as _update_pixels_impl
 from gummysnake.core.color import Color
-from gummysnake.core.pixels import PixelBuffer
+from gummysnake.core.pixels import FrameSaveInfo, PixelBuffer
 
 
 class PixelContextMixin:
@@ -134,9 +134,9 @@ class PixelContextMixin:
         extension: str = "png",
         count: int = 1,
         duration: float | None = None,
-        callback: Callable[[list[dict[str, object]]], object] | None = None,
+        callback: Callable[[list[FrameSaveInfo]], None] | None = None,
         overwrite: bool = True,
-    ) -> list[dict[str, object]]:
+    ) -> list[FrameSaveInfo]:
         return _save_frames_impl(
             self,
             path_pattern,

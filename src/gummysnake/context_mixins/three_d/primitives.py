@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D
+from gummysnake.drawing.renderer3d.types import VertexPropertyValue
 from gummysnake.drawing.software3d import (
     box_model,
     cone_model,
@@ -28,7 +29,7 @@ def _three_d(self: Any) -> ThreeDContextHost:
 class ThreeDPrimitivesMixin:
     _geometry_build_models: list[Model3D] | None
     _current_3d_normal: Any
-    _current_vertex_properties: dict[str, object]
+    _current_vertex_properties: dict[str, VertexPropertyValue]
 
     def _emit_3d_model(self, model: Model3D) -> None:
         if self._geometry_build_models is not None:
@@ -129,7 +130,7 @@ class ThreeDPrimitivesMixin:
     def normal(self, x: float, y: float, z: float) -> None:
         self._current_3d_normal = (float(x), float(y), float(z))
 
-    def vertex_property(self, name: str, value: object) -> None:
+    def vertex_property(self, name: str, value: VertexPropertyValue) -> None:
         if not str(name):
             raise ArgumentValidationError("vertex_property() name cannot be empty.")
         self._current_vertex_properties[str(name)] = value

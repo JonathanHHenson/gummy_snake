@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from gummysnake.ecs.schema_helpers import _schema_name
 from gummysnake.ecs.systems import BuiltSystem
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.exceptions import MissingComponentError, SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -45,7 +46,7 @@ class Entity:
             "ECS boundaries."
         )
 
-    def add_component(self, component: object) -> None:
+    def add_component(self, component: DataclassInstance) -> None:
         """Reject direct mutation and point callers to ``EntityView``."""
         del component
         raise TypeError("Raw Entity handles cannot mutate components directly; use EntityView.")
@@ -55,12 +56,12 @@ class Entity:
         del component_type
         raise TypeError("Raw Entity handles cannot mutate components directly; use EntityView.")
 
-    def add_tag(self, tag: object) -> None:
+    def add_tag(self, tag: EcsTag) -> None:
         """Reject direct tag mutation and point callers to ``EntityView``."""
         del tag
         raise TypeError("Raw Entity handles cannot mutate tags directly; use EntityView.")
 
-    def remove_tag(self, tag: object) -> None:
+    def remove_tag(self, tag: EcsTag) -> None:
         """Reject direct tag mutation and point callers to ``EntityView``."""
         del tag
         raise TypeError("Raw Entity handles cannot mutate tags directly; use EntityView.")
@@ -290,7 +291,7 @@ class EntityView:
         """
         return cast(ComponentT, ComponentView(self._world, self.entity, component_type))
 
-    def __setitem__(self, component_type: type[Any], value: object) -> None:
+    def __setitem__(self, component_type: type[Any], value: DataclassInstance) -> None:
         """Replace a component using ``entity[Component] = value`` syntax.
 
         Args:
@@ -299,7 +300,7 @@ class EntityView:
         """
         self._world.set_component(self.entity, value, expected_type=component_type)
 
-    def add_component(self, component: object) -> None:
+    def add_component(self, component: DataclassInstance) -> None:
         """Add or replace one component on the entity.
 
         Args:
@@ -315,7 +316,7 @@ class EntityView:
         """
         self._world.remove_component(self.entity, component_type)
 
-    def add_tag(self, tag: object) -> None:
+    def add_tag(self, tag: EcsTag) -> None:
         """Add a tag value to the entity.
 
         Args:
@@ -323,7 +324,7 @@ class EntityView:
         """
         self._world.add_tag(self.entity, tag)
 
-    def remove_tag(self, tag: object) -> None:
+    def remove_tag(self, tag: EcsTag) -> None:
         """Remove a tag value from the entity.
 
         Args:
@@ -388,7 +389,7 @@ class _RuntimeEventWriter:
         self._world = world
         self._event_type = event_type
 
-    def emit(self, event: object) -> None:
+    def emit(self, event: EcsEventValue) -> None:
         self._world.emit_event(event, expected_type=self._event_type)
 
 

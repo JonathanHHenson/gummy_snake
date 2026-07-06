@@ -7,10 +7,11 @@ from typing import Any
 
 from gummysnake.api.current import require_context
 from gummysnake.ecs.systems import SystemDefinition
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.ecs.world import Entity, EntityView, SystemHandle
 
 
-def add_entity(*components: object, tags: Iterable[object] = ()) -> Entity:
+def add_entity(*components: DataclassInstance, tags: Iterable[EcsTag] = ()) -> Entity:
     """Create an ECS entity in the active sketch.
 
     Args:
@@ -34,7 +35,7 @@ def despawn_entity(entity: Entity) -> None:
     require_context().despawn_entity(entity)
 
 
-def add_component(entity: Entity, component: object) -> None:
+def add_component(entity: Entity, component: DataclassInstance) -> None:
     """Add or replace a dataclass component on an entity.
 
     Args:
@@ -56,7 +57,7 @@ def remove_component(entity: Entity, component_type: type[Any]) -> None:
     require_context().remove_component(entity, component_type)
 
 
-def add_tag(entity: Entity, tag: object) -> None:
+def add_tag(entity: Entity, tag: EcsTag) -> None:
     """Add a tag to an entity.
 
     Args:
@@ -67,7 +68,7 @@ def add_tag(entity: Entity, tag: object) -> None:
     require_context().add_tag(entity, tag)
 
 
-def remove_tag(entity: Entity, tag: object) -> None:
+def remove_tag(entity: Entity, tag: EcsTag) -> None:
     """Remove a tag from an entity.
 
     Args:
@@ -78,7 +79,7 @@ def remove_tag(entity: Entity, tag: object) -> None:
     require_context().remove_tag(entity, tag)
 
 
-def get_entity(*components: type[Any], tags: Iterable[object] = ()) -> EntityView:
+def get_entity(*components: type[Any], tags: Iterable[EcsTag] = ()) -> EntityView:
     """Return the single entity matching component and tag filters.
 
     Args:
@@ -92,7 +93,7 @@ def get_entity(*components: type[Any], tags: Iterable[object] = ()) -> EntityVie
     return require_context().get_entity(*components, tags=tags)
 
 
-def try_get_entity(*components: type[Any], tags: Iterable[object] = ()) -> EntityView | None:
+def try_get_entity(*components: type[Any], tags: Iterable[EcsTag] = ()) -> EntityView | None:
     """Return zero or one entity matching component and tag filters.
 
     Args:
@@ -106,7 +107,7 @@ def try_get_entity(*components: type[Any], tags: Iterable[object] = ()) -> Entit
     return require_context().try_get_entity(*components, tags=tags)
 
 
-def iter_entities(*components: type[Any], tags: Iterable[object] = ()) -> Iterator[EntityView]:
+def iter_entities(*components: type[Any], tags: Iterable[EcsTag] = ()) -> Iterator[EntityView]:
     """Iterate entities matching component and tag filters.
 
     Args:
@@ -123,7 +124,7 @@ def iter_entities(*components: type[Any], tags: Iterable[object] = ()) -> Iterat
 def iter_component_fields(
     component_type: type[Any],
     *field_names: str,
-    tags: Iterable[object] = (),
+    tags: Iterable[EcsTag] = (),
 ) -> Iterator[tuple[Any, ...]]:
     """Read selected component fields for matching entities with one batch call.
 
@@ -139,7 +140,7 @@ def iter_component_fields(
     return require_context().iter_component_fields(component_type, *field_names, tags=tags)
 
 
-def set_resource(resource: object) -> None:
+def set_resource(resource: DataclassInstance) -> None:
     """Store a dataclass resource in the active ECS world.
 
     Args:
@@ -172,7 +173,7 @@ def remove_resource(resource_type: type[Any]) -> None:
     require_context().remove_resource(resource_type)
 
 
-def emit_event(event: object) -> None:
+def emit_event(event: EcsEventValue) -> None:
     """Send an ECS event for systems that read that event type.
 
     Args:

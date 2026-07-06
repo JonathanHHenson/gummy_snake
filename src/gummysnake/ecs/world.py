@@ -41,6 +41,7 @@ from gummysnake.ecs.schema_helpers import (
 from gummysnake.ecs.specs import QuerySpec
 from gummysnake.ecs.systems import SystemDefinition
 from gummysnake.ecs.types import StorageType
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.ecs.world_runtime import entities as entity_runtime
 from gummysnake.ecs.world_runtime import query as query_runtime
 from gummysnake.ecs.world_runtime import resources as resource_runtime
@@ -126,7 +127,9 @@ class EcsWorld:
         self._diagnostics["ecs_rust_component_schemas_total"] = self._rust.schema_count()
         return schema
 
-    def _validate_value(self, value: object, expected_type: type[Any] | None = None) -> None:
+    def _validate_value(
+        self, value: DataclassInstance, expected_type: type[Any] | None = None
+    ) -> None:
         component_type = expected_type or type(value)
         self.validate_schema(component_type)
         if not is_dataclass(value):
@@ -142,7 +145,7 @@ class EcsWorld:
             _validate_storage_value(component_type, field_name, raw, storage_type)
 
     # ---------------------------------------------------------------- entities
-    def add_entity(self, *components: object, tags: Iterable[object] = ()) -> Entity:
+    def add_entity(self, *components: DataclassInstance, tags: Iterable[EcsTag] = ()) -> Entity:
         """Create an entity with dataclass components and optional tags.
 
         Args:
@@ -164,7 +167,7 @@ class EcsWorld:
 
         entity_runtime.despawn_entity(self, entity)
 
-    def add_component(self, entity: Entity, component: object) -> None:
+    def add_component(self, entity: Entity, component: DataclassInstance) -> None:
         """Add or replace a dataclass component on an entity.
 
         Args:
@@ -175,7 +178,11 @@ class EcsWorld:
         entity_runtime.add_component(self, entity, component)
 
     def set_component(
-        self, entity: Entity, component: object, *, expected_type: type[Any] | None = None
+        self,
+        entity: Entity,
+        component: DataclassInstance,
+        *,
+        expected_type: type[Any] | None = None,
     ) -> None:
         """Store a component value in a specific component slot.
 
@@ -188,7 +195,7 @@ class EcsWorld:
         entity_runtime.set_component(self, entity, component, expected_type=expected_type)
 
     def _upsert_component(
-        self, entity: Entity, component_type: type[Any], component: object
+        self, entity: Entity, component_type: type[Any], component: DataclassInstance
     ) -> None:
         entity_runtime.upsert_component(self, entity, component_type, component)
 
@@ -202,7 +209,7 @@ class EcsWorld:
 
         entity_runtime.remove_component(self, entity, component_type)
 
-    def add_tag(self, entity: Entity, tag: object) -> None:
+    def add_tag(self, entity: Entity, tag: EcsTag) -> None:
         """Add a tag to an entity.
 
         Args:
@@ -212,7 +219,7 @@ class EcsWorld:
 
         entity_runtime.add_tag(self, entity, tag)
 
-    def remove_tag(self, entity: Entity, tag: object) -> None:
+    def remove_tag(self, entity: Entity, tag: EcsTag) -> None:
         """Remove a tag from an entity.
 
         Args:
@@ -222,7 +229,7 @@ class EcsWorld:
 
         entity_runtime.remove_tag(self, entity, tag)
 
-    def get_entity(self, *components: type[Any], tags: Iterable[object] = ()) -> EntityView:
+    def get_entity(self, *components: type[Any], tags: Iterable[EcsTag] = ()) -> EntityView:
         """Return the single entity matching component and tag filters.
 
         Args:
@@ -236,7 +243,7 @@ class EcsWorld:
         return entity_runtime.get_entity(self, *components, tags=tags)
 
     def try_get_entity(
-        self, *components: type[Any], tags: Iterable[object] = ()
+        self, *components: type[Any], tags: Iterable[EcsTag] = ()
     ) -> EntityView | None:
         """Return zero or one entity matching component and tag filters.
 
@@ -251,7 +258,7 @@ class EcsWorld:
         return entity_runtime.try_get_entity(self, *components, tags=tags)
 
     def iter_entities(
-        self, *components: type[Any], tags: Iterable[object] = ()
+        self, *components: type[Any], tags: Iterable[EcsTag] = ()
     ) -> Iterator[EntityView]:
         """Iterate entities matching component and tag filters.
 
@@ -269,7 +276,7 @@ class EcsWorld:
         self,
         component_type: type[Any],
         *field_names: str,
-        tags: Iterable[object] = (),
+        tags: Iterable[EcsTag] = (),
     ) -> Iterator[tuple[Any, ...]]:
         """Read selected component fields with one Rust-backed batch call.
 
@@ -334,7 +341,7 @@ class EcsWorld:
         return entity_runtime.component_snapshot(self, entity, component_type)
 
     # --------------------------------------------------------------- resources
-    def set_resource(self, resource: object) -> None:
+    def set_resource(self, resource: DataclassInstance) -> None:
         """Store a dataclass singleton resource in the ECS world.
 
         Args:
@@ -401,7 +408,7 @@ class EcsWorld:
         return resource_runtime.resource_snapshot(self, resource_type)
 
     # ---------------------------------------------------------------- events
-    def emit_event(self, event: object, *, expected_type: type[Any] | None = None) -> None:
+    def emit_event(self, event: EcsEventValue, *, expected_type: type[Any] | None = None) -> None:
         """Queue an ECS event for readers in the current frame.
 
         Args:
@@ -549,7 +556,7 @@ class EcsWorld:
 
     # -------------------------------------------------------------- Rust sync
     def _sync_component_fields_to_rust(
-        self, entity: Entity, component_type: type[Any], component: object
+        self, entity: Entity, component_type: type[Any], component: DataclassInstance
     ) -> None:
         entity_runtime.sync_component_fields_to_rust(self, entity, component_type, component)
 

@@ -16,6 +16,7 @@ from gummysnake.ecs.expressions import (
     ensure_expr,
 )
 from gummysnake.ecs.specs import EventReaderProxy, EventWriterProxy
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -64,11 +65,11 @@ class DefaultAction(Action):
     udf: UdfDefinition | None = None
     udf_args: tuple[object, ...] = ()
     event_writer: EventWriterProxy | None = None
-    event_value: object | None = None
+    event_value: EcsEventValue | None = None
     entity_query: QueryProxy | None = None
     component_type: type[Any] | None = None
-    component_value: object | None = None
-    tag: object | None = None
+    component_value: DataclassInstance | None = None
+    tag: EcsTag | None = None
 
 
 @dataclass
@@ -430,7 +431,9 @@ def set(target: FieldExpression, value: object) -> DefaultAction:
     return DefaultAction("set", target=target, value=ensure_expr(value))
 
 
-def add_component_action(entity: EntityExpression, component: object | type[Any]) -> DefaultAction:
+def add_component_action(
+    entity: EntityExpression, component: DataclassInstance | type[Any]
+) -> DefaultAction:
     """Build an action that adds a component to each entity matched by a query.
 
     Args:
@@ -468,7 +471,7 @@ def remove_component_action(entity: EntityExpression, component_type: type[Any])
     )
 
 
-def add_tag_action(entity: EntityExpression, tag: object) -> DefaultAction:
+def add_tag_action(entity: EntityExpression, tag: EcsTag) -> DefaultAction:
     """Build an action that adds a tag to each entity matched by a query.
 
     Args:
@@ -482,7 +485,7 @@ def add_tag_action(entity: EntityExpression, tag: object) -> DefaultAction:
     return DefaultAction("add_tag", entity_query=_require_entity_query(entity), tag=tag)
 
 
-def remove_tag_action(entity: EntityExpression, tag: object) -> DefaultAction:
+def remove_tag_action(entity: EntityExpression, tag: EcsTag) -> DefaultAction:
     """Build an action that removes a tag from each entity matched by a query.
 
     Args:
@@ -517,7 +520,7 @@ def _require_entity_query(entity: EntityExpression) -> QueryProxy:
     return entity.query
 
 
-def emit_event(writer: EventWriterProxy, event: object) -> DefaultAction:
+def emit_event(writer: EventWriterProxy, event: EcsEventValue) -> DefaultAction:
     """Build an action that sends an ECS event.
 
     Args:

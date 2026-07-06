@@ -4,13 +4,38 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Protocol
 
+from gummysnake.core.pixels import FrameSaveInfo
 from gummysnake.exceptions import ArgumentValidationError
 
 
+class _CanvasExportRenderer(Protocol):
+    def save(self, path: Path) -> None: ...
+
+    def save_gif(self, path: Path, count: int, frame_duration_ms: int) -> None: ...
+
+
+class _CanvasExportTiming(Protocol):
+    target_frame_rate: float
+    frame_count: int
+
+
+class _CanvasExportState(Protocol):
+    timing: _CanvasExportTiming
+
+
+class _CanvasExportContext(Protocol):
+    renderer: _CanvasExportRenderer
+    state: _CanvasExportState
+
+    def save_canvas(
+        self, path: str | Path, *, extension: str | None = None, overwrite: bool = True
+    ) -> Path: ...
+
+
 def save_canvas(
-    ctx: Any,
+    ctx: _CanvasExportContext,
     path: str | Path,
     *,
     extension: str | None = None,
@@ -34,15 +59,15 @@ def save_canvas(
 
 
 def save_frames(
-    ctx: Any,
+    ctx: _CanvasExportContext,
     path_pattern: str | Path,
     *,
     extension: str = "png",
     count: int = 1,
     duration: float | None = None,
-    callback: Callable[[list[dict[str, object]]], object] | None = None,
+    callback: Callable[[list[FrameSaveInfo]], None] | None = None,
     overwrite: bool = True,
-) -> list[dict[str, object]]:
+) -> list[FrameSaveInfo]:
     if count <= 0:
         raise ArgumentValidationError("save_frames() count must be positive.")
     suffix = extension if extension.startswith(".") else f".{extension}"
@@ -50,7 +75,7 @@ def save_frames(
         1.0 / ctx.state.timing.target_frame_rate if duration is None else float(duration) / count
     )
     pattern = str(path_pattern)
-    results: list[dict[str, object]] = []
+    results: list[FrameSaveInfo] = []
     for index in range(count):
         if "{" in pattern:
             output = Path(
@@ -80,7 +105,7 @@ def save_frames(
 
 
 def save_gif(
-    ctx: Any,
+    ctx: _CanvasExportContext,
     path: str | Path,
     *,
     count: int = 1,

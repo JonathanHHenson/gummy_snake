@@ -21,6 +21,7 @@ from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
     OrthographicProjection,
     PerspectiveProjection,
+    VertexPropertyValue,
 )
 from gummysnake.ecs.world import EcsWorld
 
@@ -63,7 +64,7 @@ class SketchContext(
         self._panorama3d: object | None = None
         self._geometry_build_models: list[Model3D] | None = None
         self._current_3d_normal = None
-        self._current_vertex_properties: dict[str, object] = {}
+        self._current_vertex_properties: dict[str, VertexPropertyValue] = {}
         self._material3d: Material3D | None = None
         self._normal_material3d = False
         self._material3d_style_stack: list[tuple[Material3D | None, bool]] = []

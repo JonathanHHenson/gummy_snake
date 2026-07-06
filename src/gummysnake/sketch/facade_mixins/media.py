@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal, TypedDict, Unpack, cast, overload
 
 from gummysnake import constants as c
+from gummysnake.api.sound import AudioContextInfo
 from gummysnake.api.sound import get_audio_context as _get_audio_context
 from gummysnake.assets.audio import (
     FFT,
@@ -60,7 +61,7 @@ from gummysnake.assets.sound import load_sound as _load_sound
 from gummysnake.assets.sound import load_sound_async as _load_sound_async
 from gummysnake.assets.text import Font
 from gummysnake.core.color import Color
-from gummysnake.core.pixels import PixelBuffer
+from gummysnake.core.pixels import FrameSaveInfo, PixelBuffer
 from gummysnake.sketch.facade_mixins.base import SketchFacadeBaseMixin, SupportsText
 
 
@@ -152,7 +153,7 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
     def create_audio_in(self, *, sample_rate: int = 44_100) -> AudioInput:
         return _create_audio_in(sample_rate=sample_rate)
 
-    def get_audio_context(self) -> dict[str, object]:
+    def get_audio_context(self) -> AudioContextInfo:
         return _get_audio_context()
 
     @overload
@@ -360,9 +361,9 @@ class SketchFacadeMediaMixin(SketchFacadeBaseMixin):
         extension: str = "png",
         count: int = 1,
         duration: float | None = None,
-        callback: Callable[[list[dict[str, object]]], object] | None = None,
+        callback: Callable[[list[FrameSaveInfo]], None] | None = None,
         overwrite: bool = True,
-    ) -> list[dict[str, object]]:
+    ) -> list[FrameSaveInfo]:
         return self._ctx.save_frames(
             path_pattern,
             extension=extension,

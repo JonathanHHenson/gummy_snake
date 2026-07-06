@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake import constants as c
 from gummysnake.api.current import activate_context
@@ -17,6 +17,9 @@ from gummysnake.core.input_events import (
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.plugins.base import EventHookName
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
+
+if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.context import SketchContext
 
 
 class InputContextMixin:
@@ -124,7 +127,7 @@ class InputContextMixin:
             self._frame_scroll_x += event.scroll_x
             self._frame_scroll_y += event.scroll_y
         self.update_mouse_event(event, pressed=pressed)
-        with activate_context(self):
+        with activate_context(cast("SketchContext", self)):
             self.plugins.dispatch_event(EventHookName.ON_MOUSE_EVENT, self, event)
             self.sketch._dispatch_callback(event.type, event)
 
@@ -147,7 +150,7 @@ class InputContextMixin:
         elif event.type == "key_released":
             pressed = False
         self.update_keyboard_event(event, pressed=pressed)
-        with activate_context(self):
+        with activate_context(cast("SketchContext", self)):
             self.plugins.dispatch_event(EventHookName.ON_KEYBOARD_EVENT, self, event)
             self.sketch._dispatch_callback(event.type, event)
 
@@ -157,12 +160,12 @@ class InputContextMixin:
 
     def dispatch_touch_event(self, event: TouchEvent) -> None:
         self.update_touch_event(event)
-        with activate_context(self):
+        with activate_context(cast("SketchContext", self)):
             self.plugins.dispatch_event(EventHookName.ON_TOUCH_EVENT, self, event)
             self.sketch._dispatch_callback(event.type, event)
 
     def dispatch_motion_event(self, event: MotionEvent) -> None:
-        with activate_context(self):
+        with activate_context(cast("SketchContext", self)):
             self.sketch._dispatch_callback(event.type, event)
 
     def update_sensor_sample(

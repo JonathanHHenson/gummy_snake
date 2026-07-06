@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, get_args, get_origin, get_type_hints
 
 from gummysnake.ecs.expressions.core import Expression, ExpressionContext
+from gummysnake.ecs.value_types import DataclassInstance, EcsTag
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.actions import EntityIteratorSource
@@ -182,7 +183,7 @@ class EntityExpression(Expression):
         del world
         return ctx[self.query]
 
-    def add_component(self, component: object | type[Any]) -> None:
+    def add_component(self, component: DataclassInstance | type[Any]) -> None:
         """Add a component to every entity matched by this query.
 
         Args:
@@ -209,7 +210,7 @@ class EntityExpression(Expression):
             operation="query.entity.remove_component()",
         )
 
-    def add_tag(self, tag: object) -> None:
+    def add_tag(self, tag: EcsTag) -> None:
         """Add a tag to every entity matched by this query.
 
         Args:
@@ -220,7 +221,7 @@ class EntityExpression(Expression):
 
         append_action(add_tag_action(self, tag), operation="query.entity.add_tag()")
 
-    def remove_tag(self, tag: object) -> None:
+    def remove_tag(self, tag: EcsTag) -> None:
         """Remove a tag from every entity matched by this query.
 
         Args:

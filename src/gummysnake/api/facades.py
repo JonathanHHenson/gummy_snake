@@ -8,6 +8,8 @@ from gummysnake.core.vector import Vector, create_vector
 
 
 class CurrentFacade:
+    """Property-style access to current sketch timing and canvas state."""
+
     @property
     def width(self) -> int:
         return require_context().width
@@ -38,6 +40,8 @@ class CurrentFacade:
 
 
 class MouseFacade:
+    """Property-style access to mouse position, buttons, wheel, and pointer lock."""
+
     @property
     def x(self) -> float:
         return require_context().mouse_x
@@ -96,16 +100,39 @@ class MouseFacade:
         return require_context().pointer_lock_mode()
 
     def set_pointer_lock_mode(self, mode: c.PointerLockMode | str) -> c.PointerLockMode:
+        """Set how relative pointer-lock movement is reported.
+
+        Args:
+            mode: Pointer-lock mode constant or string value.
+
+        Returns:
+            The active pointer-lock mode after the update.
+        """
+
         return require_context().set_pointer_lock_mode(mode)
 
     def request_pointer_lock(self) -> bool:
+        """Request pointer lock for relative mouse movement.
+
+        Returns:
+            ``True`` when pointer lock is active after the request.
+        """
+
         return require_context().request_pointer_lock()
 
     def exit_pointer_lock(self) -> bool:
+        """Release pointer lock if it is active.
+
+        Returns:
+            ``True`` when pointer lock is inactive after the request.
+        """
+
         return require_context().exit_pointer_lock()
 
 
 class KeyboardFacade:
+    """Property-style access to keyboard state and text-input controls."""
+
     @property
     def key(self) -> str | None:
         return require_context().key
@@ -131,6 +158,15 @@ class KeyboardFacade:
         return require_context().key_is_pressed
 
     def is_down(self, key_code: int | str) -> bool:
+        """Return whether a key is currently held down.
+
+        Args:
+            key_code: Numeric key code or one-character key string to check.
+
+        Returns:
+            ``True`` when that key is currently pressed.
+        """
+
         if isinstance(key_code, str):
             if len(key_code) != 1:
                 raise ValueError("keyboard.is_down() string keys must be one character.")
@@ -141,9 +177,21 @@ class KeyboardFacade:
         return require_context().key_is_down(key_code)
 
     def start_text_input(self) -> bool:
+        """Begin text-input mode for receiving typed text events.
+
+        Returns:
+            ``True`` when text input is active after the request.
+        """
+
         return require_context().start_text_input()
 
     def stop_text_input(self) -> bool:
+        """Stop text-input mode.
+
+        Returns:
+            ``True`` when text input is inactive after the request.
+        """
+
         return require_context().stop_text_input()
 
 

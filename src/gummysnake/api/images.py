@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, cast, overload
+from typing import cast, overload
 
 from gummysnake import constants as c
 from gummysnake.api._context_call import context_call as _context_call
 from gummysnake.api.current import require_context
 from gummysnake.assets.image import CanvasImage, Image
 from gummysnake.core.color import Color
+
+type ImageDrawArg = Image | CanvasImage | float
+type TintArg = Color | str | float
 
 
 @overload
@@ -36,7 +39,14 @@ def image(
 ) -> None: ...
 
 
-def image(*args: Any) -> None:
+def image(*args: ImageDrawArg) -> None:
+    """Draw an image on the active canvas.
+
+    Args:
+        *args: An image followed by ``x`` and ``y`` coordinates, optional width
+            and height, and optional source-region coordinates.
+    """
+
     if len(args) == 5 and isinstance(args[0], Image | CanvasImage):
         context = require_context()
         source = cast(Image | CanvasImage, args[0])
@@ -48,7 +58,7 @@ def image(*args: Any) -> None:
             x -= width / 2.0
             y -= height / 2.0
         elif context.state.style.image_mode != c.CORNER:
-            context.image(*args)
+            _context_call("image", *args)
             return
         context._record_image_diagnostics(source)
         context.renderer.draw_image(
@@ -62,7 +72,7 @@ def image(*args: Any) -> None:
             source=None,
         )
         return
-    require_context().image(*args)
+    _context_call("image", *args)
 
 
 @overload
@@ -85,11 +95,20 @@ def tint(v1: float, v2: float, v3: float, /) -> None: ...
 def tint(v1: float, v2: float, v3: float, alpha: float, /) -> None: ...
 
 
-def tint(*args: Any) -> None:
+def tint(*args: TintArg) -> None:
+    """Apply a color tint to images drawn after this call.
+
+    Args:
+        *args: A ``Color`` or color string, a gray value, gray plus alpha, or RGB
+            values with an optional alpha value.
+    """
+
     _context_call("tint", *args)
 
 
 def no_tint() -> None:
+    """Disable image tinting for subsequent image draws."""
+
     _context_call("no_tint")
 
 

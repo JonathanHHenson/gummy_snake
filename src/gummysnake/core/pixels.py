@@ -3,7 +3,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from pathlib import Path
+from typing import Any, TypedDict
+
+
+class FrameSaveInfo(TypedDict):
+    """Information about one image file written by ``save_frames()``.
+
+    Attributes:
+        path: File path where the frame image was saved.
+        frame: Zero-based index within the requested save sequence.
+        frame_count: Sketch frame counter value when the image was saved.
+        duration: Playback duration for this frame in seconds.
+    """
+
+    path: Path
+    frame: int
+    frame_count: int
+    duration: float
 
 
 class PixelBuffer(bytearray):

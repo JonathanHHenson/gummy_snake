@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from gummysnake.ecs.systems import SystemDefinition
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.ecs.world import Entity, EntityView, SystemHandle
 from gummysnake.sketch.facade_mixins.base import SketchFacadeBaseMixin
 
@@ -13,38 +14,38 @@ from gummysnake.sketch.facade_mixins.base import SketchFacadeBaseMixin
 class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
     """Object-mode ECS convenience methods."""
 
-    def add_entity(self, *components: object, tags: Iterable[object] = ()) -> Entity:
+    def add_entity(self, *components: DataclassInstance, tags: Iterable[EcsTag] = ()) -> Entity:
         return self._ctx.add_entity(*components, tags=tags)
 
     def despawn_entity(self, entity: Entity) -> None:
         self._ctx.despawn_entity(entity)
 
-    def add_component(self, entity: Entity, component: object) -> None:
+    def add_component(self, entity: Entity, component: DataclassInstance) -> None:
         self._ctx.add_component(entity, component)
 
     def remove_component(self, entity: Entity, component_type: type[Any]) -> None:
         self._ctx.remove_component(entity, component_type)
 
-    def add_tag(self, entity: Entity, tag: object) -> None:
+    def add_tag(self, entity: Entity, tag: EcsTag) -> None:
         self._ctx.add_tag(entity, tag)
 
-    def remove_tag(self, entity: Entity, tag: object) -> None:
+    def remove_tag(self, entity: Entity, tag: EcsTag) -> None:
         self._ctx.remove_tag(entity, tag)
 
-    def get_entity(self, *components: type[Any], tags: Iterable[object] = ()) -> EntityView:
+    def get_entity(self, *components: type[Any], tags: Iterable[EcsTag] = ()) -> EntityView:
         return self._ctx.get_entity(*components, tags=tags)
 
     def try_get_entity(
-        self, *components: type[Any], tags: Iterable[object] = ()
+        self, *components: type[Any], tags: Iterable[EcsTag] = ()
     ) -> EntityView | None:
         return self._ctx.try_get_entity(*components, tags=tags)
 
     def iter_entities(
-        self, *components: type[Any], tags: Iterable[object] = ()
+        self, *components: type[Any], tags: Iterable[EcsTag] = ()
     ) -> Iterator[EntityView]:
         return self._ctx.iter_entities(*components, tags=tags)
 
-    def set_resource(self, resource: object) -> None:
+    def set_resource(self, resource: DataclassInstance) -> None:
         self._ctx.set_resource(resource)
 
     def get_resource[ResourceT](self, resource_type: type[ResourceT]) -> ResourceT:
@@ -62,7 +63,7 @@ class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
     def remove_resource(self, resource_type: type[Any]) -> None:
         self._ctx.remove_resource(resource_type)
 
-    def emit_event(self, event: object) -> None:
+    def emit_event(self, event: EcsEventValue) -> None:
         self._ctx.emit_event(event)
 
     def read_events[EventT](self, event_type: type[EventT]) -> tuple[EventT, ...]:

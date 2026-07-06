@@ -167,4 +167,3 @@ def _sequence4(value: Sequence[float], *, name: str) -> tuple[float, float, floa
     if len(value) != 4:
         raise ValueError(f"{name} must contain exactly four values.")
     return (float(value[0]), float(value[1]), float(value[2]), float(value[3]))
-

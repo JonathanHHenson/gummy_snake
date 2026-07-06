@@ -9,6 +9,10 @@ from gummysnake.drawing.renderer3d._numpy import _require_numpy
 
 type RGBA = tuple[float, float, float, float]
 type Matrix4 = tuple[tuple[float, ...], ...]
+type VertexPropertyScalar = bool | int | float | str
+type VertexPropertyValue = (
+    VertexPropertyScalar | tuple[VertexPropertyScalar, ...] | list[VertexPropertyScalar]
+)
 
 
 @dataclass(frozen=True, slots=True)

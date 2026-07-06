@@ -7,6 +7,7 @@ from dataclasses import fields, is_dataclass
 from typing import Annotated, Any, cast, get_args, get_origin
 
 from gummysnake.ecs.types import Bool, Float64, Int64, StorageType, String
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.exceptions import ComponentSchemaError, SystemExecutionError
 
 
@@ -14,14 +15,14 @@ def _schema_name(component_type: type[Any]) -> str:
     return f"{component_type.__module__}.{component_type.__qualname__}"
 
 
-def _tag_name(tag: object) -> str:
+def _tag_name(tag: EcsTag) -> str:
     value = str(tag)
     if not value:
         raise ComponentSchemaError("ECS tag values cannot be empty.")
     return value
 
 
-def _validate_event_value(event: object) -> None:
+def _validate_event_value(event: EcsEventValue) -> None:
     if is_dataclass(event) or isinstance(event, bool | int | float | str):
         return
     raise ComponentSchemaError(
@@ -29,7 +30,7 @@ def _validate_event_value(event: object) -> None:
     )
 
 
-def _event_payload_to_bridge(event: object) -> object:
+def _event_payload_to_bridge(event: EcsEventValue) -> object:
     if is_dataclass(event):
         return _dataclass_field_dict(event)
     return copy.deepcopy(event)
@@ -45,7 +46,7 @@ def _event_payload_from_bridge(event_type: type[Any], payload: object) -> object
     return copy.deepcopy(payload)
 
 
-def _dataclass_field_dict(value: object) -> dict[str, object]:
+def _dataclass_field_dict(value: DataclassInstance) -> dict[str, object]:
     dataclass_value = cast(Any, value)
     return {
         field.name: copy.deepcopy(getattr(dataclass_value, field.name))

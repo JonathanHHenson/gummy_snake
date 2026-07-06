@@ -23,6 +23,7 @@ from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
     OrthographicProjection,
     PerspectiveProjection,
+    VertexPropertyValue,
 )
 from gummysnake.sketch.facade_mixins.base import ColorValue, Number, SketchFacadeBaseMixin
 
@@ -382,7 +383,7 @@ class SketchFacadeThreeDMixin(SketchFacadeBaseMixin):
     def normal(self, x: float, y: float, z: float) -> None:
         self._ctx.normal(x, y, z)
 
-    def vertex_property(self, name: str, value: object) -> None:
+    def vertex_property(self, name: str, value: VertexPropertyValue) -> None:
         self._ctx.vertex_property(name, value)
 
     def build_geometry(self, callback: Callable[[], object]) -> Model3D:

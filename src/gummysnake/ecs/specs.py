@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from gummysnake.ecs.expressions import ComponentExpressionProxy, QueryProxy
+from gummysnake.ecs.value_types import EcsEventValue
 
 
 @dataclass(frozen=True)
@@ -197,7 +198,7 @@ class EventWriterProxy:
     name: str
     event_type: type[Any]
 
-    def emit(self, event: object) -> None:
+    def emit(self, event: EcsEventValue) -> None:
         """Queue an event from inside an ECS system build block.
 
         Args:
@@ -273,7 +274,7 @@ class EventWriter:
 
         return EventSpec(item, "writer")
 
-    def emit(self, event: object) -> None:
+    def emit(self, event: EcsEventValue) -> None:
         """Explain that events are emitted from system event-writer proxies.
 
         Args:

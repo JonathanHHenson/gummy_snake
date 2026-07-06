@@ -14,13 +14,14 @@ from gummysnake.ecs.schema_helpers import (
     _validate_event_value,
     _validate_storage_value,
 )
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue
 from gummysnake.exceptions import ComponentSchemaError, MissingResourceError
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.world import EcsWorld
 
 
-def set_resource(world: EcsWorld, resource: object) -> None:
+def set_resource(world: EcsWorld, resource: DataclassInstance) -> None:
     """Validate and store one dataclass resource in Rust-owned ECS storage."""
     world._validate_value(resource)
     world._rust.insert_resource(_schema_name(type(resource)), _dataclass_field_dict(resource))
@@ -80,7 +81,9 @@ def resource_snapshot(world: EcsWorld, resource_type: type[Any]) -> object:
     return resource_constructor(**values)
 
 
-def emit_event(world: EcsWorld, event: object, *, expected_type: type[Any] | None = None) -> None:
+def emit_event(
+    world: EcsWorld, event: EcsEventValue, *, expected_type: type[Any] | None = None
+) -> None:
     """Validate and enqueue an event in Rust and Python frame-local event storage."""
     event_type = expected_type or type(event)
     if expected_type is not None and type(event) is not expected_type:
