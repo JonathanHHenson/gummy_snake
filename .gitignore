@@ -1,5 +1,6 @@
 examples/output/
 .qwen/
+.claude/
 .scratch/
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,macos,rust
