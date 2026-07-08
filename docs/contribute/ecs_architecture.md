@@ -177,7 +177,7 @@ with equivalent group constraints run in registration order.
 
 `do_in_order(*actions)` is serial and later actions observe writes from earlier
 actions. `do_in_parallel(*actions)` represents independent snapshot-style work.
-Canvas actions recorded through `gummy_snake.ecs.canvas` are serialized into Rust
+Canvas actions recorded through `gummysnake.ecs.canvas` are serialized into Rust
 plans and replayed against the canvas runtime after physical execution reports
 are applied. The `ecs.canvas` helpers are plan-building APIs only; explicit
 Python ECS systems/UDFs that draw at runtime should call the normal `gummysnake`

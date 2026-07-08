@@ -22,8 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import gummysnake as gs
 from examples.common import example_parser, save_once
-from gummy_snake.ecs import canvas as ca
 from gummysnake import ecs
+from gummysnake.ecs import canvas as ca
 
 WIDTH = 960
 HEIGHT = 540

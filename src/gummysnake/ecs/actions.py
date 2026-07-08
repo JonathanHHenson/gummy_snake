@@ -6,7 +6,7 @@ import builtins
 import inspect
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, get_origin, get_type_hints, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, get_origin, get_type_hints, overload
 
 from gummysnake.ecs.expression_tools import ExpressionInput
 from gummysnake.ecs.expressions import (
@@ -200,23 +200,34 @@ class UdfDefinition:
     python: bool = False
     mutations: dict[str, frozenset[object]] = field(default_factory=dict)
 
-    def __call__(
-        self, *args: UdfArgument
-    ) -> DefaultAction | UdfIterableSource | UdfCallExpression | None:
+    def __call__(self, *args: UdfArgument) -> DefaultAction | UdfIterableSource | Expression | None:
         """Create a logical UDF expression, iterable source, or Python UDF action.
 
         Args:
             args: Values or ECS expressions passed to the decorated UDF.
 
         Returns:
-            A lazy expression for Rust-backed UDFs, an iterable source for Python UDFs
+            A plan-build expression for Rust-backed UDFs, an iterable source for Python UDFs
             that return iterables, or an action node for non-iterable Python UDFs. When
             called inside an active ECS system build block, non-iterable Python UDFs append
             their action immediately and return ``None``.
         """
 
         if not self.python:
-            return UdfCallExpression(self, tuple(args))
+            coerced_args: list[Expression] = []
+            for arg in args:
+                if isinstance(arg, QueryProxy | Query):
+                    raise SystemPlanError(
+                        f"Rust-backed ECS UDF {self.function.__name__} cannot take a query "
+                        "parameter directly; pass field expressions instead."
+                    )
+                coerced_args.append(ensure_expr(cast(ExpressionInput, arg)))
+            result = self.function(*coerced_args)
+            if result is None:
+                raise SystemPlanError(
+                    f"Rust-backed ECS UDF {self.function.__name__} must return an ECS expression."
+                )
+            return ensure_expr(result)
         if _is_iterable_annotation(self.return_annotation):
             return UdfIterableSource(self, tuple(args))
         action = DefaultAction("udf", udf=self, udf_args=tuple(args))

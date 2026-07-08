@@ -184,18 +184,18 @@ sources, typed events, structural entity commands, `ecs.dt()`,
 `ecs.key_is_down(...)`, `exists(...)`, grouped aggregates, change-detection
 filters, query exclusions with `ecs.Without[...]`, spatial relation
 aggregates/metadata, and canvas draw commands recorded through
-`gummy_snake.ecs.canvas`. Unsupported non-UDF plan nodes raise `SystemPlanError`
+`gummysnake.ecs.canvas`. Unsupported non-UDF plan nodes raise `SystemPlanError`
 instead of executing a Python fallback. Runtime Python work must be declared with
 `@ecs.udf(python=True)` or `@ecs.system(python=True)`.
 
-Use `from gummy_snake.ecs import canvas as ca` in Rust-executed ECS systems when
+Use `from gummysnake.ecs import canvas as ca` in Rust-executed ECS systems when
 drawing should become part of the ECS logical plan. Supported `ca.*` calls record
 canvas actions during system registration and are replayed by the Rust executor.
 They are not runtime drawing aliases; explicit `python=True` ECS systems/UDFs and
 `@gs.draw` callbacks should use the normal `gummysnake` drawing API instead.
 
 ```python
-from gummy_snake.ecs import canvas as ca
+from gummysnake.ecs import canvas as ca
 
 
 @ecs.system(group=("draw", "draw_actors"))

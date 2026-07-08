@@ -3,12 +3,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Annotated
+from typing import Annotated, cast
 
 import pytest
 
-from gummy_snake.ecs import canvas as ca
 from gummysnake import Sketch, ecs
+from gummysnake.ecs import canvas as ca
 from gummysnake.ecs import types as ecs_t
 from gummysnake.ecs.physical import BRIDGE_PLAN_VERSION
 from gummysnake.ecs.world import EcsWorld
@@ -456,6 +456,28 @@ def test_udf_action_and_for_each_iterable_source() -> None:
     diagnostics = world.diagnostics()
     assert diagnostics["ecs_udf_calls"] == 2
     assert diagnostics.get("ecs_python_fallback_system_runs", 0) == 0
+
+
+@pytest.mark.skipif(
+    not rust_ecs.is_ecs_runtime_available(), reason="Rust ECS bridge is not available"
+)
+def test_rust_udf_expands_to_physical_expression_plan() -> None:
+    world = EcsWorld()
+    world.add_entity(Position(3, 0))
+
+    @ecs.udf
+    def hypotenuse(value: ecs.Expression[float]) -> ecs.Expression[float]:
+        return (value * value + 1.0).sqrt()
+
+    @ecs.system
+    def udf_expression_system(entity: ecs.Query[Position]) -> None:
+        entity[Position].x.set_to(cast(ecs.Expression, hypotenuse(entity[Position].x)))
+
+    world.add_system(udf_expression_system)
+    world.run_pre_draw_systems()
+
+    assert world.get_entity(Position)[Position].x == pytest.approx(10.0**0.5)
+    assert world.diagnostics().get("ecs_udf_calls", 0) == 0
 
 
 def test_system_plan_explain_describes_action_tree() -> None:

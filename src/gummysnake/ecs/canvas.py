@@ -1,6 +1,6 @@
 """Canvas drawing helpers for ECS logical-plan construction.
 
-Import this module as ``from gummy_snake.ecs import canvas as ca`` inside
+Import this module as ``from gummysnake.ecs import canvas as ca`` inside
 Rust-executed ECS systems. These helpers record canvas draw actions into the ECS
 logical plan; they are not runtime drawing aliases for Python systems or UDFs.
 Use the normal ``gummysnake`` drawing API from explicit ``python=True`` ECS code.
@@ -28,7 +28,7 @@ def _canvas_call(command: str, *args: ExpressionInput) -> None:
 
     if not active_build_session():
         raise SystemPlanError(
-            "gummy_snake.ecs.canvas functions can only be used while building an "
+            "gummysnake.ecs.canvas functions can only be used while building an "
             "ECS logical plan. Use normal gummysnake drawing APIs such as "
             f"gs.{command}() inside @gs.draw callbacks or explicit python=True "
             "ECS systems/UDFs."
