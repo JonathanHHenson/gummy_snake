@@ -43,7 +43,7 @@ FPS_SMOOTHING = 0.12
 # -----------------------------------------------------------------------------
 # Boid simulation tuning
 
-BOID_COUNT = 4_000
+BOID_COUNT = 6_000
 BOID_TAG = "Boid"
 
 WORLD_X = 760.0
