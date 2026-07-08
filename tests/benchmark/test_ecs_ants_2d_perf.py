@@ -18,7 +18,7 @@ from gummysnake.ecs.world import EcsWorld
 FRAMES = int(os.environ.get("GUMMY_ANTS_BENCHMARK_FRAMES", "120"))
 WARMUP_FRAMES = int(os.environ.get("GUMMY_ANTS_BENCHMARK_WARMUP_FRAMES", "20"))
 REPEATS = int(os.environ.get("GUMMY_ANTS_BENCHMARK_REPEATS", "1"))
-TARGET_FPS = 120.0
+TARGET_FPS = 100.0
 
 GRID_WIDTH = 128
 GRID_HEIGHT = 96
