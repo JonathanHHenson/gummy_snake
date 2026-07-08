@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 from gummysnake.ecs.runtime_views import ResourceView
 from gummysnake.ecs.schema_helpers import (
     _dataclass_field_dict,
+    _event_payload_from_bridge,
     _event_payload_to_bridge,
     _schema_name,
     _validate_event_value,
@@ -105,9 +106,12 @@ def emit_event(
 def read_events[ComponentT](
     world: EcsWorld, event_type: type[ComponentT]
 ) -> tuple[ComponentT, ...]:
-    """Return deep-copied events of the requested type from the current event frame."""
+    """Return deep-copied events of the requested type from the Rust event queue."""
+    register_event_type(world, event_type)
+    raw_events = world._rust.read_events(_schema_name(event_type))
     events = tuple(
-        cast(ComponentT, copy.deepcopy(event)) for _, event in world._events.get(event_type, ())
+        cast(ComponentT, _event_payload_from_bridge(event_type, event["payload"]))
+        for event in raw_events
     )
     world._diagnostics["ecs_events_read"] += len(events)
     return events

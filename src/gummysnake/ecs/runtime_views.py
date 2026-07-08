@@ -2,14 +2,24 @@
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
-from gummysnake.ecs.schema_helpers import _schema_name
+from gummysnake.ecs.schema_helpers import _schema_name, _validate_storage_value
 from gummysnake.ecs.systems import BuiltSystem
 from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.exceptions import MissingComponentError, SystemPlanError
+
+
+def _copy_stored_value(value: object) -> object:
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if isinstance(value, tuple):
+        return tuple(value)
+    return copy.deepcopy(value)
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.world import EcsWorld
@@ -143,10 +153,21 @@ class ComponentView:
         "_component_type",
         "_schema_name",
         "_field_names",
+        "_storage_types",
         "_rust",
+        "_access_batch",
+        "_query_key",
     )
 
-    def __init__(self, world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
+    def __init__(
+        self,
+        world: EcsWorld,
+        entity: Entity,
+        component_type: type[Any],
+        *,
+        access_batch: Any | None = None,
+        query_key: int | None = None,
+    ) -> None:
         """Create a view for ``entity`` and ``component_type``.
 
         Args:
@@ -160,7 +181,10 @@ class ComponentView:
         object.__setattr__(self, "_component_type", component_type)
         object.__setattr__(self, "_schema_name", _schema_name(component_type))
         object.__setattr__(self, "_field_names", frozenset(world._schemas[component_type]))
+        object.__setattr__(self, "_storage_types", world._schemas[component_type])
         object.__setattr__(self, "_rust", world._rust)
+        object.__setattr__(self, "_access_batch", access_batch)
+        object.__setattr__(self, "_query_key", query_key)
 
     def __getattr__(self, field_name: str) -> Any:
         """Read a component field by attribute name.
@@ -173,6 +197,18 @@ class ComponentView:
         """
         if field_name.startswith("__") or field_name not in self._field_names:
             raise AttributeError(field_name)
+        access_batch = self._access_batch
+        if access_batch is not None and getattr(access_batch, "active", False):
+            from gummysnake.ecs.world_runtime.python_batch import _BATCH_MISS
+
+            value = access_batch.get_field(
+                self._query_key,
+                self._entity,
+                self._component_type,
+                field_name,
+            )
+            if value is not _BATCH_MISS:
+                return value
         try:
             return self._rust.get_field(
                 self._entity.index,
@@ -198,7 +234,36 @@ class ComponentView:
             return
         if field_name not in self._field_names:
             raise AttributeError(field_name)
-        self._world.set_component_field(self._entity, self._component_type, field_name, value)
+        _validate_storage_value(
+            self._component_type,
+            field_name,
+            value,
+            self._storage_types[field_name],
+        )
+        access_batch = self._access_batch
+        if access_batch is not None and getattr(access_batch, "active", False):
+            if access_batch.set_field(
+                self._query_key,
+                self._entity,
+                self._component_type,
+                field_name,
+                value,
+            ):
+                return
+        try:
+            self._rust.set_field(
+                self._entity.index,
+                self._entity.generation,
+                self._schema_name,
+                field_name,
+                _copy_stored_value(value),
+            )
+        except ValueError as exc:
+            raise MissingComponentError(
+                f"Entity {self._entity.index}:{self._entity.generation} does not have "
+                f"component {self._component_type.__name__}."
+            ) from exc
+        self._world._note_field_update(self._entity, self._component_type)
 
     def snapshot(self) -> object:
         """Return a dataclass copy of this component's current fields.
@@ -270,7 +335,14 @@ class ResourceView:
 class EntityView:
     """Mutable Python view over one entity's components and tags."""
 
-    def __init__(self, world: EcsWorld, entity: Entity) -> None:
+    def __init__(
+        self,
+        world: EcsWorld,
+        entity: Entity,
+        *,
+        access_batch: Any | None = None,
+        query_key: int | None = None,
+    ) -> None:
         """Create a view for ``entity`` in ``world``.
 
         Args:
@@ -279,6 +351,8 @@ class EntityView:
         """
         self._world = world
         self.entity = entity
+        self._access_batch = access_batch
+        self._query_key = query_key
 
     def __getitem__(self, component_type: type[ComponentT]) -> ComponentT:
         """Return a component view using ``entity[Component]`` syntax.
@@ -289,7 +363,23 @@ class EntityView:
         Returns:
             A ``ComponentView`` typed as the requested component for user code.
         """
-        return cast(ComponentT, ComponentView(self._world, self.entity, component_type))
+        access_batch = self._access_batch
+        if access_batch is not None and getattr(access_batch, "active", False):
+            from gummysnake.ecs.world_runtime.python_batch import _BATCH_MISS
+
+            proxy = access_batch.component_proxy(self._query_key, self.entity, component_type)
+            if proxy is not _BATCH_MISS:
+                return cast(ComponentT, proxy)
+        return cast(
+            ComponentT,
+            ComponentView(
+                self._world,
+                self.entity,
+                component_type,
+                access_batch=access_batch,
+                query_key=self._query_key,
+            ),
+        )
 
     def __setitem__(self, component_type: type[Any], value: DataclassInstance) -> None:
         """Replace a component using ``entity[Component] = value`` syntax.
@@ -298,6 +388,7 @@ class EntityView:
             component_type: Component slot to replace.
             value: Dataclass instance to store in that slot.
         """
+        self._flush_access_batch()
         self._world.set_component(self.entity, value, expected_type=component_type)
 
     def add_component(self, component: DataclassInstance) -> None:
@@ -306,6 +397,7 @@ class EntityView:
         Args:
             component: Dataclass component instance to store.
         """
+        self._flush_access_batch()
         self._world.add_component(self.entity, component)
 
     def remove_component(self, component_type: type[Any]) -> None:
@@ -314,6 +406,7 @@ class EntityView:
         Args:
             component_type: Dataclass component type to remove.
         """
+        self._flush_access_batch()
         self._world.remove_component(self.entity, component_type)
 
     def add_tag(self, tag: EcsTag) -> None:
@@ -322,6 +415,7 @@ class EntityView:
         Args:
             tag: Value converted to a non-empty string tag.
         """
+        self._flush_access_batch()
         self._world.add_tag(self.entity, tag)
 
     def remove_tag(self, tag: EcsTag) -> None:
@@ -330,7 +424,13 @@ class EntityView:
         Args:
             tag: Value converted to the string tag to remove.
         """
+        self._flush_access_batch()
         self._world.remove_tag(self.entity, tag)
+
+    def _flush_access_batch(self) -> None:
+        access_batch = getattr(self, "_access_batch", None)
+        if access_batch is not None and getattr(access_batch, "active", False):
+            access_batch.flush()
 
     def __eq__(self, other: object) -> bool:
         """Compare entity views by the entity handle they wrap.
@@ -384,6 +484,7 @@ class _ScheduledSystem:
     physical_has_input_state: bool = False
     physical_schema_fingerprint: int | None = None
     physical_warm_report: dict[str, Any] | None = None
+    python_arg_plan: tuple[tuple[str, Any], ...] | None = None
 
 
 class _RuntimeEventWriter:

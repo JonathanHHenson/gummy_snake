@@ -136,7 +136,13 @@ def check_parallel_children(world: EcsWorld, children: tuple[Action, ...]) -> No
 def materialize_udf_arg(world: EcsWorld, arg: UdfArgument) -> MaterializedUdfArgument:
     """Convert a query proxy UDF argument into concrete entity views when needed."""
     if isinstance(arg, QueryProxy):
-        return world.match_query(cast(QuerySpec, arg.spec))
+        spec = cast(QuerySpec, arg.spec)
+        batch = world._active_python_access_batch
+        if batch is not None and getattr(batch, "active", False):
+            rows = batch.materialize_query(spec)
+            if rows is not None:
+                return list(rows)
+        return world.match_query(spec)
     if isinstance(arg, Query):
         raise SystemPlanError(
             "ECS UDF arguments require system query proxies, not ecs.Query markers."

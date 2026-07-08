@@ -123,19 +123,10 @@ def branch_particle_state(
 @ecs.system(group=("simulation", "simulation_events"))
 def consume_sparks(reader: ecs.EventReader[SparkPulse], stats: ecs.ResMut[BranchStats]) -> None:
     stats[BranchStats].spark_events.set_to(0)
+    stats[BranchStats].hot_rows.set_to(0)
     with ecs.for_each(reader) as event:
         stats[BranchStats].spark_events.increase_by(event.amount)
-
-
-@ecs.system(group=("simulation", "simulation_count_reset"))
-def reset_hot_count(stats: ecs.ResMut[BranchStats]) -> None:
-    stats[BranchStats].hot_rows.set_to(0)
-
-
-@ecs.system(group=("simulation", "simulation_count_rows"))
-def count_hot_particles(particle: ecs.Query[Particle2D], stats: ecs.ResMut[BranchStats]) -> None:
-    with ecs.conditional(), ecs.when(particle[Particle2D].energy > HOT_ENERGY_THRESHOLD):
-        stats[BranchStats].hot_rows.increase_by(1)
+        stats[BranchStats].hot_rows.increase_by(event.amount)
 
 
 @ecs.system(group=("draw", "draw_background"))
@@ -150,7 +141,6 @@ def draw_background() -> None:
 def draw_particles(particle: ecs.Query[Particle2D]) -> None:
     state = particle[Particle2D]
     pulse = _wave01(state.phase * 1.7)
-    ca.no_stroke()
     ca.fill(
         70 + state.bucket * 35,
         150 + pulse * 70,
@@ -158,13 +148,9 @@ def draw_particles(particle: ecs.Query[Particle2D]) -> None:
         72 + state.energy * 160,
     )
     ca.circle(state.x, state.y, state.radius * (1.2 + state.energy))
-    with ecs.conditional():
-        with ecs.when(state.energy > HOT_ENERGY_THRESHOLD):
-            ca.fill(255, 242, 166, 120)
-            ca.circle(state.x, state.y, state.radius * 3.2)
-        with ecs.otherwise():
-            ca.fill(120, 180, 255, 36)
-            ca.circle(state.x, state.y, state.radius * 1.55)
+    with ecs.conditional(), ecs.when(state.energy > HOT_ENERGY_THRESHOLD):
+        ca.fill(255, 242, 166, 120)
+        ca.circle(state.x, state.y, state.radius * 3.2)
 
 
 @ecs.system(group=("draw", "draw_hud"))
@@ -223,8 +209,6 @@ def setup() -> None:
             "simulation_for_each",
             "simulation_branching",
             "simulation_events",
-            "simulation_count_reset",
-            "simulation_count_rows",
         ]
     )
     gs.order(["draw_background", "draw_particles", "draw_hud"])
@@ -232,8 +216,6 @@ def setup() -> None:
     gs.add_system(fold_trail_samples)
     gs.add_system(branch_particle_state)
     gs.add_system(consume_sparks)
-    gs.add_system(reset_hot_count)
-    gs.add_system(count_hot_particles)
     gs.add_system(draw_background)
     gs.add_system(draw_particles)
     gs.add_system(draw_hud)

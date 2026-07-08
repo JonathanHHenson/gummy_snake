@@ -24,7 +24,7 @@ WIDTH = 900
 HEIGHT = 520
 TARGET_FPS = 60
 SIGNAL_COUNT = 1_200
-BEACON_COUNT = 12
+BEACON_COUNT = 10
 OUTPUT = Path("examples/output/11_temporary_perf_tests/spatial_events_for_each_stress.png")
 ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
 
@@ -32,8 +32,8 @@ SIGNAL_TAG = "spatial_signal"
 BEACON_TAG = "spatial_beacon"
 SAVED_OUTPUT = False
 WORLD_BOUNDS = ecs.spatial.Bounds2D(0.0, 0.0, float(WIDTH), float(HEIGHT))
-SIGNAL_GRID = ecs.spatial.HashGrid(cell_size=34.0, dimensions=2)
-BEACON_GRID = ecs.spatial.HashGrid(cell_size=160.0, dimensions=2)
+SIGNAL_GRID = ecs.spatial.HashGrid(cell_size=30.0, dimensions=2)
+BEACON_GRID = ecs.spatial.HashGrid(cell_size=130.0, dimensions=2)
 OVERLAP_TREE = ecs.spatial.Quadtree(WORLD_BOUNDS, capacity=16)
 
 
@@ -93,7 +93,7 @@ def beacon_pull(
         beacon,
         origin_position=ecs.spatial.point2(state.x, state.y),
         target_position=ecs.spatial.point2(beacon[Beacon2D].x, beacon[Beacon2D].y),
-        radius=170.0,
+        radius=132.0,
         algorithm=BEACON_GRID,
         allow_fallback=False,
         name="signal_beacon_join",
@@ -111,7 +111,7 @@ def neighbor_pressure(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
     neighbors = ecs.spatial.neighbors(
         signal,
         position=ecs.spatial.point2(state.x, state.y),
-        radius=34.0,
+        radius=30.0,
         algorithm=SIGNAL_GRID,
         include_self=False,
         allow_fallback=False,
@@ -149,15 +149,16 @@ def overlap_beacons(
         name="signal_beacon_overlaps",
     ).count()
     with ecs.conditional(), ecs.when(hits > 0):
-        state.pressure.set_to((state.pressure + hits * 0.12).clamp(0.0, 1.0))
-        writer.emit(BeaconPulse(1))
+        state.pressure.set_to((state.pressure + hits * 0.10).clamp(0.0, 1.0))
+        with ecs.conditional(), ecs.when(hits > 1):
+            writer.emit(BeaconPulse(1))
 
 
 @ecs.system(group=("simulation", "simulation_event_emit"))
 def emit_cluster_events(
     signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D], writer: ecs.EventWriter[ClusterPulse]
 ) -> None:
-    with ecs.conditional(), ecs.when(signal[Signal2D].pressure > 0.72):
+    with ecs.conditional(), ecs.when(signal[Signal2D].pressure > 0.88):
         writer.emit(ClusterPulse(1))
 
 
@@ -186,7 +187,6 @@ def draw_background() -> None:
 @ecs.system(group=("draw", "draw_beacons"))
 def draw_beacons(beacon: ecs.Query[ecs.Tag[BEACON_TAG], Beacon2D]) -> None:
     state = beacon[Beacon2D]
-    ca.no_stroke()
     ca.fill(90, 84, 255, 32)
     ca.circle(state.x, state.y, state.radius * 2.0)
     ca.fill(116, 230, 255, 80)
@@ -198,7 +198,6 @@ def draw_beacons(beacon: ecs.Query[ecs.Tag[BEACON_TAG], Beacon2D]) -> None:
 @ecs.system(group=("draw", "draw_signals"))
 def draw_signals(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
     state = signal[Signal2D]
-    ca.no_stroke()
     ca.fill(55 + state.bucket * 38, 170 + state.pressure * 70, 255, 58 + state.pressure * 150)
     ca.circle(state.x, state.y, state.radius * (1.15 + state.pressure * 1.8))
 
@@ -230,7 +229,7 @@ def _seed_world() -> None:
         x = WIDTH * 0.5 + math.cos(angle) * WIDTH * 0.34
         y = HEIGHT * 0.5 + math.sin(angle * 1.3) * HEIGHT * 0.28
         gs.add_entity(
-            Beacon2D(x=x, y=y, radius=40.0 + (index % 4) * 8.0, pulse=index % 5),
+            Beacon2D(x=x, y=y, radius=34.0 + (index % 4) * 6.0, pulse=index % 5),
             tags=[BEACON_TAG],
         )
     for index in range(SIGNAL_COUNT):

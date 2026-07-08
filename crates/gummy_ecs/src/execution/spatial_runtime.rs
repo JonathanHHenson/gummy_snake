@@ -89,6 +89,99 @@ impl<'a> PlanExecutor<'a> {
         aggregate_finish(kind, count, values, default, self, ctx)
     }
 
+    pub(in crate::execution) fn try_count_spatial_relation(
+        &mut self,
+        relation: &SpatialRelationNode,
+        ctx: &EvalContext,
+    ) -> Result<Option<usize>> {
+        let Some(origin_bounds_expr) = &relation.origin_bounds else {
+            return Ok(None);
+        };
+        let distance_filter = relation
+            .exact_filter
+            .and_then(|expr| self.match_spatial_distance_filter(expr, relation));
+        if relation.exact_filter.is_some() && distance_filter.is_none() {
+            return Ok(None);
+        }
+        let origin_entity = ctx
+            .bindings
+            .get(&relation.origin_query)
+            .copied()
+            .ok_or_else(|| {
+                EcsError::InvalidPlan(format!(
+                    "spatial origin query '{}' is not bound",
+                    relation.origin_query
+                ))
+            })?;
+        let origin_point = self.eval_spatial_point(&relation.origin_position, ctx)?;
+        let origin_bounds = self.eval_spatial_bounds(origin_bounds_expr, ctx)?;
+        let profile = self.profile;
+        let index_start = profile.then(Instant::now);
+        let index = self.ensure_spatial_index(relation, ctx)?;
+        let index_nanos = index_start
+            .map(|start| start.elapsed().as_nanos())
+            .unwrap_or(0);
+        let query_start = profile.then(Instant::now);
+        let mut count = 0usize;
+        let mut candidate_rows = 0usize;
+        let mut exact_rows = 0usize;
+        let mut rows_scanned = 0usize;
+        let mut deduplicated_pairs = 0usize;
+        let mut false_positive_rows = 0usize;
+        let dimensions = origin_bounds.dimensions().len();
+        index.visit_aabb_unordered(&origin_bounds, &mut |record| {
+            candidate_rows += 1;
+            if !relation.include_self && record.entity == origin_entity {
+                return Ok(());
+            }
+            if relation.pair_policy == "unique_unordered"
+                && record.entity.raw() <= origin_entity.raw()
+            {
+                deduplicated_pairs += 1;
+                return Ok(());
+            }
+            let overlaps = if let Some(record_bounds) = &record.bounds {
+                origin_bounds.overlaps(record_bounds)?
+            } else if record.point.dimensions() == origin_bounds.dimensions() {
+                (0..dimensions).all(|axis| {
+                    let coord = record.point.coord(axis);
+                    origin_bounds.minimum().coord(axis) <= coord
+                        && coord <= origin_bounds.maximum().coord(axis)
+                })
+            } else {
+                return Err(EcsError::InvalidSpatialInput(
+                    "spatial AABB dimensions must match".to_string(),
+                ));
+            };
+            if !overlaps {
+                false_positive_rows += 1;
+                return Ok(());
+            }
+            if let Some(distance_filter) = distance_filter {
+                if !distance_filter.matches(origin_point.distance_squared(&record.point)?) {
+                    return Ok(());
+                }
+            }
+            rows_scanned += 1;
+            exact_rows += 1;
+            count += 1;
+            Ok(())
+        })?;
+        let query_nanos = query_start
+            .map(|start| start.elapsed().as_nanos())
+            .unwrap_or(0);
+        if profile {
+            self.profile_spatial_index_nanos += index_nanos;
+            self.profile_spatial_query_nanos += query_nanos;
+        }
+        self.report.spatial_candidate_rows += candidate_rows;
+        self.report.spatial_deduplicated_pairs += deduplicated_pairs;
+        self.report.spatial_false_positive_rows += false_positive_rows;
+        self.report.rows_scanned += rows_scanned;
+        self.report.spatial_exact_rows += exact_rows;
+        Ok(Some(count))
+    }
+
     pub(in crate::execution) fn try_direct_spatial_numeric_aggregate(
         &mut self,
         kind: &str,

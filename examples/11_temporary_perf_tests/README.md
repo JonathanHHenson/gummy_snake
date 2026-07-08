@@ -8,6 +8,14 @@ Run any sketch with the normal example flags, for example:
 uv run python examples/11_temporary_perf_tests/rust_2d_primitives_branching.py --headless --frames 1 --no-save
 ```
 
+Run the opt-in benchmark matrix with:
+
+```sh
+uv run pytest tests/benchmark/test_temporary_ecs_perf.py -q -s --run-benchmarks
+```
+
+Use `GUMMY_TEMP_ECS_BENCHMARK_FRAMES`, `GUMMY_TEMP_ECS_BENCHMARK_REPEATS`, and `GUMMY_TEMP_ECS_BENCHMARK_MODE=headless|interactive` to tune benchmark duration and mode.
+
 ## Coverage map
 
 | Sketch | Main coverage |

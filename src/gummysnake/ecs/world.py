@@ -87,6 +87,7 @@ class EcsWorld:
         self._events: dict[type[Any], list[tuple[int, object]]] = {}
         self._event_types: dict[str, type[Any]] = {}
         self._has_change_filtered_systems_cache: bool | None = None
+        self._active_python_access_batch: Any | None = None
 
     # ------------------------------------------------------------------ schema
     def validate_schema(self, component_type: type[Any]) -> dict[str, StorageType]:
@@ -157,6 +158,7 @@ class EcsWorld:
             A stable handle for the new Rust-owned entity.
         """
 
+        self._flush_active_python_access_batch()
         return entity_runtime.add_entity(self, *components, tags=tags)
 
     def despawn_entity(self, entity: Entity) -> None:
@@ -166,6 +168,7 @@ class EcsWorld:
             entity: Entity handle that belongs to this world.
         """
 
+        self._flush_active_python_access_batch()
         entity_runtime.despawn_entity(self, entity)
 
     def add_component(self, entity: Entity, component: DataclassInstance) -> None:
@@ -176,6 +179,7 @@ class EcsWorld:
             component: Dataclass component instance to store.
         """
 
+        self._flush_active_python_access_batch()
         entity_runtime.add_component(self, entity, component)
 
     def set_component(
@@ -193,11 +197,13 @@ class EcsWorld:
             expected_type: Component class for assignment through typed view APIs.
         """
 
+        self._flush_active_python_access_batch()
         entity_runtime.set_component(self, entity, component, expected_type=expected_type)
 
     def _upsert_component(
         self, entity: Entity, component_type: type[Any], component: DataclassInstance
     ) -> None:
+        self._flush_active_python_access_batch()
         entity_runtime.upsert_component(self, entity, component_type, component)
 
     def remove_component(self, entity: Entity, component_type: type[Any]) -> None:
@@ -208,6 +214,7 @@ class EcsWorld:
             component_type: Dataclass component class to remove.
         """
 
+        self._flush_active_python_access_batch()
         entity_runtime.remove_component(self, entity, component_type)
 
     def add_tag(self, entity: Entity, tag: EcsTag) -> None:
@@ -218,6 +225,7 @@ class EcsWorld:
             tag: Value converted to a string tag for filtering queries.
         """
 
+        self._flush_active_python_access_batch()
         entity_runtime.add_tag(self, entity, tag)
 
     def remove_tag(self, entity: Entity, tag: EcsTag) -> None:
@@ -228,6 +236,7 @@ class EcsWorld:
             tag: Value converted to the string tag to remove.
         """
 
+        self._flush_active_python_access_batch()
         entity_runtime.remove_tag(self, entity, tag)
 
     def get_entity(self, *components: type[Any], tags: Iterable[EcsTag] = ()) -> EntityView:
@@ -241,6 +250,7 @@ class EcsWorld:
             An ``EntityView`` for the matching entity.
         """
 
+        self._flush_active_python_access_batch()
         return entity_runtime.get_entity(self, *components, tags=tags)
 
     def try_get_entity(
@@ -256,6 +266,7 @@ class EcsWorld:
             An ``EntityView`` when exactly one entity matches, or ``None`` when no entity matches.
         """
 
+        self._flush_active_python_access_batch()
         return entity_runtime.try_get_entity(self, *components, tags=tags)
 
     def iter_entities(
@@ -271,6 +282,7 @@ class EcsWorld:
             An iterator of ``EntityView`` objects in deterministic entity order.
         """
 
+        self._flush_active_python_access_batch()
         return entity_runtime.iter_entities(self, *components, tags=tags)
 
     def iter_component_fields(
@@ -290,6 +302,7 @@ class EcsWorld:
             An iterator of tuples whose values match ``field_names`` order.
         """
 
+        self._flush_active_python_access_batch()
         return entity_runtime.iter_component_fields(self, component_type, *field_names, tags=tags)
 
     def _slot(self, entity: Entity) -> None:
@@ -312,6 +325,7 @@ class EcsWorld:
             The current Rust-owned field value.
         """
 
+        self._flush_active_python_access_batch()
         return entity_runtime.get_component_field(self, entity, component_type, field_name)
 
     def set_component_field(
@@ -326,6 +340,7 @@ class EcsWorld:
             value: New value accepted by the field's ECS storage type.
         """
 
+        self._flush_active_python_access_batch()
         entity_runtime.set_component_field(self, entity, component_type, field_name, value)
 
     def component_snapshot(self, entity: Entity, component_type: type[Any]) -> DataclassInstance:
@@ -339,6 +354,7 @@ class EcsWorld:
             A new dataclass instance of ``component_type``.
         """
 
+        self._flush_active_python_access_batch()
         return entity_runtime.component_snapshot(self, entity, component_type)
 
     # --------------------------------------------------------------- resources
@@ -349,6 +365,7 @@ class EcsWorld:
             resource: Dataclass resource instance to store or replace.
         """
 
+        self._flush_active_python_access_batch()
         resource_runtime.set_resource(self, resource)
 
     def get_resource(self, resource_type: type[ResourceT]) -> ResourceT:
@@ -361,6 +378,7 @@ class EcsWorld:
             A resource view typed as ``resource_type`` for field access.
         """
 
+        self._flush_active_python_access_batch()
         return resource_runtime.get_resource(self, resource_type)
 
     def remove_resource(self, resource_type: type[Any]) -> None:
@@ -370,6 +388,7 @@ class EcsWorld:
             resource_type: Dataclass resource class to remove.
         """
 
+        self._flush_active_python_access_batch()
         resource_runtime.remove_resource(self, resource_type)
 
     def get_resource_field(self, resource_type: type[Any], field_name: str) -> EcsStoredValue:
@@ -383,6 +402,7 @@ class EcsWorld:
             The current Rust-owned resource field value.
         """
 
+        self._flush_active_python_access_batch()
         return resource_runtime.get_resource_field(self, resource_type, field_name)
 
     def set_resource_field(
@@ -396,6 +416,7 @@ class EcsWorld:
             value: New value accepted by the field's ECS storage type.
         """
 
+        self._flush_active_python_access_batch()
         resource_runtime.set_resource_field(self, resource_type, field_name, value)
 
     def resource_snapshot(self, resource_type: type[Any]) -> DataclassInstance:
@@ -408,6 +429,7 @@ class EcsWorld:
             A new dataclass instance of ``resource_type``.
         """
 
+        self._flush_active_python_access_batch()
         return resource_runtime.resource_snapshot(self, resource_type)
 
     # ---------------------------------------------------------------- events
@@ -527,6 +549,7 @@ class EcsWorld:
     def match_query(self, spec: QuerySpec) -> list[EntityView]:
         """Return entity views that satisfy ``spec`` in deterministic order."""
 
+        self._flush_active_python_access_batch()
         return query_runtime.match_query(self, spec)
 
     def iter_join_contexts_for(
@@ -568,6 +591,11 @@ class EcsWorld:
 
     def _register_event_type(self, event_type: type[Any]) -> None:
         resource_runtime.register_event_type(self, event_type)
+
+    def _flush_active_python_access_batch(self) -> None:
+        batch = self._active_python_access_batch
+        if batch is not None and getattr(batch, "active", False):
+            batch.flush()
 
     # -------------------------------------------------------------- Rust sync
     def _sync_component_fields_to_rust(

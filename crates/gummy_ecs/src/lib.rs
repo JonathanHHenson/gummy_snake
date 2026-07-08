@@ -59,7 +59,7 @@ pub use spatial_registry::{
 pub use tree_spatial::{OctreeIndex, QuadtreeIndex};
 pub use world::World;
 
-pub const ECS_ABI_VERSION: u32 = 3;
+pub const ECS_ABI_VERSION: u32 = 4;
 
 pub fn health_check() -> &'static str {
     "gummy-ecs 3"

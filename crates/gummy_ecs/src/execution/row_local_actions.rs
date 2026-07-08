@@ -16,7 +16,8 @@ use super::f64_program::{
 };
 use super::{
     storage_type_is_numeric, truthy_f64, EvalContext, ExecutionCanvasCommand,
-    ExecutionCanvasFillBatch, ExecutionCanvasFillRecord, PlanExecutor, SpatialPrecomputeLayout,
+    ExecutionCanvasFillBatch, ExecutionCanvasFillRecord, ExecutionEvent, PlanExecutor,
+    SpatialPrecomputeLayout,
 };
 
 const CANVAS_FILL_RECT: u8 = 1;
@@ -131,6 +132,25 @@ fn compiled_canvas_cache_for_program(
         cache[*index] = Some(*value);
     }
     cache
+}
+
+fn row_local_action_emits_events(action: &RowLocalAction) -> bool {
+    match action {
+        RowLocalAction::EmitConstEvent { .. } => true,
+        RowLocalAction::Sequence(children) => children.iter().any(row_local_action_emits_events),
+        RowLocalAction::ForEachListField { action, .. } => row_local_action_emits_events(action),
+        RowLocalAction::When {
+            then_action,
+            otherwise_action,
+            ..
+        } => {
+            row_local_action_emits_events(then_action)
+                || otherwise_action
+                    .as_deref()
+                    .is_some_and(row_local_action_emits_events)
+        }
+        RowLocalAction::Noop | RowLocalAction::SetField { .. } => false,
+    }
 }
 
 fn eval_canvas_command_f64_args_with_world(
@@ -334,6 +354,62 @@ impl<'a> PlanExecutor<'a> {
         })
     }
 
+    fn row_local_numeric_expr_supported(
+        &self,
+        expr_index: usize,
+        query_name: &mut Option<String>,
+    ) -> bool {
+        if !self.expr_supports_f64(expr_index, &mut HashSet::new()) {
+            return false;
+        }
+        let mut queries = BTreeSet::new();
+        if self.collect_expr_queries(expr_index, &mut queries).is_err() || queries.len() > 1 {
+            return false;
+        }
+        if let Some(query) = queries.iter().next() {
+            if !self.note_row_local_query(query_name, query) {
+                return false;
+            }
+        }
+        query_name.as_deref().is_none_or(|query| {
+            queries.is_empty() || self.expr_uses_only_row_local_direct_fields(expr_index, query)
+        })
+    }
+
+    fn row_local_const_event_payload(&self, expr_index: usize) -> Option<EcsValue> {
+        match &self.plan.expressions[expr_index] {
+            ExprNode::LiteralF64(value) => Some(EcsValue::F64(*value)),
+            ExprNode::LiteralI64(value) => Some(EcsValue::I64(*value)),
+            ExprNode::LiteralBool(value) => Some(EcsValue::Bool(*value)),
+            ExprNode::LiteralString(value) => Some(EcsValue::String(value.clone())),
+            ExprNode::LiteralValue(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    fn row_local_list_field_source_supported(
+        &self,
+        expr_index: usize,
+        query_name: &mut Option<String>,
+    ) -> bool {
+        let ExprNode::Field { query, .. } = &self.plan.expressions[expr_index] else {
+            return false;
+        };
+        self.note_row_local_query(query_name, query)
+    }
+
+    fn expr_is_always_truthy(&self, expr_index: usize) -> bool {
+        match &self.plan.expressions[expr_index] {
+            ExprNode::LiteralBool(value) => *value,
+            ExprNode::LiteralI64(value) => *value != 0,
+            ExprNode::LiteralF64(value) => *value != 0.0,
+            ExprNode::Binary { op, left, right } if matches!(op.as_str(), "or" | "||") => {
+                self.expr_is_always_truthy(*left) || self.expr_is_always_truthy(*right)
+            }
+            _ => false,
+        }
+    }
+
     fn action_contains_when(&self, action_index: usize) -> bool {
         match &self.plan.actions[action_index] {
             ActionNode::When { .. } => true,
@@ -421,19 +497,21 @@ impl<'a> PlanExecutor<'a> {
                 then_action,
                 otherwise_action,
             } => {
-                let Some(primary_query) = query_name.as_deref() else {
-                    return false;
-                };
-                self.expr_supports_f64(*condition, &mut HashSet::new())
-                    && self.expr_uses_only_row_local_direct_fields(*condition, primary_query)
+                (self.expr_is_always_truthy(*condition)
+                    || self.row_local_numeric_expr_supported(*condition, query_name))
                     && self.row_local_numeric_action_supported(*then_action, query_name)
                     && otherwise_action.is_none_or(|action| {
                         self.row_local_numeric_action_supported(action, query_name)
                     })
             }
+            ActionNode::ForEach { source, action, .. } => {
+                self.row_local_list_field_source_supported(*source, query_name)
+                    && self.row_local_numeric_action_supported(*action, query_name)
+            }
+            ActionNode::EmitEvent { value, .. } => {
+                self.row_local_const_event_payload(*value).is_some()
+            }
             ActionNode::Parallel(_)
-            | ActionNode::ForEach { .. }
-            | ActionNode::EmitEvent { .. }
             | ActionNode::AddComponent { .. }
             | ActionNode::RemoveComponent { .. }
             | ActionNode::AddTag { .. }
@@ -478,8 +556,19 @@ impl<'a> PlanExecutor<'a> {
             | ExprNode::LiteralValue(_)
             | ExprNode::ResourceField { .. }
             | ExprNode::InputState { .. }
-            | ExprNode::SpatialAggregate { .. } => true,
+            | ExprNode::ForEachItem { .. } => true,
             ExprNode::Field { query, .. } => query == query_name,
+            ExprNode::SpatialAggregate {
+                kind,
+                relation,
+                value,
+                default,
+            } => {
+                relation.origin_query == query_name
+                    && self.spatial_aggregate_precomputable_for_row_local(
+                        kind, relation, *value, *default, query_name, seen,
+                    )
+            }
             ExprNode::Unary { input, .. } | ExprNode::Attribute { input, .. } => {
                 self.expr_uses_only_row_local_direct_fields_inner(*input, query_name, seen)
             }
@@ -489,12 +578,55 @@ impl<'a> PlanExecutor<'a> {
             }
             ExprNode::LiteralString(_)
             | ExprNode::EventStream { .. }
-            | ExprNode::ForEachItem { .. }
             | ExprNode::ContextJoin { .. }
             | ExprNode::Exists { .. }
             | ExprNode::Aggregate { .. }
             | ExprNode::SpatialMetadata { .. } => false,
         }
+    }
+
+    fn spatial_aggregate_precomputable_for_row_local(
+        &self,
+        kind: &str,
+        relation: &crate::plan::SpatialRelationNode,
+        value: Option<usize>,
+        default: Option<usize>,
+        query_name: &str,
+        seen: &mut HashSet<usize>,
+    ) -> bool {
+        if relation.origin_bounds.is_some() || relation.target_bounds.is_some() {
+            return matches!(kind, "any" | "count")
+                && value.is_none()
+                && default.is_none()
+                && relation.exact_filter.is_none()
+                && self
+                    .spatial_origin_expressions_use_row_local_fields(relation, query_name, seen);
+        }
+        self.spatial_origin_expressions_use_row_local_fields(relation, query_name, seen)
+    }
+
+    fn spatial_origin_expressions_use_row_local_fields(
+        &self,
+        relation: &crate::plan::SpatialRelationNode,
+        query_name: &str,
+        seen: &mut HashSet<usize>,
+    ) -> bool {
+        relation
+            .origin_position
+            .iter()
+            .all(|expr| self.expr_uses_only_row_local_direct_fields_inner(*expr, query_name, seen))
+            && relation.origin_bounds.as_ref().is_none_or(|bounds| {
+                bounds
+                    .minimum
+                    .iter()
+                    .chain(bounds.maximum.iter())
+                    .all(|expr| {
+                        self.expr_uses_only_row_local_direct_fields_inner(*expr, query_name, seen)
+                    })
+            })
+            && relation.radius.is_none_or(|expr| {
+                self.expr_uses_only_row_local_direct_fields_inner(expr, query_name, seen)
+            })
     }
 
     fn compile_row_local_action(
@@ -563,28 +695,84 @@ impl<'a> PlanExecutor<'a> {
                 condition,
                 then_action,
                 otherwise_action,
-            } => Ok(RowLocalAction::When {
-                condition_expr: *condition,
-                then_action: Box::new(self.compile_row_local_action(
-                    *then_action,
-                    query_name,
-                    program,
-                    targets,
-                    target_slots,
-                )?),
-                otherwise_action: otherwise_action
-                    .map(|action| {
-                        self.compile_row_local_action(
-                            action,
-                            query_name,
-                            program,
-                            targets,
-                            target_slots,
-                        )
-                        .map(Box::new)
-                    })
-                    .transpose()?,
-            }),
+            } => {
+                if self.expr_is_always_truthy(*condition) {
+                    return self.compile_row_local_action(
+                        *then_action,
+                        query_name,
+                        program,
+                        targets,
+                        target_slots,
+                    );
+                }
+                Ok(RowLocalAction::When {
+                    condition_expr: *condition,
+                    then_action: Box::new(self.compile_row_local_action(
+                        *then_action,
+                        query_name,
+                        program,
+                        targets,
+                        target_slots,
+                    )?),
+                    otherwise_action: otherwise_action
+                        .map(|action| {
+                            self.compile_row_local_action(
+                                action,
+                                query_name,
+                                program,
+                                targets,
+                                target_slots,
+                            )
+                            .map(Box::new)
+                        })
+                        .transpose()?,
+                })
+            }
+            ActionNode::ForEach {
+                source,
+                item_slot,
+                action,
+            } => {
+                let ExprNode::Field {
+                    query,
+                    component,
+                    field,
+                } = &self.plan.expressions[*source]
+                else {
+                    return Err(EcsError::InvalidPlan(
+                        "row-local for_each source must be a field".to_string(),
+                    ));
+                };
+                if query != query_name {
+                    return Err(EcsError::InvalidPlan(format!(
+                        "row-local for_each cannot read query '{query}' from primary query '{query_name}'"
+                    )));
+                }
+                Ok(RowLocalAction::ForEachListField {
+                    component: component.clone(),
+                    field: field.clone(),
+                    item_slot: *item_slot,
+                    action: Box::new(self.compile_row_local_action(
+                        *action,
+                        query_name,
+                        program,
+                        targets,
+                        target_slots,
+                    )?),
+                })
+            }
+            ActionNode::EmitEvent { event_type, value } => {
+                let payload = self.row_local_const_event_payload(*value).ok_or_else(|| {
+                    EcsError::InvalidPlan(
+                        "row-local numeric executor only supports constant event payloads"
+                            .to_string(),
+                    )
+                })?;
+                Ok(RowLocalAction::EmitConstEvent {
+                    event_type: event_type.clone(),
+                    payload,
+                })
+            }
             other => Err(EcsError::InvalidPlan(format!(
                 "row-local numeric executor does not support action {other:?}"
             ))),
@@ -1370,7 +1558,8 @@ impl<'a> PlanExecutor<'a> {
             &mut target_slots,
         )?;
         let target_count = targets.len();
-        if target_count == 0 {
+        let action_emits_events = row_local_action_emits_events(&action);
+        if target_count == 0 && !action_emits_events {
             return Ok(());
         }
 
@@ -1379,47 +1568,92 @@ impl<'a> PlanExecutor<'a> {
         let field_dependents = build_row_local_field_dependents(&program);
         let mut flat_values = vec![0.0; rows.len() * target_count];
         let mut dirty = vec![false; rows.len() * target_count];
+        let mut emitted_events = Vec::new();
         let eval_start = self.profile.then(Instant::now);
         let world = &*self.world;
-        flat_values
-            .par_chunks_mut(target_count)
-            .zip(dirty.par_chunks_mut(target_count))
-            .zip(rows.par_iter().enumerate())
-            .try_for_each_init(
-                || {
-                    (
-                        vec![0.0; expr_count],
-                        vec![0_u32; expr_count],
-                        1_u32,
-                        vec![0.0; field_count],
-                    )
-                },
-                |(cache_values, cache_marks, cache_generation, field_values),
-                 ((out, dirty_row), (row_index, entity))| {
-                    invalidate_row_local_f64_cache(cache_marks, cache_generation);
-                    for (slot, value) in field_values.iter_mut().enumerate() {
-                        *value = compiled_field_f64_value(
-                            program.field_arrays[slot],
-                            row_index,
-                            *entity,
-                        )?;
-                    }
-                    execute_row_local_f64_action(
-                        &action,
-                        row_index,
-                        *entity,
-                        &program,
-                        world,
+        if action_emits_events {
+            let mut cache_values = vec![0.0; expr_count];
+            let mut cache_marks = vec![0_u32; expr_count];
+            let mut cache_generation = 1_u32;
+            let mut field_values = vec![0.0; field_count];
+            let mut loop_items = Vec::new();
+            for (row_index, entity) in rows.iter().copied().enumerate() {
+                invalidate_row_local_f64_cache(&mut cache_marks, &mut cache_generation);
+                for (slot, value) in field_values.iter_mut().enumerate() {
+                    *value =
+                        compiled_field_f64_value(program.field_arrays[slot], row_index, entity)?;
+                }
+                let out_start = row_index * target_count;
+                let out_end = out_start + target_count;
+                execute_row_local_f64_action(
+                    &action,
+                    row_index,
+                    entity,
+                    &program,
+                    world,
+                    &mut cache_values,
+                    &mut cache_marks,
+                    &mut cache_generation,
+                    &mut field_values,
+                    &field_dependents,
+                    &mut flat_values[out_start..out_end],
+                    &mut dirty[out_start..out_end],
+                    &mut emitted_events,
+                    &mut loop_items,
+                )?;
+            }
+        } else {
+            flat_values
+                .par_chunks_mut(target_count)
+                .zip(dirty.par_chunks_mut(target_count))
+                .zip(rows.par_iter().enumerate())
+                .try_for_each_init(
+                    || {
+                        (
+                            vec![0.0; expr_count],
+                            vec![0_u32; expr_count],
+                            1_u32,
+                            vec![0.0; field_count],
+                            Vec::new(),
+                            Vec::new(),
+                        )
+                    },
+                    |(
                         cache_values,
                         cache_marks,
                         cache_generation,
                         field_values,
-                        &field_dependents,
-                        out,
-                        dirty_row,
-                    )
-                },
-            )?;
+                        event_out,
+                        loop_items,
+                    ),
+                     ((out, dirty_row), (row_index, entity))| {
+                        invalidate_row_local_f64_cache(cache_marks, cache_generation);
+                        for (slot, value) in field_values.iter_mut().enumerate() {
+                            *value = compiled_field_f64_value(
+                                program.field_arrays[slot],
+                                row_index,
+                                *entity,
+                            )?;
+                        }
+                        execute_row_local_f64_action(
+                            &action,
+                            row_index,
+                            *entity,
+                            &program,
+                            world,
+                            cache_values,
+                            cache_marks,
+                            cache_generation,
+                            field_values,
+                            &field_dependents,
+                            out,
+                            dirty_row,
+                            event_out,
+                            loop_items,
+                        )
+                    },
+                )?;
+        }
         if let Some(start) = eval_start {
             eprintln!(
                 "ecs_profile row_local_f64_eval elapsed_ms={:.3}",
@@ -1427,6 +1661,16 @@ impl<'a> PlanExecutor<'a> {
             );
         }
         self.report.rows_scanned += rows.len();
+        for (event_type, payload) in emitted_events {
+            self.world.emit_event(&event_type, payload.clone())?;
+            self.report.events_emitted += 1;
+            if self.report_writes {
+                self.report.events.push(ExecutionEvent {
+                    event_type,
+                    payload,
+                });
+            }
+        }
 
         let apply_start = self.profile.then(Instant::now);
         for (target_index, target) in targets.iter().enumerate() {

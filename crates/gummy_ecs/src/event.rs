@@ -54,9 +54,45 @@ impl EventStore {
     }
 
     pub fn read(&self, event_type: &str) -> Vec<EventRecord> {
-        let mut events = self.queues.get(event_type).cloned().unwrap_or_default();
-        events.sort_by_key(|event| (event.frame, event.sequence));
-        events
+        self.queues.get(event_type).cloned().unwrap_or_default()
+    }
+
+    pub fn sum_numeric_payload_field(&self, event_type: &str, field: &str) -> Result<(usize, f64)> {
+        let Some(events) = self.queues.get(event_type) else {
+            return Ok((0, 0.0));
+        };
+        let mut sum = 0.0;
+        for event in events {
+            let EcsValue::Struct(fields) = &event.payload else {
+                return Err(EcsError::InvalidPlan(format!(
+                    "event payload for '{event_type}' must be a struct to read field '{field}'"
+                )));
+            };
+            let value = fields.get(field).ok_or_else(|| {
+                EcsError::InvalidPlan(format!(
+                    "event payload for '{event_type}' has no field '{field}'"
+                ))
+            })?;
+            sum += match value {
+                EcsValue::Bool(value) => {
+                    if *value {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                EcsValue::I64(value) => *value as f64,
+                EcsValue::U64(value) => *value as f64,
+                EcsValue::F64(value) => *value,
+                other => {
+                    return Err(EcsError::InvalidPlan(format!(
+                        "event field '{field}' must be numeric, got {}",
+                        other.kind_name()
+                    )));
+                }
+            };
+        }
+        Ok((events.len(), sum))
     }
 
     pub fn clear(&mut self, event_type: Option<&str>) {

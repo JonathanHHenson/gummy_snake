@@ -21,6 +21,7 @@ import gummysnake as gs
 from examples.common import example_parser, save_once
 from gummysnake import ecs
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D, Vec3
+from gummysnake.drawing.software3d import box_model, sphere_model
 
 WIDTH = 960
 HEIGHT = 540
@@ -38,6 +39,7 @@ MAX_SPEED = 4.8
 FPS_LAST_TIME: float | None = None
 FPS_VALUE = float(TARGET_FPS)
 MODEL_CACHE: Model3D | None = None
+SHAPE_CACHE: dict[int, Model3D] = {}
 
 BodyRow = tuple[float, float, float, float, float, float, float, int]
 
@@ -143,6 +145,20 @@ def _temporary_model() -> Model3D:
     return MODEL_CACHE
 
 
+def _shape_for_bucket(bucket: int) -> Model3D:
+    cached = SHAPE_CACHE.get(bucket)
+    if cached is not None:
+        return cached
+    if bucket % 3 == 0:
+        shape = box_model(12.0 + bucket * 2.0, 8.0 + bucket, 16.0)
+    elif bucket % 3 == 1:
+        shape = sphere_model(7.5 + bucket, 12, 8)
+    else:
+        shape = _temporary_model()
+    SHAPE_CACHE[bucket] = shape
+    return shape
+
+
 def _seed_bodies() -> None:
     rng = random.Random(5333)
     for index in range(BODY_COUNT):
@@ -183,23 +199,21 @@ def _update_fps() -> float:
 
 
 def _draw_scene(draw3d: gs.FastDrawScope, rows: list[BodyRow]) -> None:
-    model = _temporary_model()
-    for x, y, z, vx, vy, vz, spin, bucket_raw in rows:
-        bucket = int(bucket_raw)
-        red, green, blue, alpha = PALETTE[bucket]
+    bucketed_rows: list[list[BodyRow]] = [[] for _ in PALETTE]
+    for row in rows:
+        bucketed_rows[int(row[7])].append(row)
+    for bucket, (red, green, blue, alpha) in enumerate(PALETTE):
+        shape = _shape_for_bucket(bucket)
         draw3d.specular_material(red, green, blue, alpha)
         draw3d.shininess(24 + bucket * 5)
-        with draw3d.pushed():
-            draw3d.translate(x, y, z)
-            draw3d.rotate_y(spin)
-            draw3d.rotate_z(math.atan2(vy, vx))
-            if bucket % 3 == 0:
-                draw3d.box(12.0 + bucket * 2.0, 8.0 + bucket, 16.0)
-            elif bucket % 3 == 1:
-                draw3d.sphere(7.5 + bucket, 12, 8)
-            else:
-                draw3d.rotate_y(math.atan2(vz, vx))
-                draw3d.model(model)
+        for x, y, z, vx, vy, vz, spin, _bucket in bucketed_rows[bucket]:
+            with draw3d.pushed():
+                draw3d.translate(x, y, z)
+                draw3d.rotate_y(spin)
+                draw3d.rotate_z(math.atan2(vy, vx))
+                if bucket % 3 == 2:
+                    draw3d.rotate_y(math.atan2(vz, vx))
+                draw3d.model(shape)
 
 
 def _draw_hud(fps: float) -> None:

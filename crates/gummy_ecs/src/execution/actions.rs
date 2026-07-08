@@ -6,8 +6,8 @@ use crate::error::{EcsError, Result};
 use crate::plan::{ActionNode, ExprNode};
 
 use super::{
-    truthy, EvalContext, ExecutionCanvasCommand, ExecutionEvent, ExecutionWrite, PlanExecutor,
-    WriteKey,
+    numeric_f64, truthy, EvalContext, ExecutionCanvasCommand, ExecutionEvent, ExecutionWrite,
+    PlanExecutor, WriteKey,
 };
 
 impl<'a> PlanExecutor<'a> {
@@ -60,10 +60,12 @@ impl<'a> PlanExecutor<'a> {
                     let payload = self.eval_expr(*value, ctx)?;
                     self.world.emit_event(event_type, payload.clone())?;
                     self.report.events_emitted += 1;
-                    self.report.events.push(ExecutionEvent {
-                        event_type: event_type.clone(),
-                        payload,
-                    });
+                    if self.report_writes {
+                        self.report.events.push(ExecutionEvent {
+                            event_type: event_type.clone(),
+                            payload,
+                        });
+                    }
                 }
                 Ok(())
             }
@@ -86,7 +88,7 @@ impl<'a> PlanExecutor<'a> {
     }
 
     fn sequence_set_fields_can_execute_fused(&self, children: &[usize]) -> bool {
-        if children.len() < 2
+        if children.is_empty()
             || !children
                 .iter()
                 .all(|child| matches!(self.plan.actions[*child], ActionNode::SetField { .. }))
@@ -344,6 +346,9 @@ impl<'a> PlanExecutor<'a> {
         action: usize,
         contexts: &[EvalContext],
     ) -> Result<()> {
+        if self.try_execute_event_resource_accumulator(source, item_slot, action, contexts)? {
+            return Ok(());
+        }
         for ctx in contexts {
             let value = self.eval_expr(source, ctx)?;
             let items = match value {
@@ -355,13 +360,108 @@ impl<'a> PlanExecutor<'a> {
                     )))
                 }
             };
+            let mut loop_ctx = ctx.clone();
             for item in items {
-                let mut loop_ctx = ctx.clone();
                 loop_ctx.loop_items.insert(item_slot, item);
-                self.execute_action(action, &[loop_ctx])?;
+                self.execute_action(action, std::slice::from_ref(&loop_ctx))?;
             }
         }
         Ok(())
+    }
+
+    fn try_execute_event_resource_accumulator(
+        &mut self,
+        source: usize,
+        item_slot: usize,
+        action: usize,
+        contexts: &[EvalContext],
+    ) -> Result<bool> {
+        if contexts.len() != 1
+            || !contexts[0].bindings.is_empty()
+            || !contexts[0].loop_items.is_empty()
+        {
+            return Ok(false);
+        }
+        let ExprNode::EventStream { event_type } = &self.plan.expressions[source] else {
+            return Ok(false);
+        };
+        let Some((resource, field, event_field)) =
+            self.event_resource_accumulator_pattern(item_slot, action)
+        else {
+            return Ok(false);
+        };
+        let (event_count, sum) = self
+            .world
+            .sum_event_numeric_payload_field(event_type, &event_field)?;
+        if event_count == 0 {
+            return Ok(true);
+        }
+        let current = self.world.resource_field(&resource, &field)?;
+        self.world.set_resource_field(
+            &resource,
+            &field,
+            EcsValue::F64(numeric_f64(&current)? + sum),
+        )?;
+        self.report.rows_scanned += event_count;
+        self.report.resource_fields_written += event_count;
+        Ok(true)
+    }
+
+    fn event_resource_accumulator_pattern(
+        &self,
+        item_slot: usize,
+        action: usize,
+    ) -> Option<(String, String, String)> {
+        let action = match &self.plan.actions[action] {
+            ActionNode::Sequence(children) if children.len() == 1 => children[0],
+            ActionNode::SetField { .. } => action,
+            _ => return None,
+        };
+        let ActionNode::SetField { target, value } = self.plan.actions[action] else {
+            return None;
+        };
+        let ExprNode::ResourceField { resource, field } = &self.plan.expressions[target] else {
+            return None;
+        };
+        let ExprNode::Binary { op, left, right } = &self.plan.expressions[value] else {
+            return None;
+        };
+        if !matches!(op.as_str(), "add" | "+") {
+            return None;
+        }
+        let left_matches = self.resource_field_expr_matches(*left, resource, field);
+        let right_matches = self.resource_field_expr_matches(*right, resource, field);
+        if left_matches {
+            return self
+                .event_item_attribute(*right, item_slot)
+                .map(|event_field| (resource.clone(), field.clone(), event_field.to_string()));
+        }
+        if right_matches {
+            return self
+                .event_item_attribute(*left, item_slot)
+                .map(|event_field| (resource.clone(), field.clone(), event_field.to_string()));
+        }
+        None
+    }
+
+    fn resource_field_expr_matches(&self, expr: usize, resource: &str, field: &str) -> bool {
+        matches!(
+            &self.plan.expressions[expr],
+            ExprNode::ResourceField {
+                resource: expr_resource,
+                field: expr_field,
+            } if expr_resource == resource && expr_field == field
+        )
+    }
+
+    fn event_item_attribute(&self, expr: usize, item_slot: usize) -> Option<&str> {
+        let ExprNode::Attribute { input, attribute } = &self.plan.expressions[expr] else {
+            return None;
+        };
+        match &self.plan.expressions[*input] {
+            ExprNode::ForEachItem { slot } if *slot == item_slot => Some(attribute.as_str()),
+            _ => None,
+        }
     }
 
     fn execute_set(
@@ -376,6 +476,15 @@ impl<'a> PlanExecutor<'a> {
 
         let mut targets_seen = HashSet::new();
         for base_ctx in contexts {
+            if query_names
+                .iter()
+                .all(|query| base_ctx.bindings.contains_key(query))
+            {
+                self.report.rows_scanned += 1;
+                let value = self.eval_expr(value_index, base_ctx)?;
+                self.write_target(target_index, value, base_ctx, &mut targets_seen)?;
+                continue;
+            }
             let joined = self.expand_context_for_queries(base_ctx, &query_names)?;
             self.report.rows_scanned += joined.len();
             for ctx in joined {
@@ -415,6 +524,18 @@ impl<'a> PlanExecutor<'a> {
         let mut matched = Vec::new();
         let mut remaining = Vec::new();
         for base_ctx in contexts {
+            if condition_queries
+                .iter()
+                .all(|query| base_ctx.bindings.contains_key(query))
+            {
+                self.report.rows_scanned += 1;
+                if truthy(&self.eval_expr(condition_index, base_ctx)?)? {
+                    self.execute_action(then_action, std::slice::from_ref(base_ctx))?;
+                } else if let Some(otherwise_action) = otherwise_action {
+                    self.execute_action(otherwise_action, std::slice::from_ref(base_ctx))?;
+                }
+                continue;
+            }
             let expanded = self.expand_context_for_queries(base_ctx, &condition_queries)?;
             self.report.rows_scanned += expanded.len();
             let mut branch_matches = Vec::new();

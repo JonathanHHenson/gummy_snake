@@ -9,7 +9,7 @@ from typing import Any, Protocol, cast
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
 
-EXPECTED_ECS_ABI_VERSION = 3
+EXPECTED_ECS_ABI_VERSION = 4
 
 
 class _RustEcsWorld(Protocol):
@@ -68,6 +68,10 @@ class _RustEcsWorld(Protocol):
     def set_field(
         self, index: int, generation: int, component: str, field: str, value: Any
     ) -> None: ...
+
+    def set_field_f64_many(
+        self, component: str, field: str, writes: list[tuple[int, int, float]]
+    ) -> int: ...
 
     def get_field(self, index: int, generation: int, component: str, field: str) -> Any: ...
 

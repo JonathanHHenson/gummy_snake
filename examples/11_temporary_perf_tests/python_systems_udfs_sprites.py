@@ -115,20 +115,13 @@ def draw_background() -> None:
 
 
 @ecs.system(python=True, group=("draw", "draw_sprites"))
-def draw_sprites(sprites: ecs.Query[SpriteAgent]) -> None:
+def draw_sprites() -> None:
     if SPRITE_IMAGE is None:
         return
-    for entity in sprites:
-        sprite = entity[SpriteAgent]
-        tint = (sprite.bucket * 41) % 120
-        alpha = int(145 + 80 * (0.5 + 0.5 * math.sin(sprite.phase)))
-        with gs.pushed():
-            gs.translate(sprite.x, sprite.y)
-            gs.rotate(sprite.phase * 0.35 + sprite.spin)
-            gs.tint(120 + tint, 210 - tint * 0.35, 255, alpha)
-            size = SPRITE_SIZE * sprite.scale
-            gs.image(SPRITE_IMAGE, 0, 0, size, size)
-    gs.no_tint()
+    draw_image = gs.fast().image
+    for x, y, scale in gs.iter_component_fields(SpriteAgent, "x", "y", "scale"):
+        size = SPRITE_SIZE * scale
+        draw_image(SPRITE_IMAGE, x, y, size, size)
 
 
 @ecs.system(python=True, group=("draw", "draw_hud"))

@@ -627,6 +627,21 @@ impl PyEcsWorld {
             .map_err(py_value_error)
     }
 
+    fn set_field_f64_many(
+        &mut self,
+        component: String,
+        field: String,
+        writes: Vec<(u32, u32, f64)>,
+    ) -> PyResult<usize> {
+        let writes = writes
+            .into_iter()
+            .map(|(index, generation, value)| (entity(index, generation), value))
+            .collect::<Vec<_>>();
+        self.world
+            .set_field_f64_many(&component, &field, &writes)
+            .map_err(py_value_error)
+    }
+
     fn get_field(
         &self,
         py: Python<'_>,

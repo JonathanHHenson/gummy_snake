@@ -14,6 +14,9 @@ impl<'a> PlanExecutor<'a> {
         children: &[usize],
         contexts: &[EvalContext],
     ) -> Result<()> {
+        if children.len() == 1 {
+            return self.execute_action(children[0], contexts);
+        }
         if children
             .iter()
             .all(|child| matches!(self.plan.actions[*child], ActionNode::SetField { .. }))

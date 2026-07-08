@@ -300,4 +300,26 @@ impl BuiltSpatialIndex {
             Self::Hilbert(index) => index.query_aabb(bounds, out),
         }
     }
+
+    pub(in crate::execution) fn visit_aabb_unordered<F>(
+        &self,
+        bounds: &SpatialAabb,
+        visit: &mut F,
+    ) -> Result<()>
+    where
+        F: FnMut(&SpatialRecord) -> Result<()>,
+    {
+        match self {
+            Self::Quadtree(index) => index.visit_aabb_unordered(bounds, visit),
+            Self::Octree(index) => index.visit_aabb_unordered(bounds, visit),
+            _ => {
+                let mut records = Vec::new();
+                self.query_aabb(bounds, &mut records)?;
+                for record in &records {
+                    visit(record)?;
+                }
+                Ok(())
+            }
+        }
+    }
 }

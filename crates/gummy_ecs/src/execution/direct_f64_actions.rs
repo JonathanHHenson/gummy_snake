@@ -414,9 +414,8 @@ impl<'a> PlanExecutor<'a> {
                 value.is_none_or(|value| self.expr_supports_f64(value, seen))
                     && default.is_none_or(|default| self.expr_supports_f64(default, seen))
             }
-            ExprNode::LiteralString(_)
-            | ExprNode::EventStream { .. }
-            | ExprNode::ForEachItem { .. } => false,
+            ExprNode::ForEachItem { .. } => true,
+            ExprNode::LiteralString(_) | ExprNode::EventStream { .. } => false,
         }
     }
 }

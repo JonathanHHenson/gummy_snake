@@ -71,31 +71,27 @@ def animate_orbs(orb: ecs.Query[OrbState]) -> None:
 
 
 @ecs.system(group=("structure", "structure_activate"))
-def activate_hot_glows(orb: ecs.Query[ecs.Tag[ORB_TAG], OrbState, ecs.Without[GlowTrail]]) -> None:
+def activate_hot_glows(
+    orb: ecs.Query[ecs.Tag[ORB_TAG], OrbState, ecs.Without[GlowTrail]],
+    stats: ecs.ResMut[ChurnStats],
+) -> None:
     entity = cast(Any, orb).entity
     with ecs.conditional(), ecs.when(orb[OrbState].heat > ACTIVATE_HEAT_THRESHOLD):
         entity.add_component(GlowTrail(1))
         entity.add_tag(HOT_TAG)
+        stats[ChurnStats].active_glows.increase_by(1)
 
 
 @ecs.system(group=("structure", "structure_update"))
-def update_or_remove_glows(orb: ecs.Query[ecs.Tag[ORB_TAG], OrbState, GlowTrail]) -> None:
+def update_or_remove_glows(
+    orb: ecs.Query[ecs.Tag[ORB_TAG], OrbState, GlowTrail], stats: ecs.ResMut[ChurnStats]
+) -> None:
     state = orb[OrbState]
     entity = cast(Any, orb).entity
     with ecs.conditional(), ecs.when(state.heat < REMOVE_HEAT_THRESHOLD):
         entity.remove_component(GlowTrail)
         entity.remove_tag(HOT_TAG)
-
-
-@ecs.system(group=("stats", "stats_reset"))
-def reset_active_glow_count(stats: ecs.ResMut[ChurnStats]) -> None:
-    stats[ChurnStats].active_glows.set_to(0)
-
-
-@ecs.system(group=("stats", "stats_count"))
-def count_active_glows(orb: ecs.Query[GlowTrail], stats: ecs.ResMut[ChurnStats]) -> None:
-    with ecs.conditional(), ecs.when(orb[GlowTrail].marker >= 1):
-        stats[ChurnStats].active_glows.increase_by(1)
+        stats[ChurnStats].active_glows.decrease_by(1)
 
 
 @ecs.system(group=("draw", "draw_background"))
@@ -112,17 +108,13 @@ def draw_glow_halos(orb: ecs.Query[ecs.Tag[HOT_TAG], OrbState, GlowTrail]) -> No
     heat_ratio = ((state.heat - REMOVE_HEAT_THRESHOLD) / (1.0 - REMOVE_HEAT_THRESHOLD)).clamp(
         0.0, 1.0
     )
-    ca.no_stroke()
-    ca.fill(72 + state.bucket * 28, 194 + heat_ratio * 38, 255, 74 + heat_ratio * 132)
-    ca.circle(state.x, state.y, state.radius * (7.2 + heat_ratio * 2.8))
-    ca.fill(210, 244, 255, 38 + heat_ratio * 66)
-    ca.circle(state.x, state.y, state.radius * (3.0 + heat_ratio * 1.8))
+    ca.fill(72 + state.bucket * 28, 194 + heat_ratio * 38, 255, 82 + heat_ratio * 148)
+    ca.circle(state.x, state.y, state.radius * (7.2 + heat_ratio * 3.2))
 
 
 @ecs.system(group=("draw", "draw_orbs"))
 def draw_orb_cores(orb: ecs.Query[ecs.Tag[ORB_TAG], OrbState]) -> None:
     state = orb[OrbState]
-    ca.no_stroke()
     ca.fill(70 + state.bucket * 25, 110 + state.heat * 116, 230, 145 + state.heat * 92)
     ca.circle(state.x, state.y, state.radius * (1.2 + state.heat * 0.8))
 
@@ -172,15 +164,12 @@ def setup() -> None:
     gs.describe("Rust ECS structural actions add/remove components and tags for glow rendering.")
     gs.configure_ecs(strict=False, warn_on_ambiguity=False)
     gs.set_resource(ChurnStats(0))
-    gs.order(["simulation", "structure", "stats", "draw", "export"])
+    gs.order(["simulation", "structure", "draw", "export"])
     gs.order(["structure_activate", "structure_update"])
-    gs.order(["stats_reset", "stats_count"])
     gs.order(["draw_background", "draw_glows", "draw_orbs", "draw_hud"])
     gs.add_system(animate_orbs)
     gs.add_system(activate_hot_glows)
     gs.add_system(update_or_remove_glows)
-    gs.add_system(reset_active_glow_count)
-    gs.add_system(count_active_glows)
     gs.add_system(draw_background)
     gs.add_system(draw_glow_halos)
     gs.add_system(draw_orb_cores)

@@ -81,6 +81,7 @@ pub(in crate::execution) fn compile_f64_readonly_program<'a>(
                 resource: resource.clone(),
                 field: field.clone(),
             },
+            ExprNode::ForEachItem { slot } => CompiledF64Expr::ForEachItem(*slot),
             ExprNode::InputState { name, code } => CompiledF64Expr::InputState {
                 name: name.clone(),
                 code: *code,
@@ -194,6 +195,7 @@ fn compiled_f64_expr_key(
         CompiledF64Expr::SpatialAggregate(slot) => {
             Some(CompiledF64ExprKey::SpatialAggregate(*slot))
         }
+        CompiledF64Expr::ForEachItem(slot) => Some(CompiledF64ExprKey::ForEachItem(*slot)),
         CompiledF64Expr::ResourceField { resource, field } => Some(
             CompiledF64ExprKey::ResourceField(resource.clone(), field.clone()),
         ),
@@ -252,6 +254,7 @@ fn collect_compiled_f64_eval_order(
         | CompiledF64Expr::SpatialAggregate(_)
         | CompiledF64Expr::ResourceField { .. }
         | CompiledF64Expr::InputState { .. } => true,
+        CompiledF64Expr::ForEachItem(_) => false,
         CompiledF64Expr::Unary { input, .. } | CompiledF64Expr::Passthrough(input) => {
             collect_compiled_f64_eval_order(
                 program.aliases[*input],
@@ -321,6 +324,9 @@ fn eval_compiled_f64_linear_node(
         CompiledF64Expr::SpatialAggregate(slot) => {
             compiled_spatial_f64_value(program.spatial_arrays[*slot], row_index, entity)
         }
+        CompiledF64Expr::ForEachItem(slot) => Err(EcsError::InvalidPlan(format!(
+            "for_each item slot {slot} is only available in row-local loop evaluation"
+        ))),
         CompiledF64Expr::ResourceField { resource, field } => {
             numeric_f64(&world.resource_field(resource, field)?)
         }

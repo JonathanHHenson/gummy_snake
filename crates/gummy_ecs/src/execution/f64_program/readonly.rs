@@ -27,6 +27,11 @@ pub(in crate::execution) fn eval_compiled_f64_readonly(
         CompiledF64Expr::SpatialAggregate(slot) => {
             compiled_spatial_f64_value(program.spatial_arrays[*slot], row_index, entity)?
         }
+        CompiledF64Expr::ForEachItem(slot) => {
+            return Err(EcsError::InvalidPlan(format!(
+                "for_each item slot {slot} is only available in row-local loop evaluation"
+            )));
+        }
         CompiledF64Expr::ResourceField { resource, field } => {
             numeric_f64(&world.resource_field(resource, field)?)?
         }

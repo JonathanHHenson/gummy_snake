@@ -29,6 +29,16 @@ pub(super) enum RowLocalAction {
         target_slot: usize,
         value_expr: usize,
     },
+    ForEachListField {
+        component: String,
+        field: String,
+        item_slot: usize,
+        action: Box<RowLocalAction>,
+    },
+    EmitConstEvent {
+        event_type: String,
+        payload: crate::column::EcsValue,
+    },
     Sequence(Vec<RowLocalAction>),
     When {
         condition_expr: usize,
@@ -75,6 +85,7 @@ enum CompiledF64Expr {
     Literal(f64),
     Field(usize),
     SpatialAggregate(usize),
+    ForEachItem(usize),
     ResourceField {
         resource: String,
         field: String,
@@ -123,6 +134,7 @@ enum CompiledF64ExprKey {
     Literal(u64),
     Field(usize),
     SpatialAggregate(usize),
+    ForEachItem(usize),
     ResourceField(String, String),
     InputState(String, Option<i64>),
     Unary(F64UnaryOp, usize),

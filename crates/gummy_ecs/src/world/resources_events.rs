@@ -53,6 +53,15 @@ impl World {
         Ok(self.events.read(event_type))
     }
 
+    pub fn sum_event_numeric_payload_field(
+        &self,
+        event_type: &str,
+        field: &str,
+    ) -> Result<(usize, f64)> {
+        self.events.validate_type(event_type)?;
+        self.events.sum_numeric_payload_field(event_type, field)
+    }
+
     pub fn clear_events(&mut self, event_type: Option<&str>) {
         self.events.clear(event_type);
     }

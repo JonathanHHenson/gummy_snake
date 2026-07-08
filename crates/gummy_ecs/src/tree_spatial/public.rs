@@ -26,6 +26,13 @@ impl QuadtreeIndex {
     ) -> Result<()> {
         self.inner.query_radius_unordered(origin, radius, out)
     }
+
+    pub fn visit_aabb_unordered<F>(&self, bounds: &SpatialAabb, visit: &mut F) -> Result<()>
+    where
+        F: FnMut(&SpatialRecord) -> Result<()>,
+    {
+        self.inner.visit_aabb_unordered(bounds, visit)
+    }
 }
 
 impl SpatialIndexBackend for QuadtreeIndex {
@@ -74,6 +81,13 @@ impl OctreeIndex {
         out: &mut Vec<SpatialRecord>,
     ) -> Result<()> {
         self.inner.query_radius_unordered(origin, radius, out)
+    }
+
+    pub fn visit_aabb_unordered<F>(&self, bounds: &SpatialAabb, visit: &mut F) -> Result<()>
+    where
+        F: FnMut(&SpatialRecord) -> Result<()>,
+    {
+        self.inner.visit_aabb_unordered(bounds, visit)
     }
 }
 

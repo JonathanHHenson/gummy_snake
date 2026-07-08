@@ -31,7 +31,7 @@ impl World {
         Ok(())
     }
 
-    pub(crate) fn set_field_f64_many(
+    pub fn set_field_f64_many(
         &mut self,
         component: &str,
         field: &str,

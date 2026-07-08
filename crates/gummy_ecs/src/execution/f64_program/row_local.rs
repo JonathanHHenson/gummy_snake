@@ -1,3 +1,4 @@
+use crate::column::EcsValue;
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
 use crate::world::World;
@@ -50,6 +51,7 @@ fn row_local_f64_field_dependencies(
         }
         CompiledF64Expr::Literal(_)
         | CompiledF64Expr::SpatialAggregate(_)
+        | CompiledF64Expr::ForEachItem(_)
         | CompiledF64Expr::ResourceField { .. }
         | CompiledF64Expr::InputState { .. }
         | CompiledF64Expr::Unsupported(_) => Vec::new(),
@@ -84,6 +86,8 @@ pub(in crate::execution) fn execute_row_local_f64_action(
     field_dependents: &[Vec<usize>],
     out: &mut [f64],
     dirty: &mut [bool],
+    event_out: &mut Vec<(String, EcsValue)>,
+    loop_items: &mut Vec<Option<f64>>,
 ) -> Result<()> {
     match action {
         RowLocalAction::Noop => Ok(()),
@@ -102,6 +106,8 @@ pub(in crate::execution) fn execute_row_local_f64_action(
                     field_dependents,
                     out,
                     dirty,
+                    event_out,
+                    loop_items,
                 )?;
             }
             Ok(())
@@ -121,6 +127,7 @@ pub(in crate::execution) fn execute_row_local_f64_action(
                 cache_marks,
                 *cache_generation,
                 field_values,
+                loop_items,
             )?;
             field_values[*field_slot] = value;
             if let Some(dependents) = field_dependents.get(*field_slot) {
@@ -130,6 +137,52 @@ pub(in crate::execution) fn execute_row_local_f64_action(
             }
             out[*target_slot] = value;
             dirty[*target_slot] = true;
+            Ok(())
+        }
+        RowLocalAction::ForEachListField {
+            component,
+            field,
+            item_slot,
+            action,
+        } => {
+            let value = world.get_field(entity, component, field)?;
+            let EcsValue::List(items) = value else {
+                return Err(EcsError::InvalidPlan(format!(
+                    "row-local for_each source {component}.{field} must be a list"
+                )));
+            };
+            if loop_items.len() <= *item_slot {
+                loop_items.resize(*item_slot + 1, None);
+            }
+            let previous = loop_items[*item_slot];
+            for item in items {
+                invalidate_row_local_f64_cache(cache_marks, cache_generation);
+                loop_items[*item_slot] = Some(numeric_f64(&item)?);
+                execute_row_local_f64_action(
+                    action,
+                    row_index,
+                    entity,
+                    program,
+                    world,
+                    cache_values,
+                    cache_marks,
+                    cache_generation,
+                    field_values,
+                    field_dependents,
+                    out,
+                    dirty,
+                    event_out,
+                    loop_items,
+                )?;
+            }
+            loop_items[*item_slot] = previous;
+            Ok(())
+        }
+        RowLocalAction::EmitConstEvent {
+            event_type,
+            payload,
+        } => {
+            event_out.push((event_type.clone(), payload.clone()));
             Ok(())
         }
         RowLocalAction::When {
@@ -147,6 +200,7 @@ pub(in crate::execution) fn execute_row_local_f64_action(
                 cache_marks,
                 *cache_generation,
                 field_values,
+                loop_items,
             )?;
             if truthy_f64(condition) {
                 execute_row_local_f64_action(
@@ -162,6 +216,8 @@ pub(in crate::execution) fn execute_row_local_f64_action(
                     field_dependents,
                     out,
                     dirty,
+                    event_out,
+                    loop_items,
                 )
             } else if let Some(otherwise_action) = otherwise_action {
                 execute_row_local_f64_action(
@@ -177,6 +233,8 @@ pub(in crate::execution) fn execute_row_local_f64_action(
                     field_dependents,
                     out,
                     dirty,
+                    event_out,
+                    loop_items,
                 )
             } else {
                 Ok(())
@@ -195,6 +253,7 @@ fn eval_row_local_f64_expr(
     cache_marks: &mut [u32],
     cache_generation: u32,
     field_values: &[f64],
+    loop_items: &[Option<f64>],
 ) -> Result<f64> {
     let expr_index = program.aliases[expr_index];
     let cacheable = row_local_f64_expr_cacheable(&program.expressions[expr_index]);
@@ -207,6 +266,12 @@ fn eval_row_local_f64_expr(
         CompiledF64Expr::SpatialAggregate(slot) => {
             compiled_spatial_f64_value(program.spatial_arrays[*slot], row_index, entity)?
         }
+        CompiledF64Expr::ForEachItem(slot) => loop_items
+            .get(*slot)
+            .and_then(|value| *value)
+            .ok_or_else(|| {
+                EcsError::InvalidPlan(format!("for_each item slot {slot} is not bound"))
+            })?,
         CompiledF64Expr::ResourceField { resource, field } => {
             numeric_f64(&world.resource_field(resource, field)?)?
         }
@@ -226,6 +291,7 @@ fn eval_row_local_f64_expr(
                 cache_marks,
                 cache_generation,
                 field_values,
+                loop_items,
             )?;
             eval_f64_unary_op(*op, input)
         }
@@ -241,6 +307,7 @@ fn eval_row_local_f64_expr(
                     cache_marks,
                     cache_generation,
                     field_values,
+                    loop_items,
                 )?;
                 if truthy_f64(left) {
                     bool_f64(truthy_f64(eval_row_local_f64_expr(
@@ -253,6 +320,7 @@ fn eval_row_local_f64_expr(
                         cache_marks,
                         cache_generation,
                         field_values,
+                        loop_items,
                     )?))
                 } else {
                     0.0
@@ -269,6 +337,7 @@ fn eval_row_local_f64_expr(
                     cache_marks,
                     cache_generation,
                     field_values,
+                    loop_items,
                 )?;
                 if truthy_f64(left) {
                     1.0
@@ -283,6 +352,7 @@ fn eval_row_local_f64_expr(
                         cache_marks,
                         cache_generation,
                         field_values,
+                        loop_items,
                     )?))
                 }
             }
@@ -297,6 +367,7 @@ fn eval_row_local_f64_expr(
                     cache_marks,
                     cache_generation,
                     field_values,
+                    loop_items,
                 )?;
                 let right = eval_row_local_f64_expr(
                     *right,
@@ -308,6 +379,7 @@ fn eval_row_local_f64_expr(
                     cache_marks,
                     cache_generation,
                     field_values,
+                    loop_items,
                 )?;
                 eval_f64_binary_op(*op, left, right)
             }
@@ -322,6 +394,7 @@ fn eval_row_local_f64_expr(
             cache_marks,
             cache_generation,
             field_values,
+            loop_items,
         )?,
         CompiledF64Expr::Unsupported(message) => {
             return Err(EcsError::InvalidPlan(message.clone()))

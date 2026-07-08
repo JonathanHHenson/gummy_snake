@@ -94,21 +94,20 @@ impl TreeNode {
         Ok(())
     }
 
-    pub(super) fn query_aabb_unordered(
-        &self,
-        query: &SpatialAabb,
-        out: &mut Vec<SpatialRecord>,
-    ) -> Result<()> {
+    pub(super) fn visit_aabb_unordered<F>(&self, query: &SpatialAabb, visit: &mut F) -> Result<()>
+    where
+        F: FnMut(&SpatialRecord) -> Result<()>,
+    {
         if !self.bounds.overlaps(query)? {
             return Ok(());
         }
         for record in &self.records {
             if record_overlaps(record, query)? {
-                out.push(record.clone());
+                visit(record)?;
             }
         }
         for child in &self.children {
-            child.query_aabb_unordered(query, out)?;
+            child.visit_aabb_unordered(query, visit)?;
         }
         Ok(())
     }
@@ -210,18 +209,28 @@ impl TreeIndex {
         bounds: &SpatialAabb,
         out: &mut Vec<SpatialRecord>,
     ) -> Result<()> {
+        out.clear();
+        self.visit_aabb_unordered(bounds, &mut |record: &SpatialRecord| {
+            out.push(record.clone());
+            Ok(())
+        })
+    }
+
+    pub(super) fn visit_aabb_unordered<F>(&self, bounds: &SpatialAabb, visit: &mut F) -> Result<()>
+    where
+        F: FnMut(&SpatialRecord) -> Result<()>,
+    {
         if bounds.dimensions() != self.dimensions {
             return Err(EcsError::InvalidSpatialInput(
                 "tree query dimensions do not match index dimensions".to_string(),
             ));
         }
-        out.clear();
         if let Some(root) = &self.root {
-            root.query_aabb_unordered(bounds, out)?;
+            root.visit_aabb_unordered(bounds, visit)?;
         }
         for record in &self.overflow {
             if record_overlaps(record, bounds)? {
-                out.push(record.clone());
+                visit(record)?;
             }
         }
         Ok(())

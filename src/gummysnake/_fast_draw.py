@@ -11,6 +11,11 @@ from gummysnake._fast_draw_math import (
     _mat4_axis_angle,
     _mat4_is_translation,
     _mat4_multiply,
+    _mat4_post_rotate_x,
+    _mat4_post_rotate_y,
+    _mat4_post_rotate_z,
+    _mat4_post_scale,
+    _mat4_post_translate,
     _mat4_quaternion,
     _mat4_scale,
     _mat4_translation,
@@ -147,7 +152,11 @@ class FastDrawScope:
         fx = float(x)
         fy = float(y)
         fz = float(z)
-        self._compose_transform3d(_mat4_translation(fx, fy, fz))
+        if self._transform3d_active:
+            self._transform3d = _mat4_post_translate(self._transform3d, fx, fy, fz)
+        else:
+            self._transform3d = _mat4_translation(fx, fy, fz)
+            self._transform3d_active = True
 
     def scale(self, x: float, y: float | None = None, z: float | None = None) -> None:
         """Scale subsequent fast 3D model draws."""
@@ -157,7 +166,11 @@ class FastDrawScope:
         else:
             fy = fx if y is None else float(y)
             fz = 1.0 if z is None else float(z)
-        self._compose_transform3d(_mat4_scale(fx, fy, fz))
+        if self._transform3d_active:
+            self._transform3d = _mat4_post_scale(self._transform3d, fx, fy, fz)
+        else:
+            self._transform3d = _mat4_scale(fx, fy, fz)
+            self._transform3d_active = True
 
     def apply_matrix_3d(self, matrix: Sequence[float] | Sequence[Sequence[float]]) -> None:
         """Compose a 4x4 model matrix for subsequent fast 3D model draws.
@@ -196,19 +209,30 @@ class FastDrawScope:
 
     def rotate_x(self, angle: float) -> None:
         """Rotate subsequent fast 3D model draws around the x axis."""
-        self._compose_transform3d(
-            _mat4_axis_angle(self._context._angle(float(angle)), 1.0, 0.0, 0.0)
-        )
+        radians = self._context._angle(float(angle))
+        if self._transform3d_active:
+            self._transform3d = _mat4_post_rotate_x(self._transform3d, radians)
+        else:
+            self._transform3d = _mat4_axis_angle(radians, 1.0, 0.0, 0.0)
+            self._transform3d_active = True
 
     def rotate_y(self, angle: float) -> None:
         """Rotate subsequent fast 3D model draws around the y axis."""
-        self._compose_transform3d(
-            _mat4_axis_angle(self._context._angle(float(angle)), 0.0, 1.0, 0.0)
-        )
+        radians = self._context._angle(float(angle))
+        if self._transform3d_active:
+            self._transform3d = _mat4_post_rotate_y(self._transform3d, radians)
+        else:
+            self._transform3d = _mat4_axis_angle(radians, 0.0, 1.0, 0.0)
+            self._transform3d_active = True
 
     def rotate_z(self, angle: float) -> None:
         """Rotate subsequent fast 3D model draws around the z axis."""
-        self.rotate(angle)
+        radians = self._context._angle(float(angle))
+        if self._transform3d_active:
+            self._transform3d = _mat4_post_rotate_z(self._transform3d, radians)
+        else:
+            self._transform3d = _mat4_axis_angle(radians, 0.0, 0.0, 1.0)
+            self._transform3d_active = True
 
     def rotate_quaternion(self, w: float, x: float, y: float, z: float) -> None:
         """Rotate subsequent fast 3D model draws by a ``(w, x, y, z)`` quaternion."""

@@ -5,7 +5,10 @@ use crate::error::{EcsError, Result};
 use crate::plan::{ExprNode, PhysicalPlan};
 use crate::world::World;
 
-use super::{EvalContext, PlanExecutor, QueryIndices, QueryRows, SpatialPrecomputeLayout};
+use super::{
+    storage_type_is_numeric, EvalContext, PlanExecutor, QueryIndices, QueryRows,
+    SpatialPrecomputeLayout,
+};
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn query_locations(
@@ -44,6 +47,13 @@ impl<'a> PlanExecutor<'a> {
                 continue;
             };
             if query != query_name {
+                continue;
+            }
+            if !self
+                .world
+                .storage_type_for_field(component, field)
+                .is_ok_and(storage_type_is_numeric)
+            {
                 continue;
             }
             if seen.insert((component.clone(), field.clone())) {

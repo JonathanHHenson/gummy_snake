@@ -258,7 +258,17 @@ class UdfDefinition:
             args: Lazy ECS values or expressions passed to the UDF in the system plan.
         """
 
-        self.call_runtime(world, args)
+        from gummysnake.ecs.world_runtime.python_batch import PythonEcsAccessBatch
+
+        batch = PythonEcsAccessBatch(world)
+        previous_batch = world._active_python_access_batch
+        world._active_python_access_batch = batch
+        try:
+            self.call_runtime(world, args)
+        finally:
+            batch.flush()
+            batch.close()
+            world._active_python_access_batch = previous_batch
         world._diagnostics["ecs_udf_calls"] += 1
 
 
