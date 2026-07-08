@@ -160,7 +160,12 @@ def run_physical_systems_batch(world: EcsWorld, scheduled_systems: list[_Schedul
         ):
             reports = execute_compiled_plans_to_canvas(world, handles, include_writes)
         else:
-            reports = world._rust.execute_compiled_plans(handles, include_writes)
+            execute_sequential = getattr(world._rust, "execute_compiled_plans_sequential", None)
+            if not callable(execute_sequential):
+                for scheduled in scheduled_systems:
+                    run_physical_system(world, scheduled)
+                return
+            reports = cast(list[dict[str, Any]], execute_sequential(handles, include_writes))
     except (AttributeError, ValueError) as exc:
         for scheduled in scheduled_systems:
             scheduled.physical_payload = None

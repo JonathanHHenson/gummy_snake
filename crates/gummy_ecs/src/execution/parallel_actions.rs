@@ -63,7 +63,7 @@ impl<'a> PlanExecutor<'a> {
         Ok(())
     }
 
-    fn execute_parallel_set_fields(
+    pub(in crate::execution) fn execute_parallel_set_fields(
         &mut self,
         children: &[usize],
         contexts: &[EvalContext],

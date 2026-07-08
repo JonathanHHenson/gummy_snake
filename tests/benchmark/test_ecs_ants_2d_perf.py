@@ -380,7 +380,11 @@ def _seed_world() -> tuple[EcsWorld, dict[str, int]]:
     pheromone_voxels = _add_pheromone_voxels(world, walls, red_hill_cells, blue_hill_cells)
     _seed_ants(world, RED_HILL, RED_ANT_TAG, seed=11)
     _seed_ants(world, BLUE_HILL, BLUE_ANT_TAG, seed=29)
-    world.add_system(simulate_ant_colonies, name="ant_colony_step")
+    world.order(["simulation_pheromones", "simulation_ants"])
+    world.add_system(update_red_pheromones, name="update_red_pheromones")
+    world.add_system(update_blue_pheromones, name="update_blue_pheromones")
+    world.add_system(simulate_red_ants, name="simulate_red_ants")
+    world.add_system(simulate_blue_ants, name="simulate_blue_ants")
     return world, {
         "ants": ANTS_PER_COLONY * len(COLONIES),
         "walls": len(walls),
@@ -455,14 +459,20 @@ def _update_pheromone_query(marker: ecs.Query, ant: ecs.Query, *, red_colony: bo
         )
 
 
-@ecs.system(parallel=True)
-def update_pheromones(
+@ecs.system(group="simulation_pheromones")
+def update_red_pheromones(
     marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel],
-    red_ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent],
-    blue_ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent],
+    ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent],
 ) -> None:
-    _update_pheromone_query(marker, red_ant, red_colony=True)
-    _update_pheromone_query(marker, blue_ant, red_colony=False)
+    _update_pheromone_query(marker, ant, red_colony=True)
+
+
+@ecs.system(group="simulation_pheromones")
+def update_blue_pheromones(
+    marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel],
+    ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent],
+) -> None:
+    _update_pheromone_query(marker, ant, red_colony=False)
 
 
 def _simulate_ant_query(
@@ -906,7 +916,7 @@ def _simulate_ant_query(
                 state.food_trail.set_to(food_trail_strength)
 
 
-@ecs.system
+@ecs.system(group="simulation_ants")
 def simulate_red_ants(
     ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent, AntDecision],
     wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel],
@@ -917,7 +927,7 @@ def simulate_red_ants(
     _simulate_ant_query(ant, wall, food, hill, trail, red_colony=True)
 
 
-@ecs.system
+@ecs.system(group="simulation_ants")
 def simulate_blue_ants(
     ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent, AntDecision],
     wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel],
@@ -926,24 +936,6 @@ def simulate_blue_ants(
     trail: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel],
 ) -> None:
     _simulate_ant_query(ant, wall, food, hill, trail, red_colony=False)
-
-
-@ecs.system
-def simulate_ant_colonies(
-    marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel],
-    red_ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent, AntDecision],
-    blue_ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent, AntDecision],
-    wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel],
-    food: ecs.Query[ecs.Tag[FOOD_TAG], GridVoxel, FoodVoxel],
-    red_hill: ecs.Query[ecs.Tag[RED_HILL_TAG], GridVoxel, HillVoxel],
-    blue_hill: ecs.Query[ecs.Tag[BLUE_HILL_TAG], GridVoxel, HillVoxel],
-    trail: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel],
-) -> None:
-    with ecs.do(parallel=True):
-        _update_pheromone_query(marker, red_ant, red_colony=True)
-        _update_pheromone_query(marker, blue_ant, red_colony=False)
-    _simulate_ant_query(red_ant, wall, food, red_hill, trail, red_colony=True)
-    _simulate_ant_query(blue_ant, wall, food, blue_hill, trail, red_colony=False)
 
 
 @dataclass(frozen=True)
@@ -973,21 +965,27 @@ def _run_benchmark() -> BenchmarkSummary:
     metadata: dict[str, object] = {}
     for _ in range(REPEATS):
         world, counts = _seed_world()
-        scheduled = world._systems[0]
-        handle = scheduled.physical_plan_handle
-        if handle is None:
-            raise AssertionError("ants benchmark system did not compile to a Rust physical plan")
+        handles = tuple(scheduled.physical_plan_handle for scheduled in world._systems)
+        if any(handle is None for handle in handles):
+            raise AssertionError("ants benchmark systems did not compile to Rust physical plans")
+        compiled_handles = tuple(handle for handle in handles if handle is not None)
+        execute_batch = getattr(world._rust, "execute_compiled_plans_sequential", None)
+        if not callable(execute_batch):
+            raise AssertionError(
+                "ants benchmark requires Rust sequential compiled-plan batch support"
+            )
         for _frame in range(WARMUP_FRAMES):
-            world._rust.execute_compiled_plan(handle, False)
+            execute_batch(compiled_handles, False)
         start = time.perf_counter()
         for _frame in range(FRAMES):
-            world._rust.execute_compiled_plan(handle, False)
+            execute_batch(compiled_handles, False)
         elapsed = time.perf_counter() - start
         diagnostics = world.diagnostics()
         diagnostics.update(
             {
-                "ecs_physical_system_runs": WARMUP_FRAMES + FRAMES,
-                "benchmark_mode": "compiled_rust_plan",
+                "ecs_physical_system_runs": (WARMUP_FRAMES + FRAMES) * len(compiled_handles),
+                "benchmark_mode": "compiled_rust_plans_sequential_batch",
+                "compiled_plan_count": len(compiled_handles),
             }
         )
         samples.append(FRAMES / max(elapsed, 1.0e-9))

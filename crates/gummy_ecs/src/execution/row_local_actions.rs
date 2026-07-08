@@ -240,7 +240,8 @@ impl<'a> PlanExecutor<'a> {
         {
             return None;
         }
-        if !self.action_contains_when(action_index) {
+        if !self.action_contains_when(action_index) && self.action_set_field_count(action_index) < 2
+        {
             return None;
         }
         let mut query_name = None;
@@ -350,6 +351,36 @@ impl<'a> PlanExecutor<'a> {
             | ActionNode::Despawn { .. }
             | ActionNode::CanvasCommand(_)
             | ActionNode::Udf { .. } => false,
+        }
+    }
+
+    fn action_set_field_count(&self, action_index: usize) -> usize {
+        match &self.plan.actions[action_index] {
+            ActionNode::SetField { .. } => 1,
+            ActionNode::Sequence(children) | ActionNode::Parallel(children) => children
+                .iter()
+                .map(|child| self.action_set_field_count(*child))
+                .sum(),
+            ActionNode::When {
+                then_action,
+                otherwise_action,
+                ..
+            } => {
+                self.action_set_field_count(*then_action)
+                    + otherwise_action
+                        .map(|action| self.action_set_field_count(action))
+                        .unwrap_or(0)
+            }
+            ActionNode::ForEach { action, .. } => self.action_set_field_count(*action),
+            ActionNode::Noop
+            | ActionNode::EmitEvent { .. }
+            | ActionNode::AddComponent { .. }
+            | ActionNode::RemoveComponent { .. }
+            | ActionNode::AddTag { .. }
+            | ActionNode::RemoveTag { .. }
+            | ActionNode::Despawn { .. }
+            | ActionNode::CanvasCommand(_)
+            | ActionNode::Udf { .. } => 0,
         }
     }
 

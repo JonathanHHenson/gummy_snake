@@ -435,6 +435,26 @@ impl PyEcsWorld {
         Ok(out)
     }
 
+    #[pyo3(signature = (handles, include_writes=true))]
+    fn execute_compiled_plans_sequential<'py>(
+        &mut self,
+        py: Python<'py>,
+        handles: Vec<u64>,
+        include_writes: bool,
+    ) -> PyResult<Bound<'py, PyList>> {
+        let reports = py
+            .allow_threads(|| {
+                self.world
+                    .execute_compiled_plans_sequential_with_options(&handles, include_writes)
+            })
+            .map_err(py_value_error)?;
+        let out = PyList::empty_bound(py);
+        for report in reports {
+            out.append(execution_report_to_dict(py, &report, include_writes)?)?;
+        }
+        Ok(out)
+    }
+
     #[pyo3(signature = (handles, canvas, matrix, direct_fill_allowed, include_writes=true))]
     fn execute_compiled_plans_to_canvas<'py>(
         &mut self,

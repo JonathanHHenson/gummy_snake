@@ -42,15 +42,6 @@ impl<'a> PlanExecutor<'a> {
                     relation.item_query
                 ))
             })?;
-        let item_locations = self.query_locations(&relation.item_query)?;
-        let mut target_coord_arrays = Vec::with_capacity(target_coords.len());
-        for coord in &target_coords {
-            target_coord_arrays.push(self.world.field_f64_rows_for_resolved_entities(
-                &coord.component,
-                &coord.field,
-                &item_locations,
-            )?);
-        }
         let worker_count = rayon::current_num_threads().max(1);
         self.report.spatial_parallel_workers =
             self.report.spatial_parallel_workers.max(worker_count);
@@ -58,6 +49,39 @@ impl<'a> PlanExecutor<'a> {
             self.report.spatial_parallel_chunks += worker_count;
         }
         if relation.algorithm.kind == "hash_grid" {
+            let signature = self.spatial_index_signature(relation);
+            let structural_revision = self.world.structural_revision();
+            let field_revision = self.spatial_dependency_revision(relation);
+            let cached_for_update =
+                if let Some(cached) = self.world.take_spatial_index_cache(&index_key) {
+                    if cached.signature == signature
+                        && cached.structural_revision == structural_revision
+                    {
+                        if cached.field_revision == field_revision {
+                            self.report.spatial_index_reuses += 1;
+                            self.spatial_index_metadata.insert(
+                                index_key.clone(),
+                                (signature, structural_revision, field_revision),
+                            );
+                            self.report_algorithm_use(&cached.index);
+                            return Ok(Some((index_key, cached.index)));
+                        }
+                        Some(cached)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+            let item_locations = self.query_locations(&relation.item_query)?;
+            let mut target_coord_arrays = Vec::with_capacity(target_coords.len());
+            for coord in &target_coords {
+                target_coord_arrays.push(self.world.field_f64_rows_for_resolved_entities(
+                    &coord.component,
+                    &coord.field,
+                    &item_locations,
+                )?);
+            }
             let records = item_rows
                 .par_iter()
                 .enumerate()
@@ -68,28 +92,20 @@ impl<'a> PlanExecutor<'a> {
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let signature = self.spatial_index_signature(relation);
-            let structural_revision = self.world.structural_revision();
-            let field_revision = self.spatial_dependency_revision(relation);
-            if let Some(mut cached) = self.world.take_spatial_index_cache(&index_key) {
-                if cached.signature == signature
-                    && cached.structural_revision == structural_revision
-                {
-                    if let BuiltSpatialIndex::DirectPointHashGrid(direct_index) = &mut cached.index
-                    {
-                        if direct_index.update_sorted_points(&records)? {
-                            self.report.spatial_index_incremental_updates += 1;
-                        } else {
-                            self.report.spatial_indexes_built += 1;
-                            self.report.spatial_index_full_rebuilds += 1;
-                        }
-                        self.spatial_index_metadata.insert(
-                            index_key.clone(),
-                            (signature, structural_revision, field_revision),
-                        );
-                        self.report_algorithm_use(&cached.index);
-                        return Ok(Some((index_key, cached.index)));
+            if let Some(mut cached) = cached_for_update {
+                if let BuiltSpatialIndex::DirectPointHashGrid(direct_index) = &mut cached.index {
+                    if direct_index.update_sorted_points(&records)? {
+                        self.report.spatial_index_incremental_updates += 1;
+                    } else {
+                        self.report.spatial_indexes_built += 1;
+                        self.report.spatial_index_full_rebuilds += 1;
                     }
+                    self.spatial_index_metadata.insert(
+                        index_key.clone(),
+                        (signature, structural_revision, field_revision),
+                    );
+                    self.report_algorithm_use(&cached.index);
+                    return Ok(Some((index_key, cached.index)));
                 }
             }
             let mut direct_index = DirectPointHashGrid::new(
@@ -106,6 +122,15 @@ impl<'a> PlanExecutor<'a> {
             );
             self.report_algorithm_use(&index);
             return Ok(Some((index_key, index)));
+        }
+        let item_locations = self.query_locations(&relation.item_query)?;
+        let mut target_coord_arrays = Vec::with_capacity(target_coords.len());
+        for coord in &target_coords {
+            target_coord_arrays.push(self.world.field_f64_rows_for_resolved_entities(
+                &coord.component,
+                &coord.field,
+                &item_locations,
+            )?);
         }
         let records = item_rows
             .par_iter()

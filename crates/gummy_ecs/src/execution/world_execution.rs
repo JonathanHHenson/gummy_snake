@@ -37,6 +37,27 @@ impl World {
         self.execute_plan_with_options(plan.as_ref(), include_writes)
     }
 
+    pub fn execute_compiled_plans_sequential_with_options(
+        &mut self,
+        handles: &[PhysicalPlanHandle],
+        include_writes: bool,
+    ) -> Result<Vec<ExecutionReport>> {
+        if handles.is_empty() {
+            return Ok(Vec::new());
+        }
+        let plans = handles
+            .iter()
+            .map(|handle| self.validated_compiled_plan(*handle))
+            .collect::<Result<Vec<_>>>()?;
+        install_on_ecs_worker_pool(|| {
+            let mut reports = Vec::with_capacity(plans.len());
+            for plan in plans {
+                reports.push(self.execute_plan_with_options_inner(plan.as_ref(), include_writes)?);
+            }
+            Ok(reports)
+        })
+    }
+
     pub fn execute_compiled_plans_with_options(
         &mut self,
         handles: &[PhysicalPlanHandle],
@@ -46,10 +67,7 @@ impl World {
             return Ok(Vec::new());
         }
         if include_writes || handles.len() == 1 {
-            return handles
-                .iter()
-                .map(|handle| self.execute_compiled_plan_with_options(*handle, include_writes))
-                .collect();
+            return self.execute_compiled_plans_sequential_with_options(handles, include_writes);
         }
         let plans = handles
             .iter()
