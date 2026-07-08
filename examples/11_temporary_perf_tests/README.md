@@ -20,7 +20,7 @@ Use `GUMMY_TEMP_ECS_BENCHMARK_FRAMES`, `GUMMY_TEMP_ECS_BENCHMARK_REPEATS`, and `
 
 | Sketch | Main coverage |
 | --- | --- |
-| `rust_2d_primitives_branching.py` | Rust systems, Rust expression UDFs, `ecs.do`, `ecs.do(parallel=True)`, `@ecs.system(parallel=True)`, `ecs.conditional`, `ecs.when`, `ecs.otherwise`, `ecs.for_each`, typed events, and ECS canvas 2D primitive drawing. |
+`rust_2d_primitives_branching.py` | Rust system plans, Rust expression UDF plans, `ecs.do`, `ecs.do(parallel=True)`, `@ecs.system_plan(parallel=True)`, `ecs.conditional`, `ecs.when`, `ecs.otherwise`, `ecs.for_each`, typed events, and ECS canvas 2D primitive drawing.
 | `python_systems_udfs_sprites.py` | Explicit Python systems, Python UDF action boundaries, Python UDF iterable sources, normal `gs.*` drawing from a Python ECS system, and 2D sprite rendering. |
 | `structural_churn_tags_components.py` | Rust structural ECS actions that add/remove tags and components for visual state changes, plus ECS canvas drawing that reacts to the changed structure. |
 | `spatial_events_for_each_stress.py` | 2D spatial `neighbors`, `join`, `overlaps`, aggregate expressions, event emission/consumption, and event-reader `ecs.for_each`. |

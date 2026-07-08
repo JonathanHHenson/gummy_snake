@@ -231,11 +231,23 @@ def test_entity_query_mutation_components_tags_and_stale_handles() -> None:
         world.add_tag(entity, "stale")
 
 
-def test_system_and_udf_decorators_do_not_expose_python_flag() -> None:
+def test_decorators_do_not_expose_removed_or_invalid_parameters() -> None:
     assert "python" not in inspect.signature(ecs.system).parameters
     assert "python" not in inspect.signature(ecs.udf).parameters
     assert "python" not in inspect.signature(ecs.system_plan).parameters
     assert "python" not in inspect.signature(ecs.udf_plan).parameters
+    assert "parallel" not in inspect.signature(ecs.system).parameters
+    assert "queries" not in inspect.signature(ecs.system_plan).parameters
+    assert "mutations" not in inspect.signature(ecs.system_plan).parameters
+    assert "side_effects" not in inspect.signature(ecs.udf).parameters
+    assert "side_effects" not in inspect.signature(ecs.udf_plan).parameters
+    assert "reads" not in inspect.signature(ecs.udf).parameters
+    assert "writes" not in inspect.signature(ecs.udf).parameters
+    assert "structural" not in inspect.signature(ecs.udf).parameters
+    assert "mutations" not in inspect.signature(ecs.udf_plan).parameters
+    assert "reads" not in inspect.signature(ecs.udf_plan).parameters
+    assert "writes" not in inspect.signature(ecs.udf_plan).parameters
+    assert "structural" not in inspect.signature(ecs.udf_plan).parameters
 
 
 def test_resources_and_system_resource_mutation() -> None:
@@ -602,13 +614,6 @@ def test_python_udf_and_system_metadata_validation() -> None:
         def bad_udf(items: Iterable[ecs.Entity[Position]]) -> None:
             del items
 
-    with pytest.raises(SystemPlanError, match=r"only valid with @ecs.udf"):
-
-        @ecs.udf_plan(mutations={"items": {ecs.EntityMutation[Position]()}})
-        def bad_rust_udf(items: ecs.Expression[float]) -> ecs.Expression[float]:
-            del items
-            return ecs.literal(0)
-
     with pytest.raises(SystemPlanError, match="unknown parameter"):
 
         @ecs.system(queries={"missing": ecs.Query[Position]})
@@ -620,12 +625,6 @@ def test_python_udf_and_system_metadata_validation() -> None:
         @ecs.system(queries={"entities": object()})
         def bad_query_metadata(entities: object) -> None:
             del entities
-
-    with pytest.raises(SystemPlanError, match=r"only valid with @ecs.system"):
-
-        @ecs.system_plan(mutations={"entities": {ecs.EntityMutation[Position]()}})
-        def bad_rust_system(entity: ecs.Query[Position]) -> None:
-            entity[Position].x.set_to(1)
 
 
 def test_grouped_value_aggregates_count_sum_min_max_mean() -> None:

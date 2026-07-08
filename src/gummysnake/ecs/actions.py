@@ -193,11 +193,6 @@ class UdfDefinition:
 
     function: Callable[..., Any]
     return_annotation: object
-    reads: tuple[type[Any], ...] = ()
-    writes: tuple[type[Any], ...] = ()
-    structural: bool = False
-    side_effects: bool = False
-    mutations: dict[str, frozenset[object]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -226,6 +221,8 @@ class UdfPlanDefinition(UdfDefinition):
 @dataclass(frozen=True)
 class _RuntimeUdfBase(UdfDefinition):
     """Shared runtime behavior for Python UDF definitions."""
+
+    mutations: dict[str, frozenset[object]] = field(default_factory=dict)
 
     def call_runtime(self, world: EcsWorld, args: tuple[UdfArgument, ...]) -> Any:
         """Run this Python UDF with ECS arguments converted to Python values.
@@ -369,9 +366,6 @@ class UdfCallExpression(Expression):
 
 @dataclass(frozen=True)
 class _RuntimeUdfDecorator:
-    reads: tuple[type[Any], ...] = ()
-    writes: tuple[type[Any], ...] = ()
-    structural: bool = False
     mutations: Mapping[str, object] | None = None
 
     @overload
@@ -385,30 +379,15 @@ class _RuntimeUdfDecorator:
     ) -> RuntimeUdfDefinition | UdfIterableDefinition:
         """Create a runtime Python UDF definition."""
 
-        return _build_runtime_udf_definition(
-            callback,
-            reads=self.reads,
-            writes=self.writes,
-            structural=self.structural,
-            mutations=self.mutations,
-        )
+        return _build_runtime_udf_definition(callback, mutations=self.mutations)
 
 
 @dataclass(frozen=True)
 class _UdfPlanDecorator:
-    reads: tuple[type[Any], ...] = ()
-    writes: tuple[type[Any], ...] = ()
-    structural: bool = False
-
     def __call__(self, callback: Callable[..., Any]) -> UdfPlanDefinition:
         """Create a Rust-backed UDF plan definition."""
 
-        return _build_udf_plan_definition(
-            callback,
-            reads=self.reads,
-            writes=self.writes,
-            structural=self.structural,
-        )
+        return _build_udf_plan_definition(callback)
 
 
 def _udf_type_hints(callback: Callable[..., Any]) -> dict[str, Any]:
@@ -427,9 +406,6 @@ def _udf_type_hints(callback: Callable[..., Any]) -> dict[str, Any]:
 def _build_runtime_udf_definition(
     callback: Callable[..., Any],
     *,
-    reads: tuple[type[Any], ...],
-    writes: tuple[type[Any], ...],
-    structural: bool,
     mutations: Mapping[str, object] | None,
 ) -> RuntimeUdfDefinition | UdfIterableDefinition:
     hints = _udf_type_hints(callback)
@@ -439,21 +415,11 @@ def _build_runtime_udf_definition(
     return definition_type(
         callback,
         hints["return"],
-        reads=reads,
-        writes=writes,
-        structural=structural,
-        side_effects=False,
         mutations=validate_mutation_metadata(callback, mutations),
     )
 
 
-def _build_udf_plan_definition(
-    callback: Callable[..., Any],
-    *,
-    reads: tuple[type[Any], ...],
-    writes: tuple[type[Any], ...],
-    structural: bool,
-) -> UdfPlanDefinition:
+def _build_udf_plan_definition(callback: Callable[..., Any]) -> UdfPlanDefinition:
     hints = _udf_type_hints(callback)
     signature = inspect.signature(callback)
     for parameter in signature.parameters.values():
@@ -467,15 +433,7 @@ def _build_udf_plan_definition(
         raise SystemPlanError(
             f"Rust-backed ECS UDF plan {callback.__name__} return type must be ecs.Expression[T]."
         )
-    return UdfPlanDefinition(
-        callback,
-        hints["return"],
-        reads=reads,
-        writes=writes,
-        structural=structural,
-        side_effects=False,
-        mutations={},
-    )
+    return UdfPlanDefinition(callback, hints["return"])
 
 
 @overload
@@ -490,10 +448,6 @@ def udf(function: Callable[..., Any], /) -> RuntimeUdfDefinition: ...
 def udf(
     function: None = None,
     *,
-    reads: Iterable[type[Any]] = (),
-    writes: Iterable[type[Any]] = (),
-    structural: bool = False,
-    side_effects: bool = False,
     mutations: Mapping[str, object] | None = None,
 ) -> _RuntimeUdfDecorator: ...
 
@@ -501,10 +455,6 @@ def udf(
 def udf(
     function: Callable[..., Any] | None = None,
     *,
-    reads: Iterable[type[Any]] = (),
-    writes: Iterable[type[Any]] = (),
-    structural: bool = False,
-    side_effects: bool = False,
     mutations: Mapping[str, object] | None = None,
 ) -> _RuntimeUdfDecorator | RuntimeUdfDefinition | UdfIterableDefinition:
     """Declare a runtime Python UDF usable from ECS plans.
@@ -515,29 +465,13 @@ def udf(
 
     Args:
         function: Function to decorate when ``@ecs.udf`` is used without parentheses.
-        reads: Component types read by a Python UDF. Reserved for compatibility metadata.
-        writes: Component types written by a Python UDF. Reserved for compatibility metadata.
-        structural: Whether the Python UDF may change entity structure. Reserved for
-            compatibility metadata.
-        side_effects: Deprecated compatibility flag. Passing ``True`` raises an error;
-            use explicit ``mutations`` metadata instead.
         mutations: Entity mutation declarations keyed by Python UDF parameter name.
 
     Returns:
         A UDF definition, or a decorator that creates one.
     """
 
-    if side_effects:
-        raise SystemPlanError(
-            "@ecs.udf(side_effects=...) has been replaced by explicit mutations={...} "
-            "metadata on @ecs.udf."
-        )
-    decorator = _RuntimeUdfDecorator(
-        reads=tuple(reads),
-        writes=tuple(writes),
-        structural=structural,
-        mutations=mutations,
-    )
+    decorator = _RuntimeUdfDecorator(mutations=mutations)
     if function is not None:
         return decorator(function)
     return decorator
@@ -548,25 +482,11 @@ def udf_plan(function: Callable[..., Any], /) -> UdfPlanDefinition: ...
 
 
 @overload
-def udf_plan(
-    function: None = None,
-    *,
-    reads: Iterable[type[Any]] = (),
-    writes: Iterable[type[Any]] = (),
-    structural: bool = False,
-    side_effects: bool = False,
-    mutations: Mapping[str, object] | None = None,
-) -> _UdfPlanDecorator: ...
+def udf_plan(function: None = None) -> _UdfPlanDecorator: ...
 
 
 def udf_plan(
     function: Callable[..., Any] | None = None,
-    *,
-    reads: Iterable[type[Any]] = (),
-    writes: Iterable[type[Any]] = (),
-    structural: bool = False,
-    side_effects: bool = False,
-    mutations: Mapping[str, object] | None = None,
 ) -> _UdfPlanDecorator | UdfPlanDefinition:
     """Declare a Rust-backed expression UDF for ECS system plans.
 
@@ -576,28 +496,12 @@ def udf_plan(
 
     Args:
         function: Function to decorate when ``@ecs.udf_plan`` is used without parentheses.
-        reads: Reserved compatibility metadata.
-        writes: Reserved compatibility metadata.
-        structural: Reserved compatibility metadata.
-        side_effects: Deprecated compatibility flag. Passing ``True`` raises an error.
-        mutations: Invalid for UDF plans; reserved for Python ``@ecs.udf`` metadata.
 
     Returns:
         A UDF definition, or a decorator that creates one.
     """
 
-    if side_effects:
-        raise SystemPlanError(
-            "@ecs.udf_plan(side_effects=...) has been replaced by explicit mutations={...} "
-            "metadata on @ecs.udf."
-        )
-    if mutations:
-        raise SystemPlanError("@ecs.udf_plan mutations={...} metadata is only valid with @ecs.udf.")
-    decorator = _UdfPlanDecorator(
-        reads=tuple(reads),
-        writes=tuple(writes),
-        structural=structural,
-    )
+    decorator = _UdfPlanDecorator()
     if function is not None:
         return decorator(function)
     return decorator

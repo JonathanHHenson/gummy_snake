@@ -232,7 +232,6 @@ def system(
     /,
     *,
     name: str | None = None,
-    parallel: bool = False,
     queries: Mapping[str, object] | None = None,
     mutations: Mapping[str, object] | None = None,
     group: str | Iterable[str] | None = None,
@@ -246,7 +245,6 @@ def system(
     function: None = None,
     *,
     name: str | None = None,
-    parallel: bool = False,
     queries: Mapping[str, object] | None = None,
     mutations: Mapping[str, object] | None = None,
     group: str | Iterable[str] | None = None,
@@ -259,7 +257,6 @@ def system(
     function: Callable[..., object] | None = None,
     *,
     name: str | None = None,
-    parallel: bool = False,
     queries: Mapping[str, object] | None = None,
     mutations: Mapping[str, object] | None = None,
     group: str | Iterable[str] | None = None,
@@ -274,7 +271,6 @@ def system(
     Args:
         function: Function to decorate when ``@ecs.system`` is used without parentheses.
         name: Optional scheduler name to show in diagnostics instead of the function name.
-        parallel: Invalid for Python systems; use ``@ecs.system_plan(parallel=True)``.
         queries: Query metadata for unannotated parameters in Python systems.
         mutations: Entity mutation metadata for Python systems.
         group: Optional system group name or sequence of group names. Group names are
@@ -286,11 +282,6 @@ def system(
         A system definition, or a decorator that creates one.
     """
 
-    if parallel:
-        raise SystemPlanError(
-            "@ecs.system is a Python scheduler barrier; use "
-            "@ecs.system_plan(parallel=True) for parallel Rust plan systems."
-        )
     normalized_before, normalized_after = _normalize_scheduling("@ecs.system", group, before, after)
 
     def decorate(callback: Callable[..., object]) -> RuntimeSystemDefinition:
@@ -320,8 +311,6 @@ def system_plan(
     *,
     name: str | None = None,
     parallel: bool = False,
-    queries: Mapping[str, object] | None = None,
-    mutations: Mapping[str, object] | None = None,
     group: str | Iterable[str] | None = None,
     before: Iterable[str] = (),
     after: Iterable[str] = (),
@@ -334,8 +323,6 @@ def system_plan(
     *,
     name: str | None = None,
     parallel: bool = False,
-    queries: Mapping[str, object] | None = None,
-    mutations: Mapping[str, object] | None = None,
     group: str | Iterable[str] | None = None,
     before: Iterable[str] = (),
     after: Iterable[str] = (),
@@ -347,8 +334,6 @@ def system_plan(
     *,
     name: str | None = None,
     parallel: bool = False,
-    queries: Mapping[str, object] | None = None,
-    mutations: Mapping[str, object] | None = None,
     group: str | Iterable[str] | None = None,
     before: Iterable[str] = (),
     after: Iterable[str] = (),
@@ -363,8 +348,6 @@ def system_plan(
         function: Function to decorate when ``@ecs.system_plan`` is used without parentheses.
         name: Optional scheduler name to show in diagnostics instead of the function name.
         parallel: Whether Rust may execute independent recorded actions in parallel.
-        queries: Invalid for plan systems; reserved for Python ``@ecs.system`` metadata.
-        mutations: Invalid for plan systems; reserved for Python ``@ecs.system`` metadata.
         group: Optional system group name or sequence of group names. Group names are
             validated at registration.
         before: Group names that this system's implicit group should run before.
@@ -379,14 +362,6 @@ def system_plan(
     )
 
     def decorate(callback: Callable[..., object]) -> SystemPlanDefinition:
-        if queries:
-            raise SystemPlanError(
-                "@ecs.system_plan queries={...} metadata is only valid with @ecs.system."
-            )
-        if mutations:
-            raise SystemPlanError(
-                "@ecs.system_plan mutations={...} metadata is only valid with @ecs.system."
-            )
         return SystemPlanDefinition(
             callback,
             name=name,
