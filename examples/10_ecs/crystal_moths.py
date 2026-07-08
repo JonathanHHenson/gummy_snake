@@ -72,7 +72,7 @@ def _expr_limit_vector(
     return x * scale, y * scale
 
 
-@ecs.system
+@ecs.system_plan
 def lantern_navigation(
     moth: ecs.Query[ecs.Tag[MOTH], Position, Velocity, Spark, Navigation],
     lantern: ecs.Query[ecs.Tag[LANTERN], Position],
@@ -150,7 +150,7 @@ def lantern_navigation(
         moth[Spark].heat.set_to((moth[Spark].heat * 0.90 + glow * 0.24).clamp(0.06, 1.0))
 
 
-@ecs.system
+@ecs.system_plan
 def flutter(moth: ecs.Query[ecs.Tag[MOTH], Position, Velocity, Spark, Navigation]) -> None:
     seconds = ecs.dt() / 1000.0
     wing_speed = 7.0 + moth[Navigation].curiosity * 3.4 + moth[Spark].heat * 8.0
@@ -160,7 +160,7 @@ def flutter(moth: ecs.Query[ecs.Tag[MOTH], Position, Velocity, Spark, Navigation
         moth[Navigation].phase.set_to(moth[Navigation].phase + wing_speed * seconds)
 
 
-@ecs.system
+@ecs.system_plan
 def wrap_moths(moth: ecs.Query[ecs.Tag[MOTH], Position], bounds: ecs.Res[Bounds]) -> None:
     left = -bounds[Bounds].padding
     right = bounds[Bounds].width + bounds[Bounds].padding

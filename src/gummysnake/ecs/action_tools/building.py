@@ -114,8 +114,8 @@ def _require_session(operation: str) -> _BuildSession:
     session = _current_session()
     if session is None:
         raise SystemPlanError(
-            f"{operation} requires an active @ecs.system plan-build session. "
-            "Use it inside a Rust-executed @ecs.system function."
+            f"{operation} requires an active @ecs.system_plan plan-build session. "
+            "Use it inside a Rust-executed @ecs.system_plan function."
         )
     return session
 

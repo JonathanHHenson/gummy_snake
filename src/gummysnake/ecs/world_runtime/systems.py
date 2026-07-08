@@ -13,7 +13,7 @@ from gummysnake.ecs.scheduling_helpers import (
     scheduled_system_group_names,
 )
 from gummysnake.ecs.specs import ChangeTerm, QuerySpec
-from gummysnake.ecs.systems import SystemDefinition
+from gummysnake.ecs.systems import PlanBuiltSystem, RuntimeBuiltSystem, SystemDefinition
 from gummysnake.ecs.world_helpers import (
     _contains_direct_canvas_barrier_action,
     _contains_direct_udf_action,
@@ -46,7 +46,9 @@ def add_system(
 ) -> SystemHandle:
     """Validate, compile, and schedule one ECS system."""
     if not isinstance(system, SystemDefinition):
-        raise SystemPlanError("gs.add_system() expects a function decorated with @ecs.system.")
+        raise SystemPlanError(
+            "gs.add_system() expects a function decorated with @ecs.system or @ecs.system_plan."
+        )
     built = system.build()
     system_name = name or built.name
     if any(s.handle.name == system_name for s in world._systems):
@@ -215,14 +217,14 @@ def _advance_group_hooks(
         remaining_by_group[group_name] = max(0, remaining_by_group.get(group_name, 0) - 1)
     for group_name in reversed(tuple(active_groups)):
         if remaining_by_group.get(group_name, 0) <= 0:
-            _dispatch_group_hook(world, "after", group_name)
             active_groups.remove(group_name)
+            _dispatch_group_hook(world, "after", group_name)
 
 
 def _can_batch_physical_system(scheduled: _ScheduledSystem) -> bool:
     action = scheduled.built.plan.action
     return (
-        not scheduled.built.python
+        isinstance(scheduled.built, PlanBuiltSystem)
         and not _is_direct_udf_action(action)
         and not _contains_direct_udf_action(action)
     )
@@ -237,7 +239,7 @@ def _dispatch_group_hook(world: EcsWorld, phase: str, group_name: str) -> None:
 
 def run_system_action(world: EcsWorld, scheduled: _ScheduledSystem, action: Action) -> None:
     """Execute one scheduled action tree through the appropriate runtime boundary."""
-    if scheduled.built.python:
+    if isinstance(scheduled.built, RuntimeBuiltSystem):
         run_python_system(world, scheduled)
         return
     if _is_direct_udf_action(action):

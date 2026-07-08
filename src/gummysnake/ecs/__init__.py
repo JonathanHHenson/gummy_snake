@@ -7,8 +7,11 @@ from gummysnake.ecs.actions import (
     Action,
     DefaultAction,
     ForEachAction,
+    RuntimeUdfDefinition,
     SystemPlan,
     UdfDefinition,
+    UdfIterableDefinition,
+    UdfPlanDefinition,
     WhenAction,
     conditional,
     do,
@@ -19,6 +22,7 @@ from gummysnake.ecs.actions import (
     otherwise,
     set,
     udf,
+    udf_plan,
     when,
 )
 from gummysnake.ecs.expressions import (
@@ -45,7 +49,13 @@ from gummysnake.ecs.specs import (
     Tag,
     Without,
 )
-from gummysnake.ecs.systems import SystemDefinition, system
+from gummysnake.ecs.systems import (
+    RuntimeSystemDefinition,
+    SystemDefinition,
+    SystemPlanDefinition,
+    system,
+    system_plan,
+)
 from gummysnake.ecs.world import Entity, EntityMutation, EntityView, MutEntity, SystemHandle
 
 __all__ = [
@@ -67,11 +77,16 @@ __all__ = [
     "Removed",
     "Res",
     "ResMut",
+    "RuntimeSystemDefinition",
+    "RuntimeUdfDefinition",
     "SystemDefinition",
     "SystemHandle",
     "SystemPlan",
+    "SystemPlanDefinition",
     "Tag",
     "UdfDefinition",
+    "UdfIterableDefinition",
+    "UdfPlanDefinition",
     "Vector",
     "WhenAction",
     "Without",
@@ -92,7 +107,9 @@ __all__ = [
     "set",
     "spatial",
     "system",
+    "system_plan",
     "types",
     "udf",
+    "udf_plan",
     "when",
 ]

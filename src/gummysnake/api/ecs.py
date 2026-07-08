@@ -217,10 +217,10 @@ def add_system(
     set: str | Iterable[str] | None = None,
     group: str | Iterable[str] | None = None,
 ) -> SystemHandle:
-    """Register an ``@ecs.system`` with the active sketch.
+    """Register an ``@ecs.system`` or ``@ecs.system_plan`` with the active sketch.
 
     Args:
-        system: Function decorated with ``@ecs.system``.
+        system: Function decorated with ``@ecs.system`` or ``@ecs.system_plan``.
         enabled: Whether the system should run immediately after registration.
         name: Optional unique system name. Defaults to the decorated function name.
         before: Groups that should run after this system's implicit group.

@@ -72,7 +72,7 @@ class SpatialStats:
     beacon_events: int
 
 
-@ecs.system(parallel=True, group=("simulation", "simulation_motion"))
+@ecs.system_plan(parallel=True, group=("simulation", "simulation_motion"))
 def move_signals(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
     state = signal[Signal2D]
     dt = ecs.dt() / (1000.0 / TARGET_FPS)
@@ -85,7 +85,7 @@ def move_signals(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
         state.pressure.set_to(next_pressure)
 
 
-@ecs.system(group=("simulation", "simulation_pull"))
+@ecs.system_plan(group=("simulation", "simulation_pull"))
 def beacon_pull(
     signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D],
     beacon: ecs.Query[ecs.Tag[BEACON_TAG], Beacon2D],
@@ -112,7 +112,7 @@ def beacon_pull(
     state.vy.set_to((state.vy * 0.992 + pull_y).clamp(-2.7, 2.7))
 
 
-@ecs.system(group=("simulation", "simulation_neighbors"))
+@ecs.system_plan(group=("simulation", "simulation_neighbors"))
 def neighbor_pressure(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
     state = signal[Signal2D]
     neighbors = ecs.spatial.neighbors(
@@ -139,7 +139,7 @@ def neighbor_pressure(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
         state.vy.set_to((state.vy + pressure_repel_y * pressure_force).clamp(-2.7, 2.7))
 
 
-@ecs.system(group=("simulation", "simulation_overlaps"))
+@ecs.system_plan(group=("simulation", "simulation_overlaps"))
 def overlap_beacons(
     signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D],
     beacon: ecs.Query[ecs.Tag[BEACON_TAG], Beacon2D],
@@ -173,7 +173,7 @@ def overlap_beacons(
             writer.emit(BeaconPulse(1))
 
 
-@ecs.system(group=("simulation", "simulation_event_emit"))
+@ecs.system_plan(group=("simulation", "simulation_event_emit"))
 def emit_cluster_events(
     signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D], writer: ecs.EventWriter[ClusterPulse]
 ) -> None:
@@ -181,7 +181,7 @@ def emit_cluster_events(
         writer.emit(ClusterPulse(1))
 
 
-@ecs.system(group=("simulation", "simulation_event_consume"))
+@ecs.system_plan(group=("simulation", "simulation_event_consume"))
 def consume_spatial_events(
     cluster_reader: ecs.EventReader[ClusterPulse],
     beacon_reader: ecs.EventReader[BeaconPulse],
@@ -195,7 +195,7 @@ def consume_spatial_events(
         stats[SpatialStats].beacon_events.increase_by(event.amount)
 
 
-@ecs.system(group=("draw", "draw_background"))
+@ecs.system_plan(group=("draw", "draw_background"))
 def draw_background() -> None:
     ca.background(6, 10, 20)
     ca.no_stroke()
@@ -203,7 +203,7 @@ def draw_background() -> None:
     ca.rect(0, 0, WIDTH, HEIGHT)
 
 
-@ecs.system(group=("draw", "draw_beacons"))
+@ecs.system_plan(group=("draw", "draw_beacons"))
 def draw_beacons(beacon: ecs.Query[ecs.Tag[BEACON_TAG], Beacon2D]) -> None:
     state = beacon[Beacon2D]
     ca.fill(90, 84, 255, 32)
@@ -214,14 +214,14 @@ def draw_beacons(beacon: ecs.Query[ecs.Tag[BEACON_TAG], Beacon2D]) -> None:
     ca.circle(state.x, state.y, 9 + state.pulse * 2.5)
 
 
-@ecs.system(group=("draw", "draw_signals"))
+@ecs.system_plan(group=("draw", "draw_signals"))
 def draw_signals(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
     state = signal[Signal2D]
     ca.fill(55 + state.bucket * 38, 170 + state.pressure * 70, 255, 58 + state.pressure * 150)
     ca.circle(state.x, state.y, state.radius * (1.15 + state.pressure * 1.8))
 
 
-@ecs.system(group=("draw", "draw_hud"))
+@ecs.system_plan(group=("draw", "draw_hud"))
 def draw_hud(stats: ecs.Res[SpatialStats]) -> None:
     ca.fill(235, 244, 255, 224)
     ca.text_size(15)
@@ -232,7 +232,7 @@ def draw_hud(stats: ecs.Res[SpatialStats]) -> None:
     ca.text(stats[SpatialStats].beacon_events, 140, HEIGHT - 22)
 
 
-@ecs.system(python=True, group="export")
+@ecs.system(group="export")
 def save_frame() -> None:
     global SAVED_OUTPUT
     if SAVED_OUTPUT:

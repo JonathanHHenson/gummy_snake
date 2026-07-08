@@ -81,7 +81,7 @@ def _axis_force(value: ecs.Expression, extent: float) -> ecs.Expression:
     return ((value < low) * 0.045) + ((value > high) * -0.045)
 
 
-@ecs.system(parallel=True, group="simulation")
+@ecs.system_plan(parallel=True, group="simulation")
 def simulate_bodies(body: ecs.Query[ecs.Tag[BODY_TAG], Body3D]) -> None:
     state = body[Body3D]
     neighbors = ecs.spatial.neighbors(

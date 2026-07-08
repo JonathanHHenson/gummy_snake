@@ -23,7 +23,7 @@ class Velocity:
 
 
 def _spatial_system(radius: float):
-    @ecs.system
+    @ecs.system_plan
     def count_neighbors(entity: ecs.Query[Position]) -> None:
         point = ecs.spatial.point2(entity[Position].x, entity[Position].y)
         neighbors = ecs.spatial.neighbors(

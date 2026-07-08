@@ -477,10 +477,10 @@ class EcsWorld:
         set: str | Iterable[str] | None = None,
         group: str | Iterable[str] | None = None,
     ) -> SystemHandle:
-        """Register an ``@ecs.system`` with this world.
+        """Register an ``@ecs.system`` or ``@ecs.system_plan`` with this world.
 
-        Args:
-            system: Function decorated with ``@ecs.system``.
+            Args:
+                system: Function decorated with ``@ecs.system`` or ``@ecs.system_plan``.
             enabled: Whether the system should run immediately after registration.
             name: Optional unique system name. Defaults to the decorated function name.
             before: Groups that should run after this system's implicit group.

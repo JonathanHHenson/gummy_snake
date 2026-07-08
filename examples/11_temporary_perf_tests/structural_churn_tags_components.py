@@ -59,7 +59,7 @@ class ChurnStats:
     active_glows: int
 
 
-@ecs.system(parallel=True, group=("simulation", "simulation_motion"))
+@ecs.system_plan(parallel=True, group=("simulation", "simulation_motion"))
 def animate_orbs(orb: ecs.Query[OrbState]) -> None:
     state = orb[OrbState]
     dt = ecs.dt() / (1000.0 / TARGET_FPS)
@@ -70,7 +70,7 @@ def animate_orbs(orb: ecs.Query[OrbState]) -> None:
     state.heat.set_to(heat)
 
 
-@ecs.system(group=("structure", "structure_activate"))
+@ecs.system_plan(group=("structure", "structure_activate"))
 def activate_hot_glows(
     orb: ecs.Query[ecs.Tag[ORB_TAG], OrbState, ecs.Without[GlowTrail]],
     stats: ecs.ResMut[ChurnStats],
@@ -82,7 +82,7 @@ def activate_hot_glows(
         stats[ChurnStats].active_glows.increase_by(1)
 
 
-@ecs.system(group=("structure", "structure_update"))
+@ecs.system_plan(group=("structure", "structure_update"))
 def update_or_remove_glows(
     orb: ecs.Query[ecs.Tag[ORB_TAG], OrbState, GlowTrail], stats: ecs.ResMut[ChurnStats]
 ) -> None:
@@ -94,7 +94,7 @@ def update_or_remove_glows(
         stats[ChurnStats].active_glows.decrease_by(1)
 
 
-@ecs.system(group=("draw", "draw_background"))
+@ecs.system_plan(group=("draw", "draw_background"))
 def draw_background() -> None:
     ca.background(8, 8, 15)
     ca.no_stroke()
@@ -102,7 +102,7 @@ def draw_background() -> None:
     ca.rect(0, 0, WIDTH, HEIGHT)
 
 
-@ecs.system(group=("draw", "draw_glows"))
+@ecs.system_plan(group=("draw", "draw_glows"))
 def draw_glow_halos(orb: ecs.Query[ecs.Tag[HOT_TAG], OrbState, GlowTrail]) -> None:
     state = orb[OrbState]
     heat_ratio = ((state.heat - REMOVE_HEAT_THRESHOLD) / (1.0 - REMOVE_HEAT_THRESHOLD)).clamp(
@@ -112,14 +112,14 @@ def draw_glow_halos(orb: ecs.Query[ecs.Tag[HOT_TAG], OrbState, GlowTrail]) -> No
     ca.circle(state.x, state.y, state.radius * (7.2 + heat_ratio * 3.2))
 
 
-@ecs.system(group=("draw", "draw_orbs"))
+@ecs.system_plan(group=("draw", "draw_orbs"))
 def draw_orb_cores(orb: ecs.Query[ecs.Tag[ORB_TAG], OrbState]) -> None:
     state = orb[OrbState]
     ca.fill(70 + state.bucket * 25, 110 + state.heat * 116, 230, 145 + state.heat * 92)
     ca.circle(state.x, state.y, state.radius * (1.2 + state.heat * 0.8))
 
 
-@ecs.system(group=("draw", "draw_hud"))
+@ecs.system_plan(group=("draw", "draw_hud"))
 def draw_hud(stats: ecs.Res[ChurnStats]) -> None:
     ca.fill(234, 243, 255, 224)
     ca.text_size(15)
@@ -128,7 +128,7 @@ def draw_hud(stats: ecs.Res[ChurnStats]) -> None:
     ca.text(stats[ChurnStats].active_glows, 188, HEIGHT - 24)
 
 
-@ecs.system(python=True, group="export")
+@ecs.system(group="export")
 def save_frame() -> None:
     global SAVED_OUTPUT
     if SAVED_OUTPUT:

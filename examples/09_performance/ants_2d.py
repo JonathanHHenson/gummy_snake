@@ -465,7 +465,7 @@ def _update_pheromone_query(marker: ecs.Query, ant: ecs.Query, *, red_colony: bo
         )
 
 
-@ecs.system(group=("simulation", "simulation_pheromones"))
+@ecs.system_plan(group=("simulation", "simulation_pheromones"))
 def update_red_pheromones(
     marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel],
     ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent],
@@ -473,7 +473,7 @@ def update_red_pheromones(
     _update_pheromone_query(marker, ant, red_colony=True)
 
 
-@ecs.system(group=("simulation", "simulation_pheromones"))
+@ecs.system_plan(group=("simulation", "simulation_pheromones"))
 def update_blue_pheromones(
     marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel],
     ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent],
@@ -922,7 +922,7 @@ def _simulate_ant_query(
                 state.food_trail.set_to(food_trail_strength)
 
 
-@ecs.system(group=("simulation", "simulation_ants"))
+@ecs.system_plan(group=("simulation", "simulation_ants"))
 def simulate_red_ants(
     ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent, AntDecision],
     wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel],
@@ -933,7 +933,7 @@ def simulate_red_ants(
     _simulate_ant_query(ant, wall, food, hill, trail, red_colony=True)
 
 
-@ecs.system(group=("simulation", "simulation_ants"))
+@ecs.system_plan(group=("simulation", "simulation_ants"))
 def simulate_blue_ants(
     ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent, AntDecision],
     wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel],
@@ -969,12 +969,12 @@ def _hud_text(fps: float) -> HudText:
     )
 
 
-@ecs.system(python=True, group="hud")
+@ecs.system(group="hud")
 def update_hud_text() -> None:
     gs.set_resource(_hud_text(_update_fps()))
 
 
-@ecs.system(group=("draw", "draw_background"))
+@ecs.system_plan(group=("draw", "draw_background"))
 def draw_background() -> None:
     ca.background(7, 8, 12)
     ca.no_stroke()
@@ -982,7 +982,7 @@ def draw_background() -> None:
     ca.rect(GRID_OFFSET_X, GRID_OFFSET_Y, GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE)
 
 
-@ecs.system(group=("draw", "draw_walls"))
+@ecs.system_plan(group=("draw", "draw_walls"))
 def draw_walls(wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel]) -> None:
     voxel = wall[GridVoxel]
     ca.fill(68, 72, 86, 240)
@@ -994,7 +994,7 @@ def draw_walls(wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel]) -> None
     )
 
 
-@ecs.system(group=("draw", "draw_pheromones"))
+@ecs.system_plan(group=("draw", "draw_pheromones"))
 def draw_red_pheromones(marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel]) -> None:
     trail = marker[PheromoneVoxel]
     red_signal = trail.red_food + trail.red_home * 0.22
@@ -1007,7 +1007,7 @@ def draw_red_pheromones(marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel
         ca.rect(trail.x + GRID_OFFSET_X - 2.0, trail.y + GRID_OFFSET_Y - 2.0, 4.0, 4.0)
 
 
-@ecs.system(group=("draw", "draw_pheromones"))
+@ecs.system_plan(group=("draw", "draw_pheromones"))
 def draw_blue_pheromones(marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel]) -> None:
     trail = marker[PheromoneVoxel]
     red_signal = trail.red_food + trail.red_home * 0.22
@@ -1020,7 +1020,7 @@ def draw_blue_pheromones(marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxe
         ca.rect(trail.x + GRID_OFFSET_X - 2.0, trail.y + GRID_OFFSET_Y - 2.0, 4.0, 4.0)
 
 
-@ecs.system(group=("draw", "draw_food"))
+@ecs.system_plan(group=("draw", "draw_food"))
 def draw_food(food: ecs.Query[ecs.Tag[FOOD_TAG], GridVoxel, FoodVoxel]) -> None:
     voxel = food[GridVoxel]
     ca.fill(116, 238, 126, 220)
@@ -1032,7 +1032,7 @@ def draw_food(food: ecs.Query[ecs.Tag[FOOD_TAG], GridVoxel, FoodVoxel]) -> None:
     )
 
 
-@ecs.system(group=("draw", "draw_hills"))
+@ecs.system_plan(group=("draw", "draw_hills"))
 def draw_red_hill(hill: ecs.Query[ecs.Tag[RED_HILL_TAG], GridVoxel, HillVoxel]) -> None:
     voxel = hill[GridVoxel]
     ca.fill(255, 88, 76, 220)
@@ -1044,7 +1044,7 @@ def draw_red_hill(hill: ecs.Query[ecs.Tag[RED_HILL_TAG], GridVoxel, HillVoxel]) 
     )
 
 
-@ecs.system(group=("draw", "draw_hills"))
+@ecs.system_plan(group=("draw", "draw_hills"))
 def draw_blue_hill(hill: ecs.Query[ecs.Tag[BLUE_HILL_TAG], GridVoxel, HillVoxel]) -> None:
     voxel = hill[GridVoxel]
     ca.fill(82, 148, 255, 220)
@@ -1056,21 +1056,21 @@ def draw_blue_hill(hill: ecs.Query[ecs.Tag[BLUE_HILL_TAG], GridVoxel, HillVoxel]
     )
 
 
-@ecs.system(group=("draw", "draw_ants"))
+@ecs.system_plan(group=("draw", "draw_ants"))
 def draw_red_ants(ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent]) -> None:
     state = ant[AntAgent]
     ca.fill(255, 80, 70, 185)
     ca.circle(state.x + GRID_OFFSET_X, state.y + GRID_OFFSET_Y, 2.1 + state.carrying * 0.9)
 
 
-@ecs.system(group=("draw", "draw_ants"))
+@ecs.system_plan(group=("draw", "draw_ants"))
 def draw_blue_ants(ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent]) -> None:
     state = ant[AntAgent]
     ca.fill(75, 145, 255, 185)
     ca.circle(state.x + GRID_OFFSET_X, state.y + GRID_OFFSET_Y, 2.1 + state.carrying * 0.9)
 
 
-@ecs.system(group=("draw", "draw_hud"))
+@ecs.system_plan(group=("draw", "draw_hud"))
 def draw_hud(hud: ecs.Res[HudText]) -> None:
     ca.fill(238, 244, 255, 235)
     ca.text_size(15)
@@ -1078,7 +1078,7 @@ def draw_hud(hud: ecs.Res[HudText]) -> None:
     ca.text(hud[HudText].stats, 24, HEIGHT - 24)
 
 
-@ecs.system(python=True, group="export")
+@ecs.system(group="export")
 def save_frame() -> None:
     global saved_output
     if saved_output:

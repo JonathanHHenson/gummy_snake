@@ -194,7 +194,7 @@ class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
         """Schedule an ECS system for this sketch.
 
         Args:
-            system: System definition created with ``@ecs.system``.
+            system: System definition created with ``@ecs.system`` or ``@ecs.system_plan``.
             enabled: Whether the system starts enabled.
             name: Optional name for diagnostics and dependency references.
             before: Groups that should run after this system's implicit group.

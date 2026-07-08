@@ -53,7 +53,7 @@ class Wind:
     y: float
 
 
-@ecs.system
+@ecs.system_plan
 def drift(fly: ecs.Query[Position, Velocity, Glow], wind: ecs.Res[Wind]) -> None:
     seconds = ecs.dt() / 1000.0
     with ecs.do(parallel=True):
@@ -62,7 +62,7 @@ def drift(fly: ecs.Query[Position, Velocity, Glow], wind: ecs.Res[Wind]) -> None
         fly[Glow].energy.set_to(fly[Glow].energy + fly[Glow].pulse * seconds)
 
 
-@ecs.system
+@ecs.system_plan
 def pulse(fly: ecs.Query[Glow]) -> None:
     with ecs.conditional(parallel=True):
         with ecs.when(fly[Glow].energy > 1.0):
@@ -73,7 +73,7 @@ def pulse(fly: ecs.Query[Glow]) -> None:
             fly[Glow].pulse.set_to(0.65)
 
 
-@ecs.system
+@ecs.system_plan
 def wrap(fly: ecs.Query[Position], bounds: ecs.Res[Bounds]) -> None:
     left = -bounds[Bounds].padding
     right = bounds[Bounds].width + bounds[Bounds].padding

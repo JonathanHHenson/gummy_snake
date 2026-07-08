@@ -1,6 +1,6 @@
 # ECS Debugging and Performance Triage
 
-Use this guide when changing or diagnosing `gummysnake.ecs` behavior. The ECS public API is Pythonic, while system plans execute in Rust physical storage/execution paths except for explicit `@ecs.udf` Python boundaries.
+Use this guide when changing or diagnosing `gummysnake.ecs` behavior. The ECS public API is Pythonic; `@ecs.system_plan` functions execute in Rust physical storage/execution paths, while `@ecs.system` and `@ecs.udf` are explicit Python runtime boundaries.
 
 ## First checks
 
@@ -18,7 +18,7 @@ Strict mode raises on duplicate write ambiguity and overlapping `do_in_parallel(
 
 ## Explain output
 
-`@ecs.system` functions expose `explain()`:
+`@ecs.system_plan` functions expose `explain()`:
 
 ```python
 print(move_system.explain())
@@ -50,7 +50,7 @@ Common ECS counters:
 | `ecs_ambiguity_warnings_suppressed` | Ambiguity logs suppressed while diagnostics stayed active. |
 | `ecs_strict_mode_errors` | Ambiguity rejected in strict mode. |
 | `ecs_udf_calls` | Python UDF action or iterable-source calls; these are flexibility escape hatches, not accelerated hot loops. |
-| `ecs_python_system_calls` / `ecs_python_system_barriers` | Explicit `@ecs.system(python=True)` runtime Python boundaries. |
+| `ecs_python_system_calls` / `ecs_python_system_barriers` | Explicit `@ecs.system` runtime Python boundaries. |
 | `ecs_python_system_entities_materialized` | Entity views materialized for explicit Python systems. |
 | `ecs_change_detection_refreshes` | Change-tracking frame refreshes; component values remain Rust-owned and are not snapshotted in Python. |
 
@@ -101,7 +101,7 @@ with ecs.conditional(), ecs.when(on_platform):
 
 ### Unsupported Rust physical nodes
 
-Non-UDF plan nodes should serialize to Rust physical execution. If a system raises `SystemPlanError` during compilation, inspect `system.explain()` and either express the operation with supported ECS actions/expressions or isolate the Python-only work in an explicit `@ecs.udf` boundary.
+Plan nodes should serialize to Rust physical execution. If a system plan raises `SystemPlanError` during compilation, inspect `system.explain()` and either express the operation with supported ECS actions/expressions or isolate the Python-only work in an explicit `@ecs.udf` or `@ecs.system` boundary.
 
 ### Stale entity handles
 
@@ -109,7 +109,7 @@ Non-UDF plan nodes should serialize to Rust physical execution. If a system rais
 
 ### UDF performance
 
-`@ecs.udf(python=True)` is intentionally flexible and may perform side effects or call external APIs. It executes Python code and should not be used to claim Rust acceleration. If a UDF is doing pure component math in a hot loop, consider expressing it with ECS actions, resources, events, `for_each`, or a generic spatial relation.
+`@ecs.udf` is intentionally flexible and may perform side effects or call external APIs. It executes Python code and should not be used to claim Rust acceleration. If a UDF is doing pure component math in a hot loop, consider expressing it with ECS actions, resources, events, `for_each`, or a generic spatial relation.
 
 ## Validation commands
 

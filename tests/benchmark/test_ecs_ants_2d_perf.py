@@ -459,7 +459,7 @@ def _update_pheromone_query(marker: ecs.Query, ant: ecs.Query, *, red_colony: bo
         )
 
 
-@ecs.system(group="simulation_pheromones")
+@ecs.system_plan(group="simulation_pheromones")
 def update_red_pheromones(
     marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel],
     ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent],
@@ -467,7 +467,7 @@ def update_red_pheromones(
     _update_pheromone_query(marker, ant, red_colony=True)
 
 
-@ecs.system(group="simulation_pheromones")
+@ecs.system_plan(group="simulation_pheromones")
 def update_blue_pheromones(
     marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel],
     ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent],
@@ -916,7 +916,7 @@ def _simulate_ant_query(
                 state.food_trail.set_to(food_trail_strength)
 
 
-@ecs.system(group="simulation_ants")
+@ecs.system_plan(group="simulation_ants")
 def simulate_red_ants(
     ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent, AntDecision],
     wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel],
@@ -927,7 +927,7 @@ def simulate_red_ants(
     _simulate_ant_query(ant, wall, food, hill, trail, red_colony=True)
 
 
-@ecs.system(group="simulation_ants")
+@ecs.system_plan(group="simulation_ants")
 def simulate_blue_ants(
     ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent, AntDecision],
     wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel],

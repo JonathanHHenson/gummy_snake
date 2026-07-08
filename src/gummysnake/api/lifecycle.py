@@ -125,8 +125,8 @@ def draw(
     """Register a Python ECS draw system in the built-in ``draw`` group.
 
     ``@gs.draw`` is an alias-style convenience for
-    ``@ecs.system(python=True, group="draw", ...)`` and is automatically registered
-    with the module's sketch builder.
+    ``@ecs.system(group="draw", ...)`` and is automatically registered with the
+    module's sketch builder.
     """
 
     builder = _module_builder(_caller_module_name())
@@ -135,7 +135,6 @@ def draw(
         definition = ecs_system(
             callback,
             name=name,
-            python=True,
             group="draw",
             queries=queries,
             mutations=mutations,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.runtime_views import Entity, EntityView, _copy_stored_value
 from gummysnake.ecs.schema_helpers import _schema_name, _tag_name, _validate_storage_value
@@ -199,6 +199,7 @@ class PythonEcsAccessBatch:
 
         schema = self._world._schemas[component_type]
         storage_type = schema[field_name]
+        stored: object
         if storage_type.python_type is float and isinstance(value, int | float):
             stored = value
         else:
@@ -273,7 +274,7 @@ class PythonEcsAccessBatch:
             storage_type = self._world._schemas[component_type][field_name]
             if storage_type.name in {"Float32", "Float64"}:
                 payload = [
-                    (entity.index, entity.generation, float(value))
+                    (entity.index, entity.generation, float(cast(int | float, value)))
                     for entity, value in writes.items()
                 ]
                 self._world._rust.set_field_f64_many(schema_name, field_name, payload)

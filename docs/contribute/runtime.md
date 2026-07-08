@@ -132,9 +132,9 @@ deterministically as possible.
 
 ## ECS Pre-draw Execution
 
-ECS systems are registered from Python but execute as Rust physical plans unless
-the system contains an explicit `@ecs.udf` boundary. `@ecs.system` functions are
-called when the system is registered to build an `ecs.Action` tree. That logical
+ECS systems are registered from Python. `@ecs.system_plan` functions are called
+when registered to build an `ecs.Action` tree that executes as a Rust physical
+plan, while `@ecs.system` is an explicit runtime Python boundary. The logical
 plan is serialized through `src/gummysnake/ecs/physical.py`, compiled by the Rust
 ECS runtime, cached by schema fingerprint, and then executed during the pre-draw
 ECS phase.
@@ -157,7 +157,7 @@ During each ECS phase, `SketchContext.run_ecs_pre_draw()`:
 Do not add Python fallback execution for unsupported non-UDF action or expression
 nodes. Unsupported nodes should fail during physical-plan compilation with a
 clear `SystemPlanError` that tells the user to express the operation with the ECS
-DSL or isolate Python-only work in `@ecs.udf`.
+DSL or isolate Python-only work in `@ecs.udf` or `@ecs.system`.
 
 ## Headless vs Interactive
 

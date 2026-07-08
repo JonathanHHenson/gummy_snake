@@ -65,10 +65,11 @@ the renderer performance epics.
 
 Simulation-heavy sketches should prefer `gummysnake.ecs` plans over Python loops
 when component data changes every frame. Dataclass components/resources define
-Rust storage schemas; decorated systems build logical `ecs.Action` trees; Rust
-compiles and executes non-UDF plans against canonical component/resource columns.
-Python should only construct plans, validate schemas, expose typed views for draw
-or UDF boundaries, and run explicit `@ecs.udf` callbacks.
+Rust storage schemas; decorated `@ecs.system_plan` functions build logical
+`ecs.Action` trees; Rust compiles and executes those plans against canonical
+component/resource columns. Python should only construct plans, validate schemas,
+expose typed views for draw or UDF boundaries, and run explicit `@ecs.system` or
+`@ecs.udf` callbacks.
 
 Prefer ECS expressions/actions for hot math:
 

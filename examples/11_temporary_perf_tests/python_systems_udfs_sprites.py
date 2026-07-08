@@ -56,7 +56,7 @@ class SpriteStats:
     offset_sum: float
 
 
-@ecs.udf(python=True, mutations={"items": {ecs.EntityMutation[SpriteAgent](update=True)}})
+@ecs.udf(mutations={"items": {ecs.EntityMutation[SpriteAgent](update=True)}})
 def python_boost_sprites(items: Iterable[ecs.Entity[SpriteAgent]]) -> None:
     """Explicit Python UDF action boundary used for materialized mutations."""
 
@@ -69,14 +69,14 @@ def python_boost_sprites(items: Iterable[ecs.Entity[SpriteAgent]]) -> None:
             sprite.vy += math.sin(sprite.phase) * 0.018
 
 
-@ecs.udf(python=True)
+@ecs.udf
 def python_wave_offsets() -> Iterable[float]:
     """Iterable Python UDF source consumed by a Rust ``ecs.for_each`` plan."""
 
     return (-0.35, 0.1, 0.45, 0.8)
 
 
-@ecs.system(python=True, group="python_simulation")
+@ecs.system(group="python_simulation")
 def update_sprites(sprites: ecs.Query[SpriteAgent]) -> None:
     dt = 1.0
     for entity in sprites:
@@ -92,19 +92,19 @@ def update_sprites(sprites: ecs.Query[SpriteAgent]) -> None:
             sprite.y = min(max(sprite.y, 10.0), HEIGHT - 10.0)
 
 
-@ecs.system(group="python_udf_action")
+@ecs.system_plan(group="python_udf_action")
 def run_python_udf(sprite: ecs.Query[ecs.Tag[SPRITE_TAG], SpriteAgent]) -> None:
     python_boost_sprites(sprite)
 
 
-@ecs.system(group="python_udf_iterable")
+@ecs.system_plan(group="python_udf_iterable")
 def fold_python_iterable(stats: ecs.ResMut[SpriteStats]) -> None:
     stats[SpriteStats].offset_sum.set_to(0.0)
     with ecs.for_each(python_wave_offsets()) as offset:
         stats[SpriteStats].offset_sum.increase_by(offset)
 
 
-@ecs.system(python=True, group=("draw", "draw_background"))
+@ecs.system(group=("draw", "draw_background"))
 def draw_background() -> None:
     gs.background(10, 12, 24)
     gs.no_stroke()
@@ -114,7 +114,7 @@ def draw_background() -> None:
         gs.rect(0, HEIGHT - 42 - band * 42, WIDTH, 44)
 
 
-@ecs.system(python=True, group=("draw", "draw_sprites"))
+@ecs.system(group=("draw", "draw_sprites"))
 def draw_sprites() -> None:
     if SPRITE_IMAGE is None:
         return
@@ -124,7 +124,7 @@ def draw_sprites() -> None:
         draw_image(SPRITE_IMAGE, x, y, size, size)
 
 
-@ecs.system(python=True, group=("draw", "draw_hud"))
+@ecs.system(group=("draw", "draw_hud"))
 def draw_hud(stats: ecs.Res[SpriteStats]) -> None:
     global FPS_LAST_TIME, FPS_VALUE
     now = perf_counter()
@@ -147,7 +147,7 @@ def draw_hud(stats: ecs.Res[SpriteStats]) -> None:
     )
 
 
-@ecs.system(python=True, group="export")
+@ecs.system(group="export")
 def save_frame() -> None:
     global SAVED_OUTPUT
     if SAVED_OUTPUT:

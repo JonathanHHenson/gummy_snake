@@ -214,7 +214,7 @@ class EcsContextMixin:
         """Schedule an ECS system to run before drawing.
 
         Args:
-            system: System definition created with ``@ecs.system``.
+            system: System definition created with ``@ecs.system`` or ``@ecs.system_plan``.
             enabled: Whether the system starts enabled.
             name: Optional human-readable name for diagnostics and dependencies.
             before: Groups that should run after this system's implicit group.

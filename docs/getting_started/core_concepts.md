@@ -40,7 +40,7 @@ manual control over the full drawing state stack.
 ## Entity Component Systems
 
 For larger sketches and game-like simulations, `gummysnake.ecs` lets you store
-state as dataclass components and run decorated systems before drawing:
+state as dataclass components and run decorated system plans before drawing:
 
 ```python
 @dataclass
@@ -49,7 +49,7 @@ class Position:
     y: float
 
 
-@ecs.system
+@ecs.system_plan
 def drift(body: ecs.Query[Position]) -> None:
     body[Position].x.increase_by(1)
 ```

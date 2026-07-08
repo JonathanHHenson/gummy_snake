@@ -133,9 +133,9 @@ storage reaches Rust.
 
 ## System lifecycle
 
-A decorated system is a build function, not a per-frame Python loop:
+A decorated system plan is a build function, not a per-frame Python loop:
 
-1. `@ecs.system` wraps a Python function as `SystemDefinition`.
+1. `@ecs.system_plan` wraps a Python function as a Rust-executed `SystemDefinition`.
 2. `gs.add_system(...)` calls the function once with query/resource/event proxy
    objects derived from mandatory type annotations.
 3. The function records mutations/blocks into the active build session and returns `None`.
@@ -191,7 +191,7 @@ suppresses logging.
 Query fields produce lazy expressions:
 
 ```python
-@ecs.system
+@ecs.system_plan
 def move(body: ecs.Query[Position, Velocity]) -> None:
     seconds = ecs.dt() / 1000.0
     with ecs.do(parallel=True):
@@ -245,12 +245,12 @@ class Damage:
     amount: int
 
 
-@ecs.system
+@ecs.system_plan
 def hazards(writer: ecs.EventWriter[Damage]) -> None:
     writer.emit(Damage(3))
 
 
-@ecs.system
+@ecs.system_plan
 def apply_damage(reader: ecs.EventReader[Damage], health: ecs.ResMut[Health]) -> None:
     with ecs.for_each(reader) as event:
         health[Health].value.decrease_by(event.amount)
@@ -283,15 +283,15 @@ is faster and deterministic.
 
 ## UDF boundary
 
-Bare `@ecs.udf` declares a Rust-backed typed UDF and must not execute Python at
-runtime. `@ecs.udf(python=True)` is the intentional Python runtime execution
+`@ecs.udf_plan` declares a Rust-backed typed UDF plan and must not execute
+Python at runtime. `@ecs.udf` is the intentional Python runtime execution
 boundary inside ECS plans. UDF annotations are mandatory. Use Python UDFs for
 side effects, external APIs, or operations that cannot be expressed in the lazy
 DSL. Do not use Python UDFs for hot component math that can be represented with
 expressions/actions/spatial relations.
 
 ```python
-@ecs.udf(python=True, mutations={"locations": {ecs.EntityMutation[Temperature](add=True)}})
+@ecs.udf(mutations={"locations": {ecs.EntityMutation[Temperature](add=True)}})
 def fetch_weather(locations: Iterable[ecs.Entity[Location]]) -> None:
     for location in locations:
         location.add_component(Temperature(fetch_temperature(location[Location].lon)))

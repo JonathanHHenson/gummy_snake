@@ -52,7 +52,7 @@ def test_ecs_system_scheduler_smoke_benchmark() -> None:
     for index in range(entity_count):
         world.add_entity(Position(float(index), 0.0), Velocity(1.0, 0.5))
 
-    @ecs.system
+    @ecs.system_plan
     def move(entity: ecs.Query[Position, Velocity]) -> None:
         entity[Position].x.increase_by(entity[Velocity].dx)
         entity[Position].y.increase_by(entity[Velocity].dy)
@@ -74,7 +74,7 @@ def test_ecs_spatial_hash_grid_smoke_benchmark() -> None:
         for x in range(side):
             world.add_entity(Position(float(x * 4), float(y * 4)))
 
-    @ecs.system
+    @ecs.system_plan
     def neighbors(entity: ecs.Query[Position]) -> None:
         point = ecs.spatial.point2(entity[Position].x, entity[Position].y)
         nearby = ecs.spatial.neighbors(

@@ -134,7 +134,7 @@ class MutEntity:
         """Raise with migration guidance for old ``ecs.MutEntity[...]`` annotations."""
         raise SystemPlanError(
             "ecs.MutEntity has been replaced by ecs.Entity[...] plus EntityMutation[...] "
-            "metadata on @ecs.udf(python=True) or @ecs.system(python=True)."
+            "metadata on @ecs.udf or @ecs.system."
         )
 
     def __getitem__(self, component_type: type[ComponentT]) -> ComponentT:
@@ -241,15 +241,18 @@ class ComponentView:
             self._storage_types[field_name],
         )
         access_batch = self._access_batch
-        if access_batch is not None and getattr(access_batch, "active", False):
-            if access_batch.set_field(
+        if (
+            access_batch is not None
+            and getattr(access_batch, "active", False)
+            and access_batch.set_field(
                 self._query_key,
                 self._entity,
                 self._component_type,
                 field_name,
                 value,
-            ):
-                return
+            )
+        ):
+            return
         try:
             self._rust.set_field(
                 self._entity.index,

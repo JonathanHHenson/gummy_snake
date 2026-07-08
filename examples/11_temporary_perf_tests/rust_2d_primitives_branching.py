@@ -62,14 +62,14 @@ class BranchStats:
     hot_rows: int
 
 
-@ecs.udf
+@ecs.udf_plan
 def wave01(value: ecs.Expression[float]) -> ecs.Expression[float]:
     """Plan-build expression UDF that compiles to Rust math at runtime."""
 
     return value.sin() * 0.5 + 0.5
 
 
-@ecs.udf
+@ecs.udf_plan
 def wrapped(value: ecs.Expression[float], extent: ecs.Expression[float]) -> ecs.Expression[float]:
     """Wrap a positive coordinate into ``[0, extent)`` as an ECS expression."""
 
@@ -84,7 +84,7 @@ def _wrapped(value: ecs.Expression, extent: float) -> ecs.Expression:
     return cast(ecs.Expression, wrapped(value, extent))
 
 
-@ecs.system(parallel=True, group=("simulation", "simulation_motion"))
+@ecs.system_plan(parallel=True, group=("simulation", "simulation_motion"))
 def integrate_particles(particle: ecs.Query[Particle2D]) -> None:
     state = particle[Particle2D]
     dt = ecs.dt() / (1000.0 / TARGET_FPS)
@@ -95,7 +95,7 @@ def integrate_particles(particle: ecs.Query[Particle2D]) -> None:
         state.phase.set_to(state.phase + 0.021 + state.radius * 0.0015)
 
 
-@ecs.system(group=("simulation", "simulation_for_each"))
+@ecs.system_plan(group=("simulation", "simulation_for_each"))
 def fold_trail_samples(particle: ecs.Query[Particle2D, TrailSamples]) -> None:
     state = particle[Particle2D]
     state.energy.set_to(0.16 + _wave01(state.phase * 0.73) * 0.32)
@@ -103,7 +103,7 @@ def fold_trail_samples(particle: ecs.Query[Particle2D, TrailSamples]) -> None:
         state.energy.increase_by(sample * 0.055)
 
 
-@ecs.system(group=("simulation", "simulation_branching"))
+@ecs.system_plan(group=("simulation", "simulation_branching"))
 def branch_particle_state(
     particle: ecs.Query[Particle2D], writer: ecs.EventWriter[SparkPulse]
 ) -> None:
@@ -120,7 +120,7 @@ def branch_particle_state(
             state.phase.increase_by(0.006)
 
 
-@ecs.system(group=("simulation", "simulation_events"))
+@ecs.system_plan(group=("simulation", "simulation_events"))
 def consume_sparks(reader: ecs.EventReader[SparkPulse], stats: ecs.ResMut[BranchStats]) -> None:
     stats[BranchStats].spark_events.set_to(0)
     stats[BranchStats].hot_rows.set_to(0)
@@ -129,7 +129,7 @@ def consume_sparks(reader: ecs.EventReader[SparkPulse], stats: ecs.ResMut[Branch
         stats[BranchStats].hot_rows.increase_by(event.amount)
 
 
-@ecs.system(group=("draw", "draw_background"))
+@ecs.system_plan(group=("draw", "draw_background"))
 def draw_background() -> None:
     ca.background(7, 9, 18)
     ca.no_stroke()
@@ -137,7 +137,7 @@ def draw_background() -> None:
     ca.rect(0, 0, WIDTH, HEIGHT)
 
 
-@ecs.system(group=("draw", "draw_particles"))
+@ecs.system_plan(group=("draw", "draw_particles"))
 def draw_particles(particle: ecs.Query[Particle2D]) -> None:
     state = particle[Particle2D]
     pulse = _wave01(state.phase * 1.7)
@@ -153,7 +153,7 @@ def draw_particles(particle: ecs.Query[Particle2D]) -> None:
         ca.circle(state.x, state.y, state.radius * 3.2)
 
 
-@ecs.system(group=("draw", "draw_hud"))
+@ecs.system_plan(group=("draw", "draw_hud"))
 def draw_hud(stats: ecs.Res[BranchStats]) -> None:
     ca.fill(230, 240, 255, 218)
     ca.text_size(15)
@@ -164,7 +164,7 @@ def draw_hud(stats: ecs.Res[BranchStats]) -> None:
     ca.text(stats[BranchStats].hot_rows, 122, HEIGHT - 22)
 
 
-@ecs.system(python=True, group="export")
+@ecs.system(group="export")
 def save_frame() -> None:
     global SAVED_OUTPUT
     if SAVED_OUTPUT:

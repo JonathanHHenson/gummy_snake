@@ -237,7 +237,7 @@ def _apply_speed_floor(x: ecs.Expression, y: ecs.Expression, z: ecs.Expression) 
     return x * min_speed_factor, y * min_speed_factor, z * min_speed_factor
 
 
-@ecs.system(parallel=True)
+@ecs.system_plan(parallel=True)
 def simulate_boids(boid: ecs.Query[ecs.Tag[BOID_TAG], BoidState]) -> None:
     state = boid[BoidState]
     neighbors = _boid_neighbors(boid, state)

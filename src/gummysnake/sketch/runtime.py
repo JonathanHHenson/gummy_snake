@@ -96,7 +96,7 @@ class Sketch(SketchFacadeMixin):
             context.state.redraw_requested = False
 
     def _draw_system_definition(self) -> SystemDefinition | None:
-        return ecs_system(self.draw, name="draw", python=True, group="draw")
+        return ecs_system(self.draw, name="draw", group="draw")
 
     def _ensure_draw_system_registered(self) -> None:
         if self.context is None or self._draw_system_handle is not None:
@@ -203,7 +203,7 @@ class SketchBuilder:
 
     def draw[F: Callable[[], Any]](self, callback: F) -> F:
         self._draw_func = callback
-        self._draw_system = ecs_system(callback, python=True, group="draw")
+        self._draw_system = ecs_system(callback, group="draw")
         return callback
 
     def register_draw_system(self, definition: SystemDefinition) -> None:

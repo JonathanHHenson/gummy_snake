@@ -10,6 +10,7 @@ from gummysnake._async import call_maybe_async
 from gummysnake.ecs.runtime_views import _RuntimeEventWriter, _ScheduledSystem
 from gummysnake.ecs.scheduling_helpers import scheduled_system_group_names
 from gummysnake.ecs.specs import EventSpec, QuerySpec, ResourceSpec
+from gummysnake.ecs.systems import RuntimeSystemDefinition
 from gummysnake.ecs.world_runtime.python_batch import PythonEcsAccessBatch
 from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
@@ -18,8 +19,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 def run_python_system(world: EcsWorld, scheduled: _ScheduledSystem) -> None:
-    """Materialize ECS arguments and invoke one explicit ``@ecs.system(python=True)`` callback."""
-    definition = scheduled.built.definition
+    """Materialize ECS arguments and invoke one explicit ``@ecs.system`` callback."""
+    definition = cast(RuntimeSystemDefinition, scheduled.built.definition)
     callback = definition.function
     args: list[object] = []
     materialized_count = 0
@@ -75,7 +76,7 @@ def _python_arg_plan(scheduled: _ScheduledSystem) -> tuple[tuple[str, object], .
     cached = scheduled.python_arg_plan
     if cached is not None:
         return cached
-    definition = scheduled.built.definition
+    definition = cast(RuntimeSystemDefinition, scheduled.built.definition)
     callback = definition.function
     signature = inspect.signature(callback)
     hints = get_type_hints(callback, include_extras=True)

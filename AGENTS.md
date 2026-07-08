@@ -91,7 +91,7 @@ Important consequences:
 - Normalize one-character SDL3 key names to lowercase before exposing them to Python so `KeyboardEvent.matches("l")` and similar lifecycle controls remain stable.
 - `gummysnake.rust._canvas` exposes canvas and ECS ABI markers. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend/ECS construction proceeds.
 - GPU unavailable diagnostics should explain whether headless rendering can continue and what interactive/performance impact to expect.
-- ECS systems are Python-declared logical plans. Rust-executed `@ecs.system` functions are called once at registration with query/resource/event proxies and an active context-manager plan-build session. They must return `None` and record work with field mutation methods, `ecs.do`, `ecs.conditional`/`ecs.when`/`ecs.otherwise`, `ecs.for_each`, and event writer methods. Rust compiles those plans into physical plans and executes them before drawing. Bare `@ecs.udf` declares Rust-backed typed UDFs; only explicit `@ecs.udf(python=True)` UDFs and `@ecs.system(python=True)` systems may execute Python at ECS runtime.
+- ECS plan systems are Python-declared logical plans. Rust-executed `@ecs.system_plan` functions are called once at registration with query/resource/event proxies and an active context-manager plan-build session. They must return `None` and record work with field mutation methods, `ecs.do`, `ecs.conditional`/`ecs.when`/`ecs.otherwise`, `ecs.for_each`, and event writer methods. Rust compiles those plans into physical plans and executes them before drawing. `@ecs.udf_plan` declares Rust-backed typed UDF plans; only explicit runtime Python `@ecs.udf` UDFs and `@ecs.system` systems may execute Python at ECS runtime.
 - Do not maintain Python mirrors of component columns. Python entity/resource views should read/write Rust-owned storage, and dense draw-side readback should use batch APIs such as `iter_component_fields()`.
 - ECS strict mode should reject non-deterministic duplicate writes. Non-strict mode may use deterministic last-write-wins, count diagnostics, and warn unless `warn_on_ambiguity=False` suppresses logs.
 - Spatial ECS APIs must stay generic (`ecs.spatial.neighbors`, `join`, `overlaps`, and algorithm configs such as `HashGrid`, `Quadtree`, `Octree`, and `HilbertCurve`). Do not add bespoke APIs for a single sketch or benchmark.
@@ -266,13 +266,14 @@ The ECS public API is Pythonic, but runtime execution is Rust-owned:
 - Components, resources, and events are declared with Python dataclasses. Default
   Python field types map to Rust storage columns, and `typing.Annotated` with
   `gummysnake.ecs.types` selects narrower scalar, vector, or list storage.
-- Rust-executed `@ecs.system` functions must have complete annotations and return
-  only `None`. The function is called at registration with query/resource/event
-  proxies and an active context-local build session; field mutation methods and
-  context managers append actions to the logical plan used for explain output and
-  serialization. Returned `ecs.Action`/`SystemPlan` trees are migration errors.
-- Supported non-UDF nodes include field `set_to`/`increase_by`/`decrease_by`,
-  `with ecs.do:`, `with ecs.do(parallel=True):`, `@ecs.system(parallel=True)`,
+- Rust-executed `@ecs.system_plan` functions must have complete annotations and
+  return only `None`. The function is called at registration with
+  query/resource/event proxies and an active context-local build session; field
+  mutation methods and context managers append actions to the logical plan used
+  for explain output and serialization. Returned `ecs.Action`/`SystemPlan` trees
+  are migration errors.
+- Supported system-plan nodes include field `set_to`/`increase_by`/`decrease_by`,
+  `with ecs.do:`, `with ecs.do(parallel=True):`, `@ecs.system_plan(parallel=True)`,
   `ecs.conditional`, `ecs.when`, `ecs.otherwise`, `ecs.for_each`, typed events,
   structural entity commands, resources, change filters, grouped aggregates,
   `ecs.exists`, `ecs.dt`, `ecs.key_is_down`, and generic `ecs.spatial` relations.
@@ -280,16 +281,15 @@ The ECS public API is Pythonic, but runtime execution is Rust-owned:
   plans. Use `&`, `|`, `~`, `ecs.all_of(...)`, or `ecs.any_of(...)` in systems and
   examples.
 - `with ecs.do:` is serial; later actions observe earlier writes.
-  `@ecs.system(parallel=True)` and `with ecs.do(parallel=True):` are for
+  `@ecs.system_plan(parallel=True)` and `with ecs.do(parallel=True):` are for
   independent snapshot-style work. Strict mode rejects ambiguous duplicate writes;
   non-strict mode uses deterministic last-write-wins with diagnostics and
   optional warnings.
-- Bare `@ecs.udf` declares Rust-backed typed UDFs with `ecs.Expression[T]`
-  inputs/outputs and must not execute Python at runtime. Explicit
-  `@ecs.udf(python=True)` UDFs and `@ecs.system(python=True)` systems are
-  performance-cost boundaries for side effects, external APIs, or operations not
-  expressible in the ECS DSL; they are the only ECS runtime work that may execute
-  Python.
+- `@ecs.udf_plan` declares Rust-backed typed UDF plans with `ecs.Expression[T]`
+  inputs/outputs and must not execute Python at runtime. Runtime Python `@ecs.udf`
+  UDFs and `@ecs.system` systems are performance-cost boundaries for side effects,
+  external APIs, or operations not expressible in the ECS DSL; they are the only
+  ECS runtime work that may execute Python.
 - Do not add Python fallback execution, Python component-column mirrors, or
   sketch-specific ECS kernels. If a generic operation is missing, design it as a
   logical-plan/Rust physical executor feature and expose generic diagnostics.
@@ -512,9 +512,9 @@ context-direct, `fast()`, and renderer-direct dispatch paths.
 WEBGL frame-style benchmarks also use the 240 FPS floor; failures are
 optimization work for the Rust 3D/GPU model path or its fallback boundaries
 unless the benchmark is explicitly measuring a memory budget instead of FPS.
-ECS benchmarks should show non-UDF hot systems running through Rust physical
-plans (`ecs_physical_system_runs` > 0) with `ecs_udf_calls` at zero for the hot
-path. Spatial ECS benchmarks should report candidate/exact rows and algorithm
+ECS benchmarks should show `@ecs.system_plan` hot systems running through Rust
+physical plans (`ecs_physical_system_runs` > 0) with `ecs_udf_calls` at zero for
+the hot path. Spatial ECS benchmarks should report candidate/exact rows and algorithm
 counters that match the intended relation shape. Use
 `examples/09_performance/boids_3d.py --headless --frames 1 --no-save` as a smoke
 path for ECS spatial simulation plus retained WEBGL model drawing.

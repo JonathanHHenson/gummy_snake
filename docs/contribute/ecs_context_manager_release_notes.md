@@ -5,11 +5,11 @@ context-managed plan building.
 
 ## Breaking authoring change
 
-Rust-executed systems now return `None` and record work through the active
+Rust-executed system plans return `None` and record work through the active
 plan-build session:
 
 ```python
-@ecs.system
+@ecs.system_plan
 def move(entity: ecs.Query[Position, Velocity]) -> None:
     entity[Position].x.increase_by(entity[Velocity].dx)
     entity[Position].y.increase_by(entity[Velocity].dy)
@@ -18,7 +18,7 @@ def move(entity: ecs.Query[Position, Velocity]) -> None:
 Migration examples:
 
 - `return ecs.set(field, value)` → `field.set_to(value)`
-- `return ecs.do_in_parallel(...)` → `@ecs.system(parallel=True)` or
+- `return ecs.do_in_parallel(...)` → `@ecs.system_plan(parallel=True)` or
   `with ecs.do(parallel=True): ...`
 - `ecs.when(condition).do(...)` → `with ecs.conditional():` plus
   `with ecs.when(condition): ...`
@@ -40,14 +40,14 @@ Rust logical systems do not fall back to Python execution.
   queues into Rust physical plans.
 - `ecs.Without[T]` and `ecs.Without[ecs.Tag[tag]]` exclude components/tags from
   query matching.
-- Bare `@ecs.udf` declares typed Rust-backed UDFs with `ecs.Expression[T]`
-  inputs/outputs. Use `@ecs.udf(python=True)` for explicit Python escape hatches.
+- `@ecs.udf_plan` declares typed Rust-backed UDF plans with `ecs.Expression[T]`
+  inputs/outputs. Use `@ecs.udf` for explicit Python escape hatches.
 - `ecs.Vector[T]`, `ecs.EntityMutation[T](...)`, and `Query.as_iter(...)` are the
   public typing/metadata surfaces for explicit Python UDF and Python-system data
   exchange.
-- `@ecs.system(python=True, queries=..., mutations=...)` is the explicit opt-in
-  for scheduled runtime Python systems. Python systems are scheduler barriers and
-  are diagnosed separately from Rust physical systems.
+- `@ecs.system(queries=..., mutations=...)` is the explicit spelling for
+  scheduled runtime Python systems. Python systems are scheduler barriers and are
+  diagnosed separately from Rust physical systems.
 
 ## Diagnostics
 

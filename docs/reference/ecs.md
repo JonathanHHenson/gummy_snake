@@ -2,7 +2,7 @@
 
 Gummy Snake exposes an ECS API through `gummysnake.ecs` plus global/object-mode
 helpers on `gs` and `Sketch`. Components and resources are Python dataclasses;
-systems are decorated functions that record a logical plan through context-managed build blocks and return `None`.
+Rust-executed plan systems are decorated functions that record a logical plan through context-managed build blocks and return `None`; runtime Python systems use `@ecs.system`.
 
 ```python
 from dataclasses import dataclass
@@ -106,29 +106,29 @@ Systems receive resources with `ecs.Res[T]` or mutable resources with
 `ecs.ResMut[T]`:
 
 ```python
-@ecs.system
+@ecs.system_plan
 def accelerate(body: ecs.Query[Velocity], gravity: ecs.Res[Gravity]) -> None:
     body[Velocity].dy.increase_by(gravity[Gravity].y)
 ```
 
 ## Systems and query expressions
 
-A Rust-executed system is a decorated build function. Type annotations are
+A Rust-executed system plan is a decorated build function. Type annotations are
 mandatory. The function is called once when registered with query/resource/event
 proxies and an active plan-build session. It records actions with field methods
 and ECS context managers, then returns `None`.
 
 ```python
-@ecs.system
+@ecs.system_plan
 def move(entity: ecs.Query[Position, Velocity]) -> None:
     seconds = ecs.dt()
     entity[Position].x.increase_by(entity[Velocity].dx * seconds)
     entity[Position].y.increase_by(entity[Velocity].dy * seconds)
 ```
 
-Returned `ecs.Action` trees are a migration error for Rust systems. Replace
+Returned `ecs.Action` trees are a migration error for Rust system plans. Replace
 `return ecs.set(field, value)` with `field.set_to(value)`, replace
-`return ecs.do_in_parallel(...)` with `@ecs.system(parallel=True)` or
+`return ecs.do_in_parallel(...)` with `@ecs.system_plan(parallel=True)` or
 `with ecs.do(parallel=True):`, and replace chained `ecs.when(...).do(...)` with
 `with ecs.conditional():` plus `with ecs.when(...):` branches.
 
@@ -171,12 +171,12 @@ spatial relation descriptors useful in tests and diagnostics.
 
 Systems run every drawn frame after frame state is updated. The draw callback is
 registered as a Python ECS system in the built-in `draw` group, and `@gs.draw` is
-an alias-style convenience for `@ecs.system(python=True, group="draw", ...)`.
+an alias-style convenience for `@ecs.system(group="draw", ...)`.
 Plugins observe each group with generated lifecycle hooks named
 `before_<group_name>(context)` and `after_<group_name>(context)`, such as
 `before_simulation`, `after_simulation`, `before_draw`, and `after_draw`.
 
-Non-UDF systems are serialized into the Rust ECS physical executor automatically.
+System plans are serialized into the Rust ECS physical executor automatically.
 This includes field `set_to`/`increase_by`/`decrease_by`, serial and parallel
 `ecs.do` blocks, `ecs.conditional()` branches, arithmetic/comparison/math
 expressions, query/resource field reads and writes, `for_each` over list/event
@@ -184,21 +184,21 @@ sources, typed events, structural entity commands, `ecs.dt()`,
 `ecs.key_is_down(...)`, `exists(...)`, grouped aggregates, change-detection
 filters, query exclusions with `ecs.Without[...]`, spatial relation
 aggregates/metadata, and canvas draw commands recorded through
-`gummysnake.ecs.canvas`. Unsupported non-UDF plan nodes raise `SystemPlanError`
-instead of executing a Python fallback. Runtime Python work must be declared with
-`@ecs.udf(python=True)` or `@ecs.system(python=True)`.
+`gummysnake.ecs.canvas`. Unsupported plan nodes raise `SystemPlanError` instead
+of executing a Python fallback. Runtime Python work must be declared with
+`@ecs.udf` or `@ecs.system`.
 
-Use `from gummysnake.ecs import canvas as ca` in Rust-executed ECS systems when
-drawing should become part of the ECS logical plan. Supported `ca.*` calls record
-canvas actions during system registration and are replayed by the Rust executor.
-They are not runtime drawing aliases; explicit `python=True` ECS systems/UDFs and
+Use `from gummysnake.ecs import canvas as ca` in Rust-executed ECS system plans
+when drawing should become part of the ECS logical plan. Supported `ca.*` calls
+record canvas actions during system registration and are replayed by the Rust
+executor. They are not runtime drawing aliases; Python ECS systems/UDFs and
 `@gs.draw` callbacks should use the normal `gummysnake` drawing API instead.
 
 ```python
 from gummysnake.ecs import canvas as ca
 
 
-@ecs.system(group=("draw", "draw_actors"))
+@ecs.system_plan(group=("draw", "draw_actors"))
 def draw_bodies(body: ecs.Query[Position]) -> None:
     ca.no_stroke()
     ca.fill(255, 210, 80)
@@ -219,12 +219,12 @@ def steering_value(velocity: ecs.ComponentExpressionProxy) -> ecs.Expression:
     return velocity.dx.clamp(-4.0, 4.0)
 ```
 
-For draw-side and explicit Python UDF/system boundaries, use `ecs.EntityView` or
+For draw-side and Python UDF/system boundaries, use `ecs.EntityView` or
 `ecs.Entity[T]` annotations. Mutable Python entity access must be declared with
-`ecs.EntityMutation[T](...)` metadata on `@ecs.udf(python=True)` or
-`@ecs.system(python=True)`; `ecs.MutEntity` is deprecated. `gs.FastDrawScope` is
-the public type for a local `draw_fast = gs.fast()` binding in examples that mix
-ECS readback with dense drawing.
+`ecs.EntityMutation[T](...)` metadata on `@ecs.udf` or `@ecs.system`;
+`ecs.MutEntity` is deprecated. `gs.FastDrawScope` is the public type for a local
+`draw_fast = gs.fast()` binding in examples that mix ECS readback with dense
+drawing.
 
 ## System build blocks and mutations
 
@@ -237,13 +237,13 @@ Writable field expressions expose mutation methods:
 Use `ecs.do` for nested serial/parallel blocks:
 
 ```python
-@ecs.system(parallel=True)
+@ecs.system_plan(parallel=True)
 def integrate(body: ecs.Query[Position, Velocity]) -> None:
     body[Position].x.increase_by(body[Velocity].dx)
     body[Position].y.increase_by(body[Velocity].dy)
 
 
-@ecs.system
+@ecs.system_plan
 def serial_then_parallel(body: ecs.Query[Position, Velocity]) -> None:
     body[Velocity].dx.set_to(body[Velocity].dx * 0.98)
     with ecs.do(parallel=True):
@@ -254,7 +254,7 @@ def serial_then_parallel(body: ecs.Query[Position, Velocity]) -> None:
 Conditionals use branch context managers inside `ecs.conditional()`:
 
 ```python
-@ecs.system
+@ecs.system_plan
 def clamp_x(body: ecs.Query[Position], bounds: ecs.Res[Bounds]) -> None:
     with ecs.conditional():
         with ecs.when(body[Position].x < 0):
@@ -272,7 +272,7 @@ previous conditions.
 Python-UDF iterable sources, or list/vector field expressions:
 
 ```python
-@ecs.system
+@ecs.system_plan
 def sum_samples(entity: ecs.Query[Trail], counter: ecs.ResMut[Counter]) -> None:
     with ecs.for_each(entity[Trail].samples) as sample:
         counter[Counter].value.increase_by(sample)
@@ -323,7 +323,7 @@ Use `ecs.Without[T]` or `ecs.Without[ecs.Tag[tag]]` to exclude components or tag
 while keeping query matching Rust-owned:
 
 ```python
-@ecs.system
+@ecs.system_plan
 def wake_sleepers(sleeper: ecs.Query[Position, ecs.Without[Velocity]]) -> None:
     sleeper.entity.add_component(Velocity(0.0, -1.0))
 ```
@@ -350,7 +350,7 @@ query rows instead of sketch-specific kernels.
 from gummysnake.ecs import spatial
 
 
-@ecs.system
+@ecs.system_plan
 def proximity(
     pickup: ecs.Query[ecs.Tag["Pickup"], Position, Glow],
     player: ecs.Query[ecs.Tag["Player"], Position],
@@ -403,12 +403,12 @@ systems that should only run over entities whose component state changed in the
 current ECS frame:
 
 ```python
-@ecs.system
+@ecs.system_plan
 def wake_new_particles(particle: ecs.Query[Position, ecs.Added[Velocity]]) -> None:
     particle[Velocity].dy.set_to(-2.0)
 
 
-@ecs.system
+@ecs.system_plan
 def redraw_dirty(sprite: ecs.Query[Position, ecs.Changed[Position]]) -> None:
     sprite[Position].x.set_to(sprite[Position].x)
 ```
@@ -433,12 +433,12 @@ class Damage:
     amount: int
 
 
-@ecs.system
+@ecs.system_plan
 def hazards(writer: ecs.EventWriter[Damage]) -> None:
     writer.emit(Damage(3))
 
 
-@ecs.system
+@ecs.system_plan
 def apply_damage(reader: ecs.EventReader[Damage], health: ecs.ResMut[Health]) -> None:
     with ecs.for_each(reader) as event:
         health[Health].value.decrease_by(event.amount)
@@ -451,15 +451,14 @@ so systems registered after a callback can consume callback-emitted events.
 
 ## Explicit Python systems
 
-Use `@ecs.system(python=True)` only when a scheduled system must execute Python at
-runtime. Python systems are scheduler barriers by default, materialize query rows
-as Rust-backed `EntityView` objects, run with the GIL held, and are diagnosed
-separately from Rust physical systems. They are never an implicit fallback for an
-invalid Rust logical system.
+Use `@ecs.system` when a scheduled system must execute Python at runtime. Python
+systems are scheduler barriers by default, materialize query rows as Rust-backed
+`EntityView` objects, run with the GIL held, and are diagnosed separately from
+Rust physical systems. They are never an implicit fallback for an invalid Rust
+logical system.
 
 ```python
 @ecs.system(
-    python=True,
     mutations={"entities": {ecs.EntityMutation[Velocity](update=True)}},
 )
 def dampen(entities: ecs.Query[Velocity]) -> None:
@@ -473,22 +472,22 @@ parameters so readers can see the intentional write/structural boundary.
 
 ## UDFs
 
-Bare `@ecs.udf` declares a typed Rust-backed UDF: value parameters and returns
-use `ecs.Expression[T]`, and execution requires a matching Rust registry entry.
-Use `@ecs.udf(python=True)` for explicit runtime Python escape hatches, side
-effects, external APIs, or operations that are not yet expressible in the lazy
-ECS DSL. Python UDF annotations are mandatory and may use `ecs.Vector[T]`,
-`ecs.Entity[T]`, or iterable return types. They are flexible but have a
-performance cost and are counted separately in diagnostics.
+`@ecs.udf_plan` declares a typed Rust-backed UDF plan: value parameters and
+returns use `ecs.Expression[T]`, and execution requires a matching Rust registry
+entry. Use `@ecs.udf` for explicit runtime Python escape hatches, side effects,
+external APIs, or operations that are not yet expressible in the lazy ECS DSL.
+Python UDF annotations are mandatory and may use `ecs.Vector[T]`, `ecs.Entity[T]`,
+or iterable return types. They are flexible but have a performance cost and are
+counted separately in diagnostics.
 
 ```python
-@ecs.udf(python=True, mutations={"items": {ecs.EntityMutation[Velocity](update=True)}})
+@ecs.udf(mutations={"items": {ecs.EntityMutation[Velocity](update=True)}})
 def boost(items: Iterable[ecs.Entity[Velocity]]) -> None:
     for item in items:
         item[Velocity].dx *= 1.1
 
 
-@ecs.udf(python=True)
+@ecs.udf
 def names() -> Iterable[str]:
     return ("James", "Emily", "Janet")
 ```

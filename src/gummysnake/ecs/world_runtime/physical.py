@@ -13,7 +13,7 @@ from gummysnake.ecs.actions import Action
 from gummysnake.ecs.physical import PhysicalPlanUnsupported, build_physical_payload
 from gummysnake.ecs.runtime_views import Entity, _ScheduledSystem
 from gummysnake.ecs.schema_helpers import _event_payload_from_bridge
-from gummysnake.ecs.systems import BuiltSystem
+from gummysnake.ecs.systems import PlanBuiltSystem
 from gummysnake.ecs.world_helpers import (
     _contains_canvas_action,
     _contains_direct_canvas_barrier_action,
@@ -58,8 +58,8 @@ _SPATIAL_WARM_COUNTERS: tuple[str, ...] = (
 
 
 def prepare_scheduled_physical_plan(world: EcsWorld, scheduled: _ScheduledSystem) -> None:
-    """Compile and warm the Rust physical plan for a scheduled non-Python ECS system."""
-    if scheduled.built.python:
+    """Compile and warm the Rust physical plan for a scheduled ECS system plan."""
+    if not isinstance(scheduled.built, PlanBuiltSystem):
         return
     action = scheduled.built.plan.action
     if _is_direct_udf_action(action) or _contains_direct_udf_action(action):
@@ -84,8 +84,17 @@ def set_physical_payload(scheduled: _ScheduledSystem, payload: dict[str, Any]) -
     scheduled.physical_warm_report = None
 
 
+def require_plan_built(scheduled: _ScheduledSystem) -> PlanBuiltSystem:
+    """Return the scheduled Rust plan metadata, or reject non-plan systems."""
+    if not isinstance(scheduled.built, PlanBuiltSystem):
+        raise SystemPlanError(
+            f"ECS system {scheduled.handle.name!r} is a runtime Python system, not a Rust plan."
+        )
+    return scheduled.built
+
+
 def build_and_compile_payload(
-    world: EcsWorld, scheduled: _ScheduledSystem, built: BuiltSystem
+    world: EcsWorld, scheduled: _ScheduledSystem, built: PlanBuiltSystem
 ) -> dict[str, Any]:
     """Build a Python logical-plan payload and compile it into a Rust plan handle."""
     schema_fingerprint: int | None = None
@@ -102,9 +111,9 @@ def build_and_compile_payload(
         return payload
     except PhysicalPlanUnsupported as exc:
         message = (
-            f"ECS system {scheduled.handle.name!r} cannot execute in Rust ECS: {exc}. "
-            "Python fallback execution has been removed; only explicit @ecs.udf actions "
-            "may execute in Python."
+            f"ECS system plan {scheduled.handle.name!r} cannot execute in Rust ECS: {exc}. "
+            "Python fallback execution has been removed; use explicit @ecs.system or "
+            "@ecs.udf boundaries for Python runtime work."
         )
         scheduled.physical_payload = None
         scheduled.physical_plan_handle = None
@@ -135,15 +144,14 @@ def run_physical_systems_batch(world: EcsWorld, scheduled_systems: list[_Schedul
         warm_reports: list[dict[str, Any] | None] = []
         schema_fingerprint = world._rust.schema_fingerprint()
         for scheduled in scheduled_systems:
+            built = require_plan_built(scheduled)
             needs_recompile = (
                 scheduled.physical_plan_handle is None
                 or scheduled.physical_schema_fingerprint != schema_fingerprint
                 or scheduled.physical_payload_dynamic
             )
             if needs_recompile:
-                set_physical_payload(
-                    scheduled, build_and_compile_payload(world, scheduled, scheduled.built)
-                )
+                set_physical_payload(scheduled, build_and_compile_payload(world, scheduled, built))
             if scheduled.physical_has_input_state or scheduled.physical_payload_dynamic:
                 for fallback in scheduled_systems:
                     run_physical_system(world, fallback)
@@ -193,6 +201,7 @@ def run_physical_system(
     execution_payload: dict[str, Any] | None = None
     try:
         if use_scheduled_cache:
+            built = require_plan_built(scheduled)
             schema_fingerprint = world._rust.schema_fingerprint()
             needs_recompile = (
                 scheduled.physical_plan_handle is None
@@ -200,9 +209,7 @@ def run_physical_system(
                 or scheduled.physical_payload_dynamic
             )
             if needs_recompile:
-                set_physical_payload(
-                    scheduled, build_and_compile_payload(world, scheduled, scheduled.built)
-                )
+                set_physical_payload(scheduled, build_and_compile_payload(world, scheduled, built))
             execution_payload = scheduled.physical_payload
             if scheduled.physical_plan_handle is None:
                 raise SystemPlanError(
@@ -211,7 +218,7 @@ def run_physical_system(
             handle = scheduled.physical_plan_handle
         else:
             assert action is not None
-            built = replace(scheduled.built, plan=action.plan())
+            built = replace(require_plan_built(scheduled), plan=action.plan())
             payload = build_and_compile_payload(world, scheduled, built)
             execution_payload = payload
             temporary_handle = scheduled.physical_plan_handle
