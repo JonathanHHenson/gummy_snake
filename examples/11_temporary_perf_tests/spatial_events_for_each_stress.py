@@ -76,10 +76,13 @@ class SpatialStats:
 def move_signals(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
     state = signal[Signal2D]
     dt = ecs.dt() / (1000.0 / TARGET_FPS)
+    next_x = (state.x + state.vx * dt + WIDTH) % WIDTH
+    next_y = (state.y + state.vy * dt + HEIGHT) % HEIGHT
+    next_pressure = (state.pressure * 0.72).clamp(0.0, 1.0)
     with ecs.do(parallel=True):
-        state.x.set_to((state.x + state.vx * dt + WIDTH) % WIDTH)
-        state.y.set_to((state.y + state.vy * dt + HEIGHT) % HEIGHT)
-        state.pressure.set_to((state.pressure * 0.72).clamp(0.0, 1.0))
+        state.x.set_to(next_x)
+        state.y.set_to(next_y)
+        state.pressure.set_to(next_pressure)
 
 
 @ecs.system(group=("simulation", "simulation_pull"))
@@ -98,9 +101,13 @@ def beacon_pull(
         allow_fallback=False,
         name="signal_beacon_join",
     )
-    influence = field.count().clamp(0.0, 4.0)
-    pull_x = (WIDTH * 0.5 - state.x) * 0.00045 * influence
-    pull_y = (HEIGHT * 0.5 - state.y) * 0.00045 * influence
+    nearby = field.count()
+    influence = nearby.clamp(0.0, 4.0)
+    inv_nearby = 1.0 / nearby.clamp_min(1.0)
+    target_x = field.sum(field.item[Beacon2D].x) * inv_nearby
+    target_y = field.sum(field.item[Beacon2D].y) * inv_nearby
+    pull_x = (target_x - state.x) * 0.0012 * influence
+    pull_y = (target_y - state.y) * 0.0012 * influence
     state.vx.set_to((state.vx * 0.992 + pull_x).clamp(-2.7, 2.7))
     state.vy.set_to((state.vy * 0.992 + pull_y).clamp(-2.7, 2.7))
 
@@ -118,7 +125,18 @@ def neighbor_pressure(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
         name="signal_neighbors",
     )
     crowd = neighbors.count()
-    state.pressure.set_to((state.pressure + crowd * 0.035).clamp(0.0, 1.0))
+    updated_pressure = (state.pressure + crowd * 0.035).clamp(0.0, 1.0)
+    pressure_repel_x = neighbors.sum(
+        (state.x - neighbors.item[Signal2D].x) * neighbors.item[Signal2D].pressure
+    )
+    pressure_repel_y = neighbors.sum(
+        (state.y - neighbors.item[Signal2D].y) * neighbors.item[Signal2D].pressure
+    )
+    pressure_force = updated_pressure * 0.0025
+    with ecs.do(parallel=True):
+        state.pressure.set_to(updated_pressure)
+        state.vx.set_to((state.vx + pressure_repel_x * pressure_force).clamp(-2.7, 2.7))
+        state.vy.set_to((state.vy + pressure_repel_y * pressure_force).clamp(-2.7, 2.7))
 
 
 @ecs.system(group=("simulation", "simulation_overlaps"))
@@ -148,8 +166,9 @@ def overlap_beacons(
         allow_fallback=False,
         name="signal_beacon_overlaps",
     ).count()
+    updated_pressure = (state.pressure + hits * 0.10).clamp(0.0, 1.0)
     with ecs.conditional(), ecs.when(hits > 0):
-        state.pressure.set_to((state.pressure + hits * 0.10).clamp(0.0, 1.0))
+        state.pressure.set_to(updated_pressure)
         with ecs.conditional(), ecs.when(hits > 1):
             writer.emit(BeaconPulse(1))
 

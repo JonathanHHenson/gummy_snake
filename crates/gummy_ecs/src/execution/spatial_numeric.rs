@@ -127,11 +127,20 @@ impl<'a> PlanExecutor<'a> {
                     } = &self.plan.expressions[*value_expr]
                     {
                         if query != &relation.item_query {
-                            continue;
+                            SpatialBatchValue::Expression {
+                                expr_index: *value_expr,
+                            }
+                        } else {
+                            SpatialBatchValue::DirectField {
+                                component: component.clone(),
+                                field: field.clone(),
+                            }
                         }
-                        SpatialBatchValue::DirectField {
-                            component: component.clone(),
-                            field: field.clone(),
+                    } else if self
+                        .expr_supports_f64(*value_expr, &mut std::collections::HashSet::new())
+                    {
+                        SpatialBatchValue::Expression {
+                            expr_index: *value_expr,
                         }
                     } else {
                         continue;
@@ -209,6 +218,14 @@ impl<'a> PlanExecutor<'a> {
                             .expect("origin computed for delta aggregate");
                         let delta_axis = record.point.coord(*axis) - origin.coord(*axis);
                         -delta_axis / distance_sq.sqrt().max(*minimum_distance)
+                    }
+                    SpatialBatchValue::Expression { expr_index } => {
+                        let mut joined = ctx.clone();
+                        joined
+                            .bindings
+                            .insert(relation.item_query.clone(), record.entity);
+                        let mut item_cache = vec![None; self.plan.expressions.len()];
+                        self.eval_expr_f64(*expr_index, &joined, &mut item_cache)?
                     }
                 };
                 let accumulator = &mut accumulators[index];

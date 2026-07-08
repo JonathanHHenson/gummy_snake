@@ -50,6 +50,42 @@ pub(in crate::execution) enum SpatialBatchValue {
     Count,
     DirectField { component: String, field: String },
     NegDeltaOverDistance { axis: usize, minimum_distance: f64 },
+    Expression { expr_index: usize },
+}
+
+#[derive(Debug, Clone)]
+pub(in crate::execution) enum FastSpatialBinaryOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Min,
+    Max,
+}
+
+#[derive(Debug, Clone)]
+pub(in crate::execution) enum FastSpatialValueExpr {
+    Literal(f64),
+    OriginPointCoord {
+        axis: usize,
+    },
+    ItemField {
+        array_index: usize,
+    },
+    ItemPointCoord {
+        axis: usize,
+    },
+    SpatialDelta {
+        axis: usize,
+    },
+    SpatialDistance,
+    SpatialDistanceSq,
+    Neg(Box<FastSpatialValueExpr>),
+    Binary {
+        op: FastSpatialBinaryOp,
+        left: Box<FastSpatialValueExpr>,
+        right: Box<FastSpatialValueExpr>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -58,6 +94,7 @@ pub(in crate::execution) enum FastSpatialBatchValue {
     DirectField { array_index: usize },
     DirectPointCoord { axis: usize },
     NegDeltaOverDistance { axis: usize, minimum_distance: f64 },
+    Expression { expr: FastSpatialValueExpr },
 }
 
 #[derive(Debug, Clone)]

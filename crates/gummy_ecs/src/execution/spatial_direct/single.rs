@@ -542,9 +542,13 @@ impl<'a> PlanExecutor<'a> {
             })?;
 
         let dimensions = dimensions_len(relation.algorithm.dimensions)?;
-        let needs_delta = specs
-            .iter()
-            .any(|spec| matches!(spec.value, SpatialBatchValue::NegDeltaOverDistance { .. }));
+        let needs_delta = specs.iter().any(|spec| {
+            matches!(
+                spec.value,
+                SpatialBatchValue::NegDeltaOverDistance { .. }
+                    | SpatialBatchValue::Expression { .. }
+            )
+        });
         let mut candidates = Vec::new();
         let mut accumulators = vec![SpatialBatchAccum::default(); specs.len()];
         for origin_entity in origin_rows {
@@ -597,6 +601,8 @@ impl<'a> PlanExecutor<'a> {
                 exact_count += 1;
                 executor.report.rows_scanned += 1;
                 executor.report.spatial_exact_rows += 1;
+                let mut joined: Option<EvalContext> = None;
+                let mut item_cache: Option<Vec<Option<f64>>> = None;
                 for (index, spec) in specs.iter().enumerate() {
                     let value = match &spec.value {
                         SpatialBatchValue::Count => 1.0,
@@ -609,6 +615,21 @@ impl<'a> PlanExecutor<'a> {
                         } => {
                             let delta_axis = record.point.coord(*axis) - origin_point.coord(*axis);
                             -delta_axis / distance_sq.sqrt().max(*minimum_distance)
+                        }
+                        SpatialBatchValue::Expression { expr_index } => {
+                            let joined = joined.get_or_insert_with(|| {
+                                let mut joined = EvalContext::default();
+                                joined
+                                    .bindings
+                                    .insert(relation.origin_query.clone(), origin_entity);
+                                joined
+                                    .bindings
+                                    .insert(relation.item_query.clone(), record.entity);
+                                joined
+                            });
+                            let item_cache = item_cache
+                                .get_or_insert_with(|| vec![None; executor.plan.expressions.len()]);
+                            executor.eval_expr_f64(*expr_index, joined, item_cache)?
                         }
                     };
                     let accumulator = &mut accumulators[index];

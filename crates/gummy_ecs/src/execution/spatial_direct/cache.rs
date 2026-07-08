@@ -3,9 +3,11 @@ use crate::error::{EcsError, Result};
 use crate::plan::{ExprNode, SpatialRelationNode};
 use crate::spatial::SpatialPoint;
 
+use super::super::spatial_helpers::spatial_relations_same_base;
 use super::super::spatial_support::{
     effective_query_radius, DirectSpatialCoord, DirectSpatialRelationBatch, FastFieldArray,
-    SpatialChunkResult, SpatialF64RowArray, SpatialLocalCounters, SpatialPrecomputeLayout,
+    FastSpatialBinaryOp, FastSpatialValueExpr, SpatialChunkResult, SpatialF64RowArray,
+    SpatialLocalCounters, SpatialPrecomputeLayout,
 };
 use super::super::value_ops::literal_expr_numeric;
 use super::super::PlanExecutor;
@@ -219,6 +221,164 @@ impl<'a> PlanExecutor<'a> {
             self.build_fast_field_array_with_locations(entities, locations, component, field)?,
         );
         Ok(arrays.len() - 1)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(in crate::execution) fn compile_fast_spatial_value_expr(
+        &self,
+        expr_index: usize,
+        relation: &SpatialRelationNode,
+        origin_coords: &[DirectSpatialCoord],
+        target_coords: &[DirectSpatialCoord],
+        item_field_arrays: &mut Vec<FastFieldArray>,
+        item_rows: &[Entity],
+        item_locations: &[(usize, usize)],
+    ) -> Result<Option<FastSpatialValueExpr>> {
+        self.compile_fast_spatial_value_expr_inner(
+            expr_index,
+            relation,
+            origin_coords,
+            target_coords,
+            item_field_arrays,
+            item_rows,
+            item_locations,
+            &mut std::collections::HashSet::new(),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn compile_fast_spatial_value_expr_inner(
+        &self,
+        expr_index: usize,
+        relation: &SpatialRelationNode,
+        origin_coords: &[DirectSpatialCoord],
+        target_coords: &[DirectSpatialCoord],
+        item_field_arrays: &mut Vec<FastFieldArray>,
+        item_rows: &[Entity],
+        item_locations: &[(usize, usize)],
+        seen: &mut std::collections::HashSet<usize>,
+    ) -> Result<Option<FastSpatialValueExpr>> {
+        if !seen.insert(expr_index) {
+            return Ok(None);
+        }
+        let result = match &self.plan.expressions[expr_index] {
+            ExprNode::LiteralF64(value) => Some(FastSpatialValueExpr::Literal(*value)),
+            ExprNode::LiteralI64(value) => Some(FastSpatialValueExpr::Literal(*value as f64)),
+            ExprNode::LiteralBool(value) => Some(FastSpatialValueExpr::Literal(if *value {
+                1.0
+            } else {
+                0.0
+            })),
+            ExprNode::LiteralValue(_) => literal_expr_numeric(&self.plan.expressions[expr_index])
+                .map(FastSpatialValueExpr::Literal),
+            ExprNode::Field {
+                query,
+                component,
+                field,
+            } if query == &relation.origin_query => origin_coords
+                .iter()
+                .position(|coord| coord.component == *component && coord.field == *field)
+                .map(|axis| FastSpatialValueExpr::OriginPointCoord { axis }),
+            ExprNode::Field {
+                query,
+                component,
+                field,
+            } if query == &relation.item_query => {
+                if let Some(axis) = target_coords
+                    .iter()
+                    .position(|coord| coord.component == *component && coord.field == *field)
+                {
+                    Some(FastSpatialValueExpr::ItemPointCoord { axis })
+                } else {
+                    let array_index = self.ensure_fast_field_array_with_locations(
+                        item_field_arrays,
+                        item_rows,
+                        item_locations,
+                        component,
+                        field,
+                    )?;
+                    Some(FastSpatialValueExpr::ItemField { array_index })
+                }
+            }
+            ExprNode::SpatialMetadata {
+                relation: metadata_relation,
+                kind,
+                axis,
+            } if spatial_relations_same_base(metadata_relation, relation) => match kind.as_str() {
+                "delta" => axis.map(|axis| FastSpatialValueExpr::SpatialDelta { axis }),
+                "distance" => Some(FastSpatialValueExpr::SpatialDistance),
+                "distance_sq" => Some(FastSpatialValueExpr::SpatialDistanceSq),
+                _ => None,
+            },
+            ExprNode::Unary { op, input } if matches!(op.as_str(), "neg" | "-") => self
+                .compile_fast_spatial_value_expr_inner(
+                    *input,
+                    relation,
+                    origin_coords,
+                    target_coords,
+                    item_field_arrays,
+                    item_rows,
+                    item_locations,
+                    seen,
+                )?
+                .map(|input| FastSpatialValueExpr::Neg(Box::new(input))),
+            ExprNode::Binary { op, left, right } => {
+                let op = match op.as_str() {
+                    "add" | "+" => Some(FastSpatialBinaryOp::Add),
+                    "sub" | "-" => Some(FastSpatialBinaryOp::Sub),
+                    "mul" | "*" => Some(FastSpatialBinaryOp::Mul),
+                    "truediv" | "/" => Some(FastSpatialBinaryOp::Div),
+                    "min" => Some(FastSpatialBinaryOp::Min),
+                    "max" => Some(FastSpatialBinaryOp::Max),
+                    _ => None,
+                };
+                if let Some(op) = op {
+                    let left = self.compile_fast_spatial_value_expr_inner(
+                        *left,
+                        relation,
+                        origin_coords,
+                        target_coords,
+                        item_field_arrays,
+                        item_rows,
+                        item_locations,
+                        seen,
+                    )?;
+                    let right = self.compile_fast_spatial_value_expr_inner(
+                        *right,
+                        relation,
+                        origin_coords,
+                        target_coords,
+                        item_field_arrays,
+                        item_rows,
+                        item_locations,
+                        seen,
+                    )?;
+                    match (left, right) {
+                        (Some(left), Some(right)) => Some(FastSpatialValueExpr::Binary {
+                            op,
+                            left: Box::new(left),
+                            right: Box::new(right),
+                        }),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
+            ExprNode::Attribute { input, .. } => self.compile_fast_spatial_value_expr_inner(
+                *input,
+                relation,
+                origin_coords,
+                target_coords,
+                item_field_arrays,
+                item_rows,
+                item_locations,
+                seen,
+            )?,
+            _ => None,
+        };
+        seen.remove(&expr_index);
+        Ok(result)
     }
 
     pub(in crate::execution) fn match_direct_spatial_coords(

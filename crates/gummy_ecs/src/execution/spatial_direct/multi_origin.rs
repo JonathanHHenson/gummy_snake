@@ -112,6 +112,21 @@ impl<'a> PlanExecutor<'a> {
                         axis,
                         minimum_distance,
                     },
+                    SpatialBatchValue::Expression { expr_index } => {
+                        let Some(expr) = self.compile_fast_spatial_value_expr(
+                            expr_index,
+                            relation,
+                            &origin_coords,
+                            &target_coords,
+                            &mut item_field_arrays,
+                            &item_rows,
+                            &item_locations,
+                        )?
+                        else {
+                            return Ok(false);
+                        };
+                        FastSpatialBatchValue::Expression { expr }
+                    }
                 };
                 let Some(kind) = fast_aggregate_kind(&spec.kind) else {
                     return Ok(false);

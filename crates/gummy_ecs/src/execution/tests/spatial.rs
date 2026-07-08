@@ -112,6 +112,126 @@ fn spatial_aggregate_precomputes_generic_exact_filter() {
 }
 
 #[test]
+fn spatial_aggregate_precomputes_pairwise_origin_item_expression() {
+    let (mut world, first) = world_with_motion();
+    world
+        .set_field(first, "Position", "y", EcsValue::F64(0.0))
+        .unwrap();
+    add_motion_entity(&mut world, 3.0, 0.0, 2.0);
+    add_motion_entity(&mut world, 5.0, 0.0, 4.0);
+    add_motion_entity(&mut world, 20.0, 0.0, 8.0);
+    let relation = SpatialRelationNode {
+        id: "pressure_weighted_repel_x".to_string(),
+        index_id: "position_neighbors_for_repel".to_string(),
+        origin_query: "origin".to_string(),
+        item_query: "item".to_string(),
+        origin_position: vec![0, 1],
+        target_position: vec![2, 3],
+        radius: Some(4),
+        origin_bounds: None,
+        target_bounds: None,
+        algorithm: crate::plan::SpatialAlgorithmNode {
+            kind: "hash_grid".to_string(),
+            dimensions: 2,
+            cell_size: Some(8.0),
+            bounds: None,
+            capacity: None,
+            bits: None,
+        },
+        include_self: false,
+        pair_policy: "all".to_string(),
+        exact_filter: None,
+    };
+    let payload = BridgePlanPayload {
+        version: BRIDGE_PLAN_VERSION,
+        schema_fingerprint: Some(world.schema_fingerprint()),
+        queries: vec![
+            BridgeQueryPayload {
+                name: "origin".to_string(),
+                terms: vec![
+                    QueryTerm::WithComponent("Position".to_string()),
+                    QueryTerm::WithComponent("Velocity".to_string()),
+                ],
+                allowed_entities: None,
+            },
+            BridgeQueryPayload {
+                name: "item".to_string(),
+                terms: vec![
+                    QueryTerm::WithComponent("Position".to_string()),
+                    QueryTerm::WithComponent("Velocity".to_string()),
+                ],
+                allowed_entities: None,
+            },
+        ],
+        expressions: vec![
+            ExprNode::Field {
+                query: "origin".to_string(),
+                component: "Position".to_string(),
+                field: "x".to_string(),
+            },
+            ExprNode::Field {
+                query: "origin".to_string(),
+                component: "Position".to_string(),
+                field: "y".to_string(),
+            },
+            ExprNode::Field {
+                query: "item".to_string(),
+                component: "Position".to_string(),
+                field: "x".to_string(),
+            },
+            ExprNode::Field {
+                query: "item".to_string(),
+                component: "Position".to_string(),
+                field: "y".to_string(),
+            },
+            ExprNode::LiteralF64(5.0),
+            ExprNode::Field {
+                query: "item".to_string(),
+                component: "Velocity".to_string(),
+                field: "dx".to_string(),
+            },
+            ExprNode::Binary {
+                op: "-".to_string(),
+                left: 0,
+                right: 2,
+            },
+            ExprNode::Binary {
+                op: "*".to_string(),
+                left: 6,
+                right: 5,
+            },
+            ExprNode::SpatialAggregate {
+                kind: "sum".to_string(),
+                relation,
+                value: Some(7),
+                default: None,
+            },
+            ExprNode::Field {
+                query: "origin".to_string(),
+                component: "Velocity".to_string(),
+                field: "dx".to_string(),
+            },
+        ],
+        actions: vec![ActionNode::SetField {
+            target: 9,
+            value: 8,
+        }],
+        root_action: 0,
+    };
+
+    let handle = world.compile_bridge_plan_handle(payload).unwrap();
+    let report = world
+        .execute_compiled_plan_with_options(handle, false)
+        .unwrap();
+
+    assert_eq!(
+        world.get_field(first, "Velocity", "dx").unwrap(),
+        EcsValue::F64(-14.0)
+    );
+    assert!(report.spatial_exact_rows > 0);
+}
+
+#[test]
 fn spatial_index_cache_distinguishes_same_named_relations_with_different_item_filters() {
     let (mut world, marker) = world_with_motion();
     world.add_tag(marker, "Marker").unwrap();

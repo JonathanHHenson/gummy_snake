@@ -4,8 +4,8 @@ use crate::plan::SpatialRelationNode;
 
 use super::super::direct_point_hash_grid::DirectPointHashGrid;
 use super::super::spatial_helpers::{
-    accumulate_fast_spatial_value, fast_field_array_value, fast_spatial_aggregate_value,
-    spatial_result_values_are_dense,
+    accumulate_fast_spatial_value, eval_fast_spatial_value_expr, fast_field_array_value,
+    fast_spatial_aggregate_value, spatial_result_values_are_dense,
 };
 use super::super::spatial_support::{
     BuiltSpatialIndex, FastAggregateKind, FastDirectSpatialRelationBatch, FastFieldArray,
@@ -144,6 +144,18 @@ impl<'a> PlanExecutor<'a> {
                                             - origin_record.point.coord(*axis);
                                         -delta_axis * inverse_distance
                                     }
+                                    FastSpatialBatchValue::Expression { expr } => {
+                                        eval_fast_spatial_value_expr(
+                                            expr,
+                                            item_field_arrays,
+                                            item_record_field_arrays,
+                                            &origin_record.point,
+                                            Some(item_record_index),
+                                            item_entity,
+                                            item_point,
+                                            distance_sq,
+                                        )?
+                                    }
                                 };
                                 row_result_arrays[spec_offset + spec_index].1[origin_index] +=
                                     value;
@@ -247,6 +259,18 @@ impl<'a> PlanExecutor<'a> {
                                     let delta_axis =
                                         item_point.coord(*axis) - origin_record.point.coord(*axis);
                                     -delta_axis * inverse_distance
+                                }
+                                FastSpatialBatchValue::Expression { expr } => {
+                                    eval_fast_spatial_value_expr(
+                                        expr,
+                                        item_field_arrays,
+                                        item_record_field_arrays,
+                                        &origin_record.point,
+                                        Some(item_record_index),
+                                        item_entity,
+                                        item_point,
+                                        distance_sq,
+                                    )?
                                 }
                             };
                             let accumulator = &mut accumulators

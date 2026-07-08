@@ -8,7 +8,8 @@ use crate::tree_spatial::{OctreeIndex, QuadtreeIndex};
 use super::direct_point_hash_grid::DirectPointRecord;
 use super::spatial_support::{
     BuiltSpatialIndex, FastAggregateKind, FastDirectSpatialRelationBatch, FastFieldArray,
-    FastSpatialBatchValue, SpatialBatchAccum, SpatialLocalCounters,
+    FastSpatialBatchValue, FastSpatialBinaryOp, FastSpatialValueExpr, SpatialBatchAccum,
+    SpatialLocalCounters,
 };
 use super::value_ops::bool_f64;
 
@@ -149,6 +150,77 @@ pub(in crate::execution) fn push_fast_spatial_aggregate_value(
     }
 }
 
+pub(in crate::execution) fn eval_fast_spatial_value_expr(
+    expr: &FastSpatialValueExpr,
+    item_field_arrays: &[FastFieldArray],
+    item_record_field_arrays: Option<&[Vec<f64>]>,
+    origin_point: &SpatialPoint,
+    record_index: Option<usize>,
+    record_entity: Entity,
+    record_point: &SpatialPoint,
+    distance_sq: f64,
+) -> Result<f64> {
+    match expr {
+        FastSpatialValueExpr::Literal(value) => Ok(*value),
+        FastSpatialValueExpr::OriginPointCoord { axis } => Ok(origin_point.coord(*axis)),
+        FastSpatialValueExpr::ItemField { array_index } => {
+            if let (Some(record_arrays), Some(record_index)) =
+                (item_record_field_arrays, record_index)
+            {
+                Ok(record_arrays[*array_index][record_index])
+            } else {
+                fast_field_array_value(&item_field_arrays[*array_index], record_entity)
+            }
+        }
+        FastSpatialValueExpr::ItemPointCoord { axis } => Ok(record_point.coord(*axis)),
+        FastSpatialValueExpr::SpatialDelta { axis } => {
+            Ok(record_point.coord(*axis) - origin_point.coord(*axis))
+        }
+        FastSpatialValueExpr::SpatialDistance => Ok(distance_sq.sqrt()),
+        FastSpatialValueExpr::SpatialDistanceSq => Ok(distance_sq),
+        FastSpatialValueExpr::Neg(input) => Ok(-eval_fast_spatial_value_expr(
+            input,
+            item_field_arrays,
+            item_record_field_arrays,
+            origin_point,
+            record_index,
+            record_entity,
+            record_point,
+            distance_sq,
+        )?),
+        FastSpatialValueExpr::Binary { op, left, right } => {
+            let left = eval_fast_spatial_value_expr(
+                left,
+                item_field_arrays,
+                item_record_field_arrays,
+                origin_point,
+                record_index,
+                record_entity,
+                record_point,
+                distance_sq,
+            )?;
+            let right = eval_fast_spatial_value_expr(
+                right,
+                item_field_arrays,
+                item_record_field_arrays,
+                origin_point,
+                record_index,
+                record_entity,
+                record_point,
+                distance_sq,
+            )?;
+            Ok(match op {
+                FastSpatialBinaryOp::Add => left + right,
+                FastSpatialBinaryOp::Sub => left - right,
+                FastSpatialBinaryOp::Mul => left * right,
+                FastSpatialBinaryOp::Div => left / right,
+                FastSpatialBinaryOp::Min => left.min(right),
+                FastSpatialBinaryOp::Max => left.max(right),
+            })
+        }
+    }
+}
+
 pub(in crate::execution) fn process_fast_spatial_record(
     relation: &SpatialRelationNode,
     batches: &[FastDirectSpatialRelationBatch],
@@ -218,6 +290,16 @@ pub(in crate::execution) fn process_fast_spatial_record(
                     let delta_axis = record_point.coord(*axis) - origin_point.coord(*axis);
                     -delta_axis * inverse_distance
                 }
+                FastSpatialBatchValue::Expression { expr } => eval_fast_spatial_value_expr(
+                    expr,
+                    item_field_arrays,
+                    item_record_field_arrays,
+                    origin_point,
+                    record_index,
+                    record_entity,
+                    record_point,
+                    distance_sq,
+                )?,
             };
             let accumulator = &mut accumulators[batch_index][spec_index];
             accumulate_fast_spatial_value(spec.kind, value, accumulator);
