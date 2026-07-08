@@ -39,6 +39,74 @@ def _contains_direct_udf_action(action: Action) -> bool:
     return False
 
 
+_DIRECT_CANVAS_STYLE_COMMANDS = frozenset(
+    {
+        "fill",
+        "no_fill",
+        "stroke",
+        "no_stroke",
+        "stroke_weight",
+        "rect_mode",
+        "ellipse_mode",
+        "image_mode",
+    }
+)
+_DIRECT_CANVAS_FILL_PRIMITIVE_ARITIES = {
+    "rect": {4},
+    "circle": {3},
+    "ellipse": {3, 4},
+    "triangle": {6},
+}
+
+
+def _contains_canvas_action(action: Action) -> bool:
+    if isinstance(action, DefaultAction):
+        if action.kind == "canvas":
+            return True
+        return any(_contains_canvas_action(child) for child in action.children)
+    if isinstance(action, ForEachAction):
+        return _contains_canvas_action(action.body)
+    if isinstance(action, WhenAction):
+        if any(_contains_canvas_action(branch) for _, branch in action.branches):
+            return True
+        return action.otherwise_action is not None and _contains_canvas_action(
+            action.otherwise_action
+        )
+    return False
+
+
+def _is_direct_canvas_barrier_command(action: DefaultAction) -> bool:
+    command = action.canvas_command or ""
+    if command in _DIRECT_CANVAS_STYLE_COMMANDS:
+        return False
+    arities = _DIRECT_CANVAS_FILL_PRIMITIVE_ARITIES.get(command)
+    return arities is None or len(action.canvas_args) not in arities
+
+
+def _contains_direct_canvas_barrier_action(action: Action) -> bool:
+    """Return whether direct canvas replay cannot preserve this action's draw order.
+
+    The Rust direct replay path can consume style commands and supported fill
+    primitive commands internally. Commands such as ``background`` and ``text``
+    must be replayed by Python in schedule order; rendering later direct fills
+    before those commands would let the retained command cover or reorder them.
+    """
+
+    if isinstance(action, DefaultAction):
+        if action.kind == "canvas":
+            return _is_direct_canvas_barrier_command(action)
+        return any(_contains_direct_canvas_barrier_action(child) for child in action.children)
+    if isinstance(action, ForEachAction):
+        return _contains_direct_canvas_barrier_action(action.body)
+    if isinstance(action, WhenAction):
+        if any(_contains_direct_canvas_barrier_action(branch) for _, branch in action.branches):
+            return True
+        return action.otherwise_action is not None and _contains_direct_canvas_barrier_action(
+            action.otherwise_action
+        )
+    return False
+
+
 def _component_key(entity: Entity, component_type: type[Any]) -> tuple[int, int, type[Any]]:
     return (entity.index, entity.generation, component_type)
 

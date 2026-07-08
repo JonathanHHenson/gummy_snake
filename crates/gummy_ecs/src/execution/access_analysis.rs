@@ -126,6 +126,13 @@ pub(in crate::execution) fn collect_action_query_access(
             access.structural = true;
             access.copyback_eligible = false;
         }
+        ActionNode::CanvasCommand(command) => {
+            for arg in &command.args {
+                collect_expr_query_reads(plan, *arg, access)?;
+            }
+            access.hidden_writes.insert("canvas".to_string());
+            access.copyback_eligible = false;
+        }
         ActionNode::Udf {
             descriptor,
             args,

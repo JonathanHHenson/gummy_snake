@@ -32,7 +32,7 @@ from gummysnake.ecs.runtime_views import (
     _ScheduledSystem,
     _SystemSetConfig,
 )
-from gummysnake.ecs.scheduling_helpers import sorted_scheduled_systems
+from gummysnake.ecs.scheduling_helpers import sorted_scheduled_systems, validate_group_name
 from gummysnake.ecs.schema_helpers import (
     _schema_name,
     _storage_type_for,
@@ -66,6 +66,7 @@ class EcsWorld:
         self._rust = create_ecs_world()
         self._systems: list[_ScheduledSystem] = []
         self._system_sets: dict[str, _SystemSetConfig] = {}
+        self._group_orders: list[tuple[str, ...]] = []
         self._next_system_id = 1
         self.strict = False
         self.warn_on_ambiguity = True
@@ -446,25 +447,26 @@ class EcsWorld:
         self,
         system: SystemDefinition,
         *,
-        order: int = 0,
         enabled: bool = True,
         name: str | None = None,
-        before: Iterable[SystemHandle | str] = (),
-        after: Iterable[SystemHandle | str] = (),
+        before: Iterable[str] = (),
+        after: Iterable[str] = (),
         run_if: Callable[[], bool] | None = None,
-        set: str | None = None,
+        set: str | Iterable[str] | None = None,
+        group: str | Iterable[str] | None = None,
     ) -> SystemHandle:
         """Register an ``@ecs.system`` with this world.
 
         Args:
             system: Function decorated with ``@ecs.system``.
-            order: Numeric ordering key used before dependency constraints.
             enabled: Whether the system should run immediately after registration.
             name: Optional unique system name. Defaults to the decorated function name.
-            before: Systems that should run after this system.
-            after: Systems that should run before this system.
+            before: Groups that should run after this system's implicit group.
+            after: Groups that should run before this system's implicit group.
             run_if: Optional callback checked before each scheduled run.
-            set: Optional system-set name for shared configuration.
+            set: Deprecated alias for ``group``.
+            group: Optional system group name or sequence of group names. Defaults to
+                ``system_<system_name>``.
 
         Returns:
             A handle that can enable, disable, or remove the registered system.
@@ -473,13 +475,12 @@ class EcsWorld:
         return system_runtime.add_system(
             self,
             system,
-            order=order,
             enabled=enabled,
             name=name,
             before=tuple(before),
             after=tuple(after),
             run_if=run_if,
-            set_name=set,
+            group_name=group if group is not None else set,
         )
 
     def remove_system(self, handle: SystemHandle | str) -> None:
@@ -631,20 +632,38 @@ class EcsWorld:
         self,
         name: str,
         *,
-        order: int | None = None,
         enabled: bool | None = None,
         run_if: Callable[[], bool] | None = None,
     ) -> None:
-        """Configure default scheduling options for a named system set.
+        """Deprecated alias for ``group(name, enabled=..., run_if=...)``."""
 
-        Args:
-            name: System-set name used by ``add_system(..., set=name)``.
-            order: Optional order applied to systems in the set.
-            enabled: Optional enabled state applied to systems in the set.
-            run_if: Optional run condition applied to systems in the set.
-        """
+        self.group(name, enabled=enabled, run_if=run_if)
 
-        state_runtime.configure_system_set(self, name, order=order, enabled=enabled, run_if=run_if)
+    def group(
+        self,
+        name: str,
+        *,
+        before: Iterable[str] = (),
+        after: Iterable[str] = (),
+        enabled: bool | None = None,
+        run_if: Callable[[], bool] | None = None,
+    ) -> None:
+        """Create or configure an ECS system group."""
+
+        state_runtime.configure_system_group(
+            self,
+            name,
+            before=tuple(before),
+            after=tuple(after),
+            enabled=enabled,
+            run_if=run_if,
+        )
+
+    def order(self, groups: Iterable[str]) -> None:
+        """Declare a left-to-right ordering for ECS system groups."""
+
+        normalized = tuple(validate_group_name(group_name) for group_name in groups)
+        state_runtime.configure_group_order(self, normalized)
 
     def _system_enabled(self, scheduled: _ScheduledSystem) -> bool:
         return state_runtime.system_enabled(self, scheduled)
@@ -653,7 +672,7 @@ class EcsWorld:
         return state_runtime.system_run_condition(self, scheduled)
 
     def _sorted_systems(self) -> list[_ScheduledSystem]:
-        return sorted_scheduled_systems(self._systems, self._system_sets)
+        return sorted_scheduled_systems(self._systems, self._system_sets, self._group_orders)
 
     def _begin_change_frame(self) -> None:
         state_runtime.begin_change_frame(self)

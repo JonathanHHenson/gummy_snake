@@ -7,6 +7,11 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from gummysnake.ecs.runtime_views import Entity, SystemHandle, _ScheduledSystem, _SystemSetConfig
+from gummysnake.ecs.scheduling_helpers import (
+    scheduled_system_group_names,
+    sorted_system_groups,
+    validate_group_name,
+)
 from gummysnake.ecs.world_helpers import _component_key, _handle_matches, _optional_rust_int
 from gummysnake.exceptions import SystemPlanError
 
@@ -101,28 +106,70 @@ def configure_system_set(
     world: EcsWorld,
     name: str,
     *,
-    order: int | None = None,
     enabled: bool | None = None,
     run_if: Callable[[], bool] | None = None,
 ) -> None:
-    """Create or replace scheduling options for a named ECS system set."""
-    world._system_sets[name] = _SystemSetConfig(order=order, enabled=enabled, run_if=run_if)
+    """Deprecated compatibility wrapper for group configuration."""
+    configure_system_group(world, name, enabled=enabled, run_if=run_if)
+
+
+def configure_system_group(
+    world: EcsWorld,
+    name: str,
+    *,
+    before: tuple[str, ...] = (),
+    after: tuple[str, ...] = (),
+    enabled: bool | None = None,
+    run_if: Callable[[], bool] | None = None,
+) -> None:
+    """Create or replace scheduling options for a named ECS system group."""
+
+    group_name = validate_group_name(name)
+    config = world._system_sets.get(group_name, _SystemSetConfig())
+    world._system_sets[group_name] = _SystemSetConfig(
+        enabled=config.enabled if enabled is None else enabled,
+        run_if=config.run_if if run_if is None else run_if,
+        before=tuple(validate_group_name(ref) for ref in before) or config.before,
+        after=tuple(validate_group_name(ref) for ref in after) or config.after,
+    )
+    sorted_system_groups(world._systems, world._system_sets, world._group_orders)
+    world._diagnostics["ecs_schedule_rebuilds"] += 1
+
+
+def configure_group_order(world: EcsWorld, groups: tuple[str, ...]) -> None:
+    """Append a left-to-right group ordering constraint after validation."""
+
+    if not groups:
+        raise SystemPlanError("gs.order(...) requires at least one ECS system group name.")
+    normalized = tuple(validate_group_name(group_name) for group_name in groups)
+    if len(set(normalized)) != len(normalized):
+        raise SystemPlanError("gs.order(...) group names must be unique.")
+    world._group_orders.append(normalized)
+    try:
+        sorted_system_groups(world._systems, world._system_sets, world._group_orders)
+    except Exception:
+        world._group_orders.pop()
+        raise
+    for group_name in normalized:
+        world._system_sets.setdefault(group_name, _SystemSetConfig())
     world._diagnostics["ecs_schedule_rebuilds"] += 1
 
 
 def system_enabled(world: EcsWorld, scheduled: _ScheduledSystem) -> bool:
-    """Return whether a scheduled system is enabled after set-level overrides."""
-    config = world._system_sets.get(scheduled.set_name or "")
-    if config is not None and config.enabled is False:
-        return False
+    """Return whether a scheduled system is enabled after group-level overrides."""
+    for group_name in scheduled_system_group_names(scheduled):
+        config = world._system_sets.get(group_name)
+        if config is not None and config.enabled is False:
+            return False
     return scheduled.enabled
 
 
 def system_run_condition(world: EcsWorld, scheduled: _ScheduledSystem) -> bool:
-    """Evaluate set-level and system-level run conditions."""
-    config = world._system_sets.get(scheduled.set_name or "")
-    if config is not None and config.run_if is not None and not bool(config.run_if()):
-        return False
+    """Evaluate group-level and system-level run conditions."""
+    for group_name in scheduled_system_group_names(scheduled):
+        config = world._system_sets.get(group_name)
+        if config is not None and config.run_if is not None and not bool(config.run_if()):
+            return False
     return scheduled.run_if is None or bool(scheduled.run_if())
 
 

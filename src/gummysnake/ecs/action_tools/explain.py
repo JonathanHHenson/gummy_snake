@@ -61,6 +61,8 @@ def _explain_action(action: Action, indent: int = 0) -> list[str]:
             return [f"{prefix}udf {action.udf.function.__name__}"]
         if action.kind == "emit_event" and action.event_writer is not None:
             return [f"{prefix}emit_event {action.event_writer.event_type.__name__}"]
+        if action.kind == "canvas" and action.canvas_command is not None:
+            return [f"{prefix}canvas.{action.canvas_command}"]
         if (
             action.kind in {"add_component", "remove_component"}
             and action.component_type is not None

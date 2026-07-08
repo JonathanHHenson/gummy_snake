@@ -76,10 +76,15 @@ impl Default for SchedulerOptions {
 static ECS_WORKER_POOL: OnceLock<std::result::Result<ThreadPool, String>> = OnceLock::new();
 
 pub fn ecs_worker_count() -> usize {
-    std::thread::available_parallelism()
-        .map_or(1, usize::from)
-        .saturating_sub(2)
-        .max(1)
+    if let Some(count) = std::env::var_os("GUMMY_ECS_WORKERS")
+        .and_then(|value| value.to_str().map(str::to_owned))
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|count| *count > 0)
+    {
+        return count;
+    }
+    let logical_cores = std::thread::available_parallelism().map_or(1, usize::from);
+    logical_cores.saturating_sub(2).max(1).min(11)
 }
 
 pub(crate) fn install_on_ecs_worker_pool<R, F>(op: F) -> Result<R>
@@ -344,7 +349,7 @@ mod tests {
     #[test]
     fn default_worker_count_reserves_main_and_window_threads() {
         let logical_cores = std::thread::available_parallelism().map_or(1, usize::from);
-        let expected = logical_cores.saturating_sub(2).max(1);
+        let expected = logical_cores.saturating_sub(2).max(1).min(11);
         assert_eq!(ecs_worker_count(), expected);
         assert_eq!(SchedulerOptions::default().worker_count, expected);
     }

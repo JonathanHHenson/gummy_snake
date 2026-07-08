@@ -18,10 +18,6 @@ class LifecycleHookName(StrEnum):
     BEFORE_PRELOAD = "before_preload"
     BEFORE_SETUP = "before_setup"
     AFTER_SETUP = "after_setup"
-    BEFORE_ECS = "before_ecs"
-    AFTER_ECS = "after_ecs"
-    BEFORE_DRAW = "before_draw"
-    AFTER_DRAW = "after_draw"
 
 
 class EventHookName(StrEnum):
@@ -33,7 +29,7 @@ class EventHookName(StrEnum):
     ON_TOUCH_EVENT = "on_touch_event"
 
 
-PluginHookName = LifecycleHookName | EventHookName
+PluginHookName = LifecycleHookName | EventHookName | str
 PluginApi = Callable[..., Any]
 
 LIFECYCLE_HOOKS: tuple[LifecycleHookName, ...] = tuple(LifecycleHookName)
@@ -84,18 +80,6 @@ class Plugin:
         del context
 
     def after_setup(self, context: SketchContext) -> None:
-        del context
-
-    def before_ecs(self, context: SketchContext) -> None:
-        del context
-
-    def after_ecs(self, context: SketchContext) -> None:
-        del context
-
-    def before_draw(self, context: SketchContext) -> None:
-        del context
-
-    def after_draw(self, context: SketchContext) -> None:
         del context
 
     def on_event(

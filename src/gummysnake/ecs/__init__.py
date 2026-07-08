@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from gummysnake.ecs import spatial, types
+from gummysnake.ecs import canvas, spatial, types
 from gummysnake.ecs.actions import (
     Action,
     DefaultAction,
@@ -77,6 +77,7 @@ __all__ = [
     "Without",
     "all_of",
     "any_of",
+    "canvas",
     "conditional",
     "do",
     "do_in_order",

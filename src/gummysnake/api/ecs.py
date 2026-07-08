@@ -209,25 +209,25 @@ def clear_events(event_type: type[Any] | None = None) -> None:
 def add_system(
     system: SystemDefinition,
     *,
-    order: int = 0,
     enabled: bool = True,
     name: str | None = None,
-    before: Iterable[SystemHandle | str] = (),
-    after: Iterable[SystemHandle | str] = (),
+    before: Iterable[str] = (),
+    after: Iterable[str] = (),
     run_if: Callable[[], bool] | None = None,
-    set: str | None = None,
+    set: str | Iterable[str] | None = None,
+    group: str | Iterable[str] | None = None,
 ) -> SystemHandle:
     """Register an ``@ecs.system`` with the active sketch.
 
     Args:
         system: Function decorated with ``@ecs.system``.
-        order: Numeric ordering key used before dependency constraints.
         enabled: Whether the system should run immediately after registration.
         name: Optional unique system name. Defaults to the decorated function name.
-        before: Systems that should run after this system.
-        after: Systems that should run before this system.
+        before: Groups that should run after this system's implicit group.
+        after: Groups that should run before this system's implicit group.
         run_if: Optional callback checked before each scheduled run.
-        set: Optional system-set name for shared configuration.
+        set: Deprecated alias for ``group``.
+        group: Optional explicit system group name or sequence of group names.
 
     Returns:
         A handle that can enable, disable, or remove the registered system.
@@ -235,13 +235,13 @@ def add_system(
 
     return require_context().add_system(
         system,
-        order=order,
         enabled=enabled,
         name=name,
         before=before,
         after=after,
         run_if=run_if,
         set=set,
+        group=group,
     )
 
 
@@ -289,20 +289,31 @@ def configure_ecs(*, strict: bool | None = None, warn_on_ambiguity: bool | None 
 def configure_system_set(
     name: str,
     *,
-    order: int | None = None,
     enabled: bool | None = None,
     run_if: Callable[[], bool] | None = None,
 ) -> None:
-    """Configure default scheduling options for a named system set.
+    """Deprecated alias for ``group(name, enabled=..., run_if=...)``."""
 
-    Args:
-        name: System-set name used by ``add_system(..., set=name)``.
-        order: Optional order applied to systems in the set.
-        enabled: Optional enabled state applied to systems in the set.
-        run_if: Optional run condition applied to systems in the set.
-    """
+    require_context().configure_system_set(name, enabled=enabled, run_if=run_if)
 
-    require_context().configure_system_set(name, order=order, enabled=enabled, run_if=run_if)
+
+def group(
+    name: str,
+    *,
+    before: Iterable[str] = (),
+    after: Iterable[str] = (),
+    enabled: bool | None = None,
+    run_if: Callable[[], bool] | None = None,
+) -> None:
+    """Create or configure an ECS system group in the active sketch."""
+
+    require_context().group(name, before=before, after=after, enabled=enabled, run_if=run_if)
+
+
+def order(groups: Iterable[str]) -> None:
+    """Declare a left-to-right ordering for active-sketch ECS system groups."""
+
+    require_context().order(groups)
 
 
 def ecs_diagnostics() -> dict[str, Any]:
@@ -335,12 +346,14 @@ __all__ = [
     "enable_system",
     "get_entity",
     "get_resource",
+    "group",
     "emit_event",
     "iter_component_fields",
     "iter_entities",
     "remove_component",
     "read_events",
     "remove_resource",
+    "order",
     "remove_system",
     "remove_tag",
     "reset_ecs_diagnostics",

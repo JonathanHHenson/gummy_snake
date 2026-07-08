@@ -6,7 +6,9 @@ import inspect
 import time
 from typing import TYPE_CHECKING, Any, cast, get_type_hints
 
+from gummysnake._async import call_maybe_async
 from gummysnake.ecs.runtime_views import _RuntimeEventWriter, _ScheduledSystem
+from gummysnake.ecs.scheduling_helpers import scheduled_system_group_names
 from gummysnake.ecs.specs import EventSpec, QuerySpec, ResourceSpec
 from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
@@ -48,12 +50,11 @@ def run_python_system(world: EcsWorld, scheduled: _ScheduledSystem) -> None:
                 materialized_count += len(rows)
                 args.append(rows)
             else:
-                raise SystemPlanError(
-                    f"@ecs.system(python=True) parameter {parameter.name!r} needs "
-                    "an ECS annotation or a queries={...} metadata entry."
-                )
-        callback(*args)
+                args.append(None)
+        call_maybe_async(callback, *args)
     except Exception as exc:
+        if "draw" in scheduled_system_group_names(scheduled):
+            raise
         if isinstance(exc, SystemPlanError | SystemExecutionError):
             raise
         raise SystemExecutionError(

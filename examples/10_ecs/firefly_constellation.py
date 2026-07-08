@@ -100,9 +100,10 @@ def setup() -> None:
     gs.set_resource(Bounds(float(WIDTH), float(HEIGHT), 36.0))
     gs.set_resource(Wind(5.5, -1.2))
     gs.configure_ecs(strict=True)
-    gs.add_system(drift, order=10)
-    gs.add_system(pulse, order=20)
-    gs.add_system(wrap, order=30)
+    gs.order(["simulation", "draw"])
+    gs.add_system(drift, group="simulation")
+    gs.add_system(pulse, group="simulation")
+    gs.add_system(wrap, group="simulation")
 
     center_x = WIDTH / 2
     center_y = HEIGHT / 2
@@ -125,36 +126,38 @@ def draw() -> None:
     gs.background(9, 13, 30)
     flies = list(gs.iter_entities(Position, Glow))
 
-    with gs.style(fill=None, stroke_weight=1):
-        for index, a in enumerate(flies):
-            ax = a[Position].x
-            ay = a[Position].y
-            for b in flies[index + 1 :]:
-                bx = b[Position].x
-                by = b[Position].y
-                distance_sq = (ax - bx) * (ax - bx) + (ay - by) * (ay - by)
-                if distance_sq < 4_200:
-                    alpha = int(52 * (1.0 - distance_sq / 4_200))
-                    gs.stroke(126, 219, 255, alpha)
-                    gs.line(ax, ay, bx, by)
+    gs.no_fill()
+    gs.stroke_weight(1)
+    for index, a in enumerate(flies):
+        ax = a[Position].x
+        ay = a[Position].y
+        for b in flies[index + 1 :]:
+            bx = b[Position].x
+            by = b[Position].y
+            distance_sq = (ax - bx) * (ax - bx) + (ay - by) * (ay - by)
+            if distance_sq < 4_200:
+                alpha = int(52 * (1.0 - distance_sq / 4_200))
+                gs.stroke(126, 219, 255, alpha)
+                gs.line(ax, ay, bx, by)
 
-    with gs.style(stroke=None):
-        for fly in flies:
-            glow = fly[Glow]
-            x = fly[Position].x
-            y = fly[Position].y
-            halo = glow.radius * (4.5 + glow.energy * 2.5)
-            core = glow.radius * (0.7 + glow.energy)
-            gs.fill(85, 190, 255, int(24 + glow.energy * 24))
-            gs.circle(x, y, halo)
-            gs.fill(184, 245, 255, int(110 + glow.energy * 120))
-            gs.circle(x, y, core)
-            gs.fill(255, 250, 181, 230)
-            gs.circle(x, y, max(2.2, core * 0.33))
+    gs.no_stroke()
+    for fly in flies:
+        glow = fly[Glow]
+        x = fly[Position].x
+        y = fly[Position].y
+        halo = glow.radius * (4.5 + glow.energy * 2.5)
+        core = glow.radius * (0.7 + glow.energy)
+        gs.fill(85, 190, 255, int(24 + glow.energy * 24))
+        gs.circle(x, y, halo)
+        gs.fill(184, 245, 255, int(110 + glow.energy * 120))
+        gs.circle(x, y, core)
+        gs.fill(255, 250, 181, 230)
+        gs.circle(x, y, max(2.2, core * 0.33))
 
-    with gs.style(fill=(185, 231, 255, 190), stroke=None):
-        gs.text_size(16)
-        gs.text("ECS fireflies: dataclass components + ordered systems", 22, HEIGHT - 24)
+    gs.fill(185, 231, 255, 190)
+    gs.no_stroke()
+    gs.text_size(16)
+    gs.text("ECS fireflies: dataclass components + grouped draw systems", 22, HEIGHT - 24)
 
     save_once(ARGS, gs.current.frame_count, gs.save_canvas)
 

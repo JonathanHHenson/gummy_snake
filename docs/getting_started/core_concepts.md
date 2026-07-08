@@ -54,9 +54,11 @@ def drift(body: ecs.Query[Position]) -> None:
     body[Position].x.increase_by(1)
 ```
 
-ECS systems run before `before_draw` and `draw()`, and can use resources, typed
-events, grouped aggregates, vector/list columns, and generic spatial relations.
-See `docs/reference/ecs.md` and `examples/10_ecs/` for complete examples.
+ECS systems run in validated groups each drawn frame; the normal draw callback is
+a Python ECS system in the built-in `draw` group. Systems can use resources,
+typed events, grouped aggregates, vector/list columns, canvas draw helpers, and
+generic spatial relations. See `docs/reference/ecs.md` and `examples/10_ecs/` for
+complete examples.
 
 ## Headless Runs
 

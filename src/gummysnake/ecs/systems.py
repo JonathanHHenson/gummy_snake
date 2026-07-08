@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import get_type_hints, overload
 
@@ -29,6 +29,9 @@ class SystemDefinition:
     python: bool = False
     queries: Mapping[str, object] = field(default_factory=dict)
     mutations: Mapping[str, object] = field(default_factory=dict)
+    group: str | Iterable[str] | None = None
+    before: tuple[str, ...] = ()
+    after: tuple[str, ...] = ()
 
     @property
     def display_name(self) -> str:
@@ -175,6 +178,22 @@ def system(function: Callable[..., object], /) -> SystemDefinition: ...
 
 @overload
 def system(
+    function: Callable[..., object],
+    /,
+    *,
+    name: str | None = None,
+    parallel: bool = False,
+    python: bool = False,
+    queries: Mapping[str, object] | None = None,
+    mutations: Mapping[str, object] | None = None,
+    group: str | Iterable[str] | None = None,
+    before: Iterable[str] = (),
+    after: Iterable[str] = (),
+) -> SystemDefinition: ...
+
+
+@overload
+def system(
     function: None = None,
     *,
     name: str | None = None,
@@ -182,6 +201,9 @@ def system(
     python: bool = False,
     queries: Mapping[str, object] | None = None,
     mutations: Mapping[str, object] | None = None,
+    group: str | Iterable[str] | None = None,
+    before: Iterable[str] = (),
+    after: Iterable[str] = (),
 ) -> Callable[[Callable[..., object]], SystemDefinition]: ...
 
 
@@ -193,6 +215,9 @@ def system(
     python: bool = False,
     queries: Mapping[str, object] | None = None,
     mutations: Mapping[str, object] | None = None,
+    group: str | Iterable[str] | None = None,
+    before: Iterable[str] = (),
+    after: Iterable[str] = (),
 ) -> SystemDefinition | Callable[[Callable[..., object]], SystemDefinition]:
     """Decorate a function as an ECS system.
 
@@ -208,6 +233,10 @@ def system(
         python: Run this system as an explicit Python runtime boundary.
         queries: Query metadata for unannotated parameters in Python systems.
         mutations: Entity mutation metadata for Python systems.
+        group: Optional system group name or sequence of group names. Group names are
+            validated at registration.
+        before: Group names that this system's implicit group should run before.
+        after: Group names that this system's implicit group should run after.
 
     Returns:
         A system definition, or a decorator that creates one.
@@ -216,6 +245,13 @@ def system(
     if python and parallel:
         raise SystemPlanError(
             "@ecs.system(python=True) is a scheduler barrier; parallel=True is invalid."
+        )
+    normalized_before = tuple(str(item) for item in before)
+    normalized_after = tuple(str(item) for item in after)
+    if group is not None and (normalized_before or normalized_after):
+        raise SystemPlanError(
+            "@ecs.system(group=...) cannot also declare before=... or after=...; "
+            "configure group order with gs.group() or gs.order()."
         )
 
     def decorate(callback: Callable[..., object]) -> SystemDefinition:
@@ -236,6 +272,9 @@ def system(
             python=bool(python),
             queries=normalized_queries,
             mutations=normalized_mutations,
+            group=group,
+            before=normalized_before,
+            after=normalized_after,
         )
 
     if function is not None:

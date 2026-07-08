@@ -74,6 +74,8 @@ class DefaultAction(Action):
     component_type: type[Any] | None = None
     component_value: DataclassInstance | None = None
     tag: EcsTag | None = None
+    canvas_command: str | None = None
+    canvas_args: tuple[Expression, ...] = ()
 
 
 @dataclass

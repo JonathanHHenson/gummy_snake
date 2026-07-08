@@ -302,9 +302,10 @@ def setup() -> None:
     gs.describe("Crystal moths spiral around lantern entities using ECS spatial light fields.")
     gs.configure_ecs(strict=True)
     gs.set_resource(Bounds(float(WIDTH), float(HEIGHT), 38.0))
-    gs.add_system(lantern_navigation, order=10)
-    gs.add_system(flutter, order=20)
-    gs.add_system(wrap_moths, order=30)
+    gs.order(["simulation", "draw"])
+    gs.add_system(lantern_navigation, group="simulation")
+    gs.add_system(flutter, group="simulation")
+    gs.add_system(wrap_moths, group="simulation")
 
     for x, y in ((128, 135), (326, 246), (560, 136), (514, 350), (230, 356)):
         gs.add_entity(Position(float(x), float(y)), tags=[LANTERN])

@@ -58,6 +58,8 @@ class ActionSerializer:
             raise PhysicalPlanUnsupported("Python UDF actions require explicit Python execution")
         if action.kind == "emit_event":
             return self._serialize_emit_event_action(action)
+        if action.kind == "canvas":
+            return self._serialize_canvas_action(action)
         if action.kind in {"add_component", "remove_component", "add_tag", "remove_tag", "despawn"}:
             return self.serialize_structural_action(action)
         raise PhysicalPlanUnsupported(
@@ -74,6 +76,17 @@ class ActionSerializer:
                 "kind": "set_field",
                 "target": self.expressions.serialize_expr(action.target),
                 "value": self.expressions.serialize_expr(action.value),
+            }
+        )
+
+    def _serialize_canvas_action(self, action: DefaultAction) -> int:
+        if action.canvas_command is None:
+            raise SystemPlanError("Malformed ECS canvas action.")
+        return self.state.add_action(
+            {
+                "kind": "canvas_command",
+                "command": action.canvas_command,
+                "args": [self.expressions.serialize_expr(arg) for arg in action.canvas_args],
             }
         )
 

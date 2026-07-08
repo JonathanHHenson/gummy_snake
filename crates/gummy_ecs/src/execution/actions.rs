@@ -5,7 +5,10 @@ use crate::entity::Entity;
 use crate::error::{EcsError, Result};
 use crate::plan::{ActionNode, ExprNode};
 
-use super::{truthy, EvalContext, ExecutionEvent, ExecutionWrite, PlanExecutor, WriteKey};
+use super::{
+    truthy, EvalContext, ExecutionCanvasCommand, ExecutionEvent, ExecutionWrite, PlanExecutor,
+    WriteKey,
+};
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn execute_action(
@@ -17,6 +20,9 @@ impl<'a> PlanExecutor<'a> {
             if let Some(query_name) = self.row_local_numeric_action_query(action_index, contexts) {
                 return self.execute_row_local_numeric_action(action_index, &query_name);
             }
+        }
+        if let Some(query_name) = self.row_local_canvas_action_query(action_index, contexts) {
+            return self.execute_row_local_canvas_action(action_index, &query_name);
         }
 
         match &self.plan.actions[action_index] {
@@ -67,10 +73,43 @@ impl<'a> PlanExecutor<'a> {
             ActionNode::AddTag { query, tag } => self.execute_add_tag(query, tag, contexts),
             ActionNode::RemoveTag { query, tag } => self.execute_remove_tag(query, tag, contexts),
             ActionNode::Despawn { query } => self.execute_despawn(query, contexts),
+            ActionNode::CanvasCommand(command) => self.execute_canvas_command(command, contexts),
             ActionNode::Udf { descriptor, .. } => Err(EcsError::InvalidPlan(format!(
                 "physical execution cannot call Python UDF '{descriptor}'"
             ))),
         }
+    }
+
+    fn execute_canvas_command(
+        &mut self,
+        command: &crate::plan::CanvasCommandNode,
+        contexts: &[EvalContext],
+    ) -> Result<()> {
+        if command.command.is_empty() {
+            return Err(EcsError::InvalidPlan(
+                "canvas command name cannot be empty".to_string(),
+            ));
+        }
+        let mut query_names = BTreeSet::new();
+        for arg in &command.args {
+            self.collect_expr_queries(*arg, &mut query_names)?;
+        }
+        for base_ctx in contexts {
+            let joined = self.expand_context_for_queries(base_ctx, &query_names)?;
+            self.report.rows_scanned += joined.len();
+            for ctx in joined {
+                let args = command
+                    .args
+                    .iter()
+                    .map(|arg| self.eval_expr(*arg, &ctx))
+                    .collect::<Result<Vec<_>>>()?;
+                self.report.canvas_commands.push(ExecutionCanvasCommand {
+                    command: command.command.clone(),
+                    args,
+                });
+            }
+        }
+        Ok(())
     }
 
     fn structural_contexts(

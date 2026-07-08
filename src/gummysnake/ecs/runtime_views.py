@@ -362,21 +362,22 @@ class SystemHandle:
 
 @dataclass
 class _SystemSetConfig:
-    order: int | None = None
     enabled: bool | None = None
     run_if: Callable[[], bool] | None = None
+    before: tuple[str, ...] = ()
+    after: tuple[str, ...] = ()
 
 
 @dataclass
 class _ScheduledSystem:
     handle: SystemHandle
     built: BuiltSystem
-    order: int
+    group_name: str
     enabled: bool = True
-    before: tuple[SystemHandle | str, ...] = ()
-    after: tuple[SystemHandle | str, ...] = ()
+    before: tuple[str, ...] = ()
+    after: tuple[str, ...] = ()
     run_if: Callable[[], bool] | None = None
-    set_name: str | None = None
+    group_names: tuple[str, ...] = ()
     physical_payload: dict[str, Any] | None = None
     physical_plan_handle: int | None = None
     physical_payload_dynamic: bool = False

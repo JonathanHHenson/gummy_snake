@@ -1,6 +1,6 @@
 use gummy_ecs::{AccessKey, ExecutionReport, ExecutionWrite, PhysicalPlan};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::{PyDict, PyList, PyTuple};
 
 use super::values::ecs_value_to_py;
 
@@ -101,6 +101,42 @@ pub(super) fn execution_report_to_dict<'py>(
         "spatial_candidate_buffer_growths",
         report.spatial_candidate_buffer_growths,
     )?;
+    let canvas_commands = PyList::empty_bound(py);
+    for command in &report.canvas_commands {
+        let args = command
+            .args
+            .iter()
+            .map(|value| ecs_value_to_py(py, value))
+            .collect::<PyResult<Vec<_>>>()?;
+        let args_tuple = PyTuple::new_bound(py, args).into_py(py);
+        let item = PyTuple::new_bound(py, [command.command.clone().into_py(py), args_tuple]);
+        canvas_commands.append(item)?;
+    }
+    dict.set_item("canvas_commands", canvas_commands)?;
+    let canvas_fill_batches = PyList::empty_bound(py);
+    for batch in &report.canvas_fill_batches {
+        let records = PyList::empty_bound(py);
+        for record in &batch.records {
+            records.append(PyTuple::new_bound(
+                py,
+                [
+                    record.kind.into_py(py),
+                    record.a.into_py(py),
+                    record.b.into_py(py),
+                    record.c.into_py(py),
+                    record.d.into_py(py),
+                    record.e.into_py(py),
+                    record.f.into_py(py),
+                    record.r.into_py(py),
+                    record.g.into_py(py),
+                    record.blue.into_py(py),
+                    record.alpha.into_py(py),
+                ],
+            ))?;
+        }
+        canvas_fill_batches.append(records)?;
+    }
+    dict.set_item("canvas_fill_batches", canvas_fill_batches)?;
     let component_writes = PyList::empty_bound(py);
     let resource_writes = PyList::empty_bound(py);
     if include_writes {

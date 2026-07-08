@@ -239,6 +239,16 @@ pub(super) fn validate_plan_shape(plan: &PhysicalPlan) -> Result<()> {
             | ActionNode::AddTag { .. }
             | ActionNode::RemoveTag { .. }
             | ActionNode::Despawn { .. } => {}
+            ActionNode::CanvasCommand(command) => {
+                if command.command.is_empty() {
+                    return Err(EcsError::InvalidPlan(
+                        "canvas command name cannot be empty".to_string(),
+                    ));
+                }
+                for arg in &command.args {
+                    validate_expr_index(plan, *arg)?;
+                }
+            }
             ActionNode::Udf {
                 descriptor, args, ..
             } => {

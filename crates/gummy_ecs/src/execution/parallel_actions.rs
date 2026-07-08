@@ -185,6 +185,12 @@ impl<'a> PlanExecutor<'a> {
     ) -> Result<()> {
         self.merge_parallel_counters(&child_report);
         self.report.events.extend(child_report.events);
+        self.report
+            .canvas_commands
+            .extend(child_report.canvas_commands);
+        self.report
+            .canvas_fill_batches
+            .extend(child_report.canvas_fill_batches);
         if child_report.writes.is_empty() {
             self.report.fields_written += child_report.fields_written;
             self.report.resource_fields_written += child_report.resource_fields_written;

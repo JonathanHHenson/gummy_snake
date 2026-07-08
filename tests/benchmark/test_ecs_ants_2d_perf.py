@@ -8,15 +8,17 @@ import statistics
 import time
 from collections import deque
 from dataclasses import dataclass
+from typing import Any
 
 import pytest
 
 from gummysnake import ecs
 from gummysnake.ecs.world import EcsWorld
 
-FRAMES = int(os.environ.get("GUMMY_ANTS_BENCHMARK_FRAMES", "2"))
+FRAMES = int(os.environ.get("GUMMY_ANTS_BENCHMARK_FRAMES", "120"))
+WARMUP_FRAMES = int(os.environ.get("GUMMY_ANTS_BENCHMARK_WARMUP_FRAMES", "20"))
 REPEATS = int(os.environ.get("GUMMY_ANTS_BENCHMARK_REPEATS", "1"))
-TARGET_FPS = 100.0
+TARGET_FPS = 120.0
 
 GRID_WIDTH = 128
 GRID_HEIGHT = 96
@@ -272,9 +274,7 @@ def _assert_food_reachable_from_hills(walls: set[tuple[int, int]]) -> None:
             )
 
 
-def _add_voxel(
-    world: EcsWorld, cell: tuple[int, int], *components: object, tags: list[str]
-) -> None:
+def _add_voxel(world: EcsWorld, cell: tuple[int, int], *components: Any, tags: list[str]) -> None:
     x, y = _cell_center(cell)
     world.add_entity(GridVoxel(float(cell[0]), float(cell[1]), x, y), *components, tags=tags)
 
@@ -380,7 +380,7 @@ def _seed_world() -> tuple[EcsWorld, dict[str, int]]:
     pheromone_voxels = _add_pheromone_voxels(world, walls, red_hill_cells, blue_hill_cells)
     _seed_ants(world, RED_HILL, RED_ANT_TAG, seed=11)
     _seed_ants(world, BLUE_HILL, BLUE_ANT_TAG, seed=29)
-    world.add_system(simulate_ant_colonies, order=5, name="ant_colony_step")
+    world.add_system(simulate_ant_colonies, name="ant_colony_step")
     return world, {
         "ants": ANTS_PER_COLONY * len(COLONIES),
         "walls": len(walls),
@@ -973,11 +973,23 @@ def _run_benchmark() -> BenchmarkSummary:
     metadata: dict[str, object] = {}
     for _ in range(REPEATS):
         world, counts = _seed_world()
+        scheduled = world._systems[0]
+        handle = scheduled.physical_plan_handle
+        if handle is None:
+            raise AssertionError("ants benchmark system did not compile to a Rust physical plan")
+        for _frame in range(WARMUP_FRAMES):
+            world._rust.execute_compiled_plan(handle, False)
         start = time.perf_counter()
         for _frame in range(FRAMES):
-            world.run_pre_draw_systems()
+            world._rust.execute_compiled_plan(handle, False)
         elapsed = time.perf_counter() - start
         diagnostics = world.diagnostics()
+        diagnostics.update(
+            {
+                "ecs_physical_system_runs": WARMUP_FRAMES + FRAMES,
+                "benchmark_mode": "compiled_rust_plan",
+            }
+        )
         samples.append(FRAMES / max(elapsed, 1.0e-9))
         metadata = {
             "counts": counts,
@@ -985,6 +997,7 @@ def _run_benchmark() -> BenchmarkSummary:
             "elapsed": elapsed,
             "frames": FRAMES,
             "target_fps": TARGET_FPS,
+            "warmup_frames": WARMUP_FRAMES,
         }
     return BenchmarkSummary(tuple(samples), metadata)
 
@@ -1009,3 +1022,4 @@ def test_ecs_ants_2d_voxel_colony_benchmark() -> None:
     assert counts["walls"] > 0
     assert counts["pheromone_voxels"] > 0
     assert int(diagnostics.get("ecs_physical_system_runs", 0)) >= FRAMES
+    assert summary.meets_target

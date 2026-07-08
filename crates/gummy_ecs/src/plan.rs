@@ -118,6 +118,12 @@ pub enum ExprNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CanvasCommandNode {
+    pub command: String,
+    pub args: Vec<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActionNode {
     Noop,
     SetField {
@@ -160,6 +166,7 @@ pub enum ActionNode {
     Despawn {
         query: String,
     },
+    CanvasCommand(CanvasCommandNode),
     Udf {
         descriptor: String,
         args: Vec<usize>,

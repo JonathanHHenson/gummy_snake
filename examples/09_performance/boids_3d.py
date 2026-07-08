@@ -434,7 +434,8 @@ def setup() -> None:
         "A 3D boids flocking simulation using an ECS system and fast WEBGL model transforms."
     )
     gs.configure_ecs(strict=False, warn_on_ambiguity=False)
-    gs.add_system(simulate_boids, order=10)
+    gs.order(["simulation", "draw"])
+    gs.add_system(simulate_boids, group="simulation")
     _prepare_boids()
 
 

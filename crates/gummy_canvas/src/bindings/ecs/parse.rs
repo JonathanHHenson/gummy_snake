@@ -1,6 +1,7 @@
 use gummy_ecs::{
-    ActionNode, BridgePlanPayload, BridgeQueryPayload, Entity, ExprNode, QueryTerm,
-    SpatialAlgorithmKind, SpatialAlgorithmNode, SpatialBoundsExprNode, SpatialRelationNode,
+    ActionNode, BridgePlanPayload, BridgeQueryPayload, CanvasCommandNode, Entity, ExprNode,
+    QueryTerm, SpatialAlgorithmKind, SpatialAlgorithmNode, SpatialBoundsExprNode,
+    SpatialRelationNode,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -354,6 +355,10 @@ fn parse_action_node(value: Bound<'_, PyAny>) -> PyResult<ActionNode> {
         "despawn" => Ok(ActionNode::Despawn {
             query: get_required(dict, "query")?.extract::<String>()?,
         }),
+        "canvas_command" | "canvas" => Ok(ActionNode::CanvasCommand(CanvasCommandNode {
+            command: get_required(dict, "command")?.extract::<String>()?,
+            args: parse_usize_list(&get_required(dict, "args")?, "args")?,
+        })),
         "udf" => Ok(ActionNode::Udf {
             descriptor: get_required(dict, "descriptor")?.extract::<String>()?,
             args: parse_usize_list(&get_required(dict, "args")?, "args")?,

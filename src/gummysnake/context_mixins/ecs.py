@@ -203,25 +203,25 @@ class EcsContextMixin:
         self,
         system: SystemDefinition,
         *,
-        order: int = 0,
         enabled: bool = True,
         name: str | None = None,
-        before: Iterable[SystemHandle | str] = (),
-        after: Iterable[SystemHandle | str] = (),
+        before: Iterable[str] = (),
+        after: Iterable[str] = (),
         run_if: Callable[[], bool] | None = None,
-        set: str | None = None,
+        set: str | Iterable[str] | None = None,
+        group: str | Iterable[str] | None = None,
     ) -> SystemHandle:
         """Schedule an ECS system to run before drawing.
 
         Args:
             system: System definition created with ``@ecs.system``.
-            order: Numeric order used when no dependency edge decides ordering.
             enabled: Whether the system starts enabled.
             name: Optional human-readable name for diagnostics and dependencies.
-            before: Systems that should run after this system.
-            after: Systems that should run before this system.
+            before: Groups that should run after this system's implicit group.
+            after: Groups that should run before this system's implicit group.
             run_if: Optional predicate checked before running the system.
-            set: Optional system-set name for grouped configuration.
+            set: Deprecated alias for ``group``.
+            group: Optional explicit system group name or sequence of group names.
 
         Returns:
             A handle that can enable, disable, or remove the system later.
@@ -229,13 +229,13 @@ class EcsContextMixin:
 
         return self.ecs.add_system(
             system,
-            order=order,
             enabled=enabled,
             name=name,
             before=before,
             after=after,
             run_if=run_if,
             set=set,
+            group=group,
         )
 
     def remove_system(self, handle: SystemHandle | str) -> None:
@@ -281,20 +281,30 @@ class EcsContextMixin:
         self,
         name: str,
         *,
-        order: int | None = None,
         enabled: bool | None = None,
         run_if: Callable[[], bool] | None = None,
     ) -> None:
-        """Configure scheduling defaults for a named system set.
+        """Deprecated alias for ``group(name, enabled=..., run_if=...)``."""
 
-        Args:
-            name: System-set name.
-            order: Optional set-level order override.
-            enabled: Optional set-level enabled flag.
-            run_if: Optional predicate checked before systems in the set run.
-        """
+        self.ecs.configure_system_set(name, enabled=enabled, run_if=run_if)
 
-        self.ecs.configure_system_set(name, order=order, enabled=enabled, run_if=run_if)
+    def group(
+        self,
+        name: str,
+        *,
+        before: Iterable[str] = (),
+        after: Iterable[str] = (),
+        enabled: bool | None = None,
+        run_if: Callable[[], bool] | None = None,
+    ) -> None:
+        """Create or configure an ECS system group."""
+
+        self.ecs.group(name, before=before, after=after, enabled=enabled, run_if=run_if)
+
+    def order(self, groups: Iterable[str]) -> None:
+        """Declare a left-to-right ordering for ECS system groups."""
+
+        self.ecs.order(groups)
 
     def ecs_diagnostics(self) -> dict[str, Any]:
         """Return ECS counters and runtime diagnostics."""

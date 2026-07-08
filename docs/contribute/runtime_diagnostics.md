@@ -99,8 +99,9 @@ Common stable counters include:
 | Counter | Meaning |
 | --- | --- |
 | `ecs_systems_registered` / `ecs_systems_enabled` | Current schedule surface. |
-| `ecs_schedule_rebuilds` | System registration, removal, enable state, dependencies, or set configuration changed schedule ordering. |
-| `ecs_pre_draw_runs` | ECS phases executed before draw. This should advance with drawn frames. |
+| `ecs_schedule_rebuilds` | System registration, removal, enable state, dependencies, or group configuration changed schedule ordering. |
+| `ecs_system_frame_runs` | ECS group phases executed on drawn frames. This should advance with drawn frames. |
+| `ecs_canvas_commands` | Canvas draw commands emitted by Rust-executed ECS systems and replayed into the canvas runtime. |
 | `ecs_physical_plan_compiles` | Logical action trees serialized and compiled into Rust physical plans. Repeated compiles usually mean schema fingerprints or dynamic UDF iterable sources are changing. |
 | `ecs_rust_compiled_plans` | Rust physical-plan handles cached by the world. |
 | `ecs_physical_system_runs` | Non-UDF systems executed through Rust physical plans. Hot ECS benchmark claims should show this is non-zero. |

@@ -62,6 +62,32 @@ pub struct ExecutionEvent {
     pub payload: EcsValue,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExecutionCanvasCommand {
+    pub command: String,
+    pub args: Vec<EcsValue>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExecutionCanvasFillRecord {
+    pub kind: u8,
+    pub a: f64,
+    pub b: f64,
+    pub c: f64,
+    pub d: f64,
+    pub e: f64,
+    pub f: f64,
+    pub r: u8,
+    pub g: u8,
+    pub blue: u8,
+    pub alpha: u8,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ExecutionCanvasFillBatch {
+    pub records: Vec<ExecutionCanvasFillRecord>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ExecutionReport {
     pub rows_scanned: usize,
@@ -88,6 +114,8 @@ pub struct ExecutionReport {
     pub spatial_candidate_buffer_growths: usize,
     pub writes: Vec<ExecutionWrite>,
     pub events: Vec<ExecutionEvent>,
+    pub canvas_commands: Vec<ExecutionCanvasCommand>,
+    pub canvas_fill_batches: Vec<ExecutionCanvasFillBatch>,
 }
 
 #[derive(Debug, Clone, Default)]

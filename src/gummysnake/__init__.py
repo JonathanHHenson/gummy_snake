@@ -170,6 +170,7 @@ from gummysnake.api.global_mode import (
     get,
     get_entity,
     get_resource,
+    group,
 )
 
 from gummysnake.api.global_mode import (
@@ -223,6 +224,7 @@ from gummysnake.api.global_mode import (
     no_stroke,
     no_tint,
     on,
+    order,
     performance_diagnostics,
     pixel_array,
 )
@@ -583,6 +585,7 @@ __all__ = [
     "normal",
     "normal_material",
     "orbit_control",
+    "order",
     "ortho",
     "panorama",
     "perspective",
@@ -644,6 +647,7 @@ __all__ = [
     "iter_entities",
     "set_resource",
     "get_resource",
+    "group",
     "remove_resource",
     "add_system",
     "remove_system",

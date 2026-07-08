@@ -144,31 +144,47 @@ A decorated system is a build function, not a per-frame Python loop:
 6. Rust validates/optimizes/compiles the bridge payload into a physical plan.
 7. Each ECS phase executes the cached Rust physical plan against Rust storage.
 
-Systems run every drawn frame after timing/input state is updated and before
-plugin `before_draw` hooks and user `draw()`. Plugins can observe the phase with
-`before_ecs(context)` and `after_ecs(context)` hooks. The public draw callback
-should treat ECS-updated component values as ready for rendering.
+Systems run every drawn frame after timing/input state is updated. The public
+draw callback is registered as an explicit Python ECS system in the built-in
+`draw` group, so ECS groups determine the relative order of simulation and
+drawing work. Plugins observe each group with generated lifecycle hooks named
+`before_<group_name>(context)` and `after_<group_name>(context)`, for example
+`before_simulation`, `after_simulation`, `before_draw`, and `after_draw`.
 
 ## Scheduling and determinism
 
 `gs.add_system()` accepts:
 
-- `order=` for deterministic coarse ordering,
-- `before=` and `after=` dependencies using handles or names,
+- `group=` to place a system in an explicit named group,
+- `before=` and `after=` dependencies for systems that use their implicit
+  `system_<system_name>` group,
 - `enabled=` for registration-time enable state,
-- `run_if=` for frame-level Python conditions,
-- `set=` to group systems into configurable named sets.
+- `run_if=` for frame-level Python conditions.
 
-`gs.configure_system_set(name, order=..., enabled=..., run_if=...)` adjusts a
-set. Schedules are topologically sorted with stable tie-breaks; dependency cycles
-raise `SystemPlanError`.
+`gs.group(name, before=..., after=..., enabled=..., run_if=...)` creates or
+configures a group, and `gs.order(["input", "simulation", "draw"])` adds a
+left-to-right group ordering constraint. Referencing a group auto-creates it, but
+all group names must be `snake_case` so generated plugin hook names are stable.
+A system may belong to multiple intersecting groups, for example
+`group=("draw", "draw_background")`; it still runs once, but all memberships
+contribute ordering constraints, group enable/run conditions, and generated
+lifecycle hooks. Intersections are valid only when group orders agree: a system
+cannot belong to two mutually ordered groups, and derived system-order cycles
+raise `SystemPlanError`. A system may use `before=`/`after=` only when it does
+not provide `group=`; explicitly grouped systems should order their groups
+instead. Schedules are topologically sorted with stable tie-breaks, and systems
+with equivalent group constraints run in registration order.
 
 `do_in_order(*actions)` is serial and later actions observe writes from earlier
 actions. `do_in_parallel(*actions)` represents independent snapshot-style work.
-Strict mode rejects overlapping parallel writes and ambiguous joined writes.
-With strict mode off, execution remains deterministic with last-write-wins
-semantics and ambiguity warnings unless `warn_on_ambiguity=False` suppresses
-logging.
+Canvas actions recorded through `gummy_snake.ecs.canvas` are serialized into Rust
+plans and replayed against the canvas runtime after physical execution reports
+are applied. The `ecs.canvas` helpers are plan-building APIs only; explicit
+Python ECS systems/UDFs that draw at runtime should call the normal `gummysnake`
+drawing APIs. Strict mode rejects overlapping parallel writes and ambiguous
+joined writes. With strict mode off, execution remains deterministic with
+last-write-wins semantics and ambiguity warnings unless `warn_on_ambiguity=False`
+suppresses logging.
 
 ## Expressions, joins, and grouping
 

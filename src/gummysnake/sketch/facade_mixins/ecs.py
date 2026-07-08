@@ -183,25 +183,25 @@ class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
         self,
         system: SystemDefinition,
         *,
-        order: int = 0,
         enabled: bool = True,
         name: str | None = None,
-        before: Iterable[SystemHandle | str] = (),
-        after: Iterable[SystemHandle | str] = (),
+        before: Iterable[str] = (),
+        after: Iterable[str] = (),
         run_if: Callable[[], bool] | None = None,
-        set: str | None = None,
+        set: str | Iterable[str] | None = None,
+        group: str | Iterable[str] | None = None,
     ) -> SystemHandle:
         """Schedule an ECS system for this sketch.
 
         Args:
             system: System definition created with ``@ecs.system``.
-            order: Numeric order used when dependencies do not decide ordering.
             enabled: Whether the system starts enabled.
             name: Optional name for diagnostics and dependency references.
-            before: Systems that should run after this system.
-            after: Systems that should run before this system.
+            before: Groups that should run after this system's implicit group.
+            after: Groups that should run before this system's implicit group.
             run_if: Optional predicate checked before running the system.
-            set: Optional system-set name for grouped configuration.
+            set: Deprecated alias for ``group``.
+            group: Optional explicit system group name or sequence of group names.
 
         Returns:
             A handle for later system control.
@@ -209,13 +209,13 @@ class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
 
         return self._ctx.add_system(
             system,
-            order=order,
             enabled=enabled,
             name=name,
             before=before,
             after=after,
             run_if=run_if,
             set=set,
+            group=group,
         )
 
     def remove_system(self, handle: SystemHandle | str) -> None:
@@ -261,20 +261,30 @@ class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
         self,
         name: str,
         *,
-        order: int | None = None,
         enabled: bool | None = None,
         run_if: Callable[[], bool] | None = None,
     ) -> None:
-        """Configure a named ECS system set for this sketch.
+        """Deprecated alias for ``group(name, enabled=..., run_if=...)``."""
 
-        Args:
-            name: System-set name.
-            order: Optional set-level order override.
-            enabled: Optional set-level enabled flag.
-            run_if: Optional predicate checked before systems in the set run.
-        """
+        self._ctx.configure_system_set(name, enabled=enabled, run_if=run_if)
 
-        self._ctx.configure_system_set(name, order=order, enabled=enabled, run_if=run_if)
+    def group(
+        self,
+        name: str,
+        *,
+        before: Iterable[str] = (),
+        after: Iterable[str] = (),
+        enabled: bool | None = None,
+        run_if: Callable[[], bool] | None = None,
+    ) -> None:
+        """Create or configure an ECS system group for this sketch."""
+
+        self._ctx.group(name, before=before, after=after, enabled=enabled, run_if=run_if)
+
+    def order(self, groups: Iterable[str]) -> None:
+        """Declare a left-to-right ordering for ECS system groups."""
+
+        self._ctx.order(groups)
 
     def ecs_diagnostics(self) -> dict[str, Any]:
         """Return ECS counters and runtime diagnostics for this sketch."""

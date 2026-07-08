@@ -6,6 +6,16 @@ use crate::error::{EcsError, Result};
 
 use super::World;
 
+fn contiguous_location_range(locations: &[(usize, usize)]) -> Option<(usize, usize, usize)> {
+    let (first_archetype, first_row) = locations.first().copied()?;
+    for (offset, (archetype, row)) in locations.iter().copied().enumerate() {
+        if archetype != first_archetype || row != first_row + offset {
+            return None;
+        }
+    }
+    Some((first_archetype, first_row, first_row + locations.len()))
+}
+
 impl World {
     pub fn set_field(
         &mut self,
@@ -110,6 +120,13 @@ impl World {
             if let Some(column) =
                 self.archetypes[first_archetype].get_field_f64_slice(component, field)?
             {
+                if let Some((_, start, end)) = contiguous_location_range(locations) {
+                    let Some(slice) = column.get(start..end) else {
+                        return Err(EcsError::RowOutOfBounds);
+                    };
+                    values.extend_from_slice(slice);
+                    return Ok(values);
+                }
                 for (_, row) in locations {
                     let Some(value) = column.get(*row) else {
                         return Err(EcsError::RowOutOfBounds);
@@ -161,17 +178,30 @@ impl World {
             if let Some(column) =
                 self.archetypes[first_archetype].get_field_f64_slice_mut(component, field)?
             {
-                let len = column.len();
-                for (_, row) in locations {
-                    if *row >= len {
+                if let Some((_, start, end)) = contiguous_location_range(locations) {
+                    let Some(slice) = column.get_mut(start..end) else {
                         return Err(EcsError::RowOutOfBounds);
+                    };
+                    for (index, slot) in slice.iter_mut().enumerate() {
+                        let value = values[index * value_stride + value_offset];
+                        if *slot != value {
+                            *slot = value;
+                            written += 1;
+                        }
                     }
-                }
-                for (index, (_, row)) in locations.iter().enumerate() {
-                    let value = values[index * value_stride + value_offset];
-                    if column[*row] != value {
-                        column[*row] = value;
-                        written += 1;
+                } else {
+                    let len = column.len();
+                    for (_, row) in locations {
+                        if *row >= len {
+                            return Err(EcsError::RowOutOfBounds);
+                        }
+                    }
+                    for (index, (_, row)) in locations.iter().enumerate() {
+                        let value = values[index * value_stride + value_offset];
+                        if column[*row] != value {
+                            column[*row] = value;
+                            written += 1;
+                        }
                     }
                 }
             } else {

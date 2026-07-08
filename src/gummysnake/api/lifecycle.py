@@ -8,6 +8,8 @@ from typing import cast
 
 from gummysnake import constants as c
 from gummysnake.context import SketchContext
+from gummysnake.ecs.systems import SystemDefinition
+from gummysnake.ecs.systems import system as ecs_system
 from gummysnake.sketch import EVENT_CALLBACK_NAMES, FunctionSketch, SketchBuilder
 
 type LifecycleCallback = Callable[[], object]
@@ -113,18 +115,37 @@ def setup[F: LifecycleCallback](callback: F) -> F:
     return _module_builder(_caller_module_name()).setup(callback)
 
 
-def draw[F: LifecycleCallback](callback: F) -> F:
-    """Register a function that draws each frame.
+def draw(
+    callback: LifecycleCallback | None = None,
+    *,
+    name: str | None = None,
+    queries: dict[str, object] | None = None,
+    mutations: dict[str, object] | None = None,
+) -> SystemDefinition | Callable[[LifecycleCallback], SystemDefinition]:
+    """Register a Python ECS draw system in the built-in ``draw`` group.
 
-    Args:
-        callback: Function called for each scheduled frame. It may be synchronous
-            or asynchronous.
-
-    Returns:
-        The original callback so the decorator does not change the function.
+    ``@gs.draw`` is an alias-style convenience for
+    ``@ecs.system(python=True, group="draw", ...)`` and is automatically registered
+    with the module's sketch builder.
     """
 
-    return _module_builder(_caller_module_name()).draw(callback)
+    builder = _module_builder(_caller_module_name())
+
+    def decorate(callback: LifecycleCallback) -> SystemDefinition:
+        definition = ecs_system(
+            callback,
+            name=name,
+            python=True,
+            group="draw",
+            queries=queries,
+            mutations=mutations,
+        )
+        builder.register_draw_system(definition)
+        return definition
+
+    if callback is not None:
+        return decorate(callback)
+    return decorate
 
 
 def on[F: EventCallback](
@@ -206,6 +227,7 @@ def run(
         preload=_lifecycle_callback("preload", preload, decorated, caller_globals),
         setup=_lifecycle_callback("setup", setup, decorated, caller_globals),
         draw=_lifecycle_callback("draw", draw, decorated, caller_globals),
+        draw_system=None if draw is not None or decorated is None else decorated.draw_system,
         event_callbacks=_event_callbacks(explicit_callbacks, decorated, caller_globals),
         headless=headless,
     )

@@ -30,12 +30,15 @@ pub use diagnostics::Diagnostics;
 pub use entity::{Entity, EntityAllocator};
 pub use error::{EcsError, Result};
 pub use event::{EventRecord, EventStore};
-pub use execution::{ExecutionReport, ExecutionWrite};
+pub use execution::{
+    ExecutionCanvasCommand, ExecutionCanvasFillBatch, ExecutionCanvasFillRecord, ExecutionReport,
+    ExecutionWrite,
+};
 pub use hilbert::HilbertIndex;
 pub use plan::{
     compile_bridge_plan, validate_plan, ActionNode, BridgePlanPayload, BridgeQueryPayload,
-    ExprNode, PhysicalPlan, PhysicalPlanHandle, PhysicalQuery, PlanCache, SpatialAlgorithmNode,
-    SpatialBoundsExprNode, SpatialRelationNode, BRIDGE_PLAN_VERSION,
+    CanvasCommandNode, ExprNode, PhysicalPlan, PhysicalPlanHandle, PhysicalQuery, PlanCache,
+    SpatialAlgorithmNode, SpatialBoundsExprNode, SpatialRelationNode, BRIDGE_PLAN_VERSION,
 };
 pub use query::{CachedQuery, QueryFilter, QuerySnapshot, QueryTerm};
 pub use resource::ResourceStore;

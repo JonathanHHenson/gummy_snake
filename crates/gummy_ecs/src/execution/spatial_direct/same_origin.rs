@@ -158,7 +158,6 @@ impl<'a> PlanExecutor<'a> {
             if let BuiltSpatialIndex::DirectPointHashGrid(item_index) = index {
                 if !item_index.has_regular_grid()
                     && item_index.record_count() >= 1024
-                    && item_index.record_count().saturating_mul(4) < origin_rows.len()
                     && self.precompute_inverted_direct_spatial_relation_group_f64(
                         first,
                         &batches,

@@ -132,30 +132,49 @@ Returned `ecs.Action` trees are a migration error for Rust systems. Replace
 `with ecs.do(parallel=True):`, and replace chained `ecs.when(...).do(...)` with
 `with ecs.conditional():` plus `with ecs.when(...):` branches.
 
-Register systems with optional deterministic order, dependencies, run
-conditions, and system sets:
+Register systems with optional groups, group ordering, dependencies, and run
+conditions:
 
 ```python
-movement = gs.add_system(move, order=10, name="movement")
-gs.add_system(collision, after=[movement], name="collision")
-gs.add_system(ai, run_if=lambda: game_is_running, set="gameplay")
-gs.configure_system_set("gameplay", enabled=True, order=20)
+movement = gs.add_system(move, name="movement", group="simulation")
+gs.add_system(collision, name="collision", group="simulation")
+gs.add_system(ai, name="ai", group="gameplay", run_if=lambda: game_is_running)
+
+gs.group("simulation", before=["draw"])
+gs.group("gameplay", after=["input"], before=["draw"], enabled=True)
+gs.order(["input", "simulation", "gameplay", "draw"])
 
 gs.disable_system(movement)
 gs.enable_system(movement)
 gs.remove_system(movement)
 ```
 
-`before=[...]` and `after=[...]` references are topologically sorted with stable
-tie-break ordering; dependency cycles raise `SystemPlanError`. Python `run_if`
-callbacks are evaluated once per frame/system on the lifecycle path and are not
-per-row accelerated work. Decorated systems expose `system.explain()` for a
-readable action-tree summary that includes branch conditions, set-value
-expressions, and spatial relation descriptors useful in tests and diagnostics.
+Referencing a group auto-creates it; `gs.group()` is only needed when you want to
+set group-level `before`, `after`, `enabled`, or `run_if` configuration. Group
+names must be `snake_case` because plugin hooks are generated from the group
+name. Systems without an explicit `group=` are placed in an implicit
+`system_<system_name>` group. A system may also belong to multiple intersecting
+groups by passing a sequence, for example `group=("draw", "draw_background")`.
+The system still runs exactly once, but every group membership contributes
+ordering constraints, group `enabled`/`run_if` checks, and generated plugin hooks.
+Such memberships are valid only when the group orders agree; memberships in
+mutually ordered groups or induced system-order cycles raise `SystemPlanError`.
+Implicit groups may use system-level `before=[...]` or `after=[...]`; systems
+that provide `group=` must order the groups with `gs.group()` or `gs.order()`
+instead. Group dependencies are topologically sorted with stable tie-break
+ordering, and systems with equivalent group constraints run in registration
+order. Python `run_if` callbacks are evaluated once per frame/system on the
+lifecycle path and are not per-row accelerated work.
+Decorated systems expose `system.explain()` for a readable action-tree summary
+that includes branch conditions, set-value expressions, canvas commands, and
+spatial relation descriptors useful in tests and diagnostics.
 
-Systems run every drawn frame after frame state is updated and before plugin
-`before_draw` hooks and user `draw()`. Plugins can observe ECS with
-`before_ecs(context)` and `after_ecs(context)` hooks.
+Systems run every drawn frame after frame state is updated. The draw callback is
+registered as a Python ECS system in the built-in `draw` group, and `@gs.draw` is
+an alias-style convenience for `@ecs.system(python=True, group="draw", ...)`.
+Plugins observe each group with generated lifecycle hooks named
+`before_<group_name>(context)` and `after_<group_name>(context)`, such as
+`before_simulation`, `after_simulation`, `before_draw`, and `after_draw`.
 
 Non-UDF systems are serialized into the Rust ECS physical executor automatically.
 This includes field `set_to`/`increase_by`/`decrease_by`, serial and parallel
@@ -163,10 +182,28 @@ This includes field `set_to`/`increase_by`/`decrease_by`, serial and parallel
 expressions, query/resource field reads and writes, `for_each` over list/event
 sources, typed events, structural entity commands, `ecs.dt()`,
 `ecs.key_is_down(...)`, `exists(...)`, grouped aggregates, change-detection
-filters, query exclusions with `ecs.Without[...]`, and spatial relation
-aggregates/metadata. Unsupported non-UDF plan nodes raise `SystemPlanError`
+filters, query exclusions with `ecs.Without[...]`, spatial relation
+aggregates/metadata, and canvas draw commands recorded through
+`gummy_snake.ecs.canvas`. Unsupported non-UDF plan nodes raise `SystemPlanError`
 instead of executing a Python fallback. Runtime Python work must be declared with
 `@ecs.udf(python=True)` or `@ecs.system(python=True)`.
+
+Use `from gummy_snake.ecs import canvas as ca` in Rust-executed ECS systems when
+drawing should become part of the ECS logical plan. Supported `ca.*` calls record
+canvas actions during system registration and are replayed by the Rust executor.
+They are not runtime drawing aliases; explicit `python=True` ECS systems/UDFs and
+`@gs.draw` callbacks should use the normal `gummysnake` drawing API instead.
+
+```python
+from gummy_snake.ecs import canvas as ca
+
+
+@ecs.system(group=("draw", "draw_actors"))
+def draw_bodies(body: ecs.Query[Position]) -> None:
+    ca.no_stroke()
+    ca.fill(255, 210, 80)
+    ca.circle(body[Position].x, body[Position].y, 4)
+```
 
 ### Typing helpers for system helpers
 

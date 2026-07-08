@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 from types import MethodType
@@ -17,6 +18,8 @@ from gummysnake.plugins.base import (
     PluginHookName,
     PluginProtocol,
 )
+
+_GROUP_LIFECYCLE_HOOK_RE = re.compile(r"^(before|after)_[a-z][a-z0-9_]*$")
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
@@ -134,12 +137,13 @@ class PluginRegistry:
         return api(context, *args, **kwargs)
 
     def dispatch_lifecycle(self, hook_name: PluginHookName, context: SketchContext) -> None:
-        if hook_name not in LIFECYCLE_HOOKS:
+        hook = str(hook_name)
+        if hook_name not in LIFECYCLE_HOOKS and _GROUP_LIFECYCLE_HOOK_RE.fullmatch(hook) is None:
             raise ValueError(f"Unknown lifecycle hook {hook_name!r}.")
         for entry in self._entries:
-            hook = getattr(entry.plugin, hook_name, None)
-            if callable(hook):
-                call_maybe_async(hook, context)
+            callback = getattr(entry.plugin, hook, None)
+            if callable(callback):
+                call_maybe_async(callback, context)
 
     def dispatch_event(
         self,

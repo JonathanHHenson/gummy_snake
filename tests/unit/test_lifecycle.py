@@ -2,7 +2,6 @@ import pytest
 
 from gummysnake import Image, Sketch
 from gummysnake.core.input_events import KeyboardEvent
-from gummysnake.plugins.base import LifecycleHookName
 
 
 class CounterSketch(Sketch):
@@ -244,7 +243,7 @@ def test_after_draw_plugin_exception_runs_frame_cleanup_without_incrementing_fra
             original_context_end_frame = context.end_frame
 
             def dispatch_lifecycle(hook_name, context):
-                if hook_name is LifecycleHookName.AFTER_DRAW:
+                if hook_name == "after_draw":
                     self.cleanup.append("after_draw_hook")
                     raise RuntimeError("plugin failed")
                 original_dispatch_lifecycle(hook_name, context)

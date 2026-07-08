@@ -1,17 +1,232 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::time::Instant;
 
 use rayon::prelude::*;
 
+use crate::column::EcsValue;
+use crate::entity::Entity;
 use crate::error::{EcsError, Result};
-use crate::plan::{ActionNode, ExprNode};
+use crate::plan::{ActionNode, CanvasCommandNode, ExprNode, PhysicalPlan};
+use crate::world::World;
 
 use super::f64_program::{
     build_row_local_field_dependents, compile_f64_readonly_program, compiled_field_f64_value,
-    execute_row_local_f64_action, invalidate_row_local_f64_cache, CompiledF64ReadOnlyProgram,
-    RowLocalAction, RowLocalTarget,
+    eval_compiled_f64_readonly, execute_row_local_f64_action, invalidate_row_local_f64_cache,
+    CompiledF64ReadOnlyProgram, RowLocalAction, RowLocalTarget,
 };
-use super::{storage_type_is_numeric, EvalContext, PlanExecutor, SpatialPrecomputeLayout};
+use super::{
+    storage_type_is_numeric, truthy_f64, EvalContext, ExecutionCanvasCommand,
+    ExecutionCanvasFillBatch, ExecutionCanvasFillRecord, PlanExecutor, SpatialPrecomputeLayout,
+};
+
+const CANVAS_FILL_RECT: u8 = 1;
+const CANVAS_FILL_TRIANGLE: u8 = 2;
+const CANVAS_FILL_ELLIPSE: u8 = 3;
+
+type CanvasFill = [u8; 4];
+
+fn color_channel(value: f64) -> u8 {
+    value.clamp(0.0, 255.0).round() as u8
+}
+
+fn parse_canvas_fill(args: &[f64]) -> Option<CanvasFill> {
+    if !(args.len() == 3 || args.len() == 4) {
+        return None;
+    }
+    Some([
+        color_channel(args[0]),
+        color_channel(args[1]),
+        color_channel(args[2]),
+        if args.len() == 4 {
+            color_channel(args[3])
+        } else {
+            255
+        },
+    ])
+}
+
+fn canvas_fill_primitive_supported(command: &str, arg_count: usize) -> bool {
+    matches!(
+        (command, arg_count),
+        ("rect", 4) | ("circle", 3) | ("ellipse", 3 | 4) | ("triangle", 6)
+    )
+}
+
+fn canvas_fill_record(
+    command: &str,
+    args: &[f64],
+    fill: CanvasFill,
+) -> Option<ExecutionCanvasFillRecord> {
+    let [r, g, blue, alpha] = fill;
+    match command {
+        "rect" if args.len() == 4 => Some(ExecutionCanvasFillRecord {
+            kind: CANVAS_FILL_RECT,
+            a: args[0],
+            b: args[1],
+            c: args[2],
+            d: args[3],
+            e: 0.0,
+            f: 0.0,
+            r,
+            g,
+            blue,
+            alpha,
+        }),
+        "circle" if args.len() == 3 => {
+            let diameter = args[2];
+            Some(ExecutionCanvasFillRecord {
+                kind: CANVAS_FILL_ELLIPSE,
+                a: args[0] - diameter / 2.0,
+                b: args[1] - diameter / 2.0,
+                c: diameter,
+                d: diameter,
+                e: 0.0,
+                f: 0.0,
+                r,
+                g,
+                blue,
+                alpha,
+            })
+        }
+        "ellipse" if args.len() == 3 || args.len() == 4 => {
+            let width = args[2];
+            let height = if args.len() == 4 { args[3] } else { width };
+            Some(ExecutionCanvasFillRecord {
+                kind: CANVAS_FILL_ELLIPSE,
+                a: args[0] - width / 2.0,
+                b: args[1] - height / 2.0,
+                c: width,
+                d: height,
+                e: 0.0,
+                f: 0.0,
+                r,
+                g,
+                blue,
+                alpha,
+            })
+        }
+        "triangle" if args.len() == 6 => Some(ExecutionCanvasFillRecord {
+            kind: CANVAS_FILL_TRIANGLE,
+            a: args[0],
+            b: args[1],
+            c: args[2],
+            d: args[3],
+            e: args[4],
+            f: args[5],
+            r,
+            g,
+            blue,
+            alpha,
+        }),
+        _ => None,
+    }
+}
+
+fn compiled_canvas_cache_for_program(
+    expr_count: usize,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+) -> Vec<Option<f64>> {
+    let mut cache = vec![None; expr_count];
+    for (index, value) in &program.initial_values {
+        cache[*index] = Some(*value);
+    }
+    cache
+}
+
+fn eval_canvas_command_f64_args_with_world(
+    command: &CanvasCommandNode,
+    row_index: usize,
+    entity: Entity,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    world: &World,
+    cache: &mut [Option<f64>],
+) -> Result<Vec<f64>> {
+    command
+        .args
+        .iter()
+        .map(|arg| eval_compiled_f64_readonly(*arg, row_index, entity, program, world, cache))
+        .collect()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_fill_batch_for_row_compiled(
+    action_index: usize,
+    plan: &PhysicalPlan,
+    world: &World,
+    row_index: usize,
+    entity: Entity,
+    program: &CompiledF64ReadOnlyProgram<'_>,
+    fill: &mut Option<CanvasFill>,
+    records: &mut Vec<ExecutionCanvasFillRecord>,
+    cache: &mut [Option<f64>],
+) -> Result<bool> {
+    match &plan.actions[action_index] {
+        ActionNode::Noop => Ok(true),
+        ActionNode::Sequence(children) => {
+            for child in children {
+                if !collect_fill_batch_for_row_compiled(
+                    *child, plan, world, row_index, entity, program, fill, records, cache,
+                )? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        ActionNode::CanvasCommand(command) => {
+            if !canvas_fill_primitive_supported(command.command.as_str(), command.args.len()) {
+                return Ok(false);
+            }
+            let Some(current_fill) = *fill else {
+                return Ok(false);
+            };
+            let args = eval_canvas_command_f64_args_with_world(
+                command, row_index, entity, program, world, cache,
+            )?;
+            let Some(record) = canvas_fill_record(command.command.as_str(), &args, current_fill)
+            else {
+                return Ok(false);
+            };
+            records.push(record);
+            Ok(true)
+        }
+        ActionNode::When {
+            condition,
+            then_action,
+            otherwise_action,
+        } => {
+            let condition_value =
+                eval_compiled_f64_readonly(*condition, row_index, entity, program, world, cache)?;
+            if truthy_f64(condition_value) {
+                collect_fill_batch_for_row_compiled(
+                    *then_action,
+                    plan,
+                    world,
+                    row_index,
+                    entity,
+                    program,
+                    fill,
+                    records,
+                    cache,
+                )
+            } else if let Some(otherwise_action) = otherwise_action {
+                collect_fill_batch_for_row_compiled(
+                    *otherwise_action,
+                    plan,
+                    world,
+                    row_index,
+                    entity,
+                    program,
+                    fill,
+                    records,
+                    cache,
+                )
+            } else {
+                Ok(true)
+            }
+        }
+        _ => Ok(false),
+    }
+}
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn row_local_numeric_action_query(
@@ -36,6 +251,88 @@ impl<'a> PlanExecutor<'a> {
         }
     }
 
+    pub(in crate::execution) fn row_local_canvas_action_query(
+        &self,
+        action_index: usize,
+        contexts: &[EvalContext],
+    ) -> Option<String> {
+        if contexts.len() != 1
+            || !contexts[0].bindings.is_empty()
+            || !contexts[0].loop_items.is_empty()
+        {
+            return None;
+        }
+        let mut query_name = None;
+        if self.row_local_canvas_action_supported(action_index, &mut query_name) {
+            query_name
+        } else {
+            None
+        }
+    }
+
+    fn row_local_canvas_action_supported(
+        &self,
+        action_index: usize,
+        query_name: &mut Option<String>,
+    ) -> bool {
+        match &self.plan.actions[action_index] {
+            ActionNode::Noop => true,
+            ActionNode::Sequence(children) => children
+                .iter()
+                .all(|child| self.row_local_canvas_action_supported(*child, query_name)),
+            ActionNode::CanvasCommand(command) => {
+                !command.command.is_empty()
+                    && command
+                        .args
+                        .iter()
+                        .all(|arg| self.row_local_canvas_expr_supported(*arg, query_name))
+            }
+            ActionNode::When {
+                condition,
+                then_action,
+                otherwise_action,
+            } => {
+                self.row_local_canvas_expr_supported(*condition, query_name)
+                    && self.row_local_canvas_action_supported(*then_action, query_name)
+                    && otherwise_action.is_none_or(|action| {
+                        self.row_local_canvas_action_supported(action, query_name)
+                    })
+            }
+            ActionNode::Parallel(_)
+            | ActionNode::SetField { .. }
+            | ActionNode::ForEach { .. }
+            | ActionNode::EmitEvent { .. }
+            | ActionNode::AddComponent { .. }
+            | ActionNode::RemoveComponent { .. }
+            | ActionNode::AddTag { .. }
+            | ActionNode::RemoveTag { .. }
+            | ActionNode::Despawn { .. }
+            | ActionNode::Udf { .. } => false,
+        }
+    }
+
+    fn row_local_canvas_expr_supported(
+        &self,
+        expr_index: usize,
+        query_name: &mut Option<String>,
+    ) -> bool {
+        if !self.expr_supports_f64(expr_index, &mut HashSet::new()) {
+            return false;
+        }
+        let mut queries = BTreeSet::new();
+        if self.collect_expr_queries(expr_index, &mut queries).is_err() || queries.len() > 1 {
+            return false;
+        }
+        if let Some(query) = queries.iter().next() {
+            if !self.note_row_local_query(query_name, query) {
+                return false;
+            }
+        }
+        query_name.as_deref().is_none_or(|query| {
+            queries.is_empty() || self.expr_uses_only_row_local_direct_fields(expr_index, query)
+        })
+    }
+
     fn action_contains_when(&self, action_index: usize) -> bool {
         match &self.plan.actions[action_index] {
             ActionNode::When { .. } => true,
@@ -51,6 +348,7 @@ impl<'a> PlanExecutor<'a> {
             | ActionNode::AddTag { .. }
             | ActionNode::RemoveTag { .. }
             | ActionNode::Despawn { .. }
+            | ActionNode::CanvasCommand(_)
             | ActionNode::Udf { .. } => false,
         }
     }
@@ -110,6 +408,7 @@ impl<'a> PlanExecutor<'a> {
             | ActionNode::AddTag { .. }
             | ActionNode::RemoveTag { .. }
             | ActionNode::Despawn { .. }
+            | ActionNode::CanvasCommand(_)
             | ActionNode::Udf { .. } => false,
         }
     }
@@ -259,6 +558,734 @@ impl<'a> PlanExecutor<'a> {
                 "row-local numeric executor does not support action {other:?}"
             ))),
         }
+    }
+
+    pub(in crate::execution) fn execute_row_local_canvas_action(
+        &mut self,
+        action_index: usize,
+        query_name: &str,
+    ) -> Result<()> {
+        let rows = self.query_rows.get(query_name).cloned().ok_or_else(|| {
+            EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
+        })?;
+        if rows.is_empty() {
+            return Ok(());
+        }
+
+        let precompute_start = self.profile.then(Instant::now);
+        self.precompute_direct_spatial_aggregates_for_query(
+            query_name,
+            SpatialPrecomputeLayout::QueryRows,
+        )?;
+        if let Some(start) = precompute_start {
+            eprintln!(
+                "ecs_profile row_local_canvas_precompute elapsed_ms={:.3}",
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+        let preload_start = self.profile.then(Instant::now);
+        self.preload_numeric_fields_for_query(query_name, SpatialPrecomputeLayout::QueryRows)?;
+        if let Some(start) = preload_start {
+            eprintln!(
+                "ecs_profile row_local_canvas_preload elapsed_ms={:.3}",
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+        let eval_start = self.profile.then(Instant::now);
+        let (commands, fill_batch, rows_scanned) = {
+            let program = compile_f64_readonly_program(
+                self.plan,
+                self.world,
+                query_name,
+                &self.numeric_field_cache,
+                &self.numeric_field_cache_rows,
+                &self.spatial_precomputed_f64,
+                &self.spatial_precomputed_f64_rows,
+            );
+            if let Some((commands, records, rows_scanned)) = self
+                .collect_compiled_row_local_fill_batch(action_index, query_name, &rows, &program)?
+            {
+                (
+                    commands,
+                    Some(ExecutionCanvasFillBatch { records }),
+                    rows_scanned,
+                )
+            } else {
+                let mut commands = Vec::new();
+                let mut rows_scanned = 0;
+                self.collect_compiled_row_local_canvas_root(
+                    action_index,
+                    query_name,
+                    &rows,
+                    &program,
+                    &mut commands,
+                    &mut rows_scanned,
+                )?;
+                (commands, None, rows_scanned)
+            }
+        };
+        self.report.rows_scanned += rows_scanned;
+        self.report.canvas_commands.extend(commands);
+        if let Some(fill_batch) = fill_batch {
+            self.report.canvas_fill_batches.push(fill_batch);
+        }
+        if let Some(start) = eval_start {
+            eprintln!(
+                "ecs_profile row_local_canvas_eval elapsed_ms={:.3}",
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+        Ok(())
+    }
+
+    fn collect_compiled_row_local_fill_batch(
+        &self,
+        action_index: usize,
+        query_name: &str,
+        rows: &[Entity],
+        program: &CompiledF64ReadOnlyProgram<'_>,
+    ) -> Result<
+        Option<(
+            Vec<ExecutionCanvasCommand>,
+            Vec<ExecutionCanvasFillRecord>,
+            usize,
+        )>,
+    > {
+        let mut style_commands = Vec::new();
+        let mut records = Vec::new();
+        let mut rows_scanned = 0;
+        let mut fill: Option<CanvasFill> = None;
+        if !self.collect_fill_batch_root(
+            action_index,
+            query_name,
+            rows,
+            program,
+            &mut fill,
+            &mut style_commands,
+            &mut records,
+            &mut rows_scanned,
+        )? {
+            return Ok(None);
+        }
+        if records.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some((style_commands, records, rows_scanned)))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn collect_fill_batch_root(
+        &self,
+        action_index: usize,
+        query_name: &str,
+        rows: &[Entity],
+        program: &CompiledF64ReadOnlyProgram<'_>,
+        fill: &mut Option<CanvasFill>,
+        style_commands: &mut Vec<ExecutionCanvasCommand>,
+        records: &mut Vec<ExecutionCanvasFillRecord>,
+        rows_scanned: &mut usize,
+    ) -> Result<bool> {
+        match &self.plan.actions[action_index] {
+            ActionNode::Noop => Ok(true),
+            ActionNode::Sequence(children) => {
+                for child in children {
+                    if !self.collect_fill_batch_root(
+                        *child,
+                        query_name,
+                        rows,
+                        program,
+                        fill,
+                        style_commands,
+                        records,
+                        rows_scanned,
+                    )? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            ActionNode::CanvasCommand(command) => {
+                let uses_query = self.canvas_command_uses_query(command, query_name)?;
+                if uses_query {
+                    let Some(current_fill) = *fill else {
+                        return Ok(false);
+                    };
+                    if !canvas_fill_primitive_supported(
+                        command.command.as_str(),
+                        command.args.len(),
+                    ) {
+                        return Ok(false);
+                    }
+                    *rows_scanned += rows.len();
+                    let expr_count = self.plan.expressions.len();
+                    let world = &*self.world;
+                    if rows.len() < 2_048 {
+                        let mut cache = compiled_canvas_cache_for_program(expr_count, program);
+                        for (row_index, entity) in rows.iter().copied().enumerate() {
+                            cache.fill(None);
+                            let args = eval_canvas_command_f64_args_with_world(
+                                command, row_index, entity, program, world, &mut cache,
+                            )?;
+                            let Some(record) =
+                                canvas_fill_record(command.command.as_str(), &args, current_fill)
+                            else {
+                                return Ok(false);
+                            };
+                            records.push(record);
+                        }
+                    } else {
+                        let worker_count = rayon::current_num_threads().max(1);
+                        let chunk_size = (rows.len() / (worker_count * 4)).clamp(128, 1024).max(1);
+                        let chunk_records = rows
+                            .par_chunks(chunk_size)
+                            .enumerate()
+                            .map(|(chunk_index, chunk)| {
+                                let row_start = chunk_index * chunk_size;
+                                let mut cache =
+                                    compiled_canvas_cache_for_program(expr_count, program);
+                                let mut out = Vec::with_capacity(chunk.len());
+                                for (chunk_offset, entity) in chunk.iter().copied().enumerate() {
+                                    cache.fill(None);
+                                    let row_index = row_start + chunk_offset;
+                                    let args = eval_canvas_command_f64_args_with_world(
+                                        command, row_index, entity, program, world, &mut cache,
+                                    )?;
+                                    let Some(record) = canvas_fill_record(
+                                        command.command.as_str(),
+                                        &args,
+                                        current_fill,
+                                    ) else {
+                                        return Err(EcsError::InvalidPlan(format!(
+                                            "unsupported fill primitive command '{}'",
+                                            command.command
+                                        )));
+                                    };
+                                    out.push(record);
+                                }
+                                Ok(out)
+                            })
+                            .collect::<Result<Vec<_>>>()?;
+                        for mut chunk in chunk_records {
+                            records.append(&mut chunk);
+                        }
+                    }
+                    return Ok(true);
+                }
+                let mut cache = self.compiled_canvas_cache(program);
+                let args =
+                    self.eval_canvas_command_f64_args(command, 0, rows[0], program, &mut cache)?;
+                match command.command.as_str() {
+                    "fill" => {
+                        let Some(next_fill) = parse_canvas_fill(&args) else {
+                            return Ok(false);
+                        };
+                        *fill = Some(next_fill);
+                        style_commands.push(ExecutionCanvasCommand {
+                            command: command.command.clone(),
+                            args: args.iter().copied().map(EcsValue::F64).collect(),
+                        });
+                        Ok(true)
+                    }
+                    "no_fill" => {
+                        *fill = None;
+                        style_commands.push(ExecutionCanvasCommand {
+                            command: command.command.clone(),
+                            args: Vec::new(),
+                        });
+                        Ok(true)
+                    }
+                    "no_stroke" => {
+                        style_commands.push(ExecutionCanvasCommand {
+                            command: command.command.clone(),
+                            args: Vec::new(),
+                        });
+                        Ok(true)
+                    }
+                    _ if canvas_fill_primitive_supported(
+                        command.command.as_str(),
+                        command.args.len(),
+                    ) =>
+                    {
+                        let Some(current_fill) = *fill else {
+                            return Ok(false);
+                        };
+                        let Some(record) =
+                            canvas_fill_record(command.command.as_str(), &args, current_fill)
+                        else {
+                            return Ok(false);
+                        };
+                        records.push(record);
+                        Ok(true)
+                    }
+                    _ => Ok(false),
+                }
+            }
+            ActionNode::When {
+                condition,
+                then_action,
+                otherwise_action,
+            } => {
+                let row_scoped = self.expr_uses_query(*condition, query_name)?
+                    || self.action_uses_query(*then_action, query_name)?
+                    || otherwise_action
+                        .map(|action| self.action_uses_query(action, query_name))
+                        .transpose()?
+                        .unwrap_or(false);
+                if row_scoped {
+                    *rows_scanned += rows.len();
+                    let expr_count = self.plan.expressions.len();
+                    let plan = self.plan;
+                    let world = &*self.world;
+                    let initial_fill = *fill;
+                    if rows.len() < 2_048 {
+                        let mut cache = compiled_canvas_cache_for_program(expr_count, program);
+                        for (row_index, entity) in rows.iter().copied().enumerate() {
+                            cache.fill(None);
+                            let condition_value = eval_compiled_f64_readonly(
+                                *condition, row_index, entity, program, world, &mut cache,
+                            )?;
+                            let mut row_fill = initial_fill;
+                            let supported = if truthy_f64(condition_value) {
+                                collect_fill_batch_for_row_compiled(
+                                    *then_action,
+                                    plan,
+                                    world,
+                                    row_index,
+                                    entity,
+                                    program,
+                                    &mut row_fill,
+                                    records,
+                                    &mut cache,
+                                )?
+                            } else if let Some(otherwise_action) = otherwise_action {
+                                collect_fill_batch_for_row_compiled(
+                                    *otherwise_action,
+                                    plan,
+                                    world,
+                                    row_index,
+                                    entity,
+                                    program,
+                                    &mut row_fill,
+                                    records,
+                                    &mut cache,
+                                )?
+                            } else {
+                                true
+                            };
+                            if !supported {
+                                return Ok(false);
+                            }
+                        }
+                    } else {
+                        let worker_count = rayon::current_num_threads().max(1);
+                        let chunk_size = (rows.len() / (worker_count * 4)).clamp(128, 1024).max(1);
+                        let chunk_records = rows
+                            .par_chunks(chunk_size)
+                            .enumerate()
+                            .map(|(chunk_index, chunk)| {
+                                let row_start = chunk_index * chunk_size;
+                                let mut cache =
+                                    compiled_canvas_cache_for_program(expr_count, program);
+                                let mut out = Vec::with_capacity(chunk.len());
+                                for (chunk_offset, entity) in chunk.iter().copied().enumerate() {
+                                    cache.fill(None);
+                                    let row_index = row_start + chunk_offset;
+                                    let condition_value = eval_compiled_f64_readonly(
+                                        *condition,
+                                        row_index,
+                                        entity,
+                                        program,
+                                        world,
+                                        &mut cache,
+                                    )?;
+                                    let mut row_fill = initial_fill;
+                                    let supported = if truthy_f64(condition_value) {
+                                        collect_fill_batch_for_row_compiled(
+                                            *then_action,
+                                            plan,
+                                            world,
+                                            row_index,
+                                            entity,
+                                            program,
+                                            &mut row_fill,
+                                            &mut out,
+                                            &mut cache,
+                                        )?
+                                    } else if let Some(otherwise_action) = otherwise_action {
+                                        collect_fill_batch_for_row_compiled(
+                                            *otherwise_action,
+                                            plan,
+                                            world,
+                                            row_index,
+                                            entity,
+                                            program,
+                                            &mut row_fill,
+                                            &mut out,
+                                            &mut cache,
+                                        )?
+                                    } else {
+                                        true
+                                    };
+                                    if !supported {
+                                        return Err(EcsError::InvalidPlan(
+                                            "row-local fill batch contains an unsupported row action"
+                                                .to_string(),
+                                        ));
+                                    }
+                                }
+                                Ok(out)
+                            })
+                            .collect::<Result<Vec<_>>>()?;
+                        for mut chunk in chunk_records {
+                            records.append(&mut chunk);
+                        }
+                    }
+                    Ok(true)
+                } else {
+                    let mut cache = self.compiled_canvas_cache(program);
+                    let condition_value = eval_compiled_f64_readonly(
+                        *condition,
+                        0,
+                        rows[0],
+                        program,
+                        &*self.world,
+                        &mut cache,
+                    )?;
+                    if truthy_f64(condition_value) {
+                        self.collect_fill_batch_root(
+                            *then_action,
+                            query_name,
+                            rows,
+                            program,
+                            fill,
+                            style_commands,
+                            records,
+                            rows_scanned,
+                        )
+                    } else if let Some(otherwise_action) = otherwise_action {
+                        self.collect_fill_batch_root(
+                            *otherwise_action,
+                            query_name,
+                            rows,
+                            program,
+                            fill,
+                            style_commands,
+                            records,
+                            rows_scanned,
+                        )
+                    } else {
+                        Ok(true)
+                    }
+                }
+            }
+            _ => Ok(false),
+        }
+    }
+
+    fn eval_canvas_command_f64_args(
+        &self,
+        command: &CanvasCommandNode,
+        row_index: usize,
+        entity: Entity,
+        program: &CompiledF64ReadOnlyProgram<'_>,
+        cache: &mut [Option<f64>],
+    ) -> Result<Vec<f64>> {
+        command
+            .args
+            .iter()
+            .map(|arg| {
+                eval_compiled_f64_readonly(*arg, row_index, entity, program, &*self.world, cache)
+            })
+            .collect()
+    }
+
+    fn collect_compiled_row_local_canvas_root(
+        &self,
+        action_index: usize,
+        query_name: &str,
+        rows: &[Entity],
+        program: &CompiledF64ReadOnlyProgram<'_>,
+        out: &mut Vec<ExecutionCanvasCommand>,
+        rows_scanned: &mut usize,
+    ) -> Result<()> {
+        match &self.plan.actions[action_index] {
+            ActionNode::Noop => Ok(()),
+            ActionNode::Sequence(children) => {
+                for child in children {
+                    self.collect_compiled_row_local_canvas_root(
+                        *child,
+                        query_name,
+                        rows,
+                        program,
+                        out,
+                        rows_scanned,
+                    )?;
+                }
+                Ok(())
+            }
+            ActionNode::CanvasCommand(command) => {
+                if self.canvas_command_uses_query(command, query_name)? {
+                    *rows_scanned += rows.len();
+                    for (row_index, entity) in rows.iter().copied().enumerate() {
+                        self.emit_compiled_row_local_canvas_command(
+                            command, row_index, entity, program, out,
+                        )?;
+                    }
+                } else {
+                    self.emit_compiled_row_local_canvas_command(command, 0, rows[0], program, out)?;
+                }
+                Ok(())
+            }
+            ActionNode::When {
+                condition,
+                then_action,
+                otherwise_action,
+            } => {
+                let row_scoped = self.expr_uses_query(*condition, query_name)?
+                    || self.action_uses_query(*then_action, query_name)?
+                    || otherwise_action
+                        .map(|action| self.action_uses_query(action, query_name))
+                        .transpose()?
+                        .unwrap_or(false);
+                if row_scoped {
+                    *rows_scanned += rows.len();
+                    for (row_index, entity) in rows.iter().copied().enumerate() {
+                        let mut cache = self.compiled_canvas_cache(program);
+                        let condition_value = eval_compiled_f64_readonly(
+                            *condition,
+                            row_index,
+                            entity,
+                            program,
+                            &*self.world,
+                            &mut cache,
+                        )?;
+                        if truthy_f64(condition_value) {
+                            self.collect_compiled_row_local_canvas_for_row(
+                                *then_action,
+                                row_index,
+                                entity,
+                                program,
+                                out,
+                                &mut cache,
+                            )?;
+                        } else if let Some(otherwise_action) = otherwise_action {
+                            self.collect_compiled_row_local_canvas_for_row(
+                                *otherwise_action,
+                                row_index,
+                                entity,
+                                program,
+                                out,
+                                &mut cache,
+                            )?;
+                        }
+                    }
+                } else {
+                    let mut cache = self.compiled_canvas_cache(program);
+                    let condition_value = eval_compiled_f64_readonly(
+                        *condition,
+                        0,
+                        rows[0],
+                        program,
+                        &*self.world,
+                        &mut cache,
+                    )?;
+                    if truthy_f64(condition_value) {
+                        self.collect_compiled_row_local_canvas_root(
+                            *then_action,
+                            query_name,
+                            rows,
+                            program,
+                            out,
+                            rows_scanned,
+                        )?;
+                    } else if let Some(otherwise_action) = otherwise_action {
+                        self.collect_compiled_row_local_canvas_root(
+                            *otherwise_action,
+                            query_name,
+                            rows,
+                            program,
+                            out,
+                            rows_scanned,
+                        )?;
+                    }
+                }
+                Ok(())
+            }
+            other => Err(EcsError::InvalidPlan(format!(
+                "row-local canvas executor does not support action {other:?}"
+            ))),
+        }
+    }
+
+    fn collect_compiled_row_local_canvas_for_row(
+        &self,
+        action_index: usize,
+        row_index: usize,
+        entity: Entity,
+        program: &CompiledF64ReadOnlyProgram<'_>,
+        out: &mut Vec<ExecutionCanvasCommand>,
+        cache: &mut [Option<f64>],
+    ) -> Result<()> {
+        match &self.plan.actions[action_index] {
+            ActionNode::Noop => Ok(()),
+            ActionNode::Sequence(children) => {
+                for child in children {
+                    self.collect_compiled_row_local_canvas_for_row(
+                        *child, row_index, entity, program, out, cache,
+                    )?;
+                }
+                Ok(())
+            }
+            ActionNode::CanvasCommand(command) => self
+                .emit_compiled_row_local_canvas_command(command, row_index, entity, program, out),
+            ActionNode::When {
+                condition,
+                then_action,
+                otherwise_action,
+            } => {
+                let condition_value = eval_compiled_f64_readonly(
+                    *condition,
+                    row_index,
+                    entity,
+                    program,
+                    &*self.world,
+                    cache,
+                )?;
+                if truthy_f64(condition_value) {
+                    self.collect_compiled_row_local_canvas_for_row(
+                        *then_action,
+                        row_index,
+                        entity,
+                        program,
+                        out,
+                        cache,
+                    )
+                } else if let Some(otherwise_action) = otherwise_action {
+                    self.collect_compiled_row_local_canvas_for_row(
+                        *otherwise_action,
+                        row_index,
+                        entity,
+                        program,
+                        out,
+                        cache,
+                    )
+                } else {
+                    Ok(())
+                }
+            }
+            other => Err(EcsError::InvalidPlan(format!(
+                "row-local canvas executor does not support row action {other:?}"
+            ))),
+        }
+    }
+
+    fn emit_compiled_row_local_canvas_command(
+        &self,
+        command: &CanvasCommandNode,
+        row_index: usize,
+        entity: Entity,
+        program: &CompiledF64ReadOnlyProgram<'_>,
+        out: &mut Vec<ExecutionCanvasCommand>,
+    ) -> Result<()> {
+        let mut cache = self.compiled_canvas_cache(program);
+        let args = command
+            .args
+            .iter()
+            .map(|arg| {
+                eval_compiled_f64_readonly(
+                    *arg,
+                    row_index,
+                    entity,
+                    program,
+                    &*self.world,
+                    &mut cache,
+                )
+                .map(EcsValue::F64)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        out.push(ExecutionCanvasCommand {
+            command: command.command.clone(),
+            args,
+        });
+        Ok(())
+    }
+
+    fn compiled_canvas_cache(&self, program: &CompiledF64ReadOnlyProgram<'_>) -> Vec<Option<f64>> {
+        let mut cache = vec![None; self.plan.expressions.len()];
+        for (index, value) in &program.initial_values {
+            cache[*index] = Some(*value);
+        }
+        cache
+    }
+
+    fn canvas_command_uses_query(
+        &self,
+        command: &CanvasCommandNode,
+        query_name: &str,
+    ) -> Result<bool> {
+        for arg in &command.args {
+            if self.expr_uses_query(*arg, query_name)? {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    fn action_uses_query(&self, action_index: usize, query_name: &str) -> Result<bool> {
+        match &self.plan.actions[action_index] {
+            ActionNode::Noop => Ok(false),
+            ActionNode::Sequence(children) | ActionNode::Parallel(children) => {
+                for child in children {
+                    if self.action_uses_query(*child, query_name)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            ActionNode::SetField { target, value } => Ok(self
+                .expr_uses_query(*target, query_name)?
+                || self.expr_uses_query(*value, query_name)?),
+            ActionNode::When {
+                condition,
+                then_action,
+                otherwise_action,
+            } => Ok(self.expr_uses_query(*condition, query_name)?
+                || self.action_uses_query(*then_action, query_name)?
+                || otherwise_action
+                    .map(|action| self.action_uses_query(action, query_name))
+                    .transpose()?
+                    .unwrap_or(false)),
+            ActionNode::ForEach { source, action, .. } => Ok(self
+                .expr_uses_query(*source, query_name)?
+                || self.action_uses_query(*action, query_name)?),
+            ActionNode::EmitEvent { value, .. } => self.expr_uses_query(*value, query_name),
+            ActionNode::AddComponent { query, value, .. } => Ok(query == query_name
+                || value
+                    .map(|expr| self.expr_uses_query(expr, query_name))
+                    .transpose()?
+                    .unwrap_or(false)),
+            ActionNode::RemoveComponent { query, .. }
+            | ActionNode::AddTag { query, .. }
+            | ActionNode::RemoveTag { query, .. }
+            | ActionNode::Despawn { query } => Ok(query == query_name),
+            ActionNode::CanvasCommand(command) => {
+                self.canvas_command_uses_query(command, query_name)
+            }
+            ActionNode::Udf { args, .. } => {
+                for arg in args {
+                    if self.expr_uses_query(*arg, query_name)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+        }
+    }
+
+    fn expr_uses_query(&self, expr_index: usize, query_name: &str) -> Result<bool> {
+        let mut queries = BTreeSet::new();
+        self.collect_expr_queries(expr_index, &mut queries)?;
+        Ok(queries.contains(query_name))
     }
 
     pub(in crate::execution) fn execute_row_local_numeric_action(

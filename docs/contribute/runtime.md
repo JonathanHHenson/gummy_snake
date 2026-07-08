@@ -89,23 +89,24 @@ Runtime implementation files follow that ownership split:
 flowchart TD
     A[begin timing] --> B[context begin_frame]
     B --> C[renderer begin_frame]
-    C --> D[plugin before_ecs]
-    D --> E[run ECS pre-draw systems]
-    E --> F[plugin after_ecs]
-    F --> G[plugin before_draw]
-    G --> H[user draw]
-    H --> I[plugin after_draw]
-    I --> J[renderer end_frame]
-    J --> K[context end_frame]
-    K --> L[increment frame_count]
-    L --> M[present]
+    C --> D[run ordered ECS system groups]
+    D --> E[plugin before_group_name]
+    E --> F[systems in group]
+    F --> G[plugin after_group_name]
+    G --> H{more groups?}
+    H -->|yes| E
+    H -->|no| I[renderer end_frame]
+    I --> J[context end_frame]
+    J --> K[increment frame_count]
+    K --> L[present]
 ```
 
 Keep this ordering intact when changing lifecycle behavior. ECS systems run only
-on frames that will draw, after timing/input state is current and before drawing
-hooks/users can inspect component values. `before_ecs(context)` and
-`after_ecs(context)` are plugin observation points around the Rust ECS phase;
-`before_draw(context)` must see ECS-updated component/resource/event state.
+on frames that will draw, after timing/input state is current. Systems execute in
+validated group order, and the normal draw callback is an explicit Python ECS
+system in the built-in `draw` group. Plugins observe each group with generated
+`before_<group_name>(context)` and `after_<group_name>(context)` hooks such as
+`before_simulation`, `after_simulation`, `before_draw`, and `after_draw`.
 
 ## Frame Scheduling
 
@@ -143,14 +144,15 @@ During each ECS phase, `SketchContext.run_ecs_pre_draw()`:
 1. starts the ECS change-detection frame,
 2. refreshes Rust input-state expressions such as `ecs.dt()` and
    `ecs.key_is_down(...)`,
-3. runs enabled systems in deterministic `order` / dependency / set order,
-4. executes non-UDF action trees in Rust against Rust-owned component/resource
+3. runs enabled systems in deterministic group/dependency order,
+4. dispatches generated plugin hooks before and after each group,
+5. executes non-UDF action trees in Rust against Rust-owned component/resource
    columns and spatial indexes,
-5. calls explicit Python UDF actions or iterable UDF sources only at the declared
+6. calls explicit Python UDF actions or iterable UDF sources only at the declared
    UDF boundary,
-6. applies Rust execution reports for change detection, events, diagnostics, and
-   spatial invalidation,
-7. finalizes change-detection state before `after_ecs` and `before_draw` hooks.
+7. applies Rust execution reports for change detection, events, canvas commands,
+   diagnostics, and spatial invalidation,
+8. finalizes change-detection state before renderer/context frame cleanup.
 
 Do not add Python fallback execution for unsupported non-UDF action or expression
 nodes. Unsupported nodes should fail during physical-plan compilation with a

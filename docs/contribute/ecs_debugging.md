@@ -41,8 +41,8 @@ Common ECS counters:
 | Counter | Meaning |
 | --- | --- |
 | `ecs_systems_registered` / `ecs_systems_enabled` | Current scheduler surface. |
-| `ecs_schedule_rebuilds` | Systems or system sets changed schedule state. |
-| `ecs_pre_draw_runs` | ECS phases run before draw. |
+| `ecs_schedule_rebuilds` | System registration, removal, enable state, dependencies, or group configuration changed schedule state. |
+| `ecs_system_frame_runs` | ECS group phases run on drawn frames. |
 | `ecs_rust_compiled_plans` | Rust-owned compiled physical plan handles currently cached by the world. |
 | `ecs_rows_updated` | Component field writes performed by systems or APIs. |
 | `ecs_structural_commands_applied` | Component/tag structural mutations. |

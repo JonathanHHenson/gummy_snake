@@ -16,12 +16,13 @@ from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import cast
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import gummysnake as gs
 from examples.common import example_parser, save_once
+from gummy_snake.ecs import canvas as ca
 from gummysnake import ecs
 
 WIDTH = 960
@@ -97,13 +98,10 @@ SCENT_WANDER_SUPPRESSION = 0.82
 WORLD_BOUNDS = ecs.spatial.Bounds2D(0.0, 0.0, GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE)
 VOXEL_QUADTREE = ecs.spatial.Quadtree(WORLD_BOUNDS, capacity=16)
 
-ANT_DRAW_FIELDS = ("x", "y", "carrying")
-GRID_DRAW_FIELDS = ("x", "y")
-PHEROMONE_DRAW_FIELDS = ("x", "y", "red_food", "red_home", "blue_food", "blue_home")
-
 fps_last_time: float | None = None
 fps_value = float(TARGET_FPS)
 world_counts: dict[str, int] = {}
+saved_output = False
 
 
 @dataclass
@@ -178,12 +176,10 @@ class PheromoneVoxel:
     blue_home_source: float
 
 
-def _screen_x(x: float) -> float:
-    return GRID_OFFSET_X + x
-
-
-def _screen_y(y: float) -> float:
-    return GRID_OFFSET_Y + y
+@dataclass
+class HudText:
+    title: str
+    stats: str
 
 
 def _cell_center(cell: tuple[int, int]) -> tuple[float, float]:
@@ -290,7 +286,7 @@ def _assert_food_reachable_from_hills(walls: set[tuple[int, int]]) -> None:
             raise RuntimeError(f"walls isolate anthill {hill} from food clumps {sorted(missing)!r}")
 
 
-def _add_voxel(cell: tuple[int, int], *components: object, tags: list[str]) -> None:
+def _add_voxel(cell: tuple[int, int], *components: Any, tags: list[str]) -> None:
     x, y = _cell_center(cell)
     gs.add_entity(GridVoxel(float(cell[0]), float(cell[1]), x, y), *components, tags=tags)
 
@@ -974,51 +970,133 @@ def _update_fps() -> float:
     return fps_value
 
 
-def _grid_rows(tag: str) -> list[tuple[float, float]]:
-    rows = gs.iter_component_fields(GridVoxel, *GRID_DRAW_FIELDS, tags=[tag])
-    return cast(list[tuple[float, float]], list(rows))
+def _hud_text(fps: float) -> HudText:
+    return HudText(
+        title=f"ECS ants | {world_counts.get('ants', 0):,} ants | voxel walls + food clumps",
+        stats=(
+            f"fps {fps:5.1f} | walls {world_counts.get('walls', 0)} "
+            f"food voxels {world_counts.get('food_voxels', 0)} "
+            f"scent voxels {world_counts.get('pheromone_voxels', 0)}"
+        ),
+    )
 
 
-def _ant_rows(tag: str) -> list[tuple[float, float, float]]:
-    rows = gs.iter_component_fields(AntAgent, *ANT_DRAW_FIELDS, tags=[tag])
-    return cast(list[tuple[float, float, float]], list(rows))
+@ecs.system(python=True, group="hud")
+def update_hud_text() -> None:
+    gs.set_resource(_hud_text(_update_fps()))
 
 
-def _pheromone_rows() -> list[tuple[float, float, float, float, float, float]]:
-    rows = gs.iter_component_fields(PheromoneVoxel, *PHEROMONE_DRAW_FIELDS, tags=[PHEROMONE_TAG])
-    return cast(list[tuple[float, float, float, float, float, float]], list(rows))
+@ecs.system(group=("draw", "draw_background"))
+def draw_background() -> None:
+    ca.background(7, 8, 12)
+    ca.no_stroke()
+    ca.fill(16, 18, 26)
+    ca.rect(GRID_OFFSET_X, GRID_OFFSET_Y, GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE)
 
 
-def _draw_voxels(draw_fast: gs.FastDrawScope, tag: str, color: tuple[int, int, int, int]) -> None:
-    gs.fill(*color)
-    for x, y in _grid_rows(tag):
-        draw_fast.rect(
-            _screen_x(x - CELL_SIZE * 0.5), _screen_y(y - CELL_SIZE * 0.5), CELL_SIZE, CELL_SIZE
-        )
+@ecs.system(group=("draw", "draw_walls"))
+def draw_walls(wall: ecs.Query[ecs.Tag[WALL_TAG], GridVoxel, WallVoxel]) -> None:
+    voxel = wall[GridVoxel]
+    ca.fill(68, 72, 86, 240)
+    ca.rect(
+        voxel.x + GRID_OFFSET_X - CELL_SIZE * 0.5,
+        voxel.y + GRID_OFFSET_Y - CELL_SIZE * 0.5,
+        CELL_SIZE,
+        CELL_SIZE,
+    )
 
 
-def _draw_ants(
-    draw_fast: gs.FastDrawScope, rows: list[tuple[float, float, float]], color: tuple[int, int, int]
-) -> None:
-    for x, y, carrying in rows:
-        alpha = 230 if carrying >= 0.5 else 135
-        gs.fill(color[0], color[1], color[2], alpha)
-        draw_fast.circle(_screen_x(x), _screen_y(y), 2.1 if carrying < 0.5 else 3.0)
+@ecs.system(group=("draw", "draw_pheromones"))
+def draw_red_pheromones(marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel]) -> None:
+    trail = marker[PheromoneVoxel]
+    red_signal = trail.red_food + trail.red_home * 0.22
+    blue_signal = trail.blue_food + trail.blue_home * 0.22
+    ca.fill(255, 92, 72, 56)
+    with (
+        ecs.conditional(),
+        ecs.when((red_signal + blue_signal >= 1.2) & (red_signal >= blue_signal)),
+    ):
+        ca.rect(trail.x + GRID_OFFSET_X - 2.0, trail.y + GRID_OFFSET_Y - 2.0, 4.0, 4.0)
 
 
-def _draw_pheromones(draw_fast: gs.FastDrawScope) -> None:
-    for x, y, red_food, red_home, blue_food, blue_home in _pheromone_rows():
-        red_signal = red_food + red_home * 0.22
-        blue_signal = blue_food + blue_home * 0.22
-        signal = red_signal + blue_signal
-        if signal < 1.2:
-            continue
-        alpha = int(min(95.0, 16.0 + signal * 0.42))
-        if red_signal >= blue_signal:
-            gs.fill(255, 92, 72, alpha)
-        else:
-            gs.fill(72, 144, 255, alpha)
-        draw_fast.rect(_screen_x(x - 2.0), _screen_y(y - 2.0), 4.0, 4.0)
+@ecs.system(group=("draw", "draw_pheromones"))
+def draw_blue_pheromones(marker: ecs.Query[ecs.Tag[PHEROMONE_TAG], PheromoneVoxel]) -> None:
+    trail = marker[PheromoneVoxel]
+    red_signal = trail.red_food + trail.red_home * 0.22
+    blue_signal = trail.blue_food + trail.blue_home * 0.22
+    ca.fill(72, 144, 255, 56)
+    with (
+        ecs.conditional(),
+        ecs.when((red_signal + blue_signal >= 1.2) & (blue_signal > red_signal)),
+    ):
+        ca.rect(trail.x + GRID_OFFSET_X - 2.0, trail.y + GRID_OFFSET_Y - 2.0, 4.0, 4.0)
+
+
+@ecs.system(group=("draw", "draw_food"))
+def draw_food(food: ecs.Query[ecs.Tag[FOOD_TAG], GridVoxel, FoodVoxel]) -> None:
+    voxel = food[GridVoxel]
+    ca.fill(116, 238, 126, 220)
+    ca.rect(
+        voxel.x + GRID_OFFSET_X - CELL_SIZE * 0.5,
+        voxel.y + GRID_OFFSET_Y - CELL_SIZE * 0.5,
+        CELL_SIZE,
+        CELL_SIZE,
+    )
+
+
+@ecs.system(group=("draw", "draw_hills"))
+def draw_red_hill(hill: ecs.Query[ecs.Tag[RED_HILL_TAG], GridVoxel, HillVoxel]) -> None:
+    voxel = hill[GridVoxel]
+    ca.fill(255, 88, 76, 220)
+    ca.rect(
+        voxel.x + GRID_OFFSET_X - CELL_SIZE * 0.5,
+        voxel.y + GRID_OFFSET_Y - CELL_SIZE * 0.5,
+        CELL_SIZE,
+        CELL_SIZE,
+    )
+
+
+@ecs.system(group=("draw", "draw_hills"))
+def draw_blue_hill(hill: ecs.Query[ecs.Tag[BLUE_HILL_TAG], GridVoxel, HillVoxel]) -> None:
+    voxel = hill[GridVoxel]
+    ca.fill(82, 148, 255, 220)
+    ca.rect(
+        voxel.x + GRID_OFFSET_X - CELL_SIZE * 0.5,
+        voxel.y + GRID_OFFSET_Y - CELL_SIZE * 0.5,
+        CELL_SIZE,
+        CELL_SIZE,
+    )
+
+
+@ecs.system(group=("draw", "draw_ants"))
+def draw_red_ants(ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent]) -> None:
+    state = ant[AntAgent]
+    ca.fill(255, 80, 70, 185)
+    ca.circle(state.x + GRID_OFFSET_X, state.y + GRID_OFFSET_Y, 2.1 + state.carrying * 0.9)
+
+
+@ecs.system(group=("draw", "draw_ants"))
+def draw_blue_ants(ant: ecs.Query[ecs.Tag[BLUE_ANT_TAG], AntAgent]) -> None:
+    state = ant[AntAgent]
+    ca.fill(75, 145, 255, 185)
+    ca.circle(state.x + GRID_OFFSET_X, state.y + GRID_OFFSET_Y, 2.1 + state.carrying * 0.9)
+
+
+@ecs.system(group=("draw", "draw_hud"))
+def draw_hud(hud: ecs.Res[HudText]) -> None:
+    ca.fill(238, 244, 255, 235)
+    ca.text_size(15)
+    ca.text(hud[HudText].title, 24, 32)
+    ca.text(hud[HudText].stats, 24, HEIGHT - 24)
+
+
+@ecs.system(python=True, group="export")
+def save_frame() -> None:
+    global saved_output
+    if saved_output:
+        return
+    save_once(ARGS, 0, gs.save_canvas)
+    saved_output = True
 
 
 @gs.setup
@@ -1031,42 +1109,32 @@ def setup() -> None:
         "randomized walls, pheromone scent trails, and 10k ants."
     )
     gs.configure_ecs(strict=False, warn_on_ambiguity=False)
-    gs.add_system(simulate_ant_colonies, order=5)
+    gs.order(["simulation", "hud", "draw", "export"])
+    gs.order(
+        [
+            "draw_background",
+            "draw_walls",
+            "draw_pheromones",
+            "draw_food",
+            "draw_hills",
+            "draw_ants",
+            "draw_hud",
+        ]
+    )
+    gs.add_system(simulate_ant_colonies, group="simulation")
+    gs.add_system(update_hud_text)
+    gs.add_system(draw_background)
+    gs.add_system(draw_walls)
+    gs.add_system(draw_red_pheromones)
+    gs.add_system(draw_blue_pheromones)
+    gs.add_system(draw_food)
+    gs.add_system(draw_red_hill)
+    gs.add_system(draw_blue_hill)
+    gs.add_system(draw_red_ants)
+    gs.add_system(draw_blue_ants)
+    gs.add_system(draw_hud)
+    gs.add_system(save_frame)
     _prepare_world()
-
-
-@gs.draw
-def draw() -> None:
-    frame = gs.frame_count()
-    fps = _update_fps()
-    draw_fast = gs.fast()
-
-    gs.background(7, 8, 12)
-    gs.fill(16, 18, 26)
-    draw_fast.rect(GRID_OFFSET_X, GRID_OFFSET_Y, GRID_WIDTH * CELL_SIZE, GRID_HEIGHT * CELL_SIZE)
-    _draw_voxels(draw_fast, WALL_TAG, (68, 72, 86, 240))
-    _draw_pheromones(draw_fast)
-    _draw_voxels(draw_fast, FOOD_TAG, (116, 238, 126, 220))
-    _draw_voxels(draw_fast, RED_HILL_TAG, (255, 88, 76, 220))
-    _draw_voxels(draw_fast, BLUE_HILL_TAG, (82, 148, 255, 220))
-    _draw_ants(draw_fast, _ant_rows(RED_ANT_TAG), (255, 80, 70))
-    _draw_ants(draw_fast, _ant_rows(BLUE_ANT_TAG), (75, 145, 255))
-
-    gs.fill(238, 244, 255, 235)
-    gs.text_size(15)
-    gs.text(
-        f"ECS ants | {world_counts.get('ants', 0):,} ants | voxel walls + food clumps",
-        24,
-        32,
-    )
-    gs.text(
-        f"fps {fps:5.1f} | walls {world_counts.get('walls', 0)} "
-        f"food voxels {world_counts.get('food_voxels', 0)} "
-        f"scent voxels {world_counts.get('pheromone_voxels', 0)}",
-        24,
-        HEIGHT - 24,
-    )
-    save_once(ARGS, frame, gs.save_canvas)
 
 
 if __name__ == "__main__":

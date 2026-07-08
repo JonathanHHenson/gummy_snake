@@ -72,6 +72,14 @@ fn collect_action_access(
         ActionNode::Despawn { .. } => {
             access.structural = true;
         }
+        ActionNode::CanvasCommand(command) => {
+            for arg in &command.args {
+                collect_expr_reads(plan, *arg, access)?;
+            }
+            access
+                .writes
+                .insert(AccessKey::Hidden("canvas".to_string()));
+        }
         ActionNode::Udf {
             args,
             side_effects,

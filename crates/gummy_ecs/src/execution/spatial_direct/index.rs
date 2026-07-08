@@ -23,6 +23,11 @@ impl<'a> PlanExecutor<'a> {
             return Ok(None);
         };
         let index_key = self.spatial_index_cache_key(relation);
+        if let Some(index) = self.spatial_indexes.remove(&index_key) {
+            self.report.spatial_index_reuses += 1;
+            self.report_algorithm_use(&index);
+            return Ok(Some((index_key, index)));
+        }
         if let Some(index) = self.take_fresh_spatial_index(relation) {
             self.report_algorithm_use(&index);
             return Ok(Some((index_key, index)));
