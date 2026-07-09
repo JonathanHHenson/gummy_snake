@@ -53,7 +53,8 @@ include = [
     "assets/samples/sonic_pi/README.md",
     "assets/synths/README.md",
     "assets/synths/compiled/*.gss",
-    "assets/synths/fx/compiled/*.gsfx",
+    "assets/fx/README.md",
+    "assets/fx/compiled/*.gsfx",
 ]
 
 [tool.pytest.ini_options]

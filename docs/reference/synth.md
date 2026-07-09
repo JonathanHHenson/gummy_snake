@@ -98,9 +98,9 @@ plan = sy.load_physical_plan("lead.gss")
 wav_bytes = plan.render()
 ```
 
-Bundled Sonic Pi-style synth source definitions live as one `@sy.synth` module per synth in `src/gummysnake/synth/builtins/`. They use the `SynthSignal` builder to compose low-level primitive or `_layered` synth events and are compiled to `assets/synths/compiled/*.gss`.
+Bundled Sonic Pi-style synth source definitions live as one `@sy.synth` module per synth in `assets/synths/src/`. They use the `SynthSignal` builder to compose low-level primitive or `_layered` synth events and are compiled to `assets/synths/compiled/*.gss`.
 
-Bundled Sonic Pi-style FX source definitions live as one `@sy.fx` module per FX in `src/gummysnake/synth/fx_builtins/`. They use `sy.fx_input()`/`sy.fx_output()` with `FxSignal` methods to compose generic low-level FX operations and are compiled to `assets/synths/fx/compiled/*.gsfx`.
+Bundled Sonic Pi-style FX source definitions live as one `@sy.fx` module per FX in `assets/fx/src/`. They use `sy.fx_input()`/`sy.fx_output()` with `FxSignal` methods to compose generic low-level FX operations and are compiled to `assets/fx/compiled/*.gsfx`.
 
 Compile both asset sets with:
 
@@ -305,6 +305,6 @@ Common Sonic Pi options such as `amp`, `mix`, `pre_amp`, and `pre_mix` are handl
 
 This synth runtime supports deterministic logical planning, `@sy.synth` source-defined synths, `@sy.fx` source-defined FX, binary `.gss`/`.gsfx` physical-plan serialization, Rust-backed WAV rendering from serialized physical plans, primitive synth/sample/FX event execution in Rust, bounded playback via a Rust-rendered full-track buffer, bundled Sonic Pi CC0 samples, external PCM WAV/FLAC samples, common synth waveforms, ADSR-style envelopes, panning, basic controls/slides, compiled bundled synth/FX plan assets, and the Sonic Pi-inspired synth/FX surfaces listed above. A missing or stale `gummysnake.rust._canvas` runtime raises a Gummy Snake capability error with rebuild guidance.
 
-The bundled sample library lives at `assets/samples/sonic_pi/` in the source tree and includes Sonic Pi's `README.md` with CC0 attribution/source notes. Sample names are resolved without the file extension, for example `sy.sample("bd_haus")` resolves to `bd_haus.flac`. Bundled compiled synth assets live at `assets/synths/compiled/`.
+The bundled sample library lives at `assets/samples/sonic_pi/` in the source tree and includes Sonic Pi's `README.md` with CC0 attribution/source notes. Sample names are resolved without the file extension, for example `sy.sample("bd_haus")` resolves to `bd_haus.flac`. Bundled compiled synth assets live at `assets/synths/compiled/`; bundled compiled FX assets live at `assets/fx/compiled/`.
 
 Per the project rules and initial feature request, this API intentionally does not implement live loops, MIDI in/out, OSC, live audio input, multichannel sound output routing, or Minecraft APIs. The module leaves room for those to become runtime-backed extensions later.

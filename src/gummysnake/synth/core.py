@@ -5,7 +5,6 @@ from __future__ import annotations
 import builtins
 import contextlib
 import functools
-import importlib
 import io
 import json
 import random as _random
@@ -74,7 +73,7 @@ def _asset_dir(*parts: str) -> Path:
 
 
 _BUILTIN_SYNTH_COMPILED_DIR = _asset_dir("assets", "synths", "compiled")
-_BUILTIN_FX_COMPILED_DIR = _asset_dir("assets", "synths", "fx", "compiled")
+_BUILTIN_FX_COMPILED_DIR = _asset_dir("assets", "fx", "compiled")
 
 
 def _as_float(value: object) -> float:
@@ -1397,6 +1396,7 @@ class PhysicalPlan:
     controls: tuple[ScheduledControl, ...]
     duration_seconds: float
     sample_rate: int = _SAMPLE_RATE
+    metadata: Mapping[str, object] = field(default_factory=dict)
 
     def explain(self) -> str:
         """Return a compact physical-plan summary."""
@@ -1422,8 +1422,11 @@ class PhysicalPlan:
             "events": [_scheduled_event_to_dict(event) for event in self.events],
             "controls": [_scheduled_control_to_dict(control) for control in self.controls],
         }
+        merged_metadata = dict(self.metadata)
         if metadata is not None:
-            payload["metadata"] = _serialize_synth_value(dict(metadata))
+            merged_metadata.update(dict(metadata))
+        if merged_metadata:
+            payload["metadata"] = _serialize_synth_value(merged_metadata)
         return payload
 
     def to_bytes(self, *, metadata: Mapping[str, object] | None = None) -> bytes:
@@ -1461,11 +1464,18 @@ class PhysicalPlan:
             raise ArgumentValidationError("Serialized synth physical plan events must be a list.")
         if not isinstance(controls_value, Sequence) or isinstance(controls_value, str | bytes):
             raise ArgumentValidationError("Serialized synth physical plan controls must be a list.")
+        metadata_value = payload.get("metadata", {})
+        metadata = (
+            cast(Mapping[str, object], _deserialize_plan_value(metadata_value))
+            if isinstance(metadata_value, Mapping)
+            else {}
+        )
         return cls(
             tuple(_scheduled_event_from_dict(event) for event in events_value),
             tuple(_scheduled_control_from_dict(control) for control in controls_value),
             _as_float(payload.get("duration_seconds", 0.0)),
             _as_int(payload.get("sample_rate", _SAMPLE_RATE)),
+            metadata,
         )
 
     @classmethod
@@ -1545,10 +1555,21 @@ class PlanBuilder:
         if kind == "play":
             synth_definition = _lookup_synth_definition(synth_spec.name)
             if synth_definition is not None:
+                merged_opts = {**dict(synth_spec.opts), **dict(opts)}
+                if isinstance(synth_definition, CompiledSynthDefinition):
+                    return self.add_compiled_synth_definition_event(
+                        synth_definition,
+                        value,
+                        merged_opts,
+                    )
                 return self.add_synth_definition_event(
                     synth_definition,
                     value,
-                    {**dict(synth_spec.opts), **dict(opts)},
+                    merged_opts,
+                )
+            if not synth_spec.name.startswith("_"):
+                raise ArgumentValidationError(
+                    f"No bundled compiled synth asset named {synth_spec.name!r}."
                 )
         node = EventNode(
             id=_next_node_id(),
@@ -1619,6 +1640,96 @@ class PlanBuilder:
         )
         return NodeHandle(placeholder)
 
+    def add_compiled_synth_definition_event(
+        self,
+        definition: CompiledSynthDefinition,
+        value: object,
+        opts: dict[str, object],
+    ) -> NodeHandle:
+        plan = definition.load_plan()
+        event_payloads = [_scheduled_event_to_dict(event) for event in plan.events]
+        control_payloads = [_scheduled_control_to_dict(control) for control in plan.controls]
+        consumed_opts = _apply_template_parameters(
+            event_payloads, control_payloads, opts, plan.metadata
+        )
+        remaining_opts = {key: item for key, item in opts.items() if key not in consumed_opts}
+        parent_fx_chain = self.expanded_fx_chain()
+        event_id_map: dict[int, int] = {}
+        fx_id_map: dict[int, int] = {}
+        timeline_items: list[tuple[float, int, PlanNode]] = []
+
+        for event_index, payload in enumerate(event_payloads):
+            scheduled_event = _scheduled_event_from_dict(payload)
+            event_id = _next_node_id()
+            event_id_map[scheduled_event.node_id] = event_id
+            event_opts = dict(scheduled_event.opts)
+            event_opts.update(remaining_opts)
+            fx_chain = (
+                *parent_fx_chain,
+                *_remap_compiled_fx_chain(scheduled_event.fx_chain, fx_id_map),
+            )
+            event_node = EventNode(
+                id=event_id,
+                kind=scheduled_event.kind,
+                value=value if scheduled_event.kind == "play" else scheduled_event.value,
+                opts=event_opts,
+                beat=0.0,
+                synth_name=scheduled_event.synth_name,
+                synth_opts=dict(scheduled_event.synth_opts),
+                fx_chain=fx_chain,
+            )
+            timeline_items.append((scheduled_event.time_seconds, event_index * 2, event_node))
+
+        for control_index, payload in enumerate(control_payloads):
+            scheduled_control = _scheduled_control_from_dict(payload)
+            target_id = event_id_map.get(scheduled_control.target_id, scheduled_control.target_id)
+            control_node = ControlNode(
+                target_id=target_id,
+                opts=dict(scheduled_control.opts),
+                beat=0.0,
+            )
+            timeline_items.append(
+                (scheduled_control.time_seconds, control_index * 2 + 1, control_node)
+            )
+
+        body, body_beats = _compiled_timeline_nodes(timeline_items, self.bpm, plan.duration_seconds)
+        thread_node = ThreadNode(
+            id=_next_node_id(),
+            body=body,
+            beat=self.current_beat,
+            body_beats=body_beats,
+            name=f"synth:{definition.name}",
+        )
+        self.nodes.append(thread_node)
+        event_paths = _event_node_paths(body)
+        if event_paths:
+            first_event, first_path = event_paths[0]
+            control_targets = tuple(
+                ControlTarget(
+                    event_node.id,
+                    (thread_node.id, thread_node.name or "thread", *path),
+                    event_node.control_note_transpose,
+                )
+                for event_node, path in event_paths
+            )
+            return NodeHandle(
+                first_event,
+                scope_suffix=(thread_node.id, thread_node.name or "thread", *first_path),
+                condition_nodes=tuple(event_node for event_node, _path in event_paths),
+                control_targets=control_targets,
+            )
+        placeholder = EventNode(
+            id=_next_node_id(),
+            kind="play",
+            value=None,
+            opts={},
+            beat=0.0,
+            synth_name="_silence",
+            synth_opts={},
+            fx_chain=(),
+        )
+        return NodeHandle(placeholder)
+
     def add_sleep(self, beats: object) -> None:
         numeric = _literal_float_or_none(beats)
         if numeric is not None and numeric < 0:
@@ -1671,6 +1782,83 @@ class PlanBuilder:
         for handle in self.fx_stack:
             expanded.extend(_expand_fx_handle(handle))
         return tuple(expanded)
+
+
+def _remap_compiled_fx_chain(
+    fx_chain: Sequence[FxHandle], fx_id_map: dict[int, int]
+) -> tuple[FxHandle, ...]:
+    remapped: list[FxHandle] = []
+    for handle in fx_chain:
+        if handle.id not in fx_id_map:
+            fx_id_map[handle.id] = _next_node_id()
+        remapped.append(FxHandle(fx_id_map[handle.id], handle.name, dict(handle.opts)))
+    return tuple(remapped)
+
+
+def _compiled_timeline_nodes(
+    timeline_items: Sequence[tuple[float, int, PlanNode]],
+    bpm: float,
+    duration_seconds: float,
+) -> tuple[tuple[PlanNode, ...], float]:
+    nodes: list[PlanNode] = []
+    cursor_beats = 0.0
+    for time_seconds, _order, node in sorted(timeline_items, key=lambda item: (item[0], item[1])):
+        beat = max(0.0, time_seconds) * bpm / 60.0
+        if beat > cursor_beats:
+            nodes.append(SleepNode(cursor_beats, beat - cursor_beats))
+            cursor_beats = beat
+        if isinstance(node, EventNode | ControlNode):
+            node.beat = cursor_beats
+        nodes.append(node)
+    return tuple(nodes), max(cursor_beats, max(0.0, duration_seconds) * bpm / 60.0)
+
+
+def _apply_template_parameters(
+    event_payloads: list[dict[str, object]],
+    control_payloads: list[dict[str, object]],
+    opts: Mapping[str, object],
+    metadata: Mapping[str, object],
+) -> set[str]:
+    consumed: set[str] = set()
+    parameters = metadata.get("template_parameters", ())
+    if not isinstance(parameters, Sequence) or isinstance(parameters, str | bytes | bytearray):
+        return consumed
+    roots: dict[str, object] = {"events": event_payloads, "controls": control_payloads}
+    for parameter in parameters:
+        if not isinstance(parameter, Mapping):
+            continue
+        name = parameter.get("name")
+        paths = parameter.get("paths", ())
+        if not isinstance(name, str) or name not in opts:
+            continue
+        if not isinstance(paths, Sequence) or isinstance(paths, str | bytes | bytearray):
+            continue
+        for path in paths:
+            if isinstance(path, Sequence) and not isinstance(path, str | bytes | bytearray):
+                _set_template_path(roots, path, opts[name])
+        consumed.add(name)
+    return consumed
+
+
+def _set_template_path(root: object, path: Sequence[object], value: object) -> None:
+    if not path:
+        return
+    current = root
+    for part in path[:-1]:
+        if isinstance(current, Mapping):
+            current = cast(Mapping[object, object], current)[part]
+        elif isinstance(current, list) and isinstance(part, int):
+            current_list = cast(list[object], current)
+            current = current_list[int(part)]
+        else:
+            return
+    final = path[-1]
+    if isinstance(current, dict):
+        current[final] = value
+        return
+    if isinstance(current, list) and isinstance(final, int):
+        current_list = cast(list[object], current)
+        current_list[int(final)] = value
 
 
 _CURRENT_BUILDER: ContextVar[PlanBuilder | None] = ContextVar(
@@ -2208,46 +2396,95 @@ def _synth_definition_key(name: str) -> str:
     return name.strip().removeprefix(":")
 
 
-def _synth_definition_module_name(name: str) -> str:
-    return _synth_definition_key(name).replace("-", "_")
-
-
 def _fx_definition_key(name: str) -> str:
     return name.strip().removeprefix(":")
 
 
-def _fx_definition_module_name(name: str) -> str:
-    return _fx_definition_key(name).replace("-", "_")
+@dataclass(frozen=True, slots=True)
+class CompiledSynthDefinition:
+    """Bundled source-defined synth template loaded from a compiled ``.gss`` asset."""
+
+    name: str
+    path: Path
+
+    def load_plan(self) -> PhysicalPlan:
+        return PhysicalPlan.load(self.path)
 
 
-def _lookup_synth_definition(name: str) -> SynthDefinition | None:
+@dataclass(frozen=True, slots=True)
+class CompiledFxDefinition:
+    """Bundled source-defined FX template loaded from a compiled ``.gsfx`` asset."""
+
+    name: str
+    path: Path
+
+    def load_plan(self) -> PhysicalPlan:
+        return PhysicalPlan.load(self.path)
+
+    def build_chain(self, source_id: int, opts: Mapping[str, object]) -> tuple[FxHandle, ...]:
+        plan = self.load_plan()
+        if not plan.events or not plan.events[0].fx_chain:
+            raise SynthPlanError(f"Compiled FX asset {self.name!r} does not contain an FX chain.")
+        expanded: list[FxHandle] = []
+        for handle in plan.events[0].fx_chain:
+            merged_opts = dict(handle.opts)
+            merged_opts.update(dict(opts))
+            expanded.append(FxHandle(source_id, handle.name, merged_opts))
+        return tuple(expanded)
+
+
+_COMPILED_SYNTH_DEFINITIONS: dict[str, CompiledSynthDefinition] = {}
+_COMPILED_FX_DEFINITIONS: dict[str, CompiledFxDefinition] = {}
+
+
+def _compiled_synth_definition(name: str) -> CompiledSynthDefinition | None:
+    key = _synth_definition_key(name)
+    if key in _COMPILED_SYNTH_DEFINITIONS:
+        return _COMPILED_SYNTH_DEFINITIONS[key]
+    with contextlib.suppress(ArgumentValidationError):
+        definition = CompiledSynthDefinition(key, builtin_synth_path(key))
+        _COMPILED_SYNTH_DEFINITIONS[key] = definition
+        return definition
+    return None
+
+
+def _compiled_fx_definition(name: str) -> CompiledFxDefinition | None:
+    key = _fx_definition_key(name)
+    if key in _COMPILED_FX_DEFINITIONS:
+        return _COMPILED_FX_DEFINITIONS[key]
+    with contextlib.suppress(ArgumentValidationError):
+        definition = CompiledFxDefinition(key, builtin_fx_path(key))
+        _COMPILED_FX_DEFINITIONS[key] = definition
+        return definition
+    return None
+
+
+def _lookup_synth_definition(name: str) -> SynthDefinition | CompiledSynthDefinition | None:
     key = _synth_definition_key(name)
     if key.startswith("_"):
         return None
     definition = _SYNTH_DEFINITIONS.get(key)
     if definition is not None:
         return definition
-    with contextlib.suppress(ModuleNotFoundError):
-        importlib.import_module(f"gummysnake.synth.builtins.{_synth_definition_module_name(key)}")
-    return _SYNTH_DEFINITIONS.get(key)
+    return _compiled_synth_definition(key)
 
 
-def _lookup_fx_definition(name: str) -> FxDefinition | None:
+def _lookup_fx_definition(name: str) -> FxDefinition | CompiledFxDefinition | None:
     key = _fx_definition_key(name)
     if key.startswith("_"):
         return None
     definition = _FX_DEFINITIONS.get(key)
     if definition is not None:
         return definition
-    with contextlib.suppress(ModuleNotFoundError):
-        importlib.import_module(f"gummysnake.synth.fx_builtins.{_fx_definition_module_name(key)}")
-    return _FX_DEFINITIONS.get(key)
+    return _compiled_fx_definition(key)
 
 
 def _expand_fx_handle(handle: FxHandle) -> tuple[FxHandle, ...]:
     definition = _lookup_fx_definition(handle.name)
     if definition is None:
-        return (handle,)
+        if handle.name.startswith("_"):
+            return (handle,)
+        raise ArgumentValidationError(f"No bundled compiled FX asset named {handle.name!r}.")
     return definition.build_chain(handle.id, handle.opts)
 
 
@@ -3039,7 +3276,7 @@ def load_builtin_synth_plan(name: str) -> PhysicalPlan:
 
 
 def builtin_fx_names() -> tuple[str, ...]:
-    """Return bundled compiled FX names available under ``assets/synths/fx/compiled``."""
+    """Return bundled compiled FX names available under ``assets/fx/compiled``."""
 
     if not _BUILTIN_FX_COMPILED_DIR.exists():
         return ()

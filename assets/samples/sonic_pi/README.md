@@ -1,5 +1,7 @@
 # Samples
 
+_Samples in this directory have been cloned from sonic-pi: https://github.com/sonic-pi-net/sonic-pi_
+
 The samples prefixed with `arovane_` have been kindly donated by Uwe Zahn
 (Arovane) under a Creative Commons 0 license. Thanks Uwe!
 

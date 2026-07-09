@@ -1,4 +1,4 @@
-import importlib
+import ast
 import io
 import time
 import wave
@@ -8,7 +8,6 @@ from typing import cast
 import gummysnake as gs
 from gummysnake import synth as sy
 from gummysnake.synth import core as synth_core
-from gummysnake.synth.builtins import SONIC_PI_SYNTH_KEYS
 
 
 @sy.track(seed=12)
@@ -107,7 +106,37 @@ def _slicer_fx_track() -> None:
         sy.sleep(0.25)
 
 
-_DOCUMENTED_SONIC_PI_SYNTH_NAMES = SONIC_PI_SYNTH_KEYS
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_SYNTH_SOURCE_DIR = _PROJECT_ROOT / "assets" / "synths" / "src"
+_FX_SOURCE_DIR = _PROJECT_ROOT / "assets" / "fx" / "src"
+
+
+def _asset_source_files(source_dir: Path) -> tuple[Path, ...]:
+    return tuple(
+        sorted(
+            path
+            for path in source_dir.glob("*.py")
+            if path.name != "__init__.py" and not path.name.startswith("_")
+        )
+    )
+
+
+def _constant_string(path: Path, name: str) -> str:
+    tree = ast.parse(path.read_text(), filename=str(path))
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == name for target in node.targets)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            return node.value.value
+    raise AssertionError(f"{path} does not define string constant {name}")
+
+
+_DOCUMENTED_SONIC_PI_SYNTH_NAMES = tuple(
+    sorted(_constant_string(path, "SYNTH_NAME") for path in _asset_source_files(_SYNTH_SOURCE_DIR))
+)
 
 
 _PRIMITIVE_SYNTH_NAMES = {
@@ -498,46 +527,42 @@ def test_source_synth_control_uses_event_detune_for_layer_timing() -> None:
 
 
 def test_builtin_sonic_pi_synth_source_modules_are_separate_synth_defs() -> None:
-    source_dir = Path(synth_core.__file__).parent / "builtins"
-    source_names: set[str] = set()
-    for path in source_dir.glob("*.py"):
-        if path.name.startswith("_") or path.name == "__init__.py":
-            continue
-        module = importlib.import_module(f"gummysnake.synth.builtins.{path.stem}")
-        source_names.add(module.SYNTH_NAME)
+    source_names = {
+        _constant_string(path, "SYNTH_NAME") for path in _asset_source_files(_SYNTH_SOURCE_DIR)
+    }
 
     assert set(_DOCUMENTED_SONIC_PI_SYNTH_NAMES) == source_names
     assert "bass_foundation" in source_names
     assert "arpeg-click" in source_names
     assert "server-info" in source_names
-    for synth_name in _DOCUMENTED_SONIC_PI_SYNTH_NAMES:
-        module_name = synth_name.replace("-", "_")
-        module = importlib.import_module(f"gummysnake.synth.builtins.{module_name}")
+    for path in _asset_source_files(_SYNTH_SOURCE_DIR):
+        synth_name = _constant_string(path, "SYNTH_NAME")
+        expected_module_name = synth_name.replace("-", "_")
 
-        assert synth_name == module.SYNTH_NAME
-        assert isinstance(module.SYNTH_TRACK, sy.SynthDefinition)
+        assert path.stem == expected_module_name
+        text = path.read_text()
+        assert "@sy.synth" in text
+        assert "SYNTH_TRACK" in text
 
 
 def test_builtin_sonic_pi_sources_use_signal_builders() -> None:
-    synth_source_dir = Path(synth_core.__file__).parent / "builtins"
-    for path in synth_source_dir.glob("*.py"):
-        if path.name.startswith("_") or path.name == "__init__.py":
-            continue
+    old_synth_package = "from " + "gummysnake.synth." + "builtins"
+    old_fx_package = "from " + "gummysnake.synth." + "fx_builtins"
+
+    for path in _asset_source_files(_SYNTH_SOURCE_DIR):
         text = path.read_text()
         assert "sy.synth_input(" in text, path.name
         assert "layered_design" not in text, path.name
         assert "sample_player" not in text, path.name
-        assert "from gummysnake.synth.builtins._common import silence" not in text, path.name
+        assert old_synth_package not in text, path.name
 
-    fx_source_dir = Path(synth_core.__file__).parent / "fx_builtins"
-    for path in fx_source_dir.glob("*.py"):
-        if path.name.startswith("_") or path.name == "__init__.py":
-            continue
+    for path in _asset_source_files(_FX_SOURCE_DIR):
         text = path.read_text()
         assert "sy.fx_input(" in text, path.name
         assert 'with sy.fx("_chain"' not in text, path.name
         assert "chain(" not in text, path.name
         assert "op(" not in text, path.name
+        assert old_fx_package not in text, path.name
 
 
 def test_builtin_sonic_pi_synth_assets_are_compiled_gss() -> None:
