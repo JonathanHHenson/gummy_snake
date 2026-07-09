@@ -165,9 +165,7 @@ impl<'a> PlanExecutor<'a> {
         let index_key = self.spatial_index_cache_key(relation);
         let structural_revision = self.world.structural_revision();
         let field_revision = self.spatial_dependency_revision(relation);
-        let Some(cached) = self.world.take_spatial_index_cache(&index_key) else {
-            return None;
-        };
+        let cached = self.world.take_spatial_index_cache(&index_key)?;
         if cached.signature == signature
             && cached.structural_revision == structural_revision
             && cached.field_revision == field_revision

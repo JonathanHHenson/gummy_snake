@@ -88,6 +88,10 @@ impl ResourceStore {
         self.values.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
     pub fn revision(&self, name: &str) -> u64 {
         self.revisions.get(name).copied().unwrap_or(0)
     }

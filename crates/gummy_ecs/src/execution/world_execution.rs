@@ -107,10 +107,8 @@ impl World {
                     &query_sets,
                 )
             });
-            if conflicts {
-                if !current.is_empty() {
-                    waves.push(std::mem::take(&mut current));
-                }
+            if conflicts && !current.is_empty() {
+                waves.push(std::mem::take(&mut current));
             }
             current.push(plan_index);
         }

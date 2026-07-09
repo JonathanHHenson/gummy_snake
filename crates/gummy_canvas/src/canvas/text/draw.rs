@@ -54,7 +54,7 @@ impl Canvas {
         parsed_style: &Style,
         matrix: Matrix,
     ) -> PyResult<()> {
-        ensure_supported_style(&parsed_style)?;
+        ensure_supported_style(parsed_style)?;
         let Some(fill) = parsed_style.fill else {
             return Ok(());
         };

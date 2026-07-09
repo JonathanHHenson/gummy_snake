@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "crates/gummy_accel",
+    "crates/gummy_canvas",
+    "crates/gummy_ecs",
+    "crates/gummy_synth",
+]
+resolver = "2"

@@ -1,0 +1,254 @@
+# pyright: reportUnboundVariable=false
+# pyright: reportUnsupportedDunderAll=false
+# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
+# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
+# pyright: reportAssignmentType=false, reportCallIssue=false
+# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
+# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
+# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
+# pyright: reportRedeclaration=false, reportReturnType=false
+def _expand_physical_plan(plan: TrackPlan, duration_seconds: float) -> PhysicalPlan:
+    duration_beats = duration_seconds * plan.bpm / 60.0
+    ctx = EvalContext(_random.Random(plan.seed))
+    events: list[ScheduledEvent] = []
+    controls: list[ScheduledControl] = []
+    root_repetitions = (
+        plan.loop_times if plan.loop_times is not None else (None if plan.loop else 1)
+    )
+    fallback_root_body = plan.duration_beats or duration_beats
+    if fallback_root_body <= 0:
+        fallback_root_body = duration_beats
+    iteration = 0
+    start_beat = 0.0
+    while True:
+        if root_repetitions is not None and iteration >= root_repetitions:
+            break
+        if start_beat >= duration_beats:
+            break
+        elapsed_beats = _expand_nodes(
+            plan.nodes,
+            start_beat=start_beat,
+            duration_beats=duration_beats,
+            bpm=plan.bpm,
+            ctx=ctx,
+            events=events,
+            controls=controls,
+            scope=("root", iteration),
+            repeat_scope=(("root", iteration),),
+        )
+        iteration += 1
+        if root_repetitions is not None:
+            start_beat += elapsed_beats if elapsed_beats > 0 else fallback_root_body
+            continue
+        if not plan.loop:
+            break
+        root_body = elapsed_beats if elapsed_beats > 0 else fallback_root_body
+        if root_body <= 0:
+            break
+        start_beat += root_body
+    events.sort(key=lambda event: (event.time_seconds, event.order))
+    controls.sort(key=lambda control: (control.time_seconds, control.order))
+    return PhysicalPlan(tuple(events), tuple(controls), duration_seconds)
+
+
+def _expand_nodes(
+    nodes: Sequence[PlanNode],
+    *,
+    start_beat: float,
+    duration_beats: float,
+    bpm: float,
+    ctx: EvalContext,
+    events: list[ScheduledEvent],
+    controls: list[ScheduledControl],
+    scope: tuple[object, ...],
+    repeat_scope: tuple[object, ...],
+) -> float:
+    cursor = 0.0
+    for node in nodes:
+        absolute_beat = start_beat + cursor
+        if isinstance(node, EventNode):
+            if absolute_beat < duration_beats:
+                event_scope = scope
+                with _eval_scope(ctx, event_scope, repeat_scope):
+                    if node.condition is not None and not bool(resolve_value(node.condition, ctx)):
+                        continue
+                    instance = (*event_scope, node.id)
+                    events.append(
+                        ScheduledEvent(
+                            instance=instance,
+                            node_id=node.id,
+                            kind=node.kind,
+                            time_seconds=_beats_to_seconds(absolute_beat, bpm),
+                            value=resolve_value(node.value, ctx),
+                            opts=cast(Mapping[str, object], resolve_value(node.opts, ctx)),
+                            synth_name=node.synth_name,
+                            synth_opts=cast(
+                                Mapping[str, object], resolve_value(node.synth_opts, ctx)
+                            ),
+                            fx_chain=tuple(
+                                FxHandle(
+                                    fx.id,
+                                    fx.name,
+                                    cast(dict[str, object], resolve_value(dict(fx.opts), ctx)),
+                                )
+                                for fx in node.fx_chain
+                            ),
+                            order=len(events) + len(controls),
+                        )
+                    )
+        elif isinstance(node, SleepNode):
+            with _eval_scope(ctx, scope, repeat_scope):
+                duration = _as_float(resolve_value(node.duration_beats, ctx))
+            if duration < 0:
+                raise ArgumentValidationError("sleep() duration cannot be negative.")
+            cursor += duration
+        elif isinstance(node, ControlNode):
+            if absolute_beat < duration_beats:
+                with _eval_scope(ctx, scope, repeat_scope):
+                    if node.condition is not None and not bool(resolve_value(node.condition, ctx)):
+                        continue
+                    controls.append(
+                        ScheduledControl(
+                            target_instance=(*scope, *node.target_scope_suffix, node.target_id),
+                            target_id=node.target_id,
+                            time_seconds=_beats_to_seconds(absolute_beat, bpm),
+                            opts=cast(Mapping[str, object], resolve_value(node.opts, ctx)),
+                            order=len(events) + len(controls),
+                        )
+                    )
+        elif isinstance(node, BindNode):
+            if absolute_beat < duration_beats:
+                with _eval_scope(ctx, scope, repeat_scope):
+                    key = _source_bind_key(ctx, node.repeat_depth, node.id)
+                    if key not in ctx.bindings:
+                        ctx.bindings[key] = resolve_value(node.source, ctx)
+        elif isinstance(node, LoopNode):
+            cursor += _expand_loop_node(
+                node,
+                start_beat=absolute_beat,
+                duration_beats=duration_beats,
+                bpm=bpm,
+                ctx=ctx,
+                events=events,
+                controls=controls,
+                scope=scope,
+                repeat_scope=repeat_scope,
+            )
+        elif isinstance(node, ThreadNode):
+            _expand_nodes(
+                node.body,
+                start_beat=absolute_beat,
+                duration_beats=duration_beats,
+                bpm=bpm,
+                ctx=ctx,
+                events=events,
+                controls=controls,
+                scope=(*scope, node.id, node.name or "thread"),
+                repeat_scope=repeat_scope,
+            )
+        elif isinstance(node, CallNode):
+            elapsed = _expand_nodes(
+                node.body,
+                start_beat=absolute_beat,
+                duration_beats=duration_beats,
+                bpm=bpm,
+                ctx=ctx,
+                events=events,
+                controls=controls,
+                scope=(*scope, ("call", node.id)),
+                repeat_scope=repeat_scope,
+            )
+            cursor += elapsed if elapsed > 0 else node.body_beats
+    return cursor
+
+
+def _expand_loop_node(
+    node: LoopNode,
+    *,
+    start_beat: float,
+    duration_beats: float,
+    bpm: float,
+    ctx: EvalContext,
+    events: list[ScheduledEvent],
+    controls: list[ScheduledControl],
+    scope: tuple[object, ...],
+    repeat_scope: tuple[object, ...],
+) -> float:
+    fallback_body_beats = node.body_beats
+    if fallback_body_beats <= 0:
+        return 0.0
+    max_iterations = node.times
+    iteration = 0
+    loop_elapsed = 0.0
+    first_body_beats: float | None = None
+    while True:
+        if max_iterations is not None and iteration >= max_iterations:
+            break
+        loop_start = start_beat + loop_elapsed
+        if loop_start >= duration_beats:
+            break
+        iteration_scope = (*scope, node.id, iteration)
+        iteration_repeat_scope = (*repeat_scope, (node.id, iteration))
+        body_beats = _expand_nodes(
+            node.body,
+            start_beat=loop_start,
+            duration_beats=duration_beats,
+            bpm=bpm,
+            ctx=ctx,
+            events=events,
+            controls=controls,
+            scope=iteration_scope,
+            repeat_scope=iteration_repeat_scope,
+        )
+        if body_beats <= 0:
+            body_beats = fallback_body_beats
+        if body_beats <= 0:
+            break
+        if first_body_beats is None:
+            first_body_beats = body_beats
+        loop_elapsed += body_beats
+        iteration += 1
+    if max_iterations is None:
+        return first_body_beats if first_body_beats is not None else fallback_body_beats
+    return loop_elapsed
+
+
+def _beats_to_seconds(beats: float, bpm: float) -> float:
+    return beats * 60.0 / bpm
+
+
+def _render_physical_plan(plan: PhysicalPlan, *, sample_rate: int = _SAMPLE_RATE) -> bytes:
+    runtime = _require_synth_runtime()
+    return bytes(runtime.synth_render_serialized_plan_wav(plan.to_bytes(), int(sample_rate)))
+
+
+def _require_synth_runtime() -> Any:
+    from gummysnake.rust.canvas import require_canvas_runtime
+
+    runtime = require_canvas_runtime()
+    if (
+        not hasattr(runtime, "synth_render_serialized_plan_wav")
+        or not hasattr(runtime, "synth_play_serialized_plan")
+        or not hasattr(runtime, "synth_play_wav_bytes")
+        or not hasattr(runtime, "synth_render_plan_wav")
+        or not hasattr(runtime, "synth_render_event_wav")
+        or not hasattr(runtime, "synth_sample_duration")
+    ):
+        raise BackendCapabilityError(
+            "Synth rendering requires a current gummysnake.rust._canvas runtime. "
+            "Rebuild it with: uvx maturin develop --release --manifest-path "
+            "crates/gummy_canvas/Cargo.toml --features extension-module"
+        )
+    return runtime
+
+
+def _event_payloads(plan: PhysicalPlan) -> list[dict[str, object]]:
+    controls_by_instance, fx_controls = _control_lookup(plan)
+    return [
+        _event_payload(
+            event,
+            controls_by_instance.get(event.instance, ()),
+            fx_controls,
+        )
+        for event in plan.events
+    ]

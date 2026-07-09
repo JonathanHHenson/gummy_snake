@@ -1,3 +1,6 @@
+mod canvas_replay;
+mod diagnostics;
+mod events;
 mod parse;
 mod spatial_registry;
 mod summaries;

@@ -39,6 +39,7 @@ impl<'a> PlanExecutor<'a> {
         values[row] = Some((entity.generation, value));
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(in crate::execution) fn store_spatial_chunk_results_f64(
         &mut self,
         layout: SpatialPrecomputeLayout,

@@ -35,12 +35,12 @@ impl Canvas {
         style: &Style,
         matrix: Matrix,
     ) -> PyResult<()> {
-        ensure_supported_style(&style)?;
+        ensure_supported_style(style)?;
         if style.fill.is_none() && style.stroke.is_none() {
             return Ok(());
         }
         if style.erasing {
-            if !self.can_queue_gpu_erase(&style) {
+            if !self.can_queue_gpu_erase(style) {
                 return self.prepare_cpu_composite();
             }
             if style.fill.is_some() {
@@ -69,7 +69,7 @@ impl Canvas {
             }
             return Ok(());
         }
-        if !self.can_queue_gpu_primitives(&style) {
+        if !self.can_queue_gpu_primitives(style) {
             return self.prepare_cpu_composite();
         }
         if let Some(fill) = style.fill {
@@ -142,12 +142,12 @@ impl Canvas {
         style: &Style,
         matrix: Matrix,
     ) -> PyResult<()> {
-        ensure_supported_style(&style)?;
+        ensure_supported_style(style)?;
         if style.fill.is_none() && style.stroke.is_none() {
             return Ok(());
         }
         if style.erasing {
-            if !self.can_queue_gpu_erase(&style) {
+            if !self.can_queue_gpu_erase(style) {
                 return self.prepare_cpu_composite();
             }
             if style.fill.is_some() {
@@ -170,7 +170,7 @@ impl Canvas {
             }
             return Ok(());
         }
-        if !self.can_queue_gpu_primitives(&style) {
+        if !self.can_queue_gpu_primitives(style) {
             return self.prepare_cpu_composite();
         }
         if let Some(fill) = style.fill {
@@ -243,12 +243,12 @@ impl Canvas {
         style: &Style,
         matrix: Matrix,
     ) -> PyResult<()> {
-        ensure_supported_style(&style)?;
+        ensure_supported_style(style)?;
         if style.fill.is_none() && style.stroke.is_none() {
             return Ok(());
         }
         if style.erasing {
-            if !self.can_queue_gpu_erase(&style) {
+            if !self.can_queue_gpu_erase(style) {
                 return self.prepare_cpu_composite();
             }
             if style.fill.is_some() {
@@ -278,7 +278,7 @@ impl Canvas {
             }
             return Ok(());
         }
-        if !self.can_queue_gpu_primitives(&style) {
+        if !self.can_queue_gpu_primitives(style) {
             return self.prepare_cpu_composite();
         }
         if let Some(fill) = style.fill {

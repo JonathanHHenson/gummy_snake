@@ -338,6 +338,7 @@ impl DirectPointHashGrid {
         ])
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn visit_z_radius_buckets<F>(
         &self,
         x: i64,

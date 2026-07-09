@@ -12,12 +12,15 @@ use super::{
     CompiledSpatialF64Array, F64BinaryOp,
 };
 
+type EntityF64Cache = HashMap<String, HashMap<String, Vec<Option<(u32, f64)>>>>;
+type QueryRowF64Cache = HashMap<String, HashMap<String, Vec<f64>>>;
+
 pub(in crate::execution) fn compile_f64_readonly_program<'a>(
     plan: &PhysicalPlan,
     _world: &World,
     query_name: &str,
-    numeric_field_cache: &'a HashMap<String, HashMap<String, Vec<Option<(u32, f64)>>>>,
-    numeric_field_cache_rows: &'a HashMap<String, HashMap<String, Vec<f64>>>,
+    numeric_field_cache: &'a EntityF64Cache,
+    numeric_field_cache_rows: &'a QueryRowF64Cache,
     spatial_precomputed_f64: &'a HashMap<usize, Vec<Option<(u32, f64)>>>,
     spatial_precomputed_f64_rows: &'a HashMap<usize, SpatialF64RowArray>,
 ) -> CompiledF64ReadOnlyProgram<'a> {

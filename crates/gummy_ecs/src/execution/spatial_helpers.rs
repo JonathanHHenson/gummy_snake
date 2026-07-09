@@ -150,6 +150,7 @@ pub(in crate::execution) fn push_fast_spatial_aggregate_value(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(in crate::execution) fn eval_fast_spatial_value_expr(
     expr: &FastSpatialValueExpr,
     item_field_arrays: &[FastFieldArray],
@@ -221,6 +222,7 @@ pub(in crate::execution) fn eval_fast_spatial_value_expr(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(in crate::execution) fn process_fast_spatial_record(
     relation: &SpatialRelationNode,
     batches: &[FastDirectSpatialRelationBatch],

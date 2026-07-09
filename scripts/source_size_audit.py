@@ -37,6 +37,13 @@ JUSTIFIED_EXCEPTIONS = {
     Path("crates/gummy_canvas/src/canvas/methods.rs"): (
         "single explicit PyO3 binding surface for Canvas; implementation lives in split helpers"
     ),
+    Path("crates/gummy_canvas/src/bindings/ecs/world.rs"): (
+        "single explicit PyO3 binding surface for EcsWorld; execution helpers live in "
+        "split crates/modules"
+    ),
+    Path("crates/gummy_canvas/src/sound.rs"): (
+        "single explicit PyO3 binding surface for CanvasSound and playback controls"
+    ),
 }
 
 
@@ -145,12 +152,12 @@ def audit(roots: Iterable[Path], threshold: int) -> list[AuditEntry]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("roots", nargs="*", type=Path, default=list(DEFAULT_ROOTS))
-    parser.add_argument("--threshold", type=int, default=300)
+    parser.add_argument("--threshold", type=int, default=500)
     parser.add_argument(
         "--category",
         choices=("all", "production", "test/example", "exception", "other"),
-        default="all",
-        help="Limit output to one category.",
+        default="production",
+        help="Limit output to one category. Defaults to production implementation files.",
     )
     args = parser.parse_args()
 

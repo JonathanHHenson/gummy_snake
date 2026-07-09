@@ -85,6 +85,7 @@ DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_canvas/src/gpu/types.rs"),
     Path("crates/gummy_canvas/src/runtime/desktop.rs"),
     Path("crates/gummy_canvas/src/sketch_state.rs"),
+    Path("crates/gummy_canvas/src/sound.rs"),
     Path("crates/gummy_canvas/src/tests.rs"),
     Path("crates/gummy_ecs/src/execution.rs"),
     Path("crates/gummy_ecs/src/execution/direct_point_hash_grid.rs"),

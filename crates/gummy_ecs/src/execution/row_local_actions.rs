@@ -9,6 +9,12 @@ use crate::error::{EcsError, Result};
 use crate::plan::{ActionNode, CanvasCommandNode, ExprNode, PhysicalPlan};
 use crate::world::World;
 
+type RowLocalFillBatch = Option<(
+    Vec<ExecutionCanvasCommand>,
+    Vec<ExecutionCanvasFillRecord>,
+    usize,
+)>;
+
 use super::f64_program::{
     build_row_local_field_dependents, compile_f64_readonly_program, compiled_field_f64_value,
     eval_compiled_f64_readonly, execute_row_local_f64_action, invalidate_row_local_f64_cache,
@@ -863,13 +869,7 @@ impl<'a> PlanExecutor<'a> {
         query_name: &str,
         rows: &[Entity],
         program: &CompiledF64ReadOnlyProgram<'_>,
-    ) -> Result<
-        Option<(
-            Vec<ExecutionCanvasCommand>,
-            Vec<ExecutionCanvasFillRecord>,
-            usize,
-        )>,
-    > {
+    ) -> Result<RowLocalFillBatch> {
         let mut style_commands = Vec::new();
         let mut records = Vec::new();
         let mut rows_scanned = 0;

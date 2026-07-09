@@ -168,7 +168,7 @@ impl Canvas {
             return Ok(());
         }
         let pixel_count =
-            ((byte_limit.min(self.physical_width * self.physical_height * 4)) + 3) / 4;
+            (byte_limit.min(self.physical_width * self.physical_height * 4)).div_ceil(4);
         if pixel_count == 0 {
             return Ok(());
         }

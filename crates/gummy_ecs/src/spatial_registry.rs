@@ -93,6 +93,10 @@ impl SpatialIndexRegistry {
         self.slots.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.slots.is_empty()
+    }
+
     pub fn get(&self, id: u64) -> Option<&SpatialIndexSlot> {
         self.slots.get(&id)
     }

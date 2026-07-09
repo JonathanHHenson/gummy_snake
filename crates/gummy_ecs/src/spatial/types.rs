@@ -14,6 +14,10 @@ impl Dimensions {
             Self::D3 => 3,
         }
     }
+
+    pub fn is_empty(self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

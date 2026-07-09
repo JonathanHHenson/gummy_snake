@@ -55,12 +55,12 @@ pub(crate) fn canvas_model_from_meshes(meshes: &[CanvasMesh3D], source: &str) ->
         if mesh_data.normals.len() == mesh_data.vertices.len() {
             normals.extend(mesh_data.normals.iter().copied());
         } else {
-            normals.extend(std::iter::repeat(None).take(mesh_data.vertices.len()));
+            normals.extend(std::iter::repeat_n(None, mesh_data.vertices.len()));
         }
         if mesh_data.texcoords.len() == mesh_data.vertices.len() {
             texcoords.extend(mesh_data.texcoords.iter().copied());
         } else {
-            texcoords.extend(std::iter::repeat(None).take(mesh_data.vertices.len()));
+            texcoords.extend(std::iter::repeat_n(None, mesh_data.vertices.len()));
         }
         faces.extend(
             mesh_data

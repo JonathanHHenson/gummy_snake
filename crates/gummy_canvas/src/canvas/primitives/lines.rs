@@ -25,14 +25,14 @@ impl Canvas {
         style: &Style,
         matrix: Matrix,
     ) -> PyResult<()> {
-        ensure_supported_style(&style)?;
+        ensure_supported_style(style)?;
         let color = match style.stroke.or(style.fill) {
             Some(color) => color,
             None => return Ok(()),
         };
         let stroke_width = stroke_width(style.stroke_weight, self.pixel_density);
         if style.erasing {
-            if self.can_queue_gpu_erase(&style) {
+            if self.can_queue_gpu_erase(style) {
                 self.draw_gpu_erase_polyline_with_matrix(
                     &[(x, y), (x, y)],
                     false,
@@ -44,7 +44,7 @@ impl Canvas {
             }
             return self.prepare_cpu_composite();
         }
-        if self.can_queue_gpu_primitives(&style) {
+        if self.can_queue_gpu_primitives(style) {
             self.draw_gpu_polyline_with_matrix(
                 &[(x, y), (x, y)],
                 false,
@@ -86,14 +86,14 @@ impl Canvas {
         style: &Style,
         matrix: Matrix,
     ) -> PyResult<()> {
-        ensure_supported_style(&style)?;
+        ensure_supported_style(style)?;
         let stroke = match style.stroke {
             Some(color) => color,
             None => return Ok(()),
         };
         let width = stroke_width(style.stroke_weight, self.pixel_density);
         if style.erasing {
-            if self.can_queue_gpu_erase(&style) {
+            if self.can_queue_gpu_erase(style) {
                 self.draw_gpu_erase_polyline_with_matrix(
                     &[(x1, y1), (x2, y2)],
                     false,
@@ -105,7 +105,7 @@ impl Canvas {
             }
             return self.prepare_cpu_composite();
         }
-        if self.can_queue_gpu_primitives(&style) {
+        if self.can_queue_gpu_primitives(style) {
             self.draw_gpu_polyline_with_matrix(
                 &[(x1, y1), (x2, y2)],
                 false,
@@ -144,13 +144,13 @@ impl Canvas {
         style: &Style,
         matrix: Matrix,
     ) -> PyResult<()> {
-        ensure_supported_style(&style)?;
+        ensure_supported_style(style)?;
         let Some(stroke) = style.stroke else {
             return Ok(());
         };
         let width = stroke_width(style.stroke_weight, self.pixel_density);
         if style.erasing {
-            if self.can_queue_gpu_erase(&style) {
+            if self.can_queue_gpu_erase(style) {
                 for (x1, y1, x2, y2) in lines {
                     self.draw_gpu_erase_polyline_with_matrix(
                         &[(x1, y1), (x2, y2)],
@@ -164,7 +164,7 @@ impl Canvas {
             }
             return self.prepare_cpu_composite();
         }
-        if self.can_queue_gpu_primitives(&style) {
+        if self.can_queue_gpu_primitives(style) {
             for (x1, y1, x2, y2) in lines {
                 self.draw_gpu_polyline_with_matrix(
                     &[(x1, y1), (x2, y2)],

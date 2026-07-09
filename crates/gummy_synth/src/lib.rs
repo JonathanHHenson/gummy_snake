@@ -1,3 +1,5 @@
+#![allow(clippy::useless_conversion)]
+
 use flate2::read::ZlibDecoder;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -1562,6 +1564,7 @@ fn note_frequency(midi: f64) -> f64 {
     440.0 * 2.0_f64.powf((midi - 69.0) / 12.0)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn adsr_level(
     mut elapsed: f64,
     attack: f64,
@@ -1774,6 +1777,7 @@ fn modulated_midi_note(_kind: SynthKind, midi_note: f64, _opts: &OptMap, _elapse
     midi_note
 }
 
+#[allow(clippy::too_many_arguments)]
 fn apply_synth_post_processing(
     kind: SynthKind,
     mut left: Vec<f64>,

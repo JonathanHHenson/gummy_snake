@@ -84,7 +84,7 @@ pub fn ecs_worker_count() -> usize {
         return count;
     }
     let logical_cores = std::thread::available_parallelism().map_or(1, usize::from);
-    logical_cores.saturating_sub(2).max(1).min(11)
+    logical_cores.saturating_sub(2).clamp(1, 11)
 }
 
 pub(crate) fn install_on_ecs_worker_pool<R, F>(op: F) -> Result<R>
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn default_worker_count_reserves_main_and_window_threads() {
         let logical_cores = std::thread::available_parallelism().map_or(1, usize::from);
-        let expected = logical_cores.saturating_sub(2).max(1).min(11);
+        let expected = logical_cores.saturating_sub(2).clamp(1, 11);
         assert_eq!(ecs_worker_count(), expected);
         assert_eq!(SchedulerOptions::default().worker_count, expected);
     }

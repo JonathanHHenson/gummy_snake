@@ -11,11 +11,23 @@ from typing import cast
 
 
 def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
+    """Resolve an awaitable from synchronous lifecycle code.
+
+    If no event loop is running on the current thread, the awaitable runs directly with
+    ``asyncio.run()``. When called from an already-running loop, it runs on a short-lived
+    worker thread so synchronous public APIs can still return the awaited value instead
+    of leaking a coroutine object.
+    """
+
     try:
         asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(_await_value(awaitable))
 
+    return _run_awaitable_on_worker_thread(awaitable)
+
+
+def _run_awaitable_on_worker_thread[T](awaitable: Awaitable[T]) -> T:
     result: object = None
     error: BaseException | None = None
     context = contextvars.copy_context()
@@ -36,6 +48,8 @@ def run_awaitable_blocking[T](awaitable: Awaitable[T]) -> T:
 
 
 def resolve_maybe_awaitable[T](value: T | Awaitable[T]) -> T:
+    """Return plain values unchanged and synchronously resolve awaitables."""
+
     if inspect.isawaitable(value):
         return run_awaitable_blocking(cast(Awaitable[T], value))
     return cast(T, value)

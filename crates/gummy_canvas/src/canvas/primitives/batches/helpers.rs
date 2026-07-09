@@ -3,8 +3,10 @@ use crate::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+pub(super) type FillPrimitiveBatchRecord = (u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8);
+
 pub(super) fn fill_primitive_batch_cache_key(
-    records: &[(u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8)],
+    records: &[FillPrimitiveBatchRecord],
     matrix: Matrix,
     pixel_density: f64,
     physical_width: usize,
@@ -38,7 +40,7 @@ pub(super) fn fill_primitive_batch_cache_key(
 }
 
 pub(super) fn fill_primitive_batch_instances(
-    records: &[(u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8)],
+    records: &[FillPrimitiveBatchRecord],
     matrix: Matrix,
     pixel_density: f64,
     _physical_width: usize,

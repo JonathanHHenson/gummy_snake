@@ -57,15 +57,17 @@ pub fn validate_plan_with_schemas(plan: &PhysicalPlan, schemas: &SchemaRegistry)
                     )));
                 }
             }
-            ExprNode::Aggregate { group_query, .. } => {
-                if let Some(query) = group_query {
-                    if !query_names.contains(query.as_str()) {
-                        return Err(EcsError::InvalidPlan(format!(
-                            "unknown group query {query} in aggregate"
-                        )));
-                    }
+            ExprNode::Aggregate {
+                group_query: Some(query),
+                ..
+            } => {
+                if !query_names.contains(query.as_str()) {
+                    return Err(EcsError::InvalidPlan(format!(
+                        "unknown group query {query} in aggregate"
+                    )));
                 }
             }
+            ExprNode::Aggregate { .. } => {}
             ExprNode::SpatialMetadata { relation, .. }
             | ExprNode::SpatialAggregate { relation, .. } => {
                 validate_spatial_relation_queries(relation, &query_names)?;

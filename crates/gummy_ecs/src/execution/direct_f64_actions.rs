@@ -17,6 +17,8 @@ use super::{
     storage_type_is_numeric, DirectF64SetSpec, EvalContext, PlanExecutor, SpatialPrecomputeLayout,
 };
 
+type DenseF64Apply = (Vec<Entity>, Vec<(usize, usize)>, Vec<f64>, usize);
+
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn execute_fused_parallel_set_collect_f64_direct(
         &mut self,
@@ -30,7 +32,7 @@ impl<'a> PlanExecutor<'a> {
         let mut child_writes = (0..direct_specs.len())
             .map(|_| Vec::<(Entity, f64)>::new())
             .collect::<Vec<_>>();
-        let mut dense_apply: Option<(Vec<Entity>, Vec<(usize, usize)>, Vec<f64>, usize)> = None;
+        let mut dense_apply: Option<DenseF64Apply> = None;
         let mut cache = vec![None; self.plan.expressions.len()];
         let collect_start: Option<Instant>;
         if query_names.len() == 1 {

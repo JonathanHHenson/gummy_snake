@@ -68,12 +68,12 @@ fn require_dict<'a, 'py>(
 fn parse_list<T>(
     value: &Bound<'_, PyAny>,
     field: &str,
-    mut parse_item: impl FnMut(Bound<'_, PyAny>) -> PyResult<T>,
+    parse_item: impl FnMut(Bound<'_, PyAny>) -> PyResult<T>,
 ) -> PyResult<Vec<T>> {
     let list = value.downcast::<PyList>().map_err(|_| {
         PyValueError::new_err(format!("ECS bridge plan field '{field}' must be a list"))
     })?;
-    list.iter().map(|item| parse_item(item)).collect()
+    list.iter().map(parse_item).collect()
 }
 
 fn parse_usize_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<usize>> {

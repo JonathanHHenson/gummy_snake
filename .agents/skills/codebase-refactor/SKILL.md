@@ -31,6 +31,7 @@ Prioritize changes that address these concerns:
 5. Keep files focused and reasonably sized.
    - Treat files over roughly 500 meaningful lines as refactor candidates.
    - Imports, exports, examples, generated bindings, and intentionally centralized API surfaces may be reasonable exceptions.
+   - Project-specific exception: `crates/gummy_canvas/src/canvas/methods.rs` is an intentionally oversized PyO3 binding-surface exception; keep implementation logic in split helper modules.
    - Do not split a file if doing so makes the codebase harder to navigate.
 6. Keep packages navigable.
    - Avoid too many sibling files in one package.
@@ -98,9 +99,11 @@ Do not claim validation passed unless it was actually run and passed. If validat
 
 ## Final Response
 
-When finished, summarize:
+When finished, summarize against criteria instead of posting validation evidence/logs unless the user asks for details:
 
-- The main refactor themes and representative files changed.
+- Refactor criteria status: dead code, duplication, typing quality, complexity, file/package size, public API compatibility, and public docstrings.
+- Quality gates status: diagnostics, formatting/linting, type checks, tests, size/structure audits, and whitespace checks as clean/not clean.
+- Any intentionally retained exceptions or follow-up criteria.
 - Any public API compatibility notes.
-- The validation commands run and their results.
-- Any intentionally retained exceptions or follow-up opportunities.
+
+Keep command details minimal. Mention specific commands only when a gate fails, validation could not be run, or the user explicitly asks for evidence.

@@ -44,7 +44,7 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
-        ensure_supported_style(&style)?;
+        ensure_supported_style(style)?;
         if dw <= 0.0 || dh <= 0.0 || image_width == 0 || image_height == 0 {
             return Ok(());
         }
@@ -111,7 +111,7 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<bool> {
-        if !self.can_queue_gpu_primitives(&style) || dw <= 0.0 || dh <= 0.0 {
+        if !self.can_queue_gpu_primitives(style) || dw <= 0.0 || dh <= 0.0 {
             return Ok(false);
         }
         let linear_sampling = style.image_sampling != "nearest";

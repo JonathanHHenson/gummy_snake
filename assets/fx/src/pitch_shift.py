@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from gummysnake import synth as sy
-
 from _common import fx_duration
+
+from gummysnake import synth as sy
 
 NAME = "pitch_shift"
 DURATION = fx_duration(NAME)

@@ -1,15 +1,19 @@
 use std::fmt::Display;
 
-use gummy_ecs::{
-    ComponentSchema, EcsValue, Entity, ExecutionCanvasCommand, ExecutionCanvasFillRecord,
-    ExecutionReport, FieldSchema, QueryFilter, QueryTerm, StorageType, World,
-};
+use gummy_ecs::{ComponentSchema, Entity, FieldSchema, QueryFilter, QueryTerm, StorageType, World};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyTuple};
 
 use crate::{Canvas, Matrix};
 
+use super::canvas_replay::{
+    append_fill_batches_to_records, flush_fill_records_to_canvas,
+    replay_convertible_fill_primitives_to_canvas, replay_fill_batches_to_canvas,
+    report_has_only_style_canvas_commands, FillPrimitiveRecord,
+};
+use super::diagnostics::diagnostics_to_dict;
+use super::events::read_events_to_list;
 use super::parse::parse_bridge_plan_payload;
 use super::summaries::{execution_report_to_dict, physical_plan_summary_to_dict};
 use super::values::{
@@ -22,265 +26,6 @@ fn py_value_error(err: impl Display) -> PyErr {
 
 fn entity(index: u32, generation: u32) -> Entity {
     Entity { index, generation }
-}
-
-const PRIMITIVE_BATCH_RECT: u8 = 1;
-const PRIMITIVE_BATCH_TRIANGLE: u8 = 2;
-const PRIMITIVE_BATCH_ELLIPSE: u8 = 3;
-
-type FillPrimitiveRecord = (u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8);
-
-fn ecs_value_f64(value: &EcsValue) -> Option<f64> {
-    match value {
-        EcsValue::F64(value) => Some(*value),
-        EcsValue::I64(value) => Some(*value as f64),
-        EcsValue::Bool(value) => Some(if *value { 1.0 } else { 0.0 }),
-        _ => None,
-    }
-}
-
-fn color_channel(value: f64) -> u8 {
-    value.clamp(0.0, 255.0).round() as u8
-}
-
-fn parse_fill(args: &[EcsValue]) -> Option<(u8, u8, u8, u8)> {
-    if !(args.len() == 3 || args.len() == 4) {
-        return None;
-    }
-    let r = color_channel(ecs_value_f64(&args[0])?);
-    let g = color_channel(ecs_value_f64(&args[1])?);
-    let b = color_channel(ecs_value_f64(&args[2])?);
-    let a = if args.len() == 4 {
-        color_channel(ecs_value_f64(&args[3])?)
-    } else {
-        255
-    };
-    Some((r, g, b, a))
-}
-
-fn numeric_args(args: &[EcsValue], expected: usize) -> Option<Vec<f64>> {
-    if args.len() != expected {
-        return None;
-    }
-    args.iter().map(ecs_value_f64).collect()
-}
-
-fn fill_primitive_record(
-    command: &ExecutionCanvasCommand,
-    fill: (u8, u8, u8, u8),
-) -> Option<FillPrimitiveRecord> {
-    let (r, g, b, a) = fill;
-    match command.command.as_str() {
-        "rect" => {
-            let args = numeric_args(&command.args, 4)?;
-            Some((
-                PRIMITIVE_BATCH_RECT,
-                args[0],
-                args[1],
-                args[2],
-                args[3],
-                0.0,
-                0.0,
-                r,
-                g,
-                b,
-                a,
-            ))
-        }
-        "circle" => {
-            let args = numeric_args(&command.args, 3)?;
-            let diameter = args[2];
-            Some((
-                PRIMITIVE_BATCH_ELLIPSE,
-                args[0] - diameter / 2.0,
-                args[1] - diameter / 2.0,
-                diameter,
-                diameter,
-                0.0,
-                0.0,
-                r,
-                g,
-                b,
-                a,
-            ))
-        }
-        "ellipse" => {
-            let args = if command.args.len() == 3 {
-                let args = numeric_args(&command.args, 3)?;
-                vec![args[0], args[1], args[2], args[2]]
-            } else {
-                numeric_args(&command.args, 4)?
-            };
-            Some((
-                PRIMITIVE_BATCH_ELLIPSE,
-                args[0] - args[2] / 2.0,
-                args[1] - args[3] / 2.0,
-                args[2],
-                args[3],
-                0.0,
-                0.0,
-                r,
-                g,
-                b,
-                a,
-            ))
-        }
-        "triangle" => {
-            let args = numeric_args(&command.args, 6)?;
-            Some((
-                PRIMITIVE_BATCH_TRIANGLE,
-                args[0],
-                args[1],
-                args[2],
-                args[3],
-                args[4],
-                args[5],
-                r,
-                g,
-                b,
-                a,
-            ))
-        }
-        _ => None,
-    }
-}
-
-fn is_style_only_canvas_command(command: &str) -> bool {
-    matches!(
-        command,
-        "fill"
-            | "no_fill"
-            | "stroke"
-            | "no_stroke"
-            | "stroke_weight"
-            | "stroke_cap"
-            | "stroke_join"
-            | "color_mode"
-            | "rect_mode"
-            | "ellipse_mode"
-            | "image_mode"
-    )
-}
-
-fn fill_record_tuple(record: &ExecutionCanvasFillRecord) -> FillPrimitiveRecord {
-    (
-        record.kind,
-        record.a,
-        record.b,
-        record.c,
-        record.d,
-        record.e,
-        record.f,
-        record.r,
-        record.g,
-        record.blue,
-        record.alpha,
-    )
-}
-
-fn replay_fill_batches_to_canvas(
-    report: &mut ExecutionReport,
-    canvas: &mut Canvas,
-    matrix: Matrix,
-) -> PyResult<usize> {
-    let batches = std::mem::take(&mut report.canvas_fill_batches);
-    let mut record_count = 0;
-    for batch in batches {
-        if batch.records.is_empty() {
-            continue;
-        }
-        record_count += batch.records.len();
-        let records = batch
-            .records
-            .iter()
-            .map(fill_record_tuple)
-            .collect::<Vec<_>>();
-        canvas.batch_fill_primitives_impl(records, matrix)?;
-    }
-    Ok(record_count)
-}
-
-fn append_fill_batches_to_records(
-    report: &mut ExecutionReport,
-    records: &mut Vec<FillPrimitiveRecord>,
-) -> usize {
-    let batches = std::mem::take(&mut report.canvas_fill_batches);
-    let mut record_count = 0;
-    for batch in batches {
-        record_count += batch.records.len();
-        records.extend(batch.records.iter().map(fill_record_tuple));
-    }
-    record_count
-}
-
-fn flush_fill_records_to_canvas(
-    records: &mut Vec<FillPrimitiveRecord>,
-    canvas: &mut Canvas,
-    matrix: Matrix,
-) -> PyResult<()> {
-    if records.is_empty() {
-        return Ok(());
-    }
-    let pending = std::mem::take(records);
-    canvas.batch_fill_primitives_impl(pending, matrix)
-}
-
-fn report_has_only_style_canvas_commands(report: &ExecutionReport) -> bool {
-    report
-        .canvas_commands
-        .iter()
-        .all(|command| is_style_only_canvas_command(&command.command))
-}
-
-fn replay_convertible_fill_primitives_to_canvas(
-    report: &mut ExecutionReport,
-    canvas: &mut Canvas,
-    matrix: Matrix,
-    direct_fill_allowed: bool,
-) -> PyResult<usize> {
-    if !direct_fill_allowed || report.canvas_commands.is_empty() {
-        return Ok(0);
-    }
-
-    let mut fill: Option<(u8, u8, u8, u8)> = None;
-    let mut retained_commands = Vec::new();
-    let mut records = Vec::new();
-
-    for command in &report.canvas_commands {
-        match command.command.as_str() {
-            "fill" => {
-                fill = parse_fill(&command.args);
-                if fill.is_none() {
-                    return Ok(0);
-                }
-                retained_commands.push(command.clone());
-            }
-            command_name if is_style_only_canvas_command(command_name) => {
-                if command_name == "no_fill" {
-                    fill = None;
-                }
-                retained_commands.push(command.clone());
-            }
-            _ => {
-                let Some(current_fill) = fill else {
-                    return Ok(0);
-                };
-                let Some(record) = fill_primitive_record(command, current_fill) else {
-                    return Ok(0);
-                };
-                records.push(record);
-            }
-        }
-    }
-
-    if records.is_empty() {
-        return Ok(0);
-    }
-
-    let record_count = records.len();
-    canvas.batch_fill_primitives_impl(records, matrix)?;
-    report.canvas_commands = retained_commands;
-    Ok(record_count)
 }
 
 #[pyclass(name = "EcsWorld")]
@@ -784,19 +529,7 @@ impl PyEcsWorld {
         py: Python<'py>,
         event_type: String,
     ) -> PyResult<Bound<'py, PyList>> {
-        let events = self
-            .world
-            .read_events(&event_type)
-            .map_err(py_value_error)?;
-        let out = PyList::empty_bound(py);
-        for event in events {
-            let item = PyDict::new_bound(py);
-            item.set_item("frame", event.frame)?;
-            item.set_item("sequence", event.sequence)?;
-            item.set_item("payload", ecs_value_to_py(py, &event.payload)?)?;
-            out.append(item)?;
-        }
-        Ok(out)
+        read_events_to_list(py, &self.world, &event_type)
     }
 
     #[pyo3(signature = (event_type=None))]
@@ -839,41 +572,6 @@ impl PyEcsWorld {
     }
 
     fn diagnostics<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let diagnostics = self.world.diagnostics();
-        let dict = PyDict::new_bound(py);
-        dict.set_item("entities_alive", diagnostics.entities_alive)?;
-        dict.set_item(
-            "entity_generation_reuses",
-            diagnostics.entity_generation_reuses,
-        )?;
-        dict.set_item(
-            "component_schemas_total",
-            diagnostics.component_schemas_total,
-        )?;
-        dict.set_item("archetypes_total", diagnostics.archetypes_total)?;
-        dict.set_item("archetype_moves", diagnostics.archetype_moves)?;
-        dict.set_item(
-            "structural_commands_applied",
-            diagnostics.structural_commands_applied,
-        )?;
-        dict.set_item(
-            "staged_commands_applied",
-            diagnostics.staged_commands_applied,
-        )?;
-        dict.set_item("query_cache_hits", diagnostics.query_cache_hits)?;
-        dict.set_item("query_cache_misses", diagnostics.query_cache_misses)?;
-        dict.set_item("query_cache_refreshes", diagnostics.query_cache_refreshes)?;
-        dict.set_item(
-            "query_cache_invalidations",
-            diagnostics.query_cache_invalidations,
-        )?;
-        dict.set_item(
-            "query_matched_archetypes",
-            diagnostics.query_matched_archetypes,
-        )?;
-        dict.set_item("query_matched_rows", diagnostics.query_matched_rows)?;
-        dict.set_item("resources_total", diagnostics.resources_total)?;
-        dict.set_item("event_queues_total", diagnostics.event_queues_total)?;
-        Ok(dict)
+        diagnostics_to_dict(py, &self.world)
     }
 }

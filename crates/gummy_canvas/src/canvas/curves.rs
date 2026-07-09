@@ -54,7 +54,7 @@ impl Canvas {
                 )?;
                 return Ok(());
             }
-            if self.can_queue_gpu_primitives(&parsed_style) {
+            if self.can_queue_gpu_primitives(parsed_style) {
                 self.draw_gpu_axis_aligned_ellipse(
                     cx,
                     cy,

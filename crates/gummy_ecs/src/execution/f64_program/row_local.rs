@@ -73,6 +73,7 @@ pub(in crate::execution) fn invalidate_row_local_f64_cache(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(in crate::execution) fn execute_row_local_f64_action(
     action: &RowLocalAction,
     row_index: usize,
@@ -243,6 +244,7 @@ pub(in crate::execution) fn execute_row_local_f64_action(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn eval_row_local_f64_expr(
     expr_index: usize,
     row_index: usize,

@@ -29,7 +29,7 @@ impl Canvas {
         matrix: Matrix,
         close: bool,
     ) -> PyResult<()> {
-        ensure_supported_style(&style)?;
+        ensure_supported_style(style)?;
         if points.is_empty() || (style.fill.is_none() && style.stroke.is_none()) {
             return Ok(());
         }
@@ -133,7 +133,7 @@ impl Canvas {
         matrix: Matrix,
         close: bool,
     ) -> PyResult<()> {
-        ensure_supported_style(&style)?;
+        ensure_supported_style(style)?;
         if outer.is_empty() || (style.fill.is_none() && style.stroke.is_none()) {
             return Ok(());
         }

@@ -9,6 +9,7 @@ use super::{
 };
 
 impl<'a> PlanExecutor<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub(in crate::execution) fn eval_spatial_aggregate_f64(
         &mut self,
         expr_index: usize,

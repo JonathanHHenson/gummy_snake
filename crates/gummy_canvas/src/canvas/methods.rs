@@ -218,6 +218,7 @@ impl Canvas {
     pub(crate) fn batch_primitives_mixed(&mut self, records: &Bound<'_, PyAny>) -> PyResult<()> {
         self.batch_primitives_mixed_impl(records)
     }
+    #[allow(clippy::type_complexity)]
     pub(crate) fn batch_fill_primitives(
         &mut self,
         records: Vec<(u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8)>,

@@ -1,3 +1,5 @@
+#![allow(clippy::useless_conversion)]
+
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -18,6 +20,7 @@ fn noise3(x: f64, y: f64, z: f64, seed: i64, octaves: u32, falloff: f64) -> PyRe
     noise_fractal(x, y, z, seed, octaves, falloff)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[pyfunction]
 #[pyo3(signature = (width, height, density, time, seed = 0, octaves = 4, falloff = 0.5))]
 fn animated_noise_rgba(

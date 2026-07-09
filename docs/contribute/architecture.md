@@ -383,7 +383,7 @@ Use these rules of thumb:
   `canvas/primitives/batches.rs`, `gpu/pipeline.rs`,
   `gpu/render.rs`, `gpu/setup.rs`, `gpu/shaders.rs`,
   `gpu/shaders/primitive.rs`, `gpu/types.rs`, `runtime/desktop.rs`,
-  `sketch_state.rs`, and `tests.rs` under
+  `sketch_state.rs`, `sound.rs`, and `tests.rs` under
   `crates/gummy_canvas/src/`, plus `execution.rs`,
   `execution/direct_point_hash_grid.rs`, `execution/f64_program.rs`,
   `execution/tests.rs`, `plan.rs`, `spatial.rs`, `spatial/hash_grid.rs`,
