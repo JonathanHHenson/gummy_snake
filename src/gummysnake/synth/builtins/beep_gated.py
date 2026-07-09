@@ -13,7 +13,7 @@ DURATION = synth_duration(SYNTH_NAME)
 def beep_gated(note: object = 60, **opts: object) -> None:
     signal = sy.synth_input(
         note,
-        defaults={"release": 0.35, "sustain": 0.25},
+        defaults={"release": 1, "sustain": 0, "env_curve": 1},
         **opts,
     ).layer("sine")
     signal.output()

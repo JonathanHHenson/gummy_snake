@@ -4,12 +4,13 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-use std::f64::consts::{PI, TAU};
+use std::f64::consts::{FRAC_1_SQRT_2, PI, TAU};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum SynthValue {
     None,
     Bool(bool),
@@ -21,19 +22,20 @@ enum SynthValue {
 
 type OptMap = HashMap<String, SynthValue>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct FxPayload {
+    id: u64,
     name: String,
     opts: OptMap,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct ControlPayload {
     time_seconds: f64,
     opts: OptMap,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct ScheduledControlPayload {
     target_instance_key: String,
     target_id: u64,
@@ -41,7 +43,7 @@ struct ScheduledControlPayload {
     opts: OptMap,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct EventPayload {
     node_id: u64,
     kind: String,
@@ -52,6 +54,35 @@ struct EventPayload {
     synth_opts: OptMap,
     fx_chain: Vec<FxPayload>,
     controls: Vec<ControlPayload>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct FxOptionSnapshot {
+    time_seconds: f64,
+    opts: OptMap,
+}
+
+#[derive(Clone, Debug)]
+struct FxBusNode {
+    fx: Option<FxPayload>,
+    input_left: Vec<f64>,
+    input_right: Vec<f64>,
+    option_snapshots: Vec<FxOptionSnapshot>,
+    children: Vec<FxBusNode>,
+    time_origin_seconds: f64,
+}
+
+#[derive(Debug)]
+pub struct SynthPlaybackPlan {
+    events: Vec<EventPayload>,
+    duration_seconds: f64,
+    dry_event_cache: Mutex<HashMap<(usize, u32), Arc<StereoEventSignal>>>,
+}
+
+#[derive(Debug)]
+struct StereoEventSignal {
+    left: Vec<f64>,
+    right: Vec<f64>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -71,7 +102,7 @@ enum SynthKind {
     Unknown,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct LayerSpec {
     kind: SynthKind,
     waveform: &'static str,
@@ -80,14 +111,14 @@ struct LayerSpec {
     opts: OptMap,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct ScheduledFxPayload {
     id: u64,
     name: String,
     opts: OptMap,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct ScheduledEventPayload {
     instance_key: String,
     node_id: u64,
@@ -148,7 +179,8 @@ pub fn synth_render_event_wav<'py>(
 ) -> PyResult<Bound<'py, PyBytes>> {
     let event = parse_event(event)?;
     let (left, right) = render_event(&event, sample_rate)?;
-    let payload = stereo_wav_bytes(&soft_clip(&left), &soft_clip(&right), sample_rate);
+    let (left, right) = output_limit_pair(&left, &right, sample_rate);
+    let payload = stereo_wav_bytes(&left, &right, sample_rate);
     Ok(PyBytes::new_bound(py, &payload))
 }
 
@@ -195,27 +227,399 @@ fn render_plan_events(
     }
     parsed_events.sort_by(|a, b| a.time_seconds.total_cmp(&b.time_seconds));
     let total_samples = (duration_seconds * sample_rate as f64).ceil().max(1.0) as usize;
-    let mut left = vec![0.0; total_samples];
-    let mut right = vec![0.0; total_samples];
+    let mut root = FxBusNode::root(total_samples, 0.0);
     for event in parsed_events {
-        let (event_left, event_right) = render_event(&event, sample_rate)?;
+        let (event_left, event_right) = render_dry_event(&event, sample_rate)?;
         let start = (event.time_seconds * sample_rate as f64).round().max(0.0) as usize;
-        for (index, (left_sample, right_sample)) in
-            event_left.iter().zip(event_right.iter()).enumerate()
-        {
-            let target = start + index;
-            if target >= total_samples {
-                break;
-            }
-            left[target] += left_sample;
-            right[target] += right_sample;
-        }
+        root.mix_event(
+            &event.fx_chain,
+            event.time_seconds,
+            start,
+            &event_left,
+            &event_right,
+        );
     }
-    Ok(stereo_wav_bytes(
-        &soft_clip(&left),
-        &soft_clip(&right),
+    let (left, right) = root.render(sample_rate);
+    let (left, right) = output_limit_prefix(&left, &right, total_samples, sample_rate);
+    Ok(stereo_wav_bytes(&left, &right, sample_rate))
+}
+
+fn render_plan_window_samples(
+    plan: &SynthPlaybackPlan,
+    start_seconds: f64,
+    duration_seconds: f64,
+    sample_rate: u32,
+) -> PyResult<(Vec<f64>, Vec<f64>)> {
+    if start_seconds < 0.0 || duration_seconds < 0.0 {
+        return Err(PyValueError::new_err(
+            "synth live render window start and duration cannot be negative.",
+        ));
+    }
+    if sample_rate == 0 {
+        return Err(PyValueError::new_err(
+            "synth live render sample rate must be greater than zero.",
+        ));
+    }
+    if start_seconds >= plan.duration_seconds || duration_seconds <= 0.0 {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    let window_start = start_seconds;
+    let window_duration = duration_seconds.min(plan.duration_seconds - window_start);
+    let window_samples = (window_duration * sample_rate as f64).ceil().max(0.0) as usize;
+    if window_samples == 0 {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    let context_start = (window_start - live_render_context_seconds()).max(0.0);
+    let context_end = window_start + window_duration;
+    let context_samples = ((context_end - context_start) * sample_rate as f64)
+        .ceil()
+        .max(1.0) as usize;
+    let mut root = FxBusNode::root(context_samples, context_start);
+    let mut sorted_events: Vec<(usize, &EventPayload)> = plan.events.iter().enumerate().collect();
+    sorted_events.sort_by(|(_, a), (_, b)| a.time_seconds.total_cmp(&b.time_seconds));
+
+    for (event_index, event) in sorted_events {
+        if event.time_seconds >= context_end {
+            break;
+        }
+        let signal = plan.dry_event_signal(event_index, event, sample_rate)?;
+        let event_len = signal.left.len().max(signal.right.len());
+        if event_len == 0 {
+            continue;
+        }
+        let event_end = event.time_seconds + event_len as f64 / sample_rate as f64;
+        if event_end <= context_start {
+            continue;
+        }
+        let skip = ((context_start - event.time_seconds) * sample_rate as f64)
+            .round()
+            .max(0.0) as usize;
+        let skip_left = skip.min(signal.left.len());
+        let skip_right = skip.min(signal.right.len());
+        let start = ((event.time_seconds - context_start) * sample_rate as f64)
+            .round()
+            .max(0.0) as usize;
+        root.mix_event(
+            &event.fx_chain,
+            event.time_seconds,
+            start,
+            &signal.left[skip_left..],
+            &signal.right[skip_right..],
+        );
+    }
+
+    let (left, right) = root.render(sample_rate);
+    let offset = ((window_start - context_start) * sample_rate as f64)
+        .round()
+        .max(0.0) as usize;
+    Ok(output_limit_window(
+        &left,
+        &right,
+        offset,
+        window_samples,
         sample_rate,
     ))
+}
+
+fn live_render_context_seconds() -> f64 {
+    4.0
+}
+
+impl SynthPlaybackPlan {
+    pub fn from_serialized_plan(payload: &[u8]) -> PyResult<Self> {
+        let (events, duration_seconds) = parse_serialized_plan(payload)?;
+        Ok(Self {
+            events,
+            duration_seconds,
+            dry_event_cache: Mutex::new(HashMap::new()),
+        })
+    }
+
+    pub fn duration_seconds(&self) -> f64 {
+        self.duration_seconds
+    }
+
+    pub fn render_window_i16(
+        &self,
+        start_seconds: f64,
+        duration_seconds: f64,
+        sample_rate: u32,
+    ) -> PyResult<Vec<i16>> {
+        let (left, right) =
+            render_plan_window_samples(self, start_seconds, duration_seconds, sample_rate)?;
+        Ok(samples_to_interleaved_i16(
+            &left,
+            &right,
+            left.len().min(right.len()),
+        ))
+    }
+
+    fn dry_event_signal(
+        &self,
+        event_index: usize,
+        event: &EventPayload,
+        sample_rate: u32,
+    ) -> PyResult<Arc<StereoEventSignal>> {
+        let key = (event_index, sample_rate);
+        if let Some(cached) = self
+            .dry_event_cache
+            .lock()
+            .map_err(|_| PyValueError::new_err("synth dry-event cache lock was poisoned."))?
+            .get(&key)
+            .cloned()
+        {
+            return Ok(cached);
+        }
+
+        let (left, right) = render_dry_event(event, sample_rate)?;
+        let rendered = Arc::new(StereoEventSignal { left, right });
+        let mut cache = self
+            .dry_event_cache
+            .lock()
+            .map_err(|_| PyValueError::new_err("synth dry-event cache lock was poisoned."))?;
+        Ok(cache
+            .entry(key)
+            .or_insert_with(|| Arc::clone(&rendered))
+            .clone())
+    }
+}
+
+impl FxBusNode {
+    fn root(total_samples: usize, time_origin_seconds: f64) -> Self {
+        Self {
+            fx: None,
+            input_left: vec![0.0; total_samples],
+            input_right: vec![0.0; total_samples],
+            option_snapshots: Vec::new(),
+            children: Vec::new(),
+            time_origin_seconds,
+        }
+    }
+
+    fn for_fx(fx: &FxPayload, total_samples: usize, time_origin_seconds: f64) -> Self {
+        Self {
+            fx: Some(fx.clone()),
+            input_left: vec![0.0; total_samples],
+            input_right: vec![0.0; total_samples],
+            option_snapshots: Vec::new(),
+            children: Vec::new(),
+            time_origin_seconds,
+        }
+    }
+
+    fn mix_event(
+        &mut self,
+        fx_chain: &[FxPayload],
+        event_time_seconds: f64,
+        start_sample: usize,
+        left: &[f64],
+        right: &[f64],
+    ) {
+        if let Some((fx, remaining_chain)) = fx_chain.split_first() {
+            let child = self.child_mut(fx);
+            child.option_snapshots.push(FxOptionSnapshot {
+                time_seconds: event_time_seconds,
+                opts: fx.opts.clone(),
+            });
+            child.mix_event(
+                remaining_chain,
+                event_time_seconds,
+                start_sample,
+                left,
+                right,
+            );
+            return;
+        }
+        mix_signal_into(
+            &mut self.input_left,
+            &mut self.input_right,
+            start_sample,
+            left,
+            right,
+        );
+    }
+
+    fn child_mut(&mut self, fx: &FxPayload) -> &mut FxBusNode {
+        if let Some(index) = self.children.iter().position(|child| child.matches_fx(fx)) {
+            return &mut self.children[index];
+        }
+        let total_samples = self.input_left.len().max(self.input_right.len()).max(1);
+        self.children.push(FxBusNode::for_fx(
+            fx,
+            total_samples,
+            self.time_origin_seconds,
+        ));
+        self.children
+            .last_mut()
+            .expect("FX bus child was just appended")
+    }
+
+    fn matches_fx(&self, fx: &FxPayload) -> bool {
+        self.fx
+            .as_ref()
+            .is_some_and(|current| current.id == fx.id && current.name == fx.name)
+    }
+
+    fn render(mut self, sample_rate: u32) -> (Vec<f64>, Vec<f64>) {
+        for child in self.children {
+            let (child_left, child_right) = child.render(sample_rate);
+            mix_signal_into(
+                &mut self.input_left,
+                &mut self.input_right,
+                0,
+                &child_left,
+                &child_right,
+            );
+        }
+        let Some(fx) = self.fx else {
+            return (self.input_left, self.input_right);
+        };
+        render_fx_bus_signal(
+            &fx,
+            &self.option_snapshots,
+            self.input_left,
+            self.input_right,
+            sample_rate,
+            self.time_origin_seconds,
+        )
+    }
+}
+
+fn render_fx_bus_signal(
+    fx: &FxPayload,
+    snapshots: &[FxOptionSnapshot],
+    input_left: Vec<f64>,
+    input_right: Vec<f64>,
+    sample_rate: u32,
+    time_origin_seconds: f64,
+) -> (Vec<f64>, Vec<f64>) {
+    let segments = fx_option_segments(
+        fx,
+        snapshots,
+        input_left.len().max(input_right.len()),
+        sample_rate,
+        time_origin_seconds,
+    );
+    if segments.len() == 1 && segments[0].0 == 0 {
+        return apply_fx(
+            &fx.name,
+            input_left,
+            input_right,
+            &segments[0].2,
+            sample_rate,
+            time_origin_seconds,
+        );
+    }
+
+    let mut output_left = vec![0.0; input_left.len().max(input_right.len())];
+    let mut output_right = vec![0.0; input_left.len().max(input_right.len())];
+    for (start, end, opts) in segments {
+        if start >= end {
+            continue;
+        }
+        let segment_left = slice_with_zeros(&input_left, start, end);
+        let segment_right = slice_with_zeros(&input_right, start, end);
+        if is_silent_pair(&segment_left, &segment_right) {
+            continue;
+        }
+        let start_time_seconds = time_origin_seconds + start as f64 / sample_rate as f64;
+        let (fx_left, fx_right) = apply_fx(
+            &fx.name,
+            segment_left,
+            segment_right,
+            &opts,
+            sample_rate,
+            start_time_seconds,
+        );
+        mix_signal_into(
+            &mut output_left,
+            &mut output_right,
+            start,
+            &fx_left,
+            &fx_right,
+        );
+    }
+    (output_left, output_right)
+}
+
+fn fx_option_segments(
+    fx: &FxPayload,
+    snapshots: &[FxOptionSnapshot],
+    input_len: usize,
+    sample_rate: u32,
+    time_origin_seconds: f64,
+) -> Vec<(usize, usize, OptMap)> {
+    let bounded_len = input_len.max(1);
+    let mut sorted = snapshots.to_vec();
+    sorted.sort_by(|a, b| a.time_seconds.total_cmp(&b.time_seconds));
+    let mut starts = vec![(0usize, fx.opts.clone())];
+    for snapshot in sorted {
+        let start = ((snapshot.time_seconds - time_origin_seconds) * sample_rate as f64)
+            .round()
+            .max(0.0) as usize;
+        let start = start.min(bounded_len);
+        if starts.last().is_some_and(|(last_start, last_opts)| {
+            *last_start == start && *last_opts == snapshot.opts
+        }) {
+            continue;
+        }
+        if starts
+            .last()
+            .is_some_and(|(_last_start, last_opts)| *last_opts == snapshot.opts)
+        {
+            continue;
+        }
+        starts.push((start, snapshot.opts));
+    }
+    starts.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut segments = Vec::with_capacity(starts.len());
+    for (index, (start, opts)) in starts.iter().enumerate() {
+        let end = starts
+            .get(index + 1)
+            .map(|(next_start, _)| *next_start)
+            .unwrap_or(bounded_len);
+        if *start < end {
+            segments.push((*start, end, opts.clone()));
+        }
+    }
+    if segments.is_empty() {
+        segments.push((0, bounded_len, fx.opts.clone()));
+    }
+    segments
+}
+
+fn mix_signal_into(
+    target_left: &mut Vec<f64>,
+    target_right: &mut Vec<f64>,
+    start: usize,
+    left: &[f64],
+    right: &[f64],
+) {
+    let required = start + left.len().max(right.len());
+    if target_left.len() < required {
+        target_left.resize(required, 0.0);
+    }
+    if target_right.len() < required {
+        target_right.resize(required, 0.0);
+    }
+    for index in 0..required.saturating_sub(start) {
+        target_left[start + index] += left.get(index).copied().unwrap_or(0.0);
+        target_right[start + index] += right.get(index).copied().unwrap_or(0.0);
+    }
+}
+
+fn slice_with_zeros(samples: &[f64], start: usize, end: usize) -> Vec<f64> {
+    (start..end)
+        .map(|index| samples.get(index).copied().unwrap_or(0.0))
+        .collect()
+}
+
+fn is_silent_pair(left: &[f64], right: &[f64]) -> bool {
+    left.iter()
+        .chain(right.iter())
+        .all(|sample| sample.abs() <= f64::EPSILON)
 }
 
 #[pyfunction]
@@ -297,6 +701,7 @@ fn get_fx_chain(dict: &Bound<'_, PyDict>) -> PyResult<Vec<FxPayload>> {
     for item in list.iter() {
         let item = item.downcast::<PyDict>()?;
         output.push(FxPayload {
+            id: get_u64(item, "id", 0)?,
             name: get_string(item, "name", "")?,
             opts: get_opt_map(item, "opts")?,
         });
@@ -525,6 +930,7 @@ impl ScheduledEventPayload {
                     }
                 }
                 FxPayload {
+                    id: fx.id,
                     name: fx.name,
                     opts,
                 }
@@ -614,12 +1020,16 @@ fn json_u64(value: Option<&JsonValue>, default: u64) -> u64 {
     value.and_then(JsonValue::as_u64).unwrap_or(default)
 }
 
-fn render_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f64>, Vec<f64>)> {
-    let (mut left, mut right) = if event.kind == "sample" {
-        render_sample_event(event, sample_rate)?
+fn render_dry_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f64>, Vec<f64>)> {
+    if event.kind == "sample" {
+        render_sample_event(event, sample_rate)
     } else {
-        render_synth_event(event, sample_rate)?
-    };
+        render_synth_event(event, sample_rate)
+    }
+}
+
+fn render_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f64>, Vec<f64>)> {
+    let (mut left, mut right) = render_dry_event(event, sample_rate)?;
     for fx in event.fx_chain.iter().rev() {
         let (new_left, new_right) = apply_fx(
             &fx.name,
@@ -664,11 +1074,11 @@ fn render_synth_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f
         .max(natural_tail)
         .max(0.01);
     let count = (total_seconds * sample_rate as f64).ceil() as usize;
-    let amp = float_opt(&opts, "amp", 1.0).max(0.0);
+    let amp = float_opt(&opts, "amp", 1.0).max(0.0) * synth_amp_fudge(kind, &opts);
+    let env_curve = float_opt(&opts, "env_curve", 1.0).round() as i32;
     let attack_level = float_opt(&opts, "attack_level", 1.0).max(0.0);
-    let sustain_level =
-        float_opt(&opts, "sustain_level", float_opt(&opts, "decay_level", 1.0)).max(0.0);
-    let decay_level = float_opt(&opts, "decay_level", sustain_level).max(0.0);
+    let sustain_level = float_opt(&opts, "sustain_level", 1.0).max(0.0);
+    let decay_level = decay_level_opt(&opts, sustain_level);
     let waveform = synth_waveform(kind, &opts);
     let pan_base = float_opt(&opts, "pan", 0.0);
     let note_auto = automation(notes[0], "note", &event.controls, &opts, event.time_seconds);
@@ -690,8 +1100,7 @@ fn render_synth_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f
         &opts,
         event.time_seconds,
     );
-    let mut left = Vec::with_capacity(count);
-    let mut right = Vec::with_capacity(count);
+    let mut mono = Vec::with_capacity(count);
     let mut phases = vec![0.0; notes.len()];
     for index in 0..count {
         let elapsed = index as f64 / sample_rate as f64;
@@ -704,6 +1113,7 @@ fn render_synth_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f
             attack_level,
             decay_level,
             sustain_level,
+            env_curve,
         );
         let mut current_notes = notes.clone();
         if current_notes.len() == 1 {
@@ -716,12 +1126,15 @@ fn render_synth_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f
                 continue;
             };
             let modulated_note = modulated_midi_note(kind, *midi_note, &opts, elapsed);
+            let freq = note_frequency(modulated_note).max(0.0);
+            let phase_delta = freq / sample_rate as f64;
             let voice = synth_voice(
                 kind,
                 waveform,
-                modulated_note,
                 phases[note_index],
+                phase_delta,
                 elapsed,
+                level,
                 index,
                 note_index,
                 &opts,
@@ -730,26 +1143,43 @@ fn render_synth_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f
             );
             sample += voice;
             active_voices += 1;
-            let freq = note_frequency(modulated_note).max(0.0);
-            phases[note_index] = (phases[note_index] + freq / sample_rate as f64).rem_euclid(1.0);
+            phases[note_index] = (phases[note_index] + phase_delta).rem_euclid(1.0);
         }
         if active_voices > 0 {
-            sample = sample / active_voices as f64 * level * amp;
+            sample /= active_voices as f64;
         }
-        let pan = pan_auto(elapsed).unwrap_or(pan_base).clamp(-1.0, 1.0);
-        let (left_gain, right_gain) = pan_gains(pan);
-        left.push(sample * left_gain);
-        right.push(sample * right_gain);
+        mono.push(sample);
     }
-    Ok(apply_synth_post_processing(
+    let (processed_left, processed_right) = apply_synth_post_processing(
         kind,
-        left,
-        right,
+        mono.clone(),
+        mono,
         &opts,
         sample_rate,
         &*cutoff_auto,
         cutoff_is_automated,
-    ))
+    );
+    let mut left = Vec::with_capacity(count);
+    let mut right = Vec::with_capacity(count);
+    for index in 0..count {
+        let elapsed = index as f64 / sample_rate as f64;
+        let level = adsr_level(
+            elapsed,
+            attack,
+            decay,
+            sustain,
+            release,
+            attack_level,
+            decay_level,
+            sustain_level,
+            env_curve,
+        );
+        let pan = pan_auto(elapsed).unwrap_or(pan_base).clamp(-1.0, 1.0);
+        let (left_gain, right_gain) = pan_gains(pan);
+        left.push(processed_left.get(index).copied().unwrap_or(0.0) * level * amp * left_gain);
+        right.push(processed_right.get(index).copied().unwrap_or(0.0) * level * amp * right_gain);
+    }
+    Ok((left, right))
 }
 
 fn render_layered_synth_event(
@@ -779,11 +1209,11 @@ fn render_layered_synth_event(
         .max(natural_tail)
         .max(0.01);
     let count = (total_seconds * sample_rate as f64).ceil() as usize;
-    let amp = float_opt(opts, "amp", 1.0).max(0.0);
+    let amp = float_opt(opts, "amp", 1.0).max(0.0) * synth_amp_fudge(SynthKind::Layered, opts);
+    let env_curve = float_opt(opts, "env_curve", 1.0).round() as i32;
     let attack_level = float_opt(opts, "attack_level", 1.0).max(0.0);
-    let sustain_level =
-        float_opt(opts, "sustain_level", float_opt(opts, "decay_level", 1.0)).max(0.0);
-    let decay_level = float_opt(opts, "decay_level", sustain_level).max(0.0);
+    let sustain_level = float_opt(opts, "sustain_level", 1.0).max(0.0);
+    let decay_level = decay_level_opt(opts, sustain_level);
     let pan_base = float_opt(opts, "pan", 0.0);
     let note_auto = automation(notes[0], "note", &event.controls, opts, event.time_seconds);
     let cutoff_auto = automation(
@@ -809,8 +1239,7 @@ fn render_layered_synth_event(
         event.time_seconds,
     );
     let mut phases = vec![0.0; notes.len() * layers.len()];
-    let mut left = Vec::with_capacity(count);
-    let mut right = Vec::with_capacity(count);
+    let mut mono = Vec::with_capacity(count);
 
     for index in 0..count {
         let elapsed = index as f64 / sample_rate as f64;
@@ -823,6 +1252,7 @@ fn render_layered_synth_event(
             attack_level,
             decay_level,
             sustain_level,
+            env_curve,
         );
         let mut current_notes = notes.clone();
         if current_notes.len() == 1 {
@@ -840,12 +1270,15 @@ fn render_layered_synth_event(
                 let layer_note = *midi_note + layer.transpose;
                 let modulated_note =
                     modulated_midi_note(layer.kind, layer_note, &layer.opts, elapsed);
+                let freq = note_frequency(modulated_note).max(0.0);
+                let phase_delta = freq / sample_rate as f64;
                 let voice = synth_voice(
                     layer.kind,
                     layer.waveform,
-                    modulated_note,
                     phases[phase_index],
+                    phase_delta,
                     elapsed,
+                    level,
                     index,
                     phase_index,
                     &layer.opts,
@@ -853,29 +1286,46 @@ fn render_layered_synth_event(
                     sample_rate,
                 );
                 sample += voice * layer.amp;
-                let freq = note_frequency(modulated_note).max(0.0);
-                phases[phase_index] =
-                    (phases[phase_index] + freq / sample_rate as f64).rem_euclid(1.0);
+                phases[phase_index] = (phases[phase_index] + phase_delta).rem_euclid(1.0);
             }
         }
         if active_base_notes > 0 {
-            sample = sample / active_base_notes as f64 * level * amp;
+            sample /= active_base_notes as f64;
         }
-        let pan = pan_auto(elapsed).unwrap_or(pan_base).clamp(-1.0, 1.0);
-        let (left_gain, right_gain) = pan_gains(pan);
-        left.push(sample * left_gain);
-        right.push(sample * right_gain);
+        mono.push(sample);
     }
 
-    Ok(apply_synth_post_processing(
+    let (processed_left, processed_right) = apply_synth_post_processing(
         SynthKind::Layered,
-        left,
-        right,
+        mono.clone(),
+        mono,
         opts,
         sample_rate,
         &*cutoff_auto,
         cutoff_is_automated,
-    ))
+    );
+    let mut left = Vec::with_capacity(count);
+    let mut right = Vec::with_capacity(count);
+    for index in 0..count {
+        let elapsed = index as f64 / sample_rate as f64;
+        let level = adsr_level(
+            elapsed,
+            attack,
+            decay,
+            sustain,
+            release,
+            attack_level,
+            decay_level,
+            sustain_level,
+            env_curve,
+        );
+        let pan = pan_auto(elapsed).unwrap_or(pan_base).clamp(-1.0, 1.0);
+        let (left_gain, right_gain) = pan_gains(pan);
+        left.push(processed_left.get(index).copied().unwrap_or(0.0) * level * amp * left_gain);
+        right.push(processed_right.get(index).copied().unwrap_or(0.0) * level * amp * right_gain);
+    }
+
+    Ok((left, right))
 }
 
 fn layered_specs(opts: &OptMap) -> Vec<LayerSpec> {
@@ -943,19 +1393,26 @@ fn render_sample_event_with_opts(
     let reverse = rate < 0.0 || start > finish;
     let low = start.min(finish);
     let high = start.max(finish);
-    let start_index = (low * source.samples.len() as f64) as usize;
-    let end_index = ((high * source.samples.len() as f64) as usize).max(start_index + 1);
-    let end_index = end_index.min(source.samples.len());
-    let mut segment = source.samples[start_index..end_index].to_vec();
+    let source_len = source.len();
+    if source_len == 0 {
+        return Ok((Vec::new(), Vec::new()));
+    }
+    let start_index = (low * source_len as f64) as usize;
+    let end_index = ((high * source_len as f64) as usize).max(start_index + 1);
+    let end_index = end_index.min(source_len);
+    let mut segment_left = source.left[start_index..end_index].to_vec();
+    let mut segment_right = source.right[start_index..end_index].to_vec();
     if reverse {
-        segment.reverse();
+        segment_left.reverse();
+        segment_right.reverse();
     }
     let pre_amp = float_opt(opts, "pre_amp", 1.0).max(0.0);
     if pre_amp != 1.0 {
-        segment = scale_samples(&segment, pre_amp);
+        segment_left = scale_samples(&segment_left, pre_amp);
+        segment_right = scale_samples(&segment_right, pre_amp);
     }
     let step = rate.abs();
-    let output_count = ((segment.len() as f64 / step).max(1.0)) as usize;
+    let output_count = ((segment_left.len() as f64 / step).ceil().max(1.0)) as usize;
     let attack = float_opt(opts, "attack", 0.0).max(0.0);
     let release = float_opt(opts, "release", 0.0).max(0.0);
     let sustain_opt = opts
@@ -963,20 +1420,31 @@ fn render_sample_event_with_opts(
         .and_then(value_as_f64)
         .filter(|value| *value >= 0.0);
     let amp = float_opt(opts, "amp", 1.0).max(0.0);
+    let env_curve = float_opt(opts, "env_curve", 1.0).round() as i32;
     let pan = float_opt(opts, "pan", 0.0);
     let (left_gain, right_gain) = pan_gains(pan);
     let total = output_count as f64 / sample_rate as f64;
     let sustain_auto = (total - attack - release).max(0.0);
     let sustain = sustain_opt.unwrap_or(sustain_auto);
-    let mut mono = Vec::with_capacity(output_count);
+    let mut left = Vec::with_capacity(output_count);
+    let mut right = Vec::with_capacity(output_count);
     for index in 0..output_count {
-        let source_pos = ((index as f64 * step) as usize).min(segment.len().saturating_sub(1));
+        let source_pos = index as f64 * step;
         let elapsed = index as f64 / sample_rate as f64;
-        let level = adsr_level(elapsed, attack, 0.0, sustain, release, 1.0, 1.0, 1.0);
-        mono.push(segment[source_pos] * level * amp);
+        let level = adsr_level(
+            elapsed, attack, 0.0, sustain, release, 1.0, 1.0, 1.0, env_curve,
+        );
+        let dry_left = sample_linear_clamped(&segment_left, source_pos) * level * amp;
+        let dry_right = sample_linear_clamped(&segment_right, source_pos) * level * amp;
+        if source.stereo {
+            let balanced = balance2_sample(dry_left, dry_right, pan);
+            left.push(balanced.0);
+            right.push(balanced.1);
+        } else {
+            left.push(dry_left * left_gain);
+            right.push(dry_left * right_gain);
+        }
     }
-    let mut left: Vec<f64> = mono.iter().map(|sample| sample * left_gain).collect();
-    let mut right: Vec<f64> = mono.iter().map(|sample| sample * right_gain).collect();
     let cutoff = float_opt(opts, "cutoff", 0.0);
     if cutoff > 0.0 && cutoff < 130.5 {
         let res = float_opt(opts, "res", 0.0).clamp(0.0, 0.99);
@@ -1070,13 +1538,14 @@ fn adsr_level(
     attack_level: f64,
     decay_level: f64,
     sustain_level: f64,
+    env_curve: i32,
 ) -> f64 {
     if attack > 0.0 && elapsed < attack {
-        return attack_level * elapsed / attack;
+        return shaped_interpolate(0.0, attack_level, elapsed / attack, env_curve);
     }
     elapsed -= attack;
     if decay > 0.0 && elapsed < decay {
-        return attack_level + (decay_level - attack_level) * elapsed / decay;
+        return shaped_interpolate(attack_level, decay_level, elapsed / decay, env_curve);
     }
     elapsed -= decay;
     if elapsed < sustain {
@@ -1086,7 +1555,47 @@ fn adsr_level(
     if release <= 0.0 {
         return 0.0;
     }
-    (sustain_level * (1.0 - elapsed / release)).max(0.0)
+    shaped_interpolate(sustain_level, 0.0, elapsed / release, env_curve).max(0.0)
+}
+
+fn shaped_interpolate(start: f64, end: f64, position: f64, curve: i32) -> f64 {
+    let t = position.clamp(0.0, 1.0);
+    let amount = match curve {
+        2 => exponential_curve_amount(start, end, t),
+        3 => 0.5 - 0.5 * (PI * t).cos(),
+        4 => {
+            if end >= start {
+                (PI * 0.5 * t).sin()
+            } else {
+                1.0 - (PI * 0.5 * (1.0 - t)).sin()
+            }
+        }
+        6 => t * t,
+        7 => t * t * t,
+        _ => t,
+    };
+    start + (end - start) * amount.clamp(0.0, 1.0)
+}
+
+fn exponential_curve_amount(start: f64, end: f64, t: f64) -> f64 {
+    if start > 1e-6 && end > 1e-6 && (start - end).abs() > 1e-9 {
+        let value = start * (end / start).powf(t);
+        return ((value - start) / (end - start)).clamp(0.0, 1.0);
+    }
+    if end >= start {
+        t * t
+    } else {
+        1.0 - (1.0 - t) * (1.0 - t)
+    }
+}
+
+fn decay_level_opt(opts: &OptMap, sustain_level: f64) -> f64 {
+    let raw = float_opt(opts, "decay_level", -1.0);
+    if raw < 0.0 {
+        sustain_level
+    } else {
+        raw.max(0.0)
+    }
 }
 
 fn default_synth_envelope(_kind: SynthKind) -> (f64, f64, f64, f64) {
@@ -1121,22 +1630,24 @@ fn synth_waveform(kind: SynthKind, _opts: &OptMap) -> &'static str {
 fn synth_voice(
     kind: SynthKind,
     waveform: &str,
-    _midi_note: f64,
     phase: f64,
-    _elapsed: f64,
+    phase_delta: f64,
+    elapsed: f64,
+    env_level: f64,
     sample_index: usize,
     note_index: usize,
     opts: &OptMap,
     node_id: u64,
     _sample_rate: u32,
 ) -> f64 {
-    let pulse_width = float_opt(opts, "pulse_width", 0.5).clamp(0.001, 0.999);
-    let base = oscillator_value_with_width(waveform, phase, pulse_width);
+    let pulse_width = pulse_width_at(opts, elapsed).clamp(0.001, 0.999);
+    let base = oscillator_value_with_width(waveform, phase, phase_delta, pulse_width);
     match kind {
         SynthKind::Fm => {
             let divisor = float_opt(opts, "divisor", 2.0).abs().max(0.001);
             let depth = float_opt(opts, "depth", 1.0);
-            (TAU * phase + (TAU * phase / divisor).sin() * depth).sin()
+            let modulator = (TAU * phase / divisor).sin();
+            (TAU * phase + modulator * depth * divisor * env_level).sin()
         }
         SynthKind::Noise
         | SynthKind::PinkNoise
@@ -1147,18 +1658,50 @@ fn synth_voice(
     }
 }
 
-fn oscillator_value_with_width(waveform: &str, phase: f64, pulse_width: f64) -> f64 {
+fn pulse_width_at(opts: &OptMap, elapsed: f64) -> f64 {
+    let base = float_opt(opts, "pulse_width", 0.5);
+    let rate = float_opt(opts, "pulse_width_lfo_rate", 0.0);
+    let depth = float_opt(opts, "pulse_width_lfo_depth", 0.0);
+    if rate.abs() <= f64::EPSILON || depth.abs() <= f64::EPSILON {
+        return base;
+    }
+    let phase_seconds = (1.0 / rate.abs()).max(0.001);
+    let phase_offset = float_opt(opts, "pulse_width_lfo_phase", 0.0);
+    let wave = float_opt(opts, "pulse_width_lfo_wave", 3.0).round() as i32;
+    let amount = lfo_amount(wave, elapsed, phase_seconds, phase_offset, 0.5) * 2.0 - 1.0;
+    base + depth * amount
+}
+
+fn oscillator_value_with_width(
+    waveform: &str,
+    phase: f64,
+    phase_delta: f64,
+    pulse_width: f64,
+) -> f64 {
+    let phase = phase.rem_euclid(1.0);
+    let dt = phase_delta.abs().clamp(1.0e-9, 0.5);
     match waveform {
         "square" => {
-            if phase.rem_euclid(1.0) < pulse_width {
-                1.0
-            } else {
-                -1.0
-            }
+            let mut value = if phase < pulse_width { 1.0 } else { -1.0 };
+            value += poly_blep(phase, dt);
+            value -= poly_blep((phase - pulse_width).rem_euclid(1.0), dt);
+            value.clamp(-1.0, 1.0)
         }
-        "triangle" => 4.0 * (phase.rem_euclid(1.0) - 0.5).abs() - 1.0,
-        "saw" => 2.0 * phase.rem_euclid(1.0) - 1.0,
+        "triangle" => 4.0 * (phase - 0.5).abs() - 1.0,
+        "saw" => (2.0 * phase - 1.0) - poly_blep(phase, dt),
         _ => (TAU * phase).sin(),
+    }
+}
+
+fn poly_blep(phase: f64, phase_delta: f64) -> f64 {
+    if phase < phase_delta {
+        let t = phase / phase_delta;
+        t + t - t * t - 1.0
+    } else if phase > 1.0 - phase_delta {
+        let t = (phase - 1.0) / phase_delta;
+        t * t + t + t + 1.0
+    } else {
+        0.0
     }
 }
 
@@ -1207,28 +1750,32 @@ fn apply_synth_post_processing(
     cutoff_auto: &(dyn Fn(f64) -> Option<f64> + Send + Sync),
     cutoff_is_automated: bool,
 ) -> (Vec<f64>, Vec<f64>) {
+    (left, right) = apply_pre_filter_shaping(left, right, opts);
     let cutoff = cutoff_auto(0.0).unwrap_or_else(|| default_synth_cutoff(kind));
     if cutoff > 0.0 && cutoff < 130.5 {
         let res = float_opt(opts, "res", default_synth_res(kind)).clamp(0.0, 0.99);
-        if cutoff_is_automated {
-            let dry_left = left.clone();
-            let dry_right = right.clone();
-            let (filtered_left, filtered_right) =
-                modulated_lowpass_pair(&dry_left, &dry_right, sample_rate, |index| {
-                    let elapsed = index as f64 / sample_rate as f64;
-                    let cutoff_note = cutoff_auto(elapsed).unwrap_or(cutoff).clamp(0.001, 130.5);
-                    note_frequency(cutoff_note).clamp(20.0, sample_rate as f64 * 0.45)
-                });
-            left = filtered_left;
-            right = filtered_right;
+        let cutoff_envelope = cutoff_envelope_enabled(opts);
+        if cutoff_is_automated || cutoff_envelope || res > 0.0 {
+            let cutoff_hz = |index: usize| {
+                let elapsed = index as f64 / sample_rate as f64;
+                synth_cutoff_hz_at(kind, opts, cutoff_auto, cutoff, elapsed, sample_rate)
+            };
             if res > 0.0 {
-                left = resonant_emphasis(&dry_left, &left, res);
-                right = resonant_emphasis(&dry_right, &right, res);
+                (left, right) = resonant_modulated_filter_pair(
+                    &left,
+                    &right,
+                    sample_rate,
+                    FilterKind::Low,
+                    sonic_filter_rq(res),
+                    cutoff_hz,
+                );
+            } else {
+                (left, right) = modulated_lowpass_pair(&left, &right, sample_rate, cutoff_hz);
             }
         } else {
             let cutoff_hz = note_frequency(cutoff).max(20.0);
-            left = filter_samples(&left, cutoff_hz, sample_rate, FilterKind::Low, res);
-            right = filter_samples(&right, cutoff_hz, sample_rate, FilterKind::Low, res);
+            left = filter_samples(&left, cutoff_hz, sample_rate, FilterKind::Low, 0.0);
+            right = filter_samples(&right, cutoff_hz, sample_rate, FilterKind::Low, 0.0);
         }
     }
     match kind {
@@ -1246,10 +1793,127 @@ fn apply_synth_post_processing(
         }
         _ => {}
     }
-    if float_opt(opts, "norm", 0.0) >= 0.5 {
-        (left, right) = normalise_pair(&left, &right, 1.0);
+    if synth_normalise_enabled(kind, opts) {
+        let level = float_opt(
+            opts,
+            "normalise_level",
+            float_opt(opts, "normalize_level", 1.0),
+        )
+        .max(0.0);
+        (left, right) = normalise_pair(&left, &right, level);
     }
     (left, right)
+}
+
+fn apply_pre_filter_shaping(
+    mut left: Vec<f64>,
+    mut right: Vec<f64>,
+    opts: &OptMap,
+) -> (Vec<f64>, Vec<f64>) {
+    if bool_opt(opts, "pre_shape_normalise", false) || bool_opt(opts, "pre_shape_normalize", false)
+    {
+        let level = float_opt(opts, "pre_shape_level", 1.0).max(0.0);
+        (left, right) = normalise_pair(&left, &right, level);
+    }
+    match string_opt(opts, "pre_filter_shape", "").as_str() {
+        "square" | "squared" => {
+            left = left.iter().map(|sample| sample * sample).collect();
+            right = right.iter().map(|sample| sample * sample).collect();
+        }
+        "signed_square" | "signed_squared" => {
+            left = left.iter().map(|sample| sample * sample.abs()).collect();
+            right = right.iter().map(|sample| sample * sample.abs()).collect();
+        }
+        _ => {}
+    }
+    if bool_opt(opts, "pre_filter_normalise", false)
+        || bool_opt(opts, "pre_filter_normalize", false)
+    {
+        let level = float_opt(opts, "pre_filter_level", 1.0).max(0.0);
+        (left, right) = normalise_pair(&left, &right, level);
+    }
+    (left, right)
+}
+
+fn cutoff_envelope_enabled(opts: &OptMap) -> bool {
+    [
+        "cutoff_min",
+        "cutoff_attack",
+        "cutoff_decay",
+        "cutoff_sustain",
+        "cutoff_release",
+        "cutoff_attack_level",
+        "cutoff_decay_level",
+        "cutoff_sustain_level",
+    ]
+    .iter()
+    .any(|key| opts.contains_key(*key))
+}
+
+fn synth_cutoff_hz_at(
+    kind: SynthKind,
+    opts: &OptMap,
+    cutoff_auto: &(dyn Fn(f64) -> Option<f64> + Send + Sync),
+    default_cutoff: f64,
+    elapsed: f64,
+    sample_rate: u32,
+) -> f64 {
+    let cutoff_note = cutoff_auto(elapsed)
+        .unwrap_or(default_cutoff)
+        .clamp(0.001, 130.5);
+    let cutoff_hz = note_frequency(cutoff_note);
+    let hz = if cutoff_envelope_enabled(opts) {
+        let cutoff_min_hz = note_frequency(float_opt(opts, "cutoff_min", 30.0).clamp(0.001, 130.5));
+        cutoff_min_hz + cutoff_envelope_level(kind, opts, elapsed) * cutoff_hz
+    } else {
+        cutoff_hz
+    };
+    hz.clamp(20.0, sample_rate as f64 * 0.45)
+}
+
+fn cutoff_envelope_level(kind: SynthKind, opts: &OptMap, elapsed: f64) -> f64 {
+    let (default_attack, default_decay, default_sustain, default_release) =
+        default_synth_envelope(kind);
+    let attack = float_opt(opts, "attack", default_attack).max(0.0);
+    let decay = float_opt(opts, "decay", default_decay).max(0.0);
+    let sustain = float_opt(opts, "sustain", default_sustain).max(0.0);
+    let release = float_opt(opts, "release", default_release).max(0.0);
+    let sustain_level = float_opt(
+        opts,
+        "cutoff_sustain_level",
+        float_opt(opts, "sustain_level", 1.0),
+    )
+    .max(0.0);
+    let attack_level = float_opt(opts, "cutoff_attack_level", 1.0).max(0.0);
+    let decay_level_raw = float_opt(opts, "cutoff_decay_level", -1.0);
+    let decay_level = if decay_level_raw < 0.0 {
+        sustain_level
+    } else {
+        decay_level_raw.max(0.0)
+    };
+    let cutoff_attack = inherit_negative(float_opt(opts, "cutoff_attack", -1.0), attack);
+    let cutoff_decay = inherit_negative(float_opt(opts, "cutoff_decay", -1.0), decay);
+    let cutoff_sustain = inherit_negative(float_opt(opts, "cutoff_sustain", -1.0), sustain);
+    let cutoff_release = inherit_negative(float_opt(opts, "cutoff_release", -1.0), release);
+    adsr_level(
+        elapsed,
+        cutoff_attack,
+        cutoff_decay,
+        cutoff_sustain,
+        cutoff_release,
+        attack_level,
+        decay_level,
+        sustain_level,
+        float_opt(opts, "cutoff_env_curve", float_opt(opts, "env_curve", 1.0)).round() as i32,
+    )
+}
+
+fn inherit_negative(value: f64, inherited: f64) -> f64 {
+    if value < 0.0 {
+        inherited.max(0.0)
+    } else {
+        value.max(0.0)
+    }
 }
 
 fn default_synth_cutoff(kind: SynthKind) -> f64 {
@@ -1268,6 +1932,34 @@ fn default_synth_cutoff(kind: SynthKind) -> f64 {
 
 fn default_synth_res(_kind: SynthKind) -> f64 {
     0.0
+}
+
+fn synth_amp_fudge(_kind: SynthKind, opts: &OptMap) -> f64 {
+    float_opt(opts, "amp_fudge", 1.0).max(0.0)
+}
+
+fn synth_normalise_enabled(kind: SynthKind, opts: &OptMap) -> bool {
+    bool_opt(
+        opts,
+        "normalise",
+        bool_opt(
+            opts,
+            "normalize",
+            float_opt(
+                opts,
+                "norm",
+                if default_synth_normalise(kind) {
+                    1.0
+                } else {
+                    0.0
+                },
+            ) >= 0.5,
+        ),
+    )
+}
+
+fn default_synth_normalise(_kind: SynthKind) -> bool {
+    false
 }
 
 fn automation(
@@ -1322,8 +2014,23 @@ fn automation(
 
 #[derive(Clone, Debug)]
 struct SampleSource {
-    samples: Vec<f64>,
+    left: Arc<Vec<f64>>,
+    right: Arc<Vec<f64>>,
     duration: f64,
+    stereo: bool,
+}
+
+impl SampleSource {
+    fn len(&self) -> usize {
+        self.left.len().min(self.right.len())
+    }
+}
+
+type SampleCache = HashMap<(String, u32), Arc<SampleSource>>;
+
+fn sample_cache() -> &'static Mutex<SampleCache> {
+    static SAMPLE_CACHE: OnceLock<Mutex<SampleCache>> = OnceLock::new();
+    SAMPLE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 fn sample_source(value: &SynthValue, sample_rate: u32) -> PyResult<SampleSource> {
@@ -1334,7 +2041,7 @@ fn sample_source(value: &SynthValue, sample_rate: u32) -> PyResult<SampleSource>
     .ok_or_else(|| PyValueError::new_err("sample event does not specify a sample name."))?;
     if let SynthValue::String(path) = sample_name {
         if fs::metadata(path).is_ok() {
-            return load_sample_file(path, sample_rate);
+            return cached_sample_file(path, sample_rate);
         }
     }
     let name = match sample_name {
@@ -1346,7 +2053,7 @@ fn sample_source(value: &SynthValue, sample_rate: u32) -> PyResult<SampleSource>
         }
     };
     if let Some(path) = packaged_sample_path(&name) {
-        return load_sample_file(path.to_string_lossy().as_ref(), sample_rate);
+        return cached_sample_file(path.to_string_lossy().as_ref(), sample_rate);
     }
     Err(PyValueError::new_err(format!(
         "Sample {name:?} was not found. Provide an existing file path or install the packaged Sonic Pi sample assets."
@@ -1397,6 +2104,34 @@ fn packaged_sample_roots() -> Vec<PathBuf> {
     roots
 }
 
+fn cached_sample_file(path: &str, sample_rate: u32) -> PyResult<SampleSource> {
+    let cache_key = (sample_cache_key(path), sample_rate);
+    if let Some(source) = sample_cache()
+        .lock()
+        .map_err(|_| PyValueError::new_err("synth sample cache lock was poisoned."))?
+        .get(&cache_key)
+        .cloned()
+    {
+        return Ok((*source).clone());
+    }
+
+    let source = Arc::new(load_sample_file(path, sample_rate)?);
+    let mut cache = sample_cache()
+        .lock()
+        .map_err(|_| PyValueError::new_err("synth sample cache lock was poisoned."))?;
+    Ok((**cache
+        .entry(cache_key)
+        .or_insert_with(|| Arc::clone(&source)))
+    .clone())
+}
+
+fn sample_cache_key(path: &str) -> String {
+    fs::canonicalize(path)
+        .unwrap_or_else(|_| PathBuf::from(path))
+        .to_string_lossy()
+        .into_owned()
+}
+
 fn load_sample_file(path: &str, sample_rate: u32) -> PyResult<SampleSource> {
     let extension = Path::new(path)
         .extension()
@@ -1412,15 +2147,23 @@ fn load_sample_file(path: &str, sample_rate: u32) -> PyResult<SampleSource> {
 fn load_wav_sample(path: &str, sample_rate: u32) -> PyResult<SampleSource> {
     let bytes = fs::read(path)
         .map_err(|err| PyValueError::new_err(format!("Could not load WAV sample {path}: {err}")))?;
-    let wav = decode_wav_mono(&bytes)?;
-    let samples = if wav.sample_rate == sample_rate {
-        wav.samples
+    let wav = decode_wav_stereo(&bytes)?;
+    let left = if wav.sample_rate == sample_rate {
+        wav.left
     } else {
-        resample(&wav.samples, wav.sample_rate, sample_rate)
+        resample(&wav.left, wav.sample_rate, sample_rate)
     };
+    let right = if wav.sample_rate == sample_rate {
+        wav.right
+    } else {
+        resample(&wav.right, wav.sample_rate, sample_rate)
+    };
+    let duration = left.len().min(right.len()) as f64 / sample_rate as f64;
     Ok(SampleSource {
-        duration: samples.len() as f64 / sample_rate as f64,
-        samples,
+        left: Arc::new(left),
+        right: Arc::new(right),
+        duration,
+        stereo: wav.stereo,
     })
 }
 
@@ -1432,47 +2175,67 @@ fn load_flac_sample(path: &str, sample_rate: u32) -> PyResult<SampleSource> {
     let source_rate = streaminfo.sample_rate;
     let channels = streaminfo.channels as usize;
     let bits_per_sample = streaminfo.bits_per_sample as i32;
-    if channels == 0 || bits_per_sample <= 0 {
+    if !matches!(channels, 1 | 2) || bits_per_sample <= 0 {
         return Err(PyValueError::new_err(format!(
-            "Unsupported FLAC sample format for {path}."
+            "Unsupported FLAC sample format for {path}; expected mono or stereo PCM data."
         )));
     }
     let denom = 2_f64.powi(bits_per_sample - 1);
-    let mut samples = Vec::new();
-    let mut accum = 0.0;
+    let mut left = Vec::new();
+    let mut right = Vec::new();
     let mut channel = 0usize;
+    let mut pending_left = 0.0;
     for sample in reader.samples() {
         let sample = sample.map_err(|err| {
             PyValueError::new_err(format!("Could not decode FLAC sample {path}: {err}"))
-        })?;
-        accum += sample as f64 / denom;
-        channel += 1;
-        if channel == channels {
-            samples.push(accum / channels as f64);
-            accum = 0.0;
+        })? as f64
+            / denom;
+        if channels == 1 {
+            left.push(sample);
+            right.push(sample);
+            continue;
+        }
+        if channel == 0 {
+            pending_left = sample;
+            channel = 1;
+        } else {
+            left.push(pending_left);
+            right.push(sample);
             channel = 0;
         }
     }
-    if channel > 0 {
-        samples.push(accum / channel as f64);
+    if channel != 0 {
+        return Err(PyValueError::new_err(format!(
+            "Malformed FLAC sample {path}; incomplete stereo frame."
+        )));
     }
-    let samples = if source_rate == sample_rate {
-        samples
+    let left = if source_rate == sample_rate {
+        left
     } else {
-        resample(&samples, source_rate, sample_rate)
+        resample(&left, source_rate, sample_rate)
     };
+    let right = if source_rate == sample_rate {
+        right
+    } else {
+        resample(&right, source_rate, sample_rate)
+    };
+    let duration = left.len().min(right.len()) as f64 / sample_rate as f64;
     Ok(SampleSource {
-        duration: samples.len() as f64 / sample_rate as f64,
-        samples,
+        left: Arc::new(left),
+        right: Arc::new(right),
+        duration,
+        stereo: channels == 2,
     })
 }
 
 struct DecodedWav {
-    samples: Vec<f64>,
+    left: Vec<f64>,
+    right: Vec<f64>,
     sample_rate: u32,
+    stereo: bool,
 }
 
-fn decode_wav_mono(bytes: &[u8]) -> PyResult<DecodedWav> {
+fn decode_wav_stereo(bytes: &[u8]) -> PyResult<DecodedWav> {
     if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return Err(PyValueError::new_err(
             "Rust synth sample rendering currently supports PCM WAV bytes.",
@@ -1520,22 +2283,28 @@ fn decode_wav_mono(bytes: &[u8]) -> PyResult<DecodedWav> {
         bits_per_sample.ok_or_else(|| PyValueError::new_err("WAV missing depth."))?;
     let data = data.ok_or_else(|| PyValueError::new_err("WAV missing data chunk."))?;
     let width = usize::from(bits_per_sample.div_ceil(8));
-    if !matches!(width, 1 | 2 | 4) || channels == 0 {
-        return Err(PyValueError::new_err("Unsupported PCM WAV format."));
+    if !matches!(width, 1 | 2 | 4) || !matches!(channels, 1 | 2) {
+        return Err(PyValueError::new_err(
+            "Unsupported PCM WAV format; expected mono or stereo 8/16/32-bit PCM.",
+        ));
     }
     let step = width * usize::from(channels);
-    let mut samples = Vec::with_capacity(data.len() / step);
+    let mut left = Vec::with_capacity(data.len() / step);
+    let mut right = Vec::with_capacity(data.len() / step);
     for frame in data.chunks_exact(step) {
-        let mut accum = 0.0;
-        for channel in 0..usize::from(channels) {
-            let start = channel * width;
-            accum += decode_pcm_sample(&frame[start..start + width]);
+        let left_sample = decode_pcm_sample(&frame[0..width]);
+        left.push(left_sample);
+        if channels == 1 {
+            right.push(left_sample);
+        } else {
+            right.push(decode_pcm_sample(&frame[width..width * 2]));
         }
-        samples.push(accum / f64::from(channels));
     }
     Ok(DecodedWav {
-        samples,
+        left,
+        right,
         sample_rate,
+        stereo: channels == 2,
     })
 }
 
@@ -1968,28 +2737,123 @@ fn fx_krush_shape(left: &[f64], right: &[f64], opts: &OptMap) -> (Vec<f64>, Vec<
 
 fn fx_reverb(left: &[f64], right: &[f64], opts: &OptMap, sample_rate: u32) -> (Vec<f64>, Vec<f64>) {
     let room = float_opt(opts, "room", 0.6).clamp(0.0, 1.0);
-    let mix = float_opt(opts, "mix", 0.35).clamp(0.0, 1.0);
-    let delays = [0.031, 0.047, 0.071, 0.113];
-    let extra = (delays.iter().copied().fold(0.0, f64::max) * sample_rate as f64) as usize;
-    let mut out_left = left.to_vec();
-    let mut out_right = right.to_vec();
-    out_left.resize(out_left.len() + extra, 0.0);
-    out_right.resize(out_right.len() + extra, 0.0);
-    for (delay_index, delay) in delays.iter().enumerate() {
-        let offset = (*delay * sample_rate as f64) as usize;
-        let gain = mix * room.powi(delay_index as i32) * 0.45;
-        for (index, sample) in left.iter().enumerate() {
-            out_left[index + offset] += sample * gain;
+    let damp = float_opt(opts, "damp", 0.5).clamp(0.0, 1.0);
+    let tail_seconds = float_opt(opts, "tail", 0.7 + room * 2.4).max(0.05);
+    let input_len = left.len().max(right.len());
+    if input_len == 0 {
+        return (Vec::new(), Vec::new());
+    }
+    let output_len = input_len + (tail_seconds * sample_rate as f64).ceil() as usize;
+    let feedback = 0.70 + room * 0.24;
+    let damp_amount = damp * 0.45;
+    let damp1 = damp_amount;
+    let damp2 = 1.0 - damp_amount;
+    let wet_gain = 0.18 + room * 0.08;
+    let input_gain = 0.025;
+
+    let comb_left = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
+    let comb_right = [1139, 1211, 1300, 1379, 1445, 1514, 1580, 1640];
+    let allpass_left = [556, 441, 341, 225];
+    let allpass_right = [579, 464, 364, 248];
+    let mut combs_left: Vec<CombFilter> = comb_left
+        .iter()
+        .map(|delay| CombFilter::new(scaled_reverb_delay(*delay, sample_rate)))
+        .collect();
+    let mut combs_right: Vec<CombFilter> = comb_right
+        .iter()
+        .map(|delay| CombFilter::new(scaled_reverb_delay(*delay, sample_rate)))
+        .collect();
+    let mut allpasses_left: Vec<AllpassFilter> = allpass_left
+        .iter()
+        .map(|delay| AllpassFilter::new(scaled_reverb_delay(*delay, sample_rate), 0.5))
+        .collect();
+    let mut allpasses_right: Vec<AllpassFilter> = allpass_right
+        .iter()
+        .map(|delay| AllpassFilter::new(scaled_reverb_delay(*delay, sample_rate), 0.5))
+        .collect();
+
+    let mut out_left = Vec::with_capacity(output_len);
+    let mut out_right = Vec::with_capacity(output_len);
+    for index in 0..output_len {
+        let input_left = left.get(index).copied().unwrap_or(0.0);
+        let input_right = right.get(index).copied().unwrap_or(0.0);
+        let mono_input = (input_left + input_right) * 0.5 * input_gain;
+        let stereo_push = (input_left - input_right) * 0.25 * input_gain;
+        let comb_input_left = mono_input + stereo_push;
+        let comb_input_right = mono_input - stereo_push;
+
+        let mut wet_left = 0.0;
+        for comb in &mut combs_left {
+            wet_left += comb.process(comb_input_left, feedback, damp1, damp2);
         }
-        for (index, sample) in right.iter().enumerate() {
-            out_right[index + offset] += sample * gain;
+        let mut wet_right = 0.0;
+        for comb in &mut combs_right {
+            wet_right += comb.process(comb_input_right, feedback, damp1, damp2);
+        }
+        wet_left /= combs_left.len() as f64;
+        wet_right /= combs_right.len() as f64;
+        for allpass in &mut allpasses_left {
+            wet_left = allpass.process(wet_left);
+        }
+        for allpass in &mut allpasses_right {
+            wet_right = allpass.process(wet_right);
+        }
+        out_left.push(wet_left * wet_gain);
+        out_right.push(wet_right * wet_gain);
+    }
+    (out_left, out_right)
+}
+
+struct CombFilter {
+    buffer: Vec<f64>,
+    index: usize,
+    filter_store: f64,
+}
+
+impl CombFilter {
+    fn new(size: usize) -> Self {
+        Self {
+            buffer: vec![0.0; size.max(1)],
+            index: 0,
+            filter_store: 0.0,
         }
     }
-    let dry = 1.0 - mix * 0.35;
-    (
-        out_left.iter().map(|sample| sample * dry).collect(),
-        out_right.iter().map(|sample| sample * dry).collect(),
-    )
+
+    fn process(&mut self, input: f64, feedback: f64, damp1: f64, damp2: f64) -> f64 {
+        let output = self.buffer[self.index];
+        self.filter_store = output * damp2 + self.filter_store * damp1;
+        self.buffer[self.index] = input + self.filter_store * feedback;
+        self.index = (self.index + 1) % self.buffer.len();
+        output
+    }
+}
+
+struct AllpassFilter {
+    buffer: Vec<f64>,
+    index: usize,
+    feedback: f64,
+}
+
+impl AllpassFilter {
+    fn new(size: usize, feedback: f64) -> Self {
+        Self {
+            buffer: vec![0.0; size.max(1)],
+            index: 0,
+            feedback,
+        }
+    }
+
+    fn process(&mut self, input: f64) -> f64 {
+        let buffered = self.buffer[self.index];
+        let output = buffered - input;
+        self.buffer[self.index] = input + buffered * self.feedback;
+        self.index = (self.index + 1) % self.buffer.len();
+        output
+    }
+}
+
+fn scaled_reverb_delay(delay_at_44k: usize, sample_rate: u32) -> usize {
+    ((delay_at_44k as f64 * sample_rate as f64 / 44_100.0).round() as usize).max(1)
 }
 
 fn fx_echo(left: &[f64], right: &[f64], opts: &OptMap, sample_rate: u32) -> (Vec<f64>, Vec<f64>) {
@@ -2406,16 +3270,47 @@ fn fx_slicer(
     let wave = float_opt(opts, "wave", 1.0) as i32;
     let amp_min = float_opt(opts, "amp_min", 0.0);
     let amp_max = float_opt(opts, "amp_max", 1.0);
+    let smooth = float_opt(opts, "smooth", 0.0).max(0.0);
+    let smooth_up = float_opt(opts, "smooth_up", 0.0).max(0.0);
+    let smooth_down = float_opt(opts, "smooth_down", 0.0).max(0.0);
+    let alpha_smooth = smoothing_alpha(smooth, sample_rate);
+    let alpha_up = smoothing_alpha(smooth_up, sample_rate);
+    let alpha_down = smoothing_alpha(smooth_down, sample_rate);
+    let control_alpha = smoothing_alpha(slicer_control_block_seconds(sample_rate), sample_rate);
+    let mut lag_ud_gain: Option<f64> = None;
+    let mut lag_gain: Option<f64> = None;
+    let mut control_gain: Option<f64> = None;
+
     let mut out_left = Vec::with_capacity(left.len());
     let mut out_right = Vec::with_capacity(right.len());
     for (index, (left_sample, right_sample)) in left.iter().zip(right.iter()).enumerate() {
         let elapsed = start_time_seconds + index as f64 / sample_rate as f64;
         let amount = lfo_amount_from_opts(opts, wave, elapsed, phase);
-        let gain = amp_min + (amp_max - amp_min) * amount;
+        let target_gain = amp_min + (amp_max - amp_min) * amount;
+        let previous_ud = lag_ud_gain.unwrap_or(target_gain);
+        let alpha_ud = if target_gain >= previous_ud {
+            alpha_up
+        } else {
+            alpha_down
+        };
+        let smoothed_ud = previous_ud + (target_gain - previous_ud) * alpha_ud;
+        lag_ud_gain = Some(smoothed_ud);
+
+        let previous_lag = lag_gain.unwrap_or(smoothed_ud);
+        let lagged_gain = previous_lag + (smoothed_ud - previous_lag) * alpha_smooth;
+        lag_gain = Some(lagged_gain);
+
+        let previous_control = control_gain.unwrap_or(lagged_gain);
+        let gain = previous_control + (lagged_gain - previous_control) * control_alpha;
+        control_gain = Some(gain);
         out_left.push(left_sample * gain);
         out_right.push(right_sample * gain);
     }
     (out_left, out_right)
+}
+
+fn slicer_control_block_seconds(sample_rate: u32) -> f64 {
+    64.0 / sample_rate.max(1) as f64
 }
 
 fn fx_wobble(
@@ -2501,9 +3396,14 @@ struct BiquadCoefficients {
 
 impl BiquadCoefficients {
     fn resonant_filter(kind: FilterKind, cutoff_hz: f64, sample_rate: u32, rq: f64) -> Self {
+        let q = (1.0 / rq.clamp(0.001, 1.0)).clamp(0.5, 20.0);
+        Self::filter(kind, cutoff_hz, sample_rate, q)
+    }
+
+    fn filter(kind: FilterKind, cutoff_hz: f64, sample_rate: u32, q: f64) -> Self {
         let nyquist = sample_rate as f64 * 0.5;
         let cutoff = cutoff_hz.clamp(20.0, nyquist * 0.9);
-        let q = (1.0 / rq.clamp(0.001, 1.0)).clamp(0.5, 20.0);
+        let q = q.clamp(0.1, 20.0);
         let omega = TAU * cutoff / sample_rate as f64;
         let sin_omega = omega.sin();
         let cos_omega = omega.cos();
@@ -2612,19 +3512,19 @@ fn modulated_lowpass_pair(
     sample_rate: u32,
     mut cutoff_at: impl FnMut(usize) -> f64,
 ) -> (Vec<f64>, Vec<f64>) {
+    let mut left_state = BiquadState::default();
+    let mut right_state = BiquadState::default();
     let mut out_left = Vec::with_capacity(left.len());
     let mut out_right = Vec::with_capacity(right.len());
-    let mut previous_left = 0.0;
-    let mut previous_right = 0.0;
-    let dt = 1.0 / sample_rate as f64;
     for (index, (left_sample, right_sample)) in left.iter().zip(right.iter()).enumerate() {
-        let cutoff = cutoff_at(index).max(1.0);
-        let rc = 1.0 / (TAU * cutoff);
-        let alpha = dt / (rc + dt);
-        previous_left += alpha * (*left_sample - previous_left);
-        previous_right += alpha * (*right_sample - previous_right);
-        out_left.push(previous_left);
-        out_right.push(previous_right);
+        let coeffs = BiquadCoefficients::filter(
+            FilterKind::Low,
+            cutoff_at(index),
+            sample_rate,
+            FRAC_1_SQRT_2,
+        );
+        out_left.push(left_state.process(*left_sample, coeffs));
+        out_right.push(right_state.process(*right_sample, coeffs));
     }
     (out_left, out_right)
 }
@@ -2636,15 +3536,12 @@ fn filter_samples(
     kind: FilterKind,
     resonance: f64,
 ) -> Vec<f64> {
-    let filtered = match kind {
-        FilterKind::Low => lowpass(samples, cutoff_hz, sample_rate),
-        FilterKind::High => highpass(samples, cutoff_hz, sample_rate),
-    };
-    if resonance <= 0.0 {
-        filtered
+    let q = if resonance > 0.0 {
+        1.0 / sonic_filter_rq(resonance)
     } else {
-        resonant_emphasis(samples, &filtered, resonance)
-    }
+        FRAC_1_SQRT_2
+    };
+    biquad_filter_samples(samples, cutoff_hz, sample_rate, kind, q)
 }
 
 fn sonic_filter_rq(public_res: f64) -> f64 {
@@ -2695,39 +3592,54 @@ fn sample_linear(samples: &[f64], position: f64) -> f64 {
     samples[low] * (1.0 - frac) + samples[high] * frac
 }
 
-fn lowpass(samples: &[f64], cutoff_hz: f64, sample_rate: u32) -> Vec<f64> {
+fn sample_linear_clamped(samples: &[f64], position: f64) -> f64 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let position = position.clamp(0.0, (samples.len() - 1) as f64);
+    let low = position.floor() as usize;
+    let high = (low + 1).min(samples.len() - 1);
+    let frac = position - low as f64;
+    samples[low] * (1.0 - frac) + samples[high] * frac
+}
+
+fn biquad_filter_samples(
+    samples: &[f64],
+    cutoff_hz: f64,
+    sample_rate: u32,
+    kind: FilterKind,
+    q: f64,
+) -> Vec<f64> {
     if samples.is_empty() {
         return Vec::new();
     }
-    let rc = 1.0 / (TAU * cutoff_hz.max(1.0));
-    let dt = 1.0 / sample_rate as f64;
-    let alpha = dt / (rc + dt);
-    let mut previous = 0.0;
+    let coeffs = BiquadCoefficients::filter(kind, cutoff_hz, sample_rate, q);
+    let mut state = BiquadState::default();
     let mut output = Vec::with_capacity(samples.len());
     for sample in samples {
-        previous += alpha * (sample - previous);
-        output.push(previous);
+        output.push(state.process(*sample, coeffs));
     }
     output
 }
 
+fn lowpass(samples: &[f64], cutoff_hz: f64, sample_rate: u32) -> Vec<f64> {
+    biquad_filter_samples(
+        samples,
+        cutoff_hz,
+        sample_rate,
+        FilterKind::Low,
+        FRAC_1_SQRT_2,
+    )
+}
+
 fn highpass(samples: &[f64], cutoff_hz: f64, sample_rate: u32) -> Vec<f64> {
-    if samples.is_empty() {
-        return Vec::new();
-    }
-    let rc = 1.0 / (TAU * cutoff_hz.max(1.0));
-    let dt = 1.0 / sample_rate as f64;
-    let alpha = rc / (rc + dt);
-    let mut previous_output = 0.0;
-    let mut previous_input = samples[0];
-    let mut output = Vec::with_capacity(samples.len());
-    for sample in samples {
-        let current = alpha * (previous_output + sample - previous_input);
-        output.push(current);
-        previous_output = current;
-        previous_input = *sample;
-    }
-    output
+    biquad_filter_samples(
+        samples,
+        cutoff_hz,
+        sample_rate,
+        FilterKind::High,
+        FRAC_1_SQRT_2,
+    )
 }
 
 fn pan_gains(pan: f64) -> (f64, f64) {
@@ -2818,8 +3730,77 @@ fn bool_opt(opts: &OptMap, name: &str, default: bool) -> bool {
     }
 }
 
-fn soft_clip(samples: &[f64]) -> Vec<f64> {
-    samples.iter().map(|sample| sample.tanh()).collect()
+const OUTPUT_LIMIT_CEILING: f64 = 0.92;
+const OUTPUT_LIMIT_RELEASE_SECONDS: f64 = 0.08;
+
+fn output_limit_pair(left: &[f64], right: &[f64], sample_rate: u32) -> (Vec<f64>, Vec<f64>) {
+    output_limit_window(left, right, 0, left.len().max(right.len()), sample_rate)
+}
+
+fn output_limit_prefix(
+    left: &[f64],
+    right: &[f64],
+    len: usize,
+    sample_rate: u32,
+) -> (Vec<f64>, Vec<f64>) {
+    output_limit_window(left, right, 0, len, sample_rate)
+}
+
+fn output_limit_window(
+    left: &[f64],
+    right: &[f64],
+    start: usize,
+    len: usize,
+    sample_rate: u32,
+) -> (Vec<f64>, Vec<f64>) {
+    let process_len = start.saturating_add(len);
+    let sample_rate = sample_rate.max(1) as f64;
+    let release_alpha = 1.0 - (-1.0 / (OUTPUT_LIMIT_RELEASE_SECONDS * sample_rate)).exp();
+    let mut envelope = 0.0;
+    let mut gain = 1.0;
+    let mut out_left = Vec::with_capacity(len);
+    let mut out_right = Vec::with_capacity(len);
+
+    for index in 0..process_len {
+        let left_sample = left.get(index).copied().unwrap_or(0.0);
+        let right_sample = right.get(index).copied().unwrap_or(0.0);
+        let level = left_sample.abs().max(right_sample.abs());
+        if level > envelope {
+            envelope = level;
+        } else {
+            envelope += (level - envelope) * release_alpha;
+        }
+        let target_gain = if envelope > OUTPUT_LIMIT_CEILING {
+            OUTPUT_LIMIT_CEILING / envelope
+        } else {
+            1.0
+        };
+        if target_gain < gain {
+            gain = target_gain;
+        } else {
+            gain += (target_gain - gain) * release_alpha;
+        }
+        if index >= start {
+            out_left.push((left_sample * gain).clamp(-OUTPUT_LIMIT_CEILING, OUTPUT_LIMIT_CEILING));
+            out_right
+                .push((right_sample * gain).clamp(-OUTPUT_LIMIT_CEILING, OUTPUT_LIMIT_CEILING));
+        }
+    }
+
+    (out_left, out_right)
+}
+
+fn samples_to_interleaved_i16(left: &[f64], right: &[f64], frames: usize) -> Vec<i16> {
+    let mut output = Vec::with_capacity(frames * 2);
+    for index in 0..frames {
+        for sample in [
+            left.get(index).copied().unwrap_or(0.0),
+            right.get(index).copied().unwrap_or(0.0),
+        ] {
+            output.push((sample.clamp(-1.0, 1.0) * 32767.0).round() as i16);
+        }
+    }
+    output
 }
 
 fn stereo_wav_bytes(left: &[f64], right: &[f64], sample_rate: u32) -> Vec<u8> {
@@ -2857,6 +3838,131 @@ mod tests {
         assert_eq!(decode_pcm_sample(&0i16.to_le_bytes()), 0.0);
         assert!(decode_pcm_sample(&(-32768i16).to_le_bytes()) <= -1.0);
         assert!(decode_pcm_sample(&32767i16.to_le_bytes()) > 0.99);
+    }
+
+    #[test]
+    fn reverb_produces_extended_diffuse_tail() {
+        let sample_rate = 44_100;
+        let mut left = vec![0.0; 512];
+        let right = vec![0.0; 512];
+        left[0] = 1.0;
+        let mut opts = OptMap::new();
+        opts.insert("room".to_owned(), SynthValue::Float(0.8));
+        opts.insert("damp".to_owned(), SynthValue::Float(0.4));
+
+        let (out_left, out_right) = fx_reverb(&left, &right, &opts, sample_rate);
+        let tail_nonzero = out_left[512..]
+            .iter()
+            .chain(out_right[512..].iter())
+            .filter(|sample| sample.abs() > 1.0e-9)
+            .count();
+
+        assert!(out_left.len() > left.len() + sample_rate as usize);
+        assert!(tail_nonzero > 64, "tail_nonzero={tail_nonzero}");
+    }
+
+    #[test]
+    fn slicer_default_edges_are_control_rate_dezipped() {
+        let sample_rate = 1_000;
+        let left = vec![1.0; 18];
+        let right = vec![1.0; 18];
+        let mut opts = OptMap::new();
+        opts.insert("phase".to_owned(), SynthValue::Float(0.02));
+        opts.insert("wave".to_owned(), SynthValue::Float(1.0));
+        opts.insert("pulse_width".to_owned(), SynthValue::Float(0.5));
+
+        let (out_left, out_right) = fx_slicer(&left, &right, &opts, sample_rate, 0.0);
+
+        assert_eq!(out_left[0], 1.0);
+        assert!(
+            out_left[10] > 0.0 && out_left[10] < 1.0,
+            "default slicer edge should dezipper instead of stepping to zero"
+        );
+        assert!(
+            out_right[10] > 0.0 && out_right[10] < 1.0,
+            "default slicer edge should dezipper instead of stepping to zero"
+        );
+    }
+
+    #[test]
+    fn slicer_smooth_options_lag_gate_edges() {
+        let sample_rate = 1_000;
+        let left = vec![1.0; 18];
+        let right = vec![1.0; 18];
+        let mut opts = OptMap::new();
+        opts.insert("phase".to_owned(), SynthValue::Float(0.02));
+        opts.insert("wave".to_owned(), SynthValue::Float(1.0));
+        opts.insert("pulse_width".to_owned(), SynthValue::Float(0.5));
+        opts.insert("smooth_down".to_owned(), SynthValue::Float(0.01));
+
+        let (out_left, out_right) = fx_slicer(&left, &right, &opts, sample_rate, 0.0);
+
+        assert_eq!(out_left[0], 1.0);
+        assert!(
+            out_left[10] > 0.0,
+            "left edge should lag instead of hard-closing"
+        );
+        assert!(
+            out_right[10] > 0.0,
+            "right edge should lag instead of hard-closing"
+        );
+        assert!(
+            out_left[17] < out_left[10],
+            "lagged gate should continue moving toward amp_min"
+        );
+    }
+
+    #[test]
+    fn output_limiter_preserves_stereo_balance_for_hot_signals() {
+        let left = vec![2.0; 128];
+        let right = vec![1.0; 128];
+
+        let (limited_left, limited_right) = output_limit_pair(&left, &right, 44_100);
+
+        let peak = limited_left
+            .iter()
+            .chain(limited_right.iter())
+            .map(|sample| sample.abs())
+            .fold(0.0, f64::max);
+        assert!(peak <= OUTPUT_LIMIT_CEILING);
+        assert!((limited_left[0] / limited_right[0] - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn render_stereo_sample_preserves_channel_image() {
+        let sample_rate = 8_000;
+        let left_source = vec![0.8; 64];
+        let right_source = vec![0.0; 64];
+        let wav = stereo_wav_bytes(&left_source, &right_source, sample_rate);
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock should be valid")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "gummy_synth_stereo_sample_{}_{}.wav",
+            std::process::id(),
+            nonce
+        ));
+        std::fs::write(&path, wav).expect("test WAV should be writable");
+        let event = EventPayload {
+            node_id: 3,
+            kind: "sample".to_owned(),
+            time_seconds: 0.0,
+            value: SynthValue::String(path.to_string_lossy().into_owned()),
+            opts: OptMap::new(),
+            synth_name: "sample".to_owned(),
+            synth_opts: OptMap::new(),
+            fx_chain: Vec::new(),
+            controls: Vec::new(),
+        };
+
+        let rendered = render_event(&event, sample_rate);
+        let _ = std::fs::remove_file(&path);
+        let (left, right) = rendered.expect("stereo sample event renders");
+        let left_energy = left.iter().map(|sample| sample.abs()).sum::<f64>();
+        let right_energy = right.iter().map(|sample| sample.abs()).sum::<f64>();
+
+        assert!(left_energy > right_energy * 20.0);
     }
 
     #[test]
@@ -2919,6 +4025,82 @@ mod tests {
             .map(|sample| sample.abs())
             .sum::<f64>();
         assert!(controlled_energy > static_energy * 1.1);
+    }
+
+    #[test]
+    fn synth_normalise_runs_before_amp_fudge() {
+        let mut base_opts = OptMap::new();
+        base_opts.insert("attack".to_owned(), SynthValue::Float(0.0));
+        base_opts.insert("decay".to_owned(), SynthValue::Float(0.0));
+        base_opts.insert("sustain".to_owned(), SynthValue::Float(0.0));
+        base_opts.insert("release".to_owned(), SynthValue::Float(0.05));
+        base_opts.insert("normalise".to_owned(), SynthValue::Bool(true));
+        base_opts.insert("cutoff".to_owned(), SynthValue::Float(80.0));
+
+        let mut quiet_opts = base_opts.clone();
+        quiet_opts.insert("amp_fudge".to_owned(), SynthValue::Float(1.0));
+        let mut loud_opts = base_opts;
+        loud_opts.insert("amp_fudge".to_owned(), SynthValue::Float(2.0));
+        let event = |opts: OptMap| EventPayload {
+            node_id: 22,
+            kind: "play".to_owned(),
+            time_seconds: 0.0,
+            value: SynthValue::Float(52.0),
+            opts,
+            synth_name: "_saw".to_owned(),
+            synth_opts: OptMap::new(),
+            fx_chain: Vec::new(),
+            controls: Vec::new(),
+        };
+
+        let (quiet_left, quiet_right) =
+            render_event(&event(quiet_opts), 8_000).expect("event renders");
+        let (loud_left, loud_right) =
+            render_event(&event(loud_opts), 8_000).expect("event renders");
+        let quiet_peak = max_abs_pair(&quiet_left, &quiet_right);
+        let loud_peak = max_abs_pair(&loud_left, &loud_right);
+
+        assert!(
+            loud_peak > quiet_peak * 1.9,
+            "normalise should not cancel amp_fudge: quiet={quiet_peak}, loud={loud_peak}"
+        );
+    }
+
+    #[test]
+    fn synth_cutoff_envelope_sweeps_resonant_filter() {
+        let mut opts = OptMap::new();
+        opts.insert("attack".to_owned(), SynthValue::Float(0.0));
+        opts.insert("decay".to_owned(), SynthValue::Float(0.0));
+        opts.insert("sustain".to_owned(), SynthValue::Float(0.2));
+        opts.insert("release".to_owned(), SynthValue::Float(0.01));
+        opts.insert("sustain_level".to_owned(), SynthValue::Float(1.0));
+        opts.insert("cutoff".to_owned(), SynthValue::Float(120.0));
+        opts.insert("cutoff_min".to_owned(), SynthValue::Float(30.0));
+        opts.insert("cutoff_attack".to_owned(), SynthValue::Float(0.0));
+        opts.insert("cutoff_decay".to_owned(), SynthValue::Float(0.08));
+        opts.insert("cutoff_sustain".to_owned(), SynthValue::Float(0.12));
+        opts.insert("cutoff_release".to_owned(), SynthValue::Float(0.0));
+        opts.insert("cutoff_attack_level".to_owned(), SynthValue::Float(1.0));
+        opts.insert("cutoff_decay_level".to_owned(), SynthValue::Float(0.0));
+        opts.insert("cutoff_sustain_level".to_owned(), SynthValue::Float(0.0));
+        opts.insert("res".to_owned(), SynthValue::Float(0.9));
+        let event = EventPayload {
+            node_id: 21,
+            kind: "play".to_owned(),
+            time_seconds: 0.0,
+            value: SynthValue::Float(40.0),
+            opts,
+            synth_name: "_saw".to_owned(),
+            synth_opts: OptMap::new(),
+            fx_chain: Vec::new(),
+            controls: Vec::new(),
+        };
+
+        let (left, _) = render_event(&event, 8_000).expect("event renders");
+        let early = average_abs_delta(&left[100..500]);
+        let late = average_abs_delta(&left[1_200..1_600]);
+
+        assert!(early > late * 1.5, "early={early}, late={late}");
     }
 
     #[test]
@@ -3010,6 +4192,43 @@ mod tests {
                 assert!(peak > 1e-5, "{name} rendered silence");
             }
         }
+    }
+
+    #[test]
+    fn plan_renderer_groups_matching_fx_handles_into_shared_bus() {
+        let mut synth_opts = OptMap::new();
+        synth_opts.insert("release".to_owned(), SynthValue::Float(0.04));
+        synth_opts.insert("amp".to_owned(), SynthValue::Float(1.0));
+        let mut fx_opts = OptMap::new();
+        fx_opts.insert("threshold".to_owned(), SynthValue::Float(0.05));
+        fx_opts.insert("slope_above".to_owned(), SynthValue::Float(0.15));
+        let event = EventPayload {
+            node_id: 70,
+            kind: "play".to_owned(),
+            time_seconds: 0.0,
+            value: SynthValue::Float(48.0),
+            opts: synth_opts,
+            synth_name: "_saw".to_owned(),
+            synth_opts: OptMap::new(),
+            fx_chain: vec![FxPayload {
+                id: 9,
+                name: "compressor".to_owned(),
+                opts: fx_opts.clone(),
+            }],
+            controls: Vec::new(),
+        };
+        let mut same_bus_second = event.clone();
+        same_bus_second.node_id = 71;
+        same_bus_second.value = SynthValue::Float(55.0);
+        let mut separate_bus_second = same_bus_second.clone();
+        separate_bus_second.fx_chain[0].id = 10;
+
+        let shared_bus = render_plan_events(vec![event.clone(), same_bus_second], 0.08, 8_000)
+            .expect("shared FX bus renders");
+        let separate_buses = render_plan_events(vec![event, separate_bus_second], 0.08, 8_000)
+            .expect("separate FX buses render");
+
+        assert_ne!(shared_bus, separate_buses);
     }
 
     #[test]
@@ -3130,6 +4349,62 @@ mod tests {
             .map(|(before, after)| (before - after).abs())
             .sum::<f64>();
         (left_delta + right_delta) / (left.len() + right.len()) as f64 > 1e-5
+    }
+
+    fn max_abs_pair(left: &[f64], right: &[f64]) -> f64 {
+        left.iter()
+            .chain(right.iter())
+            .map(|sample| sample.abs())
+            .fold(0.0, f64::max)
+    }
+
+    fn average_abs_delta(samples: &[f64]) -> f64 {
+        if samples.len() < 2 {
+            return 0.0;
+        }
+        samples
+            .windows(2)
+            .map(|pair| (pair[1] - pair[0]).abs())
+            .sum::<f64>()
+            / (samples.len() - 1) as f64
+    }
+
+    #[test]
+    fn playback_plan_window_matches_full_render_window_for_simple_synth() {
+        let sample_rate = 8_000;
+        let mut opts = OptMap::new();
+        opts.insert("release".to_owned(), SynthValue::Float(0.15));
+        opts.insert("amp".to_owned(), SynthValue::Float(0.5));
+        let plan = SynthPlaybackPlan {
+            events: vec![EventPayload {
+                node_id: 90,
+                kind: "play".to_owned(),
+                time_seconds: 0.0,
+                value: SynthValue::Float(60.0),
+                opts,
+                synth_name: "_sine".to_owned(),
+                synth_opts: OptMap::new(),
+                fx_chain: Vec::new(),
+                controls: Vec::new(),
+            }],
+            duration_seconds: 0.2,
+            dry_event_cache: Mutex::new(HashMap::new()),
+        };
+
+        let full = plan
+            .render_window_i16(0.0, 0.2, sample_rate)
+            .expect("full window renders");
+        let window = plan
+            .render_window_i16(0.05, 0.04, sample_rate)
+            .expect("live window renders");
+        let offset = (0.05_f64 * sample_rate as f64).round() as usize * 2;
+        let window_len = (0.04_f64 * sample_rate as f64).ceil() as usize * 2;
+
+        assert_eq!(window, full[offset..offset + window_len]);
+        assert!(plan
+            .render_window_i16(0.25, 0.05, sample_rate)
+            .expect("post-plan window renders")
+            .is_empty());
     }
 
     #[test]

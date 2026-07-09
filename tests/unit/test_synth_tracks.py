@@ -565,7 +565,17 @@ def test_builtin_sonic_pi_fx_assets_are_compiled_gsfx() -> None:
         assert path.read_bytes().startswith(synth_core._GSS_MAGIC)
         assert len(plan.events) == 1
 
-    assert sy.load_builtin_synth_plan("tb303").events[0].synth_name == "_layered"
+    tb303_event = sy.load_builtin_synth_plan("tb303").events[0]
+    assert tb303_event.synth_name == "_saw"
+    assert tb303_event.opts["cutoff_min"] == 30
+    assert tb303_event.opts["res"] == 0.9
+    prophet_event = sy.load_builtin_synth_plan("prophet").events[0]
+    prophet_layers = cast(list[dict[str, object]], prophet_event.opts["layers"])
+    assert prophet_event.synth_name == "_layered"
+    assert [layer["wave"] for layer in prophet_layers] == ["pulse"] * 5
+    assert any(
+        "pulse_width_lfo_rate" in cast(dict[str, object], layer["opts"]) for layer in prophet_layers
+    )
     assert sy.load_builtin_synth_plan("arpeg-click").events[0].synth_name == "_layered"
 
 
@@ -726,21 +736,54 @@ def test_track_play_uses_rust_audio_bridge_by_default(monkeypatch) -> None:
     assert runtime.playbacks[0].stop_calls == 1
 
 
-def test_track_play_reuses_cached_wav_with_rust_audio_bridge(tmp_path: Path, monkeypatch) -> None:
+def test_track_play_streams_plan_with_rust_audio_bridge_even_when_wav_is_cached(
+    tmp_path: Path, monkeypatch
+) -> None:
     runtime = _FakeSynthRuntime()
     monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
     track = _short_realtime_track()
-    output = tmp_path / "short.wav"
+    output = tmp_path / "cached.wav"
 
     track.save(output, duration=0.08)
-    playback = track.play(duration=0.08, look_ahead=0.0)
+    playback = track.play(duration=0.08)
 
     assert isinstance(playback, sy.TrackPlayback)
     assert playback.wait_until_stop(timeout=2.0)
     assert playback.error is None
     assert len(runtime.serialized_plan_calls) == 1
-    assert runtime.play_serialized_plan_calls == []
-    assert runtime.play_wav_bytes_calls == [output.read_bytes()]
+    assert len(runtime.play_serialized_plan_calls) == 1
+    assert (
+        sy.PhysicalPlan.from_bytes(runtime.play_serialized_plan_calls[0][0]).duration_seconds
+        == 0.08
+    )
+    assert runtime.play_wav_bytes_calls == []
+    assert runtime.playbacks[0].close_calls == 1
+    assert runtime.playbacks[0].stop_calls == 1
+
+
+def test_track_play_reports_rust_callback_errors(monkeypatch) -> None:
+    class _ErrorPlayback(_FakeCanvasAudioPlayback):
+        @property
+        def error(self) -> str:
+            return "callback render failed"
+
+    runtime = _FakeSynthRuntime()
+
+    def _play_serialized_plan(payload: bytes, sample_rate: int) -> _FakeCanvasAudioPlayback:
+        runtime.play_serialized_plan_calls.append((bytes(payload), sample_rate))
+        playback = _ErrorPlayback(1.0)
+        runtime.playbacks.append(playback)
+        return playback
+
+    monkeypatch.setattr(runtime, "synth_play_serialized_plan", _play_serialized_plan)
+    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+
+    playback = _short_realtime_track().play()
+
+    assert isinstance(playback, sy.TrackPlayback)
+    assert playback.wait_until_stop(timeout=2.0)
+    assert isinstance(playback.error, RuntimeError)
+    assert "callback render failed" in str(playback.error)
     assert runtime.playbacks[0].close_calls == 1
     assert runtime.playbacks[0].stop_calls == 1
 

@@ -1040,7 +1040,7 @@ class SynthSpec:
 
 
 _DEFAULT_SYNTH_INPUT_NOTE = 60
-_DEFAULT_SYNTH_LAYER_AMP = 0.55
+_DEFAULT_SYNTH_LAYER_AMP = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -2701,13 +2701,9 @@ class TrackPlayback:
     def _run_finite_rust_playback(self, cached: _RenderedTrackCacheEntry | None) -> None:
         if self._plan is None:
             raise SynthPlanError("Finite realtime playback requires a physical plan.")
+        _ = cached
         runtime = _require_synth_runtime()
-        if cached is not None:
-            playback = runtime.synth_play_wav_bytes(cached.payload)
-        else:
-            playback = runtime.synth_play_serialized_plan(
-                self._plan.to_bytes(), int(self._sample_rate)
-            )
+        playback = runtime.synth_play_serialized_plan(self._plan.to_bytes(), int(self._sample_rate))
         self._rust_playback = playback
         if self._stop_event.is_set():
             self._close_rust_playback()
@@ -2811,12 +2807,23 @@ class TrackPlayback:
 
     def _wait_until_finite_end(self, target_time: float) -> None:
         while not self._stop_event.is_set():
+            self._raise_if_rust_playback_failed()
             now = time.monotonic()
             self._close_finished_sounds(now)
             remaining = target_time - now
             if remaining <= 0:
                 return
             self._stop_event.wait(min(remaining, 0.05))
+
+    def _raise_if_rust_playback_failed(self) -> None:
+        playback = self._rust_playback
+        if playback is None:
+            return
+        error_message = getattr(playback, "error", None)
+        if callable(error_message):
+            error_message = error_message()
+        if error_message:
+            raise RuntimeError(f"Rust synth playback failed: {error_message}")
 
     def _sleep_until(self, target_time: float) -> None:
         while not self._stop_event.is_set():
@@ -2964,11 +2971,11 @@ class Track:
     ) -> TrackPlayback | Sound:
         """Start playback and return a handle.
 
-        By default, bounded direct playback uses a background thread that asks
-        Rust to render and queue the serialized physical plan directly to the
-        native audio device, or queues exact cached WAV bytes when available.
-        Call ``wait_until_stop()`` on the returned ``TrackPlayback`` to block
-        until bounded playback finishes.
+        By default, bounded direct playback starts a Rust SDL audio stream from
+        the serialized physical plan and renders playback windows on demand,
+        rather than pre-rendering the whole track before audio starts. Call
+        ``wait_until_stop()`` on the returned ``TrackPlayback`` to block until
+        bounded playback finishes.
         """
 
         if not realtime:

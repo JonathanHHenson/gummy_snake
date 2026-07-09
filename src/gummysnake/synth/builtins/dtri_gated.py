@@ -15,11 +15,18 @@ def dtri_gated(note: object = 60, **opts: object) -> None:
     signal = (
         sy.synth_input(
             note,
-            defaults={"release": 0.35, "cutoff": 100, "sustain": 0.25},
+            defaults={
+                "release": 1,
+                "sustain": 0,
+                "env_curve": 1,
+                "cutoff": 100,
+                "amp_fudge": 1.1,
+                "normalise": True,
+            },
             **opts,
         )
-        .layer("tri", amp=0.55)
-        .layer("tri", transpose=detune, amp=0.55)
+        .layer("tri")
+        .layer("tri", transpose=detune)
     )
     signal.output()
 

@@ -13,7 +13,14 @@ DURATION = synth_duration(SYNTH_NAME)
 def pulse(note: object = 60, **opts: object) -> None:
     signal = sy.synth_input(
         note,
-        defaults={"release": 0.35, "cutoff": 100, "pulse_width": 0.5},
+        defaults={
+            "release": 1,
+            "env_curve": 1,
+            "cutoff": 100,
+            "pulse_width": 0.5,
+            "amp_fudge": 0.8,
+            "normalise": True,
+        },
         **opts,
     ).layer("pulse")
     signal.output()

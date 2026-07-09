@@ -13,7 +13,15 @@ DURATION = synth_duration(SYNTH_NAME)
 def fm_gated(note: object = 60, **opts: object) -> None:
     signal = sy.synth_input(
         note,
-        defaults={"release": 0.35, "divisor": 2, "depth": 1.2, "cutoff": 100, "sustain": 0.25},
+        defaults={
+            "release": 1,
+            "sustain": 0,
+            "env_curve": 1,
+            "divisor": 2,
+            "depth": 1.0,
+            "cutoff": 100,
+            "amp_fudge": 0.8,
+        },
         **opts,
     ).layer("fm")
     signal.output()

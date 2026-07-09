@@ -13,7 +13,14 @@ DURATION = synth_duration(SYNTH_NAME)
 def tri_gated(note: object = 60, **opts: object) -> None:
     signal = sy.synth_input(
         note,
-        defaults={"release": 0.35, "cutoff": 100, "sustain": 0.25},
+        defaults={
+            "release": 1,
+            "sustain": 0,
+            "env_curve": 1,
+            "cutoff": 100,
+            "amp_fudge": 1.4,
+            "normalise": True,
+        },
         **opts,
     ).layer("tri")
     signal.output()

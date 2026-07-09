@@ -11,14 +11,24 @@ DURATION = synth_duration(SYNTH_NAME)
 
 @sy.synth(name=SYNTH_NAME)
 def subpulse_gated(note: object = 60, **opts: object) -> None:
+    sub_amp = opts.pop("sub_amp", 1)
+    sub_detune = opts.pop("sub_detune", -12)
     signal = (
         sy.synth_input(
             note,
-            defaults={"release": 0.35, "cutoff": 100, "pulse_width": 0.5, "sustain": 0.25},
+            defaults={
+                "release": 1,
+                "sustain": 0,
+                "env_curve": 1,
+                "cutoff": 100,
+                "pulse_width": 0.5,
+                "amp_fudge": 0.8,
+                "normalise": True,
+            },
             **opts,
         )
-        .layer("pulse", amp=0.65)
-        .layer("sine", transpose=-12, amp=0.55)
+        .layer("pulse")
+        .layer("sine", transpose=sub_detune, amp=sub_amp)
     )
     signal.output()
 

@@ -27,14 +27,15 @@ def tron_bikes() -> None:
 
         handle = sy.play(
             start_note,
-            amp=2,
             release=8,
             note_slide=4,
             cutoff=30,
             cutoff_slide=4,
             detune=sy.rrand(0, 0.2),
+            pan=sy.rrand(-1, 0),
+            pan_slide=sy.rrand(4, 8),
         )
-        sy.control(handle, note=final_note, cutoff=sy.rrand(80, 120))
+        sy.control(handle, note=final_note, cutoff=sy.rrand(80, 120), pan=sy.rrand(0, 1))
     sy.sleep(8)
 
 

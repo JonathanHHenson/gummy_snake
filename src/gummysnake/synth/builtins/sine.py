@@ -13,7 +13,7 @@ DURATION = synth_duration(SYNTH_NAME)
 def sine(note: object = 60, **opts: object) -> None:
     signal = sy.synth_input(
         note,
-        defaults={"release": 0.35},
+        defaults={"release": 1, "env_curve": 1},
         **opts,
     ).layer("sine")
     signal.output()
