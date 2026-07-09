@@ -37,4 +37,5 @@ Most examples save to `examples/output/` when `--frames` is provided. Pass `--no
 - `08_3d`: WEBGL/WEBGPU-style primitives, cameras, projections, lights, materials, geometry, model loading, and textures.
 - `09_performance`: dense 60 FPS load showcases, particle-force attractors, ECS-backed 3D boids, and retained 3D performance sketches.
 - `10_ecs`: Rust ECS examples with dataclass components/resources, ordered systems, typed entity views, and spatial joins.
+- `12_synth`: logical synth-track examples that render WAV files, play by default when run directly, create `Sound` objects, and demonstrate loops, threads, controls, FX, samples, chords, scales, and rings. Pass `--no-play` for non-audio smoke runs.
 - `games`: small sprite-based games using the included assets.

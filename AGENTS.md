@@ -32,7 +32,9 @@ Rust-owned runtime:
     -> crates/gummy_canvas
     -> SketchContextState, canvas state, draw commands, batching,
        GPU/raster rendering, assets, export, pixels, text, SDL3 window/input,
-       PyO3 bridge classes/functions for ECS
+       PyO3 bridge classes/functions for ECS and synth rendering
+    -> crates/gummy_synth
+    -> synth/sample/FX rendering, sample decoding, WAV encoding
     -> crates/gummy_ecs
     -> canonical ECS entity/component/tag/resource/event storage,
        query matching, schedules, physical plans, spatial indexes,
@@ -55,15 +57,18 @@ user sketch ecs systems and entity/resource/event calls
 `gummysnake.rust._canvas` owns drawing, presentation, renderer draw state,
 sketch context state for canvas lifecycle/timing/input/shape capture, image
 asset loading/saving, image-local byte operations, media frame conversion, text,
-pixels, export, and native window/input support when built with those
-capabilities. The same mandatory extension exposes the Rust ECS bridge backed by
-`crates/gummy_ecs`, which owns canonical ECS storage, resource/event queues,
-query matching, spatial indexes, schedule/physical-plan execution, and ECS
-runtime diagnostics. Python `SketchState` is a compatibility facade over Rust
-canvas state plus Python-only API conversion objects, not an independent runtime
-mirror. Python `EcsWorld` is a public facade for schemas, logical plans, handles,
-views, and explicit UDF boundaries, not a component-column mirror. The current
-native desktop window/input runtime is SDL3-backed inside `crates/gummy_canvas`;
+pixels, export, native window/input support, and PyO3 bridge registration for
+linked Rust runtimes when built with those capabilities. The same mandatory
+extension exposes the Rust ECS bridge backed by `crates/gummy_ecs`, which owns
+canonical ECS storage, resource/event queues, query matching, spatial indexes,
+schedule/physical-plan execution, and ECS runtime diagnostics. It also exposes
+synth rendering functions backed by `crates/gummy_synth`, which owns synth,
+sample, FX, sample-decoding, and WAV-encoding execution for `gummysnake.synth`.
+Python `SketchState` is a compatibility facade over Rust canvas state plus
+Python-only API conversion objects, not an independent runtime mirror. Python
+`EcsWorld` is a public facade for schemas, logical plans, handles, views, and
+explicit UDF boundaries, not a component-column mirror. The current native
+desktop window/input runtime is SDL3-backed inside `crates/gummy_canvas`;
 do not reintroduce winit/Tao window loops as the primary interactive path without
 an explicit user request and a new experiment plan.
 Current `WEBGL` support is a Rust canvas 3D path presented through the canvas
@@ -80,6 +85,7 @@ Important consequences:
 
 - The `gummy_canvas` canvas runtime is mandatory for canvas-owned behavior and for exposing the ECS bridge.
 - The `gummy_ecs` Rust crate owns canonical ECS storage and non-UDF system execution.
+- The `gummy_synth` Rust crate owns synth/sample/FX audio rendering for synth tracks.
 - There is no supported Pillow/Pyglet/Python renderer fallback.
 - There is no supported Python ECS execution fallback for non-UDF systems.
 - Bounded/headless runs still use `gummy_canvas`; they do not switch to a Python image backend or Python ECS runtime.
@@ -87,6 +93,7 @@ Important consequences:
 - `headless=False` or `--interactive` requests native interactive canvas behavior where the installed runtime supports it.
 - Missing canvas runtime should raise clear Gummy Snake capability errors with rebuild guidance; do not add alternate Python runtime paths.
 - Missing native-window support should raise clear Gummy Snake capability errors when interactive behavior is requested.
+- Do not add fallback behavior of any kind without explicit user permission. If a feature, runtime capability, asset, sample, renderer path, synth/FX operation, or dependency is unavailable, fail clearly with an actionable Gummy Snake error instead of silently substituting placeholder, synthetic, reduced-quality, Python-side, or compatibility behavior. If a fallback seems necessary, stop and ask the user before implementing it.
 - SDL3 mouse, wheel, and touch coordinates are logical/window coordinates. Rust event payloads should mark them with `coordinates = "logical"` so Python does not divide them by pixel density a second time. Preserve HiDPI input behavior when touching event code.
 - Normalize one-character SDL3 key names to lowercase before exposing them to Python so `KeyboardEvent.matches("l")` and similar lifecycle controls remain stable.
 - `gummysnake.rust._canvas` exposes canvas and ECS ABI markers. Python wrappers should reject missing, malformed, or mismatched markers with rebuild guidance before backend/ECS construction proceeds.
@@ -146,6 +153,7 @@ Important crates:
 ```text
 crates/gummy_canvas/    required PyO3 canvas runtime module: gummysnake.rust._canvas
 crates/gummy_ecs/       Rust ECS storage, schedule, physical-plan, and spatial-index crate linked through gummy_canvas
+crates/gummy_synth/     Rust synth/sample/FX renderer crate linked through gummy_canvas
 crates/gummy_accel/     optional acceleration extension: gummysnake.rust._accelerated
 ```
 
@@ -154,6 +162,7 @@ Common commands:
 ```sh
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
 cargo test --manifest-path crates/gummy_ecs/Cargo.toml
+cargo test --manifest-path crates/gummy_synth/Cargo.toml
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
@@ -207,7 +216,7 @@ docs/getting_started/ user learning path and first-sketch material
 docs/reference/      public API reference grouped by topic
 docs/contribute/     architecture, runtime, testing, and maintainer workflow
 .scratch/backlog/             TOML PBIs grouped by numbered epic
-crates/              Rust runtime and acceleration crates; gummy_canvas canvas helpers include cache, dirty-state, image batch, text layout, and GPU render-pass batching modules; gummy_ecs owns ECS storage, plans, schedules, and spatial indexes
+crates/              Rust runtime and acceleration crates; gummy_canvas canvas helpers include cache, dirty-state, image batch, text layout, and GPU render-pass batching modules; gummy_ecs owns ECS storage, plans, schedules, and spatial indexes; gummy_synth owns synth/sample/FX audio rendering
 ```
 
 Generated artifacts such as `__pycache__/`, compiled `.so` files, build directories, benchmark output, and example image/data output should not be committed unless the user explicitly asks.
@@ -646,6 +655,7 @@ uv run python -c "from pathlib import Path; import tomllib; [tomllib.load(p.open
 - Do not modify the sibling `p5.js` repository unless explicitly asked.
 - Do not commit changes unless explicitly asked.
 - Do not remove or overwrite generated/user files unless you are sure they are artifacts from your own validation commands.
+- Do not add fallback behavior of any kind unless the user explicitly grants permission for that specific fallback. Missing capabilities, assets, runtimes, dependencies, or unsupported operations should raise clear errors rather than silently substituting placeholder/synthetic/compatibility behavior.
 - Do not reintroduce Pillow/Pyglet/Python renderer fallback paths unless the user explicitly asks for a rollback or compatibility experiment.
 - Do not add Python ECS execution fallbacks or Python component-column mirrors for non-UDF systems.
 - Do not add browser, JavaScript, HTML, or DOM-based implementation paths.

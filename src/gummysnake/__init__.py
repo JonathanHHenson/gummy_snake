@@ -1,6 +1,7 @@
 """Gummy Snake public API."""
 
 from gummysnake import ecs as ecs
+from gummysnake import synth as synth
 from gummysnake.api.media import (
     AudioVideoCapture,
     create_capture,
@@ -658,6 +659,7 @@ __all__ = [
     "ecs_diagnostics",
     "reset_ecs_diagnostics",
     "ecs",
+    "synth",
     "create_canvas",
     "create_compute_shader",
     "create_framebuffer",

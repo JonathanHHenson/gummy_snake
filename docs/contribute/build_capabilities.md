@@ -12,15 +12,16 @@ Use this matrix when validating local builds, wheels, and release candidates.
 | Optional acceleration | Optional | `crates/gummy_accel` PyO3 module `gummysnake.rust._accelerated` | `gummysnake.rust.is_acceleration_available()` | `uv run pytest tests/unit/test_rust_acceleration.py` |
 | WEBGL path | Required for accepted `WEBGL` mode | Rust-owned model handles, fallback software 3D paths, and built-in retained GPU model pipelines when GPU drawing is available | backend flags `three_d=True`, `software_three_d=True`, `native_three_d=False`, `native_shaders=False` | `uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks -q -s` |
 | ECS runtime | Required for ECS system storage and physical execution; only explicit Python UDF bodies execute outside Rust | `crates/gummy_ecs` linked into `crates/gummy_canvas`, exposed through `gummysnake.rust._canvas` | `gummysnake.rust.ecs.ecs_abi_version()` and `gummysnake.rust.ecs.require_ecs_runtime()` validate the ECS ABI and bridge classes | `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` plus `uv run pytest tests/unit/test_ecs.py -q` |
+| Synth runtime | Required for `gummysnake.synth` rendering, sample decoding, and FX execution | `crates/gummy_synth` linked into `crates/gummy_canvas`, exposed through `gummysnake.rust._canvas` | `gummysnake.rust.canvas.require_canvas_runtime()` validates the canvas ABI and synth bridge functions | `cargo test --manifest-path crates/gummy_synth/Cargo.toml` plus `uv run pytest tests/unit/test_synth_tracks.py -q` |
 
 ## Compatibility Marker
 
 `gummy_canvas` exposes `CANVAS_ABI_VERSION` / `canvas_abi_version()` for canvas
-APIs and `ECS_ABI_VERSION` / `ecs_abi_version()` for the Rust ECS bridge. Python
-validates these markers before returning runtime modules. Missing, malformed, or
-mismatched markers raise `BackendCapabilityError` with rebuild guidance, because
-they usually mean a stale local runtime module is being imported with a newer
-Python package.
+and linked synth APIs, plus `ECS_ABI_VERSION` / `ecs_abi_version()` for the Rust
+ECS bridge. Python validates these markers before returning runtime modules.
+Missing, malformed, or mismatched markers raise `BackendCapabilityError` with
+rebuild guidance, because they usually mean a stale local runtime module is being
+imported with a newer Python package.
 
 Use the release build command when rebuilding locally:
 

@@ -1,0 +1,22 @@
+"""Source-defined Sonic Pi synth from design files: :fm."""
+
+from __future__ import annotations
+
+from gummysnake import synth as sy
+from gummysnake.synth.builtins._common import synth_duration
+
+SYNTH_NAME = "fm"
+DURATION = synth_duration(SYNTH_NAME)
+
+
+@sy.synth(name=SYNTH_NAME)
+def fm(note: object = 60, **opts: object) -> None:
+    signal = sy.synth_input(
+        note,
+        defaults={"release": 0.35, "divisor": 2, "depth": 1.2, "cutoff": 100},
+        **opts,
+    ).layer("fm")
+    signal.output()
+
+
+SYNTH_TRACK = fm

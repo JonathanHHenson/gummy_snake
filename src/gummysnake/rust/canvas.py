@@ -14,9 +14,10 @@ from typing import Any, Protocol, cast
 from gummysnake.exceptions import BackendCapabilityError
 
 GUMMY_CANVAS_BUILD_COMMAND = (
-    "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml"
+    "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml "
+    "--features extension-module"
 )
-EXPECTED_CANVAS_ABI_VERSION = 15
+EXPECTED_CANVAS_ABI_VERSION = 18
 
 
 class _RustCanvasImage(Protocol):
@@ -63,6 +64,18 @@ class _RustCanvasSound(Protocol):
     def from_file(path: str) -> _RustCanvasSound: ...
 
     def to_bytes(self) -> bytes: ...
+
+
+class _RustCanvasAudioPlayback(Protocol):
+    duration: float
+
+    def stop(self) -> None: ...
+
+    def close(self) -> None: ...
+
+    def wait_until_stop(self, timeout: float | None = None) -> bool: ...
+
+    def is_playing(self) -> bool: ...
 
 
 class _CanvasModule(Protocol):
@@ -140,6 +153,22 @@ class _CanvasModule(Protocol):
     def rasterize_faces_rgba(
         self, width: int, height: int, faces: list[dict[str, Any]]
     ) -> bytes: ...
+
+    def synth_render_event_wav(self, event: dict[str, Any], sample_rate: int) -> bytes: ...
+
+    def synth_render_plan_wav(
+        self, events: list[dict[str, Any]], duration_seconds: float, sample_rate: int
+    ) -> bytes: ...
+
+    def synth_render_serialized_plan_wav(self, payload: bytes, sample_rate: int) -> bytes: ...
+
+    def synth_play_serialized_plan(
+        self, payload: bytes, sample_rate: int
+    ) -> _RustCanvasAudioPlayback: ...
+
+    def synth_play_wav_bytes(self, payload: bytes) -> _RustCanvasAudioPlayback: ...
+
+    def synth_sample_duration(self, value: Any) -> float: ...
 
 
 _loaded_canvas: ModuleType | None

@@ -119,6 +119,48 @@ def test_sound_play_preserves_specific_backend_capability_errors(tmp_path: Path)
         clip.play()
 
 
+def test_native_audio_player_cleanup_stops_spawned_process(monkeypatch, tmp_path: Path):
+    sound_path = tmp_path / "tone.wav"
+    _write_wav(sound_path)
+
+    class _FakeProcess:
+        def __init__(self) -> None:
+            self.terminate_calls = 0
+            self.wait_calls = 0
+            self.kill_calls = 0
+            self.is_running = True
+
+        def poll(self):
+            return None if self.is_running else 0
+
+        def terminate(self) -> None:
+            self.terminate_calls += 1
+            self.is_running = False
+
+        def wait(self, timeout=None):
+            self.wait_calls += 1
+            return 0
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+            self.is_running = False
+
+    process = _FakeProcess()
+    monkeypatch.setattr(
+        sound_module, "_platform_play_command", lambda path: ["fake-player", str(path)]
+    )
+    monkeypatch.setattr(sound_module.subprocess, "Popen", lambda *args, **kwargs: process)
+
+    player = sound_module._NativeAudioPlayer(sound_path)
+    player.play()
+    sound_module._stop_active_native_audio_players()
+    sound_module._stop_active_native_audio_players()
+
+    assert process.terminate_calls == 1
+    assert process.wait_calls == 1
+    assert process.kill_calls == 0
+
+
 def test_generated_oscillator_sound_materializes_temp_file_for_playback(monkeypatch):
     _FakePlayer.instances.clear()
     monkeypatch.setattr(sound_module, "_NativeAudioPlayer", _FakePlayer)

@@ -37,11 +37,15 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(project_shade_faces, m)?)?;
     m.add_function(wrap_pyfunction!(project_shade_model_handle, m)?)?;
     m.add_function(wrap_pyfunction!(rasterize_faces_rgba, m)?)?;
+    gummy_synth::register_pyfunctions(m)?;
+    m.add_function(wrap_pyfunction!(synth_play_serialized_plan, m)?)?;
+    m.add_function(wrap_pyfunction!(synth_play_wav_bytes, m)?)?;
     m.add("CANVAS_ABI_VERSION", CANVAS_ABI_VERSION)?;
     m.add_class::<Matrix2D>()?;
     m.add_class::<Canvas>()?;
     m.add_class::<CanvasImage>()?;
     m.add_class::<CanvasSound>()?;
+    m.add_class::<CanvasAudioPlayback>()?;
     m.add_class::<PyEcsWorld>()?;
     m.add_class::<PyEcsSpatialIndexRegistry>()?;
     m.add_class::<sketch_state::SketchContextState>()?;

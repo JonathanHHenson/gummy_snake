@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import atexit
 import shutil
 import signal
 import subprocess
 import tempfile
+import threading
+import weakref
 from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
@@ -13,6 +16,10 @@ from typing import Any, Protocol, cast
 
 from gummysnake.assets._paths import resolve_asset_path
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+
+_ACTIVE_NATIVE_PLAYERS: weakref.WeakSet[_NativeAudioPlayer] = weakref.WeakSet()
+_ACTIVE_NATIVE_PLAYERS_LOCK = threading.Lock()
+_NATIVE_PLAYER_MONITOR_STARTED = False
 
 
 class _ByteSourceCallback(Protocol):
@@ -448,6 +455,7 @@ class _NativeAudioPlayer:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        _register_native_audio_player(self)
 
     def pause(self) -> None:
         if self._process is None:
@@ -464,6 +472,7 @@ class _NativeAudioPlayer:
     def delete(self) -> None:
         process = self._process
         self._process = None
+        _unregister_native_audio_player(self)
         if process is None or process.poll() is not None:
             return
         process.terminate()
@@ -471,6 +480,49 @@ class _NativeAudioPlayer:
             process.wait(timeout=1.0)
         except subprocess.TimeoutExpired:  # pragma: no cover - process-specific failure path
             process.kill()
+            with suppress(Exception):
+                process.wait(timeout=1.0)
+
+
+def _register_native_audio_player(player: _NativeAudioPlayer) -> None:
+    global _NATIVE_PLAYER_MONITOR_STARTED
+    should_start_monitor = False
+    with _ACTIVE_NATIVE_PLAYERS_LOCK:
+        _ACTIVE_NATIVE_PLAYERS.add(player)
+        if not _NATIVE_PLAYER_MONITOR_STARTED:
+            _NATIVE_PLAYER_MONITOR_STARTED = True
+            should_start_monitor = True
+    if should_start_monitor:
+        threading.Thread(
+            target=_stop_native_audio_when_main_thread_exits,
+            name="gummysnake-audio-cleanup",
+            daemon=True,
+        ).start()
+
+
+def _unregister_native_audio_player(player: _NativeAudioPlayer) -> None:
+    with _ACTIVE_NATIVE_PLAYERS_LOCK:
+        _ACTIVE_NATIVE_PLAYERS.discard(player)
+
+
+def _stop_native_audio_when_main_thread_exits() -> None:
+    main_thread = threading.main_thread()
+    if threading.current_thread() is main_thread:  # pragma: no cover - defensive guard
+        return
+    with suppress(RuntimeError):
+        main_thread.join()
+    _stop_active_native_audio_players()
+
+
+def _stop_active_native_audio_players() -> None:
+    with _ACTIVE_NATIVE_PLAYERS_LOCK:
+        players = list(_ACTIVE_NATIVE_PLAYERS)
+    for player in players:
+        with suppress(Exception):
+            player.delete()
+
+
+atexit.register(_stop_active_native_audio_players)
 
 
 def _platform_play_command(path: Path) -> list[str] | None:

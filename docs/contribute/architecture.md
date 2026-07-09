@@ -83,7 +83,8 @@ The runtime has a small set of objects that appear in most changes:
 | `gummysnake.rust.ecs` | `src/gummysnake/rust/ecs.py` | ECS ABI validation and typed wrapper around the ECS objects exposed by the mandatory canvas extension. |
 | `EcsWorld` | `src/gummysnake/ecs/world.py` | Python-facing ECS facade. It validates dataclass schemas, registers systems/resources/events, and delegates canonical storage and physical execution to Rust. |
 | `gummy_ecs` | `crates/gummy_ecs/` | Rust ECS storage, scheduler, physical-plan, event, resource, and spatial-index implementation. |
-| `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime, renderer implementation, and PyO3 bridge exposing canvas plus ECS runtime objects. |
+| `gummy_synth` | `crates/gummy_synth/` | Rust synth/sample/FX renderer used by logical synth tracks and registered through the canvas PyO3 module. |
+| `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime, renderer implementation, and PyO3 bridge exposing canvas plus ECS and synth runtime functions. |
 
 ## Ownership Boundaries
 
@@ -306,6 +307,8 @@ Use these rules of thumb:
 - Change `gummysnake.rust.canvas` when import/capability errors need to be clearer.
 - Change `crates/gummy_canvas` when the renderer/runtime itself lacks a primitive,
   export behavior, asset operation, or native event behavior.
+- Change `crates/gummy_synth` when synth tracks need a new synth waveform,
+  sample decoder, FX implementation, or audio render behavior.
 
 ## Source Map
 
@@ -350,7 +353,10 @@ Use these rules of thumb:
   policy (`canvas/cache.rs`), dirty/render flag helpers (`canvas/dirty.rs`), image
   batch parsing (`canvas/images/batch.rs`), text layout helpers
   (`canvas/text/layout.rs`), and local GPU render-pass batching
-  (`gpu/render.rs`).
+  (`gpu/render.rs`). It registers PyO3 bridge functions from linked runtime crates
+  such as `gummy_ecs` and `gummy_synth`.
+- `crates/gummy_synth/`: Rust synth/sample/FX rendering crate used by
+  `gummysnake.synth` physical-plan playback/export through the canvas extension.
 - `crates/gummy_accel/`: optional acceleration extension.
 
 ## Naming And Layout Conventions

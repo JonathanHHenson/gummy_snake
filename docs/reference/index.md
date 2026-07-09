@@ -14,6 +14,7 @@ Reference topics:
 - [Images, pixels, and assets](assets_and_pixels.md)
 - [Input and events](input_and_events.md)
 - [Entity component systems](ecs.md)
+- [Synth tracks](synth.md)
 - [Math, random, and vectors](math_random_vectors.md)
 - [3D and shaders](three_d.md)
 - [Constants and enums](constants_and_enums.md)
@@ -28,4 +29,5 @@ Python-first conveniences are part of the public API:
 - context managers such as `gs.style(...)` and `gs.transform(...)`
 - async-compatible lifecycle callbacks and asset loaders
 - dataclass-based ECS components/resources with Rust physical system execution
+- logical synth tracks that render to audio files or `Sound` objects
 - vector operators, event vector properties, and image indexing

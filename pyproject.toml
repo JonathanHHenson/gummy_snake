@@ -48,6 +48,13 @@ module-name = "gummysnake.rust._canvas"
 python-source = "src"
 bindings = "pyo3"
 features = ["extension-module"]
+include = [
+    "assets/samples/sonic_pi/*.flac",
+    "assets/samples/sonic_pi/README.md",
+    "assets/synths/README.md",
+    "assets/synths/compiled/*.gss",
+    "assets/synths/fx/compiled/*.gsfx",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

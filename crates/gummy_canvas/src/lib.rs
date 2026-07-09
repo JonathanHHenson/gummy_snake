@@ -26,7 +26,9 @@ pub(crate) use bindings::{health_check, native_window_available};
 
 pub(crate) use assets::{CachedImage, CachedText, CachedTextMetrics, CanvasImage};
 pub(crate) use canvas_state::Canvas;
-pub(crate) use sound::CanvasSound;
+pub(crate) use sound::{
+    synth_play_serialized_plan, synth_play_wav_bytes, CanvasAudioPlayback, CanvasSound,
+};
 pub(crate) use types::{BlendMode, Matrix2D, Rgba, Style};
 
 use canvas::cache::{ImageCache, TextCache, TextureCache};
@@ -66,7 +68,7 @@ const BLEND_MODE_SCREEN: &str = "screen";
 const IMAGE_CACHE_LIMIT: usize = 1024;
 const TEXTURE_CACHE_LIMIT: usize = 1024;
 const TEXT_CACHE_LIMIT: usize = 512;
-const CANVAS_ABI_VERSION: u32 = 15;
+const CANVAS_ABI_VERSION: u32 = 18;
 
 #[pymodule]
 fn _canvas(m: &Bound<'_, PyModule>) -> PyResult<()> {
