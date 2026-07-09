@@ -3,7 +3,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
 use serde_json::Value as JsonValue;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::f64::consts::{FRAC_1_SQRT_2, PI, TAU};
 use std::fs;
 use std::io::Read;
@@ -41,11 +41,13 @@ struct ScheduledControlPayload {
     target_id: u64,
     time_seconds: f64,
     opts: OptMap,
+    order: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 struct EventPayload {
     node_id: u64,
+    order: u64,
     kind: String,
     time_seconds: f64,
     value: SynthValue,
@@ -59,6 +61,7 @@ struct EventPayload {
 #[derive(Clone, Debug, PartialEq)]
 struct FxOptionSnapshot {
     time_seconds: f64,
+    order: u64,
     opts: OptMap,
 }
 
@@ -122,6 +125,7 @@ struct ScheduledFxPayload {
 struct ScheduledEventPayload {
     instance_key: String,
     node_id: u64,
+    order: u64,
     kind: String,
     time_seconds: f64,
     value: SynthValue,
@@ -234,6 +238,7 @@ fn render_plan_events(
         root.mix_event(
             &event.fx_chain,
             event.time_seconds,
+            event.order,
             start,
             &event_left,
             &event_right,
@@ -304,6 +309,7 @@ fn render_plan_window_samples(
         root.mix_event(
             &event.fx_chain,
             event.time_seconds,
+            event.order,
             start,
             &signal.left[skip_left..],
             &signal.right[skip_right..],
@@ -413,6 +419,7 @@ impl FxBusNode {
         &mut self,
         fx_chain: &[FxPayload],
         event_time_seconds: f64,
+        event_order: u64,
         start_sample: usize,
         left: &[f64],
         right: &[f64],
@@ -421,11 +428,13 @@ impl FxBusNode {
             let child = self.child_mut(fx);
             child.option_snapshots.push(FxOptionSnapshot {
                 time_seconds: event_time_seconds,
+                order: event_order,
                 opts: fx.opts.clone(),
             });
             child.mix_event(
                 remaining_chain,
                 event_time_seconds,
+                event_order,
                 start_sample,
                 left,
                 right,
@@ -553,7 +562,11 @@ fn fx_option_segments(
 ) -> Vec<(usize, usize, OptMap)> {
     let bounded_len = input_len.max(1);
     let mut sorted = snapshots.to_vec();
-    sorted.sort_by(|a, b| a.time_seconds.total_cmp(&b.time_seconds));
+    sorted.sort_by(|a, b| {
+        a.time_seconds
+            .total_cmp(&b.time_seconds)
+            .then_with(|| a.order.cmp(&b.order))
+    });
     let mut starts = vec![(0usize, fx.opts.clone())];
     for snapshot in sorted {
         let start = ((snapshot.time_seconds - time_origin_seconds) * sample_rate as f64)
@@ -631,6 +644,7 @@ pub fn synth_sample_duration(value: &Bound<'_, PyAny>) -> PyResult<f64> {
 fn parse_event(dict: &Bound<'_, PyDict>) -> PyResult<EventPayload> {
     Ok(EventPayload {
         node_id: get_u64(dict, "node_id", 0)?,
+        order: get_u64(dict, "order", 0)?,
         kind: get_string(dict, "kind", "play")?,
         time_seconds: get_f64(dict, "time_seconds", 0.0)?,
         value: parse_py_value(&get_item(dict, "value")?)?,
@@ -824,7 +838,12 @@ fn parse_serialized_plan(payload: &[u8]) -> PyResult<(Vec<EventPayload>, f64)> {
         .get("duration_seconds")
         .and_then(JsonValue::as_f64)
         .unwrap_or(0.0);
-    let controls = parse_serialized_controls(root.get("controls"))?;
+    let mut controls = parse_serialized_controls(root.get("controls"))?;
+    controls.sort_by(|a, b| {
+        a.time_seconds
+            .total_cmp(&b.time_seconds)
+            .then_with(|| a.order.cmp(&b.order))
+    });
     let scheduled_events = parse_serialized_events(root.get("events"))?;
     let events = scheduled_events
         .into_iter()
@@ -850,6 +869,7 @@ fn parse_serialized_event(value: &JsonValue) -> PyResult<ScheduledEventPayload> 
     Ok(ScheduledEventPayload {
         instance_key: json_key(object.get("instance").unwrap_or(&JsonValue::Null)),
         node_id: json_u64(object.get("node_id"), 0),
+        order: json_u64(object.get("order"), 0),
         kind: json_string(object.get("kind"), "play"),
         time_seconds: json_f64(object.get("time_seconds"), 0.0),
         value: json_to_synth_value(object.get("value").unwrap_or(&JsonValue::Null))?,
@@ -902,9 +922,20 @@ fn parse_serialized_controls(value: Option<&JsonValue>) -> PyResult<Vec<Schedule
                 target_id: json_u64(object.get("target_id"), 0),
                 time_seconds: json_f64(object.get("time_seconds"), 0.0),
                 opts: json_to_opt_map(object.get("opts"))?,
+                order: json_u64(object.get("order"), 0),
             })
         })
         .collect()
+}
+
+fn fx_control_precedes_event(
+    control: &ScheduledControlPayload,
+    event_time_seconds: f64,
+    event_order: u64,
+) -> bool {
+    control.time_seconds < event_time_seconds - 1e-9
+        || ((control.time_seconds - event_time_seconds).abs() <= 1e-9
+            && control.order < event_order)
 }
 
 impl ScheduledEventPayload {
@@ -917,6 +948,8 @@ impl ScheduledEventPayload {
                 opts: control.opts.clone(),
             })
             .collect();
+        let event_time_seconds = self.time_seconds;
+        let event_order = self.order;
         let fx_chain = self
             .fx_chain
             .into_iter()
@@ -924,7 +957,7 @@ impl ScheduledEventPayload {
                 let mut opts = fx.opts;
                 for control in controls {
                     if control.target_id == fx.id
-                        && control.time_seconds <= self.time_seconds + 1e-9
+                        && fx_control_precedes_event(control, event_time_seconds, event_order)
                     {
                         opts.extend(control.opts.clone());
                     }
@@ -938,6 +971,7 @@ impl ScheduledEventPayload {
             .collect();
         EventPayload {
             node_id: self.node_id,
+            order: self.order,
             kind: self.kind,
             time_seconds: self.time_seconds,
             value: self.value,
@@ -1101,6 +1135,7 @@ fn render_synth_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f
         event.time_seconds,
     );
     let mut mono = Vec::with_capacity(count);
+    let mut envelope_levels = Vec::with_capacity(count);
     let mut phases = vec![0.0; notes.len()];
     for index in 0..count {
         let elapsed = index as f64 / sample_rate as f64;
@@ -1148,6 +1183,7 @@ fn render_synth_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f
         if active_voices > 0 {
             sample /= active_voices as f64;
         }
+        envelope_levels.push(level);
         mono.push(sample);
     }
     let (processed_left, processed_right) = apply_synth_post_processing(
@@ -1158,26 +1194,20 @@ fn render_synth_event(event: &EventPayload, sample_rate: u32) -> PyResult<(Vec<f
         sample_rate,
         &*cutoff_auto,
         cutoff_is_automated,
+        Some(&envelope_levels),
     );
     let mut left = Vec::with_capacity(count);
     let mut right = Vec::with_capacity(count);
     for index in 0..count {
         let elapsed = index as f64 / sample_rate as f64;
-        let level = adsr_level(
-            elapsed,
-            attack,
-            decay,
-            sustain,
-            release,
-            attack_level,
-            decay_level,
-            sustain_level,
-            env_curve,
-        );
+        let level = envelope_levels.get(index).copied().unwrap_or(0.0);
         let pan = pan_auto(elapsed).unwrap_or(pan_base).clamp(-1.0, 1.0);
         let (left_gain, right_gain) = pan_gains(pan);
         left.push(processed_left.get(index).copied().unwrap_or(0.0) * level * amp * left_gain);
         right.push(processed_right.get(index).copied().unwrap_or(0.0) * level * amp * right_gain);
+    }
+    if bool_opt(&opts, "leak_dc", false) {
+        (left, right) = leak_dc_pair(&left, &right);
     }
     Ok((left, right))
 }
@@ -1240,6 +1270,7 @@ fn render_layered_synth_event(
     );
     let mut phases = vec![0.0; notes.len() * layers.len()];
     let mut mono = Vec::with_capacity(count);
+    let mut envelope_levels = Vec::with_capacity(count);
 
     for index in 0..count {
         let elapsed = index as f64 / sample_rate as f64;
@@ -1292,6 +1323,7 @@ fn render_layered_synth_event(
         if active_base_notes > 0 {
             sample /= active_base_notes as f64;
         }
+        envelope_levels.push(level);
         mono.push(sample);
     }
 
@@ -1303,26 +1335,20 @@ fn render_layered_synth_event(
         sample_rate,
         &*cutoff_auto,
         cutoff_is_automated,
+        Some(&envelope_levels),
     );
     let mut left = Vec::with_capacity(count);
     let mut right = Vec::with_capacity(count);
     for index in 0..count {
         let elapsed = index as f64 / sample_rate as f64;
-        let level = adsr_level(
-            elapsed,
-            attack,
-            decay,
-            sustain,
-            release,
-            attack_level,
-            decay_level,
-            sustain_level,
-            env_curve,
-        );
+        let level = envelope_levels.get(index).copied().unwrap_or(0.0);
         let pan = pan_auto(elapsed).unwrap_or(pan_base).clamp(-1.0, 1.0);
         let (left_gain, right_gain) = pan_gains(pan);
         left.push(processed_left.get(index).copied().unwrap_or(0.0) * level * amp * left_gain);
         right.push(processed_right.get(index).copied().unwrap_or(0.0) * level * amp * right_gain);
+    }
+    if bool_opt(opts, "leak_dc", false) {
+        (left, right) = leak_dc_pair(&left, &right);
     }
 
     Ok((left, right))
@@ -1412,6 +1438,10 @@ fn render_sample_event_with_opts(
         segment_right = scale_samples(&segment_right, pre_amp);
     }
     let step = rate.abs();
+    if sample_antialias_enabled(opts) && step > 1.0 {
+        (segment_left, segment_right) =
+            anti_alias_sample_segment(segment_left, segment_right, step, sample_rate);
+    }
     let output_count = ((segment_left.len() as f64 / step).ceil().max(1.0)) as usize;
     let attack = float_opt(opts, "attack", 0.0).max(0.0);
     let release = float_opt(opts, "release", 0.0).max(0.0);
@@ -1444,6 +1474,9 @@ fn render_sample_event_with_opts(
             left.push(dry_left * left_gain);
             right.push(dry_left * right_gain);
         }
+    }
+    if sample_antialias_enabled(opts) && step > 1.0 {
+        (left, right) = smooth_high_rate_sample_output(left, right, step, sample_rate);
     }
     let cutoff = float_opt(opts, "cutoff", 0.0);
     if cutoff > 0.0 && cutoff < 130.5 {
@@ -1749,8 +1782,9 @@ fn apply_synth_post_processing(
     sample_rate: u32,
     cutoff_auto: &(dyn Fn(f64) -> Option<f64> + Send + Sync),
     cutoff_is_automated: bool,
+    envelope_levels: Option<&[f64]>,
 ) -> (Vec<f64>, Vec<f64>) {
-    (left, right) = apply_pre_filter_shaping(left, right, opts);
+    (left, right) = apply_pre_filter_shaping(left, right, opts, envelope_levels);
     let cutoff = cutoff_auto(0.0).unwrap_or_else(|| default_synth_cutoff(kind));
     if cutoff > 0.0 && cutoff < 130.5 {
         let res = float_opt(opts, "res", default_synth_res(kind)).clamp(0.0, 0.99);
@@ -1809,11 +1843,17 @@ fn apply_pre_filter_shaping(
     mut left: Vec<f64>,
     mut right: Vec<f64>,
     opts: &OptMap,
+    envelope_levels: Option<&[f64]>,
 ) -> (Vec<f64>, Vec<f64>) {
     if bool_opt(opts, "pre_shape_normalise", false) || bool_opt(opts, "pre_shape_normalize", false)
     {
         let level = float_opt(opts, "pre_shape_level", 1.0).max(0.0);
         (left, right) = normalise_pair(&left, &right, level);
+    }
+    if bool_opt(opts, "pre_filter_env", false) {
+        if let Some(envelope_levels) = envelope_levels {
+            (left, right) = multiply_pair_by_envelope(&left, &right, envelope_levels);
+        }
     }
     match string_opt(opts, "pre_filter_shape", "").as_str() {
         "square" | "squared" => {
@@ -2484,7 +2524,12 @@ fn fx_chain(
     for op_value in ops {
         let op_opts = fx_op_map(op_value);
         let op_name = string_opt(&op_opts, "op", "level");
-        let merged = merge_chain_op_opts(opts, &op_opts);
+        let mut merged = merge_chain_op_opts(opts, &op_opts);
+        if op_name == "reverb" {
+            if let Some(mix) = opts.get("mix") {
+                merged.insert("reverb_mix".to_owned(), mix.clone());
+            }
+        }
         let next = fx_chain_op(
             &op_name,
             &current_left,
@@ -2738,18 +2783,21 @@ fn fx_krush_shape(left: &[f64], right: &[f64], opts: &OptMap) -> (Vec<f64>, Vec<
 fn fx_reverb(left: &[f64], right: &[f64], opts: &OptMap, sample_rate: u32) -> (Vec<f64>, Vec<f64>) {
     let room = float_opt(opts, "room", 0.6).clamp(0.0, 1.0);
     let damp = float_opt(opts, "damp", 0.5).clamp(0.0, 1.0);
+    let internal_mix = float_opt(opts, "reverb_mix", float_opt(opts, "mix", 0.4)).clamp(0.0, 1.0);
+    let width = float_opt(opts, "width", 1.0).clamp(0.0, 1.0);
     let tail_seconds = float_opt(opts, "tail", 0.7 + room * 2.4).max(0.05);
     let input_len = left.len().max(right.len());
     if input_len == 0 {
         return (Vec::new(), Vec::new());
     }
     let output_len = input_len + (tail_seconds * sample_rate as f64).ceil() as usize;
-    let feedback = 0.70 + room * 0.24;
-    let damp_amount = damp * 0.45;
-    let damp1 = damp_amount;
-    let damp2 = 1.0 - damp_amount;
-    let wet_gain = 0.18 + room * 0.08;
-    let input_gain = 0.025;
+    let feedback = 0.70 + room * 0.28;
+    let damp1 = damp * 0.4;
+    let damp2 = 1.0 - damp1;
+    let fixed_gain = 0.015;
+    let wet = 0.42;
+    let wet1 = wet * (width * 0.5 + 0.5);
+    let wet2 = wet * ((1.0 - width) * 0.5);
 
     let comb_left = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
     let comb_right = [1139, 1211, 1300, 1379, 1445, 1514, 1580, 1640];
@@ -2777,10 +2825,8 @@ fn fx_reverb(left: &[f64], right: &[f64], opts: &OptMap, sample_rate: u32) -> (V
     for index in 0..output_len {
         let input_left = left.get(index).copied().unwrap_or(0.0);
         let input_right = right.get(index).copied().unwrap_or(0.0);
-        let mono_input = (input_left + input_right) * 0.5 * input_gain;
-        let stereo_push = (input_left - input_right) * 0.25 * input_gain;
-        let comb_input_left = mono_input + stereo_push;
-        let comb_input_right = mono_input - stereo_push;
+        let comb_input_left = (input_left * 0.75 + input_right * 0.25) * fixed_gain;
+        let comb_input_right = (input_right * 0.75 + input_left * 0.25) * fixed_gain;
 
         let mut wet_left = 0.0;
         for comb in &mut combs_left {
@@ -2790,16 +2836,16 @@ fn fx_reverb(left: &[f64], right: &[f64], opts: &OptMap, sample_rate: u32) -> (V
         for comb in &mut combs_right {
             wet_right += comb.process(comb_input_right, feedback, damp1, damp2);
         }
-        wet_left /= combs_left.len() as f64;
-        wet_right /= combs_right.len() as f64;
         for allpass in &mut allpasses_left {
             wet_left = allpass.process(wet_left);
         }
         for allpass in &mut allpasses_right {
             wet_right = allpass.process(wet_right);
         }
-        out_left.push(wet_left * wet_gain);
-        out_right.push(wet_right * wet_gain);
+        let stereo_wet_left = wet_left * wet1 + wet_right * wet2;
+        let stereo_wet_right = wet_right * wet1 + wet_left * wet2;
+        out_left.push(input_left * (1.0 - internal_mix) + stereo_wet_left * internal_mix);
+        out_right.push(input_right * (1.0 - internal_mix) + stereo_wet_right * internal_mix);
     }
     (out_left, out_right)
 }
@@ -2857,28 +2903,36 @@ fn scaled_reverb_delay(delay_at_44k: usize, sample_rate: u32) -> usize {
 }
 
 fn fx_echo(left: &[f64], right: &[f64], opts: &OptMap, sample_rate: u32) -> (Vec<f64>, Vec<f64>) {
-    let phase = float_opt(opts, "phase", 0.25).max(0.001);
+    let max_phase = float_opt(opts, "max_phase", 2.0).max(0.001);
+    let phase = float_opt(opts, "phase", 0.25).clamp(0.001, max_phase);
     let decay = float_opt(opts, "decay", 2.0).max(0.0);
-    let delay_samples = (phase * sample_rate as f64) as usize;
-    let repeats = (decay / phase).max(1.0) as usize;
-    let mut out_left = left.to_vec();
-    let mut out_right = right.to_vec();
-    out_left.resize(out_left.len() + delay_samples * repeats, 0.0);
-    out_right.resize(out_right.len() + delay_samples * repeats, 0.0);
-    for repeat in 1..=repeats {
-        let elapsed = repeat as f64 * phase;
-        let gain = if decay <= 0.0 {
-            0.0
+    let delay_samples = ((phase * sample_rate as f64).round() as usize).max(1);
+    let repeats = if decay <= 0.0 {
+        0
+    } else {
+        (decay / phase).ceil().max(1.0) as usize
+    };
+    let output_len = left.len().max(right.len()) + delay_samples * repeats;
+    let feedback = if decay <= 0.0 {
+        0.0
+    } else {
+        0.001_f64.powf(phase / decay).clamp(-0.999, 0.999)
+    };
+    let mut out_left = vec![0.0; output_len];
+    let mut out_right = vec![0.0; output_len];
+    for index in 0..output_len {
+        let delayed_left = if index >= delay_samples {
+            out_left[index - delay_samples] * feedback
         } else {
-            (-3.0 * elapsed / decay).exp()
+            0.0
         };
-        let offset = delay_samples * repeat;
-        for (index, sample) in left.iter().enumerate() {
-            out_left[index + offset] += sample * gain;
-        }
-        for (index, sample) in right.iter().enumerate() {
-            out_right[index + offset] += sample * gain;
-        }
+        let delayed_right = if index >= delay_samples {
+            out_right[index - delay_samples] * feedback
+        } else {
+            0.0
+        };
+        out_left[index] = left.get(index).copied().unwrap_or(0.0) + delayed_left;
+        out_right[index] = right.get(index).copied().unwrap_or(0.0) + delayed_right;
     }
     (out_left, out_right)
 }
@@ -3362,10 +3416,11 @@ fn resonant_modulated_filter_pair(
     let mut right_state = BiquadState::default();
     let mut out_left = Vec::with_capacity(left.len());
     let mut out_right = Vec::with_capacity(right.len());
+    let output_gain = resonant_output_gain(rq);
     for (index, (left_sample, right_sample)) in left.iter().zip(right.iter()).enumerate() {
         let coeffs = BiquadCoefficients::resonant_filter(kind, cutoff_at(index), sample_rate, rq);
-        out_left.push(left_state.process(*left_sample, coeffs));
-        out_right.push(right_state.process(*right_sample, coeffs));
+        out_left.push(left_state.process(*left_sample, coeffs) * output_gain);
+        out_right.push(right_state.process(*right_sample, coeffs) * output_gain);
     }
     (out_left, out_right)
 }
@@ -3536,16 +3591,25 @@ fn filter_samples(
     kind: FilterKind,
     resonance: f64,
 ) -> Vec<f64> {
-    let q = if resonance > 0.0 {
-        1.0 / sonic_filter_rq(resonance)
+    let (q, output_gain) = if resonance > 0.0 {
+        let rq = sonic_filter_rq(resonance);
+        (1.0 / rq, resonant_output_gain(rq))
     } else {
-        FRAC_1_SQRT_2
+        (FRAC_1_SQRT_2, 1.0)
     };
-    biquad_filter_samples(samples, cutoff_hz, sample_rate, kind, q)
+    let mut output = biquad_filter_samples(samples, cutoff_hz, sample_rate, kind, q);
+    if output_gain != 1.0 {
+        output = scale_samples(&output, output_gain);
+    }
+    output
 }
 
 fn sonic_filter_rq(public_res: f64) -> f64 {
     (1.0 - public_res.clamp(0.0, 0.99)).clamp(0.001, 1.0)
+}
+
+fn resonant_output_gain(rq: f64) -> f64 {
+    rq.clamp(0.001, 1.0).powf(0.25).clamp(0.45, 1.0)
 }
 
 fn resonant_emphasis(source: &[f64], filtered: &[f64], resonance: f64) -> Vec<f64> {
@@ -3569,6 +3633,40 @@ fn normalise_pair(left: &[f64], right: &[f64], level: f64) -> (Vec<f64>, Vec<f64
     (scale_samples(left, gain), scale_samples(right, gain))
 }
 
+fn multiply_pair_by_envelope(
+    left: &[f64],
+    right: &[f64],
+    envelope_levels: &[f64],
+) -> (Vec<f64>, Vec<f64>) {
+    let len = left.len().max(right.len());
+    let mut out_left = Vec::with_capacity(len);
+    let mut out_right = Vec::with_capacity(len);
+    for index in 0..len {
+        let level = envelope_levels.get(index).copied().unwrap_or(0.0);
+        out_left.push(left.get(index).copied().unwrap_or(0.0) * level);
+        out_right.push(right.get(index).copied().unwrap_or(0.0) * level);
+    }
+    (out_left, out_right)
+}
+
+fn leak_dc_pair(left: &[f64], right: &[f64]) -> (Vec<f64>, Vec<f64>) {
+    (leak_dc(left), leak_dc(right))
+}
+
+fn leak_dc(samples: &[f64]) -> Vec<f64> {
+    let coefficient = 0.995;
+    let mut previous_input = 0.0;
+    let mut previous_output = 0.0;
+    let mut output = Vec::with_capacity(samples.len());
+    for sample in samples {
+        let filtered = sample - previous_input + coefficient * previous_output;
+        previous_input = *sample;
+        previous_output = filtered;
+        output.push(filtered);
+    }
+    output
+}
+
 fn pitch_shift_to_len(samples: &[f64], ratio: f64) -> Vec<f64> {
     if samples.is_empty() {
         return Vec::new();
@@ -3579,6 +3677,56 @@ fn pitch_shift_to_len(samples: &[f64], ratio: f64) -> Vec<f64> {
         shifted.push(sample_linear(samples, index as f64 * ratio));
     }
     shifted
+}
+
+fn sample_antialias_enabled(opts: &OptMap) -> bool {
+    bool_opt(
+        opts,
+        "anti_alias",
+        bool_opt(opts, "antialias", bool_opt(opts, "sample_antialias", true)),
+    )
+}
+
+fn anti_alias_sample_segment(
+    left: Vec<f64>,
+    right: Vec<f64>,
+    playback_rate: f64,
+    sample_rate: u32,
+) -> (Vec<f64>, Vec<f64>) {
+    if playback_rate <= 1.0 || left.is_empty() || right.is_empty() {
+        return (left, right);
+    }
+    let nyquist = sample_rate as f64 * 0.5;
+    let cutoff_hz = (nyquist * 0.9 / playback_rate.sqrt()).clamp(20.0, nyquist * 0.9);
+    if cutoff_hz >= nyquist * 0.88 {
+        return (left, right);
+    }
+    (
+        lowpass(&left, cutoff_hz, sample_rate),
+        lowpass(&right, cutoff_hz, sample_rate),
+    )
+}
+
+fn smooth_high_rate_sample_output(
+    left: Vec<f64>,
+    right: Vec<f64>,
+    playback_rate: f64,
+    sample_rate: u32,
+) -> (Vec<f64>, Vec<f64>) {
+    if playback_rate <= 2.0 || left.is_empty() || right.is_empty() {
+        return (left, right);
+    }
+    let nyquist = sample_rate as f64 * 0.5;
+    let max_cutoff = nyquist * 0.9;
+    let min_cutoff = 4_000.0_f64.min(max_cutoff * 0.5).max(20.0);
+    let cutoff_hz = (nyquist * 0.9 / playback_rate.powf(0.1)).clamp(min_cutoff, max_cutoff);
+    if cutoff_hz >= nyquist * 0.88 {
+        return (left, right);
+    }
+    (
+        lowpass(&left, cutoff_hz, sample_rate),
+        lowpass(&right, cutoff_hz, sample_rate),
+    )
 }
 
 fn sample_linear(samples: &[f64], position: f64) -> f64 {
@@ -3730,8 +3878,8 @@ fn bool_opt(opts: &OptMap, name: &str, default: bool) -> bool {
     }
 }
 
-const OUTPUT_LIMIT_CEILING: f64 = 0.92;
-const OUTPUT_LIMIT_RELEASE_SECONDS: f64 = 0.08;
+const OUTPUT_LIMIT_CEILING: f64 = 0.99;
+const OUTPUT_LIMIT_RELEASE_SECONDS: f64 = 0.01;
 
 fn output_limit_pair(left: &[f64], right: &[f64], sample_rate: u32) -> (Vec<f64>, Vec<f64>) {
     output_limit_window(left, right, 0, left.len().max(right.len()), sample_rate)
@@ -3754,24 +3902,57 @@ fn output_limit_window(
     sample_rate: u32,
 ) -> (Vec<f64>, Vec<f64>) {
     let process_len = start.saturating_add(len);
-    let sample_rate = sample_rate.max(1) as f64;
-    let release_alpha = 1.0 - (-1.0 / (OUTPUT_LIMIT_RELEASE_SECONDS * sample_rate)).exp();
-    let mut envelope = 0.0;
+    let sample_rate_f64 = sample_rate.max(1) as f64;
+    let lookahead_samples = (OUTPUT_LIMIT_RELEASE_SECONDS * sample_rate_f64).ceil() as usize;
+    let analysis_len = process_len
+        .saturating_add(lookahead_samples)
+        .max(process_len);
+    let release_alpha = 1.0 - (-1.0 / (OUTPUT_LIMIT_RELEASE_SECONDS * sample_rate_f64)).exp();
+    let mut levels = Vec::with_capacity(analysis_len);
+    for index in 0..analysis_len {
+        levels.push(
+            left.get(index)
+                .copied()
+                .unwrap_or(0.0)
+                .abs()
+                .max(right.get(index).copied().unwrap_or(0.0).abs()),
+        );
+    }
+
+    let mut max_indices: VecDeque<usize> = VecDeque::new();
+    let mut next_index = 0usize;
     let mut gain = 1.0;
     let mut out_left = Vec::with_capacity(len);
     let mut out_right = Vec::with_capacity(len);
 
     for index in 0..process_len {
-        let left_sample = left.get(index).copied().unwrap_or(0.0);
-        let right_sample = right.get(index).copied().unwrap_or(0.0);
-        let level = left_sample.abs().max(right_sample.abs());
-        if level > envelope {
-            envelope = level;
-        } else {
-            envelope += (level - envelope) * release_alpha;
+        let window_end = index
+            .saturating_add(lookahead_samples)
+            .min(analysis_len.saturating_sub(1));
+        while next_index <= window_end {
+            while max_indices
+                .back()
+                .is_some_and(|candidate| levels[*candidate] <= levels[next_index])
+            {
+                max_indices.pop_back();
+            }
+            max_indices.push_back(next_index);
+            next_index += 1;
         }
-        let target_gain = if envelope > OUTPUT_LIMIT_CEILING {
-            OUTPUT_LIMIT_CEILING / envelope
+        while max_indices
+            .front()
+            .is_some_and(|candidate| *candidate < index)
+        {
+            max_indices.pop_front();
+        }
+
+        let peak = max_indices
+            .front()
+            .and_then(|candidate| levels.get(*candidate))
+            .copied()
+            .unwrap_or(0.0);
+        let target_gain = if peak > OUTPUT_LIMIT_CEILING {
+            OUTPUT_LIMIT_CEILING / peak
         } else {
             1.0
         };
@@ -3781,6 +3962,8 @@ fn output_limit_window(
             gain += (target_gain - gain) * release_alpha;
         }
         if index >= start {
+            let left_sample = left.get(index).copied().unwrap_or(0.0);
+            let right_sample = right.get(index).copied().unwrap_or(0.0);
             out_left.push((left_sample * gain).clamp(-OUTPUT_LIMIT_CEILING, OUTPUT_LIMIT_CEILING));
             out_right
                 .push((right_sample * gain).clamp(-OUTPUT_LIMIT_CEILING, OUTPUT_LIMIT_CEILING));
@@ -3841,6 +4024,55 @@ mod tests {
     }
 
     #[test]
+    fn high_rate_sample_antialias_filters_folded_treble() {
+        let sample_rate = 8_000;
+        let input: Vec<f64> = (0..4_000)
+            .map(|index| if index % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
+
+        let (filtered_left, filtered_right) =
+            anti_alias_sample_segment(input.clone(), input, 8.0, sample_rate);
+        let tail_rms = (filtered_left[1_000..]
+            .iter()
+            .chain(filtered_right[1_000..].iter())
+            .map(|sample| sample * sample)
+            .sum::<f64>()
+            / ((filtered_left.len() - 1_000) * 2) as f64)
+            .sqrt();
+
+        assert!(tail_rms < 0.1, "tail_rms={tail_rms}");
+    }
+
+    #[test]
+    fn high_rate_sample_output_smoothing_tames_piercing_treble() {
+        let sample_rate = 44_100;
+        let input: Vec<f64> = (0..4_410)
+            .map(|index| (TAU * 12_000.0 * index as f64 / sample_rate as f64).sin())
+            .collect();
+
+        let (filtered_left, filtered_right) =
+            smooth_high_rate_sample_output(input.clone(), input.clone(), 12.0, sample_rate);
+        let input_rms =
+            (input.iter().map(|sample| sample * sample).sum::<f64>() / input.len() as f64).sqrt();
+        let filtered_rms = (filtered_left[1_000..]
+            .iter()
+            .chain(filtered_right[1_000..].iter())
+            .map(|sample| sample * sample)
+            .sum::<f64>()
+            / ((filtered_left.len() - 1_000) * 2) as f64)
+            .sqrt();
+
+        assert!(
+            filtered_rms < input_rms * 0.98,
+            "filtered_rms={filtered_rms}"
+        );
+        assert!(
+            filtered_rms > input_rms * 0.8,
+            "filtered_rms={filtered_rms}"
+        );
+    }
+
+    #[test]
     fn reverb_produces_extended_diffuse_tail() {
         let sample_rate = 44_100;
         let mut left = vec![0.0; 512];
@@ -3859,6 +4091,62 @@ mod tests {
 
         assert!(out_left.len() > left.len() + sample_rate as usize);
         assert!(tail_nonzero > 64, "tail_nonzero={tail_nonzero}");
+    }
+
+    #[test]
+    fn reverb_diffuses_mono_input_into_stereo_tail() {
+        let sample_rate = 44_100;
+        let mut input = vec![0.0; 512];
+        input[0] = 1.0;
+        let mut opts = OptMap::new();
+        opts.insert("room".to_owned(), SynthValue::Float(0.8));
+        opts.insert("damp".to_owned(), SynthValue::Float(0.4));
+        opts.insert("reverb_mix".to_owned(), SynthValue::Float(1.0));
+
+        let (out_left, out_right) = fx_reverb(&input, &input, &opts, sample_rate);
+        let side_energy = out_left[512..]
+            .iter()
+            .zip(out_right[512..].iter())
+            .map(|(left, right)| (left - right).abs())
+            .sum::<f64>()
+            / (out_left.len() - 512) as f64;
+
+        assert!(side_energy > 1.0e-5, "side_energy={side_energy}");
+    }
+
+    #[test]
+    fn echo_uses_feedback_comb_decay_time() {
+        let sample_rate = 1_000;
+        let mut left = vec![0.0; 1];
+        let right = vec![0.0; 1];
+        left[0] = 1.0;
+        let mut opts = OptMap::new();
+        opts.insert("phase".to_owned(), SynthValue::Float(0.01));
+        opts.insert("decay".to_owned(), SynthValue::Float(0.04));
+        opts.insert("max_phase".to_owned(), SynthValue::Float(0.1));
+
+        let (out_left, out_right) = fx_echo(&left, &right, &opts, sample_rate);
+
+        assert_eq!(
+            out_right.iter().map(|sample| sample.abs()).sum::<f64>(),
+            0.0
+        );
+        assert!(out_left[10] > 0.15 && out_left[10] < 0.2);
+        assert!(out_left[40] > 0.0005 && out_left[40] < 0.002);
+    }
+
+    #[test]
+    fn leak_dc_removes_constant_offset() {
+        let input = vec![0.5; 5_000];
+
+        let output = leak_dc(&input);
+        let tail_average = output[4_000..]
+            .iter()
+            .map(|sample| sample.abs())
+            .sum::<f64>()
+            / 1_000.0;
+
+        assert!(tail_average < 1.0e-6, "tail_average={tail_average}");
     }
 
     #[test]
@@ -3946,6 +4234,7 @@ mod tests {
         std::fs::write(&path, wav).expect("test WAV should be writable");
         let event = EventPayload {
             node_id: 3,
+            order: 0,
             kind: "sample".to_owned(),
             time_seconds: 0.0,
             value: SynthValue::String(path.to_string_lossy().into_owned()),
@@ -3971,6 +4260,7 @@ mod tests {
         opts.insert("release".to_owned(), SynthValue::Float(0.05));
         let event = EventPayload {
             node_id: 1,
+            order: 0,
             kind: "play".to_owned(),
             time_seconds: 0.0,
             value: SynthValue::Float(60.0),
@@ -3996,6 +4286,7 @@ mod tests {
         static_opts.insert("cutoff_slide".to_owned(), SynthValue::Float(0.05));
         let static_event = EventPayload {
             node_id: 2,
+            order: 0,
             kind: "play".to_owned(),
             time_seconds: 0.0,
             value: SynthValue::Float(48.0),
@@ -4043,6 +4334,7 @@ mod tests {
         loud_opts.insert("amp_fudge".to_owned(), SynthValue::Float(2.0));
         let event = |opts: OptMap| EventPayload {
             node_id: 22,
+            order: 0,
             kind: "play".to_owned(),
             time_seconds: 0.0,
             value: SynthValue::Float(52.0),
@@ -4086,6 +4378,7 @@ mod tests {
         opts.insert("res".to_owned(), SynthValue::Float(0.9));
         let event = EventPayload {
             node_id: 21,
+            order: 0,
             kind: "play".to_owned(),
             time_seconds: 0.0,
             value: SynthValue::Float(40.0),
@@ -4163,6 +4456,7 @@ mod tests {
             }
             let event = EventPayload {
                 node_id: 44,
+                order: 0,
                 kind: "play".to_owned(),
                 time_seconds: 0.0,
                 value: SynthValue::Float(60.0),
@@ -4204,6 +4498,7 @@ mod tests {
         fx_opts.insert("slope_above".to_owned(), SynthValue::Float(0.15));
         let event = EventPayload {
             node_id: 70,
+            order: 0,
             kind: "play".to_owned(),
             time_seconds: 0.0,
             value: SynthValue::Float(48.0),
@@ -4378,6 +4673,7 @@ mod tests {
         let plan = SynthPlaybackPlan {
             events: vec![EventPayload {
                 node_id: 90,
+                order: 0,
                 kind: "play".to_owned(),
                 time_seconds: 0.0,
                 value: SynthValue::Float(60.0),

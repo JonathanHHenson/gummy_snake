@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from gummysnake import synth as sy
-from gummysnake.synth.srcmon import synth_duration
+from _common import synth_duration
 
 SYNTH_NAME = "sound_in_stereo"
 DURATION = synth_duration(SYNTH_NAME)

@@ -467,6 +467,24 @@ def test_fx_decorator_expands_source_definition_to_generic_chain() -> None:
     assert fx_opts["ops"] == [{"op": "filter", "kind": "low", "cutoff": 100}]
 
 
+def test_same_time_fx_controls_follow_source_order() -> None:
+    @sy.track
+    def _track() -> None:
+        with sy.fx("reverb") as reverb:
+            sy.control(reverb, mix=0.1)
+            sy.sample("ambi_lunar_land", amp=0.1)
+            sy.control(reverb, mix=0.8)
+            sy.play(60, release=0.01, amp=0.1)
+
+    payloads = synth_core._event_payloads(_track().physical_plan(duration=0.1))
+    first_fx = cast(list[dict[str, object]], payloads[0]["fx_chain"])[0]
+    second_fx = cast(list[dict[str, object]], payloads[1]["fx_chain"])[0]
+
+    assert payloads[0]["time_seconds"] == payloads[1]["time_seconds"] == 0.0
+    assert cast(dict[str, object], first_fx["opts"])["mix"] == 0.1
+    assert cast(dict[str, object], second_fx["opts"])["mix"] == 0.8
+
+
 def test_synth_decorator_expands_source_definition_to_primitive_events() -> None:
     @sy.synth(name="unit_test_chime")
     def _unit_test_chime(note: object = 60, **opts: object) -> None:

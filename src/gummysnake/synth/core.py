@@ -1376,6 +1376,7 @@ class ScheduledEvent:
     synth_name: str
     synth_opts: Mapping[str, object]
     fx_chain: tuple[FxHandle, ...]
+    order: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -1386,6 +1387,7 @@ class ScheduledControl:
     target_id: int
     time_seconds: float
     opts: Mapping[str, object]
+    order: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -3393,8 +3395,8 @@ def _expand_physical_plan(plan: TrackPlan, duration_seconds: float) -> PhysicalP
         if root_body <= 0:
             break
         start_beat += root_body
-    events.sort(key=lambda event: event.time_seconds)
-    controls.sort(key=lambda control: control.time_seconds)
+    events.sort(key=lambda event: (event.time_seconds, event.order))
+    controls.sort(key=lambda control: (control.time_seconds, control.order))
     return PhysicalPlan(tuple(events), tuple(controls), duration_seconds)
 
 
@@ -3440,6 +3442,7 @@ def _expand_nodes(
                                 )
                                 for fx in node.fx_chain
                             ),
+                            order=len(events) + len(controls),
                         )
                     )
         elif isinstance(node, SleepNode):
@@ -3459,6 +3462,7 @@ def _expand_nodes(
                             target_id=node.target_id,
                             time_seconds=_beats_to_seconds(absolute_beat, bpm),
                             opts=cast(Mapping[str, object], resolve_value(node.opts, ctx)),
+                            order=len(events) + len(controls),
                         )
                     )
         elif isinstance(node, BindNode):
@@ -3613,6 +3617,7 @@ def _scheduled_event_to_dict(event: ScheduledEvent) -> dict[str, object]:
             {"id": fx.id, "name": fx.name, "opts": _serialize_opts(fx.opts)}
             for fx in event.fx_chain
         ],
+        "order": event.order,
     }
 
 
@@ -3622,6 +3627,7 @@ def _scheduled_control_to_dict(control: ScheduledControl) -> dict[str, object]:
         "target_id": control.target_id,
         "time_seconds": control.time_seconds,
         "opts": _serialize_opts(control.opts),
+        "order": control.order,
     }
 
 
@@ -3647,6 +3653,7 @@ def _scheduled_event_from_dict(value: object) -> ScheduledEvent:
             Mapping[str, object], _deserialize_plan_value(mapping.get("synth_opts", {}))
         ),
         fx_chain=tuple(_fx_handle_from_dict(item) for item in fx_value),
+        order=_as_int(mapping.get("order", 0)),
     )
 
 
@@ -3659,6 +3666,7 @@ def _scheduled_control_from_dict(value: object) -> ScheduledControl:
         target_id=_as_int(mapping.get("target_id", 0)),
         time_seconds=_as_float(mapping.get("time_seconds", 0.0)),
         opts=cast(Mapping[str, object], _deserialize_plan_value(mapping.get("opts", {}))),
+        order=_as_int(mapping.get("order", 0)),
     )
 
 
@@ -3705,7 +3713,7 @@ def _control_lookup(
 ]:
     controls_by_instance: dict[tuple[object, ...], list[ScheduledControl]] = {}
     fx_controls: dict[int, list[ScheduledControl]] = {}
-    for control_node in plan.controls:
+    for control_node in sorted(plan.controls, key=lambda item: (item.time_seconds, item.order)):
         controls_by_instance.setdefault(control_node.target_instance, []).append(control_node)
         fx_controls.setdefault(control_node.target_id, []).append(control_node)
     return controls_by_instance, fx_controls
@@ -3718,6 +3726,7 @@ def _event_payload(
 ) -> dict[str, object]:
     return {
         "node_id": event.node_id,
+        "order": event.order,
         "kind": event.kind,
         "time_seconds": event.time_seconds,
         "value": _serialize_event_value(event),
@@ -3731,7 +3740,12 @@ def _event_payload(
                 "opts": _serialize_opts(
                     {
                         **fx.opts,
-                        **_fx_opts_at(fx, event.time_seconds, fx_controls.get(fx.id, ())),
+                        **_fx_opts_at(
+                            fx,
+                            event.time_seconds,
+                            event.order,
+                            fx_controls.get(fx.id, ()),
+                        ),
                     }
                 ),
             }
@@ -3808,11 +3822,18 @@ def _render_event_sound(
 
 
 def _fx_opts_at(
-    handle: FxHandle, event_time: float, controls: Sequence[ScheduledControl]
+    handle: FxHandle,
+    event_time: float,
+    event_order: int,
+    controls: Sequence[ScheduledControl],
 ) -> dict[str, object]:
     opts = dict(handle.opts)
     for control_node in controls:
-        if control_node.time_seconds <= event_time + 1e-9:
+        before_event = control_node.time_seconds < event_time - 1e-9
+        same_time_before_event = (
+            abs(control_node.time_seconds - event_time) <= 1e-9 and control_node.order < event_order
+        )
+        if before_event or same_time_before_event:
             opts.update(control_node.opts)
     return opts
 

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from _common import synth_duration
+
 from gummysnake import synth as sy
-from gummysnake.synth.src._common import synth_duration
 
 SYNTH_NAME = "prophet"
 DURATION = synth_duration(SYNTH_NAME)
@@ -27,7 +28,9 @@ def prophet(note: object = 60, **opts: object) -> None:
                 "amp_fudge": 1.5,
                 "pre_shape_normalise": True,
                 "pre_shape_level": 1,
+                "pre_filter_env": True,
                 "pre_filter_shape": "squared",
+                "leak_dc": True,
             },
             **opts,
         )

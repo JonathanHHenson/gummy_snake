@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from gummysnake import synth as sy
-from gummysnake.synth.src._common import synth_duration
+from _common import synth_duration
 
 SYNTH_NAME = "stereo_warp_sample"
 DURATION = synth_duration(SYNTH_NAME)

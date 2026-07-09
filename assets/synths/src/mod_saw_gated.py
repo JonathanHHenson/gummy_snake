@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from gummysnake import synth as sy
-from gummysnake.synth.srcmon import synth_duration
+from _common import synth_duration
 
 SYNTH_NAME = "mod_saw_gated"
 DURATION = synth_duration(SYNTH_NAME)
