@@ -137,6 +137,8 @@ class CanvasBackendEventsMixin:
         if key_value is not None and len(key_value) == 1:
             key_value = key_value.lower()
         raw_key_code = payload.get("key_code", payload.get("code", key))
+        if key_value is not None and len(key_value) == 1 and raw_key_code == key:
+            raw_key_code = key_value
         return KeyboardEvent(
             key=key_value,
             key_code=canvas_events.normalize_key_code(raw_key_code, key_value),

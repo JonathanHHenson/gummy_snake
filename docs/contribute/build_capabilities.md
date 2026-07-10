@@ -17,11 +17,12 @@ Use this matrix when validating local builds, wheels, and release candidates.
 ## Compatibility Marker
 
 `gummy_canvas` exposes `CANVAS_ABI_VERSION` / `canvas_abi_version()` for canvas
-and linked synth APIs, plus `ECS_ABI_VERSION` / `ecs_abi_version()` for the Rust
-ECS bridge. Python validates these markers before returning runtime modules.
-Missing, malformed, or mismatched markers raise `BackendCapabilityError` with
-rebuild guidance, because they usually mean a stale local runtime module is being
-imported with a newer Python package.
+and linked synth APIs, plus `ecs_abi_version()` for the Rust ECS bridge. Python
+validates native integer markers and health probes before returning runtime modules.
+Missing, malformed, unhealthy, or mismatched runtimes raise `BackendCapabilityError`
+with rebuild guidance, because they usually mean a stale local runtime module is
+being imported with a newer Python package. See [Runtime contracts](runtime_contracts.md)
+for the frozen ABI and no-fallback boundary.
 
 Use the release build command when rebuilding locally:
 

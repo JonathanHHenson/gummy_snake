@@ -259,14 +259,15 @@ def _require_synth_runtime() -> Any:
     from gummysnake.rust.canvas import require_canvas_runtime
 
     runtime = require_canvas_runtime()
-    if (
-        not hasattr(runtime, "synth_render_serialized_plan_wav")
-        or not hasattr(runtime, "synth_play_serialized_plan")
-        or not hasattr(runtime, "synth_play_wav_bytes")
-        or not hasattr(runtime, "synth_render_plan_wav")
-        or not hasattr(runtime, "synth_render_event_wav")
-        or not hasattr(runtime, "synth_sample_duration")
-    ):
+    required_functions = (
+        "synth_render_serialized_plan_wav",
+        "synth_play_serialized_plan",
+        "synth_play_wav_bytes",
+        "synth_render_plan_wav",
+        "synth_render_event_wav",
+        "synth_sample_duration",
+    )
+    if not all(callable(getattr(runtime, name, None)) for name in required_functions):
         raise BackendCapabilityError(
             "Synth rendering requires a current gummysnake.rust._canvas runtime. "
             "Rebuild it with: uvx maturin develop --release --manifest-path "

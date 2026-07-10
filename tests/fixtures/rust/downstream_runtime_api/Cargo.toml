@@ -1,0 +1,14 @@
+[package]
+name = "gummy-runtime-downstream-api-fixture"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# This remains an isolated external consumer rather than a workspace member.
+[workspace]
+
+[dependencies]
+gummy_ecs = { path = "../../../../crates/gummy_ecs" }
+gummy_synth = { path = "../../../../crates/gummy_synth" }
+gummy_canvas_runtime = { package = "gummy_canvas", path = "../../../../crates/gummy_canvas", features = ["extension-module"] }
+pyo3 = "=0.22.6"

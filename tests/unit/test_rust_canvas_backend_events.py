@@ -124,8 +124,8 @@ def test_canvas_backend_dispatches_keyboard_events_and_pressed_state(
 
     assert KeyboardEvent(key="l", key_code=ord("l")).matches("l") is True
 
-    backend._dispatch_canvas_event(sketch, {"type": "key_pressed", "key": "a"})
-    backend._dispatch_canvas_event(sketch, {"type": "key_released", "key": "a"})
+    backend._dispatch_canvas_event(sketch, {"type": "key_pressed", "key": "L"})
+    backend._dispatch_canvas_event(sketch, {"type": "key_released", "key": "L"})
     backend._dispatch_canvas_event(sketch, {"type": "key_pressed", "code": "ArrowLeft"})
     backend._dispatch_canvas_event(sketch, {"type": "key_pressed", "key": "Space"})
     backend._dispatch_canvas_event(sketch, {"type": "key_typed", "text": "é"})
@@ -135,8 +135,8 @@ def test_canvas_backend_dispatches_keyboard_events_and_pressed_state(
     assert sketch.context.key_is_down(c.LEFT_ARROW) is True
     assert sketch.context.key_is_down(ord(" ")) is True
     assert sketch.events == [
-        ("key_pressed", "a", ord("a")),
-        ("key_released", "a", ord("a")),
+        ("key_pressed", "l", ord("l")),
+        ("key_released", "l", ord("l")),
         ("key_pressed", None, c.LEFT_ARROW),
         ("key_pressed", "Space", ord(" ")),
         ("key_typed", "é", ord("é")),

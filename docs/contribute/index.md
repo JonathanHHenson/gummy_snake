@@ -95,7 +95,8 @@ execution, or spatial fallback boundaries.
 
 Read [Build capabilities](build_capabilities.md) when changing packaging,
 runtime import checks, cargo features, optional extras, or runtime capability
-probes.
+probes. Read [Runtime contracts](runtime_contracts.md) before moving runtime,
+ECS bridge, synth bridge, lifecycle, diagnostics, or performance-sensitive code.
 
 Read [API performance policy](api_performance_policy.md) before adding public
 APIs, changing pixel/image behavior, or documenting performance-sensitive

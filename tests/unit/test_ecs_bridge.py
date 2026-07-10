@@ -119,8 +119,56 @@ def test_rust_ecs_wrapper_validates_abi_and_spatial_registry(
 
     missing_spatial = SimpleNamespace(
         ecs_abi_version=lambda: rust_ecs.EXPECTED_ECS_ABI_VERSION,
+        ecs_health_check=lambda: "ok",
         EcsWorld=FakeWorld,
     )
     monkeypatch.setattr(rust_ecs, "_canvas", missing_spatial)
     with pytest.raises(BackendCapabilityError, match="EcsSpatialIndexRegistry"):
         rust_ecs.create_spatial_index_registry()
+
+
+@pytest.mark.parametrize("marker", ["4", 4.0, True])
+def test_rust_ecs_wrapper_rejects_malformed_abi_and_health_before_construction(
+    monkeypatch: pytest.MonkeyPatch, marker: object
+) -> None:
+    constructed: list[str] = []
+
+    class FakeWorld:
+        def __init__(self) -> None:
+            constructed.append("world")
+
+    runtime = SimpleNamespace(
+        ecs_abi_version=lambda: marker,
+        ecs_health_check=lambda: "ok",
+        EcsWorld=FakeWorld,
+    )
+    monkeypatch.setattr(rust_ecs, "_canvas", runtime)
+
+    with pytest.raises(BackendCapabilityError, match="ABI") as error:
+        rust_ecs.create_ecs_world()
+
+    assert constructed == []
+    assert "maturin develop --release" in str(error.value)
+
+
+@pytest.mark.parametrize("health", [None, "", "unavailable", 1])
+def test_rust_ecs_wrapper_rejects_malformed_health_before_construction(
+    monkeypatch: pytest.MonkeyPatch, health: object
+) -> None:
+    constructed: list[str] = []
+
+    class FakeWorld:
+        def __init__(self) -> None:
+            constructed.append("world")
+
+    runtime = SimpleNamespace(
+        ecs_abi_version=lambda: rust_ecs.EXPECTED_ECS_ABI_VERSION,
+        ecs_health_check=lambda: health,
+        EcsWorld=FakeWorld,
+    )
+    monkeypatch.setattr(rust_ecs, "_canvas", runtime)
+
+    with pytest.raises(BackendCapabilityError, match="unhealthy runtime state"):
+        rust_ecs.create_ecs_world()
+
+    assert constructed == []

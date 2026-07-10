@@ -214,12 +214,7 @@ def canvas_abi_version() -> int | None:
         value: Any = marker() if callable(marker) else getattr(_canvas, "CANVAS_ABI_VERSION", None)
     except Exception:
         return None
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def canvas_native_window_available() -> bool:
@@ -289,13 +284,13 @@ def _validate_canvas_runtime(module: _CanvasModule) -> None:
             f"Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`."
         )
     try:
-        health = str(health_check())
+        health = health_check()
     except Exception as exc:
         raise BackendCapabilityError(
             "The installed gummysnake.rust._canvas runtime failed its health check. "
             f"Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`. Health check error: {exc}"
         ) from exc
-    if not health or health == "unavailable":
+    if not isinstance(health, str) or not health.strip() or health == "unavailable":
         raise BackendCapabilityError(
             "The installed gummysnake.rust._canvas runtime reported an unhealthy runtime "
             f"state ({health!r}). Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`."

@@ -14,6 +14,7 @@ uv run python scripts/structure_audit.py
 uv run python scripts/compile_synth_assets.py --check
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 cargo test --workspace
+cargo check --manifest-path tests/fixtures/rust/downstream_runtime_api/Cargo.toml
 ```
 
 For coverage locally:
@@ -99,7 +100,13 @@ uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_ecs_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_synth_offline_perf.py --run-benchmarks
 ```
+
+The deterministic offline synth benchmark renders a fixed serialized plan with a
+packaged sample and FX through the mandatory canvas/synth bridge. It asserts WAV
+format, non-silence, and byte-identical repeated renders, while reporting local
+render time without treating native playback as a wall-clock gate.
 
 The canvas backend benchmarks require the `gummysnake.rust._canvas` runtime
 module and run bounded native interactive windows, because interactive

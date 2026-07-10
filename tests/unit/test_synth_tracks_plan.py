@@ -92,6 +92,17 @@ def test_serialized_plan_render_resolves_packaged_sample_names() -> None:
     assert serialized_payload == legacy_payload
 
 
+def test_serialized_plan_render_is_repeatable_with_packaged_samples_and_fx() -> None:
+    track = _source_fx_track()
+
+    first = track.render(duration=0.05)
+    second = track.render(duration=0.05)
+
+    assert first == second
+    assert first.startswith(b"RIFF")
+    assert len(first) > 44
+
+
 def test_track_save_gss_serializes_physical_plan(tmp_path: Path) -> None:
     output = tmp_path / "caller.gss"
 

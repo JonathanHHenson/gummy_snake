@@ -190,9 +190,9 @@ def ecs_abi_version() -> int | None:
         return None
     try:
         value: Any = marker()
-        return int(value)
-    except (TypeError, ValueError):
+    except Exception:
         return None
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
 
 
 def is_ecs_runtime_available() -> bool:
@@ -231,7 +231,25 @@ def require_ecs_runtime() -> _EcsCanvasModule:
             f"(expected {EXPECTED_ECS_ABI_VERSION}, got {marker!r}). "
             f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
         )
-    if not hasattr(_canvas, "EcsWorld"):
+    health_check = getattr(_canvas, "ecs_health_check", None)
+    if not callable(health_check):
+        raise BackendCapabilityError(
+            "The Rust ECS runtime is missing ecs_health_check(). "
+            f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
+        )
+    try:
+        health = health_check()
+    except Exception as exc:
+        raise BackendCapabilityError(
+            "The Rust ECS runtime failed its health check. "
+            f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}. Health check error: {exc}"
+        ) from exc
+    if not isinstance(health, str) or not health.strip() or health == "unavailable":
+        raise BackendCapabilityError(
+            "The Rust ECS runtime reported an unhealthy runtime state "
+            f"({health!r}). Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
+        )
+    if not isinstance(getattr(_canvas, "EcsWorld", None), type):
         raise BackendCapabilityError(
             "The Rust ECS runtime is missing EcsWorld. "
             f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"

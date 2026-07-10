@@ -588,6 +588,8 @@ def _cargo_package_name(manifest_path: Path) -> str | None:
 def _audit_local_cargo_dependencies(repo_root: Path) -> list[StructureViolation]:
     violations: list[StructureViolation] = []
     allowed_targets = {"gummy_canvas": frozenset({"gummy_ecs", "gummy_synth"})}
+    downstream_fixture_manifest = Path("tests/fixtures/rust/downstream_runtime_api/Cargo.toml")
+    downstream_fixture_targets = frozenset({"gummy_canvas", "gummy_ecs", "gummy_synth"})
     for manifest_path in _iter_cargo_manifests(repo_root):
         try:
             manifest = tomllib.loads(manifest_path.read_text())
@@ -619,7 +621,10 @@ def _audit_local_cargo_dependencies(repo_root: Path) -> list[StructureViolation]
                 target_name = target_package_name
             if not isinstance(source_name, str) or not isinstance(target_name, str):
                 continue
-            if target_name not in allowed_targets.get(source_name, frozenset()):
+            allowed = allowed_targets.get(source_name, frozenset())
+            if relative_manifest == downstream_fixture_manifest:
+                allowed = downstream_fixture_targets
+            if target_name not in allowed:
                 violations.append(
                     StructureViolation(
                         "cargo_local_dependency_not_allowed",

@@ -101,6 +101,32 @@ def test_canvas_wrapper_rejects_incompatible_or_unhealthy_runtimes(
         require_canvas_runtime()
 
 
+@pytest.mark.parametrize("marker", ["18", 18.0, True])
+def test_canvas_wrapper_rejects_malformed_abi_markers(
+    monkeypatch: pytest.MonkeyPatch, marker: object
+) -> None:
+    runtime = FakeCanvasModule()
+    monkeypatch.setattr(runtime, "canvas_abi_version", lambda: marker)
+    install_fake_canvas_runtime(monkeypatch, runtime)
+
+    with pytest.raises(BackendCapabilityError, match="expected canvas ABI") as error:
+        require_canvas_runtime()
+
+    assert "maturin develop --release" in str(error.value)
+
+
+@pytest.mark.parametrize("health", [None, "", "unavailable", 1])
+def test_canvas_wrapper_rejects_malformed_health_status(
+    monkeypatch: pytest.MonkeyPatch, health: object
+) -> None:
+    runtime = FakeCanvasModule()
+    monkeypatch.setattr(runtime, "health_check", lambda: health)
+    install_fake_canvas_runtime(monkeypatch, runtime)
+
+    with pytest.raises(BackendCapabilityError, match="unhealthy runtime state"):
+        require_canvas_runtime()
+
+
 def test_canvas_gpu_status_explains_cpu_continuation_when_gpu_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
