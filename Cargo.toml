@@ -6,3 +6,11 @@ members = [
     "crates/gummy_synth",
 ]
 resolver = "2"
+
+[workspace.package]
+version = "0.8.0"
+edition = "2021"
+publish = false
+
+[workspace.dependencies]
+pyo3 = "0.22.6"

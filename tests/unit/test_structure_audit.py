@@ -177,3 +177,119 @@ def test_structure_audit_enforces_generated_example_output_ignore(tmp_path: Path
 
     _write(tmp_path / ".gitignore", "examples/output/\n")
     assert "generated_example_output_policy" not in _codes(tmp_path)
+
+
+def test_structure_audit_reports_maturin_include_glob_without_matches(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "pyproject.toml",
+        '[tool.maturin]\ninclude = ["assets/present.txt", "assets/missing/*.gss"]\n',
+    )
+    _write(tmp_path / "assets/present.txt")
+
+    violations = structure_audit.audit(tmp_path)
+
+    assert any(
+        violation.code == "maturin_include_no_matches"
+        and violation.path == Path("pyproject.toml")
+        and "assets/missing/*.gss" in violation.message
+        for violation in violations
+    )
+
+
+def test_structure_audit_reports_cargo_path_dependency_outside_repo(tmp_path: Path) -> None:
+    manifest = Path("crates/gummy_accel/Cargo.toml")
+    _write(
+        tmp_path / manifest,
+        '[package]\nname = "gummy_accel"\n[dependencies]\nother = { path = "../../../outside" }\n',
+    )
+
+    violations = structure_audit.audit(tmp_path)
+
+    assert any(
+        violation.code == "cargo_path_dependency_outside_repo" and violation.path == manifest
+        for violation in violations
+    )
+
+
+def test_structure_audit_reports_disallowed_local_cargo_dependency(tmp_path: Path) -> None:
+    manifest = Path("crates/gummy_accel/Cargo.toml")
+    _write(
+        tmp_path / manifest,
+        '[package]\nname = "gummy_accel"\n[dependencies]\ngummy_ecs = { path = "../gummy_ecs" }\n',
+    )
+    _write(tmp_path / "crates/gummy_ecs/Cargo.toml", '[package]\nname = "gummy_ecs"\n')
+
+    violations = structure_audit.audit(tmp_path)
+
+    assert any(
+        violation.code == "cargo_local_dependency_not_allowed"
+        and violation.path == manifest
+        and "gummy_accel" in violation.message
+        for violation in violations
+    )
+
+
+def test_structure_audit_reports_missing_makefile_and_workflow_recipe_paths(tmp_path: Path) -> None:
+    _write(tmp_path / "scripts/present.py")
+    _write(
+        tmp_path / "Makefile",
+        "check:\n\tpython scripts/present.py && python scripts/missing.py\n",
+    )
+    workflow = Path(".github/workflows/check.yml")
+    _write(
+        tmp_path / workflow,
+        "jobs:\n  check:\n    steps:\n      - run: |\n          python examples/missing.py\n",
+    )
+
+    violations = structure_audit.audit(tmp_path)
+
+    missing_paths = {
+        (violation.path, violation.message)
+        for violation in violations
+        if violation.code == "missing_recipe_path"
+    }
+    assert (Path("Makefile"), "recipe path `scripts/missing.py` does not exist") in missing_paths
+    assert (workflow, "recipe path `examples/missing.py` does not exist") in missing_paths
+
+
+def test_structure_audit_requires_all_generated_artifact_ignore_entries(tmp_path: Path) -> None:
+    _write(tmp_path / ".gitignore", "examples/output/\n")
+
+    violations = structure_audit.audit(tmp_path)
+
+    missing_entries = {
+        violation.message
+        for violation in violations
+        if violation.code == "generated_artifact_ignore_policy"
+    }
+    assert "add `target/` to ignore generated artifacts and caches" in missing_entries
+    assert "add `.pytest_cache/` to ignore generated artifacts and caches" in missing_entries
+
+
+def test_structure_audit_reports_only_tracked_generated_artifacts(
+    tmp_path: Path, monkeypatch: _MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        structure_audit,
+        "_tracked_paths",
+        lambda repo_root: [
+            Path("assets/samples/intentional.flac"),
+            Path("src/gummysnake/module.py"),
+            Path(".pytest_cache/state"),
+            Path("src/gummysnake/rust/_canvas.so"),
+            Path("examples/output/render.png"),
+            Path("coverage.xml"),
+        ],
+    )
+
+    violations = structure_audit.audit(tmp_path)
+
+    tracked_paths = {
+        violation.path for violation in violations if violation.code == "tracked_generated_artifact"
+    }
+    assert tracked_paths == {
+        Path(".pytest_cache/state"),
+        Path("src/gummysnake/rust/_canvas.so"),
+        Path("examples/output/render.png"),
+        Path("coverage.xml"),
+    }

@@ -1,8 +1,8 @@
 [package]
 name = "gummy_ecs"
-version = "0.8.0"
-edition = "2021"
-publish = false
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
 
 [lib]
 name = "gummy_ecs"

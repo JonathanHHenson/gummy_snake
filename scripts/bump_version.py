@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Bump Gummy Snake package versions in one place.
 
-Updates the root Python package version, Rust crate versions, and the editable
-package version recorded in uv.lock. Use an exact semantic version or one of
-``major``, ``minor``, or ``patch`` to bump relative to the root project version.
+Updates the root Python package version, the Cargo workspace package version,
+and the editable package version recorded in ``uv.lock`` when present. Cargo
+workspace members inherit their effective version from ``[workspace.package]``.
+Use an exact semantic version or one of ``major``, ``minor``, or ``patch`` to
+bump relative to the root Python project version.
 """
 
 from __future__ import annotations
@@ -38,8 +40,9 @@ class VersionFile:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Bump Gummy Snake versions across pyproject.toml, Rust crates, and uv.lock. "
-            "TARGET may be an exact X.Y.Z version or one of: major, minor, patch."
+            "Bump Gummy Snake versions across pyproject.toml, the Cargo workspace, "
+            "and uv.lock. TARGET may be an exact X.Y.Z version or one of: major, "
+            "minor, patch."
         )
     )
     parser.add_argument("target", nargs="?", help="Exact X.Y.Z version or major/minor/patch.")
@@ -105,16 +108,24 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def read_versions(root: Path) -> list[VersionFile]:
-    versions = [_read_toml_version(root, path) for path in managed_toml_files(root)]
-    lock_path = root / UV_LOCK
-    if lock_path.exists():
+    """Return every managed source's actual or inherited effective version."""
+    workspace_version = _read_workspace_version(root)
+    versions = [
+        _read_project_version(root),
+        workspace_version,
+        *(
+            _read_inherited_member_version(root, manifest, workspace_version.current)
+            for manifest in workspace_member_manifests(root)
+        ),
+    ]
+    if (root / UV_LOCK).exists():
         versions.append(_read_uv_lock_version(root))
     return versions
 
 
 def managed_toml_files(root: Path) -> tuple[Path, ...]:
-    """Return the Python project manifest and Cargo workspace member manifests."""
-    return (PYPROJECT, *workspace_member_manifests(root))
+    """Return the Python project, Cargo workspace, and member manifests."""
+    return (PYPROJECT, CARGO_WORKSPACE, *workspace_member_manifests(root))
 
 
 def workspace_member_manifests(root: Path) -> tuple[Path, ...]:
@@ -175,29 +186,67 @@ def validate_version(version: str) -> None:
 
 
 def write_versions(root: Path, version: str) -> None:
-    for path in managed_toml_files(root):
-        _write_toml_version(root, path, version)
-    lock_path = root / UV_LOCK
-    if lock_path.exists():
+    _write_section_version(root, PYPROJECT, "project", version)
+    _write_section_version(root, CARGO_WORKSPACE, "workspace.package", version)
+    if (root / UV_LOCK).exists():
         _write_uv_lock_version(root, version)
 
 
-def _read_toml_version(root: Path, relative_path: Path) -> VersionFile:
+def _read_project_version(root: Path) -> VersionFile:
+    return _read_section_version(root, PYPROJECT, "project")
+
+
+def _read_workspace_version(root: Path) -> VersionFile:
+    return _read_section_version(root, CARGO_WORKSPACE, "workspace.package")
+
+
+def _read_section_version(root: Path, relative_path: Path, section: str) -> VersionFile:
     path = root / relative_path
-    text = path.read_text(encoding="utf-8")
-    match = VERSION_LINE_RE.search(text)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise RuntimeError(f"Could not read managed version file: {relative_path}") from error
+    match = _section_version_match(text, section)
     if match is None:
-        raise RuntimeError(f"Could not find version line in {relative_path}")
+        raise RuntimeError(f"Could not find version in [{section}] of {relative_path}")
     return VersionFile(relative_path, match.group(2), match.group(2))
 
 
-def _write_toml_version(root: Path, relative_path: Path, version: str) -> None:
+def _read_inherited_member_version(
+    root: Path, relative_path: Path, workspace_version: str
+) -> VersionFile:
+    path = root / relative_path
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise RuntimeError(f"Could not read Cargo workspace member: {relative_path}") from error
+
+    package = data.get("package")
+    version = package.get("version") if isinstance(package, dict) else None
+    if not isinstance(version, dict) or version.get("workspace") is not True:
+        raise RuntimeError(
+            f"Cargo workspace member must inherit [workspace.package] version: {relative_path}"
+        )
+    return VersionFile(relative_path, workspace_version, workspace_version)
+
+
+def _write_section_version(root: Path, relative_path: Path, section: str, version: str) -> None:
     path = root / relative_path
     text = path.read_text(encoding="utf-8")
-    updated, count = VERSION_LINE_RE.subn(rf"\g<1>{version}\g<3>", text, count=1)
-    if count != 1:
-        raise RuntimeError(f"Could not update version line in {relative_path}")
+    match = _section_version_match(text, section)
+    if match is None:
+        raise RuntimeError(f"Could not update version in [{section}] of {relative_path}")
+    updated = f"{text[: match.start(2)]}{version}{text[match.end(2) :]}"
     path.write_text(updated, encoding="utf-8")
+
+
+def _section_version_match(text: str, section: str) -> re.Match[str] | None:
+    header = re.search(rf"(?m)^\[{re.escape(section)}\]\s*$", text)
+    if header is None:
+        return None
+    next_header = re.search(r"(?m)^\[", text[header.end() :])
+    end = header.end() + next_header.start() if next_header is not None else len(text)
+    return VERSION_LINE_RE.search(text, header.end(), end)
 
 
 def _read_uv_lock_version(root: Path) -> VersionFile:

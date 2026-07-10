@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import argparse
 import re
+import shlex
+import subprocess
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote
@@ -25,6 +28,25 @@ IGNORED_PARTS = {
     "target",
 }
 IGNORED_RELATIVE_DIRS = (Path("examples/output"),)
+EXPECTED_GENERATED_IGNORE_ENTRIES = frozenset(
+    {
+        "examples/output/",
+        "__pycache__/",
+        ".mypy_cache/",
+        ".pytest_cache/",
+        ".ruff_cache/",
+        ".cache",
+        "build/",
+        "dist/",
+        "target/",
+    }
+)
+CACHE_DIRECTORY_NAMES = frozenset(
+    {"__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".cache"}
+)
+ROOT_GENERATED_DIRECTORY_NAMES = frozenset({"build", "dist", "target", "htmlcov", "cover"})
+COMPILED_ARTIFACT_SUFFIXES = frozenset({".pyc", ".pyo", ".so", ".dylib", ".dll", ".pyd"})
+WORKFLOW_RUN_RE = re.compile(r"^(?P<indent>\s*)(?:-\s*)?run:\s*(?P<command>.*)$")
 PYTHON_LAYOUT_ROOTS = (Path("src"), Path("tests"), Path("examples"))
 TEXT_ROOTS = (
     Path("src"),
@@ -436,14 +458,21 @@ def _audit_backticked_repository_paths(repo_root: Path) -> list[StructureViolati
     return violations
 
 
+def _gitignore_entries(repo_root: Path) -> set[str]:
+    gitignore = repo_root / ".gitignore"
+    if not gitignore.is_file():
+        return set()
+    return {
+        line.strip()
+        for line in gitignore.read_text(errors="ignore").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+
 def _audit_generated_example_output_policy(repo_root: Path) -> list[StructureViolation]:
     if not (repo_root / "examples").exists():
         return []
-    gitignore = repo_root / ".gitignore"
-    ignored = False
-    if gitignore.exists():
-        ignored = "examples/output/" in gitignore.read_text(errors="ignore").splitlines()
-    if ignored:
+    if "examples/output/" in _gitignore_entries(repo_root):
         return []
     return [
         StructureViolation(
@@ -451,6 +480,276 @@ def _audit_generated_example_output_policy(repo_root: Path) -> list[StructureVio
             Path(".gitignore"),
             "add `examples/output/` so generated example files are not treated as source",
         )
+    ]
+
+
+def _audit_generated_ignore_entries(repo_root: Path) -> list[StructureViolation]:
+    ignored_entries = _gitignore_entries(repo_root)
+    missing = sorted(EXPECTED_GENERATED_IGNORE_ENTRIES - ignored_entries - {"examples/output/"})
+    return [
+        StructureViolation(
+            "generated_artifact_ignore_policy",
+            Path(".gitignore"),
+            f"add `{entry}` to ignore generated artifacts and caches",
+        )
+        for entry in missing
+    ]
+
+
+def _maturin_include_patterns(repo_root: Path) -> list[str]:
+    manifest_path = repo_root / "pyproject.toml"
+    if not manifest_path.is_file():
+        return []
+    try:
+        manifest = tomllib.loads(manifest_path.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+    tool = manifest.get("tool")
+    maturin = tool.get("maturin") if isinstance(tool, dict) else None
+    includes = maturin.get("include") if isinstance(maturin, dict) else None
+    return (
+        [pattern for pattern in includes if isinstance(pattern, str)]
+        if isinstance(includes, list)
+        else []
+    )
+
+
+def _audit_maturin_include_patterns(repo_root: Path) -> list[StructureViolation]:
+    violations: list[StructureViolation] = []
+    for pattern in sorted(_maturin_include_patterns(repo_root)):
+        try:
+            matches = [
+                path
+                for path in repo_root.glob(pattern)
+                if path.is_file() and _is_within_repo(repo_root, path.resolve())
+            ]
+        except (OSError, ValueError):
+            matches = []
+        if not matches:
+            violations.append(
+                StructureViolation(
+                    "maturin_include_no_matches",
+                    Path("pyproject.toml"),
+                    (
+                        f"`tool.maturin.include` glob `{pattern}` matches no files "
+                        "inside the repository"
+                    ),
+                )
+            )
+    return violations
+
+
+def _iter_cargo_manifests(repo_root: Path) -> list[Path]:
+    return sorted(
+        path
+        for path in repo_root.rglob("Cargo.toml")
+        if path.is_file() and not _is_ignored_relative_path(_display_path(repo_root, path))
+    )
+
+
+def _cargo_dependency_specs(
+    manifest: Mapping[str, object],
+) -> list[tuple[str, Mapping[str, object]]]:
+    dependencies: list[tuple[str, Mapping[str, object]]] = []
+
+    def add_dependency_specs(value: Mapping[object, object]) -> None:
+        for dependency_name, specification in value.items():
+            if isinstance(dependency_name, str) and isinstance(specification, Mapping):
+                dependencies.append((dependency_name, specification))
+
+    def visit(value: object, key: str | None = None, patch_registry: bool = False) -> None:
+        if not isinstance(value, Mapping):
+            return
+        if (
+            key is not None
+            and (key == "dependencies" or key.endswith("-dependencies"))
+            or key == "replace"
+            or patch_registry
+        ):
+            add_dependency_specs(value)
+        for child_key, child_value in value.items():
+            if isinstance(child_key, str):
+                visit(child_value, child_key, patch_registry=key == "patch")
+
+    visit(manifest)
+    return dependencies
+
+
+def _cargo_package_name(manifest_path: Path) -> str | None:
+    try:
+        manifest = tomllib.loads(manifest_path.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    package = manifest.get("package")
+    name = package.get("name") if isinstance(package, dict) else None
+    return name if isinstance(name, str) else None
+
+
+def _audit_local_cargo_dependencies(repo_root: Path) -> list[StructureViolation]:
+    violations: list[StructureViolation] = []
+    allowed_targets = {"gummy_canvas": frozenset({"gummy_ecs", "gummy_synth"})}
+    for manifest_path in _iter_cargo_manifests(repo_root):
+        try:
+            manifest = tomllib.loads(manifest_path.read_text())
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+        source_name = _cargo_package_name(manifest_path)
+        for dependency_name, specification in _cargo_dependency_specs(manifest):
+            dependency_path = specification.get("path")
+            if not isinstance(dependency_path, str):
+                continue
+            resolved_path = (manifest_path.parent / dependency_path).resolve()
+            relative_manifest = _display_path(repo_root, manifest_path)
+            if not _is_within_repo(repo_root, resolved_path):
+                violations.append(
+                    StructureViolation(
+                        "cargo_path_dependency_outside_repo",
+                        relative_manifest,
+                        (
+                            f"local dependency `{dependency_name}` resolves outside "
+                            f"the repository: `{dependency_path}`"
+                        ),
+                    )
+                )
+                continue
+            target_name = specification.get("package", dependency_name)
+            target_manifest = resolved_path / "Cargo.toml"
+            target_package_name = _cargo_package_name(target_manifest)
+            if target_package_name is not None:
+                target_name = target_package_name
+            if not isinstance(source_name, str) or not isinstance(target_name, str):
+                continue
+            if target_name not in allowed_targets.get(source_name, frozenset()):
+                violations.append(
+                    StructureViolation(
+                        "cargo_local_dependency_not_allowed",
+                        relative_manifest,
+                        f"`{source_name}` may not have a local dependency on `{target_name}`",
+                    )
+                )
+    return violations
+
+
+def _command_paths(command: str) -> set[Path]:
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars="|&;()<>")
+        lexer.whitespace_split = True
+        lexer.commenters = "#"
+        tokens = list(lexer)
+    except ValueError:
+        tokens = command.split()
+    paths: set[Path] = set()
+    for token in tokens:
+        candidate = token.rstrip(",;:")
+        if candidate.startswith(("scripts/", "examples/")):
+            paths.add(Path(candidate))
+    return paths
+
+
+def _make_recipe_commands(makefile: Path) -> list[str]:
+    if not makefile.is_file():
+        return []
+    return [
+        line[1:]
+        for line in makefile.read_text(errors="ignore").splitlines()
+        if line.startswith("\t")
+    ]
+
+
+def _workflow_run_commands(workflow: Path) -> list[str]:
+    commands: list[str] = []
+    lines = workflow.read_text(errors="ignore").splitlines()
+    index = 0
+    while index < len(lines):
+        match = WORKFLOW_RUN_RE.match(lines[index])
+        if match is None:
+            index += 1
+            continue
+        command = match.group("command").strip()
+        indent = len(match.group("indent"))
+        if command in {"|", ">", "|-", ">-", "|+", ">+"}:
+            index += 1
+            block_lines: list[str] = []
+            while index < len(lines):
+                line = lines[index]
+                if line.strip() and len(line) - len(line.lstrip()) <= indent:
+                    break
+                block_lines.append(line)
+                index += 1
+            commands.append("\n".join(block_lines))
+            continue
+        commands.append(command)
+        index += 1
+    return commands
+
+
+def _audit_recipe_paths(repo_root: Path) -> list[StructureViolation]:
+    commands: list[tuple[Path, str]] = []
+    makefile = repo_root / "Makefile"
+    commands.extend((Path("Makefile"), command) for command in _make_recipe_commands(makefile))
+    workflows = repo_root / ".github/workflows"
+    if workflows.is_dir():
+        for workflow in sorted((*workflows.glob("*.yml"), *workflows.glob("*.yaml"))):
+            relative = _display_path(repo_root, workflow)
+            commands.extend((relative, command) for command in _workflow_run_commands(workflow))
+
+    violations: list[StructureViolation] = []
+    for command_path, command in commands:
+        for referenced_path in sorted(_command_paths(command)):
+            target = (repo_root / referenced_path).resolve()
+            if _is_within_repo(repo_root, target) and target.exists():
+                continue
+            violations.append(
+                StructureViolation(
+                    "missing_recipe_path",
+                    command_path,
+                    f"recipe path `{referenced_path}` does not exist",
+                )
+            )
+    return violations
+
+
+def _tracked_paths(repo_root: Path) -> list[Path]:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "ls-files", "-z"],
+            check=False,
+            capture_output=True,
+        )
+    except OSError:
+        return []
+    if result.returncode != 0:
+        return []
+    return sorted(
+        Path(path) for path in result.stdout.decode(errors="surrogateescape").split("\0") if path
+    )
+
+
+def _is_generated_tracked_path(path: Path) -> bool:
+    if any(part in CACHE_DIRECTORY_NAMES for part in path.parts):
+        return True
+    if any(part in ROOT_GENERATED_DIRECTORY_NAMES for part in path.parts):
+        return True
+    if path == Path("examples/output") or Path("examples/output") in path.parents:
+        return True
+    if (
+        path.name == "coverage.xml"
+        or path.name == ".coverage"
+        or path.name.startswith(".coverage.")
+    ):
+        return True
+    return path.suffix.lower() in COMPILED_ARTIFACT_SUFFIXES
+
+
+def _audit_tracked_generated_artifacts(repo_root: Path) -> list[StructureViolation]:
+    return [
+        StructureViolation(
+            "tracked_generated_artifact",
+            path,
+            "generated, cache, compiled extension, or coverage artifact must not be git-tracked",
+        )
+        for path in _tracked_paths(repo_root)
+        if _is_generated_tracked_path(path)
     ]
 
 
@@ -503,7 +802,12 @@ def audit(repo_root: Path = Path(".")) -> list[StructureViolation]:
     violations.extend(_audit_stale_text_references(root))
     violations.extend(_audit_local_markdown_links(root))
     violations.extend(_audit_backticked_repository_paths(root))
+    violations.extend(_audit_maturin_include_patterns(root))
+    violations.extend(_audit_local_cargo_dependencies(root))
+    violations.extend(_audit_recipe_paths(root))
     violations.extend(_audit_generated_example_output_policy(root))
+    violations.extend(_audit_generated_ignore_entries(root))
+    violations.extend(_audit_tracked_generated_artifacts(root))
     violations.extend(_audit_rust_hubs(root))
     return sorted(violations, key=lambda item: (item.code, str(item.path), item.message))
 

@@ -1,8 +1,8 @@
 [package]
 name = "gummy_canvas"
-version = "0.8.0"
-edition = "2021"
-publish = false
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
 
 [lib]
 name = "_canvas"
@@ -16,7 +16,7 @@ gummy_ecs = { path = "../gummy_ecs" }
 gummy_synth = { path = "../gummy_synth" }
 image = { version = "0.25.8", default-features = false, features = ["gif", "png"] }
 pollster = "0.4.0"
-pyo3 = "0.22.6"
+pyo3 = { workspace = true }
 sdl3 = { version = "0.18.4", features = ["build-from-source-static", "raw-window-handle"] }
 wgpu = "25.0.2"
 
