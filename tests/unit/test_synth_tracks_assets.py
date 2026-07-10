@@ -17,7 +17,8 @@ from tests.helpers.synth_tracks_fixtures import (
     _wobble_fx_track,
     cast,
     sy,
-    synth_core,
+    synth_foundation,
+    synth_rendering,
 )
 
 
@@ -30,7 +31,7 @@ def test_control_on_source_synth_targets_layered_primitive() -> None:
 
     track = cast(Any, _track())
     physical = track.physical_plan(duration=0.6)
-    payloads = synth_core._event_payloads(physical)
+    payloads = synth_rendering._event_payloads(physical)
 
     assert [event.synth_name for event in physical.events] == ["_layered"]
     assert [event.value for event in physical.events] == [60]
@@ -43,7 +44,7 @@ def test_control_on_source_synth_targets_layered_primitive() -> None:
 def test_source_synth_control_uses_event_detune_for_layer_timing() -> None:
     track = cast(Any, _detuned_source_synth_control_track())
     physical = track.physical_plan(duration=0.6)
-    payloads = synth_core._event_payloads(physical)
+    payloads = synth_rendering._event_payloads(physical)
     assert isinstance(physical.events[0].value, int | float)
     layers = cast(list[dict[str, object]], physical.events[0].opts["layers"])
     detune = float(cast(int | float, layers[1]["transpose"]))
@@ -103,7 +104,7 @@ def test_builtin_sonic_pi_synth_assets_are_compiled_gss() -> None:
         plan = sy.load_builtin_synth_plan(synth_name)
 
         assert path.suffix == ".gss"
-        assert path.read_bytes().startswith(synth_core._GSS_MAGIC)
+        assert path.read_bytes().startswith(synth_foundation._GSS_MAGIC)
         assert plan.events or synth_name in {"basic_mixer", "main_mixer", "sound_in"}
 
 
@@ -116,7 +117,7 @@ def test_builtin_sonic_pi_fx_assets_are_compiled_gsfx() -> None:
         plan = sy.load_builtin_fx_plan(fx_name)
 
         assert path.suffix == ".gsfx"
-        assert path.read_bytes().startswith(synth_core._GSS_MAGIC)
+        assert path.read_bytes().startswith(synth_foundation._GSS_MAGIC)
         assert len(plan.events) == 1
 
     tb303_event = sy.load_builtin_synth_plan("tb303").events[0]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import tarfile
+import zipfile
 from pathlib import Path
 from types import ModuleType
 
@@ -119,3 +120,99 @@ def test_verify_distribution_reports_missing_packaged_asset(tmp_path: Path, caps
 
     assert verify_distribution.main([str(sdist), "--root", str(tmp_path)]) == 1
     assert missing_asset.as_posix() in capsys.readouterr().err
+
+
+def build_wheel(path: Path, extension: str) -> None:
+    """Write a synthetic wheel archive with the required native interface files."""
+
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("gummysnake/py.typed", "")
+        archive.writestr("gummysnake/rust/_canvas.pyi", "def canvas() -> None: ...\n")
+        archive.writestr("gummysnake/rust/_accelerated.pyi", "def accelerated() -> None: ...\n")
+        archive.writestr(f"gummysnake/rust/{extension}.so", "native")
+
+
+def test_wheel_contract_requires_typed_marker_native_extension_and_stubs(tmp_path: Path) -> None:
+    verify_distribution = load_verify_distribution_module()
+    wheel = tmp_path / "gummy_snake-0.1.0.whl"
+    build_wheel(wheel, "_canvas")
+
+    assert (
+        verify_distribution.wheel_contract_missing_paths(wheel, verify_distribution.CANVAS_MODULE)
+        == ()
+    )
+
+    # Omit the marker in a fresh wheel to prove the failure is exact.
+    missing_marker_wheel = tmp_path / "missing-marker.whl"
+    with zipfile.ZipFile(missing_marker_wheel, "w") as archive:
+        archive.writestr("gummysnake/rust/_canvas.pyi", "")
+        archive.writestr("gummysnake/rust/_accelerated.pyi", "")
+        archive.writestr("gummysnake/rust/_canvas.so", "native")
+    assert verify_distribution.wheel_contract_missing_paths(
+        missing_marker_wheel, verify_distribution.CANVAS_MODULE
+    ) == ("gummysnake/py.typed",)
+
+
+def test_extension_surface_drift_detects_missing_symbols_and_signature_changes() -> None:
+    verify_distribution = load_verify_distribution_module()
+    stub = """
+def present(value: int = 1) -> None: ...
+def missing() -> None: ...
+class Present: ...
+class Missing: ...
+"""
+    runtime = {
+        "functions": {
+            "present": [
+                {
+                    "name": "value",
+                    "kind": "POSITIONAL_OR_KEYWORD",
+                    "has_default": True,
+                    "default": 2,
+                }
+            ],
+            "extra": [],
+        },
+        "classes": ["Present", "Extra"],
+    }
+
+    assert verify_distribution.extension_surface_drift(stub, runtime) == (
+        "stub declares missing extension function: missing",
+        "extension function is missing from stub: extra",
+        "signature mismatch for present: stub "
+        "(('value', 'POSITIONAL_OR_KEYWORD', True, 1),) != extension "
+        "(('value', 'POSITIONAL_OR_KEYWORD', True, 2),)",
+        "stub declares missing extension class: Missing",
+        "extension class is missing from stub: Extra",
+    )
+
+
+def test_installed_wheel_contract_runs_canvas_and_optional_acceleration_checks(
+    tmp_path: Path, monkeypatch
+) -> None:
+    verify_distribution = load_verify_distribution_module()
+    canvas_wheel = tmp_path / "canvas.whl"
+    accelerated_wheel = tmp_path / "accelerated.whl"
+    build_wheel(canvas_wheel, "_canvas")
+    build_wheel(accelerated_wheel, "_accelerated")
+    checked: list[tuple[Path, str]] = []
+    consumer_wheels: list[Path] = []
+
+    monkeypatch.setattr(
+        verify_distribution,
+        "_verify_extension_surface",
+        lambda wheel, module: checked.append((wheel, module)),
+    )
+    monkeypatch.setattr(
+        verify_distribution,
+        "_run_isolated_consumer_checks",
+        lambda wheel: consumer_wheels.append(wheel),
+    )
+
+    verify_distribution.verify_installed_wheel(canvas_wheel, accelerated_wheel=accelerated_wheel)
+
+    assert checked == [
+        (canvas_wheel.resolve(), verify_distribution.CANVAS_MODULE),
+        (accelerated_wheel.resolve(), verify_distribution.ACCELERATED_MODULE),
+    ]
+    assert consumer_wheels == [canvas_wheel.resolve()]

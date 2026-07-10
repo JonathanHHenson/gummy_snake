@@ -67,8 +67,8 @@ jobs:
       - name: Install canvas runtime
         run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 
-      - name: Test Rust ECS crate
-        run: cargo test --manifest-path crates/gummy_ecs/Cargo.toml
+      - name: Test all Rust workspace crates
+        run: cargo test --workspace
 
       - name: Lint
         run: uv run ruff check .
@@ -76,8 +76,11 @@ jobs:
       - name: Type check
         run: uv run mypy src
 
-      - name: Check version sync
+      - name: Check workspace version sync
         run: uv run python scripts/bump_version.py --check
+
+      - name: Check compiled synth and FX asset freshness
+        run: uv run python scripts/compile_synth_assets.py --check
 
       - name: Run tests
         run: uv run pytest
@@ -108,29 +111,8 @@ jobs:
       - name: Build sdist
         run: uv build --sdist
 
-      - name: Verify sdist includes Rust ECS crate
-        run: |
-          python - <<'PY'
-          import tarfile
-          from pathlib import Path
-
-          sdist = next(Path("dist").glob("gummy_snake-*.tar.gz"))
-          with tarfile.open(sdist) as archive:
-              names = set(archive.getnames())
-          required_suffixes = [
-              "crates/gummy_ecs/Cargo.toml",
-              "crates/gummy_ecs/src/lib.rs",
-              "crates/gummy_ecs/src/world.rs",
-              "crates/gummy_ecs/src/execution.rs",
-              "crates/gummy_ecs/src/spatial.rs",
-          ]
-          missing = [
-              suffix for suffix in required_suffixes if not any(name.endswith(suffix) for name in names)
-          ]
-          if missing:
-              raise SystemExit(f"sdist {sdist} is missing ECS crate files: {missing}")
-          print(f"{sdist} contains the Rust ECS crate.")
-          PY
+      - name: Verify source-distribution contract
+        run: uv run python scripts/verify_distribution.py dist/gummy_snake-*.tar.gz
 
       - name: Upload sdist
         uses: actions/upload-artifact@v4
@@ -199,6 +181,8 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
+
       - uses: astral-sh/setup-uv@v6
 
       - uses: actions/setup-python@v5
@@ -215,35 +199,8 @@ jobs:
       - name: Verify distribution metadata
         run: uv tool run twine check dist/*
 
-      - name: Verify sdist includes Rust ECS crate
+      - name: Select Linux wheel
         run: |
-          python - <<'PY'
-          import tarfile
-          from pathlib import Path
-
-          sdist = next(Path("dist").glob("gummy_snake-*.tar.gz"))
-          with tarfile.open(sdist) as archive:
-              names = set(archive.getnames())
-          required_suffixes = [
-              "crates/gummy_ecs/Cargo.toml",
-              "crates/gummy_ecs/src/lib.rs",
-              "crates/gummy_ecs/src/world.rs",
-              "crates/gummy_ecs/src/execution.rs",
-              "crates/gummy_ecs/src/spatial.rs",
-          ]
-          missing = [
-              suffix for suffix in required_suffixes if not any(name.endswith(suffix) for name in names)
-          ]
-          if missing:
-              raise SystemExit(f"sdist {sdist} is missing ECS crate files: {missing}")
-          print(f"{sdist} contains the Rust ECS crate.")
-          PY
-
-      - name: Verify Linux wheel exposes ECS bridge
-        run: |
-          python -m venv .venv-wheel-check
-          . .venv-wheel-check/bin/activate
-          python -m pip install --upgrade pip
           python - <<'PY'
           from pathlib import Path
 
@@ -255,25 +212,9 @@ jobs:
           Path(".wheel-to-install").write_text(str(wheels[0]), encoding="utf-8")
           print(f"Selected {wheels[0]}")
           PY
-          python -m pip install "$(cat .wheel-to-install)"
-          python - <<'PY'
-          from gummysnake.rust.ecs import (
-              EXPECTED_ECS_ABI_VERSION,
-              create_ecs_world,
-              ecs_abi_version,
-              require_ecs_runtime,
-          )
 
-          runtime = require_ecs_runtime()
-          world = create_ecs_world()
-          if ecs_abi_version() != EXPECTED_ECS_ABI_VERSION:
-              raise SystemExit("Installed wheel exposes an incompatible ECS ABI.")
-          if not hasattr(runtime, "EcsSpatialIndexRegistry"):
-              raise SystemExit("Installed wheel is missing the ECS spatial index bridge.")
-          if world.alive_count() != 0:
-              raise SystemExit("Fresh ECS world from installed wheel should be empty.")
-          print(f"Installed wheel exposes ECS ABI {ecs_abi_version()} and Rust EcsWorld.")
-          PY
+      - name: Verify source and isolated installed-wheel contracts
+        run: uv run python scripts/verify_distribution.py dist/gummy_snake-*.tar.gz --wheel "$(cat .wheel-to-install)"
 
   publish-testpypi:
     name: Publish to TestPyPI

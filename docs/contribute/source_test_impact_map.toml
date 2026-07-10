@@ -1,0 +1,443 @@
+# Machine-readable companion to source_test_impact_map.md.
+# Each source owner must declare every category. A category is either one or more
+# named checks below or `N/A: <short rationale>`.
+
+[map]
+schema_version = 1
+categories = ["unit", "contract", "integration", "golden", "benchmark", "stress", "example", "documentation", "packaging"]
+
+[coverage_baseline]
+captured_at = "2026-07-10"
+command = "uv run pytest --cov=gummysnake --cov-report=term-missing --cov-report=xml"
+passed = 412
+skipped = 56
+coverage_percent = 77
+report = "coverage.xml"
+review_policy = "Treat a material package-level decrease as a review item. Do not exclude meaningful behavior or weaken tests merely to raise coverage."
+
+# `focus` says whether a group protects stable user-visible behavior or a local
+# implementation invariant. `paths` are independently checked so a renamed test,
+# example, document, manifest, or script cannot leave a live map entry behind.
+[checks.public_api]
+focus = "behavior"
+paths = ["tests/unit/test_public_api_contract.py", "tests/unit/test_public_api_exports.py", "tests/unit/test_public_facade_contract.py"]
+command = "uv run pytest tests/unit/test_public_api_contract.py tests/unit/test_public_api_exports.py tests/unit/test_public_facade_contract.py -q"
+
+[checks.lifecycle_groups]
+focus = "behavior"
+paths = ["tests/unit/test_lifecycle.py", "tests/unit/test_plugins.py", "tests/unit/test_ecs_schedule.py"]
+command = "uv run pytest tests/unit/test_lifecycle.py tests/unit/test_plugins.py tests/unit/test_ecs_schedule.py -q"
+
+[checks.context_state]
+focus = "behavior"
+paths = ["tests/unit/test_global_api.py", "tests/unit/test_async_current_context.py", "tests/unit/test_style_state.py"]
+command = "uv run pytest tests/unit/test_global_api.py tests/unit/test_async_current_context.py tests/unit/test_style_state.py -q"
+
+[checks.canvas_contracts]
+focus = "behavior"
+paths = ["tests/contracts/test_backends.py", "tests/contracts/test_canvas_backend.py"]
+command = "uv run pytest tests/contracts/test_backends.py tests/contracts/test_canvas_backend.py -q"
+
+[checks.renderer_adapter]
+focus = "implementation"
+paths = ["tests/unit/test_rust_canvas_renderer.py", "tests/unit/test_rust_canvas_renderer_context.py", "tests/unit/test_rust_canvas_renderer_capture.py", "tests/unit/test_rust_canvas_renderer_images.py", "tests/unit/test_rust_canvas_renderer_pixels_text.py"]
+command = "uv run pytest tests/unit/test_rust_canvas_renderer.py tests/unit/test_rust_canvas_renderer_context.py tests/unit/test_rust_canvas_renderer_capture.py tests/unit/test_rust_canvas_renderer_images.py tests/unit/test_rust_canvas_renderer_pixels_text.py -q"
+
+[checks.drawing_integration]
+focus = "behavior"
+paths = ["tests/integration/test_drawing.py"]
+command = "uv run pytest tests/integration/test_drawing.py -q"
+
+[checks.basic_shapes_golden]
+focus = "behavior"
+paths = ["tests/golden/test_basic_shapes_golden.py"]
+command = "uv run pytest tests/golden/test_basic_shapes_golden.py -q"
+
+[checks.canvas_benchmark]
+focus = "behavior"
+paths = ["tests/benchmark/test_canvas_backend_perf.py", "tests/benchmark/baselines/2026-07-10_release_macos_arm64.toml"]
+command = "uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks"
+
+[checks.resource_stress]
+focus = "behavior"
+paths = ["tests/stress/test_resource_lifecycle_stress.py"]
+command = "uv run pytest tests/stress/test_resource_lifecycle_stress.py --run-stress -q -s"
+
+[checks.assets_unit]
+focus = "behavior"
+paths = ["tests/unit/test_image_method_parity.py", "tests/unit/test_image_sampling.py", "tests/unit/test_model_loading.py", "tests/unit/test_sound_playback.py", "tests/unit/test_pixel_buffer.py"]
+command = "uv run pytest tests/unit/test_image_method_parity.py tests/unit/test_image_sampling.py tests/unit/test_model_loading.py tests/unit/test_sound_playback.py tests/unit/test_pixel_buffer.py -q"
+
+[checks.three_d]
+focus = "behavior"
+paths = ["tests/unit/test_3d_rust_bridge.py", "tests/unit/test_webgl_api.py", "tests/integration/test_webgl_3d.py", "tests/benchmark/test_webgl_3d_perf.py"]
+command = "uv run pytest tests/unit/test_3d_rust_bridge.py tests/unit/test_webgl_api.py tests/integration/test_webgl_3d.py -q"
+
+[checks.ecs_plans]
+focus = "behavior"
+paths = ["tests/unit/test_ecs_core.py", "tests/unit/test_ecs_plans.py", "tests/unit/test_ecs_schedule.py", "tests/unit/test_ecs_spatial.py"]
+command = "uv run pytest tests/unit/test_ecs_core.py tests/unit/test_ecs_plans.py tests/unit/test_ecs_schedule.py tests/unit/test_ecs_spatial.py -q"
+
+[checks.ecs_bridge]
+focus = "behavior"
+paths = ["tests/unit/test_ecs_bridge.py", "tests/unit/test_ecs_canvas_hooks.py"]
+command = "uv run pytest tests/unit/test_ecs_bridge.py tests/unit/test_ecs_canvas_hooks.py -q"
+
+[checks.ecs_benchmark]
+focus = "behavior"
+paths = ["tests/benchmark/test_ecs_perf.py", "tests/benchmark/test_ecs_spatial_perf.py", "tests/stress/test_ecs_spatial_lifecycle_stress.py"]
+command = "uv run pytest tests/benchmark/test_ecs_perf.py tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks"
+
+[checks.synth_bridge]
+focus = "behavior"
+paths = ["tests/unit/test_synth_tracks.py", "tests/unit/test_synth_tracks_plan.py", "tests/unit/test_synth_tracks_playback.py", "tests/unit/test_synth_tracks_lazy.py", "tests/benchmark/test_synth_offline_perf.py"]
+command = "uv run pytest tests/unit/test_synth_tracks.py tests/unit/test_synth_tracks_plan.py tests/unit/test_synth_tracks_playback.py tests/unit/test_synth_tracks_lazy.py -q"
+
+[checks.rust_wrappers]
+focus = "implementation"
+paths = ["tests/unit/test_rust_canvas.py", "tests/unit/test_rust_canvas_backend.py", "tests/unit/test_rust_acceleration.py"]
+command = "uv run pytest tests/unit/test_rust_canvas.py tests/unit/test_rust_canvas_backend.py tests/unit/test_rust_acceleration.py -q"
+
+[checks.rust_canvas]
+focus = "behavior"
+paths = ["crates/gummy_canvas/Cargo.toml", "tests/unit/test_rust_canvas.py", "tests/unit/test_rust_canvas_backend.py"]
+command = "cargo test --manifest-path crates/gummy_canvas/Cargo.toml"
+
+[checks.rust_ecs]
+focus = "behavior"
+paths = ["crates/gummy_ecs/Cargo.toml", "tests/unit/test_ecs_bridge.py", "tests/unit/test_ecs_plans.py"]
+command = "cargo test --manifest-path crates/gummy_ecs/Cargo.toml"
+
+[checks.rust_synth]
+focus = "behavior"
+paths = ["crates/gummy_synth/Cargo.toml", "tests/unit/test_synth_tracks_plan.py", "tests/benchmark/test_synth_offline_perf.py"]
+command = "cargo test --manifest-path crates/gummy_synth/Cargo.toml"
+
+[checks.rust_accel]
+focus = "implementation"
+paths = ["crates/gummy_accel/Cargo.toml", "tests/unit/test_rust_acceleration.py"]
+command = "cargo test --manifest-path crates/gummy_accel/Cargo.toml"
+
+[checks.smoke_shapes]
+focus = "behavior"
+paths = ["examples/01_getting_started/basic_shapes.py"]
+command = "uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1"
+
+[checks.smoke_assets]
+focus = "behavior"
+paths = ["examples/03_assets/images_and_sprites.py", "examples/04_text/typography_accessibility.py"]
+command = "uv run python examples/03_assets/images_and_sprites.py --headless --frames 1"
+
+[checks.smoke_webgl]
+focus = "behavior"
+paths = ["examples/08_3d/webgl_scene.py", "examples/09_performance/boids_3d.py"]
+command = "uv run python examples/08_3d/webgl_scene.py --headless --frames 1 --no-save"
+
+[checks.smoke_ecs]
+focus = "behavior"
+paths = ["examples/10_ecs/firefly_constellation.py", "examples/10_ecs/crystal_moths.py"]
+command = "uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save"
+
+[checks.smoke_synth]
+focus = "behavior"
+paths = ["examples/12_synth/acid_walk.py", "examples/12_synth/tron_bikes.py"]
+command = "uv run python examples/12_synth/acid_walk.py --headless --frames 1 --no-save"
+
+[checks.impact_map_audit]
+focus = "implementation"
+paths = ["scripts/impact_map_audit.py", "tests/unit/test_impact_map_audit.py", "docs/contribute/source_test_impact_map.toml", "docs/contribute/source_test_impact_map.md"]
+command = "uv run python scripts/impact_map_audit.py"
+
+[checks.structure_audit]
+focus = "implementation"
+paths = ["scripts/structure_audit.py", "tests/unit/test_structure_audit.py", "scripts/source_size_audit.py", "tests/unit/test_source_size_audit.py"]
+command = "uv run python scripts/structure_audit.py"
+
+[checks.asset_compilation]
+focus = "behavior"
+paths = ["scripts/compile_synth_assets.py", "tests/unit/test_compile_synth_assets.py", "assets/synths/src", "assets/fx/src"]
+command = "uv run python scripts/compile_synth_assets.py --check"
+
+[checks.distribution]
+focus = "behavior"
+paths = ["scripts/verify_distribution.py", "tests/unit/test_verify_distribution.py", "tests/fixtures/rust/downstream_runtime_api/Cargo.toml"]
+command = "uv build --sdist"
+
+[checks.contributor_docs]
+focus = "implementation"
+paths = ["docs/contribute/ownership_map.md", "docs/contribute/testing.md", "docs/contribute/runtime_contracts.md"]
+command = "uv run python scripts/structure_audit.py"
+
+[areas.package_shell]
+source = ["src/gummysnake/*.py"]
+roles = ["composition_root", "compatibility_facade"]
+ownership = "Package exports, active-context convenience, async dispatch, and fast-draw entry points."
+[areas.package_shell.categories]
+unit = ["public_api", "context_state"]
+contract = ["N/A: public composition is characterized by API behavior tests rather than a backend contract."]
+integration = ["drawing_integration"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark"]
+stress = ["N/A: package dispatch has no independent lifecycle resource owner."]
+example = ["smoke_shapes"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.api]
+source = ["src/gummysnake/api/**/*.py"]
+roles = ["composition_root", "compatibility_facade"]
+ownership = "Topic APIs and global-mode adapters compose the Python public surface."
+[areas.api.categories]
+unit = ["public_api", "context_state"]
+contract = ["N/A: API behavior is asserted through public facades, not renderer implementation contracts."]
+integration = ["drawing_integration"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark"]
+stress = ["N/A: API adapters do not own long-lived native resources."]
+example = ["smoke_shapes", "smoke_assets"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.assets]
+source = ["src/gummysnake/assets/**/*.py"]
+roles = ["implementation"]
+ownership = "Python-friendly image, text, model, data, media, and sound wrappers around Rust-managed assets."
+[areas.assets.categories]
+unit = ["assets_unit"]
+contract = ["N/A: asset behavior is public wrapper behavior, not a pluggable backend contract."]
+integration = ["drawing_integration"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark"]
+stress = ["resource_stress"]
+example = ["smoke_assets"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.backend]
+source = ["src/gummysnake/backend/**/*.py"]
+roles = ["composition_root", "mandatory_rust_boundary"]
+ownership = "CanvasBackend and CanvasRenderer facades compose host and renderer helpers over the mandatory canvas runtime."
+[areas.backend.categories]
+unit = ["renderer_adapter"]
+contract = ["canvas_contracts"]
+integration = ["drawing_integration"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark"]
+stress = ["resource_stress"]
+example = ["smoke_shapes"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.constants]
+source = ["src/gummysnake/constants/**/*.py"]
+roles = ["compatibility_facade"]
+ownership = "Enum-backed public constants and compatibility aliases."
+[areas.constants.categories]
+unit = ["public_api"]
+contract = ["N/A: constants have no backend contract."]
+integration = ["N/A: enum values are directly characterized at the API boundary."]
+golden = ["N/A: constants do not produce stable image output independently."]
+benchmark = ["N/A: constants have no performance-sensitive runtime path."]
+stress = ["N/A: constants own no resources."]
+example = ["smoke_shapes"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.context_mixins]
+source = ["src/gummysnake/context_mixins/**/*.py"]
+roles = ["composition_root"]
+ownership = "SketchContext behavior mixins that validate and forward public operations."
+[areas.context_mixins.categories]
+unit = ["context_state"]
+contract = ["canvas_contracts"]
+integration = ["drawing_integration"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark"]
+stress = ["N/A: mixins delegate resource lifecycle to the canvas runtime."]
+example = ["smoke_shapes", "smoke_assets"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.core]
+source = ["src/gummysnake/core/**/*.py"]
+roles = ["implementation"]
+ownership = "Shared colors, geometry, math, input events, pixel buffers, state facades, and transforms."
+[areas.core.categories]
+unit = ["context_state", "assets_unit"]
+contract = ["N/A: value types are not backend implementations."]
+integration = ["drawing_integration"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark"]
+stress = ["resource_stress"]
+example = ["smoke_shapes"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.drawing]
+source = ["src/gummysnake/drawing/**/*.py"]
+roles = ["implementation"]
+ownership = "Renderer protocols and software/retained 3D compatibility helpers; native rendering remains Rust-owned."
+[areas.drawing.categories]
+unit = ["three_d"]
+contract = ["canvas_contracts"]
+integration = ["drawing_integration", "three_d"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark", "three_d"]
+stress = ["resource_stress"]
+example = ["smoke_webgl"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.ecs]
+source = ["src/gummysnake/ecs/**/*.py"]
+roles = ["composition_root", "compatibility_facade", "mandatory_rust_boundary", "udf_boundary"]
+ownership = "Schemas, logical plans, public views, compatibility facades, and explicit Python UDF boundaries; canonical storage and non-UDF execution are Rust-owned."
+[areas.ecs.categories]
+unit = ["ecs_plans", "ecs_bridge"]
+contract = ["N/A: ECS plan semantics are characterized at the public logical-plan boundary, not by interchangeable backend contracts."]
+integration = ["drawing_integration"]
+golden = ["N/A: ECS behavior is deterministic state/plan behavior; examples cover draw output."]
+benchmark = ["ecs_benchmark"]
+stress = ["ecs_benchmark"]
+example = ["smoke_ecs", "smoke_webgl"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.fast_draw_runtime]
+source = ["src/gummysnake/fast_draw_runtime/**/*.py"]
+roles = ["compatibility_facade"]
+ownership = "Frame-local fast facade that preserves public style/transform semantics while reducing dispatch overhead."
+[areas.fast_draw_runtime.categories]
+unit = ["context_state"]
+contract = ["N/A: fast dispatch is not a backend contract."]
+integration = ["drawing_integration"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark"]
+stress = ["N/A: facade does not own native resources."]
+example = ["smoke_shapes"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.plugins]
+source = ["src/gummysnake/plugins/**/*.py"]
+roles = ["implementation"]
+ownership = "Plugin interfaces and registry used by lifecycle and ECS group dispatch."
+[areas.plugins.categories]
+unit = ["lifecycle_groups"]
+contract = ["N/A: plugin ordering is sketch behavior, not a backend interchange contract."]
+integration = ["drawing_integration"]
+golden = ["N/A: plugin hooks do not have independent deterministic raster output."]
+benchmark = ["N/A: no standalone plugin hot-path benchmark is currently justified."]
+stress = ["N/A: plugin registry owns no long-lived native resources."]
+example = ["smoke_shapes"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.rust]
+source = ["src/gummysnake/rust/**/*.py"]
+roles = ["mandatory_rust_boundary"]
+ownership = "Typed Python wrappers that validate canvas/ECS ABI health and expose required Rust capabilities."
+[areas.rust.categories]
+unit = ["rust_wrappers", "ecs_bridge", "synth_bridge"]
+contract = ["canvas_contracts"]
+integration = ["drawing_integration"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark", "ecs_benchmark"]
+stress = ["resource_stress", "ecs_benchmark"]
+example = ["smoke_shapes", "smoke_ecs", "smoke_synth"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.sketch]
+source = ["src/gummysnake/sketch/**/*.py"]
+roles = ["composition_root", "compatibility_facade"]
+ownership = "Sketch lifecycle runtime, decorator builder, and object-mode facade forwarding."
+[areas.sketch.categories]
+unit = ["lifecycle_groups", "public_api"]
+contract = ["canvas_contracts"]
+integration = ["drawing_integration"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark"]
+stress = ["resource_stress"]
+example = ["smoke_shapes"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.synth]
+source = ["src/gummysnake/synth/**/*.py"]
+roles = ["composition_root", "mandatory_rust_boundary"]
+ownership = "Pythonic synth plan construction and playback controls serialized to the mandatory Rust synth bridge."
+[areas.synth.categories]
+unit = ["synth_bridge"]
+contract = ["N/A: synth plans use a required bridge rather than a pluggable audio backend."]
+integration = ["N/A: direct Python/Rust bridge characterization and synth examples are the current meaningful integration routes."]
+golden = ["N/A: offline synth asserts WAV bytes/non-silence, not raster golden output."]
+benchmark = ["synth_bridge"]
+stress = ["N/A: no independent long-running synth resource stress suite exists; add one only for a lifecycle regression."]
+example = ["smoke_synth"]
+documentation = ["contributor_docs"]
+packaging = ["distribution", "asset_compilation"]
+
+[areas.gummy_canvas]
+source = ["crates/gummy_canvas/src/**/*.rs", "crates/gummy_canvas/Cargo.toml"]
+crate = "crates/gummy_canvas"
+roles = ["mandatory_rust_boundary"]
+ownership = "Required canvas runtime: rendering, state, SDL3, assets, text/pixels, PyO3, and linked ECS/synth bridge."
+[areas.gummy_canvas.categories]
+unit = ["rust_canvas"]
+contract = ["canvas_contracts"]
+integration = ["drawing_integration", "ecs_bridge", "synth_bridge"]
+golden = ["basic_shapes_golden"]
+benchmark = ["canvas_benchmark", "three_d", "synth_bridge"]
+stress = ["resource_stress"]
+example = ["smoke_shapes", "smoke_ecs", "smoke_synth"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.gummy_ecs]
+source = ["crates/gummy_ecs/src/**/*.rs", "crates/gummy_ecs/Cargo.toml"]
+crate = "crates/gummy_ecs"
+roles = ["mandatory_rust_boundary", "udf_boundary"]
+ownership = "Canonical ECS storage, schedules, physical plans, spatial indexes, and non-UDF execution."
+[areas.gummy_ecs.categories]
+unit = ["rust_ecs"]
+contract = ["N/A: logical-plan semantics cross the Python/Rust boundary instead of an interchangeable backend contract."]
+integration = ["ecs_bridge"]
+golden = ["N/A: Rust ECS has no independent raster golden; drawing examples cover visible results."]
+benchmark = ["ecs_benchmark"]
+stress = ["ecs_benchmark"]
+example = ["smoke_ecs", "smoke_webgl"]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]
+
+[areas.gummy_synth]
+source = ["crates/gummy_synth/src/**/*.rs", "crates/gummy_synth/Cargo.toml"]
+crate = "crates/gummy_synth"
+roles = ["mandatory_rust_boundary"]
+ownership = "Synth, sample, FX, decoding, and WAV renderer linked through the canvas extension."
+[areas.gummy_synth.categories]
+unit = ["rust_synth"]
+contract = ["N/A: mandatory Rust synth rendering has no Python fallback contract."]
+integration = ["synth_bridge"]
+golden = ["N/A: byte-identical WAV output is the stable artifact, not a visual golden."]
+benchmark = ["synth_bridge"]
+stress = ["N/A: no dedicated synth churn suite exists yet."]
+example = ["smoke_synth"]
+documentation = ["contributor_docs"]
+packaging = ["distribution", "asset_compilation"]
+
+[areas.gummy_accel]
+source = ["crates/gummy_accel/src/**/*.rs", "crates/gummy_accel/Cargo.toml"]
+crate = "crates/gummy_accel"
+roles = ["implementation"]
+ownership = "Optional acceleration kernels; never a substitute for required canvas, ECS, or synth runtime behavior."
+[areas.gummy_accel.categories]
+unit = ["rust_accel"]
+contract = ["N/A: optional kernels have no public backend contract."]
+integration = ["N/A: wrapper unit characterization is sufficient while this crate remains optional."]
+golden = ["N/A: acceleration kernels have no independent image golden."]
+benchmark = ["N/A: no release benchmark is currently owned by optional acceleration."]
+stress = ["N/A: optional kernels own no persistent runtime lifecycle."]
+example = ["N/A: no example should require this optional extension."]
+documentation = ["contributor_docs"]
+packaging = ["distribution"]

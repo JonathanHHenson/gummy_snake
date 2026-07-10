@@ -27,14 +27,14 @@ from gummysnake.synth.synth_runtime.logical_nodes import (
 )
 from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
 from gummysnake.synth.synth_runtime.runtime_foundation import (
-    SynthPlanError,
     _BUILTIN_SAMPLE_EXTENSIONS,
     _BUILTIN_SAMPLE_PACKAGE_DIR,
+    SynthPlanError,
 )
 from gummysnake.synth.synth_runtime.scales_and_specs import (
-    FxHandle,
     _FX_DEFINITIONS,
     _SYNTH_DEFINITIONS,
+    FxHandle,
     _transposed_synth_note,
 )
 

@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from typing import Any, TYPE_CHECKING, cast, overload
+from typing import TYPE_CHECKING, Any, cast, overload
 
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.builder_context import (
+    _CURRENT_BUILDER,
     FxContext,
     LoopContext,
     SynthContext,
-    _CURRENT_BUILDER,
     _current_builder,
     _next_node_id,
 )
@@ -17,13 +17,13 @@ from gummysnake.synth.synth_runtime.event_api import _FxFunction, _SynthFunction
 from gummysnake.synth.synth_runtime.lazy_values import Expression, ensure_expr
 from gummysnake.synth.synth_runtime.logical_nodes import NodeHandle, ThreadNode
 from gummysnake.synth.synth_runtime.scales_and_specs import (
+    _DEFAULT_SYNTH_INPUT_NOTE,
+    _DEFAULT_SYNTH_LAYER_AMP,
     FxHandle,
     FxSignal,
     SynthLayer,
     SynthSignal,
     SynthSpec,
-    _DEFAULT_SYNTH_INPUT_NOTE,
-    _DEFAULT_SYNTH_LAYER_AMP,
     _transposed_synth_note,
 )
 

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from .world import EcsWorld
 from gummysnake.ecs.runtime_views import Entity, EntityMutation, EntityView, MutEntity, SystemHandle
+
+from .world import EcsWorld
 
 __all__ = ["EcsWorld", "Entity", "EntityMutation", "EntityView", "MutEntity", "SystemHandle"]

@@ -3,11 +3,22 @@ import io
 import time  # noqa: F401 - re-exported for split synth-track tests
 import wave
 from pathlib import Path
-from typing import cast  # noqa: F401 - re-exported for split synth-track tests
+from typing import Any, cast  # noqa: F401 - re-exported for split synth-track tests
+
+from pytest import MonkeyPatch
 
 import gummysnake as gs  # noqa: F401 - re-exported for split synth-track tests
 from gummysnake import synth as sy
-from gummysnake.synth import core as synth_core  # noqa: F401 - re-exported for split tests
+from gummysnake.synth.synth_runtime import playback as synth_playback  # noqa: F401
+from gummysnake.synth.synth_runtime import rendering as synth_rendering  # noqa: F401
+from gummysnake.synth.synth_runtime import runtime_foundation as synth_foundation  # noqa: F401
+
+
+def patch_synth_runtime(monkeypatch: MonkeyPatch, runtime: Any) -> None:
+    """Patch every direct synth runtime lookup used by track rendering and playback tests."""
+
+    monkeypatch.setattr(synth_rendering, "_require_synth_runtime", lambda: runtime)
+    monkeypatch.setattr(synth_playback, "_require_synth_runtime", lambda: runtime)
 
 
 @sy.track(seed=12)
@@ -365,7 +376,10 @@ __all__ = [
     "gs",
     "io",
     "sy",
-    "synth_core",
+    "synth_foundation",
+    "synth_playback",
+    "synth_rendering",
+    "patch_synth_runtime",
     "time",
     "wave",
     "_FakeCanvasAudioPlayback",

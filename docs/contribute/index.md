@@ -16,6 +16,7 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 - [ECS release checklist](ecs_release_checklist.md)
 - [ECS context-manager API release notes](ecs_context_manager_release_notes.md)
 - [Testing and CI](testing.md)
+- [Python static analysis](static_analysis.md)
 - [Documentation workflow](documentation.md)
 
 ## Project Shape
@@ -134,8 +135,7 @@ uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features ex
 cargo test --workspace
 uv run python scripts/source_size_audit.py --check
 uv run python scripts/structure_audit.py
-uv run ruff check .
-uv run mypy src
+make static-analysis
 uv run pytest
 ```
 

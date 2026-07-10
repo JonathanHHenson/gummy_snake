@@ -2,31 +2,14 @@
 
 from __future__ import annotations
 
-import builtins
-import contextlib
-import functools
-import io
-import json
 import random as _random
-import shutil
 import struct
-import subprocess
-import sys
-import tempfile
-import threading
-import time
-import wave
-import zlib
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Self, SupportsIndex, cast, overload
+from typing import Any, cast
 
-from gummysnake.assets._audio_codec import MemorySoundSource
-from gummysnake.assets.sound import Sound
-from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError, GummySnakeError
+from gummysnake.exceptions import ArgumentValidationError, GummySnakeError
 
 type Number = int | float
 _SAMPLE_RATE = 44_100

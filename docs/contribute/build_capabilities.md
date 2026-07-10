@@ -34,6 +34,22 @@ The older explicit `--module-name` / `--python-source` command is documented in
 some workflows for compatibility with previous maturin versions, but the crate
 metadata now carries that configuration.
 
+## Wheel Release Contract
+
+Gummy Snake publishes a typed package. Every canvas wheel must ship
+`gummysnake/py.typed`, both native stub files (`_canvas.pyi` and
+`_accelerated.pyi`), the mandatory native `_canvas` extension, and the Maturin
+assets. `scripts/verify_distribution.py --wheel <canvas-wheel>` installs only
+the wheel through an isolated `uv` consumer environment, validates canvas and
+ECS ABI/health checks, exercises an empty Rust ECS world and a headless render,
+and renders a WAV using packaged synth/FX/sample assets. It also compares every
+public native module function name and runtime signature to the shipped stub.
+
+`gummy_accel` is an optional independently built extension, not a canvas/ECS/
+synth fallback. Provide its wheel with `--accelerated-wheel <wheel>` to compare
+its `_accelerated.pyi` surface against the built extension too. See
+[Testing and CI](testing.md#distribution-contracts) for the release commands.
+
 The desktop interactive runtime uses SDL3 and builds SDL3 from source/static by
 default via the Rust `sdl3` dependency. Local builds therefore do not require a
 separately installed system SDL3 library, but first builds may take longer while

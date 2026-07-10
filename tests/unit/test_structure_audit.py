@@ -179,6 +179,12 @@ def test_structure_audit_enforces_generated_example_output_ignore(tmp_path: Path
     assert "generated_example_output_policy" not in _codes(tmp_path)
 
 
+def test_structure_audit_ignores_virtual_environment_markdown(tmp_path: Path) -> None:
+    _write(tmp_path / ".venv/third_party/README.md", "Read [missing](missing.md).\n")
+
+    assert "missing_markdown_link" not in _codes(tmp_path)
+
+
 def test_structure_audit_reports_maturin_include_glob_without_matches(tmp_path: Path) -> None:
     _write(
         tmp_path / "pyproject.toml",

@@ -9,8 +9,9 @@ from tests.helpers.synth_tracks_fixtures import (
     _tiny_realtime_loop,
     _wav_payload,
     gs,
+    patch_synth_runtime,
     sy,
-    synth_core,
+    synth_playback,
     time,
 )
 
@@ -30,7 +31,7 @@ def test_track_play_reports_rust_callback_errors(monkeypatch) -> None:
         return playback
 
     monkeypatch.setattr(runtime, "synth_play_serialized_plan", _play_serialized_plan)
-    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+    patch_synth_runtime(monkeypatch, runtime)
 
     playback = _short_realtime_track().play()
 
@@ -67,7 +68,7 @@ def test_track_play_reuses_saved_wav_without_rendering_again(tmp_path: Path, mon
             self.delete_calls += 1
 
     runtime = _FakeSynthRuntime()
-    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+    patch_synth_runtime(monkeypatch, runtime)
     track = _short_realtime_track()
     output = tmp_path / "short.wav"
 
@@ -118,7 +119,7 @@ def test_bounded_realtime_playback_renders_plan_before_playback_clock(monkeypatc
             self.delete_calls += 1
 
     runtime = _OrderingRuntime()
-    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+    patch_synth_runtime(monkeypatch, runtime)
 
     playback = _short_realtime_track().play(
         duration=0.08,
@@ -136,7 +137,7 @@ def test_bounded_realtime_playback_renders_plan_before_playback_clock(monkeypatc
 def test_event_time_groups_collect_same_time_events() -> None:
     physical = _same_time_realtime_track().physical_plan(duration=0.02)
 
-    groups = synth_core._event_time_groups(physical.events)
+    groups = synth_playback._event_time_groups(physical.events)
 
     assert len(groups) == 1
     assert [event.time_seconds for event in groups[0]] == [0.0, 0.0]
@@ -172,7 +173,7 @@ def test_bounded_realtime_playback_stops_at_track_duration(monkeypatch) -> None:
             self.delete_calls += 1
 
     runtime = _LongPlanRuntime()
-    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+    patch_synth_runtime(monkeypatch, runtime)
 
     start = time.monotonic()
     playback = _short_realtime_track().play(
@@ -214,7 +215,7 @@ def test_looping_track_play_without_duration_rolls_until_stopped(monkeypatch) ->
             self.delete_calls += 1
 
     runtime = _FakeSynthRuntime()
-    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+    patch_synth_runtime(monkeypatch, runtime)
 
     playback = _tiny_realtime_loop().play(
         player_factory=_FakePlayer,

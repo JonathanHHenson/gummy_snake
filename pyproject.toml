@@ -37,6 +37,7 @@ dev = [
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
     "ruff>=0.15.17",
+    "basedpyright>=1.39.9",
 ]
 release = [
     "maturin>=1.9.4",
@@ -69,49 +70,13 @@ markers = [
 [tool.mypy]
 python_version = "3.12"
 files = ["src"]
-exclude = [
-    "src/gummysnake/api/three_d_api",
-    "src/gummysnake/assets/audio_runtime",
-    "src/gummysnake/assets/media/stream_sources",
-    "src/gummysnake/assets/sound_runtime",
-    "src/gummysnake/context_mixins/three_d/camera_runtime",
-    "src/gummysnake/core/input_event_model",
-    "src/gummysnake/drawing/renderer3d/mesh_model",
-    "src/gummysnake/ecs/action_tools/plan_building",
-    "src/gummysnake/ecs/action_model",
-    "src/gummysnake/ecs/runtime_view_model",
-    "src/gummysnake/ecs/spatial/relation_model",
-    "src/gummysnake/ecs/system_model",
-    "src/gummysnake/ecs/world_facade",
-    "src/gummysnake/ecs/world_runtime/physical_execution",
-    "src/gummysnake/fast_draw_runtime",
-    "src/gummysnake/sketch/facade_mixins/three_d_facade",
-    "src/gummysnake/synth/synth_runtime",
-]
+
 ignore_missing_imports = true
 warn_unused_ignores = true
 
 [tool.basedpyright]
 include = ["src"]
-exclude = [
-    "src/gummysnake/api/three_d_api",
-    "src/gummysnake/assets/audio_runtime",
-    "src/gummysnake/assets/media/stream_sources",
-    "src/gummysnake/assets/sound_runtime",
-    "src/gummysnake/context_mixins/three_d/camera_runtime",
-    "src/gummysnake/core/input_event_model",
-    "src/gummysnake/drawing/renderer3d/mesh_model",
-    "src/gummysnake/ecs/action_tools/plan_building",
-    "src/gummysnake/ecs/action_model",
-    "src/gummysnake/ecs/runtime_view_model",
-    "src/gummysnake/ecs/spatial/relation_model",
-    "src/gummysnake/ecs/system_model",
-    "src/gummysnake/ecs/world_facade",
-    "src/gummysnake/ecs/world_runtime/physical_execution",
-    "src/gummysnake/fast_draw_runtime",
-    "src/gummysnake/sketch/facade_mixins/three_d_facade",
-    "src/gummysnake/synth/synth_runtime",
-]
+
 typeCheckingMode = "standard"
 
 [tool.ruff]
@@ -124,27 +89,32 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.ruff.lint.per-file-ignores]
 "src/gummysnake/__init__.py" = ["F401", "I001"]
 "src/gummysnake/api/global_mode/__init__.py" = ["A001", "F401", "F403", "F405"]
-"src/gummysnake/api/three_d_api/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/assets/audio_runtime/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/assets/media/stream_sources/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/assets/sound_runtime/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/context_mixins/three_d/camera_runtime/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/core/input_event_model/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/drawing/renderer3d/mesh_model/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/ecs/action_tools/plan_building/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/ecs/action_model/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/ecs/runtime_view_model/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/ecs/spatial/relation_model/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/ecs/system_model/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/ecs/world_facade/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/ecs/world_runtime/physical_execution/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/fast_draw_runtime/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/sketch/facade_mixins/three_d_facade/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"src/gummysnake/synth/synth_runtime/*.py" = ["F401", "F811", "F821", "F822", "I001"]
+"src/gummysnake/api/three_d_api/*.py" = ["F401", "I001"]
+"src/gummysnake/api/three_d_api/materials_and_primitives.py" = ["F822"]
+
+"src/gummysnake/assets/audio_runtime/*.py" = ["F401", "I001"]
+"src/gummysnake/assets/media/stream_sources/*.py" = ["F401", "I001"]
+"src/gummysnake/assets/sound_runtime/*.py" = ["F401", "I001"]
+"src/gummysnake/context_mixins/three_d/camera_runtime/*.py" = ["F401", "I001"]
+"src/gummysnake/core/input_event_model/*.py" = ["F401", "I001"]
+"src/gummysnake/drawing/renderer3d/mesh_model/*.py" = ["F401", "I001"]
+"src/gummysnake/ecs/action_tools/plan_building/*.py" = ["F401", "I001"]
+
+"src/gummysnake/ecs/action_model/*.py" = ["F401", "I001"]
+"src/gummysnake/ecs/runtime_view_model/*.py" = ["F401", "I001"]
+"src/gummysnake/ecs/spatial/relation_model/*.py" = ["F401", "I001"]
+"src/gummysnake/ecs/system_model/*.py" = ["F401", "I001"]
+"src/gummysnake/ecs/world_facade/*.py" = ["F401", "I001"]
+
+"src/gummysnake/ecs/world_runtime/physical_execution/*.py" = ["F401", "I001"]
+"src/gummysnake/fast_draw_runtime/*.py" = ["F401", "I001"]
+"src/gummysnake/sketch/facade_mixins/three_d_facade/*.py" = ["F401", "I001"]
+"src/gummysnake/synth/synth_runtime/*.py" = ["F401", "I001"]
+
 "tests/unit/test_ecs_*.py" = ["F403", "F405"]
 "tests/unit/test_synth_tracks_*.py" = ["F403", "F405"]
-"examples/**/ant_colony_runtime/*.py" = ["F401", "F811", "F821", "F822", "I001"]
-"tests/**/ant_colony_benchmark_support/*.py" = ["F401", "F811", "F821", "F822", "I001"]
+"examples/**/ant_colony_runtime/*.py" = ["F401", "I001"]
+"tests/**/ant_colony_benchmark_support/*.py" = ["F401", "I001"]
 
 
 [tool.uv]

@@ -7,6 +7,12 @@ format:
 typecheck:
 	uv run mypy src
 
+static-analysis:
+	uv run python scripts/static_analysis_audit.py
+	uv run ruff check .
+	uv run mypy src
+	uv run basedpyright
+
 audit-report:
 	uv run python scripts/source_size_audit.py
 
@@ -46,4 +52,4 @@ bump-version:
 	@test -n "$(VERSION)" || (echo "Usage: make bump-version VERSION=0.2.3|patch|minor|major"; exit 2)
 	uv run python scripts/bump_version.py $(VERSION)
 
-check: lint typecheck test smoke version-check build
+check: static-analysis test smoke version-check build

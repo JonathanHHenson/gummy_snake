@@ -22,7 +22,7 @@ from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.action_model.udf import RuntimeUdfDefinition, UdfIterableDefinition
-    from gummysnake.ecs.action_tools.plan_building.scopes import (
+    from gummysnake.ecs.action_tools.plan_building.session import (
         _OtherwiseBranchBuilder,
         _WhenBranchBuilder,
     )
@@ -100,7 +100,7 @@ class WhenAction(Action):
             A builder used to attach actions to the branch.
         """
 
-        from gummysnake.ecs.action_tools.plan_building.scopes import _WhenBranchBuilder
+        from gummysnake.ecs.action_tools.plan_building.session import _WhenBranchBuilder
 
         return _WhenBranchBuilder(self, ensure_expr(condition))
 
@@ -111,7 +111,7 @@ class WhenAction(Action):
             A builder used to attach actions that run when no ``when`` branch matches.
         """
 
-        from gummysnake.ecs.action_tools.plan_building.scopes import _OtherwiseBranchBuilder
+        from gummysnake.ecs.action_tools.plan_building.session import _OtherwiseBranchBuilder
 
         return _OtherwiseBranchBuilder(self)
 

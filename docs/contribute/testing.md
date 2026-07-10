@@ -5,15 +5,17 @@ Use the smallest checks that cover the change.
 ## Common Checks
 
 ```sh
-uv run ruff check .
-uv run mypy src
+make static-analysis
 uv run pytest
 uv run python scripts/source_size_audit.py
 uv run python scripts/source_size_audit.py --check
 uv run python scripts/structure_audit.py
+uv run python scripts/impact_map_audit.py
 uv run python scripts/compile_synth_assets.py --check
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 cargo test --workspace
+uv build --sdist
+uv run python scripts/verify_distribution.py dist/gummy_snake-X.Y.Z.tar.gz
 cargo check --manifest-path tests/fixtures/rust/downstream_runtime_api/Cargo.toml
 ```
 
@@ -30,7 +32,7 @@ Use focused checks while developing, then broaden before handing off:
 | Change type | Minimum useful check |
 | --- | --- |
 | Pure Python API/state logic | targeted `uv run pytest tests/unit/...` |
-| Public API export changes | unit tests plus `uv run mypy src` |
+| Public API export changes | unit tests plus `make static-analysis` |
 | Backend scheduling or capability behavior | `tests/contracts/` plus relevant unit tests |
 | Renderer or pixel behavior | contract or integration test plus a headless smoke example |
 | Rust canvas runtime behavior | `cargo test --manifest-path crates/gummy_canvas/Cargo.toml` plus Python wrapper tests |
@@ -38,10 +40,12 @@ Use focused checks while developing, then broaden before handing off:
 | ECS spatial systems or examples | ECS unit/Rust checks plus `uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save`, `uv run python examples/10_ecs/crystal_moths.py --headless --frames 1 --no-save`, or `uv run python examples/09_performance/boids_3d.py --headless --frames 1 --no-save` |
 | WEBGL or fallback 3D path behavior | focused integration tests plus `tests/benchmark/test_webgl_3d_perf.py --run-benchmarks` when hot paths change |
 | Long-running resource lifecycle behavior | `uv run pytest tests/stress --run-stress -q -s` |
+| Static-analysis configuration, suppressions, or tooling | `make static-analysis` plus `uv run pytest tests/unit/test_static_analysis_audit.py` |
 | Documentation only | link/path review; no full test suite required unless commands changed |
-| Source layout, package naming, or file splits | `make audit` plus `uv run python scripts/source_size_audit.py` when reviewing candidates |
+| Source layout, package naming, file splits, or validation-route moves | `make audit`, `uv run python scripts/source_size_audit.py`, and `uv run python scripts/impact_map_audit.py` |
 | Synth or FX asset sources | `make assets-check` plus focused synth asset tests |
 | Source distribution/package inputs | `uv build --sdist` then `make verify-sdist SDIST=dist/gummy_snake-X.Y.Z.tar.gz` |
+| Built wheel, native stubs, or release packaging | build release canvas/optional-acceleration wheels, then run `uv run python scripts/verify_distribution.py --wheel <canvas-wheel> --accelerated-wheel <acceleration-wheel>` |
 | CI workflow changes | local command equivalence where practical |
 
 ## Test Placement
@@ -81,9 +85,42 @@ layout references, missing generated-output ignore policy, and undocumented or
 stale Rust same-stem hubs, missing local Markdown links, stale current source-path code spans, and
 unreviewed support-file prefix clusters across every workspace crate. Run `make assets-check` to
 compile source-defined synth/FX assets into temporary outputs and verify packaged `.gss`/`.gsfx`
-assets are current without modifying them. After `uv build --sdist`, run
+assets are current without modifying them. `impact_map_audit.py` validates the
+maintained [source-to-test impact map](source_test_impact_map.md): every top-level
+Python/Rust owner, category decision, named check path, command path, and Cargo
+workspace owner must remain current. After `uv build --sdist`, run
 `make verify-sdist SDIST=dist/gummy_snake-X.Y.Z.tar.gz` to verify recursive local Cargo sources and
 Maturin-included assets are present.
+
+## Distribution Contracts
+
+`gummysnake` is a typed package: release wheels must contain
+`gummysnake/py.typed`, `_canvas.pyi`, and `_accelerated.pyi`. The mandatory
+canvas wheel must also contain a native `gummysnake.rust._canvas` extension.
+The optional acceleration wheel is verified separately because it is not a
+fallback for canvas, ECS, synth, or assets.
+
+Use release-built wheels for the complete contract:
+
+```sh
+mkdir -p dist/canvas dist/accelerated
+uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml \
+  --features extension-module --out dist/canvas
+uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml \
+  --features extension-module --out dist/accelerated
+uv run python scripts/package_acceleration_wheel.py dist/accelerated/gummy_accel-*.whl
+uv run python scripts/verify_distribution.py \
+  --wheel dist/canvas/gummy_snake-*.whl \
+  --accelerated-wheel dist/accelerated/gummy_snake-*.whl
+```
+
+The verifier inspects wheel members, compares every public native module
+function’s symbol and runtime signature to its shipped `.pyi` file, then uses
+`uv run --isolated` to type-check and execute a consumer installed from the
+wheel. That consumer requires the canvas/ECS ABIs and health checks, an empty
+Rust ECS world, a headless frame, packaged synth/FX/sample lookup, and a
+non-empty Rust-rendered WAV. It deliberately fails rather than using source
+imports or a Python fallback.
 
 ## Performance Benchmarks
 

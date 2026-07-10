@@ -2,12 +2,22 @@
 
 from __future__ import annotations
 
-from .scopes import (
+from .session import (
     ForEachSource,
+    _BlockContext,
     _BranchContext,
+    _BuildBlock,
+    _BuildSession,
+    _BuildSessionContext,
+    _ConditionalContext,
+    _ConditionalScope,
+    _DoFactory,
     _ForEachContext,
     _OtherwiseBranchBuilder,
     _WhenBranchBuilder,
+    active_build_session,
+    append_action,
+    build_session,
     conditional,
     do,
     do_in_order,
@@ -15,18 +25,6 @@ from .scopes import (
     for_each,
     otherwise,
     when,
-)
-from .session import (
-    _BlockContext,
-    _BuildBlock,
-    _BuildSession,
-    _BuildSessionContext,
-    _ConditionalContext,
-    _ConditionalScope,
-    _DoFactory,
-    active_build_session,
-    append_action,
-    build_session,
 )
 
 __all__ = [

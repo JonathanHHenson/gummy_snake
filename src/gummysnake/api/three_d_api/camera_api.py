@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import overload
 
-from gummysnake import constants as c
-from gummysnake.api._context_call import context_call as _context_call
 from gummysnake.api.current import require_context
-from gummysnake.assets.image import Image
 from gummysnake.core.color import Color
-from gummysnake.drawing.renderer3d import Camera3D, Mesh3D, Model3D, Vec3
+from gummysnake.drawing.renderer3d import Camera3D, Vec3
 from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
     OrthographicProjection,
     PerspectiveProjection,
-    VertexPropertyValue,
 )
 
 Number = int | float

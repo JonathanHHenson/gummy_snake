@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import random as _random
-import sys
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 from gummysnake.synth.synth_runtime.builder_context import _eval_scope
-from gummysnake.synth.synth_runtime.event_api import _expand_fx_handle, _resolve_sample_source
 from gummysnake.synth.synth_runtime.lazy_values import _source_bind_key, resolve_value
 from gummysnake.synth.synth_runtime.logical_nodes import (
     BindNode,
@@ -24,10 +22,9 @@ from gummysnake.synth.synth_runtime.logical_nodes import (
 )
 from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
 from gummysnake.synth.synth_runtime.runtime_foundation import (
-    EvalContext,
     _SAMPLE_RATE,
+    EvalContext,
     _as_float,
-    _as_int,
 )
 from gummysnake.synth.synth_runtime.scales_and_specs import FxHandle
 from gummysnake.synth.synth_runtime.serialization import _control_lookup, _event_payload
@@ -249,13 +246,6 @@ def _render_physical_plan(plan: PhysicalPlan, *, sample_rate: int = _SAMPLE_RATE
 
 
 def _require_synth_runtime() -> Any:
-    core_module = sys.modules.get("gummysnake.synth.core")
-    override = (
-        getattr(core_module, "_require_synth_runtime", None) if core_module is not None else None
-    )
-    if override is not None and override is not _require_synth_runtime:
-        return override()
-
     from gummysnake.rust.canvas import require_canvas_runtime
 
     runtime = require_canvas_runtime()

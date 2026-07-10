@@ -10,8 +10,8 @@ from tests.helpers.synth_tracks_fixtures import (
     _FakeSynthRuntime,
     _inline_tick_inside_loop_track,
     _short_realtime_track,
+    patch_synth_runtime,
     sy,
-    synth_core,
 )
 
 
@@ -96,7 +96,7 @@ def test_track_play_uses_rust_plan_render_for_bounded_realtime(monkeypatch) -> N
 
     runtime = _FakeSynthRuntime()
 
-    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+    patch_synth_runtime(monkeypatch, runtime)
 
     playback = _short_realtime_track().play(
         duration=0.08,
@@ -116,7 +116,7 @@ def test_track_play_uses_rust_plan_render_for_bounded_realtime(monkeypatch) -> N
 
 def test_track_play_uses_rust_audio_bridge_by_default(monkeypatch) -> None:
     runtime = _FakeSynthRuntime()
-    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+    patch_synth_runtime(monkeypatch, runtime)
 
     playback = _short_realtime_track().play(duration=0.08, look_ahead=0.0)
 
@@ -138,7 +138,7 @@ def test_track_play_streams_plan_with_rust_audio_bridge_even_when_wav_is_cached(
     tmp_path: Path, monkeypatch
 ) -> None:
     runtime = _FakeSynthRuntime()
-    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+    patch_synth_runtime(monkeypatch, runtime)
     track = _short_realtime_track()
     output = tmp_path / "cached.wav"
 

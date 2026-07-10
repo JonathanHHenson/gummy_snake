@@ -15,9 +15,14 @@ from types import ModuleType
 
 import gummysnake as gs
 import gummysnake.api.global_mode as global_mode
+import gummysnake.api.three_d as three_d
+import gummysnake.api.three_d_api.camera_api as three_d_camera
+import gummysnake.api.three_d_api.controls_and_lighting as three_d_lighting
+import gummysnake.api.three_d_api.materials_and_primitives as three_d_materials
 import gummysnake.constants as constants
 import gummysnake.ecs as ecs
 import gummysnake.synth as synth
+import gummysnake.synth.core as synth_core
 
 _PUBLIC_MODULES: dict[str, ModuleType] = {
     "gummysnake": gs,
@@ -45,7 +50,7 @@ _EXPECTED_FINGERPRINTS = {
     "gummysnake.ecs": {
         "count": 53,
         "exports": "405a671c7a32ba7120bf1a8df627ba7cd634ac920b315dde797576aa852d796c",
-        "surface": "8ee1844e1db403c2db41bbc73867770cbbb4c3aa9891a4ba44abf2f2c8ab9184",
+        "surface": "2997adfa0d7bd0d4ea9a7a165b351d2e2beb2a0b6a95462dc11e33a9c3f28273",
     },
     "gummysnake.synth": {
         "count": 60,
@@ -123,6 +128,19 @@ def test_global_mode_exports_are_top_level_identity_aliases() -> None:
 def test_supported_compatibility_modules_remain_importable() -> None:
     for module_name in _COMPATIBILITY_MODULES:
         assert importlib.import_module(module_name).__name__ == module_name
+
+
+def test_split_synth_and_three_d_facades_preserve_public_object_identity() -> None:
+    assert synth.__all__ == synth_core.__all__
+    for name in synth.__all__:
+        assert getattr(synth, name) is getattr(synth_core, name), name
+
+    implementation_modules = (three_d_camera, three_d_lighting, three_d_materials)
+    for name in three_d.__all__:
+        public_value = getattr(three_d, name)
+        assert any(
+            getattr(module, name, None) is public_value for module in implementation_modules
+        ), name
 
 
 def test_relocated_public_class_metadata_is_explicitly_frozen() -> None:

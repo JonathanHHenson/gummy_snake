@@ -12,8 +12,10 @@ from tests.helpers.synth_tracks_fixtures import (
     _wav_duration,
     cast,
     gs,
+    patch_synth_runtime,
     sy,
-    synth_core,
+    synth_foundation,
+    synth_rendering,
 )
 
 
@@ -30,14 +32,14 @@ def test_track_builds_logical_and_physical_plan() -> None:
     assert [layer["wave"] for layer in layers] == ["saw", "saw"]
     assert [layer["transpose"] for layer in layers] == [0.0, 0.1]
     assert len(physical.controls) == 1
-    payload = synth_core._event_payloads(physical)[0]
+    payload = synth_rendering._event_payloads(physical)[0]
     assert payload["controls"] == [{"time_seconds": 0.125, "opts": {"note": "b2", "pan": 0.25}}]
     assert physical.duration_seconds == 0.5
 
 
 def test_track_renders_to_wav_sound_and_file(tmp_path: Path, monkeypatch) -> None:
     runtime = _FakeSynthRuntime()
-    monkeypatch.setattr(synth_core, "_require_synth_runtime", lambda: runtime)
+    patch_synth_runtime(monkeypatch, runtime)
     track = _beat_loop()
     output = tmp_path / "beat.wav"
 
@@ -59,12 +61,12 @@ def test_track_renders_to_wav_sound_and_file(tmp_path: Path, monkeypatch) -> Non
 def test_builtin_sonic_pi_samples_are_packaged_and_serialized_as_paths() -> None:
     track = _beat_loop()
     plan = track.physical_plan(duration=0.5)
-    payloads = synth_core._event_payloads(plan)
+    payloads = synth_rendering._event_payloads(plan)
     sample_values = [payload["value"] for payload in payloads if payload["kind"] == "sample"]
 
-    assert (synth_core._BUILTIN_SAMPLE_PACKAGE_DIR / "README.md").exists()
-    assert (synth_core._BUILTIN_SAMPLE_PACKAGE_DIR / "loop_amen.flac").exists()
-    assert len(list(synth_core._BUILTIN_SAMPLE_PACKAGE_DIR.glob("*.flac"))) >= 200
+    assert (synth_foundation._BUILTIN_SAMPLE_PACKAGE_DIR / "README.md").exists()
+    assert (synth_foundation._BUILTIN_SAMPLE_PACKAGE_DIR / "loop_amen.flac").exists()
+    assert len(list(synth_foundation._BUILTIN_SAMPLE_PACKAGE_DIR.glob("*.flac"))) >= 200
     assert any(str(value).endswith("drum_heavy_kick.flac") for value in sample_values)
     assert any(str(value).endswith("loop_amen.flac") for value in sample_values)
 
@@ -78,12 +80,12 @@ def test_rust_renderer_decodes_packaged_flac_samples() -> None:
 
 def test_serialized_plan_render_resolves_packaged_sample_names() -> None:
     plan = _packaged_sample_track().physical_plan(duration=0.1)
-    runtime = synth_core._require_synth_runtime()
+    runtime = synth_rendering._require_synth_runtime()
 
     serialized_payload = bytes(runtime.synth_render_serialized_plan_wav(plan.to_bytes(), 44_100))
     legacy_payload = bytes(
         runtime.synth_render_plan_wav(
-            synth_core._event_payloads(plan),
+            synth_rendering._event_payloads(plan),
             plan.duration_seconds,
             44_100,
         )
@@ -111,7 +113,7 @@ def test_track_save_gss_serializes_physical_plan(tmp_path: Path) -> None:
     loaded_from_bytes = sy.PhysicalPlan.from_bytes(output.read_bytes())
 
     assert saved == output
-    assert output.read_bytes().startswith(synth_core._GSS_MAGIC)
+    assert output.read_bytes().startswith(synth_foundation._GSS_MAGIC)
     assert len(loaded.events) == 2
     assert loaded.duration_seconds == 0.5
     assert [event.value for event in loaded.events] == [60, 64]
@@ -125,14 +127,14 @@ def test_track_save_gsfx_serializes_fx_physical_plan(tmp_path: Path) -> None:
     loaded = sy.load_physical_plan(output)
 
     assert saved == output
-    assert output.read_bytes().startswith(synth_core._GSS_MAGIC)
+    assert output.read_bytes().startswith(synth_foundation._GSS_MAGIC)
     assert output.suffix == ".gsfx"
     assert len(loaded.events) == 1
 
 
 def test_fx_decorator_expands_source_definition_to_generic_chain() -> None:
     physical = _source_fx_track().physical_plan(duration=0.05)
-    payload = synth_core._event_payloads(physical)[0]
+    payload = synth_rendering._event_payloads(physical)[0]
     fx_chain = cast(list[dict[str, object]], payload["fx_chain"])
     fx_payload = fx_chain[0]
     fx_opts = cast(dict[str, object], fx_payload["opts"])
@@ -153,7 +155,7 @@ def test_same_time_fx_controls_follow_source_order() -> None:
             sy.control(reverb, mix=0.8)
             sy.play(60, release=0.01, amp=0.1)
 
-    payloads = synth_core._event_payloads(_track().physical_plan(duration=0.1))
+    payloads = synth_rendering._event_payloads(_track().physical_plan(duration=0.1))
     first_fx = cast(list[dict[str, object]], payloads[0]["fx_chain"])[0]
     second_fx = cast(list[dict[str, object]], payloads[1]["fx_chain"])[0]
 

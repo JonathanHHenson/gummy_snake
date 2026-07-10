@@ -54,11 +54,8 @@ from gummysnake.synth.synth_runtime.pattern_helpers import (
     tick,
 )
 from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
-from gummysnake.synth.synth_runtime.playback import TrackPlayback, _event_time_groups
-from gummysnake.synth.synth_runtime.rendering import _event_payloads, _require_synth_runtime
+from gummysnake.synth.synth_runtime.playback import TrackPlayback
 from gummysnake.synth.synth_runtime.runtime_foundation import (
-    _BUILTIN_SAMPLE_PACKAGE_DIR,
-    _GSS_MAGIC,
     Duration,
     Format,
     SynthPlanError,
@@ -143,9 +140,4 @@ __all__ = [
     "track",
     "use_synth",
     "when",
-    "_BUILTIN_SAMPLE_PACKAGE_DIR",
-    "_GSS_MAGIC",
-    "_event_payloads",
-    "_event_time_groups",
-    "_require_synth_runtime",
 ]

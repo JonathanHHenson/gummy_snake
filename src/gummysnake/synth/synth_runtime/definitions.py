@@ -5,11 +5,12 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.builder_context import (
-    FxContext,
-    SynthContext,
     _CURRENT_BUILDER,
     _FX_DEFINITION_CAPTURE,
+    FxContext,
+    SynthContext,
     _next_node_id,
 )
 from gummysnake.synth.synth_runtime.event_api import (
@@ -22,19 +23,18 @@ from gummysnake.synth.synth_runtime.event_api import (
 )
 from gummysnake.synth.synth_runtime.logical_nodes import CallNode, TrackPlan
 from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
-from gummysnake.synth.synth_runtime.runtime_foundation import Duration, SynthPlanError, _SAMPLE_RATE
+from gummysnake.synth.synth_runtime.runtime_foundation import _SAMPLE_RATE, Duration, SynthPlanError
 from gummysnake.synth.synth_runtime.scales_and_specs import (
-    FxHandle,
     _FX_DEFINITIONS,
     _FX_EXPANSION_STACK,
     _SYNTH_DEFINITIONS,
     _SYNTH_EXPANSION_STACK,
+    FxHandle,
 )
 from gummysnake.synth.synth_runtime.track import Track
-from gummysnake.exceptions import ArgumentValidationError
 
 if TYPE_CHECKING:
-    from gummysnake.synth.synth_runtime.plan_builder import PlanBuilder
+    pass
 
 type _TrackFunction = Callable[..., object]
 type _SynthFunction = Callable[..., object]

@@ -12,7 +12,9 @@ from gummysnake.synth.synth_runtime.builder_context import (
     _next_node_id,
     _remap_compiled_fx_chain,
 )
+from gummysnake.synth.synth_runtime.definitions import SynthDefinition
 from gummysnake.synth.synth_runtime.event_api import (
+    CompiledSynthDefinition,
     _event_node_paths,
     _expand_fx_handle,
     _lookup_synth_definition,
@@ -29,12 +31,11 @@ from gummysnake.synth.synth_runtime.logical_nodes import (
     SleepNode,
     ThreadNode,
 )
-from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
 from gummysnake.synth.synth_runtime.runtime_foundation import SynthPlanError
 from gummysnake.synth.synth_runtime.scales_and_specs import (
+    _SYNTH_EXPANSION_STACK,
     FxHandle,
     SynthSpec,
-    _SYNTH_EXPANSION_STACK,
 )
 from gummysnake.synth.synth_runtime.serialization import (
     _scheduled_control_from_dict,
@@ -42,8 +43,6 @@ from gummysnake.synth.synth_runtime.serialization import (
     _scheduled_event_from_dict,
     _scheduled_event_to_dict,
 )
-from gummysnake.synth.synth_runtime.event_api import CompiledSynthDefinition
-from gummysnake.synth.synth_runtime.definitions import SynthDefinition
 
 
 class PlanBuilder:

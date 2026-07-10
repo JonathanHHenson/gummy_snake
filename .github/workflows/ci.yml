@@ -42,10 +42,14 @@ jobs:
             pkg-config
       - run: uv sync --dev --no-install-project
       - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
-      - run: cargo test --manifest-path crates/gummy_ecs/Cargo.toml
+      - name: Test all Rust workspace crates
+        run: cargo test --workspace
       - run: uv run ruff check .
       - run: uv run mypy src
-      - run: uv run python scripts/bump_version.py --check
+      - name: Check workspace version synchronization
+        run: uv run python scripts/bump_version.py --check
+      - name: Check compiled synth and FX asset freshness
+        run: uv run python scripts/compile_synth_assets.py --check
       - run: uv run pytest
       - run: uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 
@@ -123,29 +127,8 @@ jobs:
             mesa-vulkan-drivers \
             pkg-config
       - run: uv build
-      - name: Verify sdist includes Rust ECS crate
-        run: |
-          python - <<'PY'
-          import tarfile
-          from pathlib import Path
-
-          sdist = next(Path("dist").glob("gummy_snake-*.tar.gz"))
-          with tarfile.open(sdist) as archive:
-              names = set(archive.getnames())
-          required_suffixes = [
-              "crates/gummy_ecs/Cargo.toml",
-              "crates/gummy_ecs/src/lib.rs",
-              "crates/gummy_ecs/src/world.rs",
-              "crates/gummy_ecs/src/execution.rs",
-              "crates/gummy_ecs/src/spatial.rs",
-          ]
-          missing = [
-              suffix for suffix in required_suffixes if not any(name.endswith(suffix) for name in names)
-          ]
-          if missing:
-              raise SystemExit(f"sdist {sdist} is missing ECS crate files: {missing}")
-          print(f"{sdist} contains the Rust ECS crate.")
-          PY
+      - name: Verify source-distribution contract
+        run: uv run python scripts/verify_distribution.py dist/gummy_snake-*.tar.gz
 
   build-rust:
     runs-on: ubuntu-latest
@@ -177,10 +160,20 @@ jobs:
             mesa-vulkan-drivers \
             pkg-config
       - run: uv sync --dev --no-install-project
-      - run: uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --features extension-module
-      - run: cargo test --manifest-path crates/gummy_ecs/Cargo.toml
-      - run: cargo test --manifest-path crates/gummy_canvas/Cargo.toml
-      - run: uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
+      - name: Test all Rust workspace crates
+        run: cargo test --workspace
+      - name: Build optional acceleration wheel
+        run: |
+          mkdir -p dist/accelerated
+          uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --features extension-module --out dist/accelerated
+      - name: Add typed acceleration interface to wheel
+        run: uv run python scripts/package_acceleration_wheel.py dist/accelerated/*.whl
+      - name: Build publishable canvas wheel
+        run: |
+          mkdir -p dist/canvas
+          uv build --wheel --out-dir dist/canvas
+      - name: Verify native stubs and isolated installed-wheel contract
+        run: uv run python scripts/verify_distribution.py --wheel dist/canvas/*.whl --accelerated-wheel dist/accelerated/*.whl
 
   canvas-runtime-python:
     runs-on: ubuntu-latest

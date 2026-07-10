@@ -5,7 +5,7 @@ import contextlib
 import random as _random
 from collections.abc import Iterator, Mapping, Sequence
 from contextvars import ContextVar
-from typing import Any, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.expressions import (
@@ -29,9 +29,9 @@ from gummysnake.synth.synth_runtime.logical_nodes import (
 )
 from gummysnake.synth.synth_runtime.runtime_foundation import EvalContext, SynthPlanError, _as_float
 from gummysnake.synth.synth_runtime.scales_and_specs import (
+    _FX_DEFINITION_CAPTURE,
     FxHandle,
     SynthSpec,
-    _FX_DEFINITION_CAPTURE,
 )
 
 if TYPE_CHECKING:

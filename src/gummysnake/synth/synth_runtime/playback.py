@@ -5,7 +5,7 @@ import contextvars
 import threading
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -18,12 +18,12 @@ from gummysnake.synth.synth_runtime.logical_nodes import (
     TrackPlan,
 )
 from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
-from gummysnake.synth.synth_runtime.runtime_foundation import SynthPlanError, _SAMPLE_RATE
 from gummysnake.synth.synth_runtime.rendering import (
     _expand_physical_plan,
     _render_physical_plan,
     _require_synth_runtime,
 )
+from gummysnake.synth.synth_runtime.runtime_foundation import _SAMPLE_RATE, SynthPlanError
 from gummysnake.synth.synth_runtime.samples_and_export import _wav_duration_seconds
 from gummysnake.synth.synth_runtime.serialization import _control_lookup, _render_event_sound
 

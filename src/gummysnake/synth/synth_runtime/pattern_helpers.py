@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import Any, overload, cast
+from typing import Any, cast, overload
 
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.expressions import ChoiceExpression, RandomExpression
@@ -10,8 +10,8 @@ from gummysnake.synth.synth_runtime.lazy_values import (
     MusicExpression,
     Ring,
     TickExpression,
-    ensure_expr,
     _source_bound_expression,
+    ensure_expr,
 )
 
 

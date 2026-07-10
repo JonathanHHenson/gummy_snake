@@ -9,7 +9,7 @@ import wave
 from collections.abc import Mapping
 from pathlib import Path
 
-from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.synth.synth_runtime.runtime_foundation import Format, _as_float
 
 _BUILTIN_SAMPLE_DURATIONS = {

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import builtins
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.lazy_values import (

@@ -22,6 +22,7 @@ IGNORED_PARTS = {
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
+    ".venv",
     "__pycache__",
     "build",
     "dist",
@@ -42,7 +43,7 @@ EXPECTED_GENERATED_IGNORE_ENTRIES = frozenset(
     }
 )
 CACHE_DIRECTORY_NAMES = frozenset(
-    {"__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".cache"}
+    {"__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".cache", ".venv"}
 )
 ROOT_GENERATED_DIRECTORY_NAMES = frozenset({"build", "dist", "target", "htmlcov", "cover"})
 COMPILED_ARTIFACT_SUFFIXES = frozenset({".pyc", ".pyo", ".so", ".dylib", ".dll", ".pyd"})
