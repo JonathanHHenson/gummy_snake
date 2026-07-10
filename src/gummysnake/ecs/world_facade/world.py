@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import fields, is_dataclass
-from typing import TYPE_CHECKING, Any, TypeVar, get_type_hints
+from typing import TYPE_CHECKING, Any, TypeVar
 
-from gummysnake.ecs.action_model.plan_nodes import Action, UdfArgument
+from gummysnake.ecs.action_model.nodes import Action, UdfArgument
 from gummysnake.ecs.expressions import Expression, FieldExpression, QueryProxy
 from gummysnake.ecs.runtime_views import (
     Entity,
@@ -15,18 +14,18 @@ from gummysnake.ecs.runtime_views import (
     _SystemSetConfig,
 )
 from gummysnake.ecs.scheduling_helpers import sorted_scheduled_systems, validate_group_name
-from gummysnake.ecs.schema_helpers import _schema_name, _storage_type_for, _validate_storage_value
-from gummysnake.ecs.specs import QuerySpec
+from gummysnake.ecs.schema_helpers import _schema_name
+from gummysnake.ecs.specifications import QuerySpec
 from gummysnake.ecs.system_model.definitions import SystemDefinition
 from gummysnake.ecs.types import StorageType
+from gummysnake.ecs.world_facade import initialization, schema_validation
 from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsStoredValue, EcsTag
 from gummysnake.ecs.world_runtime import entities as entity_runtime
 from gummysnake.ecs.world_runtime import query as query_runtime
 from gummysnake.ecs.world_runtime import resources as resource_runtime
 from gummysnake.ecs.world_runtime import state as state_runtime
 from gummysnake.ecs.world_runtime import systems as system_runtime
-from gummysnake.exceptions import ComponentSchemaError
-from gummysnake.rust.ecs import create_ecs_world
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.context import SketchContext
@@ -38,34 +37,37 @@ ResourceT = TypeVar("ResourceT")
 class EcsWorld:
     """Deterministic ECS world owned by one ``SketchContext``."""
 
+    if TYPE_CHECKING:
+        context: SketchContext | None
+        _world_id: int
+        _rust: Any
+        _systems: list[_ScheduledSystem]
+        _system_sets: dict[str, _SystemSetConfig]
+        _group_orders: list[tuple[str, ...]]
+        _next_system_id: int
+        strict: bool
+        warn_on_ambiguity: bool
+        _diagnostics: Counter[str]
+        _messages: list[str]
+        _schemas: dict[type[Any], dict[str, StorageType]]
+        _spatial_epoch: int
+        _spatial_index_cache: dict[object, object]
+        _spatial_relation_cache: dict[object, object]
+        _spatial_aggregate_cache: dict[object, object]
+        _expression_eval_cache: dict[object, object]
+        _defer_spatial_invalidation: bool
+        _spatial_invalidated_deferred: bool
+        _ecs_frame: int
+        _added_components: set[tuple[int, int, type[Any]]]
+        _changed_components: set[tuple[int, int, type[Any]]]
+        _removed_components: set[tuple[int, int, type[Any]]]
+        _events: dict[type[Any], list[tuple[int, object]]]
+        _event_types: dict[str, type[Any]]
+        _has_change_filtered_systems_cache: bool | None
+        _active_python_access_batch: Any | None
+
     def __init__(self, context: SketchContext | None = None) -> None:
-        self.context = context
-        self._world_id = id(self)
-        self._rust = create_ecs_world()
-        self._systems: list[_ScheduledSystem] = []
-        self._system_sets: dict[str, _SystemSetConfig] = {}
-        self._group_orders: list[tuple[str, ...]] = []
-        self._next_system_id = 1
-        self.strict = False
-        self.warn_on_ambiguity = True
-        self._diagnostics: Counter[str] = Counter()
-        self._messages: list[str] = []
-        self._schemas: dict[type[Any], dict[str, StorageType]] = {}
-        self._spatial_epoch = 0
-        self._spatial_index_cache: dict[object, object] = {}
-        self._spatial_relation_cache: dict[object, object] = {}
-        self._spatial_aggregate_cache: dict[object, object] = {}
-        self._expression_eval_cache: dict[object, object] = {}
-        self._defer_spatial_invalidation = False
-        self._spatial_invalidated_deferred = False
-        self._ecs_frame = 0
-        self._added_components: set[tuple[int, int, type[Any]]] = set()
-        self._changed_components: set[tuple[int, int, type[Any]]] = set()
-        self._removed_components: set[tuple[int, int, type[Any]]] = set()
-        self._events: dict[type[Any], list[tuple[int, object]]] = {}
-        self._event_types: dict[str, type[Any]] = {}
-        self._has_change_filtered_systems_cache: bool | None = None
-        self._active_python_access_batch: Any | None = None
+        initialization.initialize_world(self, context)
 
     # -------------------------------------------------------------- diagnostics
     def configure(
@@ -174,51 +176,12 @@ class EcsWorld:
             Mapping from dataclass field names to Rust storage types.
         """
 
-        cached = self._schemas.get(component_type)
-        if cached is not None:
-            return cached
-        if not is_dataclass(component_type):
-            raise ComponentSchemaError(
-                f"ECS components/resources must be dataclasses; got {component_type!r}."
-            )
-        hints = get_type_hints(component_type, include_extras=True)
-        schema: dict[str, StorageType] = {}
-        for field in fields(component_type):
-            annotation = hints.get(field.name, field.type)
-            schema[field.name] = _storage_type_for(annotation, component_type, field.name)
-        try:
-            self._rust.register_schema(
-                _schema_name(component_type),
-                [(field_name, storage_type.name) for field_name, storage_type in schema.items()],
-            )
-        except ValueError as exc:
-            if "unknown ECS storage type" not in str(exc):
-                raise
-            # Older editable builds may expose the ECS ABI before vector/list markers were added.
-            # Keep Python-side schema validation functional; a rebuilt Rust bridge records the
-            # exact storage names.
-            self._diagnostics["ecs_rust_schema_registration_fallbacks"] += 1
-        self._schemas[component_type] = schema
-        self._diagnostics["ecs_component_schemas_total"] = len(self._schemas)
-        self._diagnostics["ecs_rust_component_schemas_total"] = self._rust.schema_count()
-        return schema
+        return schema_validation.validate_schema(self, component_type)
 
     def _validate_value(
         self, value: DataclassInstance, expected_type: type[Any] | None = None
     ) -> None:
-        component_type = expected_type or type(value)
-        self.validate_schema(component_type)
-        if not is_dataclass(value):
-            raise ComponentSchemaError(
-                f"ECS component values must be dataclass instances: {value!r}."
-            )
-        if type(value) is not component_type:
-            raise ComponentSchemaError(
-                f"Expected {component_type.__name__}, got {type(value).__name__}."
-            )
-        for field_name, storage_type in self._schemas[component_type].items():
-            raw = getattr(value, field_name)
-            _validate_storage_value(component_type, field_name, raw, storage_type)
+        schema_validation.validate_value(self, value, expected_type)
 
     # ---------------------------------------------------------------- entities
     def add_entity(self, *components: DataclassInstance, tags: Iterable[EcsTag] = ()) -> Entity:

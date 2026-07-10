@@ -18,6 +18,22 @@ from tests.helpers.ecs_fixtures import (
 )
 
 
+def test_logical_plan_compatibility_exports_preserve_identities() -> None:
+    from gummysnake.ecs import actions, expressions
+    from gummysnake.ecs.action_model.nodes import Action as LegacyAction
+    from gummysnake.ecs.action_tools.plan_building import build_session as legacy_build_session
+    from gummysnake.ecs.expressions.core import Expression as LegacyExpression
+    from gummysnake.ecs.logical_plan.actions import Action as LogicalAction
+    from gummysnake.ecs.logical_plan.building import build_session as logical_build_session
+    from gummysnake.ecs.logical_plan.expressions import Expression as LogicalExpression
+    from gummysnake.ecs.specifications import QuerySpec as CompatibilityQuerySpec
+
+    assert ecs.Action is actions.Action is LegacyAction is LogicalAction
+    assert ecs.Expression is expressions.Expression is LegacyExpression is LogicalExpression
+    assert actions.build_session is legacy_build_session is logical_build_session
+    assert ecs.Query[Position].__class__ is CompatibilityQuerySpec
+
+
 def test_rust_udf_expands_to_physical_expression_plan() -> None:
     world = EcsWorld()
     world.add_entity(Position(3, 0))
@@ -87,7 +103,7 @@ def test_system_must_return_action_not_plan() -> None:
 
     @ecs.system_plan
     def bad() -> ecs.Action:
-        return ecs.do_in_order().plan()  # type: ignore[return-value]
+        return cast(ecs.Action, ecs.do_in_order().plan())
 
     with pytest.raises(SystemPlanError, match="returned SystemPlan"):
         world.add_system(bad)

@@ -6,13 +6,13 @@ from typing import Any, cast, overload
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.expressions import ChoiceExpression, RandomExpression
 from gummysnake.synth.synth_runtime.lazy_values import (
-    Expression,
     MusicExpression,
     Ring,
     TickExpression,
     _source_bound_expression,
     ensure_expr,
 )
+from gummysnake.synth.synth_runtime.runtime_foundation import Expression
 
 
 def range(start: float, stop: float | None = None, *, step: float = 1.0) -> Ring:  # noqa: A001

@@ -1,8 +1,8 @@
-"""ECS system model compatibility module."""
+"""Public decorators and definitions for ECS systems."""
 
 from __future__ import annotations
 
-from gummysnake.ecs.system_model import (
+from gummysnake.ecs.logical_plan.systems import (
     BuiltSystem,
     PlanBuiltSystem,
     RuntimeBuiltSystem,

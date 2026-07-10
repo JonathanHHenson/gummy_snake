@@ -1,8 +1,8 @@
-"""Implementation chunks for :mod:`gummysnake.ecs.action_tools.building`."""
+"""Compatibility namespace for logical-plan build-session helpers."""
 
 from __future__ import annotations
 
-from .session import (
+from gummysnake.ecs.logical_plan.building import (
     ForEachSource,
     _BlockContext,
     _BranchContext,

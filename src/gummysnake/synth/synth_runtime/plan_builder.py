@@ -20,7 +20,7 @@ from gummysnake.synth.synth_runtime.event_api import (
     _lookup_synth_definition,
 )
 from gummysnake.synth.synth_runtime.expressions import SourceBoundExpression
-from gummysnake.synth.synth_runtime.lazy_values import Expression, _expression_repeat_depth
+from gummysnake.synth.synth_runtime.lazy_values import _expression_repeat_depth
 from gummysnake.synth.synth_runtime.logical_nodes import (
     BindNode,
     ControlNode,
@@ -31,7 +31,7 @@ from gummysnake.synth.synth_runtime.logical_nodes import (
     SleepNode,
     ThreadNode,
 )
-from gummysnake.synth.synth_runtime.runtime_foundation import SynthPlanError
+from gummysnake.synth.synth_runtime.runtime_foundation import Expression, SynthPlanError
 from gummysnake.synth.synth_runtime.scales_and_specs import (
     _SYNTH_EXPANSION_STACK,
     FxHandle,

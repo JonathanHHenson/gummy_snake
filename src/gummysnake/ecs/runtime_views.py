@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from gummysnake.ecs.runtime_view_model.component_resource_views import ComponentView, ResourceView
-from gummysnake.ecs.runtime_view_model.entity_mutation import (
+from gummysnake.ecs.runtime_view_model import (
+    ComponentView,
     Entity,
     EntityAnnotation,
     EntityMutation,
-    MutEntity,
-    _copy_stored_value,
-)
-from gummysnake.ecs.runtime_view_model.runtime_handles import (
     EntityView,
+    MutEntity,
+    ResourceView,
     SystemHandle,
+    _copy_stored_value,
     _RuntimeEventWriter,
     _ScheduledSystem,
     _SystemSetConfig,

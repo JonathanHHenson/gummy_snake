@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import suppress
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.actions import Action
@@ -138,54 +138,119 @@ def run_physical_systems_batch(world: EcsWorld, scheduled_systems: list[_Schedul
     """Execute several scheduled Rust ECS systems through one bridge call when safe."""
 
     if len(scheduled_systems) <= 1:
-        for scheduled in scheduled_systems:
-            run_physical_system(world, scheduled)
+        _run_physical_systems_individually(world, scheduled_systems)
         return
     try:
-        handles: list[int] = []
-        warm_reports: list[dict[str, Any] | None] = []
-        schema_fingerprint = world._rust.schema_fingerprint()
-        for scheduled in scheduled_systems:
-            built = require_plan_built(scheduled)
-            needs_recompile = (
-                scheduled.physical_plan_handle is None
-                or scheduled.physical_schema_fingerprint != schema_fingerprint
-                or scheduled.physical_payload_dynamic
-            )
-            if needs_recompile:
-                set_physical_payload(scheduled, build_and_compile_payload(world, scheduled, built))
-            if scheduled.physical_has_input_state or scheduled.physical_payload_dynamic:
-                for fallback in scheduled_systems:
-                    run_physical_system(world, fallback)
-                return
-            if scheduled.physical_plan_handle is None:
-                raise SystemPlanError(
-                    f"ECS system {scheduled.handle.name!r} did not produce a Rust plan handle."
-                )
-            handles.append(scheduled.physical_plan_handle)
-            warm_reports.append(scheduled.physical_warm_report)
-        include_writes = world._has_change_filtered_systems()
-        if any(
-            _contains_canvas_action(scheduled.built.plan.action) for scheduled in scheduled_systems
-        ):
-            reports = execute_compiled_plans_to_canvas(world, handles, include_writes)
-        else:
-            execute_sequential = getattr(world._rust, "execute_compiled_plans_sequential", None)
-            if not callable(execute_sequential):
-                for scheduled in scheduled_systems:
-                    run_physical_system(world, scheduled)
-                return
-            reports = cast(list[dict[str, Any]], execute_sequential(handles, include_writes))
+        prepared = _prepare_physical_batch(world, scheduled_systems)
+        if prepared is None:
+            _run_physical_systems_individually(world, scheduled_systems)
+            return
+        reports = _execute_physical_batch(world, scheduled_systems, prepared.handles)
+        if reports is None:
+            _run_physical_systems_individually(world, scheduled_systems)
+            return
     except (AttributeError, ValueError) as exc:
-        for scheduled in scheduled_systems:
-            scheduled.physical_payload = None
-            scheduled.physical_plan_handle = None
-            scheduled.physical_warm_report = None
+        _clear_batch_execution_state(scheduled_systems)
         world._diagnostics["ecs_physical_execution_errors"] += 1
         names = ", ".join(scheduled.handle.name for scheduled in scheduled_systems)
         raise SystemExecutionError(
             f"ECS systems {names!r} could not execute in Rust ECS batch: {exc}"
         ) from exc
+    _record_physical_batch_reports(world, scheduled_systems, reports, prepared.warm_reports)
+
+
+@dataclass(frozen=True)
+class _PreparedPhysicalBatch:
+    """Compiled Rust handles and warm reports for a compatible schedule phase."""
+
+    handles: list[int]
+    warm_reports: list[dict[str, Any] | None]
+
+
+def _run_physical_systems_individually(
+    world: EcsWorld, scheduled_systems: list[_ScheduledSystem]
+) -> None:
+    for scheduled in scheduled_systems:
+        run_physical_system(world, scheduled)
+
+
+def _prepare_physical_batch(
+    world: EcsWorld, scheduled_systems: list[_ScheduledSystem]
+) -> _PreparedPhysicalBatch | None:
+    schema_fingerprint = world._rust.schema_fingerprint()
+    handles: list[int] = []
+    warm_reports: list[dict[str, Any] | None] = []
+    for scheduled in scheduled_systems:
+        if _refresh_scheduled_batch_plan(world, scheduled, schema_fingerprint):
+            return None
+        handle = _required_physical_plan_handle(scheduled)
+        handles.append(handle)
+        warm_reports.append(scheduled.physical_warm_report)
+    return _PreparedPhysicalBatch(handles, warm_reports)
+
+
+def _refresh_scheduled_batch_plan(
+    world: EcsWorld, scheduled: _ScheduledSystem, schema_fingerprint: int
+) -> bool:
+    built = require_plan_built(scheduled)
+    if _needs_physical_recompile(scheduled, schema_fingerprint):
+        set_physical_payload(scheduled, build_and_compile_payload(world, scheduled, built))
+    return scheduled.physical_has_input_state or scheduled.physical_payload_dynamic
+
+
+def _needs_physical_recompile(scheduled: _ScheduledSystem, schema_fingerprint: int) -> bool:
+    return (
+        scheduled.physical_plan_handle is None
+        or scheduled.physical_schema_fingerprint != schema_fingerprint
+        or scheduled.physical_payload_dynamic
+    )
+
+
+def _required_physical_plan_handle(scheduled: _ScheduledSystem) -> int:
+    if scheduled.physical_plan_handle is None:
+        raise SystemPlanError(
+            f"ECS system {scheduled.handle.name!r} did not produce a Rust plan handle."
+        )
+    return scheduled.physical_plan_handle
+
+
+def _execute_physical_batch(
+    world: EcsWorld, scheduled_systems: list[_ScheduledSystem], handles: list[int]
+) -> list[dict[str, Any]] | None:
+    include_writes = world._has_change_filtered_systems()
+    if _batch_contains_canvas_actions(scheduled_systems):
+        return execute_compiled_plans_to_canvas(world, handles, include_writes)
+    return _execute_non_canvas_batch(world, handles, include_writes)
+
+
+def _batch_contains_canvas_actions(scheduled_systems: list[_ScheduledSystem]) -> bool:
+    return any(
+        _contains_canvas_action(scheduled.built.plan.action) for scheduled in scheduled_systems
+    )
+
+
+def _execute_non_canvas_batch(
+    world: EcsWorld, handles: list[int], include_writes: bool
+) -> list[dict[str, Any]] | None:
+    execute_sequential = getattr(world._rust, "execute_compiled_plans_sequential", None)
+    if not callable(execute_sequential):
+        return None
+    return cast(list[dict[str, Any]], execute_sequential(handles, include_writes))
+
+
+def _clear_batch_execution_state(scheduled_systems: list[_ScheduledSystem]) -> None:
+    for scheduled in scheduled_systems:
+        scheduled.physical_payload = None
+        scheduled.physical_plan_handle = None
+        scheduled.physical_warm_report = None
+
+
+def _record_physical_batch_reports(
+    world: EcsWorld,
+    scheduled_systems: list[_ScheduledSystem],
+    reports: list[dict[str, Any]],
+    warm_reports: list[dict[str, Any] | None],
+) -> None:
     for scheduled, report, warm_report in zip(
         scheduled_systems, reports, warm_reports, strict=True
     ):

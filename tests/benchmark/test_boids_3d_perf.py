@@ -177,7 +177,7 @@ CHILD_CODE = textwrap.dedent(
             state["start"] = time.perf_counter()
 
         def draw() -> None:
-            boids.draw()
+            boids.draw.function()
             if boids.gs.frame_count() == frames - 1:
                 state["metrics"] = _renderer_counters()
                 state["ecs_metrics"] = boids.gs.ecs_diagnostics()

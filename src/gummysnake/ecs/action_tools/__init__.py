@@ -1,1 +1,3 @@
-"""Internal helpers for ECS action trees."""
+"""Compatibility namespace for logical-plan building and inspection helpers."""
+
+from __future__ import annotations

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.builder_context import (
     _CURRENT_BUILDER,
-    _FX_DEFINITION_CAPTURE,
     FxContext,
     SynthContext,
     _next_node_id,
@@ -25,6 +24,7 @@ from gummysnake.synth.synth_runtime.logical_nodes import CallNode, TrackPlan
 from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
 from gummysnake.synth.synth_runtime.runtime_foundation import _SAMPLE_RATE, Duration, SynthPlanError
 from gummysnake.synth.synth_runtime.scales_and_specs import (
+    _FX_DEFINITION_CAPTURE,
     _FX_DEFINITIONS,
     _FX_EXPANSION_STACK,
     _SYNTH_DEFINITIONS,

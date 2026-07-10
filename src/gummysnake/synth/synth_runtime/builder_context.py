@@ -15,7 +15,6 @@ from gummysnake.synth.synth_runtime.expressions import (
     SourceBoundExpression,
 )
 from gummysnake.synth.synth_runtime.lazy_values import (
-    Expression,
     SampleDurationExpression,
     TickExpression,
     resolve_value,
@@ -27,7 +26,12 @@ from gummysnake.synth.synth_runtime.logical_nodes import (
     PlanNode,
     SleepNode,
 )
-from gummysnake.synth.synth_runtime.runtime_foundation import EvalContext, SynthPlanError, _as_float
+from gummysnake.synth.synth_runtime.runtime_foundation import (
+    EvalContext,
+    Expression,
+    SynthPlanError,
+    _as_float,
+)
 from gummysnake.synth.synth_runtime.scales_and_specs import (
     _FX_DEFINITION_CAPTURE,
     FxHandle,

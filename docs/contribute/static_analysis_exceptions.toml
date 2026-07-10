@@ -198,27 +198,11 @@ owner = "Matrix transformation state"
 reason = "The cached tuple conversion preserves the public numeric tuple API."
 checks = ["uv run pytest tests/unit/test_color_transform.py"]
 
-[[inline_suppressions]]
-path = "src/gummysnake/ecs/action_model/entity_actions.py"
-line = 23
-tool = "noqa"
-codes = ["E402"]
-owner = "ECS action compatibility exports"
-reason = "Late imports preserve the action-model compatibility surface."
-checks = ["uv run pytest tests/unit/test_ecs_plans.py"]
+
 
 [[inline_suppressions]]
-path = "src/gummysnake/ecs/action_model/entity_actions.py"
-line = 157
-tool = "noqa"
-codes = ["E402"]
-owner = "ECS action compatibility exports"
-reason = "Late imports preserve the action-model compatibility surface."
-checks = ["uv run pytest tests/unit/test_ecs_plans.py"]
-
-[[inline_suppressions]]
-path = "src/gummysnake/ecs/expressions/core.py"
-line = 112
+path = "src/gummysnake/ecs/logical_plan/expressions/core.py"
+line = 113
 tool = "type"
 codes = ["override"]
 owner = "ECS expression operators"
@@ -226,8 +210,8 @@ reason = "Expression equality intentionally returns a lazy expression rather tha
 checks = ["uv run pytest tests/unit/test_ecs_plans.py"]
 
 [[inline_suppressions]]
-path = "src/gummysnake/ecs/expressions/core.py"
-line = 115
+path = "src/gummysnake/ecs/logical_plan/expressions/core.py"
+line = 116
 tool = "type"
 codes = ["override"]
 owner = "ECS expression operators"
@@ -351,14 +335,7 @@ owner = "Drawing integration tests"
 reason = "The sampled fixed-width RGBA slice is asserted as a tuple."
 checks = ["uv run pytest tests/integration/test_drawing.py"]
 
-[[inline_suppressions]]
-path = "tests/unit/test_ecs_plans.py"
-line = 90
-tool = "type"
-codes = ["return-value"]
-owner = "ECS plan validation test"
-reason = "The test deliberately returns the invalid plan shape being rejected."
-checks = ["uv run pytest tests/unit/test_ecs_plans.py"]
+
 
 [[inline_suppressions]]
 path = "tests/unit/test_input_events.py"

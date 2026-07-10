@@ -14,7 +14,8 @@ from gummysnake.synth.synth_runtime.builder_context import (
 )
 from gummysnake.synth.synth_runtime.definitions import FxDefinition, SynthDefinition
 from gummysnake.synth.synth_runtime.event_api import _FxFunction, _SynthFunction, play, sample
-from gummysnake.synth.synth_runtime.lazy_values import Expression, ensure_expr
+from gummysnake.synth.synth_runtime.lazy_values import ensure_expr
+from gummysnake.synth.synth_runtime.runtime_foundation import Expression
 from gummysnake.synth.synth_runtime.logical_nodes import NodeHandle, ThreadNode
 from gummysnake.synth.synth_runtime.scales_and_specs import (
     _DEFAULT_SYNTH_INPUT_NOTE,

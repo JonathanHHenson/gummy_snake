@@ -50,7 +50,7 @@ _EXPECTED_FINGERPRINTS = {
     "gummysnake.ecs": {
         "count": 53,
         "exports": "405a671c7a32ba7120bf1a8df627ba7cd634ac920b315dde797576aa852d796c",
-        "surface": "2997adfa0d7bd0d4ea9a7a165b351d2e2beb2a0b6a95462dc11e33a9c3f28273",
+        "surface": "80ba8a26d6371e0759e96a883cc73f82abd74ee2e97756f503a3be8d0c2fd6ae",
     },
     "gummysnake.synth": {
         "count": 60,

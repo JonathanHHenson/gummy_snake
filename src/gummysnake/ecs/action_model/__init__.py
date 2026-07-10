@@ -1,8 +1,29 @@
-"""Implementation chunks for :mod:`gummysnake.ecs.actions`."""
+"""Compatibility exports for logical ECS action models.
+
+Implementations live in :mod:`gummysnake.ecs.logical_plan.actions`.
+"""
 
 from __future__ import annotations
 
-from .entity_actions import (
+from gummysnake.ecs.logical_plan.actions import (
+    Action,
+    DefaultAction,
+    EntityIteratorSource,
+    EventIterableSource,
+    ExpressionIterableSource,
+    ForEachAction,
+    IterableSource,
+    LoopItem,
+    RuntimeUdfDefinition,
+    SystemPlan,
+    UdfArgument,
+    UdfCallExpression,
+    UdfDefinition,
+    UdfIterableDefinition,
+    UdfIterableSource,
+    UdfPlanDefinition,
+    WhenAction,
+    _RuntimeUdfBase,
     action_query_refs,
     action_write_targets,
     add_component_action,
@@ -12,28 +33,6 @@ from .entity_actions import (
     remove_component_action,
     remove_tag_action,
     set,
-)
-from .plan_nodes import (
-    Action,
-    DefaultAction,
-    EntityIteratorSource,
-    EventIterableSource,
-    ExpressionIterableSource,
-    ForEachAction,
-    IterableSource,
-    LoopItem,
-    SystemPlan,
-    UdfArgument,
-    UdfDefinition,
-    UdfIterableSource,
-    UdfPlanDefinition,
-    WhenAction,
-    _RuntimeUdfBase,
-)
-from .udf import (
-    RuntimeUdfDefinition,
-    UdfCallExpression,
-    UdfIterableDefinition,
     udf,
     udf_plan,
     validate_mutation_metadata,

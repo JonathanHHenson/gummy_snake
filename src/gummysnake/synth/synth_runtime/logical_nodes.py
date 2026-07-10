@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
-from gummysnake.synth.synth_runtime.lazy_values import Expression
+from gummysnake.synth.synth_runtime.runtime_foundation import Expression
 from gummysnake.synth.synth_runtime.scales_and_specs import FxHandle
 
 

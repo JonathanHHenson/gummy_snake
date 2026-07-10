@@ -1,15 +1,16 @@
-"""Implementation chunks for :mod:`gummysnake.ecs.systems`."""
+"""Compatibility exports for ECS system definitions and decorators."""
 
 from __future__ import annotations
 
-from .decorators import system, system_plan
-from .definitions import (
+from gummysnake.ecs.logical_plan.systems import (
     BuiltSystem,
     PlanBuiltSystem,
     RuntimeBuiltSystem,
     RuntimeSystemDefinition,
     SystemDefinition,
     SystemPlanDefinition,
+    system,
+    system_plan,
 )
 
 __all__ = [

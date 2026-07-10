@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, cast
+from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, NoReturn, cast
 
 from gummysnake.ecs.actions import Action, DefaultAction
 from gummysnake.ecs.runtime_views import SystemHandle, _ScheduledSystem, _SystemSetConfig
@@ -31,6 +32,14 @@ from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.world import EcsWorld
+
+
+@dataclass
+class _ScheduleFrame:
+    """Per-frame group-hook accounting for the sorted system schedule."""
+
+    active_groups: list[str]
+    remaining_by_group: dict[str, int]
 
 
 def add_system(
@@ -125,99 +134,145 @@ def run_sorted_systems(world: EcsWorld) -> None:
     """Run all enabled systems in sorted group order."""
 
     systems = world._sorted_systems()
+    frame = _new_schedule_frame(systems)
+    index = 0
+    try:
+        while index < len(systems):
+            index = _run_schedule_phase(world, systems, index, frame)
+    finally:
+        _close_active_group_hooks(world, frame)
+
+
+def _new_schedule_frame(systems: Sequence[_ScheduledSystem]) -> _ScheduleFrame:
     remaining_by_group: dict[str, int] = {}
     for scheduled in systems:
         for group_name in scheduled_system_group_names(scheduled):
             remaining_by_group[group_name] = remaining_by_group.get(group_name, 0) + 1
-    active_groups: list[str] = []
-    index = 0
+    return _ScheduleFrame([], remaining_by_group)
+
+
+def _run_schedule_phase(
+    world: EcsWorld,
+    systems: Sequence[_ScheduledSystem],
+    index: int,
+    frame: _ScheduleFrame,
+) -> int:
+    scheduled = systems[index]
+    if not _system_is_eligible(world, scheduled):
+        _advance_group_hooks(world, scheduled, frame)
+        return index + 1
+    return _run_eligible_system(world, systems, index, frame)
+
+
+def _system_is_eligible(world: EcsWorld, scheduled: _ScheduledSystem) -> bool:
+    if not world._system_enabled(scheduled):
+        return False
+    if world._system_run_condition(scheduled):
+        return True
+    world._diagnostics["ecs_system_run_condition_skips"] += 1
+    return False
+
+
+def _run_eligible_system(
+    world: EcsWorld,
+    systems: Sequence[_ScheduledSystem],
+    index: int,
+    frame: _ScheduleFrame,
+) -> int:
+    scheduled = systems[index]
+    _enter_group_hooks(world, scheduled, frame)
     try:
-        while index < len(systems):
-            scheduled = systems[index]
-            if not world._system_enabled(scheduled):
-                _advance_group_hooks(world, scheduled, active_groups, remaining_by_group)
-                index += 1
-                continue
-            if not world._system_run_condition(scheduled):
-                world._diagnostics["ecs_system_run_condition_skips"] += 1
-                _advance_group_hooks(world, scheduled, active_groups, remaining_by_group)
-                index += 1
-                continue
-            _enter_group_hooks(world, scheduled, active_groups)
-            try:
-                if _can_batch_physical_system(scheduled):
-                    if _contains_direct_canvas_barrier_action(scheduled.built.plan.action):
-                        run_system_action(world, scheduled, scheduled.built.plan.action)
-                        _advance_group_hooks(world, scheduled, active_groups, remaining_by_group)
-                        index += 1
-                        continue
-                    batch = [scheduled]
-                    index += 1
-                    while index < len(systems):
-                        candidate = systems[index]
-                        if scheduled_system_group_names(candidate) != scheduled_system_group_names(
-                            scheduled
-                        ):
-                            break
-                        if not world._system_enabled(candidate):
-                            _advance_group_hooks(
-                                world, candidate, active_groups, remaining_by_group
-                            )
-                            index += 1
-                            continue
-                        if not world._system_run_condition(candidate):
-                            world._diagnostics["ecs_system_run_condition_skips"] += 1
-                            _advance_group_hooks(
-                                world, candidate, active_groups, remaining_by_group
-                            )
-                            index += 1
-                            continue
-                        if not _can_batch_physical_system(candidate):
-                            break
-                        if _contains_direct_canvas_barrier_action(candidate.built.plan.action):
-                            break
-                        batch.append(candidate)
-                        index += 1
-                    run_physical_systems_batch(world, batch)
-                    for batched in batch:
-                        _advance_group_hooks(world, batched, active_groups, remaining_by_group)
-                    continue
-                run_system_action(world, scheduled, scheduled.built.plan.action)
-                _advance_group_hooks(world, scheduled, active_groups, remaining_by_group)
-                index += 1
-            except Exception as exc:
-                if "draw" in scheduled_system_group_names(scheduled):
-                    raise
-                if isinstance(exc, SystemPlanError | SystemExecutionError):
-                    raise
-                raise SystemExecutionError(
-                    f"ECS system {scheduled.handle.name!r} failed: {exc}"
-                ) from exc
-    finally:
-        for group_name in reversed(active_groups):
-            _dispatch_group_hook(world, "after", group_name)
+        if _can_batch_physical_system(scheduled):
+            return _run_physical_schedule_phase(world, systems, index, frame)
+        run_system_action(world, scheduled, scheduled.built.plan.action)
+        _advance_group_hooks(world, scheduled, frame)
+        return index + 1
+    except Exception as exc:
+        _raise_scheduled_execution_error(scheduled, exc)
 
 
-def _enter_group_hooks(
-    world: EcsWorld, scheduled: _ScheduledSystem, active_groups: list[str]
-) -> None:
+def _run_physical_schedule_phase(
+    world: EcsWorld,
+    systems: Sequence[_ScheduledSystem],
+    index: int,
+    frame: _ScheduleFrame,
+) -> int:
+    scheduled = systems[index]
+    if _contains_direct_canvas_barrier_action(scheduled.built.plan.action):
+        run_system_action(world, scheduled, scheduled.built.plan.action)
+        _advance_group_hooks(world, scheduled, frame)
+        return index + 1
+    batch, next_index = _collect_physical_batch(world, systems, index, frame)
+    run_physical_systems_batch(world, batch)
+    for batched in batch:
+        _advance_group_hooks(world, batched, frame)
+    return next_index
+
+
+def _collect_physical_batch(
+    world: EcsWorld,
+    systems: Sequence[_ScheduledSystem],
+    index: int,
+    frame: _ScheduleFrame,
+) -> tuple[list[_ScheduledSystem], int]:
+    scheduled = systems[index]
+    batch = [scheduled]
+    index += 1
+    while index < len(systems):
+        candidate = systems[index]
+        if scheduled_system_group_names(candidate) != scheduled_system_group_names(scheduled):
+            break
+        if not _system_is_eligible(world, candidate):
+            _advance_group_hooks(world, candidate, frame)
+            index += 1
+            continue
+        if not _can_batch_physical_system(candidate):
+            break
+        if _contains_direct_canvas_barrier_action(candidate.built.plan.action):
+            break
+        batch.append(candidate)
+        index += 1
+    return batch, index
+
+
+def _raise_scheduled_execution_error(scheduled: _ScheduledSystem, exc: Exception) -> NoReturn:
+    if "draw" in scheduled_system_group_names(scheduled):
+        raise exc
+    if isinstance(exc, SystemPlanError | SystemExecutionError):
+        raise exc
+    raise SystemExecutionError(f"ECS system {scheduled.handle.name!r} failed: {exc}") from exc
+
+
+def _close_active_group_hooks(world: EcsWorld, frame: _ScheduleFrame) -> None:
+    for group_name in reversed(frame.active_groups):
+        _dispatch_group_hook(world, "after", group_name)
+
+
+def _enter_group_hooks(world: EcsWorld, scheduled: _ScheduledSystem, frame: _ScheduleFrame) -> None:
     for group_name in scheduled_system_group_names(scheduled):
-        if group_name not in active_groups:
+        if group_name not in frame.active_groups:
             _dispatch_group_hook(world, "before", group_name)
-            active_groups.append(group_name)
+            frame.active_groups.append(group_name)
 
 
 def _advance_group_hooks(
-    world: EcsWorld,
-    scheduled: _ScheduledSystem,
-    active_groups: list[str],
-    remaining_by_group: dict[str, int],
+    world: EcsWorld, scheduled: _ScheduledSystem, frame: _ScheduleFrame
+) -> None:
+    _decrement_remaining_groups(scheduled, frame.remaining_by_group)
+    _close_completed_group_hooks(world, frame)
+
+
+def _decrement_remaining_groups(
+    scheduled: _ScheduledSystem, remaining_by_group: dict[str, int]
 ) -> None:
     for group_name in scheduled_system_group_names(scheduled):
         remaining_by_group[group_name] = max(0, remaining_by_group.get(group_name, 0) - 1)
-    for group_name in reversed(tuple(active_groups)):
-        if remaining_by_group.get(group_name, 0) <= 0:
-            active_groups.remove(group_name)
+
+
+def _close_completed_group_hooks(world: EcsWorld, frame: _ScheduleFrame) -> None:
+    for group_name in reversed(tuple(frame.active_groups)):
+        if frame.remaining_by_group.get(group_name, 0) <= 0:
+            frame.active_groups.remove(group_name)
             _dispatch_group_hook(world, "after", group_name)
 
 
@@ -249,15 +304,20 @@ def run_system_action(world: EcsWorld, scheduled: _ScheduledSystem, action: Acti
         udf_action.udf.execute_action(world, udf_action.udf_args)
         return
     if _contains_direct_udf_action(action):
-        if _is_sequence_action(action):
-            for child in cast(DefaultAction, action).children:
-                run_system_action(world, scheduled, child)
-            return
-        raise SystemPlanError(
-            "Python UDF actions can only appear as standalone actions or inside "
-            "do_in_order() sequences; non-UDF ECS work still executes in Rust."
-        )
+        _run_direct_udf_sequence(world, scheduled, action)
+        return
     run_physical_system(world, scheduled, action)
+
+
+def _run_direct_udf_sequence(world: EcsWorld, scheduled: _ScheduledSystem, action: Action) -> None:
+    if _is_sequence_action(action):
+        for child in cast(DefaultAction, action).children:
+            run_system_action(world, scheduled, child)
+        return
+    raise SystemPlanError(
+        "Python UDF actions can only appear as standalone actions or inside "
+        "do_in_order() sequences; non-UDF ECS work still executes in Rust."
+    )
 
 
 def has_change_filtered_systems(world: EcsWorld) -> bool:

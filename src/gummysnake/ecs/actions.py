@@ -1,8 +1,8 @@
-"""ECS action model compatibility module."""
+"""Public action, UDF, and plan-building API for ECS logical plans."""
 
 from __future__ import annotations
 
-from gummysnake.ecs.action_model import (
+from gummysnake.ecs.logical_plan.actions import (
     Action,
     DefaultAction,
     EntityIteratorSource,
@@ -33,7 +33,7 @@ from gummysnake.ecs.action_model import (
     udf_plan,
     validate_mutation_metadata,
 )
-from gummysnake.ecs.action_tools.building import (
+from gummysnake.ecs.logical_plan.building import (
     active_build_session,
     append_action,
     build_session,

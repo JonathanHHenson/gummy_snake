@@ -59,16 +59,43 @@ matching, spatial indexes, compiled physical plans, and non-UDF system execution
 Do not add a Python mirror of component columns or a Python runtime fallback for
 non-UDF systems.
 
+## Logical-plan source hierarchy
+
+`src/gummysnake/ecs/logical_plan/` is the internal ownership boundary for the
+Python-declared, Rust-executed plan DSL. Its dependency direction is toward plan
+models and specifications: actions and expressions are consumed by build sessions;
+build sessions produce action trees; inspection reads those trees; physical payload
+serialization consumes them at the separate bridge boundary. This package does not
+own scheduling, world storage, renderer implementations, or non-UDF execution.
+
+| Area | Path | Responsibility |
+| --- | --- | --- |
+| Actions and UDF declarations | `logical_plan/actions/` | Action nodes, structural commands, iterable sources, and explicit UDF/UDF-plan declarations. |
+| Expressions | `logical_plan/expressions/` | Lazy core nodes, query/resource proxies, grouped/exists nodes, and expression helpers. |
+| Plan building | `logical_plan/building/` | Context-local build sessions plus `do`, conditionals, and `for_each` scopes. |
+| Plan inspection | `logical_plan/inspection/` | Read-only write/query analysis and explain formatting. |
+| System declarations | `logical_plan/systems/` | Decorators and built system definitions that validate annotations and record plans once. |
+| Plan specifications | `logical_plan/specifications.py` | Query/resource/event annotation specifications and event proxies. |
+
+The documented public compatibility surfaces are `gummysnake.ecs`,
+`gummysnake.ecs.actions`, and `gummysnake.ecs.expressions`; the older focused
+module paths forward the same objects for import compatibility. Keep exports
+explicit rather than generating them dynamically. `scripts/structure_audit.py`
+checks every Python package directory for ambiguous same-stem module/package
+pairs, including this hierarchy.
+
 ## Source map
 
 | Area | Path | Responsibility |
 | --- | --- | --- |
 | Public ECS exports | `src/gummysnake/ecs/__init__.py` | Explicit user-facing ECS names. |
 | Context/global/object APIs | `src/gummysnake/api/ecs.py`, `src/gummysnake/context_mixins/ecs.py`, `src/gummysnake/sketch/facade_mixins/ecs.py` | `gs.add_entity`, `gs.add_system`, resources, events, diagnostics, object-mode forwards. |
-| Logical expressions | `src/gummysnake/ecs/expressions/` | Lazy arithmetic, boolean, function, field, grouped aggregate, exists, input-state expressions. |
-| Actions/UDFs/events | `src/gummysnake/ecs/actions.py` | Public compatibility surface for action, UDF, and event builders. |
+| Public expressions | `src/gummysnake/ecs/expressions/` | Thin compatibility package for lazy expression imports. |
+| Actions/UDFs/events | `src/gummysnake/ecs/actions.py` | Public compatibility surface for action, UDF, event, and plan-building helpers. |
 | System decorator | `src/gummysnake/ecs/systems.py` | Public compatibility surface that builds query/resource/event proxies from mandatory annotations. |
-| Python world facade | `src/gummysnake/ecs/world.py` and `src/gummysnake/ecs/world_facade/` | `world.py` is the public compatibility surface; `world_facade/` owns schema validation, entity handles/views, registration, bridge invocation, and diagnostics. |
+| Python world facade | `src/gummysnake/ecs/world.py` and `src/gummysnake/ecs/world_facade/` | `world.py` is the public compatibility surface. `world_facade/world.py` is the authoritative `EcsWorld`; `initialization.py` creates facade metadata after bridge validation and `schema_validation.py` discovers/registers schemas. |
+| Runtime views and handles | `src/gummysnake/ecs/runtime_views.py` and `src/gummysnake/ecs/runtime_view_model/` | `runtime_views.py` preserves compatibility exports. The implementation package owns entity/mutation markers, Rust-backed component/resource views, entity views, event writers, and system handles without keeping component data. |
+| World runtime adapters | `src/gummysnake/ecs/world_runtime/` | Private adapters grouped by entity/query, resource/event, explicit Python UDF/system access, Rust physical execution, and facade diagnostics/change state. |
 | Physical payload builder | `src/gummysnake/ecs/physical.py` | Public compatibility surface for serializing Python action/expression trees into bridge payloads. |
 | Spatial API | `src/gummysnake/ecs/spatial/` | Lazy spatial relations and algorithm config objects. |
 | Rust bridge wrapper | `src/gummysnake/rust/ecs.py` | Import, ABI validation, and protocol for ECS objects exposed by `gummysnake.rust._canvas`. |
@@ -95,6 +122,34 @@ aggregation. `EntityView` and `ResourceView` are Rust-backed accessors; they are
 not independent Python component copies. `iter_component_fields()` is the
 preferred draw-side path when a sketch needs many scalar field values because it
 performs a Rust-backed batch read of selected columns.
+
+## Python world facade package boundaries
+
+`gummysnake.ecs.world.EcsWorld` remains the stable public class and is defined
+by `world_facade/world.py`; it delegates focused responsibilities without
+changing the public method surface:
+
+- `world_facade/initialization.py` calls `create_ecs_world()` before the facade
+  is usable. That call performs the mandatory canvas and ECS ABI validation, so
+  missing or mismatched runtimes fail with rebuild guidance rather than creating
+  an alternate Python world.
+- `world_facade/schema_validation.py` validates dataclass annotations and sends
+  schema metadata to the Rust bridge. It does not retain component values.
+- `runtime_view_model/` is the canonical implementation package for entity
+  handles/mutation metadata, component/resource views, entity views, event
+  writers, and system handles. `runtime_views.py` is its compatibility export
+  module; both paths expose the same objects.
+- `world_runtime/entities.py` and `query.py` adapt entities and queries;
+  `resources.py` adapts resources and events; `python_batch.py` and
+  `python_system.py` are the explicit Python runtime boundary; and
+  `physical_execution/` owns Rust-plan compilation, execution, and reports.
+  `state.py` owns facade diagnostics, change markers, and invalidation state.
+
+Dependencies flow from the public facade and runtime views into these adapters,
+and then to `gummysnake.rust.ecs`. A Python UDF/system boundary can batch view
+access and flush writes to Rust, but it is never a fallback for physical plans.
+Physical execution does not invoke Python unless an explicit UDF/system boundary
+was declared.
 
 ## Schema and storage types
 
@@ -179,12 +234,17 @@ with equivalent group constraints run in registration order.
 actions. `do_in_parallel(*actions)` represents independent snapshot-style work.
 Canvas actions recorded through `gummysnake.ecs.canvas` are serialized into Rust
 plans and replayed against the canvas runtime after physical execution reports
-are applied. The `ecs.canvas` helpers are plan-building APIs only; explicit
-Python ECS systems/UDFs that draw at runtime should call the normal `gummysnake`
-drawing APIs. Strict mode rejects overlapping parallel writes and ambiguous
-joined writes. With strict mode off, execution remains deterministic with
-last-write-wins semantics and ambiguity warnings unless `warn_on_ambiguity=False`
-suppresses logging.
+are applied. Replay processes commands in report order: style/state commands,
+primitives, text, transforms, images, shapes, and direct replay barriers retain
+the same renderer batch boundaries and logical-coordinate/HiDPI semantics as
+normal sketch calls. The `ecs.canvas` helpers are plan-building APIs only;
+explicit Python ECS systems/UDFs that draw at runtime should call the normal
+`gummysnake` drawing APIs. Rust plan systems are grouped into compatible physical
+batches only when no input-state refresh, runtime Python UDF, or direct canvas
+barrier requires a per-system execution boundary. Strict mode rejects overlapping
+parallel writes and ambiguous joined writes. With strict mode off, execution
+remains deterministic with last-write-wins semantics and ambiguity warnings unless
+`warn_on_ambiguity=False` suppresses logging.
 
 ## Expressions, joins, and grouping
 

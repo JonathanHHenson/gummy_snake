@@ -11,7 +11,6 @@ from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.builder_context import _current_builder, _next_node_id
 from gummysnake.synth.synth_runtime.expressions import BoundExpression
 from gummysnake.synth.synth_runtime.lazy_values import (
-    Expression,
     Ring,
     SampleDurationExpression,
     ensure_expr,
@@ -27,6 +26,7 @@ from gummysnake.synth.synth_runtime.logical_nodes import (
 )
 from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
 from gummysnake.synth.synth_runtime.runtime_foundation import (
+    Expression,
     _BUILTIN_SAMPLE_EXTENSIONS,
     _BUILTIN_SAMPLE_PACKAGE_DIR,
     SynthPlanError,

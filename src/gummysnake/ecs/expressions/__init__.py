@@ -1,8 +1,31 @@
-"""Lazy ECS expression objects used by system actions."""
+"""Public lazy ECS expression API.
+
+Implementations live in :mod:`gummysnake.ecs.logical_plan.expressions`.
+"""
 
 from __future__ import annotations
 
-from gummysnake.ecs.expression_tools import (
+from gummysnake.ecs.logical_plan.expressions import (
+    AttributeExpression,
+    BinaryExpression,
+    ComponentExpressionProxy,
+    DeltatimeExpression,
+    EntityExpression,
+    ExistsBuilder,
+    ExistsExpression,
+    Expression,
+    FieldExpression,
+    FunctionExpression,
+    GroupedAnyExpression,
+    GroupedExpression,
+    GroupedValueAggregateExpression,
+    KeyDownExpression,
+    LiteralExpression,
+    OuterQueryProvider,
+    QueryProxy,
+    ResourceProxy,
+    UnaryExpression,
+    Vector,
     all_of,
     any_of,
     dt,
@@ -12,32 +35,6 @@ from gummysnake.ecs.expression_tools import (
     key_is_down,
     literal,
     replace_query,
-)
-from gummysnake.ecs.expressions.aggregates import (
-    ExistsBuilder,
-    ExistsExpression,
-    GroupedAnyExpression,
-    GroupedExpression,
-    GroupedValueAggregateExpression,
-)
-from gummysnake.ecs.expressions.core import (
-    AttributeExpression,
-    BinaryExpression,
-    DeltatimeExpression,
-    Expression,
-    FunctionExpression,
-    KeyDownExpression,
-    LiteralExpression,
-    OuterQueryProvider,
-    UnaryExpression,
-    Vector,
-)
-from gummysnake.ecs.expressions.proxies import (
-    ComponentExpressionProxy,
-    EntityExpression,
-    FieldExpression,
-    QueryProxy,
-    ResourceProxy,
 )
 
 __all__ = [

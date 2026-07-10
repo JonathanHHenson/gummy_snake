@@ -7,10 +7,10 @@ from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.actions import Action, UdfArgument, action_write_targets
-from gummysnake.ecs.expression_tools import ExpressionInput
 from gummysnake.ecs.expressions import Expression, FieldExpression, QueryProxy, expression_queries
+from gummysnake.ecs.helpers import ExpressionInput
 from gummysnake.ecs.runtime_views import EntityView
-from gummysnake.ecs.specs import ChangeTerm, Query, QuerySpec, TagTerm, WithoutTerm
+from gummysnake.ecs.specifications import ChangeTerm, Query, QuerySpec, TagTerm, WithoutTerm
 from gummysnake.ecs.world_helpers import _component_key
 from gummysnake.exceptions import SystemPlanError
 

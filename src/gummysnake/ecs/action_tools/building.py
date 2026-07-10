@@ -1,8 +1,8 @@
-"""ECS plan-building compatibility module."""
+"""Compatibility exports for logical-plan build sessions and scopes."""
 
 from __future__ import annotations
 
-from gummysnake.ecs.action_tools.plan_building import (
+from gummysnake.ecs.logical_plan.building import (
     ForEachSource,
     _BlockContext,
     _BranchContext,

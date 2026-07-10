@@ -6,15 +6,15 @@ from typing import Any, Literal, cast
 
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.lazy_values import (
-    Expression,
     Ring,
     _cached_expression_value,
-    _current_repeat_depth_or_none,
     _source_bind_key,
     resolve_value,
 )
 from gummysnake.synth.synth_runtime.runtime_foundation import (
     EvalContext,
+    Expression,
+    _current_repeat_depth_or_none,
     Number,
     SynthPlanError,
     _as_float,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from tests.helpers.ecs_fixtures import (
     EcsWorld,
     Plugin,
@@ -166,6 +168,37 @@ def test_ecs_canvas_alias_and_rust_system_draw_commands() -> None:
     assert diagnostics["ecs_canvas_commands"] == 2
     assert diagnostics["ecs_canvas_direct_fill_primitives"] == 0
     assert diagnostics["ecs_canvas_fill_batch_primitives"] == 1
+
+
+def test_ecs_canvas_transform_replay_preserves_ordered_fill_batch_state() -> None:
+    @ecs.system_plan(group="draw")
+    def draw_translated_rect() -> None:
+        ca.background(0)
+        ca.no_stroke()
+        ca.fill(20, 130, 240)
+        ca.translate(4, 0)
+        ca.rect(0, 0, 4, 8)
+
+    class TransformedCanvasSketch(Sketch):
+        def setup(self) -> None:
+            self.create_canvas(8, 8)
+            self.add_system(draw_translated_rect)
+
+    context = TransformedCanvasSketch().run(max_frames=1)
+    pixels = context.load_pixel_bytes()
+
+    def pixel_at(x: int, y: int) -> tuple[int, int, int, int]:
+        offset = (y * 8 + x) * 4
+        return cast(tuple[int, int, int, int], tuple(pixels[offset : offset + 4]))
+
+    left = pixel_at(1, 4)
+    right = pixel_at(6, 4)
+    assert max(left[:3]) < 20
+    assert right[2] > 180
+    assert right[1] > right[0]
+    diagnostics = context.ecs_diagnostics()
+    assert diagnostics["ecs_canvas_commands"] == 5
+    assert diagnostics["ecs_canvas_fill_batch_primitives"] == 0
 
 
 def test_ecs_group_hooks_surround_system_and_draw_groups() -> None:
