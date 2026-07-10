@@ -87,6 +87,18 @@ async def preload() -> None:
     sprite = await gs.load_image_async("assets/sprite.png")
 ```
 
+## Draw Groups and Plugin Hooks
+
+Each completed draw frame runs enabled ECS system groups in validated order. The
+normal `draw()` callback is the built-in `draw` group. Plugins can observe a group
+through generated `before_<group>` and `after_<group>` hooks, including
+`before_draw` and `after_draw`. These group-specific hooks replace obsolete
+generic `before_ecs` and `after_ecs` hooks.
+
+See the contributor [ownership map](../contribute/ownership_map.md) and
+[Runtime model](../contribute/runtime.md#frame-order) when changing lifecycle or
+plugin behavior.
+
 ## Lifecycle Functions
 
 - `run(setup=None, draw=None, preload=None, headless=None, max_frames=None)`

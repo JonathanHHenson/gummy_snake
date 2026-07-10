@@ -20,6 +20,9 @@ def test_canvas_renderer_forwards_captured_shape_without_python_extraction() -> 
         def shape_contours(self) -> list[list[tuple[float, float]]]:
             raise AssertionError("shape contours should stay in Rust")
 
+        def reset_shape_capture(self) -> None:
+            raise AssertionError("shape capture should stay in Rust")
+
     def draw_captured_shape(
         state: object,
         style: dict[str, object],
@@ -58,6 +61,9 @@ def test_canvas_renderer_forwards_captured_clip_without_python_extraction() -> N
 
         def shape_contours(self) -> list[list[tuple[float, float]]]:
             raise AssertionError("clip contours should stay in Rust")
+
+        def reset_shape_capture(self) -> None:
+            raise AssertionError("clip capture should stay in Rust")
 
     def begin_clip_captured(
         state: object,

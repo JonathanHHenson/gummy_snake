@@ -4,7 +4,7 @@ import builtins
 from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.lazy_values import (
@@ -18,6 +18,10 @@ from gummysnake.synth.synth_runtime.pattern_helpers import (
     _SCALE_INTERVALS,
     note,
 )
+
+if TYPE_CHECKING:
+    from gummysnake.synth.synth_runtime.definitions import FxDefinition, SynthDefinition
+    from gummysnake.synth.synth_runtime.logical_nodes import NodeHandle
 
 
 def scale(root: object, name: str = "major", *, num_octaves: int = 1) -> Ring | Expression:

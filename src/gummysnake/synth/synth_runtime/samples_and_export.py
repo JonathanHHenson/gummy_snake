@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import io
 import shutil
 import subprocess
@@ -112,67 +113,3 @@ def _write_mp3_with_ffmpeg(wav_payload: bytes, output_path: Path) -> None:
     finally:
         with contextlib.suppress(OSError):
             temp_path.unlink(missing_ok=True)
-
-
-__all__ = [
-    "Duration",
-    "Format",
-    "FxDefinition",
-    "FxHandle",
-    "FxSignal",
-    "NodeHandle",
-    "PhysicalPlan",
-    "Ring",
-    "SynthDefinition",
-    "SynthPlanError",
-    "SynthSignal",
-    "Track",
-    "TrackDefinition",
-    "TrackInstance",
-    "TrackPlan",
-    "TrackPlayback",
-    "bools",
-    "builtin_fx_names",
-    "builtin_fx_path",
-    "builtin_synth_names",
-    "builtin_synth_path",
-    "chord",
-    "choose",
-    "control",
-    "dice",
-    "duration",
-    "fx",
-    "fx_input",
-    "fx_output",
-    "knit",
-    "line",
-    "load_builtin_fx_plan",
-    "load_builtin_synth_plan",
-    "load_physical_plan",
-    "look",
-    "loop",
-    "note",
-    "note_frequency",
-    "octs",
-    "one_in",
-    "play",
-    "rand",
-    "rand_i",
-    "range",
-    "ring",
-    "rrand",
-    "rrand_i",
-    "sample",
-    "sample_duration",
-    "scale",
-    "sleep",
-    "spread",
-    "synth",
-    "synth_input",
-    "synth_output",
-    "thread",
-    "tick",
-    "track",
-    "use_synth",
-    "when",
-]

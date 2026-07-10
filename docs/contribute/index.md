@@ -71,8 +71,11 @@ and the PyO3 bridge to the Rust `gummy_ecs` storage/execution crate.
 
 ## Reading Order
 
-Start with [Architecture](architecture.md) if you are new to the project. It
-explains the main Python objects and how a public API call reaches the renderer.
+Start with the [Contributor ownership map](ownership_map.md) if you are new to
+the project. It identifies current implementation owners, compatibility facades,
+crate roles, test routes, and the reading order. Then read
+[Architecture](architecture.md) for the object-level flow from a public API call
+to the renderer.
 
 Read [Backend and renderer boundaries](backend_renderer.md) before changing
 anything in `src/gummysnake/backend/`, `src/gummysnake/backend/canvas_runtime/`,

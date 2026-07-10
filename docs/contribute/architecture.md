@@ -28,6 +28,7 @@ flowchart TD
         State[renderer state<br/>style / transform / draw state]
         Commands[draw commands<br/>construction / batching]
         ECS[gummy_ecs storage<br/>schedules / physical plans / spatial indexes]
+        Synth[gummy_synth<br/>synth / sample / FX / WAV]
         Rendering[render paths<br/>GPU 2D / GPU 3D / raster / export]
         Assets[image/model/sound assets]
     end
@@ -49,6 +50,7 @@ flowchart TD
     BridgeImport --> ContextState
     BridgeImport --> Canvas
     BridgeImport --> ECS
+    BridgeImport --> Synth
     BridgeImport --> Assets
     Backend --> Native
     Backend --> ContextState
@@ -81,7 +83,7 @@ The runtime has a small set of objects that appear in most changes:
 | `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/canvas_runtime/renderer/` mixins/helpers | Drawing adapter. It mirrors canvas dimensions, synchronizes Python facade state mutations into Rust current state, and forwards drawing requests to the Rust canvas runtime. Bridge, lifecycle, counters, caches, payload builders, and batch state live in focused internal modules. |
 | `gummysnake.rust.canvas` | `src/gummysnake/rust/canvas.py` | Import, ABI validation, health-check, and capability wrapper for the PyO3 runtime module. It turns missing native support into clear Gummy Snake errors. |
 | `gummysnake.rust.ecs` | `src/gummysnake/rust/ecs.py` | ECS ABI validation and typed wrapper around the ECS objects exposed by the mandatory canvas extension. |
-| `EcsWorld` | `src/gummysnake/ecs/world.py` | Python-facing ECS facade. It validates dataclass schemas, registers systems/resources/events, and delegates canonical storage and physical execution to Rust. |
+| `EcsWorld` | `src/gummysnake/ecs/world.py` compatibility facade plus `src/gummysnake/ecs/world_facade/` implementation | Python-facing ECS facade. The compatibility module preserves imports; `world_facade/` validates schemas, registers systems/resources/events, and delegates canonical storage and physical execution to Rust. |
 | `gummy_ecs` | `crates/gummy_ecs/` | Rust ECS storage, scheduler, physical-plan, event, resource, and spatial-index implementation. |
 | `gummy_synth` | `crates/gummy_synth/` | Rust synth/sample/FX renderer used by logical synth tracks and registered through the canvas PyO3 module. |
 | `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime, renderer implementation, and PyO3 bridge exposing canvas plus ECS and synth runtime functions. |

@@ -195,7 +195,7 @@ buffers and GPU vertices are scaled by `pixel_density()`.
 - [Getting started](docs/getting_started/index.md)
 - [Examples](examples/README.md)
 - [API reference](docs/reference/index.md), including the [ECS reference](docs/reference/ecs.md)
-- [Contributor docs](docs/contribute/index.md), including the [ECS architecture](docs/contribute/ecs_architecture.md)
+- [Contributor docs](docs/contribute/index.md), starting with the [ownership map](docs/contribute/ownership_map.md) and [ECS architecture](docs/contribute/ecs_architecture.md)
 
 ## For Contributors
 
@@ -247,6 +247,7 @@ The contributor documentation explains the architecture, lifecycle, testing
 workflow, and release shape in more detail:
 
 - [Contributor guide](docs/contribute/index.md)
+- [Contributor ownership map](docs/contribute/ownership_map.md)
 - [Architecture](docs/contribute/architecture.md)
 - [Backend and renderer boundaries](docs/contribute/backend_renderer.md)
 - [Runtime model](docs/contribute/runtime.md)

@@ -12,7 +12,10 @@ from gummysnake.exceptions import BackendCapabilityError
 class DecodedFrame(Protocol):
     """Array-like decoded frame shape used by media helpers."""
 
-    shape: Sequence[int]
+    @property
+    def shape(self) -> Sequence[int]:
+        """Return the decoded frame dimensions."""
+        ...
 
     def tobytes(self) -> bytes:
         """Return contiguous decoded frame bytes."""

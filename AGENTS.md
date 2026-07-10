@@ -316,15 +316,15 @@ Frame rendering should preserve the existing high-level order:
 
 1. update Rust timing/context frame state
 2. begin renderer frame
-3. dispatch plugin `before_ecs`
-4. run scheduled ECS systems through Rust physical execution, except explicit UDFs
-5. dispatch plugin `after_ecs`
-6. dispatch plugin `before_draw`
-7. run sketch `draw()`
-8. dispatch plugin `after_draw`
-9. end renderer frame
-10. update context after-frame state
-11. present when a frame was drawn
+3. run enabled ECS system groups in validated order; each group dispatches generated
+   plugin `before_<group>` / `after_<group>` hooks around its systems
+4. run scheduled non-UDF systems through Rust physical execution, except explicit UDFs
+   and runtime `@ecs.system` boundaries
+5. run the normal sketch `draw()` as the built-in `draw` group, surrounded by
+   `before_draw` / `after_draw`
+6. end renderer frame
+7. update context after-frame state
+8. present when a frame was drawn
 
 ### Keep Backend/Renderer Boundaries Clear
 

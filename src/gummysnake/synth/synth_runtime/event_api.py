@@ -39,6 +39,7 @@ from gummysnake.synth.synth_runtime.scales_and_specs import (
 )
 
 if TYPE_CHECKING:
+    from gummysnake.synth.synth_runtime.context_managers import ThreadContext
     from gummysnake.synth.synth_runtime.definitions import FxDefinition, SynthDefinition
 
 

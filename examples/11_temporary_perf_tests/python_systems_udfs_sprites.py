@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import gummysnake as gs
 from examples.common import example_parser, save_once
 from gummysnake import ecs
+from gummysnake.ecs.actions import UdfIterableSource
 
 WIDTH = 900
 HEIGHT = 520
@@ -100,7 +101,7 @@ def run_python_udf(sprite: ecs.Query[ecs.Tag[SPRITE_TAG], SpriteAgent]) -> None:
 @ecs.system_plan(group="python_udf_iterable")
 def fold_python_iterable(stats: ecs.ResMut[SpriteStats]) -> None:
     stats[SpriteStats].offset_sum.set_to(0.0)
-    with ecs.for_each(python_wave_offsets()) as offset:
+    with ecs.for_each(cast(UdfIterableSource, python_wave_offsets())) as offset:
         stats[SpriteStats].offset_sum.increase_by(offset)
 
 
