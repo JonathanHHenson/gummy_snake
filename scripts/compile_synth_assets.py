@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import importlib.util
 import sys
-from collections.abc import Mapping, Sequence
+import tempfile
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -38,6 +40,20 @@ def _source_files(source_dir: Path) -> tuple[Path, ...]:
             if path.name != "__init__.py" and not path.name.startswith("_")
         )
     )
+
+
+@contextlib.contextmanager
+def _deterministic_node_ids() -> Iterator[None]:
+    """Compile source plans from a stable node-ID sequence without affecting callers."""
+
+    from gummysnake.synth.synth_runtime import builder_context
+
+    previous_node_counter = builder_context._NODE_COUNTER
+    builder_context._NODE_COUNTER = 0
+    try:
+        yield
+    finally:
+        builder_context._NODE_COUNTER = previous_node_counter
 
 
 def _load_source_module(path: Path, *, namespace: str) -> ModuleType:
@@ -219,21 +235,110 @@ def compile_assets(
     output_dir: Path = COMPILED_DIR,
     fx_output_dir: Path = FX_COMPILED_DIR,
 ) -> list[Path]:
-    written = compile_synth_assets(source_dir=synth_source_dir, output_dir=output_dir)
-    written.extend(compile_fx_assets(source_dir=fx_source_dir, output_dir=fx_output_dir))
-    return written
+    with _deterministic_node_ids():
+        written = compile_synth_assets(source_dir=synth_source_dir, output_dir=output_dir)
+        written.extend(compile_fx_assets(source_dir=fx_source_dir, output_dir=fx_output_dir))
+        return written
 
 
-def main() -> None:
+def _compiled_asset_paths(output_dir: Path, *, suffix: str) -> dict[str, Path]:
+    if not output_dir.exists():
+        return {}
+    return {path.name: path for path in sorted(output_dir.glob(f"*{suffix}")) if path.is_file()}
+
+
+def _asset_freshness_differences(
+    *,
+    generated_dir: Path,
+    packaged_dir: Path,
+    suffix: str,
+    asset_kind: str,
+) -> list[str]:
+    generated = _compiled_asset_paths(generated_dir, suffix=suffix)
+    packaged = _compiled_asset_paths(packaged_dir, suffix=suffix)
+    differences: list[str] = []
+
+    for name in sorted(set(generated) - set(packaged)):
+        differences.append(f"missing {asset_kind} compiled asset: {packaged_dir / name}")
+    for name in sorted(set(packaged) - set(generated)):
+        differences.append(f"unexpected {asset_kind} compiled asset: {packaged[name]}")
+    for name in sorted(set(generated) & set(packaged)):
+        if generated[name].read_bytes() != packaged[name].read_bytes():
+            differences.append(f"stale {asset_kind} compiled asset: {packaged[name]}")
+    return differences
+
+
+def check_assets(
+    *,
+    synth_source_dir: Path = SYNTH_SOURCE_DIR,
+    fx_source_dir: Path = FX_SOURCE_DIR,
+    output_dir: Path = COMPILED_DIR,
+    fx_output_dir: Path = FX_COMPILED_DIR,
+) -> list[str]:
+    """Return packaged synth/FX asset freshness differences without modifying them."""
+
+    with tempfile.TemporaryDirectory(prefix="gummysnake-synth-assets-") as temporary_dir:
+        temporary_output_dir = Path(temporary_dir)
+        generated_synth_dir = temporary_output_dir / "synths"
+        generated_fx_dir = temporary_output_dir / "fx"
+        compile_assets(
+            synth_source_dir=synth_source_dir,
+            fx_source_dir=fx_source_dir,
+            output_dir=generated_synth_dir,
+            fx_output_dir=generated_fx_dir,
+        )
+        return [
+            *_asset_freshness_differences(
+                generated_dir=generated_synth_dir,
+                packaged_dir=output_dir,
+                suffix=".gss",
+                asset_kind="synth",
+            ),
+            *_asset_freshness_differences(
+                generated_dir=generated_fx_dir,
+                packaged_dir=fx_output_dir,
+                suffix=".gsfx",
+                asset_kind="FX",
+            ),
+        ]
+
+
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--synth-source-dir", type=Path, default=SYNTH_SOURCE_DIR)
     parser.add_argument("--fx-source-dir", type=Path, default=FX_SOURCE_DIR)
     parser.add_argument("--output-dir", type=Path, default=COMPILED_DIR)
     parser.add_argument("--fx-output-dir", type=Path, default=FX_COMPILED_DIR)
-    args = parser.parse_args()
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="verify compiled assets are current without modifying packaged outputs",
+    )
+    args = parser.parse_args(argv)
 
-    synths = compile_synth_assets(source_dir=args.synth_source_dir, output_dir=args.output_dir)
-    fxs = compile_fx_assets(source_dir=args.fx_source_dir, output_dir=args.fx_output_dir)
+    if args.check:
+        differences = check_assets(
+            synth_source_dir=args.synth_source_dir,
+            fx_source_dir=args.fx_source_dir,
+            output_dir=args.output_dir,
+            fx_output_dir=args.fx_output_dir,
+        )
+        if differences:
+            print("compiled synth/FX assets are out of date:")
+            for difference in differences:
+                print(f"  {difference}")
+            raise SystemExit(1)
+        print("compiled synth/FX assets are current")
+        return
+
+    assets = compile_assets(
+        synth_source_dir=args.synth_source_dir,
+        fx_source_dir=args.fx_source_dir,
+        output_dir=args.output_dir,
+        fx_output_dir=args.fx_output_dir,
+    )
+    synths = [path for path in assets if path.suffix == ".gss"]
+    fxs = [path for path in assets if path.suffix == ".gsfx"]
     print(f"compiled {len(synths)} synth assets to {args.output_dir}")
     print(f"compiled {len(fxs)} FX assets to {args.fx_output_dir}")
 

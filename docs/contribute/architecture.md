@@ -392,10 +392,15 @@ Use these rules of thumb:
 - Run `uv run python scripts/structure_audit.py` after layout changes. It checks
   for confusing Python sibling module/package patterns, source-package test
   fixtures, stale renamed package references, generated example output policy,
-  and undocumented Rust same-stem hubs.
+  and undocumented or stale Rust same-stem hubs across every Cargo workspace
+  member.
 - Run `uv run python scripts/source_size_audit.py` after source splits or large
-  refactors. It reports implementation files over the 300-line threshold while
-  excluding import/export barrels such as `src/gummysnake/__init__.py`.
+  refactors to report implementation files over the 300-counted-line review
+  threshold while excluding import/export barrels such as
+  `src/gummysnake/__init__.py`. Run
+  `uv run python scripts/source_size_audit.py --check` (or `make audit`) before
+  merging a layout change; it enforces reviewed 500-line limits across all
+  Python and Cargo-workspace production roots.
 
 ## Public API Rule
 

@@ -65,12 +65,12 @@ non-UDF systems.
 | --- | --- | --- |
 | Public ECS exports | `src/gummysnake/ecs/__init__.py` | Explicit user-facing ECS names. |
 | Context/global/object APIs | `src/gummysnake/api/ecs.py`, `src/gummysnake/context_mixins/ecs.py`, `src/gummysnake/sketch/facade_mixins/ecs.py` | `gs.add_entity`, `gs.add_system`, resources, events, diagnostics, object-mode forwards. |
-| Logical expressions | `src/gummysnake/ecs/expressions.py` | Lazy arithmetic, boolean, function, field, grouped aggregate, exists, input-state expressions. |
-| Actions/UDFs/events | `src/gummysnake/ecs/actions.py` | `Action`, `when`, `otherwise`, `do_in_order`, `do_in_parallel`, `for_each`, UDF and event action builders. |
-| System decorator | `src/gummysnake/ecs/systems.py` | Builds query/resource/event proxies from mandatory annotations. |
-| Python world facade | `src/gummysnake/ecs/world.py` | Schema validation, entity handles/views, system registration, schedule state, bridge invocation, diagnostics. |
-| Physical payload builder | `src/gummysnake/ecs/physical.py` | Serializes Python action/expression trees into bridge payloads. |
-| Spatial API | `src/gummysnake/ecs/spatial.py` | Lazy spatial relations and algorithm config objects. |
+| Logical expressions | `src/gummysnake/ecs/expressions/` | Lazy arithmetic, boolean, function, field, grouped aggregate, exists, input-state expressions. |
+| Actions/UDFs/events | `src/gummysnake/ecs/actions.py` | Public compatibility surface for action, UDF, and event builders. |
+| System decorator | `src/gummysnake/ecs/systems.py` | Public compatibility surface that builds query/resource/event proxies from mandatory annotations. |
+| Python world facade | `src/gummysnake/ecs/world.py` and `src/gummysnake/ecs/world_facade/` | `world.py` is the public compatibility surface; `world_facade/` owns schema validation, entity handles/views, registration, bridge invocation, and diagnostics. |
+| Physical payload builder | `src/gummysnake/ecs/physical.py` | Public compatibility surface for serializing Python action/expression trees into bridge payloads. |
+| Spatial API | `src/gummysnake/ecs/spatial/` | Lazy spatial relations and algorithm config objects. |
 | Rust bridge wrapper | `src/gummysnake/rust/ecs.py` | Import, ABI validation, and protocol for ECS objects exposed by `gummysnake.rust._canvas`. |
 | Rust core ECS | `crates/gummy_ecs/` | Storage, scheduler, physical plan validation/execution, spatial indexes, diagnostics. |
 | PyO3 exposure | `crates/gummy_canvas/` | Mandatory extension module that exposes canvas plus ECS bridge classes/functions. |

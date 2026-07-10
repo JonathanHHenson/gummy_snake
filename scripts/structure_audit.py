@@ -8,8 +8,11 @@ confusing for navigation but do not require running the full test suite.
 from __future__ import annotations
 
 import argparse
+import re
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import unquote
 
 IGNORED_PARTS = {
     ".git",
@@ -29,22 +32,31 @@ TEXT_ROOTS = (
     Path("examples"),
     Path("docs"),
     Path("scripts"),
-    Path("crates/gummy_canvas/src"),
-    Path("crates/gummy_ecs/src"),
-    Path("crates/gummy_accel/src"),
     Path("README.md"),
     Path("AGENTS.md"),
-)
-RUST_ROOTS = (
-    Path("crates/gummy_canvas/src"),
-    Path("crates/gummy_ecs/src"),
-    Path("crates/gummy_accel/src"),
 )
 TEXT_SUFFIXES = {".py", ".rs", ".md", ".toml", ".txt", ".yaml", ".yml", ".json"}
 SELF_REFERENTIAL_AUDIT_FILES = {
     Path("scripts/structure_audit.py"),
     Path("tests/unit/test_structure_audit.py"),
 }
+REPOSITORY_PATH_PREFIXES = (
+    "src/",
+    "crates/",
+    "tests/",
+    "examples/",
+    "docs/",
+    "scripts/",
+)
+PATH_SKIP_MARKERS = ("...", "<", ">")
+PATH_WILDCARD_CHARACTERS = frozenset("*?[]{}")
+SUPPORT_CLUSTER_DIRECTORIES = (Path("tests/helpers"), Path("tests/benchmark"))
+INTENTIONAL_SUPPORT_PREFIX_CLUSTERS = {
+    Path("tests/helpers"): frozenset({"rust_canvas"}),
+    Path("tests/benchmark"): frozenset({"canvas_backend_perf_scene"}),
+}
+MARKDOWN_INLINE_LINK_RE = re.compile(r"!?\[[^\]\n]*\]\((?P<destination><[^>\n]+>|[^)\n]+)\)")
+INLINE_CODE_SPAN_RE = re.compile(r"(?<!`)`(?P<content>[^`\n]+)`(?!`)")
 STALE_TEXT_PATTERNS = {
     "renderer3d_support": "use the `gummysnake.drawing.renderer3d` package instead",
     "backend/_canvas": "use `backend/canvas_runtime` instead",
@@ -139,9 +151,45 @@ def _iter_existing_dirs(repo_root: Path, roots: tuple[Path, ...]) -> list[Path]:
     return directories
 
 
+def _workspace_member_source_roots(repo_root: Path) -> tuple[Path, ...]:
+    """Return source roots for workspace members declared by the root manifest."""
+    manifest_path = repo_root / "Cargo.toml"
+    if not manifest_path.is_file():
+        return ()
+
+    try:
+        manifest = tomllib.loads(manifest_path.read_text())
+    except (OSError, tomllib.TOMLDecodeError):
+        return ()
+
+    workspace = manifest.get("workspace")
+    if not isinstance(workspace, dict):
+        return ()
+    members = workspace.get("members")
+    if not isinstance(members, list):
+        return ()
+
+    source_roots: set[Path] = set()
+    for member in members:
+        if not isinstance(member, str):
+            continue
+        for member_path in repo_root.glob(member):
+            if not member_path.is_dir() or not (member_path / "Cargo.toml").is_file():
+                continue
+            try:
+                relative_member = member_path.relative_to(repo_root)
+            except ValueError:
+                continue
+            if _is_ignored_relative_path(relative_member):
+                continue
+            source_roots.add(relative_member / "src")
+    return tuple(sorted(source_roots))
+
+
 def _iter_text_files(repo_root: Path) -> list[Path]:
     files: list[Path] = []
-    for relative_root in TEXT_ROOTS:
+    roots = (*TEXT_ROOTS, *_workspace_member_source_roots(repo_root))
+    for relative_root in dict.fromkeys(roots):
         root = repo_root / relative_root
         if not root.exists() or _is_ignored_relative_path(relative_root):
             continue
@@ -157,6 +205,47 @@ def _iter_text_files(repo_root: Path) -> list[Path]:
             and not _is_ignored_relative_path(_display_path(repo_root, path))
         )
     return files
+
+
+def _iter_markdown_files(repo_root: Path) -> list[Path]:
+    return sorted(
+        path
+        for path in repo_root.rglob("*.md")
+        if path.is_file() and not _is_ignored_relative_path(_display_path(repo_root, path))
+    )
+
+
+def _iter_non_fenced_lines(text: str) -> list[str]:
+    lines: list[str] = []
+    fence_marker: str | None = None
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith(("```", "~~~")):
+            marker = stripped[:3]
+            if fence_marker is None:
+                fence_marker = marker
+            elif marker == fence_marker:
+                fence_marker = None
+            continue
+        if fence_marker is None:
+            lines.append(line)
+    return lines
+
+
+def _should_skip_path(path: str) -> bool:
+    return (
+        not path
+        or any(marker in path for marker in PATH_SKIP_MARKERS)
+        or any(character in path for character in PATH_WILDCARD_CHARACTERS)
+    )
+
+
+def _is_within_repo(repo_root: Path, path: Path) -> bool:
+    try:
+        path.relative_to(repo_root)
+    except ValueError:
+        return False
+    return True
 
 
 def _audit_python_sibling_packages(repo_root: Path) -> list[StructureViolation]:
@@ -192,6 +281,37 @@ def _audit_python_sibling_packages(repo_root: Path) -> list[StructureViolation]:
                         ),
                     )
                 )
+    return violations
+
+
+def _audit_python_support_prefix_clusters(repo_root: Path) -> list[StructureViolation]:
+    violations: list[StructureViolation] = []
+    for relative_directory in SUPPORT_CLUSTER_DIRECTORIES:
+        directory = repo_root / relative_directory
+        if not directory.is_dir():
+            continue
+        prefixes: dict[str, list[Path]] = {}
+        for child in directory.iterdir():
+            if child.suffix != ".py" or not child.is_file() or "_" not in child.stem:
+                continue
+            prefix, _ = child.stem.rsplit("_", 1)
+            if prefix:
+                prefixes.setdefault(prefix, []).append(child)
+        allowed_prefixes = INTENTIONAL_SUPPORT_PREFIX_CLUSTERS.get(relative_directory, frozenset())
+        for prefix, paths in sorted(prefixes.items()):
+            if len(paths) < 4 or prefix in allowed_prefixes:
+                continue
+            names = ", ".join(path.name for path in sorted(paths))
+            violations.append(
+                StructureViolation(
+                    "python_support_prefix_cluster",
+                    relative_directory,
+                    (
+                        f"Python support files share the `{prefix}_` prefix: {names}; "
+                        "group related support modules into a package"
+                    ),
+                )
+            )
     return violations
 
 
@@ -256,6 +376,66 @@ def _audit_stale_text_references(repo_root: Path) -> list[StructureViolation]:
     return violations
 
 
+def _audit_local_markdown_links(repo_root: Path) -> list[StructureViolation]:
+    violations: list[StructureViolation] = []
+    for path in _iter_markdown_files(repo_root):
+        relative = _display_path(repo_root, path)
+        if relative in SELF_REFERENTIAL_AUDIT_FILES:
+            continue
+        destinations: set[str] = set()
+        for line in _iter_non_fenced_lines(path.read_text(errors="ignore")):
+            for match in MARKDOWN_INLINE_LINK_RE.finditer(line):
+                destination = match.group("destination").strip().split(maxsplit=1)[0]
+                destination = unquote(destination).split("#", 1)[0].split("?", 1)[0]
+                if (
+                    _should_skip_path(destination)
+                    or destination.startswith(("#", "/", "\\"))
+                    or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", destination)
+                ):
+                    continue
+                destinations.add(destination)
+        for destination in sorted(destinations):
+            target = (path.parent / destination).resolve()
+            if _is_within_repo(repo_root, target) and target.exists():
+                continue
+            violations.append(
+                StructureViolation(
+                    "missing_markdown_link",
+                    relative,
+                    f"local Markdown link target `{destination}` does not exist",
+                )
+            )
+    return violations
+
+
+def _audit_backticked_repository_paths(repo_root: Path) -> list[StructureViolation]:
+    violations: list[StructureViolation] = []
+    for path in _iter_text_files(repo_root):
+        relative = _display_path(repo_root, path)
+        if relative in SELF_REFERENTIAL_AUDIT_FILES:
+            continue
+        candidates: set[str] = set()
+        for line in _iter_non_fenced_lines(path.read_text(errors="ignore")):
+            for match in INLINE_CODE_SPAN_RE.finditer(line):
+                candidate = match.group("content").split(maxsplit=1)[0]
+                if candidate.startswith(REPOSITORY_PATH_PREFIXES) and not _should_skip_path(
+                    candidate
+                ):
+                    candidates.add(candidate)
+        for candidate in sorted(candidates):
+            target = (repo_root / candidate).resolve()
+            if _is_within_repo(repo_root, target) and target.exists():
+                continue
+            violations.append(
+                StructureViolation(
+                    "stale_repository_path",
+                    relative,
+                    f"backticked repository path `{candidate}` does not exist",
+                )
+            )
+    return violations
+
+
 def _audit_generated_example_output_policy(repo_root: Path) -> list[StructureViolation]:
     if not (repo_root / "examples").exists():
         return []
@@ -276,7 +456,7 @@ def _audit_generated_example_output_policy(repo_root: Path) -> list[StructureVio
 
 def _audit_rust_hubs(repo_root: Path) -> list[StructureViolation]:
     violations: list[StructureViolation] = []
-    for relative_root in RUST_ROOTS:
+    for relative_root in _workspace_member_source_roots(repo_root):
         root = repo_root / relative_root
         if not root.exists():
             continue
@@ -295,6 +475,21 @@ def _audit_rust_hubs(repo_root: Path) -> list[StructureViolation]:
                         ),
                     )
                 )
+
+    for relative_path in sorted(DOCUMENTED_RUST_HUBS):
+        path = repo_root / relative_path
+        if path.is_file() and path.with_suffix("").is_dir():
+            continue
+        violations.append(
+            StructureViolation(
+                "stale_documented_rust_hub",
+                relative_path,
+                (
+                    "documented Rust hubs must retain both the `.rs` file and its "
+                    "same-stem directory"
+                ),
+            )
+        )
     return violations
 
 
@@ -302,10 +497,13 @@ def audit(repo_root: Path = Path(".")) -> list[StructureViolation]:
     root = repo_root.resolve()
     violations: list[StructureViolation] = []
     violations.extend(_audit_python_sibling_packages(root))
+    violations.extend(_audit_python_support_prefix_clusters(root))
     violations.extend(_audit_source_testing_package(root))
     violations.extend(_audit_obsolete_source_packages(root))
     violations.extend(_audit_stale_text_references(root))
-    violations.extend(_audit_generated_example_output_policy(repo_root))
+    violations.extend(_audit_local_markdown_links(root))
+    violations.extend(_audit_backticked_repository_paths(root))
+    violations.extend(_audit_generated_example_output_policy(root))
     violations.extend(_audit_rust_hubs(root))
     return sorted(violations, key=lambda item: (item.code, str(item.path), item.message))
 

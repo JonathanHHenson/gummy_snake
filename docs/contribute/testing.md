@@ -9,10 +9,11 @@ uv run ruff check .
 uv run mypy src
 uv run pytest
 uv run python scripts/source_size_audit.py
+uv run python scripts/source_size_audit.py --check
 uv run python scripts/structure_audit.py
+uv run python scripts/compile_synth_assets.py --check
 uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
-cargo test --manifest-path crates/gummy_canvas/Cargo.toml
-cargo test --manifest-path crates/gummy_ecs/Cargo.toml
+cargo test --workspace
 ```
 
 For coverage locally:
@@ -37,7 +38,9 @@ Use focused checks while developing, then broaden before handing off:
 | WEBGL or fallback 3D path behavior | focused integration tests plus `tests/benchmark/test_webgl_3d_perf.py --run-benchmarks` when hot paths change |
 | Long-running resource lifecycle behavior | `uv run pytest tests/stress --run-stress -q -s` |
 | Documentation only | link/path review; no full test suite required unless commands changed |
-| Source layout, package naming, or file splits | `uv run python scripts/structure_audit.py` plus `uv run python scripts/source_size_audit.py` |
+| Source layout, package naming, or file splits | `make audit` plus `uv run python scripts/source_size_audit.py` when reviewing candidates |
+| Synth or FX asset sources | `make assets-check` plus focused synth asset tests |
+| Source distribution/package inputs | `uv build --sdist` then `make verify-sdist SDIST=dist/gummy_snake-X.Y.Z.tar.gz` |
 | CI workflow changes | local command equivalence where practical |
 
 ## Test Placement
@@ -61,14 +64,25 @@ branches:
 
 ```sh
 uv run python scripts/source_size_audit.py
+uv run python scripts/source_size_audit.py --check
 uv run python scripts/structure_audit.py
+# equivalent enforcement target:
+make audit
 ```
 
-`source_size_audit.py` reports implementation files over the 300-line threshold
-while excluding import/export barrels. `structure_audit.py` catches confusing
-Python module/package sibling patterns, source-package test fixtures, stale
-renamed layout references, missing generated-output ignore policy, and
-undocumented Rust same-stem hub files.
+`source_size_audit.py` reports implementation files over the 300-counted-line
+review threshold while excluding import/export barrels. Its `--check` mode scans
+all Python and Cargo-workspace production roots, including canvas, ECS, synth,
+and acceleration crates, then fails on new or enlarged files above the reviewed
+500-line enforcement policy. `structure_audit.py` catches confusing Python
+module/package sibling patterns, source-package test fixtures, stale renamed
+layout references, missing generated-output ignore policy, and undocumented or
+stale Rust same-stem hubs, missing local Markdown links, stale current source-path code spans, and
+unreviewed support-file prefix clusters across every workspace crate. Run `make assets-check` to
+compile source-defined synth/FX assets into temporary outputs and verify packaged `.gss`/`.gsfx`
+assets are current without modifying them. After `uv build --sdist`, run
+`make verify-sdist SDIST=dist/gummy_snake-X.Y.Z.tar.gz` to verify recursive local Cargo sources and
+Maturin-included assets are present.
 
 ## Performance Benchmarks
 

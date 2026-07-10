@@ -7,6 +7,20 @@ format:
 typecheck:
 	uv run mypy src
 
+audit-report:
+	uv run python scripts/source_size_audit.py
+
+audit:
+	uv run python scripts/source_size_audit.py --check
+	uv run python scripts/structure_audit.py
+
+assets-check:
+	uv run python scripts/compile_synth_assets.py --check
+
+verify-sdist:
+	@test -n "$(SDIST)" || (echo "Usage: make verify-sdist SDIST=dist/gummy_snake-X.Y.Z.tar.gz"; exit 2)
+	uv run python scripts/verify_distribution.py $(SDIST)
+
 test-fast:
 	uv run pytest tests/unit tests/contracts
 

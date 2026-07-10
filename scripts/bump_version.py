@@ -11,16 +11,14 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import tomllib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-PROJECT_FILES = (
-    Path("pyproject.toml"),
-    Path("crates/gummy_canvas/Cargo.toml"),
-    Path("crates/gummy_ecs/Cargo.toml"),
-    Path("crates/gummy_accel/Cargo.toml"),
-)
+PYPROJECT = Path("pyproject.toml")
+CARGO_WORKSPACE = Path("Cargo.toml")
+CARGO_MANIFEST = Path("Cargo.toml")
 UV_LOCK = Path("uv.lock")
 VERSION_PARTS = {"major", "minor", "patch"}
 VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
@@ -85,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         print("error: TARGET is required unless --check is used", file=sys.stderr)
         return 2
 
-    root_version = version_for_file(managed, PROJECT_FILES[0])
+    root_version = version_for_file(managed, PYPROJECT)
     next_version = resolve_target(args.target, root_version)
 
     planned = [VersionFile(item.path, item.current, next_version) for item in managed]
@@ -107,11 +105,42 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def read_versions(root: Path) -> list[VersionFile]:
-    versions = [_read_toml_version(root, path) for path in PROJECT_FILES]
+    versions = [_read_toml_version(root, path) for path in managed_toml_files(root)]
     lock_path = root / UV_LOCK
     if lock_path.exists():
         versions.append(_read_uv_lock_version(root))
     return versions
+
+
+def managed_toml_files(root: Path) -> tuple[Path, ...]:
+    """Return the Python project manifest and Cargo workspace member manifests."""
+    return (PYPROJECT, *workspace_member_manifests(root))
+
+
+def workspace_member_manifests(root: Path) -> tuple[Path, ...]:
+    """Read Rust crate manifests from explicit root Cargo workspace members."""
+    workspace_path = root / CARGO_WORKSPACE
+    try:
+        workspace_data = tomllib.loads(workspace_path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise RuntimeError(f"Could not read Cargo workspace manifest: {CARGO_WORKSPACE}") from error
+
+    workspace = workspace_data.get("workspace")
+    if not isinstance(workspace, dict):
+        raise RuntimeError(f"Could not find [workspace] in {CARGO_WORKSPACE}")
+    members = workspace.get("members")
+    if not isinstance(members, list) or not all(isinstance(member, str) for member in members):
+        raise RuntimeError(f"Could not find workspace members in {CARGO_WORKSPACE}")
+
+    manifests: list[Path] = []
+    for member in members:
+        member_path = Path(member)
+        if member_path.is_absolute():
+            raise RuntimeError(f"Workspace member must be relative to the project root: {member}")
+        manifest = member_path / CARGO_MANIFEST
+        if manifest not in manifests:
+            manifests.append(manifest)
+    return tuple(manifests)
 
 
 def version_for_file(files: Iterable[VersionFile], path: Path) -> str:
@@ -146,7 +175,7 @@ def validate_version(version: str) -> None:
 
 
 def write_versions(root: Path, version: str) -> None:
-    for path in PROJECT_FILES:
+    for path in managed_toml_files(root):
         _write_toml_version(root, path, version)
     lock_path = root / UV_LOCK
     if lock_path.exists():

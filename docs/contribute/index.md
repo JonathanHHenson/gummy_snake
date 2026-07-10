@@ -127,8 +127,9 @@ Read [Testing and CI](testing.md) before adding tests or changing workflows.
 ```sh
 uv sync --dev
 uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
-cargo test --manifest-path crates/gummy_canvas/Cargo.toml
-cargo test --manifest-path crates/gummy_ecs/Cargo.toml
+cargo test --workspace
+uv run python scripts/source_size_audit.py --check
+uv run python scripts/structure_audit.py
 uv run ruff check .
 uv run mypy src
 uv run pytest
