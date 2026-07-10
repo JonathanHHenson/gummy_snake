@@ -341,8 +341,8 @@ def _topological_system_order(
 def _build_system_dependency_graph(
     systems: Sequence[_ScheduledSystem], reachability: Mapping[str, set[str]]
 ) -> tuple[dict[int, set[int]], dict[int, set[int]]]:
-    edges = {index: set() for index in range(len(systems))}
-    incoming = {index: set() for index in range(len(systems))}
+    edges: dict[int, set[int]] = {index: set() for index in range(len(systems))}
+    incoming: dict[int, set[int]] = {index: set() for index in range(len(systems))}
     for left_index, _left in enumerate(systems):
         for right_index in range(left_index + 1, len(systems)):
             _add_pairwise_system_edge(

@@ -51,6 +51,16 @@ class CanvasRendererHost(Protocol):
     def _flush_primitive_batch_only(self) -> None: ...
     def _flush_image_batch(self) -> None: ...
     def _flush_model_batch(self) -> None: ...
+    def _queue_fast_rust_image(
+        self,
+        rust_image: object,
+        dx: float,
+        dy: float,
+        dw: float,
+        dh: float,
+        style: dict[str, object],
+        matrix: MatrixPayload,
+    ) -> None: ...
     def _queue_model_batch(self, key: ModelBatchKey, transform: ModelTransformPayload) -> bool: ...
     def _queue_primitive_batch(
         self,

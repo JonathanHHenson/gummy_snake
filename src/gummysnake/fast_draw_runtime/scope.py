@@ -36,6 +36,7 @@ from gummysnake.drawing.software3d.payloads import (
     Matrix4Payload,
     _coerce_matrix4_payload,
 )
+from gummysnake.fast_draw_runtime.image_batches import queue_fast_image
 from gummysnake.fast_draw_runtime.scope_helpers import SupportsText, _FastPushedScope
 
 if TYPE_CHECKING:
@@ -47,6 +48,10 @@ class FastDrawScope:
 
     __slots__ = (
         "_context",
+        "_image_matrix",
+        "_image_matrix_payload",
+        "_image_style_payload",
+        "_image_style_revision",
         "_draw_model_fast",
         "_model_batch_cache",
         "_model_batch_signature_cache",
@@ -58,6 +63,10 @@ class FastDrawScope:
 
     def __init__(self, context: SketchContext) -> None:
         self._context = context
+        self._image_style_revision = -1
+        self._image_style_payload: dict[str, object] | None = None
+        self._image_matrix: object | None = None
+        self._image_matrix_payload: tuple[float, float, float, float, float, float] | None = None
         draw_model_fast = getattr(context, "_draw_model_fast", None)
         self._draw_model_fast = draw_model_fast if callable(draw_model_fast) else None
         self._model_batch_cache: tuple[tuple[object, ...], object] | None = None
@@ -369,16 +378,7 @@ class FastDrawScope:
                 context._draw_image_fast(image, x, y, *args)
                 return
             context._record_image_diagnostics(image)
-            context.renderer.draw_image(
-                image,
-                dx,
-                dy,
-                dw,
-                dh,
-                context.state.style,
-                context.state.transform.matrix,
-                source=None,
-            )
+            queue_fast_image(self, image, dx, dy, dw, dh)
             return
         context._draw_image_fast(image, x, y, *args)
 

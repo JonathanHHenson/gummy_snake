@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.world_helpers import (
@@ -50,8 +49,6 @@ _SPATIAL_WARM_COUNTERS: tuple[str, ...] = (
 def _direct_canvas_execution_args(world: EcsWorld) -> tuple[Any, Any, Any, bool] | None:
     """Return renderer/canvas/matrix args for Rust-direct ECS canvas replay if available."""
 
-    if os.environ.get("GUMMY_ECS_CANVAS_DIRECT_REPLAY") != "1":
-        return None
     context = world.context
     if context is None:
         return None

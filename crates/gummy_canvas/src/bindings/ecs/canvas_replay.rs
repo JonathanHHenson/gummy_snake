@@ -222,7 +222,7 @@ pub(super) fn replay_convertible_fill_primitives_to_canvas(
     }
 
     let mut fill: Option<(u8, u8, u8, u8)> = None;
-    let mut retained_commands = Vec::new();
+    let mut final_fill_command: Option<ExecutionCanvasCommand> = None;
     let mut records = Vec::new();
 
     for command in &report.canvas_commands {
@@ -232,13 +232,14 @@ pub(super) fn replay_convertible_fill_primitives_to_canvas(
                 if fill.is_none() {
                     return Ok(0);
                 }
-                retained_commands.push(command.clone());
+                final_fill_command = Some(command.clone());
             }
             command_name if is_style_only_canvas_command(command_name) => {
-                if command_name == "no_fill" {
-                    fill = None;
-                }
-                retained_commands.push(command.clone());
+                // Direct primitive replay cannot safely infer the renderer-state effects of
+                // other style commands. Keep the whole report on the ordered Python path.
+                // Consecutive fill updates are safe: native records retain each color and
+                // Python only needs the final one for subsequent commands.
+                return Ok(0);
             }
             _ => {
                 let Some(current_fill) = fill else {
@@ -252,12 +253,15 @@ pub(super) fn replay_convertible_fill_primitives_to_canvas(
         }
     }
 
+    let Some(final_fill_command) = final_fill_command else {
+        return Ok(0);
+    };
     if records.is_empty() {
         return Ok(0);
     }
 
     let record_count = records.len();
     canvas.batch_fill_primitives_impl(records, matrix)?;
-    report.canvas_commands = retained_commands;
+    report.canvas_commands = vec![final_fill_command];
     Ok(record_count)
 }

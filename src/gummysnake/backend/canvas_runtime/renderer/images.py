@@ -58,6 +58,31 @@ class CanvasRendererImagesMixin:
             source,
         )
 
+    def _queue_fast_rust_image(
+        self,
+        rust_image: object,
+        dx: float,
+        dy: float,
+        dw: float,
+        dh: float,
+        style: dict[str, object],
+        matrix: MatrixPayload,
+    ) -> None:
+        """Append an already-normalized fast-scope image to the ordered image batch."""
+        renderer = _renderer(self)
+        if renderer._image_batch and not _same_image_batch_style(
+            renderer._image_batch_style, style
+        ):
+            renderer._flush_image_batch()
+        if not renderer._image_batch:
+            renderer._flush_line_batch_only()
+            renderer._flush_primitive_batch_only()
+            renderer._flush_model_batch()
+            renderer._flush_text_batch()
+        renderer._image_batch.append((rust_image, dx, dy, dw, dh, None, matrix))
+        renderer._image_batch_style = style
+        renderer._image_batch_matrix = matrix
+
     def _draw_rust_image(
         self,
         rust_image: object,

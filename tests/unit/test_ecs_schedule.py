@@ -166,8 +166,8 @@ def test_ecs_canvas_alias_and_rust_system_draw_commands() -> None:
     diagnostics = context.ecs_diagnostics()
     assert diagnostics["ecs_physical_system_runs"] >= 1
     assert diagnostics["ecs_canvas_commands"] == 2
-    assert diagnostics["ecs_canvas_direct_fill_primitives"] == 0
-    assert diagnostics["ecs_canvas_fill_batch_primitives"] == 1
+    assert diagnostics["ecs_canvas_direct_fill_primitives"] == 1
+    assert diagnostics["ecs_canvas_fill_batch_primitives"] == 0
 
 
 def test_ecs_canvas_transform_replay_preserves_ordered_fill_batch_state() -> None:
