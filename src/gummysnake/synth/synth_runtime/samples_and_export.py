@@ -1,12 +1,16 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import io
+import shutil
+import subprocess
+import tempfile
+import wave
+from collections.abc import Mapping
+from pathlib import Path
+
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.synth.synth_runtime.runtime_foundation import Format, _as_float
+
 _BUILTIN_SAMPLE_DURATIONS = {
     "loop_amen": 1.753310657596372,
     "loop_garzul": 4.0,
@@ -43,6 +47,9 @@ _BUILTIN_SAMPLE_DURATIONS = {
 
 def _sample_duration_seconds(value: object, opts: Mapping[str, object]) -> float:
     # Metadata-only helper; actual audio rendering is Rust-owned.
+    from gummysnake.synth.synth_runtime.event_api import _resolve_sample_source
+    from gummysnake.synth.synth_runtime.rendering import _require_synth_runtime
+
     name = value[0] if isinstance(value, tuple) and value else value
     resolved_name = _resolve_sample_source(name)
     if isinstance(resolved_name, Path) or (

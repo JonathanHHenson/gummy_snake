@@ -1,12 +1,20 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import builtins
+from typing import Any, overload, cast
+
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.expressions import ChoiceExpression, RandomExpression
+from gummysnake.synth.synth_runtime.lazy_values import (
+    Expression,
+    MusicExpression,
+    Ring,
+    TickExpression,
+    ensure_expr,
+    _source_bound_expression,
+)
+
+
 def range(start: float, stop: float | None = None, *, step: float = 1.0) -> Ring:  # noqa: A001
     """Create a numeric ring.
 
@@ -74,6 +82,8 @@ def octs(root: object, count: int) -> Ring | Expression:
 
     if isinstance(root, Expression):
         return MusicExpression("octs", root, count=ensure_expr(count))
+    from gummysnake.synth.synth_runtime.scales_and_specs import _octaves_from_root
+
     return _octaves_from_root(root, count)
 
 
@@ -252,6 +262,8 @@ def chord(root: object, name: str = "major") -> Ring | Expression:
 
     if isinstance(root, Expression):
         return MusicExpression("chord", root, name)
+    from gummysnake.synth.synth_runtime.scales_and_specs import _chord_from_root
+
     return _chord_from_root(root, name)
 
 
@@ -261,3 +273,11 @@ def scale(root: Expression, name: str = "major", *, num_octaves: int = 1) -> Exp
 
 @overload
 def scale(root: str | int | float | None, name: str = "major", *, num_octaves: int = 1) -> Ring: ...
+
+
+def scale(root: object, name: str = "major", *, num_octaves: int = 1) -> Ring | Expression:
+    """Return a scale ring, or a lazy scale expression when ``root`` is lazy."""
+
+    from gummysnake.synth.synth_runtime.scales_and_specs import scale as _scale
+
+    return _scale(root, name, num_octaves=num_octaves)

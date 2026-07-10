@@ -1,12 +1,20 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import json
+import statistics
+import time
+from dataclasses import dataclass
+
+import pytest
+
+from tests.benchmark.ant_colony_benchmark_support.configuration import (
+    ANTS_PER_COLONY,
+    FRAMES,
+    REPEATS,
+    TARGET_FPS,
+    WARMUP_FRAMES,
+)
+from tests.benchmark.ant_colony_benchmark_support.world_setup_and_pheromones import _seed_world
 
 
 @dataclass(frozen=True)

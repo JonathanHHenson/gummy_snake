@@ -1,12 +1,26 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+"""3D camera and projection methods for sketch contexts."""
+
+from __future__ import annotations
+
+import math
+from typing import Any, overload
+
+from gummysnake.context_mixins.three_d.camera_runtime.context_lookup import Number, _three_d
+from gummysnake.context_mixins.three_d.camera_runtime.math import (
+    _camera_basis,
+    _camera_to_world,
+    _rotate_around_axis,
+    _world_to_camera,
+)
+from gummysnake.drawing.renderer3d import Camera3D, Vec3
+from gummysnake.drawing.renderer3d.types import (
+    FrustumProjection,
+    OrthographicProjection,
+    PerspectiveProjection,
+)
+from gummysnake.exceptions import ArgumentValidationError
+
+
 class ThreeDCameraMixin:
     state: Any
     _camera3d: Camera3D

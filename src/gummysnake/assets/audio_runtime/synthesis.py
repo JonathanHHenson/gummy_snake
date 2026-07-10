@@ -1,12 +1,19 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import math
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Literal
+
+from gummysnake.assets._audio_codec import unit_interval
+from gummysnake.assets.audio_runtime.analysis import AudioBuffer
+from gummysnake.assets.sound import Sound
+from gummysnake.exceptions import ArgumentValidationError
+
+WaveformName = Literal["sine", "square", "triangle", "sawtooth"]
+FilterType = Literal["lowpass", "highpass"]
+
+
 class Oscillator:
     """Simple oscillator that can generate deterministic sample buffers or Sound objects."""
 
@@ -250,3 +257,6 @@ class AudioFilter:
                 previous = high
                 previous_input = sample
         return AudioBuffer(tuple(output), sample_rate=source.sample_rate)
+
+
+__all__ = ["AudioFilter", "Envelope", "FilterType", "Oscillator", "WaveformName"]

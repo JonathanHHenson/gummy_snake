@@ -1,12 +1,40 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from dataclasses import dataclass
+from types import TracebackType
+from typing import cast
+
+from gummysnake.ecs.action_model.plan_nodes import (
+    Action,
+    DefaultAction,
+    EventIterableSource,
+    ExpressionIterableSource,
+    ForEachAction,
+    IterableSource,
+    LoopItem,
+    WhenAction,
+)
+from gummysnake.ecs.action_tools.plan_building.session import (
+    _BuildBlock,
+    _BuildSession,
+    _ConditionalContext,
+    _ConditionalScope,
+    _DoFactory,
+    _IterableSourceWithItem,
+    _parallel_action,
+    _require_session,
+    _sequence_action,
+    active_build_session,
+)
+from gummysnake.ecs.expression_tools import ExpressionInput
+from gummysnake.ecs.expressions import Expression, ensure_expr
+from gummysnake.ecs.specs import EventReader, EventReaderProxy
+from gummysnake.exceptions import SystemPlanError
+
+
+type ForEachSource = IterableSource | EventReaderProxy | EventReader | Expression
+
+
 class _BranchContext:
     def __init__(
         self,

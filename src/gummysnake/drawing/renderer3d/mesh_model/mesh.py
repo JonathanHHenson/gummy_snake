@@ -1,12 +1,26 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Any, cast
+
+from gummysnake.drawing.renderer3d._mesh_buffers import (
+    MeshFaceInput,
+    MeshFloatInput,
+    MeshIndexInput,
+    MeshRustHandle,
+    coerce_vec2_rows,
+    coerce_vec3_rows,
+    create_rust_mesh_handle,
+    pack_faces,
+    resolve_face_buffers,
+)
+from gummysnake.drawing.renderer3d._numpy import NumpyArray, _readonly_numpy_array
+from gummysnake.drawing.renderer3d.materials import Material3D
+from gummysnake.drawing.renderer3d.mesh_model.geometry import _cross, _normalize, _sub
+from gummysnake.drawing.renderer3d.mesh_model.python_data import MeshPythonData
+from gummysnake.drawing.renderer3d.types import Vec3
+
+
 class Mesh3D:
     """Indexed mesh data in logical model coordinates.
 

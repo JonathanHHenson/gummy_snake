@@ -1,12 +1,3 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
 """Backend-neutral video playback and camera capture helpers."""
 
 from __future__ import annotations
@@ -14,25 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, cast
 
-from gummysnake.assets.audio import AudioBuffer, AudioInput, create_audio_in
 from gummysnake.assets.image import Image
-from gummysnake.assets.media.cv2 import (
-    capture_is_open as _capture_is_open,
-)
-from gummysnake.assets.media.cv2 import (
-    load_cv2_module as _load_cv2_module,
-)
-from gummysnake.assets.media.cv2 import (
-    release_capture as _release_capture,
-)
-from gummysnake.assets.media.cv2 import (
-    set_capture_dimensions as _set_capture_dimensions,
-)
+from gummysnake.assets.media.cv2 import release_capture as _release_capture
 from gummysnake.assets.media.frame import frame_to_image as _frame_to_image
-from gummysnake.exceptions import (
-    ArgumentValidationError,
-    BackendCapabilityError,
-)
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
 _VIDEO_KINDS = {"video", "camera"}
 _AUDIO_KINDS = {"audio", "microphone", "mic"}
@@ -267,3 +243,12 @@ class Video(_FrameStreamBase):
                 self._playing = False
                 return None
         return _frame_to_image(frame)
+
+
+__all__ = [
+    "Video",
+    "_AUDIO_KINDS",
+    "_AUDIO_VIDEO_KINDS",
+    "_FrameStreamBase",
+    "_VIDEO_KINDS",
+]

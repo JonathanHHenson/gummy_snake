@@ -1,12 +1,28 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from typing import Any, Literal, cast
+
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.lazy_values import (
+    Expression,
+    Ring,
+    _cached_expression_value,
+    _current_repeat_depth_or_none,
+    _source_bind_key,
+    resolve_value,
+)
+from gummysnake.synth.synth_runtime.runtime_foundation import (
+    EvalContext,
+    Number,
+    SynthPlanError,
+    _as_float,
+    _as_int,
+    _next_expression_id,
+)
+
+
 @dataclass(frozen=True, slots=True, eq=False)
 class LiteralExpression(Expression):
     value: object
@@ -216,6 +232,8 @@ class BoundExpression(Expression):
     source: Expression
 
     def evaluate(self, ctx: EvalContext) -> object:
+        from gummysnake.synth.synth_runtime.builder_context import _call_scope_prefix
+
         key = ("bound", _call_scope_prefix(ctx.scope, self.call_id), self.id)
         if key not in ctx.bindings:
             ctx.bindings[key] = resolve_value(self.source, ctx)

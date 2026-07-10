@@ -1,12 +1,20 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+"""Canvas replay helpers for Rust-backed ECS physical execution."""
+
+from __future__ import annotations
+
+import copy
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, cast
+
+from gummysnake.ecs.runtime_views import Entity
+from gummysnake.ecs.schema_helpers import _event_payload_from_bridge
+from gummysnake.ecs.world_helpers import _current_delta_time, _current_key_down
+from gummysnake.exceptions import SystemExecutionError
+
+if TYPE_CHECKING:
+    from gummysnake.ecs.world import EcsWorld
+
+
 def dispatch_canvas_commands(world: EcsWorld, report: dict[str, Any]) -> None:
     """Replay canvas draw commands emitted by Rust ECS physical execution."""
 

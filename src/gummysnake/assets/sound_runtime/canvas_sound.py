@@ -1,38 +1,9 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
-"""Backend-neutral sound loading and playback helpers."""
+"""Rust-managed sound asset wrapper."""
 
 from __future__ import annotations
 
-import atexit
-import shutil
-import signal
-import subprocess
-import tempfile
-import threading
-import weakref
-from collections.abc import Callable
-from contextlib import suppress
 from pathlib import Path
-from typing import Any, Protocol, cast
-
-from gummysnake.assets._paths import resolve_asset_path
-from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
-
-_ACTIVE_NATIVE_PLAYERS: weakref.WeakSet[_NativeAudioPlayer] = weakref.WeakSet()
-_ACTIVE_NATIVE_PLAYERS_LOCK = threading.Lock()
-_NATIVE_PLAYER_MONITOR_STARTED = False
-
-
-class _ByteSourceCallback(Protocol):
-    def __call__(self) -> bytes | bytearray | memoryview: ...
+from typing import Protocol
 
 
 class _RustCanvasSound(Protocol):
@@ -95,3 +66,6 @@ class CanvasSound:
         """
 
         return self._rust_sound.to_bytes()
+
+
+__all__ = ["CanvasSound"]

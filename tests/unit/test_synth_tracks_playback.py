@@ -1,8 +1,18 @@
-# pyright: reportAttributeAccessIssue=false, reportOptionalMemberAccess=false
-# pyright: reportUnknownMemberType=false
 from __future__ import annotations
 
-from tests.helpers.synth_tracks_fixtures import *  # noqa: F403
+from tests.helpers.synth_tracks_fixtures import (
+    Path,
+    _FakeCanvasAudioPlayback,
+    _FakeSynthRuntime,
+    _same_time_realtime_track,
+    _short_realtime_track,
+    _tiny_realtime_loop,
+    _wav_payload,
+    gs,
+    sy,
+    synth_core,
+    time,
+)
 
 
 def test_track_play_reports_rust_callback_errors(monkeypatch) -> None:

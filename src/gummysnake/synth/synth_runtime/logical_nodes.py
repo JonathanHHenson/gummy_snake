@@ -1,12 +1,13 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Literal
+
+from gummysnake.synth.synth_runtime.lazy_values import Expression
+from gummysnake.synth.synth_runtime.scales_and_specs import FxHandle
+
+
 @dataclass(slots=True)
 class EventNode:
     id: int
@@ -121,6 +122,8 @@ class TrackPlan:
         lines = [
             f"track {self.name!r} bpm={self.bpm:g} loop={self.loop} loop_times={self.loop_times}",
         ]
+        from gummysnake.synth.synth_runtime.track import _append_node_explain
+
         _append_node_explain(lines, self.nodes, indent="  ")
         return "\n".join(lines)
 

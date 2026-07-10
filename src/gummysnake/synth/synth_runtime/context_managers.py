@@ -1,12 +1,36 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from typing import Any, TYPE_CHECKING, cast, overload
+
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.builder_context import (
+    FxContext,
+    LoopContext,
+    SynthContext,
+    _CURRENT_BUILDER,
+    _current_builder,
+    _next_node_id,
+)
+from gummysnake.synth.synth_runtime.definitions import FxDefinition, SynthDefinition
+from gummysnake.synth.synth_runtime.event_api import _FxFunction, _SynthFunction, play, sample
+from gummysnake.synth.synth_runtime.lazy_values import Expression, ensure_expr
+from gummysnake.synth.synth_runtime.logical_nodes import NodeHandle, ThreadNode
+from gummysnake.synth.synth_runtime.scales_and_specs import (
+    FxHandle,
+    FxSignal,
+    SynthLayer,
+    SynthSignal,
+    SynthSpec,
+    _DEFAULT_SYNTH_INPUT_NOTE,
+    _DEFAULT_SYNTH_LAYER_AMP,
+    _transposed_synth_note,
+)
+
+if TYPE_CHECKING:
+    from gummysnake.synth.synth_runtime.plan_builder import PlanBuilder
+
+
 class ThreadContext:
     """Context manager that records a parallel logical branch."""
 
@@ -152,28 +176,6 @@ def _synth_layer_payload(layer_node: SynthLayer) -> dict[str, object]:
         "amp": layer_node.amp,
         "opts": dict(layer_node.opts),
     }
-
-
-def _transposed_synth_note(value: object, transpose: object) -> object:
-    if isinstance(transpose, int | float) and transpose == 0:
-        return value
-    if isinstance(value, Ring):
-        return Ring(_transposed_synth_note(item, transpose) for item in value)
-    if isinstance(value, list):
-        return [_transposed_synth_note(item, transpose) for item in value]
-    if isinstance(value, tuple):
-        return tuple(_transposed_synth_note(item, transpose) for item in value)
-    if isinstance(value, Expression):
-        return value + transpose
-    if isinstance(value, str | int | float | bool) or value is None:
-        resolved = note(value)
-        if resolved is None:
-            return None
-        if isinstance(transpose, Expression):
-            return ensure_expr(resolved) + transpose
-        if isinstance(transpose, int | float):
-            return resolved + float(transpose)
-    return value
 
 
 def _multiply_synth_amp(base_amp: object, layer_amp: object) -> object:

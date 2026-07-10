@@ -1,12 +1,25 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import builtins
+from collections.abc import Callable, Mapping
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from typing import Any, cast
+
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.lazy_values import (
+    Expression,
+    MusicExpression,
+    Ring,
+    ensure_expr,
+)
+from gummysnake.synth.synth_runtime.pattern_helpers import (
+    _CHORD_INTERVALS,
+    _SCALE_INTERVALS,
+    note,
+)
+
+
 def scale(root: object, name: str = "major", *, num_octaves: int = 1) -> Ring | Expression:
     """Return a scale ring, or a lazy scale expression when ``root`` is lazy."""
 
@@ -43,6 +56,28 @@ def _octaves_from_root(root: object, count: int) -> Ring:
     if base is None:
         return Ring(())
     return Ring(base + index * 12 for index in builtins.range(max(0, int(count))))
+
+
+def _transposed_synth_note(value: object, transpose: object) -> object:
+    if isinstance(transpose, int | float) and transpose == 0:
+        return value
+    if isinstance(value, Ring):
+        return Ring(_transposed_synth_note(item, transpose) for item in value)
+    if isinstance(value, list):
+        return [_transposed_synth_note(item, transpose) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_transposed_synth_note(item, transpose) for item in value)
+    if isinstance(value, Expression):
+        return value + transpose
+    if isinstance(value, str | int | float | bool) or value is None:
+        resolved = note(value)
+        if resolved is None:
+            return None
+        if isinstance(transpose, Expression):
+            return ensure_expr(resolved) + transpose
+        if isinstance(transpose, int | float):
+            return resolved + float(transpose)
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +177,8 @@ class SynthSignal:
 
     def output(self) -> tuple[NodeHandle, ...]:
         """Record this source-synth signal into the active synth plan."""
+
+        from gummysnake.synth.synth_runtime.context_managers import synth_output
 
         return synth_output(self)
 

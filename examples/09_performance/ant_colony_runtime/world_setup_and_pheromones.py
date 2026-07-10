@@ -1,40 +1,51 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
-def _neighbors4(cell: tuple[int, int]) -> tuple[tuple[int, int], ...]:
-    x, y = cell
-    return ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
+from __future__ import annotations
 
+import math
+import random
+from collections import deque
+from typing import Any
 
-def _assert_food_reachable_from_hills(walls: set[tuple[int, int]]) -> None:
-    blocked = set(walls)
-    targets: set[tuple[int, int]] = set(FOOD_CLUMPS)
-    for hill in (RED_HILL, BLUE_HILL):
-        seen: set[tuple[int, int]] = {hill}
-        queue: deque[tuple[int, int]] = deque([hill])
-        reached: set[tuple[int, int]] = set()
-        while queue:
-            x, y = queue.popleft()
-            if (x, y) in targets:
-                reached.add((x, y))
-                if reached == targets:
-                    break
-            for nx, ny in _neighbors4((x, y)):
-                if not (0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT):
-                    continue
-                candidate = (nx, ny)
-                if candidate in blocked or candidate in seen:
-                    continue
-                seen.add(candidate)
-                queue.append(candidate)
-        if missing := targets - reached:
-            raise RuntimeError(f"walls isolate anthill {hill} from food clumps {sorted(missing)!r}")
+import gummysnake as gs
+from gummysnake import ecs
+
+import ant_colony_runtime.configuration as cfg
+from .configuration import (
+    ANTS_PER_COLONY,
+    ANT_SPEED,
+    BLUE_ANT_TAG,
+    BLUE_HILL,
+    BLUE_HILL_TAG,
+    CELL_SIZE,
+    FOOD_CLUMPS,
+    FOOD_PHEROMONE_DEPOSIT,
+    FOOD_TAG,
+    GRID_HEIGHT,
+    GRID_WIDTH,
+    HOME_PHEROMONE_DEPOSIT,
+    HOME_PHEROMONE_SOURCE,
+    MAX_PHEROMONE,
+    PHEROMONE_DECAY,
+    PHEROMONE_DEPOSIT_RADIUS,
+    PHEROMONE_STRIDE,
+    PHEROMONE_TAG,
+    RED_ANT_TAG,
+    RED_HILL,
+    RED_HILL_TAG,
+    SENSOR_DISTANCE,
+    SENSOR_SPACING,
+    WALL_TAG,
+    AntAgent,
+    AntDecision,
+    FoodVoxel,
+    GridVoxel,
+    HillVoxel,
+    PheromoneVoxel,
+    WallVoxel,
+    _cell_center,
+    _food_voxels,
+    _hill_voxels,
+    _wall_voxels,
+)
 
 
 def _add_voxel(cell: tuple[int, int], *components: Any, tags: list[str]) -> None:
@@ -125,7 +136,6 @@ def _seed_ants(center: tuple[int, int], tag: str, *, seed: int) -> None:
 
 
 def _prepare_world() -> None:
-    global world_counts
     walls = _wall_voxels()
     foods = _food_voxels()
     red_hill_cells = _hill_voxels(RED_HILL)
@@ -142,7 +152,7 @@ def _prepare_world() -> None:
     pheromone_voxels = _add_pheromone_voxels(walls, red_hill_cells, blue_hill_cells)
     _seed_ants(RED_HILL, RED_ANT_TAG, seed=11)
     _seed_ants(BLUE_HILL, BLUE_ANT_TAG, seed=29)
-    world_counts = {
+    cfg.world_counts = {
         "ants": ANTS_PER_COLONY * 2,
         "walls": len(walls),
         "food_voxels": len(foods),

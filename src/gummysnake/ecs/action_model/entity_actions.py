@@ -1,12 +1,38 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import builtins
+from typing import Any
+
+from gummysnake.ecs.action_model.plan_nodes import Action, DefaultAction
+from gummysnake.ecs.action_model.udf import (
+    RuntimeUdfDefinition,
+    UdfCallExpression,
+    UdfIterableDefinition,
+    udf,
+    udf_plan,
+    validate_mutation_metadata,
+)
+from gummysnake.ecs.expressions import EntityExpression, FieldExpression, QueryProxy, ensure_expr
+from gummysnake.ecs.expression_tools import ExpressionInput
+from gummysnake.ecs.specs import EventWriterProxy
+from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
+from gummysnake.exceptions import SystemPlanError
+
+
+# Re-export core action node types from this compatibility chunk's historical __all__.
+from gummysnake.ecs.action_model.plan_nodes import (  # noqa: E402
+    EntityIteratorSource,
+    EventIterableSource,
+    ExpressionIterableSource,
+    ForEachAction,
+    IterableSource,
+    SystemPlan,
+    UdfDefinition,
+    UdfPlanDefinition,
+    WhenAction,
+)
+
+
 def set(target: FieldExpression, value: ExpressionInput) -> DefaultAction:
     """Build an ECS action that assigns a value to a component or resource field.
 
@@ -129,8 +155,6 @@ def emit_event(writer: EventWriterProxy, event: EcsEventValue) -> DefaultAction:
 
 
 from gummysnake.ecs.action_tools.building import (  # noqa: E402
-    _OtherwiseBranchBuilder,
-    _WhenBranchBuilder,
     active_build_session,
     append_action,
     build_session,

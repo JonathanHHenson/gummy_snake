@@ -1,12 +1,21 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any, Literal, cast
+
+from gummysnake.assets._audio_codec import MemorySoundSource
+from gummysnake.assets.sound import Sound
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.event_api import _resolve_sample_source
+from gummysnake.synth.synth_runtime.logical_nodes import ScheduledControl, ScheduledEvent
+from gummysnake.synth.synth_runtime.pattern_helpers import note_frequency
+from gummysnake.synth.synth_runtime.runtime_foundation import _as_float, _as_int
+from gummysnake.synth.synth_runtime.samples_and_export import _wav_duration_seconds
+from gummysnake.synth.synth_runtime.scales_and_specs import FxHandle
+from gummysnake.synth.synth_runtime.lazy_values import Ring
+
+
 def _scheduled_event_to_dict(event: ScheduledEvent) -> dict[str, object]:
     return {
         "instance": [_serialize_synth_value(item) for item in event.instance],
@@ -206,6 +215,8 @@ def _render_event_sound(
     player_factory: Any | None,
     name: str,
 ) -> Sound | None:
+    from gummysnake.synth.synth_runtime.rendering import _require_synth_runtime
+
     runtime = _require_synth_runtime()
     payload = bytes(
         runtime.synth_render_event_wav(

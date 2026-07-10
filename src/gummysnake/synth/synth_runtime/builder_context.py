@@ -1,12 +1,43 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import builtins
+import contextlib
+import random as _random
+from collections.abc import Iterator, Mapping, Sequence
+from contextvars import ContextVar
+from typing import Any, TYPE_CHECKING, cast
+
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.expressions import (
+    BinaryExpression,
+    ChoiceExpression,
+    LiteralExpression,
+    SourceBoundExpression,
+)
+from gummysnake.synth.synth_runtime.lazy_values import (
+    Expression,
+    SampleDurationExpression,
+    TickExpression,
+    resolve_value,
+)
+from gummysnake.synth.synth_runtime.logical_nodes import (
+    ControlNode,
+    EventNode,
+    LoopNode,
+    PlanNode,
+    SleepNode,
+)
+from gummysnake.synth.synth_runtime.runtime_foundation import EvalContext, SynthPlanError, _as_float
+from gummysnake.synth.synth_runtime.scales_and_specs import (
+    FxHandle,
+    SynthSpec,
+    _FX_DEFINITION_CAPTURE,
+)
+
+if TYPE_CHECKING:
+    from gummysnake.synth.synth_runtime.plan_builder import PlanBuilder
+
+
 def _remap_compiled_fx_chain(
     fx_chain: Sequence[FxHandle], fx_id_map: dict[int, int]
 ) -> tuple[FxHandle, ...]:

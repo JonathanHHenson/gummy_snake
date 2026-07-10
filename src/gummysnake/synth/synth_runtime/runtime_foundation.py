@@ -1,12 +1,3 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
 """Logical-track synth composition and deterministic audio rendering."""
 
 from __future__ import annotations
@@ -45,6 +36,8 @@ def _builtin_sample_package_dir() -> Path:
     current_file = Path(__file__).resolve()
     parents = current_file.parents
     candidates = []
+    if len(parents) > 4:
+        candidates.append(parents[4] / "assets" / "samples" / "sonic_pi")
     if len(parents) > 3:
         candidates.append(parents[3] / "assets" / "samples" / "sonic_pi")
     if len(parents) > 2:
@@ -69,6 +62,8 @@ def _asset_dir(*parts: str) -> Path:
     current_file = Path(__file__).resolve()
     parents = current_file.parents
     candidates = []
+    if len(parents) > 4:
+        candidates.append(parents[4].joinpath(*parts))
     if len(parents) > 3:
         candidates.append(parents[3].joinpath(*parts))
     if len(parents) > 2:
@@ -168,13 +163,32 @@ def _next_expression_id() -> int:
 
 
 def _current_repeat_depth_or_none() -> int | None:
-    try:
-        builder = _CURRENT_BUILDER.get()
-    except NameError:
-        return None
+    from gummysnake.synth.synth_runtime.builder_context import _CURRENT_BUILDER
+
+    builder = _CURRENT_BUILDER.get()
     if builder is None:
         return None
     return builder.repeat_depth
+
+
+def _binary_expression(op: str, left: object, right: object) -> Expression:
+    from gummysnake.synth.synth_runtime.expressions import BinaryExpression
+    from gummysnake.synth.synth_runtime.lazy_values import ensure_expr
+
+    return BinaryExpression(op, ensure_expr(left), ensure_expr(right))
+
+
+def _compare_expression(op: str, left: object, right: object) -> Expression:
+    from gummysnake.synth.synth_runtime.expressions import CompareExpression
+    from gummysnake.synth.synth_runtime.lazy_values import ensure_expr
+
+    return CompareExpression(op, ensure_expr(left), ensure_expr(right))
+
+
+def _unary_expression(op: str, operand: Expression) -> Expression:
+    from gummysnake.synth.synth_runtime.expressions import UnaryExpression
+
+    return UnaryExpression(op, operand)
 
 
 @dataclass(slots=True)
@@ -201,58 +215,58 @@ class Expression:
         )
 
     def __add__(self, other: object) -> Expression:
-        return BinaryExpression("add", self, ensure_expr(other))
+        return _binary_expression("add", self, other)
 
     def __radd__(self, other: object) -> Expression:
-        return BinaryExpression("add", ensure_expr(other), self)
+        return _binary_expression("add", other, self)
 
     def __sub__(self, other: object) -> Expression:
-        return BinaryExpression("sub", self, ensure_expr(other))
+        return _binary_expression("sub", self, other)
 
     def __rsub__(self, other: object) -> Expression:
-        return BinaryExpression("sub", ensure_expr(other), self)
+        return _binary_expression("sub", other, self)
 
     def __mul__(self, other: object) -> Expression:
-        return BinaryExpression("mul", self, ensure_expr(other))
+        return _binary_expression("mul", self, other)
 
     def __rmul__(self, other: object) -> Expression:
-        return BinaryExpression("mul", ensure_expr(other), self)
+        return _binary_expression("mul", other, self)
 
     def __truediv__(self, other: object) -> Expression:
-        return BinaryExpression("truediv", self, ensure_expr(other))
+        return _binary_expression("truediv", self, other)
 
     def __rtruediv__(self, other: object) -> Expression:
-        return BinaryExpression("truediv", ensure_expr(other), self)
+        return _binary_expression("truediv", other, self)
 
     def __mod__(self, other: object) -> Expression:
-        return BinaryExpression("mod", self, ensure_expr(other))
+        return _binary_expression("mod", self, other)
 
     def __rmod__(self, other: object) -> Expression:
-        return BinaryExpression("mod", ensure_expr(other), self)
+        return _binary_expression("mod", other, self)
 
     def __pow__(self, other: object) -> Expression:
-        return BinaryExpression("pow", self, ensure_expr(other))
+        return _binary_expression("pow", self, other)
 
     def __rpow__(self, other: object) -> Expression:
-        return BinaryExpression("pow", ensure_expr(other), self)
+        return _binary_expression("pow", other, self)
 
     def __neg__(self) -> Expression:
-        return UnaryExpression("neg", self)
+        return _unary_expression("neg", self)
 
     def __lt__(self, other: object) -> Expression:
-        return CompareExpression("lt", self, ensure_expr(other))
+        return _compare_expression("lt", self, other)
 
     def __le__(self, other: object) -> Expression:
-        return CompareExpression("le", self, ensure_expr(other))
+        return _compare_expression("le", self, other)
 
     def __gt__(self, other: object) -> Expression:
-        return CompareExpression("gt", self, ensure_expr(other))
+        return _compare_expression("gt", self, other)
 
     def __ge__(self, other: object) -> Expression:
-        return CompareExpression("ge", self, ensure_expr(other))
+        return _compare_expression("ge", self, other)
 
     def __eq__(self, other: object) -> Expression:  # type: ignore[override]
-        return CompareExpression("eq", self, ensure_expr(other))
+        return _compare_expression("eq", self, other)
 
     def __ne__(self, other: object) -> Expression:  # type: ignore[override]
-        return CompareExpression("ne", self, ensure_expr(other))
+        return _compare_expression("ne", self, other)

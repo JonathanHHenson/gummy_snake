@@ -1,12 +1,18 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from collections.abc import Sequence
+
+from gummysnake.assets.audio_runtime.analysis import Amplitude, AudioBuffer, FFT
+from gummysnake.assets.audio_runtime.synthesis import (
+    AudioFilter,
+    Envelope,
+    FilterType,
+    Oscillator,
+    WaveformName,
+)
+from gummysnake.assets.sound import Sound
+
+
 class AudioInput:
     """Headless-safe audio input buffer.
 
@@ -154,24 +160,8 @@ def create_audio_in(*, sample_rate: int = 44_100) -> AudioInput:
     return AudioInput(sample_rate=sample_rate)
 
 
-def _samples_from_source(source: Sound | AudioBuffer | Sequence[float] | None) -> tuple[float, ...]:
-    if source is None:
-        return ()
-    if isinstance(source, AudioBuffer):
-        return source.samples
-    if isinstance(source, Sound):
-        return decode_sound(source)
-    return tuple(float(sample) for sample in source)
-
-
 __all__ = [
-    "Amplitude",
-    "AudioBuffer",
-    "AudioFilter",
     "AudioInput",
-    "Envelope",
-    "FFT",
-    "Oscillator",
     "create_amplitude",
     "create_audio_in",
     "create_envelope",

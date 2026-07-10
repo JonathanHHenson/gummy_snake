@@ -1,39 +1,89 @@
-"""ECS action model compatibility module.
-
-Helper modules keep this public module path stable.
-"""
+"""ECS action model compatibility module."""
 
 from __future__ import annotations
-import __future__
 
-from importlib import resources
-from typing import Any
-
-_PART_FILES = (
-    "plan_nodes.py",
-    "udf.py",
-    "entity_actions.py",
+from gummysnake.ecs.action_model import (
+    Action,
+    DefaultAction,
+    EntityIteratorSource,
+    EventIterableSource,
+    ExpressionIterableSource,
+    ForEachAction,
+    IterableSource,
+    LoopItem,
+    RuntimeUdfDefinition,
+    SystemPlan,
+    UdfArgument,
+    UdfCallExpression,
+    UdfDefinition,
+    UdfIterableDefinition,
+    UdfIterableSource,
+    UdfPlanDefinition,
+    WhenAction,
+    action_query_refs,
+    action_write_targets,
+    add_component_action,
+    add_tag_action,
+    despawn_action,
+    emit_event,
+    remove_component_action,
+    remove_tag_action,
+    set,
+    udf,
+    udf_plan,
+    validate_mutation_metadata,
+)
+from gummysnake.ecs.action_tools.building import (
+    active_build_session,
+    append_action,
+    build_session,
+    conditional,
+    do,
+    do_in_order,
+    do_in_parallel,
+    for_each,
+    otherwise,
+    when,
 )
 
-
-def _load_action_model() -> None:
-    package = f"{__package__}.action_model"
-    flags = __future__.annotations.compiler_flag
-    for name in _PART_FILES:
-        source_path = resources.files(package).joinpath(name)
-        source = source_path.read_text()
-        code = compile(source, str(source_path), "exec", flags=flags, dont_inherit=True)
-        exec(code, globals())
-
-
-_load_action_model()
-del _load_action_model
-
-
-def __getattr__(name: str) -> Any:
-    """Return dynamically loaded module attributes for static type checkers."""
-
-    try:
-        return globals()[name]
-    except KeyError as exc:
-        raise AttributeError(name) from exc
+__all__ = [
+    "Action",
+    "DefaultAction",
+    "EntityIteratorSource",
+    "EventIterableSource",
+    "ExpressionIterableSource",
+    "ForEachAction",
+    "IterableSource",
+    "LoopItem",
+    "RuntimeUdfDefinition",
+    "SystemPlan",
+    "UdfArgument",
+    "UdfCallExpression",
+    "UdfDefinition",
+    "UdfIterableDefinition",
+    "UdfIterableSource",
+    "UdfPlanDefinition",
+    "WhenAction",
+    "active_build_session",
+    "action_query_refs",
+    "action_write_targets",
+    "add_component_action",
+    "add_tag_action",
+    "append_action",
+    "build_session",
+    "conditional",
+    "despawn_action",
+    "do",
+    "do_in_order",
+    "do_in_parallel",
+    "emit_event",
+    "for_each",
+    "otherwise",
+    "remove_component_action",
+    "remove_tag_action",
+    "set",
+    "udf",
+    "udf_plan",
+    "validate_mutation_metadata",
+    "when",
+]

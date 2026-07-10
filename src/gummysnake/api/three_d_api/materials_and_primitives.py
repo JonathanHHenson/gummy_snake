@@ -1,12 +1,16 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+"""Global-mode WEBGL material and primitive wrappers."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+
+from gummysnake import constants as c
+from gummysnake.api.current import require_context
+from gummysnake.assets.image import Image
+from gummysnake.drawing.renderer3d import Mesh3D, Model3D
+from gummysnake.drawing.renderer3d.types import VertexPropertyValue
+
+
 def texture_wrap(
     wrap_x: c.TextureWrapMode | str | None = None,
     wrap_y: c.TextureWrapMode | str | None = None,

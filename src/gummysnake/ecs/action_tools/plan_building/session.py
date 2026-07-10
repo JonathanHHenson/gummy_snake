@@ -1,12 +1,3 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
 """Context-manager helpers for building ECS action plans."""
 
 from __future__ import annotations
@@ -16,7 +7,7 @@ from dataclasses import dataclass, field
 from types import TracebackType
 from typing import Protocol, cast, overload
 
-from gummysnake.ecs.actions import (
+from gummysnake.ecs.action_model.plan_nodes import (
     Action,
     DefaultAction,
     EventIterableSource,
@@ -36,6 +27,25 @@ type ForEachSource = IterableSource | EventReaderProxy | EventReader | Expressio
 
 class _IterableSourceWithItem(Protocol):
     item: LoopItem
+
+
+def _validate_actions(actions: tuple[Action, ...]) -> None:
+    for action in actions:
+        if not isinstance(action, Action):
+            raise SystemPlanError(f"Expected ECS Action, got {type(action).__name__}.")
+
+
+def _group_action(kind: str, *actions: Action) -> DefaultAction:
+    _validate_actions(actions)
+    return DefaultAction(kind, children=tuple(actions)) if actions else DefaultAction("noop")
+
+
+def _sequence_action(*actions: Action) -> DefaultAction:
+    return _group_action("sequence", *actions)
+
+
+def _parallel_action(*actions: Action) -> DefaultAction:
+    return _group_action("parallel", *actions)
 
 
 @dataclass

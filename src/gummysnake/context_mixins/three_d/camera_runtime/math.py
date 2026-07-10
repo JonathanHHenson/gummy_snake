@@ -1,12 +1,12 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+"""Vector and camera-space math helpers for 3D context methods."""
+
+from __future__ import annotations
+
+import math
+
+from gummysnake.drawing.renderer3d import Camera3D, Vec3
+
+
 def _camera_basis(camera: Camera3D) -> tuple[Vec3, Vec3, Vec3]:
     forward = _normalize(_sub(camera.target, camera.eye))
     right = _normalize(_cross(forward, camera.up))

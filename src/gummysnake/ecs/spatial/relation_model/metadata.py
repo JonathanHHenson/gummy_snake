@@ -1,12 +1,3 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
 """Lazy spatial relation objects used by ECS system plans."""
 
 from __future__ import annotations
@@ -37,6 +28,7 @@ from gummysnake.ecs.spatial.runtime import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.ecs.spatial.relation_model.relation import SpatialRelation
     from gummysnake.ecs.world import EcsWorld
 
 

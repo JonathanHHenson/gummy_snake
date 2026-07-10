@@ -1,12 +1,26 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import builtins
+import inspect
+from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, get_origin, get_type_hints, overload
+
+from gummysnake.ecs.action_model.plan_nodes import (
+    DefaultAction,
+    UdfArgument,
+    UdfIterableSource,
+    UdfPlanDefinition,
+    _RuntimeUdfBase,
+)
+from gummysnake.ecs.action_tools.plan_building.session import active_build_session, append_action
+from gummysnake.ecs.expressions import Expression
+from gummysnake.exceptions import SystemExecutionError, SystemPlanError
+
+if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.ecs.world import EcsWorld
+
+
 @dataclass(frozen=True)
 class RuntimeUdfDefinition(_RuntimeUdfBase):
     """Metadata for a runtime Python UDF action."""
@@ -45,7 +59,7 @@ def validate_mutation_metadata(
 
     if not mutations:
         return {}
-    from gummysnake.ecs.world import EntityMutation
+    from gummysnake.ecs.runtime_views import EntityMutation
 
     parameter_names = builtins.set(inspect.signature(callback).parameters)
     normalized: dict[str, frozenset[object]] = {}
@@ -115,12 +129,6 @@ class UdfCallExpression(Expression):
 class _RuntimeUdfDecorator:
     mutations: Mapping[str, object] | None = None
 
-    @overload
-    def __call__(self, callback: Callable[..., Iterable[Any]]) -> UdfIterableDefinition: ...
-
-    @overload
-    def __call__(self, callback: Callable[..., Any]) -> RuntimeUdfDefinition: ...
-
     def __call__(
         self, callback: Callable[..., Any]
     ) -> RuntimeUdfDefinition | UdfIterableDefinition:
@@ -184,11 +192,7 @@ def _build_udf_plan_definition(callback: Callable[..., Any]) -> UdfPlanDefinitio
 
 
 @overload
-def udf(function: Callable[..., Iterable[Any]], /) -> UdfIterableDefinition: ...
-
-
-@overload
-def udf(function: Callable[..., Any], /) -> RuntimeUdfDefinition: ...
+def udf(function: Callable[..., Any], /) -> RuntimeUdfDefinition | UdfIterableDefinition: ...
 
 
 @overload

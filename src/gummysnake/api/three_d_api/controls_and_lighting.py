@@ -1,12 +1,31 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from typing import overload
+
+from gummysnake import constants as c
+from gummysnake.api._context_call import context_call as _context_call
+from gummysnake.api.current import require_context
+from gummysnake.assets.image import Image
+from gummysnake.core.color import Color
+from gummysnake.drawing.renderer3d import Camera3D
+
+Number = int | float
+ColorValue = Color | str
+ColorArg = ColorValue | Number
+
+
+@overload
+def orbit_control() -> Camera3D: ...
+
+
+@overload
+def orbit_control(sensitivity_x: Number, /) -> Camera3D: ...
+
+
+@overload
+def orbit_control(sensitivity_x: Number, sensitivity_y: Number, /) -> Camera3D: ...
+
+
 @overload
 def orbit_control(
     sensitivity_x: Number, sensitivity_y: Number, sensitivity_z: Number, /

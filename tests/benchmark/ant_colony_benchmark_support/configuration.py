@@ -1,12 +1,3 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
 from __future__ import annotations
 
 import json
@@ -230,6 +221,34 @@ def _protected_cells() -> set[tuple[int, int]]:
         for food in FOOD_CLUMPS:
             protected.update(_manhattan_corridor(hill, food, width=2))
     return protected
+
+
+def _assert_food_reachable_from_hills(walls: set[tuple[int, int]]) -> None:
+    blocked = set(walls)
+    targets: set[tuple[int, int]] = set(FOOD_CLUMPS)
+    for hill in (RED_HILL, BLUE_HILL):
+        seen: set[tuple[int, int]] = {hill}
+        queue: deque[tuple[int, int]] = deque([hill])
+        reached: set[tuple[int, int]] = set()
+        while queue:
+            x, y = queue.popleft()
+            if (x, y) in targets:
+                reached.add((x, y))
+                if reached == targets:
+                    break
+            for nx, ny in _neighbors4((x, y)):
+                if not (0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT):
+                    continue
+                candidate = (nx, ny)
+                if candidate in blocked or candidate in seen:
+                    continue
+                seen.add(candidate)
+                queue.append(candidate)
+        missing = targets - reached
+        if missing:
+            raise AssertionError(
+                f"walls isolate anthill {hill} from food clumps {sorted(missing)!r}"
+            )
 
 
 def _wall_voxels() -> set[tuple[int, int]]:

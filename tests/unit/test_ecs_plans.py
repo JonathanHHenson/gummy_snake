@@ -1,9 +1,21 @@
-# pyright: reportFunctionMemberAccess=false
-# pyright: reportAttributeAccessIssue=false, reportOptionalMemberAccess=false
-# pyright: reportUnknownMemberType=false
 from __future__ import annotations
 
-from tests.helpers.ecs_fixtures import *  # noqa: F403
+from tests.helpers.ecs_fixtures import (
+    HERO,
+    PLATFORM,
+    Counter,
+    EcsWorld,
+    Iterable,
+    Position,
+    SensorOrigin,
+    SystemPlanError,
+    Trail,
+    VecPosition,
+    Velocity,
+    cast,
+    ecs,
+    pytest,
+)
 
 
 def test_rust_udf_expands_to_physical_expression_plan() -> None:

@@ -1,39 +1,39 @@
-"""3D camera mixin compatibility module.
-
-Helper modules keep this public module path stable.
-"""
+"""3D camera mixin compatibility module."""
 
 from __future__ import annotations
-import __future__
 
-from importlib import resources
-from typing import Any
-
-_PART_FILES = (
-    "context_lookup.py",
-    "mixin.py",
-    "math.py",
+from gummysnake.context_mixins.three_d.camera_runtime.context_lookup import (
+    ThreeDContextHost,
+    _three_d,
 )
+from gummysnake.context_mixins.three_d.camera_runtime.math import (
+    _add,
+    _camera_basis,
+    _camera_to_world,
+    _cross,
+    _dot,
+    _length,
+    _normalize,
+    _rotate_around_axis,
+    _scale,
+    _sub,
+    _world_to_camera,
+)
+from gummysnake.context_mixins.three_d.camera_runtime.mixin import ThreeDCameraMixin
 
-
-def _load_camera_runtime() -> None:
-    package = f"{__package__}.camera_runtime"
-    flags = __future__.annotations.compiler_flag
-    for name in _PART_FILES:
-        source_path = resources.files(package).joinpath(name)
-        source = source_path.read_text()
-        code = compile(source, str(source_path), "exec", flags=flags, dont_inherit=True)
-        exec(code, globals())
-
-
-_load_camera_runtime()
-del _load_camera_runtime
-
-
-def __getattr__(name: str) -> Any:
-    """Return dynamically loaded module attributes for static type checkers."""
-
-    try:
-        return globals()[name]
-    except KeyError as exc:
-        raise AttributeError(name) from exc
+__all__ = [
+    "ThreeDCameraMixin",
+    "ThreeDContextHost",
+    "_add",
+    "_camera_basis",
+    "_camera_to_world",
+    "_cross",
+    "_dot",
+    "_length",
+    "_normalize",
+    "_rotate_around_axis",
+    "_scale",
+    "_sub",
+    "_three_d",
+    "_world_to_camera",
+]

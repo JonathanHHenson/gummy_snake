@@ -1,8 +1,20 @@
-# pyright: reportAttributeAccessIssue=false, reportOptionalMemberAccess=false
-# pyright: reportUnknownMemberType=false
 from __future__ import annotations
 
-from tests.helpers.synth_tracks_fixtures import *  # noqa: F403
+from tests.helpers.synth_tracks_fixtures import (
+    Path,
+    _beat_loop,
+    _caller_track,
+    _FakeSynthRuntime,
+    _lead_line,
+    _packaged_sample_track,
+    _source_fx_track,
+    _test_source_lowpass,
+    _wav_duration,
+    cast,
+    gs,
+    sy,
+    synth_core,
+)
 
 
 def test_track_builds_logical_and_physical_plan() -> None:

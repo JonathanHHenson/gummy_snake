@@ -1,12 +1,48 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from time import perf_counter
+
+import gummysnake as gs
+from gummysnake import ecs
+from gummysnake.ecs import canvas as ca
+
+import ant_colony_runtime.configuration as cfg
+from examples.common import save_once
+from .ant_simulation_query import _simulate_ant_query
+from .configuration import (
+    ARGS,
+    BLUE_ANT_TAG,
+    BLUE_HILL_TAG,
+    CELL_SIZE,
+    FOOD_TAG,
+    FPS_SMOOTHING,
+    GRID_HEIGHT,
+    GRID_OFFSET_X,
+    GRID_OFFSET_Y,
+    GRID_WIDTH,
+    HEIGHT,
+    PHEROMONE_TAG,
+    RED_ANT_TAG,
+    RED_HILL_TAG,
+    TARGET_FPS,
+    WALL_TAG,
+    WIDTH,
+    AntAgent,
+    AntDecision,
+    FoodVoxel,
+    GridVoxel,
+    HillVoxel,
+    HudText,
+    PheromoneVoxel,
+    WallVoxel,
+)
+from .world_setup_and_pheromones import (
+    _prepare_world,
+    update_blue_pheromones,
+    update_red_pheromones,
+)
+
+
 @ecs.system_plan(group=("simulation", "simulation_ants"))
 def simulate_red_ants(
     ant: ecs.Query[ecs.Tag[RED_ANT_TAG], AntAgent, AntDecision],
@@ -30,26 +66,25 @@ def simulate_blue_ants(
 
 
 def _update_fps() -> float:
-    global fps_last_time, fps_value
     now = perf_counter()
-    if fps_last_time is None:
-        fps_last_time = now
-        return fps_value
-    elapsed = now - fps_last_time
-    fps_last_time = now
+    if cfg.fps_last_time is None:
+        cfg.fps_last_time = now
+        return cfg.fps_value
+    elapsed = now - cfg.fps_last_time
+    cfg.fps_last_time = now
     if elapsed <= 0.0:
-        return fps_value
-    fps_value += (1.0 / elapsed - fps_value) * FPS_SMOOTHING
-    return fps_value
+        return cfg.fps_value
+    cfg.fps_value += (1.0 / elapsed - cfg.fps_value) * FPS_SMOOTHING
+    return cfg.fps_value
 
 
 def _hud_text(fps: float) -> HudText:
     return HudText(
-        title=f"ECS ants | {world_counts.get('ants', 0):,} ants | voxel walls + food clumps",
+        title=f"ECS ants | {cfg.world_counts.get('ants', 0):,} ants | voxel walls + food clumps",
         stats=(
-            f"fps {fps:5.1f} | walls {world_counts.get('walls', 0)} "
-            f"food voxels {world_counts.get('food_voxels', 0)} "
-            f"scent voxels {world_counts.get('pheromone_voxels', 0)}"
+            f"fps {fps:5.1f} | walls {cfg.world_counts.get('walls', 0)} "
+            f"food voxels {cfg.world_counts.get('food_voxels', 0)} "
+            f"scent voxels {cfg.world_counts.get('pheromone_voxels', 0)}"
         ),
     )
 
@@ -165,11 +200,10 @@ def draw_hud(hud: ecs.Res[HudText]) -> None:
 
 @ecs.system(group="export")
 def save_frame() -> None:
-    global saved_output
-    if saved_output:
+    if cfg.saved_output:
         return
     save_once(ARGS, 0, gs.save_canvas)
-    saved_output = True
+    cfg.saved_output = True
 
 
 @gs.setup

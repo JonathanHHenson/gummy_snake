@@ -1,14 +1,51 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import contextlib
+import functools
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.builder_context import _current_builder, _next_node_id
+from gummysnake.synth.synth_runtime.expressions import BoundExpression
+from gummysnake.synth.synth_runtime.lazy_values import (
+    Expression,
+    Ring,
+    SampleDurationExpression,
+    ensure_expr,
+)
+from gummysnake.synth.synth_runtime.logical_nodes import (
+    CallNode,
+    ControlTarget,
+    EventNode,
+    LoopNode,
+    NodeHandle,
+    PlanNode,
+    ThreadNode,
+)
+from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
+from gummysnake.synth.synth_runtime.runtime_foundation import (
+    SynthPlanError,
+    _BUILTIN_SAMPLE_EXTENSIONS,
+    _BUILTIN_SAMPLE_PACKAGE_DIR,
+)
+from gummysnake.synth.synth_runtime.scales_and_specs import (
+    FxHandle,
+    _FX_DEFINITIONS,
+    _SYNTH_DEFINITIONS,
+    _transposed_synth_note,
+)
+
+if TYPE_CHECKING:
+    from gummysnake.synth.synth_runtime.definitions import FxDefinition, SynthDefinition
+
+
 def thread(*, name: str | None = None) -> ThreadContext:
     """Record a nested logical block that starts in parallel with following code."""
+
+    from gummysnake.synth.synth_runtime.context_managers import ThreadContext
 
     return ThreadContext(name=name)
 
@@ -157,6 +194,8 @@ def _compiled_synth_definition(name: str) -> CompiledSynthDefinition | None:
     if key in _COMPILED_SYNTH_DEFINITIONS:
         return _COMPILED_SYNTH_DEFINITIONS[key]
     with contextlib.suppress(ArgumentValidationError):
+        from gummysnake.synth.synth_runtime.track import builtin_synth_path
+
         definition = CompiledSynthDefinition(key, builtin_synth_path(key))
         _COMPILED_SYNTH_DEFINITIONS[key] = definition
         return definition
@@ -168,6 +207,8 @@ def _compiled_fx_definition(name: str) -> CompiledFxDefinition | None:
     if key in _COMPILED_FX_DEFINITIONS:
         return _COMPILED_FX_DEFINITIONS[key]
     with contextlib.suppress(ArgumentValidationError):
+        from gummysnake.synth.synth_runtime.track import builtin_fx_path
+
         definition = CompiledFxDefinition(key, builtin_fx_path(key))
         _COMPILED_FX_DEFINITIONS[key] = definition
         return definition

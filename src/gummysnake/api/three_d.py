@@ -1,39 +1,101 @@
-"""3D API compatibility module.
-
-Helper modules keep this public module path stable.
-"""
+"""3D API compatibility module."""
 
 from __future__ import annotations
-import __future__
 
-from importlib import resources
-from typing import Any
-
-_PART_FILES = (
-    "camera_api.py",
-    "controls_and_lighting.py",
-    "materials_and_primitives.py",
+from gummysnake.api.three_d_api.camera_api import (
+    camera,
+    create_camera,
+    frustum,
+    ortho,
+    perspective,
+    roll,
+    screen_to_world,
+    set_camera,
+    world_to_screen,
+)
+from gummysnake.api.three_d_api.controls_and_lighting import (
+    ambient_light,
+    ambient_material,
+    directional_light,
+    emissive_material,
+    image_light,
+    light_falloff,
+    lights,
+    metalness,
+    no_lights,
+    normal_material,
+    orbit_control,
+    panorama,
+    point_light,
+    shininess,
+    specular_color,
+    specular_material,
+    spot_light,
+    texture_mode,
+)
+from gummysnake.api.three_d_api.materials_and_primitives import (
+    box,
+    build_geometry,
+    cone,
+    create_model,
+    cylinder,
+    ellipsoid,
+    flip_u,
+    flip_v,
+    free_geometry,
+    model,
+    normal,
+    plane,
+    sphere,
+    texture,
+    texture_wrap,
+    torus,
+    vertex_property,
 )
 
-
-def _load_three_d_api() -> None:
-    package = f"{__package__}.three_d_api"
-    flags = __future__.annotations.compiler_flag
-    for name in _PART_FILES:
-        source_path = resources.files(package).joinpath(name)
-        source = source_path.read_text()
-        code = compile(source, str(source_path), "exec", flags=flags, dont_inherit=True)
-        exec(code, globals())
-
-
-_load_three_d_api()
-del _load_three_d_api
-
-
-def __getattr__(name: str) -> Any:
-    """Return dynamically loaded module attributes for static type checkers."""
-
-    try:
-        return globals()[name]
-    except KeyError as exc:
-        raise AttributeError(name) from exc
+__all__ = [
+    "ambient_light",
+    "ambient_material",
+    "box",
+    "build_geometry",
+    "camera",
+    "cone",
+    "create_camera",
+    "create_model",
+    "cylinder",
+    "directional_light",
+    "ellipsoid",
+    "emissive_material",
+    "flip_u",
+    "flip_v",
+    "free_geometry",
+    "frustum",
+    "image_light",
+    "light_falloff",
+    "lights",
+    "metalness",
+    "model",
+    "no_lights",
+    "normal",
+    "normal_material",
+    "orbit_control",
+    "ortho",
+    "panorama",
+    "perspective",
+    "plane",
+    "point_light",
+    "roll",
+    "screen_to_world",
+    "set_camera",
+    "shininess",
+    "specular_color",
+    "specular_material",
+    "sphere",
+    "spot_light",
+    "texture",
+    "texture_mode",
+    "texture_wrap",
+    "torus",
+    "vertex_property",
+    "world_to_screen",
+]

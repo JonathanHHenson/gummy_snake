@@ -1,12 +1,3 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
 """Native, deterministic audio analysis and synthesis helpers."""
 
 from __future__ import annotations
@@ -226,3 +217,16 @@ class FFT:
             The current smoothed frequency spectrum.
         """
         return self.spectrum(samples)
+
+
+def _samples_from_source(source: Sound | AudioBuffer | Sequence[float] | None) -> tuple[float, ...]:
+    if source is None:
+        return ()
+    if isinstance(source, AudioBuffer):
+        return source.samples
+    if isinstance(source, Sound):
+        return decode_sound(source)
+    return tuple(float(sample) for sample in source)
+
+
+__all__ = ["Amplitude", "AudioBuffer", "FFT"]

@@ -1,12 +1,25 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import json
+import zlib
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import cast
+
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.logical_nodes import ScheduledControl, ScheduledEvent
+from gummysnake.synth.synth_runtime.runtime_foundation import (
+    _GSS_COMPRESSION,
+    _GSS_HEADER,
+    _GSS_MAGIC,
+    _PHYSICAL_PLAN_SCHEMA,
+    _SAMPLE_RATE,
+    _as_float,
+    _as_int,
+)
+
+
 @dataclass(frozen=True, slots=True)
 class PhysicalPlan:
     """Expanded track ready for deterministic rendering."""
@@ -33,6 +46,12 @@ class PhysicalPlan:
         loaded back with :meth:`from_dict` without executing the original Python
         source track.
         """
+
+        from gummysnake.synth.synth_runtime.serialization import (
+            _scheduled_control_to_dict,
+            _scheduled_event_to_dict,
+            _serialize_synth_value,
+        )
 
         payload: dict[str, object] = {
             "schema": _PHYSICAL_PLAN_SCHEMA,
@@ -84,6 +103,12 @@ class PhysicalPlan:
         if not isinstance(controls_value, Sequence) or isinstance(controls_value, str | bytes):
             raise ArgumentValidationError("Serialized synth physical plan controls must be a list.")
         metadata_value = payload.get("metadata", {})
+        from gummysnake.synth.synth_runtime.serialization import (
+            _deserialize_plan_value,
+            _scheduled_control_from_dict,
+            _scheduled_event_from_dict,
+        )
+
         metadata = (
             cast(Mapping[str, object], _deserialize_plan_value(metadata_value))
             if isinstance(metadata_value, Mapping)
@@ -133,6 +158,8 @@ class PhysicalPlan:
 
     def render(self, *, sample_rate: int | None = None) -> bytes:
         """Render this already-expanded plan to stereo 16-bit PCM WAV bytes."""
+
+        from gummysnake.synth.synth_runtime.rendering import _render_physical_plan
 
         return _render_physical_plan(
             self, sample_rate=self.sample_rate if sample_rate is None else sample_rate

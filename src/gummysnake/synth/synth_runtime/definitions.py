@@ -1,12 +1,46 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import sys
+from collections.abc import Callable, Mapping
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from gummysnake.synth.synth_runtime.builder_context import (
+    FxContext,
+    SynthContext,
+    _CURRENT_BUILDER,
+    _FX_DEFINITION_CAPTURE,
+    _next_node_id,
+)
+from gummysnake.synth.synth_runtime.event_api import (
+    _bind_track_call_value,
+    _expand_fx_handle,
+    _fx_definition_key,
+    _synth_definition_key,
+    play,
+    sleep,
+)
+from gummysnake.synth.synth_runtime.logical_nodes import CallNode, TrackPlan
+from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
+from gummysnake.synth.synth_runtime.runtime_foundation import Duration, SynthPlanError, _SAMPLE_RATE
+from gummysnake.synth.synth_runtime.scales_and_specs import (
+    FxHandle,
+    _FX_DEFINITIONS,
+    _FX_EXPANSION_STACK,
+    _SYNTH_DEFINITIONS,
+    _SYNTH_EXPANSION_STACK,
+)
+from gummysnake.synth.synth_runtime.track import Track
+from gummysnake.exceptions import ArgumentValidationError
+
+if TYPE_CHECKING:
+    from gummysnake.synth.synth_runtime.plan_builder import PlanBuilder
+
+type _TrackFunction = Callable[..., object]
+type _SynthFunction = Callable[..., object]
+type _FxFunction = Callable[..., object]
+
+
 class SynthDefinition:
     """Callable wrapper produced by ``@sy.synth`` for source-defined synths."""
 
@@ -27,6 +61,8 @@ class SynthDefinition:
         return self.build(value, **opts)
 
     def build(self, value: object = 60, **opts: object) -> Track:
+        from gummysnake.synth.synth_runtime.plan_builder import PlanBuilder
+
         builder = PlanBuilder(seed=0)
         token_builder = _CURRENT_BUILDER.set(builder)
         token_stack = _SYNTH_EXPANSION_STACK.set((self.name,))
@@ -84,6 +120,8 @@ class FxDefinition:
     def build_chain(self, source_id: int, opts: Mapping[str, object]) -> tuple[FxHandle, ...]:
         """Expand this source FX into lower-level FX handles for an event."""
 
+        from gummysnake.synth.synth_runtime.plan_builder import PlanBuilder
+
         stack = _FX_EXPANSION_STACK.get()
         if self.name in stack:
             raise SynthPlanError(f"Recursive FX definition expansion for {self.name!r}.")
@@ -109,6 +147,8 @@ class FxDefinition:
 
     def build(self, **opts: object) -> Track:
         """Build this FX definition as a standalone source track for asset compilation."""
+
+        from gummysnake.synth.synth_runtime.plan_builder import PlanBuilder
 
         builder = PlanBuilder(seed=0)
         token_builder = _CURRENT_BUILDER.set(builder)
@@ -197,6 +237,8 @@ class TrackDefinition:
 
     def build(self, *args: object, **kwargs: object) -> Track:
         """Build and return a logical track plan."""
+
+        from gummysnake.synth.synth_runtime.plan_builder import PlanBuilder
 
         builder = PlanBuilder(bpm=self.bpm, seed=self.seed)
         token = _CURRENT_BUILDER.set(builder)

@@ -1,12 +1,18 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from gummysnake.ecs.runtime_view_model.entity_mutation import (
+    Entity,
+    _copy_stored_value,
+)
+from gummysnake.ecs.schema_helpers import _schema_name, _validate_storage_value
+from gummysnake.exceptions import MissingComponentError
+
+if TYPE_CHECKING:
+    from gummysnake.ecs.world import EcsWorld
+
+
 class ComponentView:
     """Rust-backed view for reading and writing one entity component."""
 

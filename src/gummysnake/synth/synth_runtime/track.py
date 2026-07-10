@@ -1,12 +1,52 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from gummysnake.assets._audio_codec import MemorySoundSource
+from gummysnake.assets.sound import Sound
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.logical_nodes import (
+    BindNode,
+    CallNode,
+    ControlNode,
+    EventNode,
+    LoopNode,
+    PlanNode,
+    SleepNode,
+    ThreadNode,
+    TrackPlan,
+)
+from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
+from gummysnake.synth.synth_runtime.playback import TrackPlayback, _RenderedTrackCacheEntry
+from gummysnake.synth.synth_runtime.rendering import (
+    _beats_to_seconds,
+    _expand_physical_plan,
+    _render_physical_plan,
+)
+from gummysnake.synth.synth_runtime.runtime_foundation import (
+    Duration,
+    Format,
+    _BUILTIN_FX_COMPILED_DIR,
+    _BUILTIN_SYNTH_COMPILED_DIR,
+    _SAMPLE_RATE,
+)
+from gummysnake.synth.synth_runtime.samples_and_export import (
+    _resolve_format,
+    _wav_duration_seconds,
+    _write_mp3_with_ffmpeg,
+)
+
+if TYPE_CHECKING:
+    from gummysnake.synth.synth_runtime.definitions import (
+        FxDefinition,
+        SynthDefinition,
+        TrackDefinition,
+    )
+
+
 @dataclass(slots=True)
 class Track:
     """Built logical track with physical-plan, save, playback, and Sound helpers."""

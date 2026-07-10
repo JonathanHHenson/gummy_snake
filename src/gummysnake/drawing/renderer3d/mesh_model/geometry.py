@@ -1,12 +1,15 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import math
+from typing import TYPE_CHECKING
+
+from gummysnake.drawing.renderer3d._mesh_buffers import MeshRustHandle
+from gummysnake.drawing.renderer3d.types import Vec3
+
+if TYPE_CHECKING:
+    from gummysnake.drawing.renderer3d.mesh_model.mesh import Mesh3D
+
+
 def _sub(a: Vec3, b: Vec3) -> Vec3:
     return Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
 

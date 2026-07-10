@@ -1,12 +1,51 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from gummysnake import ecs
+
+from .configuration import (
+    ANT_SPEED,
+    BLUE_HILL,
+    BOUNDARY_STEER,
+    CELL_SIZE,
+    COLLISION_CORRECTION_MAX,
+    FOOD_COLLISION_RADIUS,
+    FOOD_COLLISION_RESOLVE,
+    FOOD_COLLISION_VELOCITY,
+    FOOD_PHEROMONE_STEER,
+    FOOD_STEER,
+    GRID_HEIGHT,
+    GRID_WIDTH,
+    HOME_COMPASS_STEER,
+    HOME_GRADIENT_STEER,
+    HOME_PHEROMONE_STEER,
+    HOME_SCAN_RADIUS,
+    HOME_SCENT_COMPASS_SUPPRESSION,
+    HOME_STEER,
+    PHEROMONE_FOLLOW_THRESHOLD,
+    PHEROMONE_SENSOR_RADIUS,
+    RED_HILL,
+    SCENT_WANDER_SUPPRESSION,
+    SENSOR_DISTANCE,
+    SENSOR_SPACING,
+    SENSOR_VECTOR_SCALE,
+    STATE_SWITCH_VELOCITY_DAMPING,
+    TRAIL_RUNOUT_FRAMES,
+    TURN_AROUND_STEER,
+    VOXEL_QUADTREE,
+    WALL_AVOID_RADIUS,
+    WALL_COLLISION_RADIUS,
+    WALL_COLLISION_RESOLVE,
+    WALL_COLLISION_VELOCITY,
+    WALL_STEER,
+    WANDER_STEER,
+    AntAgent,
+    AntDecision,
+    GridVoxel,
+    PheromoneVoxel,
+    _cell_center,
+)
+
+
 def _simulate_ant_query(
     ant: ecs.Query,
     wall: ecs.Query,

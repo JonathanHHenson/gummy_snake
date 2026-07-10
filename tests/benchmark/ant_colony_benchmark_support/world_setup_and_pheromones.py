@@ -1,38 +1,53 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
-def _assert_food_reachable_from_hills(walls: set[tuple[int, int]]) -> None:
-    blocked = set(walls)
-    targets: set[tuple[int, int]] = set(FOOD_CLUMPS)
-    for hill in (RED_HILL, BLUE_HILL):
-        seen: set[tuple[int, int]] = {hill}
-        queue: deque[tuple[int, int]] = deque([hill])
-        reached: set[tuple[int, int]] = set()
-        while queue:
-            x, y = queue.popleft()
-            if (x, y) in targets:
-                reached.add((x, y))
-                if reached == targets:
-                    break
-            for nx, ny in _neighbors4((x, y)):
-                if not (0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT):
-                    continue
-                candidate = (nx, ny)
-                if candidate in blocked or candidate in seen:
-                    continue
-                seen.add(candidate)
-                queue.append(candidate)
-        missing = targets - reached
-        if missing:
-            raise AssertionError(
-                f"walls isolate anthill {hill} from food clumps {sorted(missing)!r}"
-            )
+from __future__ import annotations
+
+import math
+import random
+from typing import Any
+
+from gummysnake import ecs
+from gummysnake.ecs.world import EcsWorld
+
+from tests.benchmark.ant_colony_benchmark_support.colony_systems import (
+    simulate_blue_ants,
+    simulate_red_ants,
+)
+from tests.benchmark.ant_colony_benchmark_support.configuration import (
+    ANTS_PER_COLONY,
+    ANT_SPEED,
+    BLUE_ANT_TAG,
+    BLUE_HILL,
+    BLUE_HILL_TAG,
+    CELL_SIZE,
+    COLONIES,
+    FOOD_PHEROMONE_DEPOSIT,
+    FOOD_TAG,
+    GRID_HEIGHT,
+    GRID_WIDTH,
+    HOME_PHEROMONE_DEPOSIT,
+    HOME_PHEROMONE_SOURCE,
+    MAX_PHEROMONE,
+    PHEROMONE_DECAY,
+    PHEROMONE_DEPOSIT_RADIUS,
+    PHEROMONE_STRIDE,
+    PHEROMONE_TAG,
+    RED_ANT_TAG,
+    RED_HILL,
+    RED_HILL_TAG,
+    SENSOR_DISTANCE,
+    SENSOR_SPACING,
+    WALL_TAG,
+    AntAgent,
+    AntDecision,
+    FoodVoxel,
+    GridVoxel,
+    HillVoxel,
+    PheromoneVoxel,
+    WallVoxel,
+    _cell_center,
+    _food_voxels,
+    _hill_voxels,
+    _wall_voxels,
+)
 
 
 def _add_voxel(world: EcsWorld, cell: tuple[int, int], *components: Any, tags: list[str]) -> None:

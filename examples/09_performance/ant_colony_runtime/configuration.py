@@ -1,12 +1,3 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
 """2D ECS ant-colony performance sketch.
 
 Two competing ant colonies forage through a voxel-grid world. Anthills, food,
@@ -246,6 +237,36 @@ def _protected_cells() -> set[tuple[int, int]]:
         for food in FOOD_CLUMPS:
             protected.update(_manhattan_corridor(hill, food, width=2))
     return protected
+
+
+def _neighbors4(cell: tuple[int, int]) -> tuple[tuple[int, int], ...]:
+    x, y = cell
+    return ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
+
+
+def _assert_food_reachable_from_hills(walls: set[tuple[int, int]]) -> None:
+    blocked = set(walls)
+    targets: set[tuple[int, int]] = set(FOOD_CLUMPS)
+    for hill in (RED_HILL, BLUE_HILL):
+        seen: set[tuple[int, int]] = {hill}
+        queue: deque[tuple[int, int]] = deque([hill])
+        reached: set[tuple[int, int]] = set()
+        while queue:
+            x, y = queue.popleft()
+            if (x, y) in targets:
+                reached.add((x, y))
+                if reached == targets:
+                    break
+            for nx, ny in _neighbors4((x, y)):
+                if not (0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT):
+                    continue
+                candidate = (nx, ny)
+                if candidate in blocked or candidate in seen:
+                    continue
+                seen.add(candidate)
+                queue.append(candidate)
+        if missing := targets - reached:
+            raise RuntimeError(f"walls isolate anthill {hill} from food clumps {sorted(missing)!r}")
 
 
 def _wall_voxels() -> set[tuple[int, int]]:

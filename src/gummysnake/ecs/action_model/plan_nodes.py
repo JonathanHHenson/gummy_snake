@@ -1,12 +1,3 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
 """ECS action tree builders and execution."""
 
 from __future__ import annotations
@@ -30,6 +21,11 @@ from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
+    from gummysnake.ecs.action_model.udf import RuntimeUdfDefinition, UdfIterableDefinition
+    from gummysnake.ecs.action_tools.plan_building.scopes import (
+        _OtherwiseBranchBuilder,
+        _WhenBranchBuilder,
+    )
     from gummysnake.ecs.world import EcsWorld
 
 
@@ -104,6 +100,8 @@ class WhenAction(Action):
             A builder used to attach actions to the branch.
         """
 
+        from gummysnake.ecs.action_tools.plan_building.scopes import _WhenBranchBuilder
+
         return _WhenBranchBuilder(self, ensure_expr(condition))
 
     def otherwise(self) -> _OtherwiseBranchBuilder:
@@ -112,6 +110,8 @@ class WhenAction(Action):
         Returns:
             A builder used to attach actions that run when no ``when`` branch matches.
         """
+
+        from gummysnake.ecs.action_tools.plan_building.scopes import _OtherwiseBranchBuilder
 
         return _OtherwiseBranchBuilder(self)
 

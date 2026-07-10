@@ -1,38 +1,8 @@
-"""Fast drawing compatibility module.
-
-Helper modules keep this public module path stable.
-"""
+"""Fast drawing compatibility module."""
 
 from __future__ import annotations
-import __future__
 
-from importlib import resources
-from typing import Any
+from gummysnake.fast_draw_runtime.scope import FastDrawScope
+from gummysnake.fast_draw_runtime.scope_helpers import SupportsText, _FastPushedScope
 
-_PART_FILES = (
-    "scope_helpers.py",
-    "scope.py",
-)
-
-
-def _load_fast_draw_runtime() -> None:
-    package = f"{__package__}.fast_draw_runtime"
-    flags = __future__.annotations.compiler_flag
-    for name in _PART_FILES:
-        source_path = resources.files(package).joinpath(name)
-        source = source_path.read_text()
-        code = compile(source, str(source_path), "exec", flags=flags, dont_inherit=True)
-        exec(code, globals())
-
-
-_load_fast_draw_runtime()
-del _load_fast_draw_runtime
-
-
-def __getattr__(name: str) -> Any:
-    """Return dynamically loaded module attributes for static type checkers."""
-
-    try:
-        return globals()[name]
-    except KeyError as exc:
-        raise AttributeError(name) from exc
+__all__ = ["FastDrawScope", "SupportsText", "_FastPushedScope"]

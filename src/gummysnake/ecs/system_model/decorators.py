@@ -1,12 +1,22 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import inspect
+from collections.abc import Callable, Iterable, Mapping
+from typing import overload
+
+from gummysnake.ecs.action_model.udf import validate_mutation_metadata
+from gummysnake.ecs.specs import QuerySpec
+from gummysnake.ecs.system_model.definitions import (
+    BuiltSystem,
+    PlanBuiltSystem,
+    RuntimeBuiltSystem,
+    RuntimeSystemDefinition,
+    SystemDefinition,
+    SystemPlanDefinition,
+)
+from gummysnake.exceptions import SystemPlanError
+
+
 @overload
 def system(function: Callable[..., object], /) -> RuntimeSystemDefinition: ...
 

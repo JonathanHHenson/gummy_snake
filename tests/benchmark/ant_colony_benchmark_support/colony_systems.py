@@ -1,12 +1,24 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from gummysnake import ecs
+
+from tests.benchmark.ant_colony_benchmark_support.ant_simulation_query import _simulate_ant_query
+from tests.benchmark.ant_colony_benchmark_support.configuration import (
+    BLUE_ANT_TAG,
+    BLUE_HILL_TAG,
+    FOOD_TAG,
+    PHEROMONE_TAG,
+    RED_ANT_TAG,
+    RED_HILL_TAG,
+    WALL_TAG,
+    AntAgent,
+    AntDecision,
+    FoodVoxel,
+    GridVoxel,
+    HillVoxel,
+    PheromoneVoxel,
+    WallVoxel,
+)
 
 
 @ecs.system_plan(group="simulation_ants")

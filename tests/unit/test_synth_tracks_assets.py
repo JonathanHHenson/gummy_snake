@@ -1,10 +1,24 @@
-# pyright: reportAttributeAccessIssue=false, reportOptionalMemberAccess=false
-# pyright: reportUnknownMemberType=false
 from __future__ import annotations
 
 from typing import Any
 
-from tests.helpers.synth_tracks_fixtures import *  # noqa: F403
+from tests.helpers.synth_tracks_fixtures import (
+    _DOCUMENTED_SONIC_PI_FX_OPTS,
+    _DOCUMENTED_SONIC_PI_SYNTH_NAMES,
+    _FX_SOURCE_DIR,
+    _SYNTH_SOURCE_DIR,
+    _asset_source_files,
+    _caller_track,
+    _constant_string,
+    _detuned_source_synth_control_track,
+    _documented_fx_smoke_track,
+    _slice_loop,
+    _slicer_fx_track,
+    _wobble_fx_track,
+    cast,
+    sy,
+    synth_core,
+)
 
 
 def test_control_on_source_synth_targets_layered_primitive() -> None:

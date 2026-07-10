@@ -1,13 +1,22 @@
-# pyright: reportIncompatibleMethodOverride=false
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import builtins
+import random as _random
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
+from typing import Any, Literal, Self, SupportsIndex, cast, overload
+
+from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.synth.synth_runtime.runtime_foundation import (
+    EvalContext,
+    Expression,
+    SynthPlanError,
+    _as_int,
+    _current_repeat_depth_or_none,
+    _next_expression_id,
+)
+
+
 @dataclass(frozen=True, slots=True, eq=False)
 class MusicExpression(Expression):
     kind: Literal["chord", "scale", "octs"]
@@ -33,10 +42,16 @@ class MusicExpression(Expression):
         root = resolve_value(self.root, ctx)
         count = _as_int(resolve_value(self.count, ctx)) if self.count is not None else None
         if self.kind == "chord":
+            from gummysnake.synth.synth_runtime.scales_and_specs import _chord_from_root
+
             return _chord_from_root(root, self.name or "major")
         if self.kind == "scale":
+            from gummysnake.synth.synth_runtime.scales_and_specs import _scale_from_root
+
             return _scale_from_root(root, self.name or "major", count or 1)
         if self.kind == "octs":
+            from gummysnake.synth.synth_runtime.scales_and_specs import _octaves_from_root
+
             return _octaves_from_root(root, count or 1)
         raise SynthPlanError(f"Unknown music expression kind: {self.kind}.")
 
@@ -63,6 +78,8 @@ class SampleDurationExpression(Expression):
     def _evaluate_uncached(self, ctx: EvalContext) -> object:
         sample_name = resolve_value(self.sample_name, ctx)
         opts = {name: resolve_value(value, ctx) for name, value in self.opts.items()}
+        from gummysnake.synth.synth_runtime.samples_and_export import _sample_duration_seconds
+
         return _sample_duration_seconds(sample_name, opts)
 
 
@@ -106,6 +123,8 @@ def ensure_expr(value: object) -> Expression:
 
     if isinstance(value, Expression):
         return value
+    from gummysnake.synth.synth_runtime.expressions import LiteralExpression
+
     return LiteralExpression(value)
 
 
@@ -142,10 +161,9 @@ def _source_bind_key(
 
 
 def _source_bound_expression(expression: Expression) -> Expression:
-    try:
-        builder = _CURRENT_BUILDER.get()
-    except NameError:
-        return expression
+    from gummysnake.synth.synth_runtime.builder_context import _CURRENT_BUILDER
+
+    builder = _CURRENT_BUILDER.get()
     if builder is None:
         return expression
     return builder.add_bind(expression)
@@ -194,6 +212,8 @@ class Ring(tuple[object, ...]):
 
     def choose(self) -> Expression:
         """Choose a random item from this ring at render time."""
+
+        from gummysnake.synth.synth_runtime.pattern_helpers import choose
 
         return choose(self)
 

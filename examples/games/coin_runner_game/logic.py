@@ -1,10 +1,10 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Gameplay and world logic for the Coin Runner example."""
 
 from __future__ import annotations
 
 import argparse
 import math
+from typing import TYPE_CHECKING
 
 import gummysnake as gs
 from gummysnake.exceptions import BackendCapabilityError
@@ -56,6 +56,13 @@ class CoinRunnerLogicMixin:
     sound: gs.Sound | None
     sound_available: bool
     args: argparse.Namespace
+
+    if TYPE_CHECKING:
+
+        def _build_platforms(self) -> list[Platform]: ...
+        def _build_gaps(self) -> list[Gap]: ...
+        def _build_pickups(self) -> list[Pickup]: ...
+        def _build_hazards(self) -> list[Hazard]: ...
 
     def _reset_game(self) -> None:
         self.runner_y = GROUND_Y

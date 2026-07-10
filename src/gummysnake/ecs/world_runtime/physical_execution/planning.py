@@ -1,18 +1,7 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
 """Private helpers for Rust-backed ECS physical system execution."""
 
 from __future__ import annotations
 
-import copy
-import os
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import replace
@@ -20,17 +9,21 @@ from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.actions import Action
 from gummysnake.ecs.physical import PhysicalPlanUnsupported, build_physical_payload
-from gummysnake.ecs.runtime_views import Entity, _ScheduledSystem
-from gummysnake.ecs.schema_helpers import _event_payload_from_bridge
+from gummysnake.ecs.runtime_views import _ScheduledSystem
 from gummysnake.ecs.systems import PlanBuiltSystem
 from gummysnake.ecs.world_helpers import (
     _contains_canvas_action,
-    _contains_direct_canvas_barrier_action,
     _contains_direct_udf_action,
-    _current_delta_time,
-    _current_key_down,
     _is_direct_udf_action,
     _payload_has_input_state,
+)
+from gummysnake.ecs.world_runtime.physical_execution.canvas_dispatch import (
+    refresh_rust_input_states,
+)
+from gummysnake.ecs.world_runtime.physical_execution.execution_reports import (
+    execute_compiled_plan,
+    execute_compiled_plans_to_canvas,
+    record_physical_report,
 )
 from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 

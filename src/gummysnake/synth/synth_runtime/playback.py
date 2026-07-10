@@ -1,12 +1,33 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+import contextlib
+import contextvars
+import threading
+import time
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from gummysnake.api.current import _ACTIVE_CONTEXT
+from gummysnake.assets._audio_codec import MemorySoundSource
+from gummysnake.assets.sound import Sound
+from gummysnake.synth.synth_runtime.logical_nodes import (
+    ScheduledControl,
+    ScheduledEvent,
+    TrackPlan,
+)
+from gummysnake.synth.synth_runtime.physical_plan import PhysicalPlan
+from gummysnake.synth.synth_runtime.runtime_foundation import SynthPlanError, _SAMPLE_RATE
+from gummysnake.synth.synth_runtime.rendering import (
+    _expand_physical_plan,
+    _render_physical_plan,
+    _require_synth_runtime,
+)
+from gummysnake.synth.synth_runtime.samples_and_export import _wav_duration_seconds
+from gummysnake.synth.synth_runtime.serialization import _control_lookup, _render_event_sound
+
+
 @dataclass(slots=True)
 class _RenderedTrackCacheEntry:
     payload: bytes
@@ -63,10 +84,13 @@ class TrackPlayback:
         self._error: Exception | None = None
         self._active_sounds: list[tuple[Sound, float]] = []
         self._rust_playback: Any | None = None
+        worker_context = contextvars.Context()
+        worker_context.run(_ACTIVE_CONTEXT.set, None)
         self._thread = threading.Thread(
-            target=self._run,
+            target=worker_context.run,
+            args=(self._run,),
             name=f"gummysnake-synth-{name}",
-            daemon=True,
+            daemon=False,
         )
 
     def start(self) -> TrackPlayback:

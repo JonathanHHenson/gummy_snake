@@ -1,39 +1,34 @@
-"""ECS runtime view compatibility module.
-
-Helper modules keep this public module path stable.
-"""
+"""ECS runtime view compatibility module."""
 
 from __future__ import annotations
-import __future__
 
-from importlib import resources
-from typing import Any
-
-_PART_FILES = (
-    "entity_mutation.py",
-    "component_resource_views.py",
-    "runtime_handles.py",
+from gummysnake.ecs.runtime_view_model.component_resource_views import ComponentView, ResourceView
+from gummysnake.ecs.runtime_view_model.entity_mutation import (
+    Entity,
+    EntityAnnotation,
+    EntityMutation,
+    MutEntity,
+    _copy_stored_value,
+)
+from gummysnake.ecs.runtime_view_model.runtime_handles import (
+    EntityView,
+    SystemHandle,
+    _RuntimeEventWriter,
+    _ScheduledSystem,
+    _SystemSetConfig,
 )
 
-
-def _load_runtime_view_model() -> None:
-    package = f"{__package__}.runtime_view_model"
-    flags = __future__.annotations.compiler_flag
-    for name in _PART_FILES:
-        source_path = resources.files(package).joinpath(name)
-        source = source_path.read_text()
-        code = compile(source, str(source_path), "exec", flags=flags, dont_inherit=True)
-        exec(code, globals())
-
-
-_load_runtime_view_model()
-del _load_runtime_view_model
-
-
-def __getattr__(name: str) -> Any:
-    """Return dynamically loaded module attributes for static type checkers."""
-
-    try:
-        return globals()[name]
-    except KeyError as exc:
-        raise AttributeError(name) from exc
+__all__ = [
+    "ComponentView",
+    "Entity",
+    "EntityAnnotation",
+    "EntityMutation",
+    "EntityView",
+    "MutEntity",
+    "ResourceView",
+    "_copy_stored_value",
+    "SystemHandle",
+    "_RuntimeEventWriter",
+    "_ScheduledSystem",
+    "_SystemSetConfig",
+]

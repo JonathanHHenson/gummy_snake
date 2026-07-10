@@ -1,12 +1,14 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable
+from typing import Any
+
+from gummysnake.ecs.runtime_views import Entity, SystemHandle, _ScheduledSystem
+from gummysnake.ecs.scheduling_helpers import sorted_scheduled_systems, validate_group_name
+
+from gummysnake.ecs.world_runtime import state as state_runtime
+
+
 # -------------------------------------------------------------- diagnostics
 def configure(self, *, strict: bool | None = None, warn_on_ambiguity: bool | None = None) -> None:
     """Configure duplicate-write handling for this ECS world.
@@ -131,24 +133,3 @@ def _mark_component_removed(self, entity: Entity, component_type: type[Any]) -> 
 
 def _set_system_enabled(self, handle: SystemHandle | str, enabled: bool) -> None:
     state_runtime.set_system_enabled(self, handle, enabled)
-
-
-EcsWorld.configure = configure
-EcsWorld.diagnostics = diagnostics
-EcsWorld.reset_diagnostics = reset_diagnostics
-EcsWorld.record_ambiguity = record_ambiguity
-EcsWorld._note_field_update = _note_field_update
-EcsWorld._note_resource_update = _note_resource_update
-EcsWorld._invalidate_spatial_indexes = _invalidate_spatial_indexes
-EcsWorld.configure_system_set = configure_system_set
-EcsWorld.group = group
-EcsWorld.order = order
-EcsWorld._system_enabled = _system_enabled
-EcsWorld._system_run_condition = _system_run_condition
-EcsWorld._sorted_systems = _sorted_systems
-EcsWorld._begin_change_frame = _begin_change_frame
-EcsWorld._finalize_change_frame = _finalize_change_frame
-EcsWorld._mark_component_added = _mark_component_added
-EcsWorld._mark_component_changed = _mark_component_changed
-EcsWorld._mark_component_removed = _mark_component_removed
-EcsWorld._set_system_enabled = _set_system_enabled

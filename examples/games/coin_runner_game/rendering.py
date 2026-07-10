@@ -1,9 +1,9 @@
-# pyright: reportAttributeAccessIssue=false, reportCallIssue=false, reportOperatorIssue=false, reportArgumentType=false
 """Rendering helpers for the Coin Runner example."""
 
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 import gummysnake as gs
 
@@ -32,6 +32,10 @@ class CoinRunnerRenderingMixin:
     platforms: list[Platform]
     gaps: list[Gap]
     bursts: list[Burst]
+
+    if TYPE_CHECKING:
+
+        def _current_floor(self) -> float | None: ...
 
     def _draw_scene(self) -> None:
         self._draw_background()

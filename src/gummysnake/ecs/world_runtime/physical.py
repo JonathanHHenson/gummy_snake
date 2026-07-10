@@ -1,39 +1,45 @@
-"""ECS physical execution compatibility module.
-
-Helper modules keep this public module path stable.
-"""
+"""ECS physical execution compatibility module."""
 
 from __future__ import annotations
-import __future__
 
-from importlib import resources
-from typing import Any
-
-_PART_FILES = (
-    "planning.py",
-    "execution_reports.py",
-    "canvas_dispatch.py",
+from gummysnake.ecs.world_runtime.physical_execution.canvas_dispatch import (
+    apply_physical_report,
+    dispatch_canvas_commands,
+    refresh_rust_input_states,
+)
+from gummysnake.ecs.world_runtime.physical_execution.execution_reports import (
+    _direct_canvas_execution_args,
+    dispatch_canvas_fill_batches,
+    execute_compiled_plan,
+    execute_compiled_plans_to_canvas,
+    record_physical_report,
+    record_spatial_warm_report,
+    should_record_spatial_warm_report,
+)
+from gummysnake.ecs.world_runtime.physical_execution.planning import (
+    build_and_compile_payload,
+    prepare_scheduled_physical_plan,
+    require_plan_built,
+    run_physical_system,
+    run_physical_systems_batch,
+    set_physical_payload,
 )
 
-
-def _load_physical_execution() -> None:
-    package = f"{__package__}.physical_execution"
-    flags = __future__.annotations.compiler_flag
-    for name in _PART_FILES:
-        source_path = resources.files(package).joinpath(name)
-        source = source_path.read_text()
-        code = compile(source, str(source_path), "exec", flags=flags, dont_inherit=True)
-        exec(code, globals())
-
-
-_load_physical_execution()
-del _load_physical_execution
-
-
-def __getattr__(name: str) -> Any:
-    """Return dynamically loaded module attributes for static type checkers."""
-
-    try:
-        return globals()[name]
-    except KeyError as exc:
-        raise AttributeError(name) from exc
+__all__ = [
+    "_direct_canvas_execution_args",
+    "apply_physical_report",
+    "build_and_compile_payload",
+    "dispatch_canvas_commands",
+    "dispatch_canvas_fill_batches",
+    "execute_compiled_plan",
+    "execute_compiled_plans_to_canvas",
+    "prepare_scheduled_physical_plan",
+    "record_physical_report",
+    "record_spatial_warm_report",
+    "refresh_rust_input_states",
+    "require_plan_built",
+    "run_physical_system",
+    "run_physical_systems_batch",
+    "set_physical_payload",
+    "should_record_spatial_warm_report",
+]

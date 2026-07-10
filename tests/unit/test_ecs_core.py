@@ -1,8 +1,26 @@
-# pyright: reportAttributeAccessIssue=false, reportOptionalMemberAccess=false
-# pyright: reportUnknownMemberType=false
 from __future__ import annotations
 
-from tests.helpers.ecs_fixtures import *  # noqa: F403
+from typing import Any, cast
+
+from tests.helpers.ecs_fixtures import (
+    HERO,
+    PLATFORM,
+    Box,
+    ComponentSchemaError,
+    Counter,
+    EcsWorld,
+    Iterable,
+    Position,
+    StaleEntityError,
+    SystemPlanError,
+    Trail,
+    VecPosition,
+    Velocity,
+    dataclass,
+    ecs,
+    inspect,
+    pytest,
+)
 
 
 def test_dataclass_scalar_schema_and_annotated_ranges() -> None:
@@ -279,7 +297,7 @@ def test_udf_action_and_for_each_iterable_source() -> None:
     @ecs.system_plan
     def udf_system(entity: ecs.Query[Position], counter: ecs.ResMut[Counter]) -> None:
         boost(entity)
-        with ecs.for_each(numbers()) as item:
+        with ecs.for_each(cast(Any, numbers())) as item:
             counter[Counter].value.set_to(item)
 
     world.add_system(udf_system)

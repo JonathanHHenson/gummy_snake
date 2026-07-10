@@ -1,12 +1,52 @@
-# pyright: reportUnboundVariable=false
-# pyright: reportUnsupportedDunderAll=false
-# pyright: reportUndefinedVariable=false, reportPossiblyUnboundVariable=false
-# pyright: reportAttributeAccessIssue=false, reportArgumentType=false
-# pyright: reportAssignmentType=false, reportCallIssue=false
-# pyright: reportGeneralTypeIssues=false, reportIndexIssue=false
-# pyright: reportInvalidTypeForm=false, reportOperatorIssue=false
-# pyright: reportOptionalMemberAccess=false, reportOptionalSubscript=false
-# pyright: reportRedeclaration=false, reportReturnType=false
+"""Execution-report helpers for Rust-backed ECS physical system execution."""
+
+from __future__ import annotations
+
+import os
+from typing import TYPE_CHECKING, Any, cast
+
+from gummysnake.ecs.world_helpers import (
+    _contains_canvas_action,
+    _contains_direct_canvas_barrier_action,
+)
+from gummysnake.ecs.world_runtime.physical_execution.canvas_dispatch import (
+    apply_physical_report,
+    dispatch_canvas_commands,
+)
+from gummysnake.exceptions import SystemExecutionError
+
+if TYPE_CHECKING:
+    from gummysnake.ecs.runtime_views import _ScheduledSystem
+    from gummysnake.ecs.world import EcsWorld
+
+_PHYSICAL_COUNTERS: tuple[str, ...] = (
+    "spatial_indexes_built",
+    "spatial_candidate_rows",
+    "spatial_exact_rows",
+    "spatial_false_positive_rows",
+    "spatial_deduplicated_pairs",
+    "spatial_algorithm_hash_grid",
+    "spatial_algorithm_quadtree",
+    "spatial_algorithm_octree",
+    "spatial_algorithm_hilbert_curve",
+    "spatial_index_reuses",
+    "spatial_index_full_rebuilds",
+    "spatial_index_incremental_updates",
+    "spatial_parallel_chunks",
+    "spatial_thread_scratch_reuses",
+    "spatial_candidate_buffer_growths",
+)
+_SPATIAL_WARM_COUNTERS: tuple[str, ...] = (
+    "spatial_indexes_built",
+    "spatial_index_reuses",
+    "spatial_index_full_rebuilds",
+    "spatial_index_incremental_updates",
+    "spatial_parallel_chunks",
+    "spatial_thread_scratch_reuses",
+    "spatial_candidate_buffer_growths",
+)
+
+
 def _direct_canvas_execution_args(world: EcsWorld) -> tuple[Any, Any, Any, bool] | None:
     """Return renderer/canvas/matrix args for Rust-direct ECS canvas replay if available."""
 
