@@ -1,7 +1,9 @@
 //! Core Rust ECS storage primitives for Gummy Snake.
 //!
 //! The crate intentionally has no PyO3 dependency. The mandatory `gummy_canvas`
-//! extension owns Python bindings and packaging.
+//! extension owns Python bindings and packaging. The contributor
+//! [ownership map](../../../docs/contribute/ownership_map.md) is the canonical
+//! cross-crate navigation document; do not duplicate its runtime contracts here.
 
 pub mod archetype;
 pub mod benchmark;

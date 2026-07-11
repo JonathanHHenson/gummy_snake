@@ -1,5 +1,5 @@
+use crate::prelude::*;
 use crate::runtime::style::*;
-use crate::*;
 
 impl Canvas {
     pub(crate) fn point_impl(

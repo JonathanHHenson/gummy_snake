@@ -355,7 +355,9 @@ Use these rules of thumb:
   policy (`canvas/cache.rs`), dirty/render flag helpers (`canvas/dirty.rs`), image
   batch parsing (`canvas/images/batch.rs`), text layout helpers
   (`canvas/text/layout.rs`), and local GPU render-pass batching
-  (`gpu/render.rs`). Its focused `bindings/synth.rs` adapter owns PyO3 parsing,
+  (`gpu/render/batching/`). `gpu/renderer_state.rs` owns the renderer resource
+  graph, while `gpu/types.rs` remains focused on draw, uniform, and vertex POD
+  records. Its focused `bindings/synth.rs` adapter owns PyO3 parsing,
   registration, and Python error conversion for the synth functions linked from
   `gummy_synth`.
 - `crates/gummy_synth/`: PyO3-free Rust synth/sample/FX rendering crate used by
@@ -387,7 +389,7 @@ Use these rules of thumb:
   `src/gummysnake`.
 - Rust may use same-stem `foo.rs` hub files with `foo/` child modules when the
   file is an intentional declaration/re-export boundary. Current documented hubs
-  are `bindings.rs`, `bindings/ecs.rs`, `canvas/gpu.rs`,
+  are `bindings.rs`, `bindings/ecs.rs`, `bindings/models.rs`, `canvas/gpu.rs`,
   `canvas/gpu/shapes.rs`, `canvas/lifecycle.rs`, `canvas/pixels.rs`, `canvas/primitives.rs`,
   `canvas/primitives/batches.rs`, `gpu/pipeline.rs`,
   `gpu/render.rs`, `gpu/setup.rs`, `gpu/shaders.rs`,

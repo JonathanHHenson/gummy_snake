@@ -1,8 +1,8 @@
 use crate::gpu::pipeline::to_wgpu_color;
-use crate::gpu::render::batcher::{RenderBufferOffsets, RenderPassBatcher};
+use crate::gpu::render::batching::{RenderBufferOffsets, RenderPassBatcher};
 use crate::gpu::render::buffers::aligned_stroke_path_record_offset;
 use crate::gpu::types::*;
-use crate::BlendMode;
+use crate::types::BlendMode;
 
 struct StrokePathBinding {
     record_offset: usize,

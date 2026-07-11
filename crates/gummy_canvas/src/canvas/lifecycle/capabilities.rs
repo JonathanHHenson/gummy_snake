@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(crate) fn dimensions_impl(&self) -> (i64, i64, usize, usize, f64) {

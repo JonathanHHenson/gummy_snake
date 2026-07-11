@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(crate) fn prepare_cpu_composite(&mut self) -> PyResult<()> {

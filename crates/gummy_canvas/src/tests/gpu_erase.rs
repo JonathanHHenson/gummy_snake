@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 #[test]
 fn gpu_erase_preserves_destination_rgb_and_clears_alpha() {

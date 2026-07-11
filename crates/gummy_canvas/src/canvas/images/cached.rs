@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(crate) fn draw_cached_image_impl(

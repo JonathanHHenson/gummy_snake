@@ -1,11 +1,11 @@
 use pyo3::prelude::*;
 
-use crate::software3d::math::{add_3d, dot_3d, normalize_3d, sub_3d};
-use crate::software3d::types::{
+use super::math::{add_3d, dot_3d, normalize_3d, sub_3d};
+use crate::software3d::model::types::{
     CameraPayload, LightKindPayload, LightPayload, MaterialPayload, ProjectedPayloadFace, Vec3d,
 };
 
-pub(super) fn shade_projected_face(
+pub(crate) fn shade_projected_face(
     face: &ProjectedPayloadFace,
     camera: &CameraPayload,
     material: &MaterialPayload,

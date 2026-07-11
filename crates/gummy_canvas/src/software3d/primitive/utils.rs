@@ -1,7 +1,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::software3d::types::Vec3d;
+use crate::software3d::model::types::Vec3d;
 
 pub(super) fn validate_positive(values: &[(&str, f64)], message: &str) -> PyResult<()> {
     if values.iter().any(|(_, value)| *value <= 0.0) {

@@ -1,3 +1,10 @@
+//! PyO3-free synth, sample, FX, decoding, and WAV rendering for Gummy Snake.
+//!
+//! `gummy_canvas` owns the mandatory extension's PyO3 adapter and calls this
+//! crate for audio rendering. Keep serialized playback compatibility, DSP, and
+//! sample processing here; Python-facing parsing and registration do not belong
+//! in this crate. See the contributor ownership map for the cross-crate boundary.
+
 #![allow(clippy::useless_conversion)]
 
 use flate2::read::ZlibDecoder;

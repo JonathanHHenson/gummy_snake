@@ -106,6 +106,7 @@ STALE_TEXT_PATTERNS = {
 DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_canvas/src/bindings.rs"),
     Path("crates/gummy_canvas/src/bindings/ecs.rs"),
+    Path("crates/gummy_canvas/src/bindings/models.rs"),
     Path("crates/gummy_canvas/src/canvas/gpu.rs"),
     Path("crates/gummy_canvas/src/canvas/gpu/shapes.rs"),
     Path("crates/gummy_canvas/src/canvas/lifecycle.rs"),

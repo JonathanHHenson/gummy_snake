@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 pub(crate) enum TextLineIter<'a> {
     Empty(std::iter::Once<&'a str>),

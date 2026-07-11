@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(crate) fn shaded_faces_impl(&mut self, faces: &Bound<'_, PyAny>) -> PyResult<()> {

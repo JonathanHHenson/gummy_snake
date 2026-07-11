@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 const STROKE_PATH_POINT_RECORDS: f32 = 0.0;
 const STROKE_PATH_SEGMENT_RECORDS: f32 = 1.0;

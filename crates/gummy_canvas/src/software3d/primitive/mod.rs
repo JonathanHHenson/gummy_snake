@@ -1,14 +1,16 @@
+mod lathe;
+mod spherical;
+mod utils;
+
 use pyo3::prelude::*;
 
-use crate::software3d::primitive_utils::{empty_normals, some_texcoords, validate_positive};
-use crate::software3d::types::{ObjModelData, Vec3d};
+use crate::software3d::model::types::{ObjModelData, Vec3d};
+use utils::{empty_normals, some_texcoords, validate_positive};
 
-pub(super) use crate::software3d::primitive_lathe::{cone_model_data, cylinder_model_data};
-pub(super) use crate::software3d::primitive_spherical::{
-    ellipsoid_model_data, sphere_model_data, torus_model_data,
-};
+pub(crate) use lathe::{cone_model_data, cylinder_model_data};
+pub(crate) use spherical::{ellipsoid_model_data, sphere_model_data, torus_model_data};
 
-pub(super) fn plane_model_data(width: f64, height: Option<f64>) -> PyResult<ObjModelData> {
+pub(crate) fn plane_model_data(width: f64, height: Option<f64>) -> PyResult<ObjModelData> {
     let height = height.unwrap_or(width);
     validate_positive(
         &[("width", width), ("height", height)],
@@ -46,7 +48,7 @@ pub(super) fn plane_model_data(width: f64, height: Option<f64>) -> PyResult<ObjM
     })
 }
 
-pub(super) fn box_model_data(
+pub(crate) fn box_model_data(
     width: f64,
     height: Option<f64>,
     depth: Option<f64>,

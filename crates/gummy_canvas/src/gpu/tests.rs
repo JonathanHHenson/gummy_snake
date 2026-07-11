@@ -1,6 +1,6 @@
 use crate::gpu::pipeline::{preferred_surface_format, surface_config};
 use crate::gpu::{GpuColor, GpuRenderer};
-use crate::BlendMode;
+use crate::types::BlendMode;
 
 fn rect_vertices(x0: f32, y0: f32, x1: f32, y1: f32, color: GpuColor) -> Vec<([f32; 2], GpuColor)> {
     vec![

@@ -3,7 +3,7 @@ use crate::gpu;
 use crate::performance::PerformanceCounters;
 use crate::raster::Matrix;
 use crate::runtime::InteractiveRuntime;
-use crate::{Rgba, Style};
+use crate::types::{Rgba, Style};
 use pyo3::prelude::*;
 use std::collections::VecDeque;
 use std::sync::Arc;

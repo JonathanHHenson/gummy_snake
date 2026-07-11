@@ -1,7 +1,4 @@
-mod batcher;
-mod batcher_images;
-mod batcher_models;
-mod batcher_primitives;
+mod batching;
 mod buffers;
 mod commands;
 mod effects;

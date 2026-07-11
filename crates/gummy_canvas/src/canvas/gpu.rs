@@ -1,8 +1,8 @@
-use crate::*;
+use crate::prelude::*;
 
 mod commands;
 
-mod shapes;
+pub(super) mod shapes;
 mod sync;
 
 impl Canvas {

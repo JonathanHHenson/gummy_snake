@@ -1,4 +1,5 @@
 use crate::error::{EcsError, Result};
+use crate::plan::typed_ir::AggregateKind;
 use crate::plan::{ExprNode, SpatialRelationNode};
 
 use super::super::aggregate_eval::{aggregate_empty, aggregate_finish};
@@ -12,7 +13,8 @@ impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn eval_spatial_aggregate_f64(
         &mut self,
         expr_index: usize,
-        kind: &str,
+        kind: AggregateKind,
+        source_name: &str,
         relation: &SpatialRelationNode,
         value: Option<usize>,
         default: Option<usize>,
@@ -35,13 +37,14 @@ impl<'a> PlanExecutor<'a> {
         let records = self.spatial_relation_records(relation, ctx)?;
         let count = records.len();
         match kind {
-            "any" => return Ok(bool_f64(count > 0)),
-            "count" => return Ok(count as f64),
+            AggregateKind::Any => return Ok(bool_f64(count > 0)),
+            AggregateKind::Count => return Ok(count as f64),
             _ => {}
         }
         let Some(value_expr) = value else {
             return numeric_f64(&aggregate_finish(
                 kind,
+                source_name,
                 count,
                 Vec::new(),
                 default,
@@ -51,6 +54,7 @@ impl<'a> PlanExecutor<'a> {
         };
         if let Some(result) = self.try_direct_spatial_numeric_aggregate(
             kind,
+            source_name,
             relation,
             value_expr,
             records.as_ref(),
@@ -60,7 +64,7 @@ impl<'a> PlanExecutor<'a> {
             return numeric_f64(&result);
         }
         if count == 0 {
-            return numeric_f64(&aggregate_empty(kind, default, self, ctx)?);
+            return numeric_f64(&aggregate_empty(kind, source_name, default, self, ctx)?);
         }
         let mut sum = 0.0;
         let mut min_value = f64::INFINITY;
@@ -77,12 +81,12 @@ impl<'a> PlanExecutor<'a> {
             max_value = max_value.max(value);
         }
         match kind {
-            "sum" => Ok(sum),
-            "mean" => Ok(sum / count as f64),
-            "min" => Ok(min_value),
-            "max" => Ok(max_value),
-            other => Err(EcsError::InvalidPlan(format!(
-                "unsupported aggregate kind '{other}'"
+            AggregateKind::Sum => Ok(sum),
+            AggregateKind::Mean => Ok(sum / count as f64),
+            AggregateKind::Min => Ok(min_value),
+            AggregateKind::Max => Ok(max_value),
+            _ => Err(EcsError::InvalidPlan(format!(
+                "unsupported aggregate kind '{source_name}'"
             ))),
         }
     }

@@ -1,7 +1,7 @@
 use super::common::fixed_function_blend_state;
 use crate::gpu::shaders::IMAGE_SHADER;
 use crate::gpu::types::ImageVertex;
-use crate::BlendMode;
+use crate::types::BlendMode;
 
 pub(in crate::gpu) fn create_image_pipeline(
     device: &wgpu::Device,

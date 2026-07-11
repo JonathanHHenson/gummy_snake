@@ -3,7 +3,7 @@ use crate::gpu::shaders::{
     PATH_FILL_SHADER, PROCEDURAL_PRIMITIVE_SHADER, STROKE_PATH_SHADER, TRIANGLE_SHADER,
 };
 use crate::gpu::types::{PrimitiveInstance, Vertex};
-use crate::BlendMode;
+use crate::types::BlendMode;
 
 pub(in crate::gpu) fn create_pipeline(
     device: &wgpu::Device,

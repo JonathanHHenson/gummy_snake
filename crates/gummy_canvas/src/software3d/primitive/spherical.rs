@@ -3,10 +3,10 @@ use std::f64::consts::{PI, TAU};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::software3d::primitive_utils::{empty_normals, some_texcoords, validate_positive};
-use crate::software3d::types::{ObjModelData, Vec3d};
+use super::utils::{empty_normals, some_texcoords, validate_positive};
+use crate::software3d::model::types::{ObjModelData, Vec3d};
 
-pub(super) fn sphere_model_data(
+pub(crate) fn sphere_model_data(
     radius: f64,
     detail_x: usize,
     detail_y: usize,
@@ -61,7 +61,7 @@ pub(super) fn sphere_model_data(
     })
 }
 
-pub(super) fn ellipsoid_model_data(
+pub(crate) fn ellipsoid_model_data(
     rx: f64,
     ry: Option<f64>,
     rz: Option<f64>,
@@ -83,7 +83,7 @@ pub(super) fn ellipsoid_model_data(
     Ok(model)
 }
 
-pub(super) fn torus_model_data(
+pub(crate) fn torus_model_data(
     radius: f64,
     tube_radius: Option<f64>,
     detail_x: usize,

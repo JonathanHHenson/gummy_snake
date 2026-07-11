@@ -1,5 +1,5 @@
 use super::records::stroke_path_records;
-use crate::Rgba;
+use crate::types::Rgba;
 
 #[test]
 fn stroke_path_records_carry_matrix_style_and_logical_points() {

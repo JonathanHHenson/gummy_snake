@@ -1,49 +1,12 @@
-use pyo3::prelude::*;
-use pyo3::types::PyAny;
+use super::types::{MeshPayload, ObjModelData, Transform3D, Vec3d};
 
-use crate::software3d::model::{canvas_mesh_from_data, CanvasMesh3D};
-use crate::software3d::types::{MeshPayload, ObjModelData, Transform3D, Vec3d};
+use super::CanvasMesh3D;
 
-pub(crate) fn create_mesh3d_handle(
-    vertices: &Bound<'_, PyAny>,
-    faces: &Bound<'_, PyAny>,
-    normals: &Bound<'_, PyAny>,
-    texcoords: &Bound<'_, PyAny>,
-) -> PyResult<CanvasMesh3D> {
-    let vertices = vertices
-        .extract::<Vec<(f64, f64, f64)>>()?
-        .into_iter()
-        .map(|(x, y, z)| Vec3d { x, y, z })
-        .collect::<Vec<_>>();
-    let vertex_count = vertices.len();
-    let faces = faces.extract::<Vec<Vec<usize>>>()?;
-    let normals = normals
-        .extract::<Vec<(f64, f64, f64)>>()?
-        .into_iter()
-        .map(|(x, y, z)| Some(Vec3d { x, y, z }))
-        .collect::<Vec<_>>();
-    let texcoords = texcoords
-        .extract::<Vec<(f64, f64)>>()?
-        .into_iter()
-        .map(Some)
-        .collect::<Vec<_>>();
-    Ok(canvas_mesh_from_data(ObjModelData {
-        vertices,
-        faces,
-        normals: if normals.len() == vertex_count {
-            normals
-        } else {
-            Vec::new()
-        },
-        texcoords: if texcoords.len() == vertex_count {
-            texcoords
-        } else {
-            Vec::new()
-        },
-    }))
+pub(crate) fn canvas_mesh_from_data(model: ObjModelData) -> CanvasMesh3D {
+    CanvasMesh3D { mesh: model }
 }
 
-pub(super) fn model_to_mesh_payload(
+pub(crate) fn model_to_mesh_payload(
     model: &ObjModelData,
     transform: Option<Transform3D>,
 ) -> MeshPayload {

@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 use image::codecs::gif::{GifEncoder, Repeat};
 use image::{Delay, Frame, RgbaImage};
 use std::fs::File;

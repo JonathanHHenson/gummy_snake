@@ -1,5 +1,6 @@
 use crate::column::EcsValue;
 use crate::error::{EcsError, Result};
+use crate::plan::typed_ir::{BinaryOp, UnaryOp};
 use crate::plan::ExprNode;
 use crate::schema::StorageType;
 
@@ -32,9 +33,13 @@ pub(in crate::execution) fn storage_type_is_numeric(storage_type: StorageType) -
     )
 }
 
-pub(in crate::execution) fn eval_unary(op: &str, input: EcsValue) -> Result<EcsValue> {
+pub(in crate::execution) fn eval_unary(
+    op: UnaryOp,
+    source_name: &str,
+    input: EcsValue,
+) -> Result<EcsValue> {
     match op {
-        "neg" | "-" => match input {
+        UnaryOp::Neg => match input {
             EcsValue::I64(value) => Ok(EcsValue::I64(-value)),
             EcsValue::U64(value) => Ok(EcsValue::I64(-(value as i64))),
             EcsValue::F64(value) => Ok(EcsValue::F64(-value)),
@@ -43,15 +48,15 @@ pub(in crate::execution) fn eval_unary(op: &str, input: EcsValue) -> Result<EcsV
                 other.kind_name()
             ))),
         },
-        "not" | "!" => Ok(EcsValue::Bool(!truthy(&input)?)),
-        "abs" => Ok(EcsValue::F64(numeric_f64(&input)?.abs())),
-        "sqrt" => Ok(EcsValue::F64(numeric_f64(&input)?.sqrt())),
-        "sin" => Ok(EcsValue::F64(numeric_f64(&input)?.sin())),
-        "cos" => Ok(EcsValue::F64(numeric_f64(&input)?.cos())),
-        "floor" => Ok(EcsValue::F64(numeric_f64(&input)?.floor())),
-        "ceil" => Ok(EcsValue::F64(numeric_f64(&input)?.ceil())),
-        other => Err(EcsError::InvalidPlan(format!(
-            "unsupported physical unary op '{other}'"
+        UnaryOp::Not => Ok(EcsValue::Bool(!truthy(&input)?)),
+        UnaryOp::Abs => Ok(EcsValue::F64(numeric_f64(&input)?.abs())),
+        UnaryOp::Sqrt => Ok(EcsValue::F64(numeric_f64(&input)?.sqrt())),
+        UnaryOp::Sin => Ok(EcsValue::F64(numeric_f64(&input)?.sin())),
+        UnaryOp::Cos => Ok(EcsValue::F64(numeric_f64(&input)?.cos())),
+        UnaryOp::Floor => Ok(EcsValue::F64(numeric_f64(&input)?.floor())),
+        UnaryOp::Ceil => Ok(EcsValue::F64(numeric_f64(&input)?.ceil())),
+        UnaryOp::Unknown => Err(EcsError::InvalidPlan(format!(
+            "unsupported physical unary op '{source_name}'"
         ))),
     }
 }
@@ -65,44 +70,45 @@ pub(in crate::execution) fn default_input_state_value(name: &str) -> EcsValue {
 }
 
 pub(in crate::execution) fn eval_binary(
-    op: &str,
+    op: BinaryOp,
+    source_name: &str,
     left: EcsValue,
     right: EcsValue,
 ) -> Result<EcsValue> {
     match op {
-        "add" | "+" => numeric_arithmetic(left, right, |a, b| a + b),
-        "sub" | "-" => numeric_arithmetic(left, right, |a, b| a - b),
-        "mul" | "*" => numeric_arithmetic(left, right, |a, b| a * b),
-        "truediv" | "/" => Ok(EcsValue::F64(numeric_f64(&left)? / numeric_f64(&right)?)),
-        "floordiv" | "//" => Ok(EcsValue::F64(
+        BinaryOp::Add => numeric_arithmetic(left, right, |a, b| a + b),
+        BinaryOp::Sub => numeric_arithmetic(left, right, |a, b| a - b),
+        BinaryOp::Mul => numeric_arithmetic(left, right, |a, b| a * b),
+        BinaryOp::TrueDiv => Ok(EcsValue::F64(numeric_f64(&left)? / numeric_f64(&right)?)),
+        BinaryOp::FloorDiv => Ok(EcsValue::F64(
             (numeric_f64(&left)? / numeric_f64(&right)?).floor(),
         )),
-        "mod" | "%" => Ok(EcsValue::F64(numeric_f64(&left)? % numeric_f64(&right)?)),
-        "pow" | "**" => Ok(EcsValue::F64(
+        BinaryOp::Mod => Ok(EcsValue::F64(numeric_f64(&left)? % numeric_f64(&right)?)),
+        BinaryOp::Pow => Ok(EcsValue::F64(
             numeric_f64(&left)?.powf(numeric_f64(&right)?),
         )),
-        "lt" | "<" => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| a < b)?)),
-        "le" | "<=" => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| {
+        BinaryOp::Lt => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| a < b)?)),
+        BinaryOp::Le => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| {
             a <= b
         })?)),
-        "gt" | ">" => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| a > b)?)),
-        "ge" | ">=" => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| {
+        BinaryOp::Gt => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| a > b)?)),
+        BinaryOp::Ge => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| {
             a >= b
         })?)),
-        "eq" | "==" => Ok(EcsValue::Bool(values_equal(&left, &right)?)),
-        "ne" | "!=" => Ok(EcsValue::Bool(!values_equal(&left, &right)?)),
-        "min" => Ok(if numeric_f64(&left)? <= numeric_f64(&right)? {
+        BinaryOp::Eq => Ok(EcsValue::Bool(values_equal(&left, &right)?)),
+        BinaryOp::Ne => Ok(EcsValue::Bool(!values_equal(&left, &right)?)),
+        BinaryOp::Min => Ok(if numeric_f64(&left)? <= numeric_f64(&right)? {
             left
         } else {
             right
         }),
-        "max" => Ok(if numeric_f64(&left)? >= numeric_f64(&right)? {
+        BinaryOp::Max => Ok(if numeric_f64(&left)? >= numeric_f64(&right)? {
             left
         } else {
             right
         }),
-        other => Err(EcsError::InvalidPlan(format!(
-            "unsupported physical binary op '{other}'"
+        BinaryOp::And | BinaryOp::Or | BinaryOp::Unknown => Err(EcsError::InvalidPlan(format!(
+            "unsupported physical binary op '{source_name}'"
         ))),
     }
 }

@@ -1,5 +1,6 @@
+use crate::config::{INTERACTIVE_MODE, SUPPORTED_MODE, SUPPORTED_RENDERER};
 use crate::runtime::RuntimeEvent;
-use crate::{BlendMode, Rgba, Style, INTERACTIVE_MODE, SUPPORTED_MODE, SUPPORTED_RENDERER};
+use crate::types::{BlendMode, Rgba, Style};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict};

@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 #[test]
 fn gpu_status_reports_available_or_clear_error() {

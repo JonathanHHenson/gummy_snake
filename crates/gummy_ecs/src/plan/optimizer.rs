@@ -1,6 +1,7 @@
 use crate::column::EcsValue;
 use crate::error::{EcsError, Result};
 
+use super::typed_ir::{BinaryOp, UnaryOp};
 use super::{ActionNode, BridgePlanPayload, ExprNode, PhysicalPlan};
 
 pub(super) fn optimize_bridge_payload(mut payload: BridgePlanPayload) -> BridgePlanPayload {
@@ -69,72 +70,88 @@ fn expr_from_value(value: EcsValue) -> ExprNode {
 }
 
 fn fold_unary_literal(op: &str, value: EcsValue) -> Result<EcsValue> {
-    match op {
-        "not" => Ok(EcsValue::Bool(!truthy_literal(&value)?)),
-        "neg" | "-" => Ok(EcsValue::F64(-numeric_literal_f64(&value)?)),
-        "pos" | "+" => Ok(EcsValue::F64(numeric_literal_f64(&value)?)),
-        "abs" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.abs())),
-        "sqrt" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.sqrt())),
-        "sin" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.sin())),
-        "cos" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.cos())),
-        "floor" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.floor())),
-        "ceil" => Ok(EcsValue::F64(numeric_literal_f64(&value)?.ceil())),
-        _ => Err(EcsError::InvalidPlan(format!(
+    // Preserve the historical folder boundary: `!` is executable but was not
+    // a constant-folding spelling in version-2 plans.
+    if op == "!" {
+        return Err(EcsError::InvalidPlan(format!(
+            "cannot constant-fold unsupported unary op {op}"
+        )));
+    }
+    match UnaryOp::parse(op) {
+        UnaryOp::Not => Ok(EcsValue::Bool(!truthy_literal(&value)?)),
+        UnaryOp::Neg => Ok(EcsValue::F64(-numeric_literal_f64(&value)?)),
+        UnaryOp::Abs => Ok(EcsValue::F64(numeric_literal_f64(&value)?.abs())),
+        UnaryOp::Sqrt => Ok(EcsValue::F64(numeric_literal_f64(&value)?.sqrt())),
+        UnaryOp::Sin => Ok(EcsValue::F64(numeric_literal_f64(&value)?.sin())),
+        UnaryOp::Cos => Ok(EcsValue::F64(numeric_literal_f64(&value)?.cos())),
+        UnaryOp::Floor => Ok(EcsValue::F64(numeric_literal_f64(&value)?.floor())),
+        UnaryOp::Ceil => Ok(EcsValue::F64(numeric_literal_f64(&value)?.ceil())),
+        // `pos` was historically accepted only by constant folding. Retain
+        // that wire behaviour without treating it as an executable unary op.
+        _ if matches!(op, "pos" | "+") => Ok(EcsValue::F64(numeric_literal_f64(&value)?)),
+        UnaryOp::Unknown => Err(EcsError::InvalidPlan(format!(
             "cannot constant-fold unsupported unary op {op}"
         ))),
     }
 }
 
 fn fold_binary_literal(op: &str, left: EcsValue, right: EcsValue) -> Result<EcsValue> {
-    match op {
-        "and" => Ok(EcsValue::Bool(
+    // Preserve the historical folder boundary: symbolic boolean aliases are
+    // executable but were not folded by the version-2 optimizer.
+    if matches!(op, "&&" | "||") {
+        return Err(EcsError::InvalidPlan(format!(
+            "cannot constant-fold unsupported binary op {op}"
+        )));
+    }
+    match BinaryOp::parse(op) {
+        BinaryOp::And => Ok(EcsValue::Bool(
             truthy_literal(&left)? && truthy_literal(&right)?,
         )),
-        "or" => Ok(EcsValue::Bool(
+        BinaryOp::Or => Ok(EcsValue::Bool(
             truthy_literal(&left)? || truthy_literal(&right)?,
         )),
-        "add" | "+" => Ok(EcsValue::F64(
+        BinaryOp::Add => Ok(EcsValue::F64(
             numeric_literal_f64(&left)? + numeric_literal_f64(&right)?,
         )),
-        "sub" | "-" => Ok(EcsValue::F64(
+        BinaryOp::Sub => Ok(EcsValue::F64(
             numeric_literal_f64(&left)? - numeric_literal_f64(&right)?,
         )),
-        "mul" | "*" => Ok(EcsValue::F64(
+        BinaryOp::Mul => Ok(EcsValue::F64(
             numeric_literal_f64(&left)? * numeric_literal_f64(&right)?,
         )),
-        "truediv" | "/" => Ok(EcsValue::F64(
+        BinaryOp::TrueDiv => Ok(EcsValue::F64(
             numeric_literal_f64(&left)? / numeric_literal_f64(&right)?,
         )),
-        "floordiv" | "//" => Ok(EcsValue::F64(
+        BinaryOp::FloorDiv => Ok(EcsValue::F64(
             (numeric_literal_f64(&left)? / numeric_literal_f64(&right)?).floor(),
         )),
-        "mod" | "%" => Ok(EcsValue::F64(
+        BinaryOp::Mod => Ok(EcsValue::F64(
             numeric_literal_f64(&left)? % numeric_literal_f64(&right)?,
         )),
-        "pow" | "**" => Ok(EcsValue::F64(
+        BinaryOp::Pow => Ok(EcsValue::F64(
             numeric_literal_f64(&left)?.powf(numeric_literal_f64(&right)?),
         )),
-        "lt" | "<" => Ok(EcsValue::Bool(
+        BinaryOp::Lt => Ok(EcsValue::Bool(
             numeric_literal_f64(&left)? < numeric_literal_f64(&right)?,
         )),
-        "le" | "<=" => Ok(EcsValue::Bool(
+        BinaryOp::Le => Ok(EcsValue::Bool(
             numeric_literal_f64(&left)? <= numeric_literal_f64(&right)?,
         )),
-        "gt" | ">" => Ok(EcsValue::Bool(
+        BinaryOp::Gt => Ok(EcsValue::Bool(
             numeric_literal_f64(&left)? > numeric_literal_f64(&right)?,
         )),
-        "ge" | ">=" => Ok(EcsValue::Bool(
+        BinaryOp::Ge => Ok(EcsValue::Bool(
             numeric_literal_f64(&left)? >= numeric_literal_f64(&right)?,
         )),
-        "eq" | "==" => Ok(EcsValue::Bool(left == right)),
-        "ne" | "!=" => Ok(EcsValue::Bool(left != right)),
-        "min" => Ok(EcsValue::F64(
+        BinaryOp::Eq => Ok(EcsValue::Bool(left == right)),
+        BinaryOp::Ne => Ok(EcsValue::Bool(left != right)),
+        BinaryOp::Min => Ok(EcsValue::F64(
             numeric_literal_f64(&left)?.min(numeric_literal_f64(&right)?),
         )),
-        "max" => Ok(EcsValue::F64(
+        BinaryOp::Max => Ok(EcsValue::F64(
             numeric_literal_f64(&left)?.max(numeric_literal_f64(&right)?),
         )),
-        _ => Err(EcsError::InvalidPlan(format!(
+        BinaryOp::Unknown => Err(EcsError::InvalidPlan(format!(
             "cannot constant-fold unsupported binary op {op}"
         ))),
     }

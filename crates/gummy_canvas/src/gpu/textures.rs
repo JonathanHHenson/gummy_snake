@@ -1,6 +1,6 @@
 use crate::gpu::pipeline::to_wgpu_color;
 use crate::gpu::types::*;
-use crate::BlendMode;
+use crate::types::BlendMode;
 use wgpu::util::DeviceExt;
 
 impl GpuRenderer {
@@ -230,7 +230,7 @@ impl GpuRenderer {
         key: u64,
         vertices: [([f32; 2], [f32; 2], GpuColor); 6],
         linear: bool,
-        blend_mode: crate::BlendMode,
+        blend_mode: BlendMode,
     ) {
         if self.textures.contains_key(&key) {
             self.commands.push(DrawCommand::Image {
@@ -248,7 +248,7 @@ impl GpuRenderer {
         key: u64,
         vertices: Vec<ImageVertex>,
         linear: bool,
-        blend_mode: crate::BlendMode,
+        blend_mode: BlendMode,
     ) {
         if self.textures.contains_key(&key) && !vertices.is_empty() {
             self.commands.push(DrawCommand::ImageBatch {
@@ -298,15 +298,15 @@ impl GpuRenderer {
     }
 }
 
-pub(super) fn blend_mode_id(mode: crate::BlendMode) -> u32 {
+pub(super) fn blend_mode_id(mode: BlendMode) -> u32 {
     match mode {
-        crate::BlendMode::Add => 1,
-        crate::BlendMode::Darkest => 2,
-        crate::BlendMode::Lightest => 3,
-        crate::BlendMode::Difference => 4,
-        crate::BlendMode::Exclusion => 5,
-        crate::BlendMode::Multiply => 6,
-        crate::BlendMode::Screen => 7,
-        crate::BlendMode::Blend | crate::BlendMode::Replace => 0,
+        BlendMode::Add => 1,
+        BlendMode::Darkest => 2,
+        BlendMode::Lightest => 3,
+        BlendMode::Difference => 4,
+        BlendMode::Exclusion => 5,
+        BlendMode::Multiply => 6,
+        BlendMode::Screen => 7,
+        BlendMode::Blend | BlendMode::Replace => 0,
     }
 }

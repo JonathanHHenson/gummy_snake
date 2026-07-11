@@ -1,5 +1,5 @@
+use crate::prelude::*;
 use crate::runtime::style::*;
-use crate::*;
 
 impl Canvas {
     pub(crate) fn ellipse_impl(
@@ -42,7 +42,7 @@ impl Canvas {
             if parsed_style.erasing
                 && self.gpu.is_some()
                 && !self.cpu_compositing_active
-                && parsed_style.blend_mode == crate::BLEND_MODE_BLEND
+                && parsed_style.blend_mode == BLEND_MODE_BLEND
             {
                 self.draw_gpu_axis_aligned_ellipse(
                     cx,

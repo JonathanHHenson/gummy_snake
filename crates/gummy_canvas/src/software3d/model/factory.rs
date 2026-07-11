@@ -1,9 +1,8 @@
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
 
-use crate::software3d::model::{canvas_model_from_data, CanvasModel3D};
-use crate::software3d::obj::{normalize_obj_model, obj_model_to_dict, parse_obj_text};
-use crate::software3d::primitives::{
+use super::{canvas_model_from_data, CanvasModel3D};
+use crate::software3d::obj::{normalize_obj_model, parse_obj_text};
+use crate::software3d::primitive::{
     box_model_data, cone_model_data, cylinder_model_data, ellipsoid_model_data, plane_model_data,
     sphere_model_data, torus_model_data,
 };
@@ -90,21 +89,6 @@ pub(crate) fn create_torus_model_handle(
         torus_model_data(radius, tube_radius, detail_x, detail_y)?,
         "primitive:torus",
     ))
-}
-
-pub(crate) fn parse_obj_model<'py>(
-    py: Python<'py>,
-    text: &str,
-    source: &str,
-    normalize: bool,
-) -> PyResult<Bound<'py, PyDict>> {
-    let parsed = parse_obj_text(text, source)?;
-    let parsed = if normalize {
-        normalize_obj_model(parsed)
-    } else {
-        parsed
-    };
-    obj_model_to_dict(py, &parsed)
 }
 
 pub(crate) fn parse_obj_model_handle(

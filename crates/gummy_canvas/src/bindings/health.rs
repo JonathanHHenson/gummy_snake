@@ -1,4 +1,5 @@
-use crate::{gpu, runtime_native_window_available, CANVAS_ABI_VERSION};
+use crate::runtime::native_window_available as runtime_native_window_available;
+use crate::{gpu, CANVAS_ABI_VERSION};
 use pyo3::prelude::*;
 
 #[pyfunction]

@@ -1,5 +1,5 @@
 use super::LIVE_RESIZE_PRESENT_COOLDOWN;
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(crate) fn begin_frame_impl(&mut self) {

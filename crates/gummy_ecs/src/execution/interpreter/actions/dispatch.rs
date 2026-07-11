@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::error::{EcsError, Result};
 use crate::plan::{ActionNode, ExprNode};
 
-use super::super::super::{EvalContext, PlanExecutor};
+use super::super::super::{EvalContext, PlanExecutor, TypedAction};
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn execute_action(
@@ -64,7 +64,13 @@ impl<'a> PlanExecutor<'a> {
             ActionNode::AddTag { query, tag } => self.execute_add_tag(query, tag, contexts),
             ActionNode::RemoveTag { query, tag } => self.execute_remove_tag(query, tag, contexts),
             ActionNode::Despawn { query } => self.execute_despawn(query, contexts),
-            ActionNode::CanvasCommand(command) => self.execute_canvas_command(command, contexts),
+            ActionNode::CanvasCommand(command) => {
+                let TypedAction::CanvasCommand(kind) = self.typed_plan.action(action_index) else {
+                    unreachable!("typed executor action must match bridge action")
+                };
+                let _ = kind;
+                self.execute_canvas_command(command, contexts)
+            }
             ActionNode::Udf { descriptor, .. } => Err(EcsError::InvalidPlan(format!(
                 "physical execution cannot call Python UDF '{descriptor}'"
             ))),

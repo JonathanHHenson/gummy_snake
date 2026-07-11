@@ -7,7 +7,8 @@ use rayon::prelude::*;
 use crate::column::EcsValue;
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
-use crate::plan::{BridgePlanPayload, PhysicalPlan, PhysicalPlanHandle};
+use crate::plan::typed_ir::PairPolicy;
+use crate::plan::{BridgePlanPayload, PhysicalPlan, PhysicalPlanHandle, SpatialRelationNode};
 use crate::scheduler::install_on_ecs_worker_pool;
 use crate::schema::StorageType;
 use crate::spatial::SpatialRecord;
@@ -22,6 +23,7 @@ use super::report::ExecutionReport;
 use super::spatial::support::{
     BuiltSpatialIndex, SpatialBatchSpec, SpatialF64RowArray, SpatialPrecomputeLayout,
 };
+use super::{TypedExecutorPlan, TypedExpr, TypedSpatialRelation};
 
 #[derive(Debug, Clone, Default)]
 pub(in crate::execution) struct EvalContext {
@@ -81,6 +83,7 @@ pub(in crate::execution) struct PlanExecutor<'a> {
     // Plan and query state.
     pub(in crate::execution) world: &'a mut World,
     pub(in crate::execution) plan: &'a PhysicalPlan,
+    pub(in crate::execution) typed_plan: TypedExecutorPlan,
     pub(in crate::execution) query_rows: QueryRows,
     pub(in crate::execution) query_indices: QueryIndices,
     pub(in crate::execution) query_location_cache: QueryLocationCache,
@@ -130,6 +133,7 @@ impl<'a> PlanExecutor<'a> {
         Self {
             world,
             plan,
+            typed_plan: TypedExecutorPlan::compile(plan),
             query_rows,
             query_indices,
             query_location_cache: QueryLocationCache::new(),
@@ -159,6 +163,24 @@ impl<'a> PlanExecutor<'a> {
             profile_direct_aggregate_nanos: 0,
             profile_direct_aggregate_hits: 0,
         }
+    }
+
+    pub(in crate::execution) fn typed_expr(&self, index: usize) -> TypedExpr {
+        self.typed_plan.expression(index)
+    }
+
+    pub(in crate::execution) fn typed_spatial_relation(
+        &self,
+        relation: &SpatialRelationNode,
+    ) -> TypedSpatialRelation {
+        self.typed_plan.spatial_relation(self.plan, relation)
+    }
+
+    pub(in crate::execution) fn unique_unordered_pairs(
+        &self,
+        relation: &SpatialRelationNode,
+    ) -> bool {
+        self.typed_spatial_relation(relation).pair_policy == PairPolicy::UniqueUnordered
     }
 }
 impl World {

@@ -28,6 +28,7 @@ mod optimized;
 mod report;
 mod row_local;
 mod spatial;
+mod typed_ir;
 
 // Compatibility facades retain the imports used by independently owned
 // row-local and spatial packages while their implementations live by family.
@@ -42,8 +43,8 @@ pub(in crate::execution) use self::interpreter::value_ops::{
     bool_f64, default_input_state_value, numeric_f64, storage_type_is_numeric, truthy, truthy_f64,
 };
 pub use self::report::{
-    ExecutionCanvasCommand, ExecutionCanvasFillBatch, ExecutionCanvasFillRecord, ExecutionEvent,
-    ExecutionReport, ExecutionWrite,
+    ExecutionCanvasCommand, ExecutionCanvasFillBatch, ExecutionCanvasFillKind,
+    ExecutionCanvasFillRecord, ExecutionEvent, ExecutionReport, ExecutionWrite,
 };
 #[allow(unused_imports)]
 pub(in crate::execution) use self::spatial::support as spatial_support;
@@ -51,6 +52,9 @@ pub(in crate::execution) use self::spatial::support as spatial_support;
 pub(crate) use self::spatial::support::{BuiltSpatialIndex, CachedSpatialIndex};
 #[allow(unused_imports)]
 use self::spatial::support::{SpatialBatchSpec, SpatialF64RowArray, SpatialPrecomputeLayout};
+pub(in crate::execution) use self::typed_ir::{
+    TypedAction, TypedExecutorPlan, TypedExpr, TypedSpatialRelation,
+};
 
 #[cfg(test)]
 mod tests;

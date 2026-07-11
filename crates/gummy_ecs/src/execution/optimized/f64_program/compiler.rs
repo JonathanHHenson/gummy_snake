@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
+use crate::execution::{TypedExecutorPlan, TypedExpr};
 use crate::plan::{ExprNode, PhysicalPlan};
 use crate::world::World;
 
@@ -15,8 +16,10 @@ use super::{
 type EntityF64Cache = HashMap<String, HashMap<String, Vec<Option<(u32, f64)>>>>;
 type QueryRowF64Cache = HashMap<String, HashMap<String, Vec<f64>>>;
 
+#[allow(clippy::too_many_arguments)]
 pub(in crate::execution) fn compile_f64_readonly_program<'a>(
     plan: &PhysicalPlan,
+    typed_plan: &TypedExecutorPlan,
     _world: &World,
     query_name: &str,
     numeric_field_cache: &'a EntityF64Cache,
@@ -89,22 +92,32 @@ pub(in crate::execution) fn compile_f64_readonly_program<'a>(
                 name: name.clone(),
                 code: *code,
             },
-            ExprNode::Unary { op, input } => match f64_unary_op(op) {
-                Some(op) => CompiledF64Expr::Unary { op, input: *input },
-                None => {
-                    CompiledF64Expr::Unsupported(format!("unsupported physical unary op '{op}'"))
+            ExprNode::Unary { op, input } => {
+                let TypedExpr::Unary(typed_op) = typed_plan.expression(expr_index) else {
+                    unreachable!("typed executor expression must match bridge expression")
+                };
+                match f64_unary_op(typed_op) {
+                    Some(op) => CompiledF64Expr::Unary { op, input: *input },
+                    None => CompiledF64Expr::Unsupported(format!(
+                        "unsupported physical unary op '{op}'"
+                    )),
                 }
-            },
-            ExprNode::Binary { op, left, right } => match f64_binary_op(op) {
-                Some(op) => CompiledF64Expr::Binary {
-                    op,
-                    left: *left,
-                    right: *right,
-                },
-                None => {
-                    CompiledF64Expr::Unsupported(format!("unsupported physical binary op '{op}'"))
+            }
+            ExprNode::Binary { op, left, right } => {
+                let TypedExpr::Binary(typed_op) = typed_plan.expression(expr_index) else {
+                    unreachable!("typed executor expression must match bridge expression")
+                };
+                match f64_binary_op(typed_op) {
+                    Some(op) => CompiledF64Expr::Binary {
+                        op,
+                        left: *left,
+                        right: *right,
+                    },
+                    None => CompiledF64Expr::Unsupported(format!(
+                        "unsupported physical binary op '{op}'"
+                    )),
                 }
-            },
+            }
             ExprNode::ContextJoin { predicate, .. } => CompiledF64Expr::Passthrough(*predicate),
             ExprNode::SpatialAggregate { .. } => {
                 if let Some(values) = spatial_precomputed_f64_rows.get(&expr_index) {

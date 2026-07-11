@@ -1,5 +1,5 @@
 use super::ImageBatchBuilder;
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(crate) fn draw_canvas_image_impl(

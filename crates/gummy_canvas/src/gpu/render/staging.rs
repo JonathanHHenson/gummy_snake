@@ -1,4 +1,4 @@
-use crate::gpu::render::batcher::RenderBufferOffsets;
+use crate::gpu::render::batching::RenderBufferOffsets;
 use crate::gpu::types::*;
 
 impl GpuRenderer {

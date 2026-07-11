@@ -100,14 +100,13 @@ impl<'a> PlanExecutor<'a> {
         }
         self.report.spatial_candidate_rows += candidates.len();
         let filter_start = profile.then(Instant::now);
+        let unique_unordered_pairs = self.unique_unordered_pairs(relation);
         let mut records = Vec::new();
         for record in candidates {
             if !relation.include_self && record.entity == origin_entity {
                 continue;
             }
-            if relation.pair_policy == "unique_unordered"
-                && record.entity.raw() <= origin_entity.raw()
-            {
+            if unique_unordered_pairs && record.entity.raw() <= origin_entity.raw() {
                 self.report.spatial_deduplicated_pairs += 1;
                 continue;
             }

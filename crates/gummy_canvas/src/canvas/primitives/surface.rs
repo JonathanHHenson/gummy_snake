@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(crate) fn background_impl(&mut self, rgba: (u8, u8, u8, u8)) -> PyResult<()> {

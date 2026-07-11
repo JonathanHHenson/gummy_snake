@@ -1,6 +1,6 @@
 use super::LIVE_RESIZE_PRESENT_COOLDOWN;
+use crate::prelude::*;
 use crate::runtime::style::*;
-use crate::*;
 
 impl Canvas {
     pub(crate) fn open_window_impl(&mut self) -> PyResult<()> {

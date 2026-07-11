@@ -2,6 +2,7 @@ use std::time::Instant;
 
 use crate::column::EcsValue;
 use crate::error::{EcsError, Result};
+use crate::plan::typed_ir::{AggregateKind, SpatialMetadataKind};
 use crate::plan::{ExprNode, SpatialRelationNode};
 use crate::spatial::SpatialRecord;
 
@@ -17,7 +18,8 @@ impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn eval_spatial_metadata(
         &mut self,
         relation: &SpatialRelationNode,
-        kind: &str,
+        kind: SpatialMetadataKind,
+        source_name: &str,
         axis: Option<usize>,
         ctx: &EvalContext,
     ) -> Result<EcsValue> {
@@ -31,7 +33,7 @@ impl<'a> PlanExecutor<'a> {
         {
             *slot = item.coord(axis) - origin.coord(axis);
         }
-        if kind == "delta" {
+        if matches!(kind, SpatialMetadataKind::Delta) {
             let axis = axis.ok_or_else(|| {
                 EcsError::InvalidPlan("spatial delta metadata requires an axis".to_string())
             })?;
@@ -39,17 +41,21 @@ impl<'a> PlanExecutor<'a> {
         }
         let distance_sq = delta.iter().map(|value| value * value).sum::<f64>();
         match kind {
-            "distance_sq" => Ok(EcsValue::F64(distance_sq)),
-            "distance" => Ok(EcsValue::F64(distance_sq.sqrt())),
-            other => Err(EcsError::InvalidPlan(format!(
-                "unsupported spatial metadata kind '{other}'"
+            SpatialMetadataKind::DistanceSq => Ok(EcsValue::F64(distance_sq)),
+            SpatialMetadataKind::Distance => Ok(EcsValue::F64(distance_sq.sqrt())),
+            SpatialMetadataKind::Delta => Err(EcsError::InvalidPlan(
+                "spatial delta metadata requires an axis".to_string(),
+            )),
+            SpatialMetadataKind::Unknown => Err(EcsError::InvalidPlan(format!(
+                "unsupported spatial metadata kind '{source_name}'"
             ))),
         }
     }
 
     pub(in crate::execution) fn eval_spatial_aggregate(
         &mut self,
-        kind: &str,
+        kind: AggregateKind,
+        source_name: &str,
         relation: &SpatialRelationNode,
         value: Option<usize>,
         default: Option<usize>,
@@ -57,12 +63,13 @@ impl<'a> PlanExecutor<'a> {
     ) -> Result<EcsValue> {
         let records = self.spatial_relation_records(relation, ctx)?;
         let count = records.len();
-        if kind == "any" {
+        if matches!(kind, AggregateKind::Any) {
             return Ok(EcsValue::Bool(count > 0));
         }
         if let Some(value_expr) = value {
             if let Some(result) = self.try_direct_spatial_numeric_aggregate(
                 kind,
+                source_name,
                 relation,
                 value_expr,
                 records.as_ref(),
@@ -83,7 +90,7 @@ impl<'a> PlanExecutor<'a> {
                 values.push(self.eval_expr(value_expr, &joined)?);
             }
         }
-        aggregate_finish(kind, count, values, default, self, ctx)
+        aggregate_finish(kind, source_name, count, values, default, self, ctx)
     }
 
     pub(in crate::execution) fn try_count_spatial_relation(
@@ -179,9 +186,11 @@ impl<'a> PlanExecutor<'a> {
         Ok(Some(count))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(in crate::execution) fn try_direct_spatial_numeric_aggregate(
         &mut self,
-        kind: &str,
+        kind: AggregateKind,
+        source_name: &str,
         relation: &SpatialRelationNode,
         value_expr: usize,
         records: &[SpatialRecord],
@@ -189,7 +198,7 @@ impl<'a> PlanExecutor<'a> {
         ctx: &EvalContext,
     ) -> Result<Option<EcsValue>> {
         let aggregate_start = self.profile.then(Instant::now);
-        if kind == "sum" {
+        if matches!(kind, AggregateKind::Sum) {
             if let Some((axis, minimum_distance)) =
                 self.match_neg_delta_over_clamped_distance(value_expr, relation)?
             {
@@ -227,8 +236,10 @@ impl<'a> PlanExecutor<'a> {
 
         if records.is_empty() {
             return match kind {
-                "sum" => Ok(Some(EcsValue::F64(0.0))),
-                "min" | "max" | "mean" => aggregate_empty(kind, default, self, ctx).map(Some),
+                AggregateKind::Sum => Ok(Some(EcsValue::F64(0.0))),
+                AggregateKind::Min | AggregateKind::Max | AggregateKind::Mean => {
+                    aggregate_empty(kind, source_name, default, self, ctx).map(Some)
+                }
                 _ => Ok(None),
             };
         }
@@ -248,10 +259,10 @@ impl<'a> PlanExecutor<'a> {
         }
 
         let result = match kind {
-            "sum" => Some(EcsValue::F64(sum)),
-            "mean" => Some(EcsValue::F64(sum / records.len() as f64)),
-            "min" => Some(EcsValue::F64(min_value)),
-            "max" => Some(EcsValue::F64(max_value)),
+            AggregateKind::Sum => Some(EcsValue::F64(sum)),
+            AggregateKind::Mean => Some(EcsValue::F64(sum / records.len() as f64)),
+            AggregateKind::Min => Some(EcsValue::F64(min_value)),
+            AggregateKind::Max => Some(EcsValue::F64(max_value)),
             _ => None,
         };
         if result.is_some() {

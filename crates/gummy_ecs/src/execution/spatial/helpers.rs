@@ -1,5 +1,6 @@
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
+use crate::plan::typed_ir::SpatialAlgorithmKind;
 use crate::plan::SpatialRelationNode;
 use crate::spatial::{
     Dimensions, HashGridIndex, HilbertIndex, OctreeIndex, QuadtreeIndex, SpatialAabb, SpatialPoint,
@@ -435,14 +436,15 @@ fn bounds_from_values(dimensions: u8, values: &[f64]) -> Result<SpatialAabb> {
 
 pub(in crate::execution) fn build_spatial_index(
     algorithm: &crate::plan::SpatialAlgorithmNode,
+    kind: SpatialAlgorithmKind,
 ) -> Result<BuiltSpatialIndex> {
     let dimensions = dimensions_from_u8(algorithm.dimensions)?;
-    match algorithm.kind.as_str() {
-        "hash_grid" => Ok(BuiltSpatialIndex::HashGrid(HashGridIndex::new(
+    match kind {
+        SpatialAlgorithmKind::HashGrid => Ok(BuiltSpatialIndex::HashGrid(HashGridIndex::new(
             dimensions,
             algorithm.cell_size.unwrap_or(1.0),
         )?)),
-        "quadtree" => {
+        SpatialAlgorithmKind::Quadtree => {
             if dimensions != Dimensions::D2 {
                 return Err(EcsError::InvalidPlan(
                     "quadtree spatial algorithm requires 2D dimensions".to_string(),
@@ -459,7 +461,7 @@ pub(in crate::execution) fn build_spatial_index(
                 algorithm.capacity.unwrap_or(16),
             )?))
         }
-        "octree" => {
+        SpatialAlgorithmKind::Octree => {
             if dimensions != Dimensions::D3 {
                 return Err(EcsError::InvalidPlan(
                     "octree spatial algorithm requires 3D dimensions".to_string(),
@@ -476,7 +478,7 @@ pub(in crate::execution) fn build_spatial_index(
                 algorithm.capacity.unwrap_or(16),
             )?))
         }
-        "hilbert_curve" | "hilbert" => {
+        SpatialAlgorithmKind::Hilbert => {
             if dimensions != Dimensions::D2 {
                 return Err(EcsError::InvalidPlan(
                     "Hilbert spatial algorithm currently requires 2D dimensions".to_string(),
@@ -493,8 +495,9 @@ pub(in crate::execution) fn build_spatial_index(
                 algorithm.bits.unwrap_or(16),
             )?))
         }
-        other => Err(EcsError::InvalidPlan(format!(
-            "unsupported spatial algorithm '{other}'"
+        SpatialAlgorithmKind::Unknown => Err(EcsError::InvalidPlan(format!(
+            "unsupported spatial algorithm '{}'",
+            algorithm.kind
         ))),
     }
 }

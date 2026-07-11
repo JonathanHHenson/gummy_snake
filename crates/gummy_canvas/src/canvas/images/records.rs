@@ -1,5 +1,5 @@
 use super::{BatchCanvasImage, BatchUniqueImage};
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(super) fn cache_canvas_image_payload(

@@ -1,7 +1,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::software3d::types::{CameraPayload, Vec3d};
+use crate::software3d::model::types::{CameraPayload, Vec3d};
 
 pub(super) fn camera_space_3d(point: Vec3d, camera: &CameraPayload) -> PyResult<Vec3d> {
     let forward = normalize_3d(sub_3d(camera.target, camera.eye))?;
@@ -64,7 +64,7 @@ pub(super) fn cross_3d(a: Vec3d, b: Vec3d) -> Vec3d {
     }
 }
 
-pub(super) fn triangle_normal(a: Vec3d, b: Vec3d, c: Vec3d) -> Vec3d {
+pub(crate) fn triangle_normal(a: Vec3d, b: Vec3d, c: Vec3d) -> Vec3d {
     let normal = cross_3d(sub_3d(b, a), sub_3d(c, a));
     let length = dot_3d(normal, normal).sqrt();
     if length == 0.0 {

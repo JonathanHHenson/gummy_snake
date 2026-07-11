@@ -1,5 +1,5 @@
 use crate::gpu::types::GpuColor;
-use crate::BlendMode;
+use crate::types::BlendMode;
 
 pub(in crate::gpu) fn to_wgpu_color(color: GpuColor) -> wgpu::Color {
     wgpu::Color {

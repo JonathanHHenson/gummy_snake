@@ -1,5 +1,5 @@
 use super::{BatchCanvasImage, BatchUniqueImage, IMAGE_ATLAS_MAX_UNIQUE_IMAGES};
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(crate) fn try_draw_gpu_image_atlas_batch(

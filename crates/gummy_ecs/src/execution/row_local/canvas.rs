@@ -49,6 +49,7 @@ impl<'a> PlanExecutor<'a> {
         let (commands, fill_batch, rows_scanned) = {
             let program = compile_f64_readonly_program(
                 self.plan,
+                &self.typed_plan,
                 self.world,
                 query_name,
                 &self.numeric_field_cache,

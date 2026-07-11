@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 #[test]
 fn gpu_multiply_ellipse_blends_against_destination_texture() {

@@ -1,5 +1,5 @@
 use crate::gpu::types::*;
-use crate::BlendMode;
+use crate::types::BlendMode;
 use wgpu::util::DeviceExt;
 
 impl GpuRenderer {

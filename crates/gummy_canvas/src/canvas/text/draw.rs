@@ -1,8 +1,8 @@
 use super::layout::{
     layout_cached_text_line, layout_gpu_text_line, physical_font_size, text_lines,
 };
+use crate::prelude::*;
 use crate::runtime::style::*;
-use crate::*;
 
 impl Canvas {
     pub(crate) fn text_impl(

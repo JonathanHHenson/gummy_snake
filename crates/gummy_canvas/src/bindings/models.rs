@@ -1,6 +1,22 @@
-use crate::software3d;
+//! Stable PyO3 model-binding names and signatures.
+//!
+//! Implementation-only payload decoding, projection, and uniform preparation live
+//! in the sibling `models/` modules so this same-stem hub remains the explicit
+//! PyO3 declaration and registration boundary.
+
+mod input;
+mod payload;
+mod projection;
+mod uniforms;
+
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyBytes, PyDict, PyList};
+
+use crate::software3d;
+
+pub(crate) use payload::model_to_payload_dict;
+pub(crate) use uniforms::{model_gpu_uniform, model_gpu_uniforms};
 
 #[pyfunction]
 pub(crate) fn parse_obj_model<'py>(
@@ -9,7 +25,13 @@ pub(crate) fn parse_obj_model<'py>(
     source: &str,
     normalize: bool,
 ) -> PyResult<Bound<'py, PyDict>> {
-    software3d::parse_obj_model(py, text, source, normalize)
+    let parsed = software3d::parse_obj_text(text, source)?;
+    let parsed = if normalize {
+        software3d::normalize_obj_model(parsed)
+    } else {
+        parsed
+    };
+    model_to_payload_dict(py, &parsed)
 }
 
 #[pyfunction]
@@ -19,7 +41,7 @@ pub(crate) fn create_mesh3d_handle(
     normals: &Bound<'_, PyAny>,
     texcoords: &Bound<'_, PyAny>,
 ) -> PyResult<software3d::CanvasMesh3D> {
-    software3d::create_mesh3d_handle(vertices, faces, normals, texcoords)
+    payload::create_mesh3d_handle(vertices, faces, normals, texcoords)
 }
 
 #[pyfunction(signature = (meshes, source="gummy_snake_model"))]
@@ -28,7 +50,7 @@ pub(crate) fn create_model3d_handle(
     source: &str,
 ) -> PyResult<software3d::CanvasModel3D> {
     if meshes.is_empty() {
-        return Err(pyo3::exceptions::PyValueError::new_err(
+        return Err(PyValueError::new_err(
             "create_model3d_handle() requires at least one mesh handle",
         ));
     }
@@ -130,7 +152,7 @@ pub(crate) fn project_shade_faces<'py>(
     normal_material: bool,
     cull_backfaces: bool,
 ) -> PyResult<Bound<'py, PyList>> {
-    software3d::project_shade_faces(
+    projection::project_shade_faces(
         py,
         meshes,
         camera,
@@ -159,7 +181,7 @@ pub(crate) fn project_shade_model_handle<'py>(
     cull_backfaces: bool,
     transform: Option<Vec<f64>>,
 ) -> PyResult<Bound<'py, PyList>> {
-    software3d::project_shade_model_handle(
+    projection::project_shade_model_handle(
         py,
         model,
         camera,

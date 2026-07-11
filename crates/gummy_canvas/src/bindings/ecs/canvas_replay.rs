@@ -1,13 +1,105 @@
 use gummy_ecs::{EcsValue, ExecutionCanvasCommand, ExecutionCanvasFillRecord, ExecutionReport};
 use pyo3::prelude::*;
 
-use crate::{Canvas, Matrix};
+use crate::canvas_state::Canvas;
+use crate::raster::Matrix;
 
-pub(super) type FillPrimitiveRecord = (u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8);
+type FillPrimitiveTuple = (u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8);
 
-const PRIMITIVE_BATCH_RECT: u8 = 1;
-const PRIMITIVE_BATCH_TRIANGLE: u8 = 2;
-const PRIMITIVE_BATCH_ELLIPSE: u8 = 3;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) struct FillPrimitiveRecord {
+    kind: u8,
+    a: f64,
+    b: f64,
+    c: f64,
+    d: f64,
+    e: f64,
+    f: f64,
+    r: u8,
+    g: u8,
+    blue: u8,
+    alpha: u8,
+}
+
+impl FillPrimitiveRecord {
+    fn from_execution(record: &ExecutionCanvasFillRecord) -> Self {
+        Self {
+            kind: record.kind,
+            a: record.a,
+            b: record.b,
+            c: record.c,
+            d: record.d,
+            e: record.e,
+            f: record.f,
+            r: record.r,
+            g: record.g,
+            blue: record.blue,
+            alpha: record.alpha,
+        }
+    }
+
+    fn rect(x: f64, y: f64, width: f64, height: f64, color: [u8; 4]) -> Self {
+        Self::rect_like(1, x, y, width, height, color)
+    }
+
+    fn ellipse_centered(
+        center_x: f64,
+        center_y: f64,
+        width: f64,
+        height: f64,
+        color: [u8; 4],
+    ) -> Self {
+        Self::rect_like(
+            3,
+            center_x - width / 2.0,
+            center_y - height / 2.0,
+            width,
+            height,
+            color,
+        )
+    }
+
+    fn triangle(first: (f64, f64), second: (f64, f64), third: (f64, f64), color: [u8; 4]) -> Self {
+        let [r, g, blue, alpha] = color;
+        Self {
+            kind: 2,
+            a: first.0,
+            b: first.1,
+            c: second.0,
+            d: second.1,
+            e: third.0,
+            f: third.1,
+            r,
+            g,
+            blue,
+            alpha,
+        }
+    }
+
+    fn rect_like(kind: u8, x: f64, y: f64, width: f64, height: f64, color: [u8; 4]) -> Self {
+        let [r, g, blue, alpha] = color;
+        Self {
+            kind,
+            a: x,
+            b: y,
+            c: width,
+            d: height,
+            e: 0.0,
+            f: 0.0,
+            r,
+            g,
+            blue,
+            alpha,
+        }
+    }
+
+    fn into_tuple(self) -> FillPrimitiveTuple {
+        (
+            self.kind, self.a, self.b, self.c, self.d, self.e, self.f, self.r, self.g, self.blue,
+            self.alpha,
+        )
+    }
+}
 
 fn ecs_value_f64(value: &EcsValue) -> Option<f64> {
     match value {
@@ -48,76 +140,39 @@ fn fill_primitive_record(
     command: &ExecutionCanvasCommand,
     fill: (u8, u8, u8, u8),
 ) -> Option<FillPrimitiveRecord> {
-    let (r, g, b, a) = fill;
+    let color = [fill.0, fill.1, fill.2, fill.3];
     match command.command.as_str() {
         "rect" => {
             let args = numeric_args(&command.args, 4)?;
-            Some((
-                PRIMITIVE_BATCH_RECT,
-                args[0],
-                args[1],
-                args[2],
-                args[3],
-                0.0,
-                0.0,
-                r,
-                g,
-                b,
-                a,
+            Some(FillPrimitiveRecord::rect(
+                args[0], args[1], args[2], args[3], color,
             ))
         }
         "circle" => {
             let args = numeric_args(&command.args, 3)?;
-            let diameter = args[2];
-            Some((
-                PRIMITIVE_BATCH_ELLIPSE,
-                args[0] - diameter / 2.0,
-                args[1] - diameter / 2.0,
-                diameter,
-                diameter,
-                0.0,
-                0.0,
-                r,
-                g,
-                b,
-                a,
+            Some(FillPrimitiveRecord::ellipse_centered(
+                args[0], args[1], args[2], args[2], color,
             ))
         }
         "ellipse" => {
-            let args = if command.args.len() == 3 {
-                let args = numeric_args(&command.args, 3)?;
-                vec![args[0], args[1], args[2], args[2]]
-            } else {
-                numeric_args(&command.args, 4)?
-            };
-            Some((
-                PRIMITIVE_BATCH_ELLIPSE,
-                args[0] - args[2] / 2.0,
-                args[1] - args[3] / 2.0,
-                args[2],
-                args[3],
-                0.0,
-                0.0,
-                r,
-                g,
-                b,
-                a,
-            ))
+            let args = numeric_args(&command.args, command.args.len())?;
+            match args.as_slice() {
+                [center_x, center_y, width] => Some(FillPrimitiveRecord::ellipse_centered(
+                    *center_x, *center_y, *width, *width, color,
+                )),
+                [center_x, center_y, width, height] => Some(FillPrimitiveRecord::ellipse_centered(
+                    *center_x, *center_y, *width, *height, color,
+                )),
+                _ => None,
+            }
         }
         "triangle" => {
             let args = numeric_args(&command.args, 6)?;
-            Some((
-                PRIMITIVE_BATCH_TRIANGLE,
-                args[0],
-                args[1],
-                args[2],
-                args[3],
-                args[4],
-                args[5],
-                r,
-                g,
-                b,
-                a,
+            Some(FillPrimitiveRecord::triangle(
+                (args[0], args[1]),
+                (args[2], args[3]),
+                (args[4], args[5]),
+                color,
             ))
         }
         _ => None,
@@ -141,20 +196,15 @@ fn is_style_only_canvas_command(command: &str) -> bool {
     )
 }
 
-fn fill_record_tuple(record: &ExecutionCanvasFillRecord) -> FillPrimitiveRecord {
-    (
-        record.kind,
-        record.a,
-        record.b,
-        record.c,
-        record.d,
-        record.e,
-        record.f,
-        record.r,
-        record.g,
-        record.blue,
-        record.alpha,
-    )
+fn fill_record(record: &ExecutionCanvasFillRecord) -> FillPrimitiveRecord {
+    FillPrimitiveRecord::from_execution(record)
+}
+
+fn fill_record_tuples(records: Vec<FillPrimitiveRecord>) -> Vec<FillPrimitiveTuple> {
+    records
+        .into_iter()
+        .map(FillPrimitiveRecord::into_tuple)
+        .collect()
 }
 
 pub(super) fn replay_fill_batches_to_canvas(
@@ -169,12 +219,8 @@ pub(super) fn replay_fill_batches_to_canvas(
             continue;
         }
         record_count += batch.records.len();
-        let records = batch
-            .records
-            .iter()
-            .map(fill_record_tuple)
-            .collect::<Vec<_>>();
-        canvas.batch_fill_primitives_impl(records, matrix)?;
+        let records = batch.records.iter().map(fill_record).collect::<Vec<_>>();
+        canvas.batch_fill_primitives_impl(fill_record_tuples(records), matrix)?;
     }
     Ok(record_count)
 }
@@ -187,7 +233,7 @@ pub(super) fn append_fill_batches_to_records(
     let mut record_count = 0;
     for batch in batches {
         record_count += batch.records.len();
-        records.extend(batch.records.iter().map(fill_record_tuple));
+        records.extend(batch.records.iter().map(fill_record));
     }
     record_count
 }
@@ -201,7 +247,7 @@ pub(super) fn flush_fill_records_to_canvas(
         return Ok(());
     }
     let pending = std::mem::take(records);
-    canvas.batch_fill_primitives_impl(pending, matrix)
+    canvas.batch_fill_primitives_impl(fill_record_tuples(pending), matrix)
 }
 
 pub(super) fn report_has_only_style_canvas_commands(report: &ExecutionReport) -> bool {
@@ -261,7 +307,67 @@ pub(super) fn replay_convertible_fill_primitives_to_canvas(
     }
 
     let record_count = records.len();
-    canvas.batch_fill_primitives_impl(records, matrix)?;
+    canvas.batch_fill_primitives_impl(fill_record_tuples(records), matrix)?;
     report.canvas_commands = vec![final_fill_command];
     Ok(record_count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn command(command: &str, args: Vec<f64>) -> ExecutionCanvasCommand {
+        ExecutionCanvasCommand {
+            command: command.to_string(),
+            args: args.into_iter().map(EcsValue::F64).collect(),
+        }
+    }
+
+    #[test]
+    fn direct_fill_records_keep_centered_ellipse_and_clamped_colors() {
+        let fill = parse_fill(&[
+            EcsValue::F64(12.4),
+            EcsValue::F64(100.6),
+            EcsValue::F64(260.0),
+            EcsValue::F64(-3.0),
+        ])
+        .expect("valid fill");
+        assert_eq!(fill, (12, 101, 255, 0));
+
+        let circle = fill_primitive_record(&command("circle", vec![2.0, 3.0, 6.0]), fill)
+            .expect("circle converts");
+        assert_eq!(
+            circle,
+            FillPrimitiveRecord {
+                kind: 3,
+                a: -1.0,
+                b: 0.0,
+                c: 6.0,
+                d: 6.0,
+                e: 0.0,
+                f: 0.0,
+                r: 12,
+                g: 101,
+                blue: 255,
+                alpha: 0,
+            }
+        );
+
+        let ellipse = fill_primitive_record(&command("ellipse", vec![8.0, 9.0, 4.0]), fill)
+            .expect("three-argument ellipse converts");
+        assert_eq!(ellipse.a, 6.0);
+        assert_eq!(ellipse.b, 7.0);
+        assert_eq!(ellipse.c, 4.0);
+        assert_eq!(ellipse.d, 4.0);
+    }
+
+    #[test]
+    fn execution_record_tuple_conversion_preserves_protocol_layout() {
+        let record =
+            ExecutionCanvasFillRecord::triangle((1.0, 2.0), (3.0, 4.0), (5.0, 6.0), [7, 8, 9, 10]);
+        assert_eq!(
+            fill_record(&record).into_tuple(),
+            (2, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7, 8, 9, 10)
+        );
+    }
 }

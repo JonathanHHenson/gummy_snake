@@ -207,6 +207,7 @@ pub type PhysicalPlanHandle = u64;
 mod access;
 mod cache;
 mod optimizer;
+pub(crate) mod typed_ir;
 mod validation;
 
 pub use access::infer_access_summary;

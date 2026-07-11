@@ -1,11 +1,26 @@
 use super::helpers::{
     fill_primitive_batch_cache_key, fill_primitive_batch_instances, FillPrimitiveBatchRecord,
+    FillPrimitiveBatchTuple,
 };
-use crate::*;
+use crate::prelude::*;
 use std::sync::Arc;
 
 impl Canvas {
     pub(crate) fn batch_fill_primitives_impl(
+        &mut self,
+        records: Vec<FillPrimitiveBatchTuple>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        self.batch_fill_primitive_records_impl(
+            records
+                .into_iter()
+                .map(FillPrimitiveBatchRecord::from)
+                .collect(),
+            matrix,
+        )
+    }
+
+    fn batch_fill_primitive_records_impl(
         &mut self,
         records: Vec<FillPrimitiveBatchRecord>,
         matrix: Matrix,

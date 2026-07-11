@@ -1,8 +1,8 @@
-use crate::gpu::render::batcher::RenderPassBatcher;
+use super::RenderPassBatcher;
 use crate::gpu::types::*;
 
 impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
-    pub(super) fn draw_model(
+    pub(in crate::gpu::render) fn draw_model(
         &mut self,
         mesh: Option<&'resources GpuModelMesh>,
         index_count: u32,
@@ -31,7 +31,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
             .draw_indexed(0..count, 0, uniform_index..uniform_index + 1);
     }
 
-    pub(super) fn draw_model_wireframe(
+    pub(in crate::gpu::render) fn draw_model_wireframe(
         &mut self,
         mesh: Option<&'resources GpuModelMesh>,
         index_count: u32,
@@ -61,7 +61,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
             .draw_indexed(0..wire_count, 0, uniform_index..uniform_index + 1);
     }
 
-    pub(super) fn draw_model_instances(
+    pub(in crate::gpu::render) fn draw_model_instances(
         &mut self,
         mesh: Option<&'resources GpuModelMesh>,
         index_count: u32,
@@ -94,7 +94,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         );
     }
 
-    pub(super) fn draw_textured_model(
+    pub(in crate::gpu::render) fn draw_textured_model(
         &mut self,
         mesh: Option<&'resources GpuModelMesh>,
         texture: Option<&'resources TextureAsset>,

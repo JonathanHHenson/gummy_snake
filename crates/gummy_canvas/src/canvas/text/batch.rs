@@ -2,7 +2,7 @@ use super::super::images::{
     BatchCanvasImage, BatchUniqueImage, ImageBatchBuilder, IMAGE_ATLAS_MAX_UNIQUE_IMAGES,
 };
 use super::layout::{layout_cached_text_line, text_lines};
-use crate::*;
+use crate::prelude::*;
 
 impl Canvas {
     pub(crate) fn text_batch_frame_impl(

@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 #[test]
 fn interactive_runtime_primitives_track_open_and_close_state() {

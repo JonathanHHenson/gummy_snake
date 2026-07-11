@@ -3,10 +3,10 @@ use std::f64::consts::TAU;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::software3d::primitive_utils::{empty_normals, some_texcoords, validate_positive};
-use crate::software3d::types::{ObjModelData, Vec3d};
+use super::utils::{empty_normals, some_texcoords, validate_positive};
+use crate::software3d::model::types::{ObjModelData, Vec3d};
 
-pub(super) fn cylinder_model_data(
+pub(crate) fn cylinder_model_data(
     radius: f64,
     height: f64,
     detail_x: usize,
@@ -86,7 +86,7 @@ pub(super) fn cylinder_model_data(
     })
 }
 
-pub(super) fn cone_model_data(
+pub(crate) fn cone_model_data(
     radius: f64,
     height: f64,
     detail_x: usize,

@@ -1,6 +1,6 @@
 use ab_glyph::{point, Font, FontArc, GlyphId, PxScale, ScaleFont};
 
-use crate::Rgba;
+use crate::types::Rgba;
 
 pub(crate) struct RenderedTextLine {
     pub(crate) width: usize,

@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::software3d::types::{ObjModelData, Vec3d};
+use crate::software3d::model::types::{ObjModelData, Vec3d};
 
-pub(super) fn parse_obj_text(text: &str, source: &str) -> PyResult<ObjModelData> {
+pub(crate) fn parse_obj_text(text: &str, source: &str) -> PyResult<ObjModelData> {
     let mut positions = Vec::new();
     let mut texcoords = Vec::new();
     let mut normals = Vec::new();

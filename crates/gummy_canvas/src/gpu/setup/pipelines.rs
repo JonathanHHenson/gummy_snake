@@ -10,7 +10,7 @@ use crate::gpu::pipeline::{
     model_bind_group_layout, pixel_prefix_bind_group_layout, stroke_path_bind_group_layout,
     texture_bind_group_layout, viewport_bind_group_layout,
 };
-use crate::BlendMode;
+use crate::types::BlendMode;
 
 pub(super) struct PipelineResources {
     pub(super) viewport_bind_group_layout: wgpu::BindGroupLayout,

@@ -81,9 +81,12 @@ execution.
 | [`gummy_synth`](../../crates/gummy_synth/) | Synth, sample, FX, decoding, and WAV rendering, linked through canvas. | Mandatory synth rendering; no Python audio/synth fallback. | `cargo test --manifest-path crates/gummy_synth/Cargo.toml` |
 | [`gummy_accel`](../../crates/gummy_accel/) | Small optional accelerated kernels exposed by `_accelerated`. | Optional only; never substitutes for mandatory canvas/ECS/synth runtime behavior. | `cargo test --manifest-path crates/gummy_accel/Cargo.toml` |
 
-All crate-level implementation/rustdoc organization remains owned by PBI 030.
-Use [Runtime contracts](runtime_contracts.md) for stable source/runtime contracts
-and [Build capabilities](build_capabilities.md) for packaging and rebuild steps.
+Each crate root documents its ownership boundary without duplicating this map:
+`gummy_canvas` owns the PyO3 registration boundary and canvas runtime;
+`gummy_ecs` remains PyO3-free; `gummy_synth` owns rendering rather than Python
+parsing; and `gummy_accel` is intentionally small and optional. Use
+[Runtime contracts](runtime_contracts.md) for stable source/runtime contracts and
+[Build capabilities](build_capabilities.md) for packaging and rebuild steps.
 
 ## Contributor entry points
 

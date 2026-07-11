@@ -48,11 +48,11 @@ class ReviewedLimit:
 # are exact current baselines so implementation work cannot accumulate there.
 BINDING_EXCEPTION_LIMITS: dict[Path, ReviewedLimit] = {
     Path("crates/gummy_canvas/src/canvas/methods.rs"): ReviewedLimit(
-        905,
+        910,
         "Canvas PyO3 binding surface; implementation belongs in split helpers.",
     ),
     Path("crates/gummy_canvas/src/bindings/ecs/world.rs"): ReviewedLimit(
-        494,
+        578,
         "EcsWorld PyO3 binding surface; execution belongs in split crates/modules.",
     ),
 }

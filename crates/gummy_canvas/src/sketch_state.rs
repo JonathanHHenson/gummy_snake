@@ -3,7 +3,7 @@ mod input;
 mod methods;
 mod shape;
 
-use crate::DEFAULT_POINTER_LOCK_MODE;
+use crate::runtime::DEFAULT_POINTER_LOCK_MODE;
 use pyo3::prelude::*;
 use std::time::Instant;
 

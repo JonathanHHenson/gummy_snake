@@ -14,10 +14,6 @@ pub(super) type RowLocalFillBatch = Option<(
     usize,
 )>;
 
-const CANVAS_FILL_RECT: u8 = 1;
-const CANVAS_FILL_TRIANGLE: u8 = 2;
-const CANVAS_FILL_ELLIPSE: u8 = 3;
-
 type CanvasFill = [u8; 4];
 
 fn color_channel(value: f64) -> u8 {
@@ -52,67 +48,28 @@ fn canvas_fill_record(
     args: &[f64],
     fill: CanvasFill,
 ) -> Option<ExecutionCanvasFillRecord> {
-    let [r, g, blue, alpha] = fill;
     match command {
-        "rect" if args.len() == 4 => Some(ExecutionCanvasFillRecord {
-            kind: CANVAS_FILL_RECT,
-            a: args[0],
-            b: args[1],
-            c: args[2],
-            d: args[3],
-            e: 0.0,
-            f: 0.0,
-            r,
-            g,
-            blue,
-            alpha,
-        }),
-        "circle" if args.len() == 3 => {
-            let diameter = args[2];
-            Some(ExecutionCanvasFillRecord {
-                kind: CANVAS_FILL_ELLIPSE,
-                a: args[0] - diameter / 2.0,
-                b: args[1] - diameter / 2.0,
-                c: diameter,
-                d: diameter,
-                e: 0.0,
-                f: 0.0,
-                r,
-                g,
-                blue,
-                alpha,
-            })
-        }
+        "rect" if args.len() == 4 => Some(ExecutionCanvasFillRecord::rect(
+            args[0], args[1], args[2], args[3], fill,
+        )),
+        "circle" if args.len() == 3 => Some(ExecutionCanvasFillRecord::ellipse_centered(
+            args[0], args[1], args[2], args[2], fill,
+        )),
         "ellipse" if args.len() == 3 || args.len() == 4 => {
-            let width = args[2];
-            let height = if args.len() == 4 { args[3] } else { width };
-            Some(ExecutionCanvasFillRecord {
-                kind: CANVAS_FILL_ELLIPSE,
-                a: args[0] - width / 2.0,
-                b: args[1] - height / 2.0,
-                c: width,
-                d: height,
-                e: 0.0,
-                f: 0.0,
-                r,
-                g,
-                blue,
-                alpha,
-            })
+            Some(ExecutionCanvasFillRecord::ellipse_centered(
+                args[0],
+                args[1],
+                args[2],
+                if args.len() == 4 { args[3] } else { args[2] },
+                fill,
+            ))
         }
-        "triangle" if args.len() == 6 => Some(ExecutionCanvasFillRecord {
-            kind: CANVAS_FILL_TRIANGLE,
-            a: args[0],
-            b: args[1],
-            c: args[2],
-            d: args[3],
-            e: args[4],
-            f: args[5],
-            r,
-            g,
-            blue,
-            alpha,
-        }),
+        "triangle" if args.len() == 6 => Some(ExecutionCanvasFillRecord::triangle(
+            (args[0], args[1]),
+            (args[2], args[3]),
+            (args[4], args[5]),
+            fill,
+        )),
         _ => None,
     }
 }

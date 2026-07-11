@@ -1,14 +1,12 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::software3d::math::{
-    camera_space_3d, dot_3d, face_center_3d, face_normal_3d, normalize_3d, sub_3d,
-};
-use crate::software3d::types::{
+use super::math::{camera_space_3d, dot_3d, face_center_3d, face_normal_3d, normalize_3d, sub_3d};
+use crate::software3d::model::types::{
     CameraPayload, MeshPayload, ProjectedPayloadFace, ProjectionPayload, Vec3d,
 };
 
-pub(super) fn validate_projection_payload(projection: &ProjectionPayload) -> PyResult<()> {
+pub(crate) fn validate_projection_payload(projection: &ProjectionPayload) -> PyResult<()> {
     let (near, far) = match projection {
         ProjectionPayload::Perspective {
             fov_y,
@@ -55,7 +53,7 @@ pub(super) fn validate_projection_payload(projection: &ProjectionPayload) -> PyR
     Ok(())
 }
 
-pub(super) fn project_mesh_payload_faces(
+pub(crate) fn project_mesh_payload_faces(
     mesh: &MeshPayload,
     camera: &CameraPayload,
     projection: &ProjectionPayload,

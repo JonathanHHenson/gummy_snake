@@ -1,4 +1,5 @@
-use crate::*;
+use crate::bindings::{health_check, native_window_available};
+use crate::prelude::*;
 
 #[test]
 fn health_check_reports_canvas_backend() {

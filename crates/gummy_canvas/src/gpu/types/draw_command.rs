@@ -2,7 +2,7 @@ use super::{
     GpuColor, ImageVertex, ModelUniform, PrimitiveInstance, RetainedPrimitiveInstances,
     RetainedTriangleVertices, StrokePathRecord,
 };
-use crate::BlendMode;
+use crate::types::BlendMode;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DrawCommand {

@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 use super::instances::{
     transformed_ellipse_instance, transformed_polygon_fill_instances, transformed_rect_instance,

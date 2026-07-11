@@ -1,6 +1,6 @@
-use crate::gpu::render::batcher::RenderPassBatcher;
+use super::RenderPassBatcher;
 use crate::gpu::types::*;
-use crate::BlendMode;
+use crate::types::BlendMode;
 
 fn image_command_signature(command: &DrawCommand) -> Option<(u64, bool, BlendMode, usize)> {
     match command {
@@ -24,7 +24,7 @@ fn image_command_signature(command: &DrawCommand) -> Option<(u64, bool, BlendMod
 
 impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn draw_image_commands(
+    pub(in crate::gpu::render) fn draw_image_commands(
         &mut self,
         command_index: usize,
         commands: &[DrawCommand],

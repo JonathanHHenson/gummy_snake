@@ -1,5 +1,11 @@
+//! GPU resource setup, ordered command encoding, and presentation internals.
+//!
+//! `renderer_state` owns the non-POD resource graph. `types` owns the POD draw,
+//! uniform, and vertex records consumed by pipelines and encoders.
+
 mod pipeline;
 mod render;
+mod renderer_state;
 mod setup;
 mod shaders;
 mod surface;
@@ -10,9 +16,11 @@ mod types;
 mod tests;
 
 #[allow(unused_imports)]
+pub use renderer_state::GpuRenderer;
+#[allow(unused_imports)]
 pub(crate) use types::ImageVertex;
 #[allow(unused_imports)]
 pub use types::{
-    DrawCommand, GpuColor, GpuRenderer, ModelUniform, ModelVertex, PrimitiveInstance,
+    DrawCommand, GpuColor, ModelUniform, ModelVertex, PrimitiveInstance,
     RetainedPrimitiveInstances, RetainedTriangleVertices, StrokePathRecord,
 };

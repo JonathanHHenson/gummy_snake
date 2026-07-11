@@ -1,15 +1,21 @@
-mod ecs;
-mod health;
-mod image_ops;
-mod models;
-mod synth;
+//! PyO3 registration boundary for the mandatory `_canvas` extension.
+//!
+//! This module owns Python name registration and error conversion only. Canvas
+//! implementation belongs under `canvas`, ECS execution belongs to `gummy_ecs`,
+//! and synth/sample/FX rendering belongs to `gummy_synth`.
 
-use ecs::*;
+use crate::prelude::*;
 pub(crate) use health::{canvas_abi_version, gpu_available, health_check, native_window_available};
 use image_ops::*;
 use models::*;
+use pyo3::wrap_pyfunction;
+mod ecs;
+mod health;
+mod image_ops;
+pub(crate) mod models;
+mod synth;
 
-use crate::*;
+use ecs::*;
 
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(health_check, m)?)?;

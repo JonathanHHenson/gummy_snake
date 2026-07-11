@@ -188,6 +188,7 @@ impl<'a> PlanExecutor<'a> {
         let index_key = self.spatial_index_cache_key(relation);
         let structural_revision = self.world.structural_revision();
         let field_revision = self.spatial_dependency_revision(relation);
+        let algorithm_kind = self.typed_spatial_relation(relation).algorithm;
         let index = if let Some(mut cached) = self.world.take_spatial_index_cache(&index_key) {
             if cached.signature == signature {
                 if cached.structural_revision == structural_revision
@@ -216,14 +217,14 @@ impl<'a> PlanExecutor<'a> {
                 }
                 cached.index
             } else {
-                let mut index = build_spatial_index(&relation.algorithm)?;
+                let mut index = build_spatial_index(&relation.algorithm, algorithm_kind)?;
                 index.build(&records)?;
                 self.report.spatial_indexes_built += 1;
                 self.report.spatial_index_full_rebuilds += 1;
                 index
             }
         } else {
-            let mut index = build_spatial_index(&relation.algorithm)?;
+            let mut index = build_spatial_index(&relation.algorithm, algorithm_kind)?;
             index.build(&records)?;
             self.report.spatial_indexes_built += 1;
             self.report.spatial_index_full_rebuilds += 1;

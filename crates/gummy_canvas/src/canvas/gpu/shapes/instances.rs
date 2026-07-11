@@ -1,4 +1,4 @@
-use crate::*;
+use crate::prelude::*;
 
 const PROCEDURAL_TRANSFORMED_RECT_KIND: f32 = 5.0;
 const PROCEDURAL_TRANSFORMED_TRIANGLE_KIND: f32 = 6.0;
@@ -11,14 +11,12 @@ pub(super) fn transformed_rect_instance(
     pixel_density: f64,
     color: Rgba,
 ) -> crate::gpu::PrimitiveInstance {
-    transformed_rect_like_instance(
+    procedural_rect_instance(
         p0,
         p1,
         matrix,
         pixel_density,
-        color,
-        PROCEDURAL_TRANSFORMED_RECT_KIND,
-        0.0,
+        crate::raster::gpu_color(color).as_float(),
     )
 }
 
@@ -50,7 +48,43 @@ pub(super) fn transformed_ellipse_instance(
     color: Rgba,
     stroke_width: f64,
 ) -> crate::gpu::PrimitiveInstance {
-    transformed_rect_like_instance(
+    procedural_ellipse_instance(
+        p0,
+        p1,
+        matrix,
+        pixel_density,
+        crate::raster::gpu_color(color).as_float(),
+        stroke_width,
+    )
+}
+
+pub(in crate::canvas) fn procedural_rect_instance(
+    p0: Point,
+    p1: Point,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: [f32; 4],
+) -> crate::gpu::PrimitiveInstance {
+    procedural_rect_like_instance(
+        p0,
+        p1,
+        matrix,
+        pixel_density,
+        color,
+        PROCEDURAL_TRANSFORMED_RECT_KIND,
+        0.0,
+    )
+}
+
+pub(in crate::canvas) fn procedural_ellipse_instance(
+    p0: Point,
+    p1: Point,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: [f32; 4],
+    stroke_width: f64,
+) -> crate::gpu::PrimitiveInstance {
+    procedural_rect_like_instance(
         p0,
         p1,
         matrix,
@@ -61,12 +95,12 @@ pub(super) fn transformed_ellipse_instance(
     )
 }
 
-fn transformed_rect_like_instance(
+fn procedural_rect_like_instance(
     p0: Point,
     p1: Point,
     matrix: Matrix,
     pixel_density: f64,
-    color: Rgba,
+    color: [f32; 4],
     kind: f32,
     stroke_width: f64,
 ) -> crate::gpu::PrimitiveInstance {
@@ -81,7 +115,7 @@ fn transformed_rect_like_instance(
             (e * pixel_density) as f32,
             (f * pixel_density) as f32,
         ],
-        color: crate::raster::gpu_color(color).as_float(),
+        color,
         params: [kind, stroke_width as f32, 0.0, 0.0],
     }
 }
@@ -94,6 +128,24 @@ pub(super) fn transformed_triangle_instance(
     pixel_density: f64,
     color: Rgba,
 ) -> crate::gpu::PrimitiveInstance {
+    procedural_triangle_instance(
+        p0,
+        p1,
+        p2,
+        matrix,
+        pixel_density,
+        crate::raster::gpu_color(color).as_float(),
+    )
+}
+
+pub(in crate::canvas) fn procedural_triangle_instance(
+    p0: Point,
+    p1: Point,
+    p2: Point,
+    matrix: Matrix,
+    pixel_density: f64,
+    color: [f32; 4],
+) -> crate::gpu::PrimitiveInstance {
     let (a, b, c, d, e, f) = matrix;
     crate::gpu::PrimitiveInstance {
         p0: [p0.0 as f32, p0.1 as f32],
@@ -105,7 +157,7 @@ pub(super) fn transformed_triangle_instance(
             (c * pixel_density) as f32,
             (d * pixel_density) as f32,
         ],
-        color: crate::raster::gpu_color(color).as_float(),
+        color,
         params: [
             PROCEDURAL_TRANSFORMED_TRIANGLE_KIND,
             (e * pixel_density) as f32,

@@ -1,3 +1,9 @@
+//! Small optional accelerated kernels for Gummy Snake.
+//!
+//! This extension may accelerate opt-in helpers exposed through `_accelerated`,
+//! but it must never substitute for the required `gummy_canvas`, `gummy_ecs`, or
+//! `gummy_synth` runtime behavior. See the contributor ownership map for owners.
+
 #![allow(clippy::useless_conversion)]
 
 use pyo3::exceptions::PyValueError;

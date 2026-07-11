@@ -5,7 +5,8 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyTuple};
 
-use crate::{Canvas, Matrix};
+use crate::canvas_state::Canvas;
+use crate::raster::Matrix;
 
 use super::canvas_replay::{
     append_fill_batches_to_records, flush_fill_records_to_canvas,

@@ -3,29 +3,30 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-use crate::software3d::gpu::pack_model_gpu_triangles;
-use crate::software3d::obj::{obj_model_to_dict, save_obj_model, save_stl_model};
-use crate::software3d::types::ObjModelData;
+use super::mesh::canvas_mesh_from_data;
+use super::types::ObjModelData;
+use crate::software3d::obj::{save_obj_model, save_stl_model};
+use crate::software3d::render::pack_model_gpu_triangles;
 
 static NEXT_MODEL_KEY: AtomicU64 = AtomicU64::new(1);
 
 #[pyclass(name = "CanvasModel3D", unsendable)]
 #[derive(Clone, Debug)]
 pub(crate) struct CanvasModel3D {
-    pub(super) model: ObjModelData,
+    pub(crate) model: ObjModelData,
     source: String,
-    pub(super) gpu_key: u64,
-    pub(super) gpu_vertices: Vec<crate::gpu::ModelVertex>,
-    pub(super) gpu_indices: Vec<u32>,
+    pub(crate) gpu_key: u64,
+    pub(crate) gpu_vertices: Vec<crate::gpu::ModelVertex>,
+    pub(crate) gpu_indices: Vec<u32>,
 }
 
 #[pyclass(name = "CanvasMesh3D", unsendable)]
 #[derive(Clone, Debug)]
 pub(crate) struct CanvasMesh3D {
-    pub(super) mesh: ObjModelData,
+    pub(crate) mesh: ObjModelData,
 }
 
-pub(super) fn canvas_model_from_data(model: ObjModelData, source: &str) -> CanvasModel3D {
+pub(crate) fn canvas_model_from_data(model: ObjModelData, source: &str) -> CanvasModel3D {
     let (gpu_vertices, gpu_indices) = pack_model_gpu_triangles(&model);
     CanvasModel3D {
         model,
@@ -82,10 +83,6 @@ pub(crate) fn canvas_model_from_meshes(meshes: &[CanvasMesh3D], source: &str) ->
     )
 }
 
-pub(super) fn canvas_mesh_from_data(mesh: ObjModelData) -> CanvasMesh3D {
-    CanvasMesh3D { mesh }
-}
-
 #[pymethods]
 impl CanvasMesh3D {
     fn vertex_count(&self) -> usize {
@@ -97,7 +94,7 @@ impl CanvasMesh3D {
     }
 
     fn to_mesh_payload<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        obj_model_to_dict(py, &self.mesh)
+        crate::bindings::models::model_to_payload_dict(py, &self.mesh)
     }
 }
 
@@ -117,7 +114,7 @@ impl CanvasModel3D {
     }
 
     fn to_mesh_payload<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        obj_model_to_dict(py, &self.model)
+        crate::bindings::models::model_to_payload_dict(py, &self.model)
     }
 
     fn to_mesh_handle(&self) -> CanvasMesh3D {

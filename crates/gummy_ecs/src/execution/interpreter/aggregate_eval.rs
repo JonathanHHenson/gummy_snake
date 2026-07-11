@@ -1,11 +1,13 @@
 use crate::column::EcsValue;
 use crate::error::{EcsError, Result};
+use crate::plan::typed_ir::AggregateKind;
 
 use super::super::{EvalContext, PlanExecutor};
 use super::value_ops::numeric_f64;
 
 pub(in crate::execution) fn aggregate_empty(
-    kind: &str,
+    kind: AggregateKind,
+    source_name: &str,
     default: Option<usize>,
     executor: &mut PlanExecutor<'_>,
     ctx: &EvalContext,
@@ -14,44 +16,52 @@ pub(in crate::execution) fn aggregate_empty(
         return executor.eval_expr(default_expr, ctx);
     }
     match kind {
-        "any" => Ok(EcsValue::Bool(false)),
-        "count" => Ok(EcsValue::I64(0)),
-        "sum" => Ok(EcsValue::F64(0.0)),
-        "min" | "max" | "mean" => Err(EcsError::InvalidPlan(format!(
-            "{kind} aggregate is empty and no default was provided"
-        ))),
-        other => Err(EcsError::InvalidPlan(format!(
-            "unsupported aggregate kind '{other}'"
+        AggregateKind::Any => Ok(EcsValue::Bool(false)),
+        AggregateKind::Count => Ok(EcsValue::I64(0)),
+        AggregateKind::Sum => Ok(EcsValue::F64(0.0)),
+        AggregateKind::Min | AggregateKind::Max | AggregateKind::Mean => {
+            Err(EcsError::InvalidPlan(format!(
+                "{source_name} aggregate is empty and no default was provided"
+            )))
+        }
+        AggregateKind::Unknown => Err(EcsError::InvalidPlan(format!(
+            "unsupported aggregate kind '{source_name}'"
         ))),
     }
 }
 
 pub(in crate::execution) fn aggregate_finish(
-    kind: &str,
+    kind: AggregateKind,
+    source_name: &str,
     count: usize,
     values: Vec<EcsValue>,
     default: Option<usize>,
     executor: &mut PlanExecutor<'_>,
     ctx: &EvalContext,
 ) -> Result<EcsValue> {
-    if count == 0 && matches!(kind, "min" | "max" | "mean") {
-        return aggregate_empty(kind, default, executor, ctx);
+    if count == 0
+        && matches!(
+            kind,
+            AggregateKind::Min | AggregateKind::Max | AggregateKind::Mean
+        )
+    {
+        return aggregate_empty(kind, source_name, default, executor, ctx);
     }
     match kind {
-        "any" => Ok(EcsValue::Bool(count > 0)),
-        "count" => Ok(EcsValue::I64(count as i64)),
-        "sum" => Ok(EcsValue::F64(numeric_sum(&values)?)),
-        "min" => Ok(EcsValue::F64(numeric_extreme(&values, "min", f64::min)?)),
-        "max" => Ok(EcsValue::F64(numeric_extreme(&values, "max", f64::max)?)),
-        "mean" => {
+        AggregateKind::Any => Ok(EcsValue::Bool(count > 0)),
+        AggregateKind::Count => Ok(EcsValue::I64(count as i64)),
+        AggregateKind::Sum => Ok(EcsValue::F64(numeric_sum(&values)?)),
+        AggregateKind::Min => Ok(EcsValue::F64(numeric_extreme(&values, "min", f64::min)?)),
+        AggregateKind::Max => Ok(EcsValue::F64(numeric_extreme(&values, "max", f64::max)?)),
+        AggregateKind::Mean => {
             if values.is_empty() {
-                return aggregate_empty(kind, default, executor, ctx);
+                return aggregate_empty(kind, source_name, default, executor, ctx);
             }
             let sum = numeric_sum(&values)?;
             Ok(EcsValue::F64(sum / values.len() as f64))
         }
-        other => Err(EcsError::InvalidPlan(format!(
-            "unsupported aggregate kind '{other}'"
+        AggregateKind::Unknown => Err(EcsError::InvalidPlan(format!(
+            "unsupported aggregate kind '{source_name}'"
         ))),
     }
 }

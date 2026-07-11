@@ -4,8 +4,8 @@ use std::io::{BufWriter, Write};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::software3d::math::triangle_normal;
-use crate::software3d::types::ObjModelData;
+use crate::software3d::model::types::ObjModelData;
+use crate::software3d::render::math::triangle_normal;
 
 fn format_g9(value: f64) -> String {
     if !value.is_finite() {
@@ -49,7 +49,7 @@ fn format_g9(value: f64) -> String {
     }
 }
 
-pub(super) fn save_obj_model(model: &ObjModelData, path: &str) -> PyResult<()> {
+pub(crate) fn save_obj_model(model: &ObjModelData, path: &str) -> PyResult<()> {
     let file = File::create(path)
         .map_err(|err| PyValueError::new_err(format!("Could not create OBJ file {path}: {err}")))?;
     let mut writer = BufWriter::new(file);
@@ -91,7 +91,7 @@ pub(super) fn save_obj_model(model: &ObjModelData, path: &str) -> PyResult<()> {
         .map_err(|err| PyValueError::new_err(format!("Could not write OBJ file {path}: {err}")))
 }
 
-pub(super) fn save_stl_model(model: &ObjModelData, path: &str, name: &str) -> PyResult<()> {
+pub(crate) fn save_stl_model(model: &ObjModelData, path: &str, name: &str) -> PyResult<()> {
     let file = File::create(path)
         .map_err(|err| PyValueError::new_err(format!("Could not create STL file {path}: {err}")))?;
     let mut writer = BufWriter::new(file);

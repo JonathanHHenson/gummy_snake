@@ -72,6 +72,7 @@ impl<'a> PlanExecutor<'a> {
                     EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
                 })?;
                 let plan = self.plan;
+                let typed_plan = &self.typed_plan;
                 let numeric_field_cache = &self.numeric_field_cache;
                 let numeric_field_cache_rows = &self.numeric_field_cache_rows;
                 let spatial_precomputed_f64 = &self.spatial_precomputed_f64;
@@ -80,6 +81,7 @@ impl<'a> PlanExecutor<'a> {
                 let compile_start = self.profile.then(Instant::now);
                 let compiled = compile_f64_readonly_program(
                     plan,
+                    typed_plan,
                     world,
                     &query_name,
                     numeric_field_cache,

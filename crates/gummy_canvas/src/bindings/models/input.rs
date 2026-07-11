@@ -1,13 +1,13 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::{PyAny, PyDict, PyList};
 
-use crate::software3d::types::{
+use crate::software3d::model::types::{
     CameraPayload, LightKindPayload, LightPayload, MaterialPayload, MeshPayload, ProjectionPayload,
-    Vec3d,
+    Transform3D, Vec3d,
 };
 
-pub(super) fn parse_mesh_payloads(meshes: &Bound<'_, PyAny>) -> PyResult<Vec<MeshPayload>> {
+pub(crate) fn parse_mesh_payloads(meshes: &Bound<'_, PyAny>) -> PyResult<Vec<MeshPayload>> {
     let sequence = meshes.downcast::<PyList>()?;
     let mut parsed = Vec::with_capacity(sequence.len());
     for item in sequence.iter() {
@@ -37,12 +37,7 @@ pub(super) fn parse_mesh_payloads(meshes: &Bound<'_, PyAny>) -> PyResult<Vec<Mes
     Ok(parsed)
 }
 
-fn parse_vec3_payload(value: &Bound<'_, PyAny>) -> PyResult<Vec3d> {
-    let (x, y, z): (f64, f64, f64) = value.extract()?;
-    Ok(Vec3d { x, y, z })
-}
-
-pub(super) fn parse_camera_payload(camera: &Bound<'_, PyAny>) -> PyResult<CameraPayload> {
+pub(crate) fn parse_camera_payload(camera: &Bound<'_, PyAny>) -> PyResult<CameraPayload> {
     let dict = camera.downcast::<PyDict>()?;
     Ok(CameraPayload {
         eye: parse_vec3_payload(
@@ -63,7 +58,7 @@ pub(super) fn parse_camera_payload(camera: &Bound<'_, PyAny>) -> PyResult<Camera
     })
 }
 
-pub(super) fn parse_projection_payload(
+pub(crate) fn parse_projection_payload(
     projection: &Bound<'_, PyAny>,
 ) -> PyResult<ProjectionPayload> {
     let dict = projection.downcast::<PyDict>()?;
@@ -113,7 +108,7 @@ pub(super) fn parse_projection_payload(
     }
 }
 
-pub(super) fn parse_material_payload(material: &Bound<'_, PyAny>) -> PyResult<MaterialPayload> {
+pub(crate) fn parse_material_payload(material: &Bound<'_, PyAny>) -> PyResult<MaterialPayload> {
     let dict = material.downcast::<PyDict>()?;
     Ok(MaterialPayload {
         base_color: dict
@@ -135,7 +130,7 @@ pub(super) fn parse_material_payload(material: &Bound<'_, PyAny>) -> PyResult<Ma
     })
 }
 
-pub(super) fn parse_light_payloads(lights: &Bound<'_, PyAny>) -> PyResult<Vec<LightPayload>> {
+pub(crate) fn parse_light_payloads(lights: &Bound<'_, PyAny>) -> PyResult<Vec<LightPayload>> {
     let sequence = lights.downcast::<PyList>()?;
     let mut parsed = Vec::with_capacity(sequence.len());
     for item in sequence.iter() {
@@ -175,4 +170,43 @@ pub(super) fn parse_light_payloads(lights: &Bound<'_, PyAny>) -> PyResult<Vec<Li
         });
     }
     Ok(parsed)
+}
+
+pub(crate) fn parse_transform_payload(
+    transform: Option<Vec<f64>>,
+) -> PyResult<Option<Transform3D>> {
+    let Some(values) = transform else {
+        return Ok(None);
+    };
+    match values.len() {
+        6 => {
+            let a = values[0];
+            let b = values[1];
+            let c = values[2];
+            let d = values[3];
+            let e = values[4];
+            let f = values[5];
+            let z_scale = ((a.hypot(b) + c.hypot(d)) / 2.0).max(1e-9);
+            Ok(Some([
+                [a, b, 0.0, 0.0],
+                [c, d, 0.0, 0.0],
+                [0.0, 0.0, z_scale, 0.0],
+                [e, -f, 0.0, 1.0],
+            ]))
+        }
+        16 => Ok(Some([
+            [values[0], values[1], values[2], values[3]],
+            [values[4], values[5], values[6], values[7]],
+            [values[8], values[9], values[10], values[11]],
+            [values[12], values[13], values[14], values[15]],
+        ])),
+        length => Err(PyValueError::new_err(format!(
+            "model transform payload must contain 6 affine or 16 matrix values, got {length}"
+        ))),
+    }
+}
+
+fn parse_vec3_payload(value: &Bound<'_, PyAny>) -> PyResult<Vec3d> {
+    let (x, y, z): (f64, f64, f64) = value.extract()?;
+    Ok(Vec3d { x, y, z })
 }

@@ -1,9 +1,9 @@
-use crate::gpu::render::batcher::{RenderPassBatcher, RenderPassBatcherResult};
+use super::{RenderPassBatcher, RenderPassBatcherResult};
 use crate::gpu::types::*;
-use crate::BlendMode;
+use crate::types::BlendMode;
 
 impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
-    pub(super) fn push_triangle_vertices(
+    pub(in crate::gpu::render) fn push_triangle_vertices(
         &mut self,
         vertices: &[([f32; 2], GpuColor)],
         blend_mode: BlendMode,
@@ -19,7 +19,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         );
     }
 
-    pub(super) fn draw_procedural_instances(
+    pub(in crate::gpu::render) fn draw_procedural_instances(
         &mut self,
         instances: &[PrimitiveInstance],
         blend_mode: BlendMode,
@@ -54,7 +54,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         self.pass.draw(0..6, 0..instances.len() as u32);
     }
 
-    pub(super) fn draw_erase_procedural_instances(
+    pub(in crate::gpu::render) fn draw_erase_procedural_instances(
         &mut self,
         instances: &[PrimitiveInstance],
         clip_id: usize,
@@ -84,7 +84,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         self.pass.draw(0..6, 0..instances.len() as u32);
     }
 
-    pub(super) fn draw_stroke_path(
+    pub(in crate::gpu::render) fn draw_stroke_path(
         &mut self,
         records: &[StrokePathRecord],
         bind_group: &'resources wgpu::BindGroup,
@@ -118,7 +118,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         self.pass.draw(0..6, 0..1);
     }
 
-    pub(super) fn draw_erase_stroke_path(
+    pub(in crate::gpu::render) fn draw_erase_stroke_path(
         &mut self,
         records: &[StrokePathRecord],
         bind_group: &'resources wgpu::BindGroup,
@@ -147,7 +147,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         self.pass.draw(0..6, 0..1);
     }
 
-    pub(super) fn draw_fill_path(
+    pub(in crate::gpu::render) fn draw_fill_path(
         &mut self,
         records: &[StrokePathRecord],
         bind_group: &'resources wgpu::BindGroup,
@@ -181,7 +181,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         self.pass.draw(0..6, 0..1);
     }
 
-    pub(super) fn draw_erase_fill_path(
+    pub(in crate::gpu::render) fn draw_erase_fill_path(
         &mut self,
         records: &[StrokePathRecord],
         bind_group: &'resources wgpu::BindGroup,
@@ -210,7 +210,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         self.pass.draw(0..6, 0..1);
     }
 
-    pub(super) fn flush_primitives(&mut self) {
+    pub(in crate::gpu::render) fn flush_primitives(&mut self) {
         if self.pending_primitive_vertices.is_empty() {
             return;
         }
@@ -244,7 +244,11 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         self.pending_primitive_vertices.clear();
     }
 
-    pub(super) fn prepare_primitive_batch(&mut self, blend_mode: BlendMode, clip_id: usize) {
+    pub(in crate::gpu::render) fn prepare_primitive_batch(
+        &mut self,
+        blend_mode: BlendMode,
+        clip_id: usize,
+    ) {
         if !self.pending_primitive_vertices.is_empty()
             && (self.pending_primitive_clip_id != clip_id
                 || self.pending_primitive_blend_mode != blend_mode)
@@ -255,7 +259,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         self.pending_primitive_blend_mode = blend_mode;
     }
 
-    pub(super) fn extend_primitive_vertices<I>(
+    pub(in crate::gpu::render) fn extend_primitive_vertices<I>(
         &mut self,
         vertices: I,
         blend_mode: BlendMode,
@@ -267,7 +271,7 @@ impl<'resources, 'pass> RenderPassBatcher<'resources, 'pass> {
         self.pending_primitive_vertices.extend(vertices);
     }
 
-    pub(super) fn finish(mut self) -> RenderPassBatcherResult {
+    pub(in crate::gpu::render) fn finish(mut self) -> RenderPassBatcherResult {
         self.flush_primitives();
         self.pending_primitive_vertices.clear();
         RenderPassBatcherResult {
