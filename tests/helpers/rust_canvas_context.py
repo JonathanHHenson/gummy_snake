@@ -10,10 +10,10 @@ from gummysnake.sketch import Sketch
 from tests.helpers.rust_canvas_modules import FakeCanvasModule
 
 
-class FakeSketch:
+class FakeSketch(Sketch):
     def __init__(self) -> None:
+        super().__init__()
         self.frames = 0
-        self.context = None
 
     def _draw_frame(self) -> None:
         self.frames += 1

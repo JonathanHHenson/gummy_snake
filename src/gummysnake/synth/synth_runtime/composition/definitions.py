@@ -22,6 +22,7 @@ from gummysnake.synth.synth_runtime.composition.event_api import (
 )
 from gummysnake.synth.synth_runtime.composition.logical_nodes import CallNode, TrackPlan
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
+from gummysnake.synth.synth_runtime.playback_export.track import Track
 from gummysnake.synth.synth_runtime.values.foundation import _SAMPLE_RATE, Duration, SynthPlanError
 from gummysnake.synth.synth_runtime.values.scales_and_specs import (
     _FX_DEFINITION_CAPTURE,
@@ -31,7 +32,6 @@ from gummysnake.synth.synth_runtime.values.scales_and_specs import (
     _SYNTH_EXPANSION_STACK,
     FxHandle,
 )
-from gummysnake.synth.synth_runtime.playback_export.track import Track
 
 if TYPE_CHECKING:
     pass

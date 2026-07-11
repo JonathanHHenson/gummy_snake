@@ -5,6 +5,7 @@ from typing import Any, cast, overload
 
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.values.expressions import ChoiceExpression, RandomExpression
+from gummysnake.synth.synth_runtime.values.foundation import Expression
 from gummysnake.synth.synth_runtime.values.lazy_values import (
     MusicExpression,
     Ring,
@@ -12,10 +13,9 @@ from gummysnake.synth.synth_runtime.values.lazy_values import (
     _source_bound_expression,
     ensure_expr,
 )
-from gummysnake.synth.synth_runtime.values.foundation import Expression
 
 
-def range(start: float, stop: float | None = None, *, step: float = 1.0) -> Ring:  # noqa: A001
+def range(start: float, stop: float | None = None, *, step: float = 1.0) -> Ring:
     """Create a numeric ring.
 
     This mirrors Sonic Pi's ``range`` constructor while keeping Python keyword

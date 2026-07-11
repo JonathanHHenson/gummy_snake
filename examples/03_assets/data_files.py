@@ -14,6 +14,7 @@ OUTPUT = Path("examples/output/03_assets/data_files.png")
 DATA_DIR = Path("examples/output/03_assets/data")
 ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
 LOADED: dict[str, object] = {}
+LOADED_BYTES: list[int] = []
 
 
 @gs.preload
@@ -28,7 +29,8 @@ async def preload() -> None:
 
     LOADED["json"] = await gs.load_json_async(DATA_DIR / "sample.json")
     LOADED["strings"] = await gs.load_strings_async(DATA_DIR / "sample.txt")
-    LOADED["bytes"] = list(await gs.load_bytes_async(DATA_DIR / "sample.bin"))
+    LOADED_BYTES[:] = await gs.load_bytes_async(DATA_DIR / "sample.bin")
+    LOADED["bytes"] = LOADED_BYTES
     LOADED["writer"] = await gs.load_strings_async(DATA_DIR / "writer.txt")
 
 
@@ -47,7 +49,7 @@ def draw() -> None:
     for i, (name, value) in enumerate(LOADED.items()):
         gs.text(f"{name}: {value}", 34, 92 + i * 48)
 
-    for i, value in enumerate(LOADED["bytes"]):  # type: ignore[index]
+    for i, value in enumerate(LOADED_BYTES):
         gs.fill(43, 132, 210)
         gs.rect(360 + i * 34, 256 - int(value) * 7, 22, int(value) * 7)
 

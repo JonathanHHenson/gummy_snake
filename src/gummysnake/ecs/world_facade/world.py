@@ -14,18 +14,16 @@ from gummysnake.ecs.runtime_views import (
     _SystemSetConfig,
 )
 from gummysnake.ecs.scheduling_helpers import sorted_scheduled_systems, validate_group_name
-from gummysnake.ecs.schema_helpers import _schema_name
 from gummysnake.ecs.specifications import QuerySpec
 from gummysnake.ecs.system_model.definitions import SystemDefinition
 from gummysnake.ecs.types import StorageType
-from gummysnake.ecs.world_facade import initialization, schema_validation
 from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsStoredValue, EcsTag
+from gummysnake.ecs.world_facade import initialization, schema_validation
 from gummysnake.ecs.world_runtime import entities as entity_runtime
 from gummysnake.ecs.world_runtime import query as query_runtime
 from gummysnake.ecs.world_runtime import resources as resource_runtime
 from gummysnake.ecs.world_runtime import state as state_runtime
 from gummysnake.ecs.world_runtime import systems as system_runtime
-
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.context import SketchContext

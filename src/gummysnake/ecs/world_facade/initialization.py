@@ -8,7 +8,7 @@ before the facade exposes entity, resource, event, or system operations.
 from __future__ import annotations
 
 from collections import Counter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from gummysnake.rust.ecs import create_ecs_world
 

@@ -13,7 +13,6 @@ import subprocess
 import tempfile
 import threading
 import weakref
-from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 from typing import Protocol, cast

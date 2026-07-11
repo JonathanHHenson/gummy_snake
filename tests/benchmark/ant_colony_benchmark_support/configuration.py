@@ -1,19 +1,12 @@
 from __future__ import annotations
 
-import json
 import math
 import os
 import random
-import statistics
-import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Any
-
-import pytest
 
 from gummysnake import ecs
-from gummysnake.ecs.world import EcsWorld
 
 FRAMES = int(os.environ.get("GUMMY_ANTS_BENCHMARK_FRAMES", "120"))
 WARMUP_FRAMES = int(os.environ.get("GUMMY_ANTS_BENCHMARK_WARMUP_FRAMES", "20"))

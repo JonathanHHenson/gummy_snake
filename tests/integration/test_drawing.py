@@ -45,7 +45,12 @@ def test_nested_style_contexts_render_distinct_fill_colors():
 
     def pixel_at(x: int, y: int) -> tuple[int, int, int, int]:
         offset = (y * 36 + x) * 4
-        return tuple(pixels[offset : offset + 4])  # type: ignore[return-value]
+        return (
+            pixels[offset],
+            pixels[offset + 1],
+            pixels[offset + 2],
+            pixels[offset + 3],
+        )
 
     assert pixel_at(6, 6) == (255, 0, 0, 255)
     assert pixel_at(18, 6) == (0, 255, 0, 255)
@@ -102,7 +107,12 @@ def test_transform_contexts_do_not_reuse_stale_fill_payloads():
 
     def pixel_at(x: int, y: int) -> tuple[int, int, int, int]:
         offset = (y * 720 + x) * 4
-        return tuple(pixels[offset : offset + 4])  # type: ignore[return-value]
+        return (
+            pixels[offset],
+            pixels[offset + 1],
+            pixels[offset + 2],
+            pixels[offset + 3],
+        )
 
     def blended_fill(row: int, col: int) -> tuple[int, int, int, int]:
         fill = (230 - row * 34, 105 + col * 18, 88 + row * 44)

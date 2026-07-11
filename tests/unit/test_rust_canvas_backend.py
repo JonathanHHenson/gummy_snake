@@ -75,7 +75,7 @@ def test_canvas_backend_rejects_interactive_without_native_window_support(
     backend.create_canvas(10, 10)
 
     with pytest.raises(BackendCapabilityError, match="native window support"):
-        backend.run(FakeSketch())  # type: ignore[arg-type]
+        backend.run(FakeSketch())
 
 
 def test_canvas_backend_gpu_status_uses_runtime_canvas_diagnostic(
@@ -101,7 +101,7 @@ def test_canvas_backend_runs_headless_frames_and_accepts_webgl(
     assert backend.display_density() == 1.0
 
     sketch = FakeSketch()
-    backend.run(sketch, max_frames=2)  # type: ignore[arg-type]
+    backend.run(sketch, max_frames=2)
     assert sketch.frames == 2
 
     backend.create_canvas(10, 10, renderer=c.WEBGL)
@@ -183,13 +183,13 @@ def test_canvas_backend_headless_run_defaults_to_requested_frame_count(
     backend.create_canvas(8, 8)
     sketch = FakeSketch()
 
-    backend.run(sketch, max_frames=0)  # type: ignore[arg-type]
+    backend.run(sketch, max_frames=0)
     assert sketch.frames == 0
 
-    backend.run(sketch)  # type: ignore[arg-type]
+    backend.run(sketch)
     assert sketch.frames == 1
 
-    backend.run(sketch, max_frames=3)  # type: ignore[arg-type]
+    backend.run(sketch, max_frames=3)
     assert sketch.frames == 4
     canvas = backend.renderer.runtime_canvas()
     assert ("present",) in canvas.calls

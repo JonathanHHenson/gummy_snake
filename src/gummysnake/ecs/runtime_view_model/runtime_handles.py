@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.runtime_view_model.component_resource_views import ComponentView
 from gummysnake.ecs.runtime_view_model.entity_mutation import ComponentT, Entity

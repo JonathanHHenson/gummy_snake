@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from gummysnake.assets.audio_runtime.analysis import Amplitude, AudioBuffer, FFT
+from gummysnake.assets.audio_runtime.analysis import FFT, Amplitude, AudioBuffer
 from gummysnake.assets.audio_runtime.factories import (
     AudioInput,
     create_amplitude,

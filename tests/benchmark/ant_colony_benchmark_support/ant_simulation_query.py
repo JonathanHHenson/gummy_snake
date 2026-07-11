@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from gummysnake import ecs
-
 from tests.benchmark.ant_colony_benchmark_support.configuration import (
     ANT_SPEED,
     BLUE_HILL,

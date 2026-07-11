@@ -36,7 +36,7 @@ def _run_awaitable_on_worker_thread[T](awaitable: Awaitable[T]) -> T:
         nonlocal result, error
         try:
             result = context.run(lambda: asyncio.run(_await_value(awaitable)))
-        except BaseException as exc:  # noqa: BLE001 - re-raised on the caller thread
+        except BaseException as exc:
             error = exc
 
     thread = threading.Thread(target=target, daemon=True)

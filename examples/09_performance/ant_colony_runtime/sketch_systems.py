@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from time import perf_counter
 
+import ant_colony_runtime.configuration as cfg
 import gummysnake as gs
+from examples.common import save_once
 from gummysnake import ecs
 from gummysnake.ecs import canvas as ca
 
-import ant_colony_runtime.configuration as cfg
-from examples.common import save_once
 from .ant_simulation_query import _simulate_ant_query
 from .configuration import (
     ARGS,

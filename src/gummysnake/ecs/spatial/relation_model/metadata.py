@@ -3,29 +3,11 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.expression_tools import ExpressionInput
-from gummysnake.ecs.expressions import Expression, QueryProxy, ensure_expr, replace_query
-from gummysnake.ecs.specs import QuerySpec
-from gummysnake.ecs.value_types import EcsLiteralValue
-
-from gummysnake.ecs.spatial.config import (
-    Dimensions,
-    FallbackPolicy,
-    PairPolicy,
-    SpatialAlgorithm,
-    _validate_positive_or_zero_finite,
-)
-from gummysnake.ecs.spatial.runtime import (
-    _aabb_overlaps,
-    _distance_sq,
-    _entity_order_key,
-    _get_or_build_index,
-    _spatial_context_key,
-)
+from gummysnake.ecs.expressions import Expression, QueryProxy, replace_query
+from gummysnake.ecs.spatial.config import Dimensions
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.spatial.relation_model.relation import SpatialRelation

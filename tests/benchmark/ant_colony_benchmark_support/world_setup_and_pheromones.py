@@ -6,14 +6,13 @@ from typing import Any
 
 from gummysnake import ecs
 from gummysnake.ecs.world import EcsWorld
-
 from tests.benchmark.ant_colony_benchmark_support.colony_systems import (
     simulate_blue_ants,
     simulate_red_ants,
 )
 from tests.benchmark.ant_colony_benchmark_support.configuration import (
-    ANTS_PER_COLONY,
     ANT_SPEED,
+    ANTS_PER_COLONY,
     BLUE_ANT_TAG,
     BLUE_HILL,
     BLUE_HILL_TAG,

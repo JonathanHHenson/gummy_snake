@@ -5,9 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from gummysnake import constants as c
 from gummysnake.core.vector import Vector
-from gummysnake.exceptions import BackendCapabilityError
 
 _SPACE_KEY_NAMES = {"space", "spacebar"}
 

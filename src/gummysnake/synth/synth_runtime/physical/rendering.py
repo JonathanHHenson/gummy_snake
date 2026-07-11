@@ -6,7 +6,6 @@ from typing import Any, cast
 
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 from gummysnake.synth.synth_runtime.composition.builder_context import _eval_scope
-from gummysnake.synth.synth_runtime.values.lazy_values import _source_bind_key, resolve_value
 from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     BindNode,
     CallNode,
@@ -21,13 +20,14 @@ from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     TrackPlan,
 )
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
+from gummysnake.synth.synth_runtime.physical.serialization import _control_lookup, _event_payload
 from gummysnake.synth.synth_runtime.values.foundation import (
     _SAMPLE_RATE,
     EvalContext,
     _as_float,
 )
+from gummysnake.synth.synth_runtime.values.lazy_values import _source_bind_key, resolve_value
 from gummysnake.synth.synth_runtime.values.scales_and_specs import FxHandle
-from gummysnake.synth.synth_runtime.physical.serialization import _control_lookup, _event_payload
 
 
 def _expand_physical_plan(plan: TrackPlan, duration_seconds: float) -> PhysicalPlan:

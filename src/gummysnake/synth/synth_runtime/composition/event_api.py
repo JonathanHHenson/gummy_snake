@@ -12,12 +12,6 @@ from gummysnake.synth.synth_runtime.composition.builder_context import (
     _current_builder,
     _next_node_id,
 )
-from gummysnake.synth.synth_runtime.values.expressions import BoundExpression
-from gummysnake.synth.synth_runtime.values.lazy_values import (
-    Ring,
-    SampleDurationExpression,
-    ensure_expr,
-)
 from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     CallNode,
     ControlTarget,
@@ -28,11 +22,17 @@ from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     ThreadNode,
 )
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
+from gummysnake.synth.synth_runtime.values.expressions import BoundExpression
 from gummysnake.synth.synth_runtime.values.foundation import (
-    Expression,
     _BUILTIN_SAMPLE_EXTENSIONS,
     _BUILTIN_SAMPLE_PACKAGE_DIR,
+    Expression,
     SynthPlanError,
+)
+from gummysnake.synth.synth_runtime.values.lazy_values import (
+    Ring,
+    SampleDurationExpression,
+    ensure_expr,
 )
 from gummysnake.synth.synth_runtime.values.scales_and_specs import (
     _FX_DEFINITIONS,

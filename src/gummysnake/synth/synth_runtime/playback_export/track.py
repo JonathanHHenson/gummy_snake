@@ -20,14 +20,19 @@ from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     TrackPlan,
 )
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
-from gummysnake.synth.synth_runtime.playback_export.playback import (
-    TrackPlayback,
-    _RenderedTrackCacheEntry,
-)
 from gummysnake.synth.synth_runtime.physical.rendering import (
     _beats_to_seconds,
     _expand_physical_plan,
     _render_physical_plan,
+)
+from gummysnake.synth.synth_runtime.playback_export.playback import (
+    TrackPlayback,
+    _RenderedTrackCacheEntry,
+)
+from gummysnake.synth.synth_runtime.playback_export.samples_and_export import (
+    _resolve_format,
+    _wav_duration_seconds,
+    _write_mp3_with_ffmpeg,
 )
 from gummysnake.synth.synth_runtime.values.foundation import (
     _BUILTIN_FX_COMPILED_DIR,
@@ -35,11 +40,6 @@ from gummysnake.synth.synth_runtime.values.foundation import (
     _SAMPLE_RATE,
     Duration,
     Format,
-)
-from gummysnake.synth.synth_runtime.playback_export.samples_and_export import (
-    _resolve_format,
-    _wav_duration_seconds,
-    _write_mp3_with_ffmpeg,
 )
 
 if TYPE_CHECKING:
@@ -92,7 +92,7 @@ class Track:
         self,
         path: str | Path,
         *,
-        format: Format | str | None = None,  # noqa: A002
+        format: Format | str | None = None,
         duration: Duration | float | None = None,
         sample_rate: int = _SAMPLE_RATE,
     ) -> Path:

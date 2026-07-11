@@ -4,14 +4,18 @@
 # State is stored only in the public facade's frozen slot layout.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Protocol, cast
 
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D
-from gummysnake.drawing.software3d.payloads import _IDENTITY4
+from gummysnake.drawing.software3d.payloads import _IDENTITY4, Matrix4Payload
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
+
+
+class _ModelTransformProvider(Protocol):
+    def _model_transform3d_payload(self) -> Matrix4Payload | None: ...
 
 
 class FastModelBatchingMixin:
@@ -54,7 +58,7 @@ class FastModelBatchingMixin:
         """Draw a model using retained Rust batching without materializing face data."""
         draw_model_fast = self._draw_model_fast
         if draw_model_fast is not None:
-            transform = self._model_transform3d_payload()  # type: ignore[attr-defined]
+            transform = cast(_ModelTransformProvider, self)._model_transform3d_payload()
             signature = self._model_batch_signature(shape)
             cache = self._model_batch_cache
             if cache is not None and cache[0] == signature:

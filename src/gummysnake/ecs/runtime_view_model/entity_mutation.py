@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import copy
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import Any, TypeVar
 
-from gummysnake.ecs.schema_helpers import _schema_name, _validate_storage_value
-from gummysnake.ecs.systems import BuiltSystem
-from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
-from gummysnake.exceptions import MissingComponentError, SystemPlanError
+from gummysnake.ecs.value_types import DataclassInstance, EcsTag
+from gummysnake.exceptions import SystemPlanError
 
 
 def _copy_stored_value(value: object) -> object:
@@ -20,9 +17,6 @@ def _copy_stored_value(value: object) -> object:
         return tuple(value)
     return copy.deepcopy(value)
 
-
-if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
 
 ComponentT = TypeVar("ComponentT")
 _ENTITY_MUTATION_COMPONENT_UNSET = object()

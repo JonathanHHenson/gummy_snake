@@ -85,7 +85,8 @@ class Matrix2D:
         if not callable(as_tuple):
             raise RuntimeError("The installed canvas runtime Matrix2D does not provide as_tuple().")
         if self._tuple is None:
-            self._tuple = tuple(float(value) for value in as_tuple())  # type: ignore[assignment]
+            a, b, c, d, e, f = cast(Sequence[float], as_tuple())
+            self._tuple = (float(a), float(b), float(c), float(d), float(e), float(f))
         result = self._tuple
         if result is None:
             raise RuntimeError("Matrix2D tuple cache was not initialized.")

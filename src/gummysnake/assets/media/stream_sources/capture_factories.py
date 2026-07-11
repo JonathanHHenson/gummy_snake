@@ -21,9 +21,9 @@ from gummysnake.assets.media.frame import frame_to_image as _frame_to_image
 from gummysnake.assets.media.stream_sources.stream_types import (
     _AUDIO_KINDS,
     _AUDIO_VIDEO_KINDS,
-    _FrameStreamBase,
     _VIDEO_KINDS,
     Video,
+    _FrameStreamBase,
 )
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 

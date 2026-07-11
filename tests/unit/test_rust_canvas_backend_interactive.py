@@ -35,7 +35,7 @@ def test_canvas_backend_interactive_cleans_up_when_interrupted(
     def interrupt(_sketch: object) -> None:
         raise KeyboardInterrupt
 
-    backend._dispatch_pending_events = interrupt  # type: ignore[method-assign]
+    monkeypatch.setattr(backend, "_dispatch_pending_events", interrupt)
 
     with pytest.raises(KeyboardInterrupt):
         backend._run_interactive(sketch)
@@ -88,7 +88,7 @@ def test_canvas_backend_unbounded_interactive_respects_no_loop_from_draw(
         context.no_loop()
 
     canvas.poll_events = poll_events
-    sketch._draw_frame = draw_frame  # type: ignore[method-assign]
+    monkeypatch.setattr(sketch, "_draw_frame", draw_frame)
     monkeypatch.setattr("gummysnake.backend.canvas.time.sleep", lambda _delay: None)
 
     backend._run_interactive(sketch)
@@ -114,7 +114,7 @@ def test_canvas_backend_interactive_close_during_draw_aborts_frame(
         context.state.timing.frame_count += 1
 
     canvas.pump_native_events = pump_native_events
-    sketch.draw = draw  # type: ignore[method-assign]
+    monkeypatch.setattr(sketch, "draw", draw)
 
     backend._run_interactive(sketch)
 

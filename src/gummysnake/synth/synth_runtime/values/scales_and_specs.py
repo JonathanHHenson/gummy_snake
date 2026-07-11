@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from gummysnake.exceptions import ArgumentValidationError
-from gummysnake.synth.synth_runtime.values.lazy_values import MusicExpression, Ring, ensure_expr
 from gummysnake.synth.synth_runtime.values.foundation import Expression
+from gummysnake.synth.synth_runtime.values.lazy_values import MusicExpression, Ring, ensure_expr
 from gummysnake.synth.synth_runtime.values.pattern_helpers import (
     _CHORD_INTERVALS,
     _SCALE_INTERVALS,

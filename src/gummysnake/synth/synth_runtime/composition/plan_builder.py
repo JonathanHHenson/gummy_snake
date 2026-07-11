@@ -19,8 +19,6 @@ from gummysnake.synth.synth_runtime.composition.event_api import (
     _expand_fx_handle,
     _lookup_synth_definition,
 )
-from gummysnake.synth.synth_runtime.values.expressions import SourceBoundExpression
-from gummysnake.synth.synth_runtime.values.lazy_values import _expression_repeat_depth
 from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     BindNode,
     ControlNode,
@@ -31,17 +29,19 @@ from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     SleepNode,
     ThreadNode,
 )
-from gummysnake.synth.synth_runtime.values.foundation import Expression, SynthPlanError
-from gummysnake.synth.synth_runtime.values.scales_and_specs import (
-    _SYNTH_EXPANSION_STACK,
-    FxHandle,
-    SynthSpec,
-)
 from gummysnake.synth.synth_runtime.physical.serialization import (
     _scheduled_control_from_dict,
     _scheduled_control_to_dict,
     _scheduled_event_from_dict,
     _scheduled_event_to_dict,
+)
+from gummysnake.synth.synth_runtime.values.expressions import SourceBoundExpression
+from gummysnake.synth.synth_runtime.values.foundation import Expression, SynthPlanError
+from gummysnake.synth.synth_runtime.values.lazy_values import _expression_repeat_depth
+from gummysnake.synth.synth_runtime.values.scales_and_specs import (
+    _SYNTH_EXPANSION_STACK,
+    FxHandle,
+    SynthSpec,
 )
 
 

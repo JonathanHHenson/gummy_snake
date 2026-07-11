@@ -15,15 +15,11 @@ import sys
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from time import perf_counter
-from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-import gummysnake as gs
-from examples.common import example_parser, save_once
+from examples.common import example_parser
 from gummysnake import ecs
-from gummysnake.ecs import canvas as ca
 
 WIDTH = 960
 HEIGHT = 540

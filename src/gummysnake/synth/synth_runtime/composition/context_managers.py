@@ -19,9 +19,9 @@ from gummysnake.synth.synth_runtime.composition.event_api import (
     play,
     sample,
 )
-from gummysnake.synth.synth_runtime.values.lazy_values import ensure_expr
-from gummysnake.synth.synth_runtime.values.foundation import Expression
 from gummysnake.synth.synth_runtime.composition.logical_nodes import NodeHandle, ThreadNode
+from gummysnake.synth.synth_runtime.values.foundation import Expression
+from gummysnake.synth.synth_runtime.values.lazy_values import ensure_expr
 from gummysnake.synth.synth_runtime.values.scales_and_specs import (
     _DEFAULT_SYNTH_INPUT_NOTE,
     _DEFAULT_SYNTH_LAYER_AMP,

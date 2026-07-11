@@ -169,7 +169,9 @@ def test_mouse_coordinates_are_not_clamped_by_public_api_accessors():
         assert environment_input.pmouse_y() == 80
 
 
-def test_pointer_lock_mode_updates_context_and_backend():
+def test_pointer_lock_mode_updates_context_and_backend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _sketch, context = make_context()
     calls: list[str] = []
 
@@ -177,7 +179,7 @@ def test_pointer_lock_mode_updates_context_and_backend():
         calls.append(mode)
         return mode
 
-    context.backend.set_pointer_lock_mode = set_pointer_lock_mode  # type: ignore[method-assign]
+    monkeypatch.setattr(context.backend, "set_pointer_lock_mode", set_pointer_lock_mode)
 
     assert context.pointer_lock_mode() == "clamped"
     assert context.set_pointer_lock_mode("unclamped") == "unclamped"
@@ -199,7 +201,9 @@ def test_pointer_lock_reports_capability_error_when_unsupported():
         context.request_pointer_lock()
 
 
-def test_pointer_lock_updates_context_state_when_supported():
+def test_pointer_lock_updates_context_state_when_supported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _sketch, context = make_context()
     calls: list[str] = []
     context.backend.capabilities = replace(context.backend.capabilities, pointer_lock=True)
@@ -212,8 +216,8 @@ def test_pointer_lock_updates_context_state_when_supported():
         calls.append("exit")
         return True
 
-    context.backend.request_pointer_lock = request_pointer_lock  # type: ignore[method-assign]
-    context.backend.exit_pointer_lock = exit_pointer_lock  # type: ignore[method-assign]
+    monkeypatch.setattr(context.backend, "request_pointer_lock", request_pointer_lock)
+    monkeypatch.setattr(context.backend, "exit_pointer_lock", exit_pointer_lock)
 
     assert context.request_pointer_lock() is True
     assert context.state.input.pointer_locked is True
@@ -222,7 +226,9 @@ def test_pointer_lock_updates_context_state_when_supported():
     assert calls == ["request", "exit"]
 
 
-def test_text_input_start_stop_updates_context_state_when_supported():
+def test_text_input_start_stop_updates_context_state_when_supported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _sketch, context = make_context()
     calls: list[str] = []
     context.backend.capabilities = replace(context.backend.capabilities, keyboard=True)
@@ -238,9 +244,9 @@ def test_text_input_start_stop_updates_context_state_when_supported():
     def text_input_active() -> bool:
         return context.state.input.text_input_active
 
-    context.backend.start_text_input = start_text_input  # type: ignore[method-assign]
-    context.backend.stop_text_input = stop_text_input  # type: ignore[method-assign]
-    context.backend.text_input_active = text_input_active  # type: ignore[method-assign]
+    monkeypatch.setattr(context.backend, "start_text_input", start_text_input)
+    monkeypatch.setattr(context.backend, "stop_text_input", stop_text_input)
+    monkeypatch.setattr(context.backend, "text_input_active", text_input_active)
 
     assert context.start_text_input() is True
     assert context.is_text_input_active() is True

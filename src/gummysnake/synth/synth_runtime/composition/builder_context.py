@@ -8,17 +8,6 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.exceptions import ArgumentValidationError
-from gummysnake.synth.synth_runtime.values.expressions import (
-    BinaryExpression,
-    ChoiceExpression,
-    LiteralExpression,
-    SourceBoundExpression,
-)
-from gummysnake.synth.synth_runtime.values.lazy_values import (
-    SampleDurationExpression,
-    TickExpression,
-    resolve_value,
-)
 from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     ControlNode,
     EventNode,
@@ -26,11 +15,22 @@ from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     PlanNode,
     SleepNode,
 )
+from gummysnake.synth.synth_runtime.values.expressions import (
+    BinaryExpression,
+    ChoiceExpression,
+    LiteralExpression,
+    SourceBoundExpression,
+)
 from gummysnake.synth.synth_runtime.values.foundation import (
     EvalContext,
     Expression,
     SynthPlanError,
     _as_float,
+)
+from gummysnake.synth.synth_runtime.values.lazy_values import (
+    SampleDurationExpression,
+    TickExpression,
+    resolve_value,
 )
 from gummysnake.synth.synth_runtime.values.scales_and_specs import (
     _FX_DEFINITION_CAPTURE,

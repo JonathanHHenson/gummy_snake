@@ -2,21 +2,19 @@ from __future__ import annotations
 
 import math
 import random
-from collections import deque
 from typing import Any
 
+import ant_colony_runtime.configuration as cfg
 import gummysnake as gs
 from gummysnake import ecs
 
-import ant_colony_runtime.configuration as cfg
 from .configuration import (
-    ANTS_PER_COLONY,
     ANT_SPEED,
+    ANTS_PER_COLONY,
     BLUE_ANT_TAG,
     BLUE_HILL,
     BLUE_HILL_TAG,
     CELL_SIZE,
-    FOOD_CLUMPS,
     FOOD_PHEROMONE_DEPOSIT,
     FOOD_TAG,
     GRID_HEIGHT,

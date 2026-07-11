@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Protocol, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -14,6 +15,10 @@ from gummysnake.plugins import Plugin, clear_plugins, install_plugin
 OUTPUT = Path("examples/output/07_plugins/plugin_hooks.png")
 ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
 EVENTS: list[str] = []
+
+
+class _TraceApi(Protocol):
+    def trace_label(self, label: str) -> str: ...
 
 
 class TracePlugin(Plugin):
@@ -48,7 +53,7 @@ def setup() -> None:
 
 
 def draw() -> None:
-    label = gs.trace_label("draw")  # type: ignore[attr-defined]
+    label = cast(_TraceApi, gs).trace_label("draw")
     gs.background(245, 244, 238)
     gs.fill(30, 34, 44)
     gs.text_size(17)

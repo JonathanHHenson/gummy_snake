@@ -6,8 +6,8 @@ from typing import overload
 
 from gummysnake import constants as c
 from gummysnake.assets.image import Image
-from gummysnake.sketch.facade_mixins.three_d_facade.lighting import ColorArg
 from gummysnake.sketch.facade_mixins.base import ColorValue, Number, SketchFacadeBaseMixin
+from gummysnake.sketch.facade_mixins.three_d_facade.lighting import ColorArg
 
 
 class SketchFacadeMaterialsMixin(SketchFacadeBaseMixin):

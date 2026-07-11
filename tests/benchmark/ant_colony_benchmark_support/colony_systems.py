@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from gummysnake import ecs
-
 from tests.benchmark.ant_colony_benchmark_support.ant_simulation_query import _simulate_ant_query
 from tests.benchmark.ant_colony_benchmark_support.configuration import (
     BLUE_ANT_TAG,

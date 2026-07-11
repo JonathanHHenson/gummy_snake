@@ -70,7 +70,12 @@ class FakeRustImage:
 
     def get_pixel(self, x: int, y: int) -> tuple[int, int, int, int]:
         offset = self._offset(x, y)
-        return tuple(self._pixels[offset : offset + 4])  # type: ignore[return-value]
+        return (
+            self._pixels[offset],
+            self._pixels[offset + 1],
+            self._pixels[offset + 2],
+            self._pixels[offset + 3],
+        )
 
     def set_pixel(self, x: int, y: int, r: int, g: int, b: int, a: int) -> None:
         offset = self._offset(x, y)
