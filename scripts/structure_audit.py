@@ -440,7 +440,10 @@ def _audit_backticked_repository_paths(repo_root: Path) -> list[StructureViolati
         candidates: set[str] = set()
         for line in _iter_non_fenced_lines(path.read_text(errors="ignore")):
             for match in INLINE_CODE_SPAN_RE.finditer(line):
-                candidate = match.group("content").split(maxsplit=1)[0]
+                content = match.group("content").strip()
+                if not content:
+                    continue
+                candidate = content.split(maxsplit=1)[0]
                 if candidate.startswith(REPOSITORY_PATH_PREFIXES) and not _should_skip_path(
                     candidate
                 ):

@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from gummysnake.context_mixins.three_d.camera_runtime.context_lookup import (
-    ThreeDContextHost,
-    _three_d,
-)
+from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
+from gummysnake.context_mixins.three_d.camera_runtime.context_lookup import _three_d
 from gummysnake.context_mixins.three_d.camera_runtime.math import (
     _add,
     _camera_basis,
