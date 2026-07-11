@@ -23,7 +23,6 @@ REQUIRED_CATEGORIES = frozenset(
         "contract",
         "integration",
         "golden",
-        "benchmark",
         "stress",
         "example",
         "documentation",

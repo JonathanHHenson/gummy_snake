@@ -14,7 +14,7 @@ uv run python scripts/impact_map_audit.py
 ```
 
 The audit checks that every mapped path and command path still resolves, no named
-check has an empty path group, every source owner decides all nine categories, and
+check has an empty path group, every source owner has an explicit category decision, and
 all Python source files and Cargo workspace crates have an owner. It does not run
 all listed commands; use the focused command named by the affected check.
 
@@ -28,7 +28,6 @@ Each source area explicitly declares these categories in the TOML map:
 | Contract | `tests/contracts/` | A backend/renderer promise that an implementation must satisfy. |
 | Integration | `tests/integration/` | End-to-end sketch/runtime behavior across owned boundaries. |
 | Golden | `tests/golden/` | Stable deterministic rendered output. |
-| Benchmark | `tests/benchmark/` | Opt-in performance acceptance or diagnostic measurements. |
 | Stress | `tests/stress/` | Opt-in long-running lifecycle/resource churn. |
 | Example | `examples/` | A representative bounded smoke path for user-facing behavior. |
 | Documentation | `docs/` | Contributor or public guidance that must remain aligned with the owner. |
@@ -67,20 +66,20 @@ refactored.
 | `src/gummysnake/*.py` | package composition and compatibility shell | public API, context, drawing/golden, basic-shapes smoke | impact-map audit |
 | `src/gummysnake/api/` | public composition and global-mode compatibility | public API, drawing/golden, 2D/assets smokes | — |
 | `src/gummysnake/assets/` | Python wrapper over Rust asset handles | asset units, drawing/golden, lifecycle stress, asset smoke | — |
-| `src/gummysnake/backend/` | canvas host/renderer composition; mandatory canvas boundary | renderer contracts, drawing/golden, release benchmark, stress | renderer adapter characterization |
+| `src/gummysnake/backend/` | canvas host/renderer composition; mandatory canvas boundary | renderer contracts, drawing/golden, bounded smoke, stress | renderer adapter characterization |
 | `src/gummysnake/constants/` | enum compatibility facade | public API and basic-shapes smoke | — |
 | `src/gummysnake/context_mixins/` | `SketchContext` public composition | context, contracts, drawing/golden, smokes | — |
 | `src/gummysnake/core/` | shared state/value implementation | context/assets units, drawing/golden, stress | — |
-| `src/gummysnake/drawing/` | 3D/protocol helpers; Rust owns native rendering | WEBGL units/integration/benchmark and WebGL smoke | — |
-| `src/gummysnake/ecs/` | logical-plan facade, compatibility surface, mandatory Rust and explicit UDF boundaries | plan/bridge units, spatial benchmark/stress, ECS/boids smokes | — |
-| `src/gummysnake/fast_draw_runtime/` | public fast facade | context, drawing/golden, benchmark and 2D smoke | — |
+| `src/gummysnake/drawing/` | 3D/protocol helpers; Rust owns native rendering | WEBGL units/integration and WEBGL smoke | — |
+| `src/gummysnake/ecs/` | logical-plan facade, compatibility surface, mandatory Rust and explicit UDF boundaries | plan/bridge units, spatial stress, ECS/boids smokes | — |
+| `src/gummysnake/fast_draw_runtime/` | public fast facade | context, drawing/golden, and 2D smoke | — |
 | `src/gummysnake/plugins/` | lifecycle/group dispatch implementation | lifecycle/group ordering and smoke | — |
 | `src/gummysnake/rust/` | mandatory ABI/capability wrapper boundary | canvas/ECS/synth bridge behavior, smokes, stress | ABI/adapter wrapper tests |
 | `src/gummysnake/sketch/` | lifecycle composition and object facade | lifecycle/group ordering, contracts, drawing/golden, stress | — |
-| `src/gummysnake/synth/` | Python plan/playback composition over mandatory Rust synth rendering | synth bridge behavior, offline benchmark, synth smoke | — |
-| `crates/gummy_canvas/` | mandatory canvas, SDL3, PyO3, linked ECS/synth bridge | Cargo tests, contracts, drawing/golden, release benchmark/stress, 2D/ECS/synth smokes | — |
-| `crates/gummy_ecs/` | canonical storage/non-UDF physical execution and spatial indexes | Cargo tests, Python/Rust bridge, spatial benchmark/stress, ECS smokes | — |
-| `crates/gummy_synth/` | mandatory synth/sample/FX/WAV renderer | Cargo tests, Python/Rust synth bridge, offline benchmark, synth smoke | — |
+| `src/gummysnake/synth/` | Python plan/playback composition over mandatory Rust synth rendering | synth bridge behavior and synth smoke | — |
+| `crates/gummy_canvas/` | mandatory canvas, SDL3, PyO3, linked ECS/synth bridge | Cargo tests, contracts, drawing/golden, stress, 2D/ECS/synth smokes | — |
+| `crates/gummy_ecs/` | canonical storage/non-UDF physical execution and spatial indexes | Cargo tests, Python/Rust bridge, spatial stress, ECS smokes | — |
+| `crates/gummy_synth/` | mandatory synth/sample/FX/WAV renderer | Cargo tests, Python/Rust synth bridge and synth smoke | — |
 | `crates/gummy_accel/` | optional acceleration only | Cargo/wrapper tests | optional-kernel characterization |
 
 ### Composition, facades, Rust, and UDFs
@@ -103,16 +102,14 @@ The following existing checks are intentionally named rather than left as indire
 “full-suite” coverage:
 
 - **Renderer contracts and command behavior:** `canvas_contracts`,
-  `renderer_adapter`, `drawing_integration`, `basic_shapes_golden`, and
-  `canvas_benchmark`.
+  `renderer_adapter`, `drawing_integration`, and `basic_shapes_golden`.
 - **Lifecycle and group ordering:** `lifecycle_groups` covers draw cleanup,
   plugin ordering, and ECS schedule groups.
 - **ECS Python/Rust integration:** `ecs_bridge` directly exercises plan
   compilation/execution and canvas hooks; `rust_ecs` runs the canonical Rust tests;
   `smoke_ecs` exercises representative headless sketches.
 - **Synth Python/Rust integration:** `synth_bridge` covers serialized plans,
-  playback bridge behavior, packaged samples, and the deterministic offline
-  benchmark; `rust_synth` runs crate tests.
+  playback bridge behavior, and packaged samples; `rust_synth` runs crate tests.
 - **Audits:** `impact_map_audit` and `structure_audit` have focused unit tests and
   executable local commands.
 - **Asset compilation and distribution verification:** `asset_compilation` checks
@@ -134,14 +131,12 @@ material coverage decrease explicitly, identifying the changed behavior and whet
 the new test route is proportionate. Do not weaken behavior checks or configure
 exclusions merely to improve a percentage.
 
-Performance-sensitive canvas, ECS, WEBGL, and synth changes should use the
-release-built extension and the relevant opt-in benchmark. The retained baseline
-is [`2026-07-10_release_macos_arm64.toml`](../../tests/benchmark/baselines/2026-07-10_release_macos_arm64.toml),
-which records `maturin develop --release` and its measurement context. Interactive
-canvas performance is the acceptance path; headless figures are diagnostic only.
-A missing mandatory canvas, ECS, or synth capability must fail with actionable
-rebuild guidance—**never substitute a Python fallback** for a release benchmark or
-functional validation.
+Performance-sensitive canvas, ECS, WEBGL, and synth changes should use a
+release-built extension for local investigation, together with the relevant
+functional checks, bounded smoke examples, and resource stress checks. Inspect
+public diagnostics when comparing equivalent release builds. A missing mandatory
+canvas, ECS, or synth capability must fail with actionable rebuild guidance—**never
+substitute a Python fallback** for profiling or functional validation.
 
 ## Maintaining the map
 

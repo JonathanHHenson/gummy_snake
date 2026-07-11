@@ -91,7 +91,7 @@ native 3D capability flags, adding new 3D GPU resource classes, or enabling
 native user shader execution.
 
 Read [Runtime diagnostics](runtime_diagnostics.md) when changing renderer
-counters, fallback boundaries, benchmark scenes, or interactive frame pacing.
+counters, fallback boundaries, performance-focused examples, or interactive frame pacing.
 Read [ECS architecture](ecs_architecture.md) before changing ECS storage,
 logical-plan serialization, physical execution, scheduling, resources/events, or
 spatial indexes. Read [ECS debugging and performance triage](ecs_debugging.md)

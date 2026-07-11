@@ -28,7 +28,7 @@ or per-face objects in every frame.
 Intentionally slow or diagnostic APIs should be opt-in or visibly named for
 inspection. This includes performance diagnostics, full-canvas readback,
 canvas-to-image helpers such as `get()`, CPU image filters applied to the
-canvas, and benchmark-only utilities.
+canvas, and profiling-only utilities.
 
 ## Hot-Loop Guidance
 
@@ -151,5 +151,5 @@ details in user-facing messages.
 
 When adding an API, classify it in this document's terms before documenting it.
 If the API is likely to be used in `draw()`, include an allocation and dispatch
-budget in tests or benchmarks. If it is convenience-oriented or diagnostic,
+budget in tests and document the profiling considerations. If it is convenience-oriented or diagnostic,
 make the cost explicit in reference docs and provide the fast-default route.

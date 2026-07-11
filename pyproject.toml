@@ -63,8 +63,6 @@ include = [
 pythonpath = ["src"]
 testpaths = ["tests"]
 markers = [
-    "benchmark: opt-in runtime performance benchmarks",
-    "high_count_benchmark: opt-in high-count primitive benchmark gates",
     "stress: opt-in long-running resource lifecycle stress tests",
 ]
 
@@ -78,13 +76,15 @@ warn_unused_ignores = true
 [tool.basedpyright]
 include = [
     "src",
+    "benchmarks",
+    "tests/unit/benchmark_system",
     "examples/09_performance/ant_colony_runtime",
     "examples/09_performance/ants_2d.py",
     "examples/11_temporary_perf_tests",
     "examples/support/ant_colony",
-    "tests/benchmark/ant_colony_benchmark",
-    "tests/benchmark/test_ecs_ants_2d_perf.py",
 ]
+
+extraPaths = [".", "src"]
 
 typeCheckingMode = "standard"
 

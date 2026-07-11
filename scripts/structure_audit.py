@@ -91,7 +91,7 @@ REPOSITORY_PATH_PREFIXES = (
 )
 PATH_SKIP_MARKERS = ("...", "<", ">")
 PATH_WILDCARD_CHARACTERS = frozenset("*?[]{}")
-SUPPORT_CLUSTER_DIRECTORIES = (Path("tests/helpers"), Path("tests/benchmark"))
+SUPPORT_CLUSTER_DIRECTORIES = (Path("tests/helpers"),)
 INTENTIONAL_SUPPORT_PREFIX_CLUSTERS: dict[Path, frozenset[str]] = {}
 MARKDOWN_INLINE_LINK_RE = re.compile(r"!?\[[^\]\n]*\]\((?P<destination><[^>\n]+>|[^)\n]+)\)")
 INLINE_CODE_SPAN_RE = re.compile(r"(?<!`)`(?P<content>[^`\n]+)`(?!`)")

@@ -73,7 +73,7 @@ Spatial relation diagnostics are essential for performance triage:
 | `ecs_spatial_deduplicated_pairs` | Pairs skipped by `pair_policy="unique_unordered"`. |
 | `ecs_spatial_algorithm_hash_grid` / `ecs_spatial_algorithm_quadtree` / `ecs_spatial_algorithm_octree` / `ecs_spatial_algorithm_hilbert_curve` | Rust spatial index builds by backend. |
 
-For accelerated benchmark claims, assert `ecs_physical_system_runs` is non-zero, `ecs_udf_calls` is zero for the hot path, and spatial candidate/exact row counts match the intended relation shape.
+When investigating an accelerated hot path, verify `ecs_physical_system_runs` is non-zero, `ecs_udf_calls` is zero, and spatial candidate/exact row counts match the intended relation shape.
 
 The Rust spatial backend trait also exposes `SpatialMemoryStats` for backend-level tests and future diagnostics. Use it to check record/vector capacity reuse, bucket capacity, tree node counts, and overflow-list pressure when changing hash-grid, tree, or Hilbert implementations.
 
@@ -121,7 +121,6 @@ uv run mypy src/gummysnake/ecs
 uv run pytest tests/unit/ecs/test_ecs.py -q
 cargo test --manifest-path crates/gummy_ecs/Cargo.toml
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
-uv run pytest tests/benchmark/test_ecs_perf.py -q --run-benchmarks
 uv run pytest tests/stress/test_ecs_spatial_lifecycle_stress.py -q --run-stress
 ```
 

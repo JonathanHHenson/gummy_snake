@@ -31,7 +31,7 @@ make package-verify
 format` intentionally reformats files. `make package-verify` builds into a fresh,
 ignored `.scratch/package-verify/run.*` workspace and removes only that workspace
 when it finishes; it never inspects or removes shared `dist/` artifacts. The normal
-test suite leaves benchmark and stress markers opt-in.
+test suite leaves resource stress markers opt-in.
 
 For coverage locally:
 
@@ -52,7 +52,7 @@ Use focused checks while developing, then broaden before handing off:
 | Rust canvas runtime behavior | `cargo test --manifest-path crates/gummy_canvas/Cargo.toml` plus Python wrapper tests |
 | ECS API, storage, scheduling, or physical execution | `uv run ruff check src/gummysnake/ecs tests/unit/ecs/test_ecs.py`, `uv run mypy src/gummysnake/ecs`, `uv run pytest tests/unit/ecs/test_ecs.py -q`, and `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` |
 | ECS spatial systems or examples | ECS unit/Rust checks plus `uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save`, `uv run python examples/10_ecs/crystal_moths.py --headless --frames 1 --no-save`, or `uv run python examples/09_performance/boids_3d.py --headless --frames 1 --no-save` |
-| WEBGL or fallback 3D path behavior | focused integration tests plus `tests/benchmark/test_webgl_3d_perf.py --run-benchmarks` when hot paths change |
+| WEBGL or fallback 3D path behavior | focused integration tests plus a bounded WEBGL smoke example when hot paths change |
 | Long-running resource lifecycle behavior | `uv run pytest tests/stress --run-stress -q -s` |
 | Static-analysis configuration, suppressions, or tooling | `make static-analysis` plus `uv run pytest tests/unit/tooling/test_static_analysis_audit.py` |
 | Examples, catalog, or example smoke tooling | `uv run python scripts/structure_audit.py` and the relevant `scripts/example_smoke.py --tier ...` commands |
@@ -71,7 +71,6 @@ Use focused checks while developing, then broaden before handing off:
 - `tests/contracts/`: backend and renderer promises.
 - `tests/golden/`: deterministic render comparisons.
 - `tests/integration/`: end-to-end sketch behavior.
-- `tests/benchmark/`: opt-in performance tests.
 - `tests/stress/`: opt-in long-running resource lifecycle tests.
 - `tests/helpers/`: shared fake canvas modules, renderer fakes, WebGL helpers,
   and other reusable test support that should not live under one specific test
@@ -138,121 +137,19 @@ non-empty Rust-rendered WAV. A separate consumer blocks the native extension and
 requires the clear rebuild-guidance capability error rather than a Python
 fallback. Both consumers reject source-tree imports.
 
-## Performance Benchmarks
+## Performance Investigation
 
-Runtime performance checks live under `tests/benchmark/` and are skipped unless
-explicitly requested. Shared subprocess execution, JSON parsing, and metric
-summary helpers live in `tests/benchmark/benchmark_helpers.py`; add benchmark
-suites to that helper instead of copying child-process boilerplate:
+The repository does not maintain an automated performance suite. For local
+performance investigation, build `gummy_canvas` in release mode, exercise the
+affected contract or integration tests and bounded smoke examples, then inspect
+`renderer_performance_counters()` and `ecs_diagnostics()`. Compare timing only
+between equivalent machines, OS versions, Python versions, revisions, and release
+builds; debug-build and native-audio-playback timing are diagnostic only.
 
-```sh
-uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_ants_2d_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_scenarios_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_synth_offline_perf.py --run-benchmarks
-```
-
-The deterministic offline synth benchmark renders a fixed serialized plan with a
-packaged sample and FX through the mandatory canvas/synth bridge. It asserts WAV
-format, non-silence, and byte-identical repeated renders, while reporting local
-render time without treating native playback as a wall-clock gate.
-
-The canvas backend benchmarks require the `gummysnake.rust._canvas` runtime
-module and run bounded native interactive windows, because interactive
-presentation is the runtime performance acceptance path. Headless/offscreen
-numbers are useful for export diagnostics, but they are not the canvas runtime
-performance standard. Each run reports frames per second plus the canvas size,
-pixel density, backend mode, Python version, platform, and renderer metrics.
-The metrics payload includes command/draw counts, primitive and image batch
-records, flush counts, largest coalesced batch sizes, vertex-buffer
-allocations/uploads, texture uploads and cache hits, text cache hits/misses,
-pixel readbacks/uploads, GPU region-effect passes, presented frame counts, and
-CPU fallback counts. Every normal canvas benchmark scenario must average at
-least 240 FPS. Recovered regression variants from epics 246-250 should keep
-additional margin where practical: dense primitives around 320 FPS mean and
-cached/transformed images, upload churn, sprite/text overlays, and mixed
-text/pixel scenes around 300 FPS mean on the baseline machine class. High-count
-primitive and sprite stress variants use a 60 FPS stress target for explicitly
-named 10k/50k draw-count stress cases. The separate high-count primitive suite
-runs 10k, 50k, and 100k static retained-batch scenes behind
-`--run-high-count-benchmarks -k high_count`. A below-threshold failure is an
-optimization signal, not a reason to loosen the benchmark.
-
-Use the suite when changing renderer hot paths, image upload/cache behavior,
-pixel readback/update behavior, text measurement, frame scheduling, or native
-canvas packaging. The current scenarios cover sparse and dense primitive
-drawing, compact line batches, mixed primitive batches, transformed image/sprite
-batches, procedural fill-only primitive instances, retained static command-stream
-replay, 10k/50k/100k primitive stress scenes, cached image drawing with default
-linear and nearest sampling, 10k/50k sprite stress scenes, per-frame image upload
-churn, blend modes, erasing, transformed images, text, 1k label overlays,
-ordered cached-text atlas fallback, mixed sprite/text overlays, pixel
-readback/upload, dirty-region pixel updates, no-op pixel upload skips, mixed
-text/pixel readback work, a deterministic game-style scene, and software/retained
-3D scenes.
-The mixed text/pixel benchmark intentionally exercises readback/update
-boundaries; keep bulk pixel mutations in Rust or a Rust/GPU region path instead
-of reintroducing Python per-pixel loops into the measured hot path.
-
-The API overhead microbenchmarks use a no-op renderer/backend and do not require
-the canvas runtime. They report nanoseconds per call for global-mode,
-object-oriented sketch, context-direct, `fast()` facade, and renderer-direct
-paths so Python dispatch overhead can be compared separately from renderer
-work. The `fast()` cases should remain below equivalent global-mode dispatch
-for dense-loop operations.
-
-The image pipeline benchmarks measure Rust-backed image-local operations such
-as region copy, resize, mask, filter, get, and set, plus list-based,
-bytes-based, and region-based pixel workflows. Use them when changing `Image`,
-`CanvasImage`, `load_image()`, media frame conversion, `get()`, `set()`,
-`load_pixels()`, `load_pixel_bytes()`, `update_pixels()`, or image cache
-behavior.
-
-The model export benchmark compares streaming OBJ/STL export against the legacy
-list-building approach for large generated meshes. It asserts output sanity and
-a fixed peak-memory budget instead of an FPS floor.
-
-The WEBGL 3D benchmarks exercise the current Rust-backed 3D path for box,
-sphere, textured plane, imported model, and repeated primitive scenes. They
-cover Rust-owned model handles, retained GPU model buffers, GPU
-transform/projection/depth/material pipelines, texture sampling, and fallback
-software paths. They are frame-style benchmarks and keep the same 240 FPS
-target; failures are expected optimization signals for the Rust 3D/GPU path or
-its fallback boundaries.
-
-The ECS benchmarks verify that hot systems use Rust physical plans rather than
-Python fallback execution. Performance claims should show
-`ecs_physical_system_runs` greater than zero and `ecs_udf_calls` equal to zero for
-the hot path. The deterministic ant-colony scenario uses 10,000 seeded ants and
-four compiled plans; its sketch presentation and benchmark measurement adapter
-share `examples/support/ant_colony/`. Stable ECS scenario IDs and their subprocess
-payloads live in `examples/09_performance/ecs_scenarios/` and
-`tests/benchmark/test_ecs_scenarios_perf.py`; the old temporary paths are tested
-forwarders only. Spatial ECS benchmarks additionally check candidate/exact row
-counts and per-algorithm counters for generic `ecs.spatial` relations. Use
-release-built `gummy_canvas` extensions for comparisons; debug extension builds can
-make ECS and renderer numbers look dramatically slower.
-
-Checked-in baseline snapshots live in `tests/benchmark/baselines/` as TOML.
-Each baseline records the command, machine/configuration, commit, canvas size,
-pixel density, backend mode, frame count or iteration count, and whether GPU
-availability is known. Canvas baselines also record the required 240 FPS floor,
-whether each captured scenario met it, and any documented margin target for
-recovered variants. To compare an optimization branch, run the same command on
-the same machine, compare each scenario's mean/min/max
-against the matching baseline, and describe material changes as percentages. Do
-not compare absolute FPS or nanosecond values across different machines, OS
-versions, Python versions, build modes, or power/thermal states.
-
-Do not edit baseline numbers upward to satisfy the target. Keep captured values
-as measured and let benchmark assertions fail until the implementation reaches
-the required floor.
+For Rust-executed ECS hot paths, confirm `ecs_physical_system_runs` advances while
+`ecs_udf_calls` remains zero. For spatial paths, inspect candidate/exact rows and
+per-algorithm counters. Keep bulk pixel mutation in Rust or a Rust/GPU region path
+rather than reintroducing Python per-pixel loops.
 
 ## Resource Stress Tests
 
@@ -263,8 +160,8 @@ explicitly requested:
 make test-stress
 ```
 
-Use `make release-candidate` for the documented release-built combination of
-release smoke, normal/high-count benchmark gates, and stress tests.
+For release candidates, follow the canonical validation matrix's release-built
+functional, smoke, and stress checks.
 
 Run these before releases and when changing canvas resize, shutdown, image
 texture caching, text/font caching, pixel readback/upload, direct shape/clip
@@ -272,7 +169,7 @@ finalization, ECS spatial index lifecycle, or CPU/GPU fallback boundaries. The
 current scenarios churn transient images, dynamic text, repeated pixel
 readback/upload, repeated resize, repeated close/recreate, CPU fallback paths,
 and ECS spatial storage/index state where those tests are enabled. They assert
-cache/counter behavior and basic state consistency; they are not FPS benchmarks.
+cache/counter behavior and basic state consistency; they are not timing acceptance gates.
 
 ## Test Style
 
@@ -288,7 +185,6 @@ Prefer deterministic tests:
   public behavior is stable.
 - Use contract tests when multiple backend/renderer implementations would be
   expected to satisfy the same promise.
-- Keep benchmark tests behind the explicit benchmark marker.
 - Keep slow lifecycle churn behind the explicit stress marker.
 
 Avoid tests that require manual native windows unless the behavior cannot be
@@ -318,7 +214,7 @@ and uploaded as `coverage-xml`.
 Publish repeats those same validation gates, then builds and runs the installed
 wheel smoke on each wheel's Linux, macOS Intel, macOS ARM, or Windows builder.
 The optional manual publish `release_candidate` input invokes the documented
-`make release-candidate` gate; benchmarks and stress checks are otherwise never
+release-candidate validation flow; resource stress checks are otherwise never
 silently promoted into ordinary CI.
 
 ## Coverage Reporting

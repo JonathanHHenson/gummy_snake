@@ -13,8 +13,6 @@ cargo test --manifest-path crates/gummy_canvas/Cargo.toml
 uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save
 uv run python examples/10_ecs/crystal_moths.py --headless --frames 1 --no-save
 uv run python examples/09_performance/boids_3d.py --headless --frames 1 --no-save
-uv run pytest tests/benchmark/test_ecs_perf.py -q --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_spatial_perf.py -q --run-benchmarks
 uv run pytest tests/stress/test_ecs_spatial_lifecycle_stress.py -q --run-stress
 ```
 
@@ -29,8 +27,8 @@ uv run pytest tests/stress/test_ecs_spatial_lifecycle_stress.py -q --run-stress
   `docs/contribute/ecs_debugging.md`, `docs/contribute/runtime_diagnostics.md`,
   and `docs/contribute/build_capabilities.md` describe capabilities and fallback
   boundaries without claiming unsupported Rust physical execution paths.
-- Capture or refresh opt-in benchmark baselines under `tests/benchmark/baselines/`
-  when performance targets are being changed.
+- For performance-sensitive changes, use a release-built canvas extension and
+  inspect public ECS and renderer diagnostics alongside the functional checks.
 - Keep `.scratch/backlog/10*_ecs_*` statuses truthful: mark items done only after
   their Python API, Rust physical execution, examples, diagnostics, docs, and
   validation commands have all been implemented and verified.

@@ -11,11 +11,6 @@ on:
           - testpypi
           - pypi
         default: testpypi
-      release_candidate:
-        description: Run release-built benchmark and stress gates before publishing
-        required: false
-        type: boolean
-        default: false
   push:
     tags:
       - "v*"
@@ -52,25 +47,6 @@ jobs:
       - run: make test-full
       - run: make smoke-release
       - run: make rust-check
-
-  release-candidate:
-    name: Release-candidate performance and stress validation
-    # Interactive benchmark baselines are machine-specific. This explicit manual
-    # gate is opt-in and must run on a comparable native desktop environment.
-    if: github.event_name == 'workflow_dispatch' && inputs.release_candidate
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-python@v5
-        with:
-          python-version-file: .python-version
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: ./.github/actions/setup-linux
-      - run: uv sync --dev --no-install-project
-      - run: make release-candidate
 
   build-sdist:
     name: Build source distribution

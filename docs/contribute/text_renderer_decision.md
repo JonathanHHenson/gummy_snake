@@ -56,8 +56,8 @@ Required validation for the migration:
   font size, font path/name fallback, and HiDPI scaling
 - Unicode shaping tests where suitable fonts are available in CI
 - ordering tests for text before primitives/images and later text after intervening primitives/images
-- `mixed_text_pixels` and `text_only` benchmark checks for reduced texture
-  uploads and text/image batches
+- bounded mixed text/pixel and text-only checks that inspect texture uploads
+  and text/image batch diagnostics
 - export/readback tests proving saved PNGs match the offscreen render target
 
 ## Risks

@@ -17,23 +17,24 @@ export MACOSX_DEPLOYMENT_TARGET
 .PHONY: help \
 	format format-check lint typecheck basedpyright static-analysis \
 	audit-report audit docs-path-check impact-map-audit repository-audits \
-	test-focused test-unit test-contract test-integration test-golden test-full test \
-	test-benchmarks test-benchmarks-high-count test-stress \
-	smoke smoke-extended smoke-release \
+	test-focused test-unit test-contract test-integration test-golden test-full test test-stress \
+	benchmark-smoke benchmark-audit smoke smoke-extended smoke-release release-candidate \
 	runtime-develop-release rust-format-check rust-lint rust-test rust-check \
 	assets-check version-check bump-version \
 	build build-rust build-accel verify-sdist verify-wheel verify-wheel-accel \
-	wheel-smoke package-verify release-candidate check
+	wheel-smoke package-verify check
 
 help:
 	@printf '%s\n' \
 	  'Validation targets (all checks are non-mutating to tracked files):' \
 	  '  make check                 Comprehensive local gate; requires a release canvas runtime.' \
 	  '  make test-focused          Unit and contract suites for quick feedback.' \
-	  '  make test-full             Full Python suite; benchmark and stress tests stay opt-in.' \
+	  '  make test-full             Full Python suite; stress tests stay opt-in.' \
+	  '  make benchmark-smoke       Run self-contained replacement Canvas headless cases once.' \
+	  '  make benchmark-audit       Audit the fixed-ref replacement benchmark data store.' \
 	  '  make rust-check            Format, Clippy, and direct tests for every Rust crate.' \
+	  '  make release-candidate     Release runtime plus smoke and opt-in stress validation.' \
 	  '  make package-verify        Build and verify archives in a private temporary workspace.' \
-	  '  make release-candidate     Release runtime, all smoke tiers, benchmarks, and stress tests.' \
 	  '  make format                Intentionally mutates source formatting.'
 
 # Python quality gates
@@ -72,7 +73,7 @@ impact-map-audit:
 
 repository-audits: audit impact-map-audit
 
-# Python tests. The full suite deliberately leaves benchmark and stress markers opt-in.
+# Python tests. The full suite deliberately leaves stress tests opt-in.
 test-focused: test-unit test-contract
 
 test-unit:
@@ -92,14 +93,23 @@ test-full:
 
 test: test-full
 
-test-benchmarks:
-	$(PYTEST) tests/benchmark --run-benchmarks -q -s
 
-test-benchmarks-high-count:
-	$(PYTEST) tests/benchmark/test_canvas_backend_perf.py --run-benchmarks --run-high-count-benchmarks -k high_count -q -s
 
 test-stress:
 	$(PYTEST) tests/stress --run-stress -q -s
+
+# Explicit release validation remains opt-in. Replacement benchmark recording is
+# governed separately by scripts/benchmark.py and never reuses the retired suite.
+release-candidate: runtime-develop-release smoke-release test-stress
+
+# Governed replacement benchmark commands. These do not invoke retired pytest
+# scenarios; authoritative worktree/record-head runs remain fail-closed until
+# their isolated release worker and qualified runner requirements are satisfied.
+benchmark-smoke:
+	$(PYTHON) scripts/benchmark.py smoke benchmarks/canvas_v1.toml
+
+benchmark-audit:
+	$(PYTHON) scripts/benchmark.py --repo . audit
 
 # Catalog-defined cumulative smoke tiers
 smoke:
@@ -176,10 +186,6 @@ package-verify:
 	$(MAKE) build DIST_DIR="$$package_verify_dir"; \
 	$(MAKE) verify-sdist SDIST_DIR="$$package_verify_dir"; \
 	$(MAKE) verify-wheel WHEEL_DIR="$$package_verify_dir"
-
-# This is intentionally opt-in: it uses release-built extensions and preserves
-# the checked-in benchmark thresholds; it is not part of normal developer/PR CI.
-release-candidate: runtime-develop-release smoke-release test-benchmarks test-benchmarks-high-count test-stress
 
 # Comprehensive non-mutating local validation. It writes only ignored build
 # artifacts (including package verification's private .scratch workspace) and

@@ -93,7 +93,7 @@ format decisions and public failure behavior:
 | `CanvasSound` duration probe | Any WAV metadata that can determine frame bytes; it does not impose the SDL playback format restriction. | Non-WAV and incomplete metadata produce `None`; malformed chunk lengths and `fmt ` chunks retain their `ValueError` messages. |
 | SDL synth WAV playback | Exactly uncompressed 16-bit PCM with non-zero channel count/sample rate and 16-bit-aligned data. | The canvas adapter maps typed policy failures back to the existing `ValueError` messages before SDL stream setup. |
 
-## Diagnostics and performance baseline
+## Diagnostics and performance investigation
 
 Public renderer counters are exposed through `renderer_performance_counters()` and
 public ECS counters through `ecs_diagnostics()`. Keep their names and meanings in
@@ -101,21 +101,9 @@ public ECS counters through `ecs_diagnostics()`. Keep their names and meanings i
 `ecs_physical_system_runs > 0`, `ecs_udf_calls == 0`, and no physical-plan or
 physical-execution errors.
 
-Use a release-built canvas extension for performance comparison. Interactive canvas
-and WEBGL scenarios require a 240 FPS mean floor; recovered scenes retain their
-documented margin objectives. Model export retains its streaming memory budget, not
-an FPS target. Existing benchmark TOML files are machine/build observations, not
-portable CI timing claims: compare only matching machine, OS, interpreter, revision,
-and release-build fingerprints. Moved benchmark scenarios declare stable IDs,
-backend/build mode, machine metadata, reported diagnostics, and comparison scope
-in `tests/benchmark/baselines/`; compare only the retained payload fields and
-thresholds, never a native playback wall-clock measurement.
+Use a release-built canvas extension for performance investigation and comparison. Compare results only across matching machine, OS, interpreter, revision, and release-build fingerprints; debug-build timing and native audio playback timing are not release evidence. Confirm behavior with the relevant contract tests, bounded smoke examples, and resource stress checks when their lifecycle coverage applies.
 
-Offline synth performance is deterministic serialized-plan rendering, including
-packaged samples and FX. Record WAV format, frame count, non-silence, and repeated
-render byte equality; report local render time but do not make native playback a
-wall-clock gate. Capture a new benchmark baseline only from a measured release run;
-do not promote historical debug or compatibility-executor measurements.
+Offline synth rendering should remain deterministic: verify WAV format, frame count, non-silence, and repeated render byte equality. Report local render time only as diagnostic context.
 
 ## Required contract checks
 
@@ -129,6 +117,6 @@ cargo test --workspace
 ```
 
 For release performance work, build with the release Maturin command above, then
-run the relevant opt-in canvas, WEBGL, ECS, model-export, and offline-synth
-benchmarks. Do not treat a debug extension or native audio playback timing as a
+run the relevant functional checks, bounded smoke examples, and resource stress
+checks. Do not treat a debug extension or native audio playback timing as a
 release performance result.

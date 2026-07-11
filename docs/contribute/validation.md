@@ -29,14 +29,14 @@ or reduced-quality substitute.
 | Repository/documentation paths | `make repository-audits` | yes | yes | yes | Hardened size, structure, Markdown/path, and source-to-test impact-map audits. |
 | Version and packaged assets | `make version-check assets-check` | yes | yes | yes | Workspace versions agree and checked-in synth/FX assets are current. |
 | Focused Python feedback | `make test-focused` | no | yes | yes | Finalized unit and contract topology from PBIs 031–033. |
-| Full Python suite | `make test-full` | yes | yes | yes | Unit, contract, integration, golden, tooling, and mapped behavior tests. Benchmarks/stress remain skipped unless requested. |
+| Full Python suite | `make test-full` | yes | yes | yes | Unit, contract, integration, golden, tooling, and mapped behavior tests. Resource stress checks remain skipped unless requested. |
 | Example smoke | `make smoke`, `make smoke-extended`, `make smoke-release` | release tier | release tier | release tier | Catalog-defined bounded 2D, assets/text, ECS, WEBGL, synth, and package-asset behavior with `--no-save`/`--no-play` safeguards. |
 | Rust workspace | `make rust-check` | yes | yes | yes | `cargo fmt --check`, Clippy with warnings denied, and direct crate tests for canvas, ECS, synth, and accel. |
 | Source/wheel package contract | `make package-verify` | yes | Linux | native release builders | Build sdist/canvas wheel in a fresh tool-owned workspace and run the one archive verifier; no shell-glob archive selection or shared-`dist/` cleanup. |
 
 `make check` is the supported comprehensive local gate. It requires the caller
 to have installed the release canvas extension and includes all normal gates
-above. It deliberately does **not** run performance or stress suites.
+above. It deliberately does **not** run opt-in resource stress checks.
 
 ## Rust feature combinations
 
@@ -81,19 +81,13 @@ creation, non-empty Rust synth WAV rendering, bundled asset lookup, and the
 clear capability error emitted when the canvas/ECS native import is deliberately
 blocked. It runs outside the source checkout and rejects non-native imports.
 
-## Explicit release-candidate gate
+## Release-candidate validation
 
-Performance and lifecycle stress validation remains opt-in:
-
-```sh
-make release-candidate
-```
-
-This target installs a **release** canvas extension, runs the release smoke tier,
-all normal and high-count benchmark gates, and stress tests. It retains existing
-benchmark floors, diagnostics, model-export memory budgets, and baseline
-comparison rules; it never replaces an unavailable native capability with a
-fallback. The publish workflow exposes the same gate as a manual
-`release_candidate` dispatch option. Run it on the documented comparable native
-machine/desktop environment before approving a release candidate—interactive
-performance figures are not portable across GitHub-hosted runners.
+Run `make release-candidate` to build a **release** canvas extension, execute the
+release smoke tier, and include the opt-in resource stress checks. This target no
+longer invokes the retired pytest benchmark suite; governed replacement benchmark
+recording uses `scripts/benchmark.py` and its fixed data-ref policy. Use public
+renderer and ECS diagnostics for local performance investigation, comparing only
+equivalent native machines and release builds. An unavailable native capability
+must fail with rebuild guidance rather than use a Python renderer or another
+fallback.

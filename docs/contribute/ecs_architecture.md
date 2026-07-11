@@ -394,15 +394,13 @@ uv run python examples/10_ecs/crystal_moths.py --headless --frames 1 --no-save
 uv run python examples/09_performance/boids_3d.py --headless --frames 1 --no-save
 ```
 
-Benchmark and stress checks are opt-in:
+Resource lifecycle stress checks are opt-in:
 
 ```sh
-uv run pytest tests/benchmark/test_ecs_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks
 uv run pytest tests/stress/test_ecs_spatial_lifecycle_stress.py --run-stress -q -s
 ```
 
-Use a release-built `gummy_canvas` extension for benchmark comparisons:
+Use a release-built `gummy_canvas` extension for performance investigation or comparison:
 
 ```sh
 uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module

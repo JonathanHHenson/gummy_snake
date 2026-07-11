@@ -298,8 +298,8 @@ bytes.
 Optional `gummy_accel` Python fallbacks, such as procedural noise and byte-wise
 blend reference kernels, preserve correctness for environments without the
 acceleration extension. Treat those Python kernels as reference implementations,
-not performance paths for dense animation workloads. Benchmarks should report
-whether the Rust acceleration extension handled the measured workload.
+not performance paths for dense animation workloads. Performance investigations
+should record whether the Rust acceleration extension handled the workload.
 
 ## Text And Font Cache Ownership
 
@@ -377,7 +377,7 @@ vertex/image/model-buffer offsets must advance across the whole command encoder
 so later `queue.write_buffer` calls cannot overwrite data referenced by earlier
 passes. In particular, primitives drawn before and after text/images/effects
 must remain visible; `examples/05_interaction/lifecycle_controls.py` and mixed
-sprite/text/pixel benchmark scenes are useful ordering smoke tests.
+sprite/text/pixel functional checks are useful ordering smoke tests.
 
 ## WEBGL Runtime Status
 

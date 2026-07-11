@@ -46,12 +46,12 @@ fallback. See [Runtime contracts](runtime_contracts.md) for the frozen boundary.
 | Canvas host and renderer adapters | `src/gummysnake/backend/canvas_runtime/` | `src/gummysnake/backend/canvas.py`, `src/gummysnake/backend/canvas_renderer.py` | `tests/contracts/`, `tests/unit/canvas_runtime/test_rust_canvas_backend*.py` |
 | Assets and data wrappers | `src/gummysnake/assets/` | topic APIs under `src/gummysnake/api/` | image, model, sound, media, and pixel unit tests |
 | Shared value/state types | `src/gummysnake/core/` | public API adapters | `tests/unit/api_lifecycle/test_color_transform.py`, input, pixel, and math tests |
-| Drawing and 3D helpers | `src/gummysnake/drawing/` | three-D context/API modules | integration WEBGL tests and opt-in WEBGL/model benchmarks |
-| Fast draw facade | `src/gummysnake/fast_draw_runtime/` | `gs.fast()` and `Sketch.fast()` | API-overhead benchmark and drawing tests |
+| Drawing and 3D helpers | `src/gummysnake/drawing/` | three-D context/API modules | integration WEBGL tests and bounded WEBGL smoke examples |
+| Fast draw facade | `src/gummysnake/fast_draw_runtime/` | `gs.fast()` and `Sketch.fast()` | drawing and public API tests |
 | Plugins | `src/gummysnake/plugins/` | `SketchContext` lifecycle dispatch | `tests/unit/api_lifecycle/test_plugins.py`, `tests/unit/ecs/test_ecs_schedule.py` |
 | ECS public and logical-plan layer | `src/gummysnake/ecs/logical_plan/` | `src/gummysnake/ecs/world.py` remains a compatibility facade; `world_facade/` owns the Python world implementation, while `logical_plan/` owns actions, expressions, build sessions, inspection, decorators, and specifications | `tests/unit/ecs/test_ecs_core.py`, `tests/unit/ecs/test_ecs_plans.py`, `tests/unit/ecs/test_ecs_schedule.py`, `tests/unit/ecs/test_ecs_spatial.py` |
 | ECS expressions and spatial relations | `src/gummysnake/ecs/logical_plan/expressions/`, `src/gummysnake/ecs/spatial/` | `src/gummysnake/ecs/actions.py`, `expressions/`, `systems.py`, and `physical.py` are explicit public composition surfaces | ECS plan and spatial tests |
-| Synth plans and playback controls | `src/gummysnake/synth/` | `src/gummysnake/synth/core.py` | synth unit tests and `tests/benchmark/test_synth_offline_perf.py` |
+| Synth plans and playback controls | `src/gummysnake/synth/` | `src/gummysnake/synth/core.py` | synth unit and bridge tests |
 | Rust wrapper boundary | `src/gummysnake/rust/` | package-local typed wrappers | `tests/unit/canvas_runtime/test_rust_canvas.py`, `tests/unit/ecs/test_ecs_bridge.py`, `tests/unit/canvas_runtime/test_rust_acceleration.py` |
 | Optional acceleration | `crates/gummy_accel/` plus `src/gummysnake/rust/` wrapper | optional `_accelerated` extension | `tests/unit/canvas_runtime/test_rust_acceleration.py` |
 
@@ -98,10 +98,10 @@ parsing; and `gummy_accel` is intentionally small and optional. Use
 - **ECS work:** use [ECS architecture](ecs_architecture.md) and
   [ECS debugging](ecs_debugging.md).
 - **Synth work:** start at `src/gummysnake/synth/`, then
-  `crates/gummy_synth/`, the synth-focused tests, and the offline benchmark.
+  `crates/gummy_synth/` and the synth-focused tests.
 - **Tests:** [Testing and CI](testing.md) defines test placement and commands;
   `tests/helpers/` holds reusable fakes and `tests/fixtures/` holds file/package
-  data. Benchmarks and stress tests are opt-in.
+  data. Resource stress tests are opt-in.
 - **Examples:** `examples/01_getting_started/` through `examples/12_synth/`
   are topic-ordered runnable entry points. `examples/games/` contains larger
   complete sketches; `examples/assets/` is shared example input; generated output

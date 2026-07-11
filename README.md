@@ -219,8 +219,8 @@ uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features ex
 uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
 ```
 
-Use the `--release` form for benchmark/performance comparisons; a debug extension
-build can make ECS spatial systems and renderer benchmarks look dramatically
+Use the `--release` form for performance investigation and comparisons; a debug
+extension build can make ECS spatial systems and renderer paths look dramatically
 slower.
 
 The refactored Python package is split by responsibility: user-facing wrapper
@@ -266,33 +266,12 @@ workflow, and release shape in more detail:
 - [Testing and CI](docs/contribute/testing.md)
 - [Canonical validation matrix](docs/contribute/validation.md)
 
-Performance benchmarks are opt-in:
+For performance investigation, use a release-built canvas extension, exercise the
+relevant functional checks and bounded smoke examples, and inspect the public
+`renderer_performance_counters()` and `ecs_diagnostics()` APIs. Compare results
+only on equivalent machines and release builds; do not treat debug-build timing as
+release evidence.
 
-```sh
-uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks
-```
-
-Canvas backend benchmark scenarios measure native interactive presentation and
-are expected to average at least 240 FPS. Headless/offscreen numbers are useful
-for export diagnostics, but they are not the runtime performance acceptance
-metric. The canvas benchmark payload includes renderer metrics for draw counts,
-primitive/image batch records, flushes, largest coalesced batch size, vertex
-uploads, texture uploads/reuse, text cache hits, pixel readbacks/uploads, GPU
-region effects, and presented/rendered frame counts. WEBGL frame-style benchmark
-scenarios use the same FPS floor.
-High-count primitive and sprite stress variants keep explicit 60 FPS gates for
-10k stress scenes, and the high-count primitive gate covers 10k, 50k, and 100k
-static retained-batch scenes behind `--run-high-count-benchmarks`.
-Model export benchmarks use a memory budget for streaming OBJ/STL output.
-Machine-specific baseline snapshots live in `tests/benchmark/baselines/`; keep
-captured values as measured and note both the required 240 FPS floor and the
-higher recovered-variant margin target when applicable.
 
 Long-running resource lifecycle checks are also opt-in:
 

@@ -101,7 +101,7 @@ Important consequences:
 - ECS plan systems are Python-declared logical plans. Rust-executed `@ecs.system_plan` functions are called once at registration with query/resource/event proxies and an active context-manager plan-build session. They must return `None` and record work with field mutation methods, `ecs.do`, `ecs.conditional`/`ecs.when`/`ecs.otherwise`, `ecs.for_each`, and event writer methods. Rust compiles those plans into physical plans and executes them before drawing. `@ecs.udf_plan` declares Rust-backed typed UDF plans; only explicit runtime Python `@ecs.udf` UDFs and `@ecs.system` systems may execute Python at ECS runtime.
 - Do not maintain Python mirrors of component columns. Python entity/resource views should read/write Rust-owned storage, and dense draw-side readback should use batch APIs such as `iter_component_fields()`.
 - ECS strict mode should reject non-deterministic duplicate writes. Non-strict mode may use deterministic last-write-wins, count diagnostics, and warn unless `warn_on_ambiguity=False` suppresses logs.
-- Spatial ECS APIs must stay generic (`ecs.spatial.neighbors`, `join`, `overlaps`, and algorithm configs such as `HashGrid`, `Quadtree`, `Octree`, and `HilbertCurve`). Do not add bespoke APIs for a single sketch or benchmark.
+- Spatial ECS APIs must stay generic (`ecs.spatial.neighbors`, `join`, `overlaps`, and algorithm configs such as `HashGrid`, `Quadtree`, `Octree`, and `HilbertCurve`). Do not add bespoke APIs for a single sketch or performance investigation.
 - The GPU command encoder mixes primitive and image/text pipelines in a single frame. When adding draw command types or batching behavior, flush batches and restore the expected pipeline/bind groups when switching command families; primitives drawn before and after text/images/effects must remain visible. The Rust encoder uses a local `RenderPassBatcher`; if special commands split a frame into multiple render-pass segments, reusable buffer offsets must advance across the whole command encoder so later vertex/image/model uploads do not overwrite data referenced by earlier passes.
 - Direct glyphon GPU text is limited to ordered command streams where text can be encoded as a single contiguous glyphon text segment. If later text follows intervening primitives/images/effects, preserve draw order by using the Rust cached line-texture path for that later text rather than queuing multiple glyphon text passes that can corrupt earlier glyph atlas output. Batched cached text-image fallback may atlas many cached line textures into ordered image batches; preserve cache hit/miss and texture upload diagnostics.
 - Text metrics and `text_bounds()` must use the same current Python style revision as subsequent drawing. Do not use Rust current-style metric fast paths when the Python `StyleState` object or revision has changed after native/window sync.
@@ -174,7 +174,7 @@ For `gummy_accel`:
 uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --module-name gummysnake.rust._accelerated --python-source src --features extension-module
 ```
 
-Keep Rust acceleration optional only for features routed through `gummy_accel`. Features owned by `gummy_canvas` or `gummy_ecs` may require the canvas runtime because it is mandatory. Use release `maturin develop` or release wheels for benchmark/performance comparisons; a debug/development extension can make ECS spatial systems and renderer benchmarks look dramatically slower.
+Keep Rust acceleration optional only for features routed through `gummy_accel`. Features owned by `gummy_canvas` or `gummy_ecs` may require the canvas runtime because it is mandatory. Use release `maturin develop` or release wheels for performance investigation and comparisons; a debug/development extension can make ECS spatial systems and renderer paths look dramatically slower.
 
 ## Source Layout
 
@@ -207,7 +207,6 @@ tests/unit/          focused tests grouped by api_lifecycle, assets_media, canva
 tests/contracts/     backend and renderer contract behavior
 tests/golden/        deterministic render comparisons
 tests/integration/   end-to-end sketch/rendering behavior
-tests/benchmark/     opt-in performance tests
 tests/stress/        opt-in resource lifecycle stress tests
 tests/helpers/       shared canvas_runtime fakes plus reusable ECS, synth, renderer, and WebGL test helpers
 tests/fixtures/      package-resource and file fixtures used by tests
@@ -219,7 +218,7 @@ docs/contribute/     architecture, runtime, testing, and maintainer workflow
 crates/              Rust runtime and acceleration crates; gummy_canvas canvas helpers include cache, dirty-state, image batch, text layout, and GPU render-pass batching modules; gummy_ecs owns ECS storage, plans, schedules, and spatial indexes; gummy_synth owns synth/sample/FX audio rendering
 ```
 
-Generated artifacts such as `__pycache__/`, compiled `.so` files, build directories, benchmark output, and example image/data output should not be committed unless the user explicitly asks.
+Generated artifacts such as `__pycache__/`, compiled `.so` files, build directories, performance-profiling output, and example image/data output should not be committed unless the user explicitly asks.
 
 Naming conventions:
 
@@ -478,71 +477,10 @@ uv run pytest --cov=gummysnake --cov-report=term-missing --cov-report=xml
 
 For native interactive changes, run a representative example with `--interactive` on a desktop build when practical and document any manual validation.
 
-Benchmark tests are opt-in:
+For performance investigation, use a release-built canvas extension or release wheel; debug builds are not comparable. Exercise the affected functional checks and bounded smoke examples, then inspect the public `renderer_performance_counters()` and `ecs_diagnostics()` APIs rather than relying on private Rust details. For Rust-executed ECS hot paths, verify `ecs_physical_system_runs` advances while `ecs_udf_calls` remains zero; spatial paths should report candidate/exact rows and the intended algorithm counters. Use `examples/09_performance/boids_3d.py --headless --frames 1 --no-save` as a smoke path for ECS spatial simulation and retained WEBGL model drawing.
 
-```sh
-uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_api_overhead_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_image_pipeline_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_perf.py --run-benchmarks
-uv run pytest tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks
-```
+GPU region effects should stay ordered with pending draw commands and avoid CPU readback/upload in the GPU path; update `gpu_region_effect_passes` diagnostics when adding new region effects. Destination-sampling blend modes must not be enabled outside the ordered command encoder source/target snapshot path. Untransformed default-font text uses the Rust-owned glyphon/cosmic-text GPU path with cached shaped buffers and a glyph atlas when ordering permits it; batched cached line-texture atlas fallback is the preferred ordered fallback for large overlays or later text segments. Transformed/custom-font text may use the internal fallback until those cases are explicitly migrated.
 
-The 50k and 100k primitive stress benchmarks are intentionally excluded from
-the default canvas benchmark run. Run the high-count suite separately after the
-10k primitive gate is healthy:
-
-```sh
-uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks --run-high-count-benchmarks -k high_count
-```
-
-The high-count test itself still gates progression: it skips 50k until 10k
-reaches at least 60 FPS, and skips 100k until 50k reaches at least 30 FPS.
-
-Benchmark helpers for subprocess execution and JSON metric parsing live in
-`tests/benchmark/benchmark_helpers.py`; extend them instead of copying benchmark
-boilerplate. Canvas backend benchmark scenarios measure native interactive
-presentation and must average at least 240 FPS. Headless/offscreen numbers are
-useful for export diagnostics, but they are not the runtime performance
-acceptance metric. Treat
-failures below the interactive floor as optimization work, not as flaky
-thresholds to loosen. Recovered variants from epics 246-250 should retain margin
-where practical: dense primitives around 320 FPS mean and cached/transformed
-images, upload churn, sprite/text overlay, and mixed text/pixel scenes around
-300 FPS mean on the baseline machine class. Baseline snapshots live in
-`tests/benchmark/baselines/`; keep captured baseline values as measured and
-record whether they meet both the 240 FPS floor and any documented margin
-target.
-Model export benchmarks use a streaming memory budget rather than an FPS floor.
-API overhead benchmarks should compare global-mode, object-oriented sketch,
-context-direct, `fast()`, and renderer-direct dispatch paths.
-WEBGL frame-style benchmarks also use the 240 FPS floor; failures are
-optimization work for the Rust 3D/GPU model path or its fallback boundaries
-unless the benchmark is explicitly measuring a memory budget instead of FPS.
-ECS benchmarks should show `@ecs.system_plan` hot systems running through Rust
-physical plans (`ecs_physical_system_runs` > 0) with `ecs_udf_calls` at zero for
-the hot path. Spatial ECS benchmarks should report candidate/exact rows and algorithm
-counters that match the intended relation shape. Use
-`examples/09_performance/boids_3d.py --headless --frames 1 --no-save` as a smoke
-path for ECS spatial simulation plus retained WEBGL model drawing.
-Renderer/runtime diagnostics should expose counters through public Python APIs
-such as `renderer_performance_counters()` and `ecs_diagnostics()` rather than
-leaking unstable Rust details. Keep fallback-boundary benchmark scenes and
-`docs/contribute/runtime_diagnostics.md` aligned when renderer paths change,
-especially `primitive_batch_records`, `primitive_batch_flushes`,
-`primitive_batch_max_records`, `image_batch_records`, `image_batch_flushes`, and
-`image_batch_max_records`.
-GPU region effects should stay ordered with pending draw commands and avoid CPU
-readback/upload in the GPU path; update `gpu_region_effect_passes` diagnostics
-when adding new region effects. Destination-sampling blend modes must not be
-enabled outside the ordered command encoder source/target snapshot path.
-Untransformed default-font text uses the Rust-owned glyphon/cosmic-text GPU
-path with cached shaped buffers and a glyph atlas when ordering permits it;
-batched cached line-texture atlas fallback is the preferred ordered fallback for
-large overlays or later text segments. Transformed/custom-font text may use the
-internal fallback until those cases are explicitly migrated.
 Resource lifecycle stress tests are opt-in:
 
 ```sh
@@ -563,8 +501,8 @@ Good placement:
 - backend and renderer promises: `tests/contracts/`
 - stable representative output: `tests/golden/`
 - user-visible end-to-end flows: `tests/integration/`
-- performance-sensitive checks: `tests/benchmark/` with explicit opt-in markers
 - long-running resource lifecycle checks: `tests/stress/` with explicit opt-in markers
+- performance-sensitive changes: focused functional checks, bounded smoke examples, and public runtime diagnostics
 
 ## Documentation Expectations
 

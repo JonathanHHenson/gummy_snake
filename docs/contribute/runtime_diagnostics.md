@@ -72,15 +72,12 @@ with flush counters: a recovered dense primitive or sprite scene should show a
 small number of flushes and a large largest-batch value, not one flush per local
 style or transform change.
 
-Canvas benchmark subprocesses flatten the same native counters into their JSON
-`metrics` payload so interactive FPS samples can be correlated with renderer
-work. The flattened payload keeps `python_bridge_calls` and
-`native_bridge_calls` separate so adapter dispatch and Rust command ingest can
-be triaged independently. `python_draw_time_ms` measures sketch callback time
-inside the child process, separate from subprocess setup and window creation.
-Normal interactive frames should keep `pixel_readbacks` at zero unless user
-code calls an explicit readback or export API. Sprite and text-heavy stress
-scenes should show texture cache reuse and text cache reuse after their first
+Use these counters after representative bounded or interactive runs to correlate
+renderer work with observed behavior. Keep `python_bridge_calls` and
+`native_bridge_calls` separate when triaging adapter dispatch and Rust command
+ingest. Normal interactive frames should keep `pixel_readbacks` at zero unless
+user code calls an explicit readback or export API. Sprite- and text-heavy
+stress scenes should show texture-cache and text-cache reuse after their first
 unique layouts have been shaped.
 
 ## ECS Diagnostics
@@ -104,7 +101,7 @@ Common stable counters include:
 | `ecs_canvas_commands` | Canvas draw commands emitted by Rust-executed ECS systems and replayed into the canvas runtime. |
 | `ecs_physical_plan_compiles` | Logical action trees serialized and compiled into Rust physical plans. Repeated compiles usually mean schema fingerprints or dynamic UDF iterable sources are changing. |
 | `ecs_rust_compiled_plans` | Rust physical-plan handles cached by the world. |
-| `ecs_physical_system_runs` | Non-UDF systems executed through Rust physical plans. Hot ECS benchmark claims should show this is non-zero. |
+| `ecs_physical_system_runs` | Non-UDF systems executed through Rust physical plans. It should advance when validating a Rust-executed hot path. |
 | `ecs_physical_rows_scanned` | Rows scanned by the Rust physical executor. |
 | `ecs_physical_fields_written` / `ecs_physical_resource_fields_written` | Component/resource field writes performed by Rust physical execution. |
 | `ecs_physical_plan_errors` / `ecs_physical_execution_errors` | Unsupported or failing non-UDF plans. These should fail loudly; they must not fall back to Python execution. |
@@ -191,8 +188,8 @@ the result back to the canvas texture without mapping pixels into CPU memory.
 They preserve draw order by resolving pending draw commands before the effect
 and then continuing future commands against the updated canvas texture.
 
-The current region-effect framework is used for benchmark pixel-prefix mutation
-and reports through `gpu_region_effect_passes`. That path should not increment
+The current region-effect framework reports through `gpu_region_effect_passes`.
+That path should not increment
 `pixel_readbacks` or `pixel_uploads` when a GPU renderer is available.
 
 Destination-sampling blend modes use the same ordered source/target discipline:

@@ -1,8 +1,4 @@
-"""Stable ECS performance scenario sketches.
-
-Each module is executable as a bounded example and is measured by
-``tests/benchmark/test_ecs_scenarios_perf.py``.
-"""
+"""Stable ECS scenario sketches for bounded functional smoke runs."""
 
 from __future__ import annotations
 

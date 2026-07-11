@@ -43,8 +43,8 @@ def _categories() -> str:
 def _map(paths: str = '["scripts/check.py"]', command: str = "python scripts/check.py") -> str:
     categories = _categories()
     categories_list = (
-        '["unit", "contract", "integration", "golden", "benchmark", '
-        '"stress", "example", "documentation", "packaging"]'
+        '["unit", "contract", "integration", "golden", "stress", '
+        '"example", "documentation", "packaging"]'
     )
     return f'''[map]
 categories = {categories_list}
