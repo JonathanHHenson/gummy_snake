@@ -64,7 +64,9 @@ def test_missing_authoritative_ref_is_an_actionable_infrastructure_error(tmp_pat
         GitBenchmarkDatabase(tmp_path).data_tip()
 
 
-def test_fixed_ref_immutable_store_and_first_parent_lookup(tmp_path: Path) -> None:
+def test_stage_candidate_writes_immutable_shards_without_advancing_authority(
+    tmp_path: Path,
+) -> None:
     git(tmp_path, "init")
     git(tmp_path, "config", "user.email", "test@example.test")
     git(tmp_path, "config", "user.name", "Test")
@@ -75,10 +77,20 @@ def test_fixed_ref_immutable_store_and_first_parent_lookup(tmp_path: Path) -> No
     git(tmp_path, "branch", "benchmark-data-v1")
     database = GitBenchmarkDatabase(tmp_path)
     stored = record(subject)
-    database.record_local(stored)
-    assert database.exact_record(subject, stored.fingerprint.id, "canvas", 1) is not None
+    authority_tip = database.data_tip()
+    staged = database.stage_candidate(stored)
+
+    assert staged.branch == f"benchmark-record/{subject[:12]}-{stored.fingerprint.id[:12]}"
+    assert git(tmp_path, "rev-parse", "refs/heads/benchmark-data-v1") == authority_tip
+    assert git(tmp_path, "rev-parse", staged.branch) == staged.commit
+    assert git(tmp_path, "rev-parse", f"{staged.commit}^") == authority_tip
+    assert database.exact_record(subject, stored.fingerprint.id, "canvas", 1) is None
+    assert database._show(database.record_path(stored), staged.commit) is not None
+    assert "Benchmark-Subject: " + subject in git(
+        tmp_path, "show", "-s", "--format=%B", staged.commit
+    )
     assert not audit_database(database)
-    with pytest.raises(DatabaseError):
-        database.record_local(stored)
+    with pytest.raises(DatabaseError, match="candidate branch already exists"):
+        database.stage_candidate(stored)
     with pytest.raises(DatabaseError):
         GitBenchmarkDatabase(tmp_path, "refs/heads/other")

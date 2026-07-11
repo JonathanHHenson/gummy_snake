@@ -185,6 +185,11 @@ class FreshWorker:
 
     def run(self, request: WorkerRequest) -> WorkerResult:
         environment = os.environ.copy()
+        # Workers import benchmark code only from their tool-owned cwd and Gummy
+        # Snake only from the installed wheel. A caller's source PYTHONPATH is not
+        # a valid execution route for a release benchmark.
+        environment.pop("PYTHONPATH", None)
+        environment.pop("PYTHONHOME", None)
         environment["PYTHONHASHSEED"] = str(request.hash_seed)
         try:
             process = subprocess.run(

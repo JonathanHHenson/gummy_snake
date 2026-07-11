@@ -68,13 +68,17 @@ def _ignored(repository: Path, relative: Path) -> bool:
     return result.returncode == 0
 
 
-def _tracked(repository: Path, relative: Path) -> bool:
+def _tracked_paths(repository: Path, roots: Iterable[str]) -> frozenset[Path]:
+    """Read tracked paths for all declared roots in one Git invocation."""
+
     result = subprocess.run(
-        ("git", "-C", str(repository), "ls-files", "--error-unmatch", "--", relative.as_posix()),
+        ("git", "-C", str(repository), "ls-files", "-z", "--", *roots),
         capture_output=True,
         check=False,
     )
-    return result.returncode == 0
+    if result.returncode:
+        raise SnapshotError("could not enumerate tracked declared snapshot inputs")
+    return frozenset(Path(item) for item in result.stdout.decode("utf-8").split("\0") if item)
 
 
 def _entry(repository: Path, relative: Path) -> SnapshotEntry:
@@ -106,6 +110,7 @@ def snapshot_declared_roots(repository: Path, roots: Iterable[str]) -> SourceSna
     if not declared:
         raise SnapshotError("at least one catalog-declared source root is required")
     files: set[Path] = set()
+    tracked = _tracked_paths(repository, declared)
     for root_text in declared:
         root = repository / root_text
         if root.is_symlink() or root.is_file():
@@ -113,12 +118,18 @@ def snapshot_declared_roots(repository: Path, roots: Iterable[str]) -> SourceSna
             continue
         for current, directories, names in os.walk(root, followlinks=False):
             current_path = Path(current)
-            directories[:] = sorted(directories)
+            # Never descend ignored build/output trees (notably Rust target/). Git's
+            # tracked set remains authoritative for files that are actually inputs.
+            directories[:] = [
+                name
+                for name in sorted(directories)
+                if not _ignored(repository, (current_path / name).relative_to(repository))
+            ]
             for name in sorted(names):
                 absolute = current_path / name
                 relative = absolute.relative_to(repository)
                 if (absolute.is_symlink() or absolute.is_file()) and (
-                    _tracked(repository, relative) or not _ignored(repository, relative)
+                    relative in tracked or not _ignored(repository, relative)
                 ):
                     files.add(relative)
     entries = tuple(_entry(repository, relative) for relative in sorted(files))

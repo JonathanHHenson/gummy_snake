@@ -29,7 +29,7 @@ class GateOutcome(StrEnum):
 class RunReport:
     """Runner result after correctness, capabilities, teardown, and A/A validation."""
 
-    record: BenchmarkRecord
+    record: BenchmarkRecord | None
     complete: bool
     stable: bool
     reason: str = ""
@@ -42,6 +42,8 @@ class ModeResult:
     reason: str
     recorded: bool = False
     baseline_found: bool = False
+    candidate_branch: str | None = None
+    candidate_commit: str | None = None
 
 
 class BenchmarkRunner(Protocol):
@@ -63,7 +65,7 @@ class ModeDatabase(Protocol):
         self, subject: str, fingerprint_id: str, suite_id: str, suite_version: int
     ) -> object | None: ...
 
-    def record_local(self, record: BenchmarkRecord, *, message: str | None = None) -> str: ...
+    def stage_candidate(self, record: BenchmarkRecord) -> object: ...
 
 
 Comparison = Callable[[object, BenchmarkRecord], Decision]
@@ -74,7 +76,7 @@ def _identity(record: BenchmarkRecord) -> tuple[str, str, str, int]:
 
 
 def _ready(report: RunReport, *, require_stability: bool) -> ModeResult | None:
-    if not report.complete:
+    if not report.complete or report.record is None:
         return ModeResult(
             BenchmarkMode.WORKTREE, GateOutcome.INVALID, report.reason or "runner did not complete"
         )
@@ -100,7 +102,9 @@ def worktree(database: ModeDatabase, runner: BenchmarkRunner, compare: Compariso
     blocked = _ready(report, require_stability=False)
     if blocked is not None:
         return ModeResult(BenchmarkMode.WORKTREE, blocked.outcome, blocked.reason)
-    subject, fingerprint, suite, version = _identity(report.record)
+    record = report.record
+    assert record is not None
+    subject, fingerprint, suite, version = _identity(record)
     head = database.head()
     if subject != head:
         raise ModeError("worktree runner provenance subject must equal current HEAD")
@@ -124,7 +128,7 @@ def worktree(database: ModeDatabase, runner: BenchmarkRunner, compare: Compariso
             GateOutcome.MISSING_EXACT_BASELINE,
             "known fingerprint has no exact current-HEAD baseline",
         )
-    decision = compare(baseline, report.record)
+    decision = compare(baseline, record)
     outcome = _comparison_outcome(decision)
     return ModeResult(BenchmarkMode.WORKTREE, outcome, decision.value, baseline_found=True)
 
@@ -137,7 +141,9 @@ def record_head(database: ModeDatabase, runner: BenchmarkRunner, compare: Compar
     blocked = _ready(report, require_stability=True)
     if blocked is not None:
         return ModeResult(BenchmarkMode.RECORD_HEAD, blocked.outcome, blocked.reason)
-    subject, fingerprint, suite, version = _identity(report.record)
+    record = report.record
+    assert record is not None
+    subject, fingerprint, suite, version = _identity(record)
     if subject != head:
         raise ModeError("record-head runner provenance subject must equal clean HEAD")
     baseline = database.nearest_first_parent_record(head, fingerprint, suite, version)
@@ -145,7 +151,7 @@ def record_head(database: ModeDatabase, runner: BenchmarkRunner, compare: Compar
         outcome = GateOutcome.PASS_NEW_FINGERPRINT
         reason = "successful stable run has no compatible earlier first-parent baseline"
     else:
-        decision = compare(baseline, report.record)
+        decision = compare(baseline, record)
         outcome = _comparison_outcome(decision)
         reason = decision.value
         if outcome is not GateOutcome.PASS:
@@ -153,11 +159,17 @@ def record_head(database: ModeDatabase, runner: BenchmarkRunner, compare: Compar
     # Recheck clean HEAD immediately before the immutable transaction.
     if database.require_clean_head() != head:
         raise ModeError("HEAD changed while benchmarking; refusing to record")
-    database.record_local(report.record)
+    staged = database.stage_candidate(record)
+    branch = getattr(staged, "branch", None)
+    commit = getattr(staged, "commit", None)
+    if not isinstance(branch, str) or not isinstance(commit, str):
+        raise ModeError("database returned an invalid staged candidate")
     return ModeResult(
         BenchmarkMode.RECORD_HEAD,
         outcome,
         reason,
         recorded=True,
         baseline_found=baseline is not None,
+        candidate_branch=branch,
+        candidate_commit=commit,
     )

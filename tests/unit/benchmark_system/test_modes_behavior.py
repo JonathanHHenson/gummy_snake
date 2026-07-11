@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from benchmarks.cli import main
+from benchmarks.framework.database import DatabaseError
 from benchmarks.framework.modes import GateOutcome, RunReport, record_head, worktree
 from benchmarks.framework.statistics import Decision
 from benchmarks.governance import BenchmarkMode
@@ -71,9 +73,9 @@ class FakeDatabase:
     ) -> object | None:
         return self.nearest
 
-    def record_local(self, record: BenchmarkRecord, *, message: str | None = None) -> str:
+    def stage_candidate(self, record: BenchmarkRecord) -> object:
         self.writes += 1
-        return "tip"
+        return type("Candidate", (), {"branch": "benchmark-record/candidate", "commit": "tip"})()
 
 
 def test_worktree_never_writes_and_requires_exact_baseline_for_known_machine() -> None:
@@ -100,4 +102,44 @@ def test_record_head_writes_only_after_pass() -> None:
     assert database.writes == 0
     passed = record_head(database, FakeRunner(report), lambda base, current: Decision.PASS)
     assert passed.recorded
+    assert passed.candidate_branch == "benchmark-record/candidate"
     assert database.writes == 1
+
+
+def test_cli_worktree_uses_runner_and_record_head_stages_only_after_preconditions(
+    monkeypatch, tmp_path, capsys
+) -> None:
+    catalog = tmp_path / "catalog.toml"
+    catalog.write_text("ignored")
+    report = RunReport(candidate(), complete=True, stable=True)
+    created: list[object] = []
+
+    class CliDatabase(FakeDatabase):
+        def __init__(self, _repository: object) -> None:
+            super().__init__(known=False)
+
+    class CliRunner:
+        def __init__(self, _repository: object, _catalog: object, _output: object) -> None:
+            created.append(self)
+
+        def run(self, _mode: BenchmarkMode) -> RunReport:
+            return report
+
+    monkeypatch.setattr("benchmarks.cli.GitBenchmarkDatabase", CliDatabase)
+    monkeypatch.setattr("benchmarks.cli.CanvasRecorderRunner", CliRunner)
+    monkeypatch.setattr(
+        "benchmarks.cli.load_catalog", lambda _path: type("Catalog", (), {"digest": "sha256:c"})()
+    )
+    monkeypatch.setattr("benchmarks.cli.compare_record_to_baseline", lambda *_args: Decision.PASS)
+
+    assert main(["--repo", str(tmp_path), "worktree", str(catalog)]) == 0
+    assert created
+    assert "pass-new-fingerprint" in capsys.readouterr().out
+
+    class DirtyDatabase(CliDatabase):
+        def require_clean_head(self) -> str:
+            raise DatabaseError("record-head requires a clean worktree")
+
+    monkeypatch.setattr("benchmarks.cli.GitBenchmarkDatabase", DirtyDatabase)
+    assert main(["--repo", str(tmp_path), "record-head", str(catalog)]) == 2
+    assert "clean worktree" in capsys.readouterr().err

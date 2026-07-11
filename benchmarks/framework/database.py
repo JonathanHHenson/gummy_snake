@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import tempfile
 from collections.abc import Iterator
@@ -25,6 +24,14 @@ class DatabaseError(RuntimeError):
 class AuditIssue:
     path: str
     message: str
+
+
+@dataclass(frozen=True, slots=True)
+class StagedCandidate:
+    """A locally staged immutable record awaiting protected-branch review."""
+
+    branch: str
+    commit: str
 
 
 def _git(repo: Path, *arguments: str, check: bool = True) -> str:
@@ -94,19 +101,48 @@ class GitBenchmarkDatabase:
             )
         return tip
 
+    def _data_ref_checked_out(self) -> bool:
+        output = _git(self.repository, "worktree", "list", "--porcelain")
+        return f"branch {AUTHORITATIVE_DATA_REF}" in output.splitlines()
+
     def fetch_authoritative_ref(self, remote: str) -> str:
-        """Fetch only the fixed authority ref; caller-controlled refspecs are forbidden."""
+        """Fetch only the fixed authority ref without rewriting a checked-out worktree.
+
+        A developer may keep the data branch in a dedicated worktree. Git refuses to
+        update that checked-out branch directly, so this path fetches into a private
+        verification ref and requires the local authority ref to already match it.
+        """
 
         if not remote:
             raise DatabaseError("an authoritative data remote name or URL is required")
+        if not self._data_ref_checked_out():
+            _git(
+                self.repository,
+                "fetch",
+                "--no-tags",
+                remote,
+                f"+{AUTHORITATIVE_DATA_REF}:{AUTHORITATIVE_DATA_REF}",
+            )
+            return self.data_tip()
+
+        verification_ref = "refs/benchmark-data/fetched/benchmark-data-v1"
         _git(
             self.repository,
             "fetch",
             "--no-tags",
             remote,
-            f"+{AUTHORITATIVE_DATA_REF}:{AUTHORITATIVE_DATA_REF}",
+            f"+{AUTHORITATIVE_DATA_REF}:{verification_ref}",
         )
-        return self.data_tip()
+        local_tip = self.data_tip()
+        remote_tip = _git(
+            self.repository, "rev-parse", "--verify", f"{verification_ref}^{{commit}}"
+        )
+        if local_tip != remote_tip:
+            raise DatabaseError(
+                "the checked-out benchmark-data-v1 worktree is stale; update that worktree "
+                "to the protected remote tip before recording"
+            )
+        return local_tip
 
     def require_authoritative_ready(self) -> str:
         self.require_complete_history()
@@ -212,61 +248,77 @@ class GitBenchmarkDatabase:
             with suppress(FileNotFoundError):
                 lock_path.unlink()
 
-    def record_local(self, record: BenchmarkRecord, *, message: str | None = None) -> str:
-        """Append a record in a temporary worktree and advance only the fixed ref.
+    @staticmethod
+    def candidate_branch(record: BenchmarkRecord) -> str:
+        """Return the sole permitted local candidate branch name for a record."""
 
-        This is a local transaction. Remote protection/fast-forward push authorization is
-        deliberately outside this API and must be provided by protected server policy.
+        subject = record.provenance.subject_commit
+        fingerprint = record.fingerprint.id
+        if (
+            not all(character in "0123456789abcdef" for character in subject.lower())
+            or len(subject) < 7
+        ):
+            raise DatabaseError("benchmark subject commit must be a hexadecimal Git object id")
+        if (
+            not all(character in "0123456789abcdef" for character in fingerprint)
+            or len(fingerprint) < 12
+        ):
+            raise DatabaseError("benchmark fingerprint must be a hexadecimal content id")
+        return f"benchmark-record/{subject[:12]}-{fingerprint[:12]}"
+
+    def stage_candidate(self, record: BenchmarkRecord) -> StagedCandidate:
+        """Commit immutable shards on a unique review branch rooted at the authority tip.
+
+        The protected authority ref is deliberately read-only here. A later protected
+        server-side review/merge is the only path that may advance it.
         """
 
         self.require_complete_history()
         tip = self.data_tip()
+        branch = self.candidate_branch(record)
+        branch_ref = f"refs/heads/{branch}"
         record_path = self.record_path(record)
+        fingerprint_path = self.fingerprint_path(record.fingerprint.id)
+        fingerprint_payload = canonical_json(record.fingerprint.to_dict())
         with self._lock():
             if self.data_tip() != tip:
-                raise DatabaseError("database tip changed before local transaction")
+                raise DatabaseError("database tip changed before candidate staging")
+            if _git(self.repository, "rev-parse", "--verify", branch_ref, check=False):
+                raise DatabaseError(f"candidate branch already exists: {branch}")
             if self._show(record_path, tip) is not None:
                 raise DatabaseError("immutable record key already exists")
-            fingerprint_path = self.fingerprint_path(record.fingerprint.id)
             existing_fingerprint = self._show(fingerprint_path, tip)
-            fingerprint_payload = canonical_json(record.fingerprint.to_dict())
             if existing_fingerprint is not None and existing_fingerprint != fingerprint_payload:
                 raise DatabaseError("immutable fingerprint id maps to conflicting content")
-            temporary = Path(tempfile.mkdtemp(prefix="benchmark-data-worktree-"))
+            temporary = Path(tempfile.mkdtemp(prefix="benchmark-candidate-worktree-"))
             try:
                 _git(self.repository, "worktree", "add", "--detach", str(temporary), tip)
                 if existing_fingerprint is None:
                     _atomic_write(temporary / fingerprint_path, fingerprint_payload)
                 _atomic_write(temporary / record_path, canonical_json(record.to_dict()))
                 _git(temporary, "add", fingerprint_path, record_path)
-                _git(temporary, "commit", "-m", message or f"benchmark: {record.record_id}")
-                new_tip = _git(temporary, "rev-parse", "HEAD")
-                # Compare-and-swap prevents lost updates after the record was measured.
-                _git(self.repository, "update-ref", self.data_ref, new_tip, tip)
-                return new_tip
+                _git(
+                    temporary,
+                    "commit",
+                    "-m",
+                    f"benchmark: {record.record_id}",
+                    "-m",
+                    "\n".join(
+                        (
+                            f"Benchmark-Subject: {record.provenance.subject_commit}",
+                            f"Benchmark-Fingerprint: {record.fingerprint.id}",
+                            f"Benchmark-Record: {record.record_id}",
+                        )
+                    ),
+                )
+                commit = _git(temporary, "rev-parse", "HEAD")
+                # Empty old value is a compare-and-swap: never overwrite a colliding branch.
+                _git(self.repository, "update-ref", branch_ref, commit, "")
+                return StagedCandidate(branch=branch, commit=commit)
             finally:
                 _git(self.repository, "worktree", "remove", "--force", str(temporary), check=False)
-                shutil.rmtree(temporary, ignore_errors=True)
-
-    def record_revocation_local(self, revocation: Revocation) -> str:
-        self.require_complete_history()
-        tip = self.data_tip()
-        path = self.revocation_path(revocation)
-        with self._lock():
-            if self._show(path, tip) is not None:
-                raise DatabaseError("immutable revocation already exists")
-            temporary = Path(tempfile.mkdtemp(prefix="benchmark-revocation-worktree-"))
-            try:
-                _git(self.repository, "worktree", "add", "--detach", str(temporary), tip)
-                _atomic_write(temporary / path, canonical_json(revocation.to_dict()))
-                _git(temporary, "add", path)
-                _git(temporary, "commit", "-m", f"benchmark revocation: {revocation.record_id}")
-                new_tip = _git(temporary, "rev-parse", "HEAD")
-                _git(self.repository, "update-ref", self.data_ref, new_tip, tip)
-                return new_tip
-            finally:
-                _git(self.repository, "worktree", "remove", "--force", str(temporary), check=False)
-                shutil.rmtree(temporary, ignore_errors=True)
+                with suppress(OSError):
+                    temporary.rmdir()
 
 
 def audit_database(database: GitBenchmarkDatabase) -> tuple[AuditIssue, ...]:

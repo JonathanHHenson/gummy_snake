@@ -10,9 +10,11 @@ from pathlib import Path
 from time import perf_counter_ns
 
 from .framework.database import GitBenchmarkDatabase, audit_database
+from .framework.modes import record_head, worktree
+from .framework.runner import CanvasRecorderRunner, compare_record_to_baseline
 from .governance import ExecutionClass, GovernanceError, reject_authority_overrides
 from .schema.catalog import Catalog, CatalogError, load_catalog
-from .worker.provenance import release_build_plan
+from .schema.records import BenchmarkRecord
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -109,15 +111,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return 1
             print("benchmark database audit passed")
             return 0
-        # Planning is safe to expose, but actual execution needs a suite-owned isolated
-        # worker dispatcher. The shared layer must not substitute source imports or a fake runner.
         catalog = load_catalog(namespace.catalog)
-        plan = release_build_plan(namespace.repo, namespace.output)
-        print(f"{namespace.command}: catalog {catalog.digest}", file=sys.stderr)
-        print(f"planned release build: {' '.join(plan.command)}", file=sys.stderr)
-        print("benchmark: no suite worker dispatcher is registered", file=sys.stderr)
-        print("refusing to run a synthetic fallback", file=sys.stderr)
-        return 3
+        runner = CanvasRecorderRunner(namespace.repo, catalog, namespace.output)
+
+        def compare(baseline: object, candidate: BenchmarkRecord):
+            return compare_record_to_baseline(catalog, baseline, candidate)
+
+        if namespace.command == "worktree":
+            mode_result = worktree(database, runner, compare)
+        elif namespace.command == "record-head":
+            mode_result = record_head(database, runner, compare)
+        else:  # argparse owns the command set; retain a fail-closed guard for direct calls.
+            raise RuntimeError(f"unsupported benchmark command: {namespace.command}")
+        print(f"{mode_result.mode.value}: {mode_result.outcome.value}: {mode_result.reason}")
+        if mode_result.candidate_branch and mode_result.candidate_commit:
+            print(
+                f"staged candidate: {mode_result.candidate_branch} @ {mode_result.candidate_commit}"
+            )
+        return 0 if mode_result.outcome.value.startswith("pass") else 1
     except (CatalogError, GovernanceError, RuntimeError, ValueError) as error:
         print(f"benchmark: error: {error}", file=sys.stderr)
         return 2
