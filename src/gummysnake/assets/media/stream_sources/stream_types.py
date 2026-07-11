@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
 from gummysnake.assets.image import Image
 from gummysnake.assets.media.cv2 import release_capture as _release_capture
-from gummysnake.assets.media.frame import frame_to_image as _frame_to_image
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
 _VIDEO_KINDS = {"video", "camera"}
@@ -25,9 +25,11 @@ class _FrameStreamBase:
         cv2_module: Any,
         playing: bool,
         closed_error_message: str,
+        frame_converter: Callable[[Any], Image],
     ) -> None:
         self._capture = capture
         self._cv2 = cv2_module
+        self._frame_converter = frame_converter
         self._playing = playing
         self._closed = False
         self._closed_error_message = closed_error_message
@@ -99,13 +101,21 @@ class _FrameStreamBase:
 class Video(_FrameStreamBase):
     """File-backed video stream with explicit frame-reading semantics."""
 
-    def __init__(self, capture: Any, *, path: Path, cv2_module: Any) -> None:
+    def __init__(
+        self,
+        capture: Any,
+        *,
+        path: Path,
+        cv2_module: Any,
+        frame_converter: Callable[[Any], Image],
+    ) -> None:
         """Create a file-backed video stream from an OpenCV capture object."""
         super().__init__(
             capture,
             cv2_module=cv2_module,
             playing=False,
             closed_error_message="This video has already been closed.",
+            frame_converter=frame_converter,
         )
         self._path = path
         self._loop = False
@@ -242,7 +252,7 @@ class Video(_FrameStreamBase):
             if not ok or frame is None:
                 self._playing = False
                 return None
-        return _frame_to_image(frame)
+        return self._frame_converter(frame)
 
 
 __all__ = [

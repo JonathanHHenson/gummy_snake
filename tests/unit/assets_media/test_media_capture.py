@@ -80,8 +80,12 @@ def test_create_video_wraps_optional_opencv_capture(monkeypatch, tmp_path: Path)
     )
     fake_cv2 = _FakeCV2([fake_capture])
 
-    monkeypatch.setattr(media_streams_module, "_load_cv2_module", lambda: fake_cv2)
-    monkeypatch.setattr(media_streams_module, "_frame_to_image", lambda _frame: create_image(2, 3))
+    monkeypatch.setattr(media_streams_module, "load_cv2_module", lambda: fake_cv2)
+    monkeypatch.setattr(
+        media_streams_module,
+        "frame_to_image",
+        lambda _frame: create_image(2, 3),
+    )
 
     clip = gs.create_video(video_path)
     assert clip.width == 320
@@ -130,8 +134,12 @@ def test_create_capture_wraps_camera_with_explicit_lifecycle(monkeypatch):
     fake_capture = _FakeVideoCapture(0, frames=[(True, object())])
     fake_cv2 = _FakeCV2([fake_capture])
 
-    monkeypatch.setattr(media_streams_module, "_load_cv2_module", lambda: fake_cv2)
-    monkeypatch.setattr(media_streams_module, "_frame_to_image", lambda _frame: create_image(4, 5))
+    monkeypatch.setattr(media_streams_module, "load_cv2_module", lambda: fake_cv2)
+    monkeypatch.setattr(
+        media_streams_module,
+        "frame_to_image",
+        lambda _frame: create_image(4, 5),
+    )
 
     camera = gs.create_capture("video", device=2, width=640, height=480)
     assert isinstance(camera, gs.Capture)
@@ -166,8 +174,12 @@ def test_create_capture_audio_video_returns_composite_stream(monkeypatch):
     fake_capture = _FakeVideoCapture(0, frames=[(True, object())])
     fake_cv2 = _FakeCV2([fake_capture])
 
-    monkeypatch.setattr(media_streams_module, "_load_cv2_module", lambda: fake_cv2)
-    monkeypatch.setattr(media_streams_module, "_frame_to_image", lambda _frame: create_image(6, 7))
+    monkeypatch.setattr(media_streams_module, "load_cv2_module", lambda: fake_cv2)
+    monkeypatch.setattr(
+        media_streams_module,
+        "frame_to_image",
+        lambda _frame: create_image(6, 7),
+    )
 
     stream = gs.create_capture("audio+video", device=3)
 
@@ -194,7 +206,7 @@ def test_media_apis_fail_predictably_without_optional_dependency(monkeypatch, tm
     def missing_cv2():
         raise BackendCapabilityError("Video playback/capture requires the optional media extra.")
 
-    monkeypatch.setattr(media_streams_module, "_load_cv2_module", missing_cv2)
+    monkeypatch.setattr(media_streams_module, "load_cv2_module", missing_cv2)
 
     with pytest.raises(BackendCapabilityError, match="optional media extra"):
         gs.create_video(video_path)

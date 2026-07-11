@@ -1,23 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
 from gummysnake.assets.audio import AudioBuffer, AudioInput, create_audio_in
 from gummysnake.assets.image import Image
 from gummysnake.assets.media.cv2 import (
-    capture_is_open as _capture_is_open,
+    capture_is_open,
+    load_cv2_module,
+    release_capture,
+    set_capture_dimensions,
 )
-from gummysnake.assets.media.cv2 import (
-    load_cv2_module as _load_cv2_module,
-)
-from gummysnake.assets.media.cv2 import (
-    release_capture as _release_capture,
-)
-from gummysnake.assets.media.cv2 import (
-    set_capture_dimensions as _set_capture_dimensions,
-)
-from gummysnake.assets.media.frame import frame_to_image as _frame_to_image
+from gummysnake.assets.media.frame import frame_to_image
 from gummysnake.assets.media.stream_sources.stream_types import (
     _AUDIO_KINDS,
     _AUDIO_VIDEO_KINDS,
@@ -31,13 +26,21 @@ from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityErro
 class Capture(_FrameStreamBase):
     """Camera capture stream with explicit lifecycle and frame reads."""
 
-    def __init__(self, capture: Any, *, device: int | str, cv2_module: Any) -> None:
+    def __init__(
+        self,
+        capture: Any,
+        *,
+        device: int | str,
+        cv2_module: Any,
+        frame_converter: Callable[[Any], Image],
+    ) -> None:
         """Create a camera capture stream from an OpenCV capture object."""
         super().__init__(
             capture,
             cv2_module=cv2_module,
             playing=True,
             closed_error_message="This capture has already been closed.",
+            frame_converter=frame_converter,
         )
         self._device = device
 
@@ -63,7 +66,7 @@ class Capture(_FrameStreamBase):
         ok, frame = cast(tuple[bool, Any], read())
         if not ok or frame is None:
             return None
-        image = _frame_to_image(frame)
+        image = self._frame_converter(frame)
         self._last_frame = image
         return image.copy()
 
@@ -164,7 +167,12 @@ class AudioVideoCapture:
         self.audio.stop()
 
 
-def create_video(path: str | Path) -> Video:
+def create_video(
+    path: str | Path,
+    *,
+    cv2_loader: Callable[[], Any] = load_cv2_module,
+    frame_converter: Callable[[Any], Image] = frame_to_image,
+) -> Video:
     """Open a video file for frame-by-frame reading.
 
     Args:
@@ -176,15 +184,25 @@ def create_video(path: str | Path) -> Video:
     video_path = Path(path).expanduser()
     if not video_path.exists():
         raise ArgumentValidationError(f"Video file does not exist: {video_path!s}.")
-    cv2 = _load_cv2_module()
+    cv2 = cv2_loader()
     capture = cv2.VideoCapture(str(video_path))
-    if not _capture_is_open(capture):
-        _release_capture(capture)
+    if not capture_is_open(capture):
+        release_capture(capture)
         raise BackendCapabilityError(f"Could not open video file: {video_path!s}.")
-    return Video(capture, path=video_path, cv2_module=cv2)
+    return Video(
+        capture,
+        path=video_path,
+        cv2_module=cv2,
+        frame_converter=frame_converter,
+    )
 
 
-async def create_video_async(path: str | Path) -> Video:
+async def create_video_async(
+    path: str | Path,
+    *,
+    cv2_loader: Callable[[], Any] = load_cv2_module,
+    frame_converter: Callable[[Any], Image] = frame_to_image,
+) -> Video:
     """Open a video file using the async asset-loading API.
 
     Args:
@@ -193,7 +211,11 @@ async def create_video_async(path: str | Path) -> Video:
     Returns:
         A Video stream ready to play, seek, and read frames.
     """
-    return create_video(path)
+    return create_video(
+        path,
+        cv2_loader=cv2_loader,
+        frame_converter=frame_converter,
+    )
 
 
 def create_capture(
@@ -202,6 +224,8 @@ def create_capture(
     device: int | str = 0,
     width: int | None = None,
     height: int | None = None,
+    cv2_loader: Callable[[], Any] = load_cv2_module,
+    frame_converter: Callable[[Any], Image] = frame_to_image,
 ) -> Capture | AudioInput | AudioVideoCapture:
     """Open a camera, microphone, or combined capture stream.
 
@@ -220,7 +244,14 @@ def create_capture(
         audio.start()
         return audio
     if normalized_kind in _AUDIO_VIDEO_KINDS:
-        video = create_capture("video", device=device, width=width, height=height)
+        video = create_capture(
+            "video",
+            device=device,
+            width=width,
+            height=height,
+            cv2_loader=cv2_loader,
+            frame_converter=frame_converter,
+        )
         audio = create_audio_in()
         audio.start()
         return AudioVideoCapture(cast(Capture, video), audio)
@@ -229,16 +260,21 @@ def create_capture(
             "create_capture() currently supports only kind='video' or kind='camera'."
         )
 
-    cv2 = _load_cv2_module()
+    cv2 = cv2_loader()
     capture = cv2.VideoCapture(device)
-    if not _capture_is_open(capture):
-        _release_capture(capture)
+    if not capture_is_open(capture):
+        release_capture(capture)
         raise BackendCapabilityError(
             "Could not open the requested camera device. This can happen in headless "
             "environments, when no camera is available, or when the OS denies access."
         )
-    _set_capture_dimensions(capture, cv2, width=width, height=height)
-    return Capture(capture, device=device, cv2_module=cv2)
+    set_capture_dimensions(capture, cv2, width=width, height=height)
+    return Capture(
+        capture,
+        device=device,
+        cv2_module=cv2,
+        frame_converter=frame_converter,
+    )
 
 
 async def create_capture_async(
@@ -247,6 +283,8 @@ async def create_capture_async(
     device: int | str = 0,
     width: int | None = None,
     height: int | None = None,
+    cv2_loader: Callable[[], Any] = load_cv2_module,
+    frame_converter: Callable[[Any], Image] = frame_to_image,
 ) -> Capture | AudioInput | AudioVideoCapture:
     """Open a capture stream using the async asset-loading API.
 
@@ -259,7 +297,14 @@ async def create_capture_async(
     Returns:
         A Capture, AudioInput, or AudioVideoCapture for the requested input.
     """
-    return create_capture(kind, device=device, width=width, height=height)
+    return create_capture(
+        kind,
+        device=device,
+        width=width,
+        height=height,
+        cv2_loader=cv2_loader,
+        frame_converter=frame_converter,
+    )
 
 
 __all__ = [
