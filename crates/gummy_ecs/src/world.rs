@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::archetype::{Archetype, ComponentSetKey};
 use crate::column::EcsValue;
@@ -40,6 +40,7 @@ pub struct World {
     resources: ResourceStore,
     events: EventStore,
     compiled_plans: PlanCache,
+    compiled_plan_spatial_cache_keys: HashMap<u64, HashSet<String>>,
     input_states: HashMap<(String, Option<i64>), EcsValue>,
     current_frame: u64,
     structural_revision: u64,
@@ -64,6 +65,7 @@ impl Clone for World {
             resources: self.resources.clone(),
             events: self.events.clone(),
             compiled_plans: self.compiled_plans.clone(),
+            compiled_plan_spatial_cache_keys: self.compiled_plan_spatial_cache_keys.clone(),
             input_states: self.input_states.clone(),
             current_frame: self.current_frame,
             structural_revision: self.structural_revision,

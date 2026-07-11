@@ -4,10 +4,13 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 env:
-  # CI runners do not expose a hardware GPU consistently. Keep rendering on the
-  # GPU API path by using Mesa's Vulkan/lavapipe adapter instead of falling back
-  # to CPU rasterization in Gummy Snake.
+  # GitHub runners do not expose a hardware GPU consistently. Mesa's Vulkan
+  # adapter keeps canvas tests on the supported GPU API path without a Python
+  # renderer fallback.
   WGPU_BACKEND: vulkan
 
 jobs:
@@ -20,38 +23,40 @@ jobs:
         with:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libasound2-dev \
-            libvulkan1 \
-            libwayland-dev \
-            libx11-dev \
-            libxcb1-dev \
-            libxcursor-dev \
-            libxext-dev \
-            libxfixes-dev \
-            libxi-dev \
-            libxkbcommon-dev \
-            libxrandr-dev \
-            libxrender-dev \
-            libxss-dev \
-            libxtst-dev \
-            mesa-vulkan-drivers \
-            pkg-config
+      - uses: ./.github/actions/setup-linux
       - run: uv sync --dev --no-install-project
-      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
-      - name: Test all Rust workspace crates
-        run: cargo test --workspace
-      - run: uv run ruff check .
-      - run: uv run mypy src
-      - name: Check workspace version synchronization
-        run: uv run python scripts/bump_version.py --check
-      - name: Check compiled synth and FX asset freshness
-        run: uv run python scripts/compile_synth_assets.py --check
-      - run: uv run pytest
-      - run: uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
+      - run: make runtime-develop-release
+      - run: make format-check
+      - run: make static-analysis
+      - run: make repository-audits
+      - run: make version-check
+      - run: make assets-check
+      # The focused route is intentionally separate from the full-suite gate:
+      # source-to-test impact-map owners retain a fast PR signal.
+      - run: make test-focused
+      - run: make test-full
+      - run: make smoke-release
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/setup-linux
+      - run: make rust-check
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/setup-linux
+      - run: uv sync --dev --no-install-project
+      - run: make package-verify
 
   coverage:
     runs-on: ubuntu-latest
@@ -62,28 +67,9 @@ jobs:
         with:
           python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libasound2-dev \
-            libvulkan1 \
-            libwayland-dev \
-            libx11-dev \
-            libxcb1-dev \
-            libxcursor-dev \
-            libxext-dev \
-            libxfixes-dev \
-            libxi-dev \
-            libxkbcommon-dev \
-            libxrandr-dev \
-            libxrender-dev \
-            libxss-dev \
-            libxtst-dev \
-            mesa-vulkan-drivers \
-            pkg-config
+      - uses: ./.github/actions/setup-linux
       - run: uv sync --dev --no-install-project
-      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
+      - run: make runtime-develop-release
       - run: uv run pytest --cov=gummysnake --cov-report=term-missing --cov-report=xml
       - name: Add coverage summary
         run: |
@@ -96,114 +82,3 @@ jobs:
         with:
           name: coverage-xml
           path: coverage.xml
-
-  build-python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-python@v5
-        with:
-          python-version-file: .python-version
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libasound2-dev \
-            libvulkan1 \
-            libwayland-dev \
-            libx11-dev \
-            libxcb1-dev \
-            libxcursor-dev \
-            libxext-dev \
-            libxfixes-dev \
-            libxi-dev \
-            libxkbcommon-dev \
-            libxrandr-dev \
-            libxrender-dev \
-            libxss-dev \
-            libxtst-dev \
-            mesa-vulkan-drivers \
-            pkg-config
-      - run: uv build
-      - name: Verify source-distribution contract
-        run: uv run python scripts/verify_distribution.py dist/gummy_snake-*.tar.gz
-
-  build-rust:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-python@v5
-        with:
-          python-version-file: .python-version
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libasound2-dev \
-            libvulkan1 \
-            libwayland-dev \
-            libx11-dev \
-            libxcb1-dev \
-            libxcursor-dev \
-            libxext-dev \
-            libxfixes-dev \
-            libxi-dev \
-            libxkbcommon-dev \
-            libxrandr-dev \
-            libxrender-dev \
-            libxss-dev \
-            libxtst-dev \
-            mesa-vulkan-drivers \
-            pkg-config
-      - run: uv sync --dev --no-install-project
-      - name: Test all Rust workspace crates
-        run: cargo test --workspace
-      - name: Build optional acceleration wheel
-        run: |
-          mkdir -p dist/accelerated
-          uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml --features extension-module --out dist/accelerated
-      - name: Add typed acceleration interface to wheel
-        run: uv run python scripts/package_acceleration_wheel.py dist/accelerated/*.whl
-      - name: Build publishable canvas wheel
-        run: |
-          mkdir -p dist/canvas
-          uv build --wheel --out-dir dist/canvas
-      - name: Verify native stubs and isolated installed-wheel contract
-        run: uv run python scripts/verify_distribution.py --wheel dist/canvas/*.whl --accelerated-wheel dist/accelerated/*.whl
-
-  canvas-runtime-python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-python@v5
-        with:
-          python-version-file: .python-version
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libasound2-dev \
-            libvulkan1 \
-            libwayland-dev \
-            libx11-dev \
-            libxcb1-dev \
-            libxcursor-dev \
-            libxext-dev \
-            libxfixes-dev \
-            libxi-dev \
-            libxkbcommon-dev \
-            libxrandr-dev \
-            libxrender-dev \
-            libxss-dev \
-            libxtst-dev \
-            mesa-vulkan-drivers \
-            pkg-config
-      - run: uv sync --dev --no-install-project
-      - run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
-      - run: uv run pytest tests/unit/test_rust_canvas.py tests/contracts/test_canvas_backend.py

@@ -50,6 +50,7 @@ python-source = "src"
 bindings = "pyo3"
 features = ["extension-module"]
 include = [
+    ".cargo/config.toml",
     "assets/samples/sonic_pi/*.flac",
     "assets/samples/sonic_pi/README.md",
     "assets/synths/README.md",
@@ -75,7 +76,15 @@ ignore_missing_imports = true
 warn_unused_ignores = true
 
 [tool.basedpyright]
-include = ["src"]
+include = [
+    "src",
+    "examples/09_performance/ant_colony_runtime",
+    "examples/09_performance/ants_2d.py",
+    "examples/11_temporary_perf_tests",
+    "examples/support/ant_colony",
+    "tests/benchmark/ant_colony_benchmark",
+    "tests/benchmark/test_ecs_ants_2d_perf.py",
+]
 
 typeCheckingMode = "standard"
 

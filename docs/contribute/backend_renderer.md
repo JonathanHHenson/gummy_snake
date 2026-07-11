@@ -57,7 +57,8 @@ It is responsible for:
 - stopping and closing renderer resources
 
 Most changes to `CanvasBackend` should be covered by contract tests or focused
-unit tests with fake canvas modules/events from `tests/helpers/`. SDL3
+unit tests with fake canvas modules/events from `tests/helpers/canvas_runtime/`.
+SDL3
 pointer/touch events are already logical window coordinates, so backend
 normalization must respect
 `coordinates = "logical"` payloads and avoid applying pixel-density scaling a

@@ -384,9 +384,9 @@ IDs unless they are explicitly labelled debug-only.
 For ECS changes, run the smallest focused checks first and broaden before handoff:
 
 ```sh
-uv run ruff check src/gummysnake/ecs tests/unit/test_ecs.py
+uv run ruff check src/gummysnake/ecs tests/unit/ecs/test_ecs.py
 uv run mypy src/gummysnake/ecs
-uv run pytest tests/unit/test_ecs.py -q
+uv run pytest tests/unit/ecs/test_ecs.py -q
 cargo test --manifest-path crates/gummy_ecs/Cargo.toml
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
 uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save

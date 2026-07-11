@@ -38,6 +38,16 @@ Each source area explicitly declares these categories in the TOML map:
 helper there only when more than one test needs it. `tests/fixtures/` contains
 package-resource and file inputs, not source-owned implementation behavior.
 
+### Unit subsystem homes
+
+Use the smallest relevant package rather than creating one directory per source
+module: `api_lifecycle/` for public API, context, state, and lifecycle behavior;
+`assets_media/` for assets, text, media, and pixels; `canvas_runtime/` for the
+canvas/Rust adapter boundary; `ecs/`, `synth/`, and `three_d/` for those focused
+subsystems; and `tooling/` for repository scripts, packaging, and topology audits.
+Reusable canvas fakes belong in `tests/helpers/canvas_runtime/`; fixture files and
+package resources remain under `tests/fixtures/`.
+
 Every category is deliberately present for every area. A `N/A: ...` entry is a
 reviewed statement that the category would add meaningless coverage (for example,
 an enum has no independent resource stress lifecycle). Do not replace an `N/A`

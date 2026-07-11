@@ -15,6 +15,7 @@ import argparse
 import ast
 import json
 import os
+import re
 import subprocess
 import sys
 import tarfile
@@ -33,6 +34,11 @@ RUST_PACKAGE_ROOT = PACKAGE_ROOT / "rust"
 CANVAS_MODULE = "gummysnake.rust._canvas"
 ACCELERATED_MODULE = "gummysnake.rust._accelerated"
 NATIVE_SUFFIXES = {".so", ".pyd", ".dylib"}
+MACOS_DEPLOYMENT_TARGET = (26, 0)
+_MACOS_BUILD_VERSION_PATTERN = re.compile(
+    r"cmd LC_BUILD_VERSION.*?platform (?:MACOS|1)\s+minos (?P<version>\d+(?:\.\d+)*)",
+    re.DOTALL,
+)
 REQUIRED_WHEEL_PATHS = (
     PACKAGE_ROOT / "py.typed",
     RUST_PACKAGE_ROOT / "_canvas.pyi",
@@ -68,17 +74,83 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Optional gummy_accel wheel whose native stub is checked separately.",
     )
     parser.add_argument(
+        "--sdist-dir",
+        type=Path,
+        help="Directory containing exactly one gummy_snake source distribution.",
+    )
+    parser.add_argument(
+        "--wheel-dir",
+        type=Path,
+        help="Directory containing exactly one gummy_snake canvas wheel.",
+    )
+    parser.add_argument(
+        "--accelerated-wheel-dir",
+        type=Path,
+        help="Directory containing exactly one gummy_accel wheel.",
+    )
+    parser.add_argument(
         "--root",
         type=Path,
         default=Path(__file__).resolve().parents[1],
         help="Checkout used to determine source-distribution inputs (default: repository root).",
     )
     args = parser.parse_args(argv)
+    try:
+        args.sdist = _resolve_archive_argument(
+            explicit=args.sdist,
+            directory=args.sdist_dir,
+            pattern="gummy_snake-*.tar.gz",
+            label="source distribution",
+        )
+        args.wheel = _resolve_archive_argument(
+            explicit=args.wheel,
+            directory=args.wheel_dir,
+            pattern="gummy_snake-*.whl",
+            label="canvas wheel",
+        )
+        args.accelerated_wheel = _resolve_archive_argument(
+            explicit=args.accelerated_wheel,
+            directory=args.accelerated_wheel_dir,
+            pattern="gummy_accel-*.whl",
+            label="acceleration wheel",
+        )
+    except DistributionConfigurationError as error:
+        parser.error(str(error))
     if args.sdist is None and args.wheel is None and args.accelerated_wheel is None:
-        parser.error("provide an sdist, --wheel, or --accelerated-wheel")
+        parser.error("provide an sdist, --wheel, or an archive discovery directory")
     if args.accelerated_wheel is not None and args.wheel is None:
         parser.error("--accelerated-wheel requires --wheel so the installed-wheel contract runs")
     return args
+
+
+def _resolve_archive_argument(
+    *, explicit: Path | None, directory: Path | None, pattern: str, label: str
+) -> Path | None:
+    """Choose one explicit archive or discover one unambiguous archive in a directory."""
+
+    if explicit is not None and directory is not None:
+        raise DistributionConfigurationError(
+            f"Provide either an explicit {label} or its discovery directory, not both"
+        )
+    if directory is None:
+        return explicit
+    return discover_single_archive(directory, pattern, label)
+
+
+def discover_single_archive(directory: Path, pattern: str, label: str) -> Path:
+    """Return the only regular archive matching *pattern* in *directory*."""
+
+    if not directory.is_dir():
+        raise DistributionConfigurationError(
+            f"{label.capitalize()} directory does not exist: {directory}"
+        )
+    matches = tuple(sorted(path for path in directory.glob(pattern) if path.is_file()))
+    if len(matches) != 1:
+        found = ", ".join(path.name for path in matches) or "none"
+        raise DistributionConfigurationError(
+            f"Expected exactly one {label} matching {pattern!r} in {directory}, found: {found}"
+        )
+    return matches[0]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -134,6 +206,7 @@ def verify_installed_wheel(wheel_path: Path, *, accelerated_wheel: Path | None =
         raise DistributionConfigurationError(
             "Canvas wheel is missing required paths:\n" + "\n".join(f"  {path}" for path in missing)
         )
+    _verify_macos_extension_deployment_target(wheel, CANVAS_MODULE)
     _verify_extension_surface(wheel, CANVAS_MODULE)
     _run_isolated_consumer_checks(wheel)
 
@@ -145,6 +218,7 @@ def verify_installed_wheel(wheel_path: Path, *, accelerated_wheel: Path | None =
                 "Acceleration wheel is missing required paths:\n"
                 + "\n".join(f"  {path}" for path in missing)
             )
+        _verify_macos_extension_deployment_target(acceleration, ACCELERATED_MODULE)
         _verify_extension_surface(acceleration, ACCELERATED_MODULE)
 
 
@@ -395,6 +469,97 @@ def extension_surface_drift(
     return tuple(drift)
 
 
+def _verify_macos_extension_deployment_target(wheel_path: Path, module_name: str) -> None:
+    """Reject macOS extensions linked for the host SDK instead of the wheel baseline."""
+
+    if sys.platform != "darwin":
+        return
+
+    member_name, extension_bytes = _native_extension_member(wheel_path, module_name)
+    with tempfile.TemporaryDirectory(prefix="gummysnake-macos-wheel-") as temporary:
+        extension = Path(temporary) / Path(member_name).name
+        extension.write_bytes(extension_bytes)
+        build_version = _run_native_inspection_command(["otool", "-l", str(extension)])
+        minimum_version = macos_build_minimum_version(build_version)
+        if minimum_version != MACOS_DEPLOYMENT_TARGET:
+            expected = ".".join(str(part) for part in MACOS_DEPLOYMENT_TARGET)
+            actual = ".".join(str(part) for part in minimum_version)
+            raise DistributionConfigurationError(
+                f"{wheel_path.name} native extension {member_name} targets macOS {actual}; "
+                f"wheel builds must target macOS {expected}. Set "
+                f"MACOSX_DEPLOYMENT_TARGET={expected} and retain the Cargo macOS rustflags."
+            )
+
+        undefined_symbols = _run_native_inspection_command(["nm", "-u", str(extension)])
+        availability_symbols = macos_availability_undefined_symbols(undefined_symbols)
+        if availability_symbols:
+            raise DistributionConfigurationError(
+                f"{wheel_path.name} native extension {member_name} has unsupported macOS "
+                "availability runtime references:\n"
+                + "\n".join(f"  {symbol}" for symbol in availability_symbols)
+                + "\nRebuild with MACOSX_DEPLOYMENT_TARGET=26.0 and the Cargo macOS rustflags."
+            )
+
+
+def _native_extension_member(wheel_path: Path, module_name: str) -> tuple[str, bytes]:
+    """Return the one packaged native extension matching *module_name*."""
+
+    extension_stem = module_name.rsplit(".", maxsplit=1)[-1]
+    prefix = f"{RUST_PACKAGE_ROOT.as_posix()}/{extension_stem}."
+    with zipfile.ZipFile(wheel_path) as archive:
+        members = tuple(
+            name
+            for name in archive.namelist()
+            if name.startswith(prefix) and Path(name).suffix in NATIVE_SUFFIXES
+        )
+        if len(members) != 1:
+            found = ", ".join(members) or "none"
+            raise DistributionConfigurationError(
+                f"Expected exactly one native extension for {module_name} in {wheel_path.name}, "
+                f"found: {found}"
+            )
+        member = members[0]
+        return member, archive.read(member)
+
+
+def _run_native_inspection_command(command: list[str]) -> str:
+    """Run a Mach-O inspection command and return output with useful failures."""
+
+    completed = subprocess.run(command, check=False, capture_output=True, text=True)
+    if completed.returncode:
+        detail = "\n".join(
+            part for part in (completed.stdout.strip(), completed.stderr.strip()) if part
+        )
+        raise DistributionConfigurationError(
+            f"Native wheel inspection failed with exit code {completed.returncode}: "
+            f"{' '.join(command)}\n{detail or '<no output>'}"
+        )
+    return completed.stdout
+
+
+def macos_build_minimum_version(otool_output: str) -> tuple[int, int]:
+    """Extract the macOS minimum version from an ``otool -l`` Mach-O report."""
+
+    match = _MACOS_BUILD_VERSION_PATTERN.search(otool_output)
+    if match is None:
+        raise DistributionConfigurationError(
+            "Native extension has no macOS LC_BUILD_VERSION load command"
+        )
+    parts = tuple(int(part) for part in match.group("version").split("."))
+    padded = parts + (0, 0)
+    return padded[0], padded[1]
+
+
+def macos_availability_undefined_symbols(nm_output: str) -> tuple[str, ...]:
+    """Return undefined availability-helper symbols that break older macOS loaders."""
+
+    return tuple(
+        sorted(
+            {line.strip() for line in nm_output.splitlines() if "isPlatformVersionAtLeast" in line}
+        )
+    )
+
+
 def _verify_extension_surface(wheel_path: Path, module_name: str) -> None:
     with zipfile.ZipFile(wheel_path) as archive:
         stub_path = f"{RUST_PACKAGE_ROOT.as_posix()}/{module_name.rsplit('.', maxsplit=1)[-1]}.pyi"
@@ -419,6 +584,7 @@ def _installed_extension_surface(wheel_path: Path, module_name: str) -> Mapping[
         "uv",
         "run",
         "--isolated",
+        "--refresh",
         "--with",
         str(wheel_path),
         "python",
@@ -428,12 +594,20 @@ def _installed_extension_surface(wheel_path: Path, module_name: str) -> Mapping[
     ]
     completed = subprocess.run(
         command,
-        check=True,
+        check=False,
         cwd=_isolated_working_directory(),
         env=_isolated_environment(),
         capture_output=True,
         text=True,
     )
+    if completed.returncode:
+        detail = "\n".join(
+            part for part in (completed.stdout.strip(), completed.stderr.strip()) if part
+        )
+        raise DistributionConfigurationError(
+            f"Installed extension surface check for {module_name} failed with exit code "
+            f"{completed.returncode}:\n{detail or '<no output>'}"
+        )
     try:
         surface = json.loads(completed.stdout)
     except json.JSONDecodeError as error:
@@ -451,18 +625,41 @@ def _run_isolated_consumer_checks(wheel_path: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="gummysnake-wheel-contract-") as temporary:
         consumer = Path(temporary) / "consumer.py"
         consumer.write_text(_WHEEL_CONSUMER_SCRIPT, encoding="utf-8")
-        base_command = ["uv", "run", "--isolated", "--with", str(wheel_path)]
-        subprocess.run(
+        base_command = ["uv", "run", "--isolated", "--refresh", "--with", str(wheel_path)]
+        _run_isolated_consumer_command(
             [*base_command, "--with", "mypy", "mypy", "--strict", str(consumer)],
-            check=True,
-            cwd=Path(temporary),
-            env=_isolated_environment(),
+            Path(temporary),
+            "installed-wheel consumer type check",
         )
-        subprocess.run(
+        _run_isolated_consumer_command(
             [*base_command, "python", str(consumer)],
-            check=True,
-            cwd=Path(temporary),
-            env=_isolated_environment(),
+            Path(temporary),
+            "installed-wheel runtime smoke",
+        )
+        _run_isolated_consumer_command(
+            [*base_command, "python", "-c", _NO_FALLBACK_CONSUMER_SCRIPT],
+            Path(temporary),
+            "installed-wheel no-fallback smoke",
+        )
+
+
+def _run_isolated_consumer_command(command: list[str], working_directory: Path, label: str) -> None:
+    """Run one installed-wheel consumer phase with actionable failure output."""
+
+    completed = subprocess.run(
+        command,
+        check=False,
+        cwd=working_directory,
+        env=_isolated_environment(),
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode:
+        detail = "\n".join(
+            part for part in (completed.stdout.strip(), completed.stderr.strip()) if part
+        )
+        raise DistributionConfigurationError(
+            f"{label} failed with exit code {completed.returncode}:\n{detail or '<no output>'}"
         )
 
 
@@ -598,6 +795,57 @@ _NATIVE_SURFACE_SCRIPT = textwrap.dedent(
 ).strip()
 
 
+_NO_FALLBACK_CONSUMER_SCRIPT = (
+    textwrap.dedent(
+        """
+    import importlib.abc
+
+
+    class BlockNativeCanvas(importlib.abc.MetaPathFinder):
+        def find_spec(self, fullname, path=None, target=None):
+            if fullname == "gummysnake.rust._canvas":
+                raise ModuleNotFoundError(
+                    "wheel smoke deliberately blocked the native canvas extension"
+                )
+            return None
+
+
+    import sys
+
+    sys.meta_path.insert(0, BlockNativeCanvas())
+
+    from gummysnake import synth as sy
+    from gummysnake.exceptions import BackendCapabilityError
+    from gummysnake.rust.canvas import require_canvas_runtime
+    from gummysnake.rust.ecs import require_ecs_runtime
+
+
+    @sy.track
+    def missing_runtime_track() -> None:
+        sy.sample("bd_haus", amp=0.1)
+        sy.sleep(0.01)
+
+
+    def require_clear_failure(operation) -> None:
+        try:
+            operation()
+        except BackendCapabilityError as error:
+            message = str(error).lower()
+            if "runtime" not in message or not ({"build", "rebuild"} & set(message.split())):
+                raise SystemExit(f"native capability failure lacks build guidance: {error}")
+        else:
+            raise SystemExit("native runtime was blocked but validation used a fallback")
+
+
+    require_clear_failure(require_canvas_runtime)
+    require_clear_failure(require_ecs_runtime)
+    require_clear_failure(lambda: missing_runtime_track().render(duration=0.02, sample_rate=8_000))
+    """
+    ).strip()
+    + "\n"
+)
+
+
 _WHEEL_CONSUMER_SCRIPT = (
     textwrap.dedent(
         """
@@ -624,9 +872,18 @@ _WHEEL_CONSUMER_SCRIPT = (
     )
 
 
+    _PACKAGED_SAMPLE = Path(
+        str(
+            importlib.metadata.distribution("gummy-snake").locate_file(
+                "assets/samples/sonic_pi/bd_haus.flac"
+            )
+        )
+    )
+
+
     @sy.track
     def wheel_contract_track() -> None:
-        sy.sample("bd_haus", amp=0.1)
+        sy.sample(str(_PACKAGED_SAMPLE), amp=0.1)
         sy.sleep(0.01)
 
 
@@ -643,18 +900,16 @@ _WHEEL_CONSUMER_SCRIPT = (
             (".so", ".pyd", ".dylib")
         ):
             raise SystemExit("wheel did not import the mandatory native canvas extension")
-        if (
-            canvas_health_check() != "rust-canvas"
-            or canvas_abi_version() != EXPECTED_CANVAS_ABI_VERSION
-        ):
-            raise SystemExit(
-                "installed wheel has an unhealthy or ABI-incompatible canvas extension"
-            )
-        if (
-            not ecs_health_check().startswith("gummy-ecs")
-            or ecs_abi_version() != EXPECTED_ECS_ABI_VERSION
-        ):
-            raise SystemExit("installed wheel has an unhealthy or ABI-incompatible ECS bridge")
+        if not _PACKAGED_SAMPLE.is_file():
+            raise SystemExit("wheel did not install the required bd_haus sample asset")
+        if EXPECTED_CANVAS_ABI_VERSION != 18 or canvas_abi_version() != 18:
+            raise SystemExit("installed wheel does not expose required canvas ABI 18")
+        if canvas_health_check() != "rust-canvas":
+            raise SystemExit("installed wheel has an unhealthy canvas extension")
+        if EXPECTED_ECS_ABI_VERSION != 4 or ecs_abi_version() != 4:
+            raise SystemExit("installed wheel does not expose required ECS ABI 4")
+        if not ecs_health_check().startswith("gummy-ecs"):
+            raise SystemExit("installed wheel has an unhealthy ECS bridge")
         require_canvas_runtime()
         runtime = require_ecs_runtime()
         world = create_ecs_world()

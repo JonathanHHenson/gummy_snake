@@ -49,6 +49,7 @@ def test_ecs_system_churn_releases_spatial_plans_and_keeps_diagnostics_resettabl
         world.run_pre_draw_systems()
         assert world.diagnostics()["ecs_spatial_indexes_built"] >= 1
         world.remove_system(handle)
+        assert world.diagnostics()["ecs_spatial_index_cache_len"] == 0
         world.reset_diagnostics()
         assert world.diagnostics().get("ecs_spatial_indexes_built", 0) == 0
 

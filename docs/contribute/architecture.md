@@ -346,8 +346,10 @@ Use these rules of thumb:
   object-mode facade. Object-mode forwarding methods are grouped explicitly under
   `src/gummysnake/sketch/facade_mixins/` instead of using dynamic forwarding
   magic.
-- `tests/helpers/`: shared fake canvas runtimes, renderer fakes, and WebGL helper
-  objects used across unit/contract tests.
+- `tests/unit/`: focused subsystem packages for API/lifecycle, assets/media,
+  canvas runtime, ECS, synth, 3D, and tooling coverage.
+- `tests/helpers/`: reusable canvas fakes under `canvas_runtime/`, plus shared
+  ECS, synth, renderer, and WEBGL helper objects used across unit/contract tests.
 - `tests/fixtures/`: package-resource and file fixtures used by tests.
 - `examples/output/`: ignored generated output from examples; do not treat it as
   source.

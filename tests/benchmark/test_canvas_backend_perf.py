@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from benchmark_helpers import run_json_subprocess
 
-CHILD_RUNNER = Path(__file__).with_name("canvas_backend_perf_child.py")
+CHILD_RUNNER = Path(__file__).with_name("canvas_backend_perf") / "child.py"
 FRAMES = 120
 REPEATS = 2
 MIN_MEAN_FPS = 240.0

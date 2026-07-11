@@ -2,22 +2,36 @@
 
 Use the smallest checks that cover the change.
 
-## Common Checks
+## Canonical Commands
+
+The [canonical validation matrix](validation.md) is the source of truth for
+local, pull-request, publish, native-wheel, and release-candidate gates. Start
+with a release runtime, then run the supported comprehensive local gate:
 
 ```sh
-make static-analysis
-uv run pytest
-uv run python scripts/source_size_audit.py
-uv run python scripts/source_size_audit.py --check
-uv run python scripts/structure_audit.py
-uv run python scripts/impact_map_audit.py
-uv run python scripts/compile_synth_assets.py --check
-uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
-cargo test --workspace
-uv build --sdist
-uv run python scripts/verify_distribution.py dist/gummy_snake-X.Y.Z.tar.gz
-cargo check --manifest-path tests/fixtures/rust/downstream_runtime_api/Cargo.toml
+uv sync --dev
+make runtime-develop-release
+make check
 ```
+
+Useful focused commands remain available without duplicating workflow recipes:
+
+```sh
+make format-check
+make static-analysis
+make repository-audits
+make test-focused
+make test-full
+make rust-check
+make smoke-release
+make package-verify
+```
+
+`make check` and every command above are non-mutating to tracked files. `make
+format` intentionally reformats files. `make package-verify` builds into a fresh,
+ignored `.scratch/package-verify/run.*` workspace and removes only that workspace
+when it finishes; it never inspects or removes shared `dist/` artifacts. The normal
+test suite leaves benchmark and stress markers opt-in.
 
 For coverage locally:
 
@@ -36,21 +50,24 @@ Use focused checks while developing, then broaden before handing off:
 | Backend scheduling or capability behavior | `tests/contracts/` plus relevant unit tests |
 | Renderer or pixel behavior | contract or integration test plus a headless smoke example |
 | Rust canvas runtime behavior | `cargo test --manifest-path crates/gummy_canvas/Cargo.toml` plus Python wrapper tests |
-| ECS API, storage, scheduling, or physical execution | `uv run ruff check src/gummysnake/ecs tests/unit/test_ecs.py`, `uv run mypy src/gummysnake/ecs`, `uv run pytest tests/unit/test_ecs.py -q`, and `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` |
+| ECS API, storage, scheduling, or physical execution | `uv run ruff check src/gummysnake/ecs tests/unit/ecs/test_ecs.py`, `uv run mypy src/gummysnake/ecs`, `uv run pytest tests/unit/ecs/test_ecs.py -q`, and `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` |
 | ECS spatial systems or examples | ECS unit/Rust checks plus `uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save`, `uv run python examples/10_ecs/crystal_moths.py --headless --frames 1 --no-save`, or `uv run python examples/09_performance/boids_3d.py --headless --frames 1 --no-save` |
 | WEBGL or fallback 3D path behavior | focused integration tests plus `tests/benchmark/test_webgl_3d_perf.py --run-benchmarks` when hot paths change |
 | Long-running resource lifecycle behavior | `uv run pytest tests/stress --run-stress -q -s` |
-| Static-analysis configuration, suppressions, or tooling | `make static-analysis` plus `uv run pytest tests/unit/test_static_analysis_audit.py` |
+| Static-analysis configuration, suppressions, or tooling | `make static-analysis` plus `uv run pytest tests/unit/tooling/test_static_analysis_audit.py` |
+| Examples, catalog, or example smoke tooling | `uv run python scripts/structure_audit.py` and the relevant `scripts/example_smoke.py --tier ...` commands |
 | Documentation only | link/path review; no full test suite required unless commands changed |
 | Source layout, package naming, file splits, or validation-route moves | `make audit`, `uv run python scripts/source_size_audit.py`, and `uv run python scripts/impact_map_audit.py` |
 | Synth or FX asset sources | `make assets-check` plus focused synth asset tests |
-| Source distribution/package inputs | `uv build --sdist` then `make verify-sdist SDIST=dist/gummy_snake-X.Y.Z.tar.gz` |
-| Built wheel, native stubs, or release packaging | build release canvas/optional-acceleration wheels, then run `uv run python scripts/verify_distribution.py --wheel <canvas-wheel> --accelerated-wheel <acceleration-wheel>` |
-| CI workflow changes | local command equivalence where practical |
+| Source distribution/package inputs | `make package-verify` (repeatable and isolated) or `make verify-sdist SDIST_DIR=dist` after building when `dist/` has exactly one matching sdist |
+| Built wheel, native stubs, or release packaging | `make verify-wheel WHEEL_DIR=dist/canvas` or `make verify-wheel-accel WHEEL_DIR=dist/canvas ACCELERATED_WHEEL_DIR=dist/accelerated` |
+| CI workflow changes | `uv run pytest tests/unit/tooling/test_validation_workflows.py -q` plus Make command equivalence |
 
 ## Test Placement
 
-- `tests/unit/`: pure API, state, assets, events, and wrapper behavior.
+- `tests/unit/`: pure API, state, assets, events, and wrapper behavior, grouped into
+  `api_lifecycle/`, `assets_media/`, `canvas_runtime/`, `ecs/`, `synth/`,
+  `three_d/`, and `tooling/`.
 - `tests/contracts/`: backend and renderer promises.
 - `tests/golden/`: deterministic render comparisons.
 - `tests/integration/`: end-to-end sketch behavior.
@@ -58,7 +75,8 @@ Use focused checks while developing, then broaden before handing off:
 - `tests/stress/`: opt-in long-running resource lifecycle tests.
 - `tests/helpers/`: shared fake canvas modules, renderer fakes, WebGL helpers,
   and other reusable test support that should not live under one specific test
-  category.
+  category. Canvas-runtime fakes live in `tests/helpers/canvas_runtime/`; ECS,
+  synth, and WEBGL helpers remain reusable top-level helpers.
 - `tests/fixtures/`: package-resource and file fixtures used by tests. Do not put
   test-only fixtures under `src/gummysnake`.
 
@@ -89,8 +107,11 @@ assets are current without modifying them. `impact_map_audit.py` validates the
 maintained [source-to-test impact map](source_test_impact_map.md): every top-level
 Python/Rust owner, category decision, named check path, command path, and Cargo
 workspace owner must remain current. After `uv build --sdist`, run
-`make verify-sdist SDIST=dist/gummy_snake-X.Y.Z.tar.gz` to verify recursive local Cargo sources and
-Maturin-included assets are present.
+`make verify-sdist SDIST_DIR=dist` to discover and verify the one generated
+archive, including recursive local Cargo sources and Maturin-included assets. This
+direct discovery command deliberately rejects a shared directory with zero or
+multiple matching archives; use `make package-verify` for an isolated, repeatable
+build-and-verify run.
 
 ## Distribution Contracts
 
@@ -103,24 +124,19 @@ fallback for canvas, ECS, synth, or assets.
 Use release-built wheels for the complete contract:
 
 ```sh
-mkdir -p dist/canvas dist/accelerated
-uvx maturin build --release --manifest-path crates/gummy_canvas/Cargo.toml \
-  --features extension-module --out dist/canvas
-uvx maturin build --release --manifest-path crates/gummy_accel/Cargo.toml \
-  --features extension-module --out dist/accelerated
-uv run python scripts/package_acceleration_wheel.py dist/accelerated/gummy_accel-*.whl
-uv run python scripts/verify_distribution.py \
-  --wheel dist/canvas/gummy_snake-*.whl \
-  --accelerated-wheel dist/accelerated/gummy_snake-*.whl
+make build-rust WHEEL_DIR=dist/canvas
+make build-accel ACCELERATED_WHEEL_DIR=dist/accelerated
+make verify-wheel-accel WHEEL_DIR=dist/canvas ACCELERATED_WHEEL_DIR=dist/accelerated
 ```
 
 The verifier inspects wheel members, compares every public native module
 function’s symbol and runtime signature to its shipped `.pyi` file, then uses
 `uv run --isolated` to type-check and execute a consumer installed from the
-wheel. That consumer requires the canvas/ECS ABIs and health checks, an empty
-Rust ECS world, a headless frame, packaged synth/FX/sample lookup, and a
-non-empty Rust-rendered WAV. It deliberately fails rather than using source
-imports or a Python fallback.
+wheel. That consumer requires canvas ABI 18, ECS ABI 4, health checks, an
+empty Rust ECS world, a headless frame, packaged synth/FX/sample lookup, and a
+non-empty Rust-rendered WAV. A separate consumer blocks the native extension and
+requires the clear rebuild-guidance capability error rather than a Python
+fallback. Both consumers reject source-tree imports.
 
 ## Performance Benchmarks
 
@@ -137,6 +153,8 @@ uv run pytest tests/benchmark/test_model_export_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_webgl_3d_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_ecs_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_ecs_ants_2d_perf.py --run-benchmarks
+uv run pytest tests/benchmark/test_ecs_scenarios_perf.py --run-benchmarks
 uv run pytest tests/benchmark/test_synth_offline_perf.py --run-benchmarks
 ```
 
@@ -211,10 +229,15 @@ its fallback boundaries.
 The ECS benchmarks verify that hot systems use Rust physical plans rather than
 Python fallback execution. Performance claims should show
 `ecs_physical_system_runs` greater than zero and `ecs_udf_calls` equal to zero for
-the hot path. Spatial ECS benchmarks additionally check candidate/exact row counts
-and per-algorithm counters for generic `ecs.spatial` relations. Use release-built
-`gummy_canvas` extensions for comparisons; debug extension builds can make ECS
-and renderer numbers look dramatically slower.
+the hot path. The deterministic ant-colony scenario uses 10,000 seeded ants and
+four compiled plans; its sketch presentation and benchmark measurement adapter
+share `examples/support/ant_colony/`. Stable ECS scenario IDs and their subprocess
+payloads live in `examples/09_performance/ecs_scenarios/` and
+`tests/benchmark/test_ecs_scenarios_perf.py`; the old temporary paths are tested
+forwarders only. Spatial ECS benchmarks additionally check candidate/exact row
+counts and per-algorithm counters for generic `ecs.spatial` relations. Use
+release-built `gummy_canvas` extensions for comparisons; debug extension builds can
+make ECS and renderer numbers look dramatically slower.
 
 Checked-in baseline snapshots live in `tests/benchmark/baselines/` as TOML.
 Each baseline records the command, machine/configuration, commit, canvas size,
@@ -237,8 +260,11 @@ Long-running lifecycle checks live under `tests/stress/` and are skipped unless
 explicitly requested:
 
 ```sh
-uv run pytest tests/stress --run-stress -q -s
+make test-stress
 ```
+
+Use `make release-candidate` for the documented release-built combination of
+release smoke, normal/high-count benchmark gates, and stress tests.
 
 Run these before releases and when changing canvas resize, shutdown, image
 texture caching, text/font caching, pixel readback/upload, direct shape/clip
@@ -273,37 +299,27 @@ reasonably covered headlessly.
 ```mermaid
 flowchart LR
     Push[push or pull request] --> Quality[quality]
+    Push --> Rust[rust]
+    Push --> Package[package]
     Push --> Coverage[coverage]
-    Push --> BuildPython[build-python]
-    Push --> BuildRust[build-rust]
-    Push --> Canvas[canvas-runtime-python]
 
-    Quality --> Lint[ruff]
-    Quality --> Types[mypy]
-    Quality --> Tests[pytest]
+    Quality --> Python[Make quality, audits, Python tests, release smoke]
+    Rust --> Workspace[Make Rust format, Clippy, direct crate tests]
+    Package --> Archive[Make build and distribution verifier]
     Coverage --> Cov[pytest-cov XML artifact]
-    BuildRust --> Cargo[cargo test]
 ```
 
-Coverage is reported in the job summary and uploaded as `coverage-xml`.
+The shared Linux composite action provisions native dependencies for every
+Ubuntu job. `quality` invokes the canonical format/static-analysis/audit/version/
+asset/focused/full/smoke targets; `rust` invokes `make rust-check`; and
+`package` invokes `make package-verify`. Coverage is reported in the job summary
+and uploaded as `coverage-xml`.
 
-## What Each CI Job Proves
-
-- `quality`: verifies the main contributor path: install dev dependencies,
-  build the required canvas runtime, lint, type check, version check, run the
-  Python test suite, and smoke-test an example.
-- `coverage`: runs the Python test suite with coverage instrumentation and
-  uploads `coverage.xml`.
-- `build-python`: verifies `uv build` can produce Python distributions.
-- `build-rust`: verifies optional acceleration and required canvas/ECS Rust builds,
-  and runs canvas plus ECS crate tests.
-- `canvas-runtime-python`: focuses on Python tests that require the canvas
-  runtime.
-
-If a job starts failing after a change, first identify which ownership boundary
-the job covers. For example, a failure only in `build-rust` is usually a crate
-or packaging issue, while a failure in `quality` after Rust builds successfully
-is usually Python API, test, or example behavior.
+Publish repeats those same validation gates, then builds and runs the installed
+wheel smoke on each wheel's Linux, macOS Intel, macOS ARM, or Windows builder.
+The optional manual publish `release_candidate` input invokes the documented
+`make release-candidate` gate; benchmarks and stress checks are otherwise never
+silently promoted into ordinary CI.
 
 ## Coverage Reporting
 

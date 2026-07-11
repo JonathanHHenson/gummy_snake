@@ -1,42 +1,28 @@
 # Examples
 
-Examples live in [../../examples](../../examples).
-
-Useful starting points:
+The full reviewed catalog is [`examples/example_catalog.toml`](../../examples/example_catalog.toml),
+with runnable command contracts, required assets/capabilities, output behavior,
+and smoke classification. Start with these representative examples:
 
 - `examples/01_getting_started/basic_shapes.py`
 - `examples/01_getting_started/timing_and_animation.py`
 - `examples/02_drawing/shapes_curves.py`
-- `examples/02_drawing/contours_clipping_tint_export.py`
 - `examples/02_drawing/transforms_and_modes.py`
-- `examples/02_drawing/pixels_and_export.py`
-- `examples/03_assets/data_files.py`
 - `examples/03_assets/images_and_sprites.py`
-- `examples/03_assets/audio_analysis_synthesis.py`
-- `examples/03_assets/offscreen_graphics_compute.py`
-- `examples/05_interaction/input_state.py`
-- `examples/05_interaction/sensors_environment.py`
+- `examples/04_text/typography_accessibility.py`
+- `examples/05_interaction/lifecycle_controls.py`
+- `examples/06_math/noise_vectors_random.py`
 - `examples/08_3d/webgl_scene.py`
-- `examples/08_3d/advanced_webgpu_geometry.py`
-- `examples/09_performance/sixty_fps_load_showcase.py`
-- `examples/09_performance/nature_of_code_attractor.py`
-- `examples/09_performance/boids_3d.py`
 - `examples/10_ecs/firefly_constellation.py`
-- `examples/10_ecs/crystal_moths.py`
-- `examples/08_3d/lorenz_attractor_3d.py`
 - `examples/games/asteroids.py`
 
-The first sketch, asset, interaction, and transform examples show the preferred
-Pythonic APIs: decorators, async loaders, property facades, and context
-managers. The feature demos also cover audio analysis/synthesis, deterministic
-sensor input, environment state, offscreen graphics, framebuffers,
-storage-buffer compute, and advanced WEBGL/WEBGPU-style 3D APIs.
-The performance examples are good starting points when you want to see dense
-public drawing loops using `gs.fast()`, internal primitive batching, sprite
-batching, Nature of Code-style particle forces, retained WEBGL model drawing, or
-Rust ECS/spatial-query simulation while targeting 60 FPS. The ECS examples show
-dataclass components, resources, ordered systems, typed entity views, and spatial
-relations before user drawing.
+The numbered directories form the learning sequence documented in
+[`examples/README.md`](../../examples/README.md): drawing, assets, text,
+interaction, math, plugins, 3D, performance, ECS, and synth. The performance
+group is intentionally separate from the learning path; it demonstrates dense
+rendering and ECS workloads. `examples/11_temporary_perf_tests/` contains retained
+forwarding paths only, while `examples/support/` and `examples/assets/` are not
+standalone lessons.
 
 Run an example interactively:
 
@@ -47,8 +33,24 @@ uv run python examples/01_getting_started/basic_shapes.py --interactive
 Run a bounded headless preview:
 
 ```sh
-uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
+uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1 --no-save
 ```
 
-Most examples save output to `examples/output/` when `--frames` is provided.
-Pass `--no-save` to skip image export.
+Normal bounded canvas runs save their catalogued result under `examples/output/`
+when `--no-save` is omitted. That directory is ignored. Synth examples render WAV
+files and play by default; use `--no-play` in non-interactive environments.
+
+For contributor validation, run the catalog audit and cumulative bounded smoke
+tiers. They cover 2D, image/text assets, lifecycle, ECS, WEBGL, and offline synth
+rendering without requiring an audio device:
+
+```sh
+uv run python scripts/structure_audit.py
+uv run python scripts/example_smoke.py --tier fast
+uv run python scripts/example_smoke.py --tier extended
+uv run python scripts/example_smoke.py --tier release
+```
+
+The canonical wobble synth path and callable are `wob_rhythm`; the historical
+`examples/12_synth/wob_rythm.py` path/callable remains supported with its original
+`wob_rythm.wav` default output.

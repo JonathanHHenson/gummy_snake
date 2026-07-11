@@ -1,0 +1,27 @@
+name: Set up Linux native build dependencies
+description: Install the shared native packages required by Rust canvas builds and headless GPU validation.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Linux native build dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libasound2-dev \
+          libvulkan1 \
+          libwayland-dev \
+          libx11-dev \
+          libxcb1-dev \
+          libxcursor-dev \
+          libxext-dev \
+          libxfixes-dev \
+          libxi-dev \
+          libxkbcommon-dev \
+          libxrandr-dev \
+          libxrender-dev \
+          libxss-dev \
+          libxtst-dev \
+          mesa-vulkan-drivers \
+          pkg-config

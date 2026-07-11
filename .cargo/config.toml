@@ -1,2 +1,12 @@
 [env]
 PYO3_PYTHON = { value = ".venv/bin/python", relative = true }
+# SDL3's current macOS sources use macOS 26 availability checks. Build against
+# the matching supported platform so Clang does not emit the unavailable
+# __isPlatformVersionAtLeast helper into a PyO3 dynamic-lookup extension.
+MACOSX_DEPLOYMENT_TARGET = { value = "26.0", force = true }
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-mmacosx-version-min=26.0"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-mmacosx-version-min=26.0"]

@@ -208,6 +208,7 @@ uv run mypy src
 uv run pytest
 uv run python scripts/source_size_audit.py
 uv run python scripts/structure_audit.py
+uv run python scripts/example_smoke.py --tier fast
 ```
 
 The canvas runtime is a required PyO3 module for development/source installs and
@@ -235,9 +236,14 @@ plan builders live in `src/gummysnake/ecs/`, while canonical storage and physica
 execution live in `crates/gummy_ecs` and are exposed through the `gummy_canvas`
 PyO3 module. The renderer internals are grouped around bridge calls, lifecycle,
 counters, caches, payload builders, and primitive/image/text/pixel drawing.
-Shared test fakes live in `tests/helpers/`, fixtures live in `tests/fixtures/`,
-and generated example output stays under the
-gitignored `examples/output/` tree. The native desktop runtime itself lives in
+Unit suites are grouped by subsystem under `tests/unit/`; reusable canvas fakes
+live in `tests/helpers/canvas_runtime/`, and fixtures remain in `tests/fixtures/`.
+Generated example output stays under the
+gitignored `examples/output/` tree. `examples/example_catalog.toml` classifies
+every example Python file and defines cumulative `fast`, `extended`, and
+`release` smoke tiers; run `make smoke`, `make smoke-extended`, or
+`make smoke-release` to validate them without writing normal output or requiring
+an audio device. The native desktop runtime itself lives in
 `crates/gummy_canvas`, owns sketch context state, canvas draw state, command
 construction, cache/dirty-state helpers, and GPU render-pass batching, and uses
 SDL3 for windowing, resizing, and input event collection. Python keeps the
@@ -258,6 +264,7 @@ workflow, and release shape in more detail:
 - [API performance policy](docs/contribute/api_performance_policy.md)
 - [Text renderer decision](docs/contribute/text_renderer_decision.md)
 - [Testing and CI](docs/contribute/testing.md)
+- [Canonical validation matrix](docs/contribute/validation.md)
 
 Performance benchmarks are opt-in:
 

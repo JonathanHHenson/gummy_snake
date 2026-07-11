@@ -380,6 +380,35 @@ fn spatial_index_cache_reuses_valid_snapshot_across_executions() {
 }
 
 #[test]
+fn releasing_compiled_plan_evicts_only_unowned_spatial_cache_entries() {
+    let (mut world, _) = world_with_motion();
+    add_motion_entity(&mut world, 1.0, 0.0, 0.0);
+    add_motion_entity(&mut world, 20.0, 0.0, 0.0);
+    let first_handle = world
+        .compile_bridge_plan_handle(spatial_count_payload(&world))
+        .unwrap();
+    let second_handle = world
+        .compile_bridge_plan_handle(spatial_count_payload(&world))
+        .unwrap();
+
+    world
+        .execute_compiled_plan_with_options(first_handle, false)
+        .unwrap();
+    assert_eq!(world.spatial_index_cache_len(), 1);
+
+    assert!(world.release_compiled_plan(first_handle));
+    assert_eq!(world.spatial_index_cache_len(), 1);
+
+    let report = world
+        .execute_compiled_plan_with_options(second_handle, false)
+        .unwrap();
+    assert!(report.spatial_index_reuses >= 1);
+
+    assert!(world.release_compiled_plan(second_handle));
+    assert_eq!(world.spatial_index_cache_len(), 0);
+}
+
+#[test]
 fn spatial_index_cache_persists_from_fused_parallel_collector() {
     let (mut world, _) = world_with_motion();
     add_motion_entity(&mut world, 1.0, 0.0, 0.0);

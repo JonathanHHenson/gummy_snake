@@ -16,6 +16,7 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 - [ECS release checklist](ecs_release_checklist.md)
 - [ECS context-manager API release notes](ecs_context_manager_release_notes.md)
 - [Testing and CI](testing.md)
+- [Canonical validation matrix](validation.md)
 - [Python static analysis](static_analysis.md)
 - [Documentation workflow](documentation.md)
 
@@ -124,20 +125,21 @@ Read [Testing and CI](testing.md) before adding tests or changing workflows.
 - `src/gummysnake/ecs/`: Python ECS public API, logical expressions/actions, system builder, physical payload serialization, and Rust-backed world facade.
 - `src/gummysnake/drawing/`: renderer protocols, `renderer3d` package, `software3d` helpers, and retained prototype helpers.
 - `src/gummysnake/rust/`: Python wrappers around PyO3 modules and Rust-backed kernels, including ECS ABI validation.
-- `tests/helpers/` and `tests/fixtures/`: shared test support and package/file fixtures.
+- `tests/unit/`: subsystem-focused API/lifecycle, assets/media, canvas-runtime,
+  ECS, synth, 3D, and tooling suites; `tests/helpers/canvas_runtime/` holds
+  reusable canvas fakes, while `tests/fixtures/` holds package/file fixtures.
 - `scripts/source_size_audit.py` and `scripts/structure_audit.py`: lightweight layout guardrails for refactors.
 
 ## Local Commands
 
 ```sh
 uv sync --dev
-uvx maturin develop --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
-cargo test --workspace
-uv run python scripts/source_size_audit.py --check
-uv run python scripts/structure_audit.py
-make static-analysis
-uv run pytest
+make runtime-develop-release
+make check
 ```
+
+See the [canonical validation matrix](validation.md) for focused Python,
+workspace Rust, packaging, native-wheel, and opt-in release-candidate commands.
 
 ## Design Constraints
 

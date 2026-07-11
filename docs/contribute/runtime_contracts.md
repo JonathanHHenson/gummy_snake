@@ -106,7 +106,10 @@ and WEBGL scenarios require a 240 FPS mean floor; recovered scenes retain their
 documented margin objectives. Model export retains its streaming memory budget, not
 an FPS target. Existing benchmark TOML files are machine/build observations, not
 portable CI timing claims: compare only matching machine, OS, interpreter, revision,
-and release-build fingerprints.
+and release-build fingerprints. Moved benchmark scenarios declare stable IDs,
+backend/build mode, machine metadata, reported diagnostics, and comparison scope
+in `tests/benchmark/baselines/`; compare only the retained payload fields and
+thresholds, never a native playback wall-clock measurement.
 
 Offline synth performance is deterministic serialized-plan rendering, including
 packaged samples and FX. Record WAV format, frame count, non-silence, and repeated
@@ -117,10 +120,10 @@ do not promote historical debug or compatibility-executor measurements.
 ## Required contract checks
 
 ```sh
-uv run pytest tests/unit/test_rust_canvas.py tests/unit/test_ecs_bridge.py \
-  tests/unit/test_lifecycle.py tests/unit/test_ecs_schedule.py \
-  tests/unit/test_ecs_core.py tests/unit/test_ecs_plans.py \
-  tests/unit/test_pixels_export_blend.py tests/unit/test_synth_tracks_plan.py -q
+uv run pytest tests/unit/canvas_runtime/test_rust_canvas.py tests/unit/ecs/test_ecs_bridge.py \
+  tests/unit/api_lifecycle/test_lifecycle.py tests/unit/ecs/test_ecs_schedule.py \
+  tests/unit/ecs/test_ecs_core.py tests/unit/ecs/test_ecs_plans.py \
+  tests/unit/assets_media/test_pixels_export_blend.py tests/unit/synth/test_synth_tracks_plan.py -q
 cargo check --manifest-path tests/fixtures/rust/downstream_runtime_api/Cargo.toml
 cargo test --workspace
 ```

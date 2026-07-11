@@ -11,6 +11,11 @@ on:
           - testpypi
           - pypi
         default: testpypi
+      release_candidate:
+        description: Run release-built benchmark and stress gates before publishing
+        required: false
+        type: boolean
+        default: false
   push:
     tags:
       - "v*"
@@ -18,9 +23,8 @@ on:
 permissions: {}
 
 env:
-  # Publish validation runs headless rendering on Linux CI runners without a
-  # hardware GPU. Use Mesa's Vulkan/lavapipe adapter so tests stay on the GPU API
-  # path instead of requiring Gummy Snake CPU raster fallbacks.
+  # Publish validation uses Mesa's Vulkan adapter on Linux rather than a Python
+  # renderer fallback. Native wheel smoke always runs on its wheel's own OS.
   WGPU_BACKEND: vulkan
 
 jobs:
@@ -31,65 +35,42 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-
       - uses: astral-sh/setup-uv@v6
-
       - uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
-
       - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/setup-linux
+      - run: uv sync --dev --no-install-project
+      - run: make runtime-develop-release
+      - run: make format-check
+      - run: make static-analysis
+      - run: make repository-audits
+      - run: make version-check
+      - run: make assets-check
+      - run: make test-focused
+      - run: make test-full
+      - run: make smoke-release
+      - run: make rust-check
 
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libasound2-dev \
-            libvulkan1 \
-            libwayland-dev \
-            libx11-dev \
-            libxcb1-dev \
-            libxcursor-dev \
-            libxext-dev \
-            libxfixes-dev \
-            libxi-dev \
-            libxkbcommon-dev \
-            libxrandr-dev \
-            libxrender-dev \
-            libxss-dev \
-            libxtst-dev \
-            mesa-vulkan-drivers \
-            pkg-config
-
-      - name: Install dev dependencies
-        run: uv sync --dev --no-install-project
-
-      - name: Install canvas runtime
-        run: uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml --features extension-module
-
-      - name: Test all Rust workspace crates
-        run: cargo test --workspace
-
-      - name: Lint
-        run: uv run ruff check .
-
-      - name: Type check
-        run: uv run mypy src
-
-      - name: Check workspace version sync
-        run: uv run python scripts/bump_version.py --check
-
-      - name: Check compiled synth and FX asset freshness
-        run: uv run python scripts/compile_synth_assets.py --check
-
-      - name: Run tests
-        run: uv run pytest
-
-      - name: Smoke test headless example
-        run: uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
-
-      - name: Smoke test ECS example
-        run: uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save
+  release-candidate:
+    name: Release-candidate performance and stress validation
+    # Interactive benchmark baselines are machine-specific. This explicit manual
+    # gate is opt-in and must run on a comparable native desktop environment.
+    if: github.event_name == 'workflow_dispatch' && inputs.release_candidate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/setup-linux
+      - run: uv sync --dev --no-install-project
+      - run: make release-candidate
 
   build-sdist:
     name: Build source distribution
@@ -99,21 +80,15 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-
       - uses: astral-sh/setup-uv@v6
-
       - uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
-
       - uses: dtolnay/rust-toolchain@stable
-
-      - name: Build sdist
-        run: uv build --sdist
-
+      - uses: ./.github/actions/setup-linux
+      - run: uv build --sdist --out-dir dist
       - name: Verify source-distribution contract
-        run: uv run python scripts/verify_distribution.py dist/gummy_snake-*.tar.gz
-
+        run: make verify-sdist SDIST_DIR=dist
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
@@ -121,7 +96,7 @@ jobs:
           path: dist/*.tar.gz
 
   build-wheels:
-    name: Build ${{ matrix.label }} wheel
+    name: Build and smoke ${{ matrix.label }} wheel
     runs-on: ${{ matrix.os }}
     needs: validate
     permissions:
@@ -148,24 +123,29 @@ jobs:
             maturin-args: --release --out dist --features extension-module
     steps:
       - uses: actions/checkout@v4
-
+      - uses: astral-sh/setup-uv@v6
       - uses: actions/setup-python@v5
         with:
           python-version-file: .python-version
-
+      - name: Pin macOS deployment target
+        if: runner.os == 'macOS'
+        run: echo "MACOSX_DEPLOYMENT_TARGET=26.0" >> "$GITHUB_ENV"
       - name: Build canvas runtime wheel
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           args: ${{ matrix.maturin-args }}
           manylinux: auto
+          # This command executes inside maturin's manylinux container; the
+          # host composite action cannot provision that separate environment.
           before-script-linux: |
             if command -v dnf >/dev/null 2>&1; then
               dnf install -y pkgconf-pkg-config alsa-lib-devel libX11-devel libXcursor-devel libXext-devel libXfixes-devel libXi-devel libXrandr-devel libXrender-devel libXScrnSaver-devel libXtst-devel libxcb-devel libxkbcommon-devel wayland-devel
             else
               yum install -y pkgconfig alsa-lib-devel libX11-devel libXcursor-devel libXext-devel libXfixes-devel libXi-devel libXrandr-devel libXrender-devel libXScrnSaver-devel libXtst-devel libxcb-devel libxkbcommon-devel wayland-devel
             fi
-
+      - name: Smoke installed native wheel
+        run: uv run python scripts/verify_distribution.py --wheel-dir dist
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
@@ -182,39 +162,20 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-
       - uses: astral-sh/setup-uv@v6
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Download distributions
         uses: actions/download-artifact@v4
         with:
           pattern: python-dist-*
           path: dist/
           merge-multiple: true
-
       - name: Verify distribution metadata
         run: uv tool run twine check dist/*
-
-      - name: Select Linux wheel
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          wheels = sorted(Path("dist").glob("gummy_snake-*-manylinux*_x86_64.whl"))
-          if not wheels:
-              wheels = sorted(Path("dist").glob("gummy_snake-*-linux_x86_64.whl"))
-          if len(wheels) != 1:
-              raise SystemExit(f"Expected exactly one Linux x86_64 wheel, found: {wheels}")
-          Path(".wheel-to-install").write_text(str(wheels[0]), encoding="utf-8")
-          print(f"Selected {wheels[0]}")
-          PY
-
-      - name: Verify source and isolated installed-wheel contracts
-        run: uv run python scripts/verify_distribution.py dist/gummy_snake-*.tar.gz --wheel "$(cat .wheel-to-install)"
+      - name: Verify source-distribution contract
+        run: uv run python scripts/verify_distribution.py --sdist-dir dist
 
   publish-testpypi:
     name: Publish to TestPyPI
@@ -233,7 +194,6 @@ jobs:
           pattern: python-dist-*
           path: dist/
           merge-multiple: true
-
       - name: Publish package distributions to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -257,7 +217,6 @@ jobs:
           pattern: python-dist-*
           path: dist/
           merge-multiple: true
-
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

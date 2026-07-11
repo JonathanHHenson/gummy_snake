@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-import importlib
 import sys
+from collections.abc import Callable
+from importlib import import_module
 from pathlib import Path
 
-_RUNTIME_DIR = Path(__file__).resolve().parent
-if str(_RUNTIME_DIR) not in sys.path:
-    sys.path.insert(0, str(_RUNTIME_DIR))
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
-_configuration = importlib.import_module("ant_colony_runtime.configuration")
-importlib.import_module("ant_colony_runtime.ant_simulation_query")
-importlib.import_module("ant_colony_runtime.world_setup_and_pheromones")
-importlib.import_module("ant_colony_runtime.sketch_systems")
+ARGS = import_module("ant_colony_runtime.configuration").ARGS
+run: Callable[[], None] = import_module("ant_colony_runtime.sketch_systems").run
 
-ARGS = _configuration.ARGS
+__all__ = ["ARGS", "run"]
 
-__all__ = ["ARGS"]
+
+if __name__ == "__main__":
+    run()

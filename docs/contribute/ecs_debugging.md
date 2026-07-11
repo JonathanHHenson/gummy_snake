@@ -116,9 +116,9 @@ Plan nodes should serialize to Rust physical execution. If a system plan raises 
 For ECS changes, start focused and then broaden:
 
 ```sh
-uv run ruff check src/gummysnake/ecs tests/unit/test_ecs.py
+uv run ruff check src/gummysnake/ecs tests/unit/ecs/test_ecs.py
 uv run mypy src/gummysnake/ecs
-uv run pytest tests/unit/test_ecs.py -q
+uv run pytest tests/unit/ecs/test_ecs.py -q
 cargo test --manifest-path crates/gummy_ecs/Cargo.toml
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
 uv run pytest tests/benchmark/test_ecs_perf.py -q --run-benchmarks

@@ -2,39 +2,41 @@ from __future__ import annotations
 
 from time import perf_counter
 
-import ant_colony_runtime.configuration as cfg
 import gummysnake as gs
 from examples.common import save_once
+from examples.support.ant_colony.configuration import (
+    BLUE_ANT_TAG,
+    BLUE_HILL_TAG,
+    FOOD_TAG,
+    PHEROMONE_TAG,
+    RED_ANT_TAG,
+    RED_HILL_TAG,
+    WALL_TAG,
+    AntAgent,
+    AntDecision,
+    FoodVoxel,
+    GridVoxel,
+    HillVoxel,
+    PheromoneVoxel,
+    WallVoxel,
+)
 from gummysnake import ecs
 from gummysnake.ecs import canvas as ca
 
+from . import configuration as cfg
 from .ant_simulation_query import _simulate_ant_query
 from .configuration import (
     ARGS,
-    BLUE_ANT_TAG,
-    BLUE_HILL_TAG,
     CELL_SIZE,
-    FOOD_TAG,
     FPS_SMOOTHING,
     GRID_HEIGHT,
     GRID_OFFSET_X,
     GRID_OFFSET_Y,
     GRID_WIDTH,
     HEIGHT,
-    PHEROMONE_TAG,
-    RED_ANT_TAG,
-    RED_HILL_TAG,
     TARGET_FPS,
-    WALL_TAG,
     WIDTH,
-    AntAgent,
-    AntDecision,
-    FoodVoxel,
-    GridVoxel,
-    HillVoxel,
     HudText,
-    PheromoneVoxel,
-    WallVoxel,
 )
 from .world_setup_and_pheromones import (
     _prepare_world,
@@ -248,5 +250,10 @@ def setup() -> None:
     _prepare_world()
 
 
-if __name__ == "__main__":
+def run() -> None:
+    """Run the ant-colony sketch with the parsed example CLI options."""
     gs.run(headless=ARGS.headless, max_frames=ARGS.frames)
+
+
+if __name__ == "__main__":
+    run()

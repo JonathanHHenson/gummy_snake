@@ -20,18 +20,18 @@ review_policy = "Treat a material package-level decrease as a review item. Do no
 # example, document, manifest, or script cannot leave a live map entry behind.
 [checks.public_api]
 focus = "behavior"
-paths = ["tests/unit/test_public_api_contract.py", "tests/unit/test_public_api_exports.py", "tests/unit/test_public_facade_contract.py"]
-command = "uv run pytest tests/unit/test_public_api_contract.py tests/unit/test_public_api_exports.py tests/unit/test_public_facade_contract.py -q"
+paths = ["tests/unit/api_lifecycle/test_public_api_contract.py", "tests/unit/api_lifecycle/test_public_api_exports.py", "tests/unit/api_lifecycle/test_public_facade_contract.py"]
+command = "uv run pytest tests/unit/api_lifecycle/test_public_api_contract.py tests/unit/api_lifecycle/test_public_api_exports.py tests/unit/api_lifecycle/test_public_facade_contract.py -q"
 
 [checks.lifecycle_groups]
 focus = "behavior"
-paths = ["tests/unit/test_lifecycle.py", "tests/unit/test_plugins.py", "tests/unit/test_ecs_schedule.py"]
-command = "uv run pytest tests/unit/test_lifecycle.py tests/unit/test_plugins.py tests/unit/test_ecs_schedule.py -q"
+paths = ["tests/unit/api_lifecycle/test_lifecycle.py", "tests/unit/api_lifecycle/test_plugins.py", "tests/unit/ecs/test_ecs_schedule.py"]
+command = "uv run pytest tests/unit/api_lifecycle/test_lifecycle.py tests/unit/api_lifecycle/test_plugins.py tests/unit/ecs/test_ecs_schedule.py -q"
 
 [checks.context_state]
 focus = "behavior"
-paths = ["tests/unit/test_global_api.py", "tests/unit/test_async_current_context.py", "tests/unit/test_style_state.py"]
-command = "uv run pytest tests/unit/test_global_api.py tests/unit/test_async_current_context.py tests/unit/test_style_state.py -q"
+paths = ["tests/unit/api_lifecycle/test_global_api.py", "tests/unit/api_lifecycle/test_async_current_context.py", "tests/unit/api_lifecycle/test_style_state.py"]
+command = "uv run pytest tests/unit/api_lifecycle/test_global_api.py tests/unit/api_lifecycle/test_async_current_context.py tests/unit/api_lifecycle/test_style_state.py -q"
 
 [checks.canvas_contracts]
 focus = "behavior"
@@ -40,8 +40,8 @@ command = "uv run pytest tests/contracts/test_backends.py tests/contracts/test_c
 
 [checks.renderer_adapter]
 focus = "implementation"
-paths = ["tests/unit/test_rust_canvas_renderer.py", "tests/unit/test_rust_canvas_renderer_context.py", "tests/unit/test_rust_canvas_renderer_capture.py", "tests/unit/test_rust_canvas_renderer_images.py", "tests/unit/test_rust_canvas_renderer_pixels_text.py"]
-command = "uv run pytest tests/unit/test_rust_canvas_renderer.py tests/unit/test_rust_canvas_renderer_context.py tests/unit/test_rust_canvas_renderer_capture.py tests/unit/test_rust_canvas_renderer_images.py tests/unit/test_rust_canvas_renderer_pixels_text.py -q"
+paths = ["tests/unit/canvas_runtime/test_rust_canvas_renderer.py", "tests/unit/canvas_runtime/test_rust_canvas_renderer_context.py", "tests/unit/canvas_runtime/test_rust_canvas_renderer_capture.py", "tests/unit/canvas_runtime/test_rust_canvas_renderer_images.py", "tests/unit/canvas_runtime/test_rust_canvas_renderer_pixels_text.py"]
+command = "uv run pytest tests/unit/canvas_runtime/test_rust_canvas_renderer.py tests/unit/canvas_runtime/test_rust_canvas_renderer_context.py tests/unit/canvas_runtime/test_rust_canvas_renderer_capture.py tests/unit/canvas_runtime/test_rust_canvas_renderer_images.py tests/unit/canvas_runtime/test_rust_canvas_renderer_pixels_text.py -q"
 
 [checks.drawing_integration]
 focus = "behavior"
@@ -55,7 +55,7 @@ command = "uv run pytest tests/golden/test_basic_shapes_golden.py -q"
 
 [checks.canvas_benchmark]
 focus = "behavior"
-paths = ["tests/benchmark/test_canvas_backend_perf.py", "tests/benchmark/baselines/2026-07-10_release_macos_arm64.toml"]
+paths = ["tests/benchmark/test_canvas_backend_perf.py", "tests/benchmark/canvas_backend_perf/", "tests/benchmark/baselines/2026-07-10_release_macos_arm64.toml"]
 command = "uv run pytest tests/benchmark/test_canvas_backend_perf.py --run-benchmarks"
 
 [checks.resource_stress]
@@ -65,57 +65,62 @@ command = "uv run pytest tests/stress/test_resource_lifecycle_stress.py --run-st
 
 [checks.assets_unit]
 focus = "behavior"
-paths = ["tests/unit/test_image_method_parity.py", "tests/unit/test_image_sampling.py", "tests/unit/test_model_loading.py", "tests/unit/test_sound_playback.py", "tests/unit/test_pixel_buffer.py"]
-command = "uv run pytest tests/unit/test_image_method_parity.py tests/unit/test_image_sampling.py tests/unit/test_model_loading.py tests/unit/test_sound_playback.py tests/unit/test_pixel_buffer.py -q"
+paths = ["tests/unit/assets_media/test_image_method_parity.py", "tests/unit/assets_media/test_image_sampling.py", "tests/unit/assets_media/test_model_loading.py", "tests/unit/assets_media/test_sound_playback.py", "tests/unit/assets_media/test_pixel_buffer.py"]
+command = "uv run pytest tests/unit/assets_media/test_image_method_parity.py tests/unit/assets_media/test_image_sampling.py tests/unit/assets_media/test_model_loading.py tests/unit/assets_media/test_sound_playback.py tests/unit/assets_media/test_pixel_buffer.py -q"
 
 [checks.three_d]
 focus = "behavior"
-paths = ["tests/unit/test_3d_rust_bridge.py", "tests/unit/test_webgl_api.py", "tests/integration/test_webgl_3d.py", "tests/benchmark/test_webgl_3d_perf.py"]
-command = "uv run pytest tests/unit/test_3d_rust_bridge.py tests/unit/test_webgl_api.py tests/integration/test_webgl_3d.py -q"
+paths = ["tests/unit/three_d/test_3d_rust_bridge.py", "tests/unit/three_d/test_webgl_api.py", "tests/integration/test_webgl_3d.py", "tests/benchmark/test_webgl_3d_perf.py"]
+command = "uv run pytest tests/unit/three_d/test_3d_rust_bridge.py tests/unit/three_d/test_webgl_api.py tests/integration/test_webgl_3d.py -q"
 
 [checks.ecs_plans]
 focus = "behavior"
-paths = ["tests/unit/test_ecs_core.py", "tests/unit/test_ecs_plans.py", "tests/unit/test_ecs_schedule.py", "tests/unit/test_ecs_spatial.py"]
-command = "uv run pytest tests/unit/test_ecs_core.py tests/unit/test_ecs_plans.py tests/unit/test_ecs_schedule.py tests/unit/test_ecs_spatial.py -q"
+paths = ["tests/unit/ecs/test_ecs_core.py", "tests/unit/ecs/test_ecs_plans.py", "tests/unit/ecs/test_ecs_schedule.py", "tests/unit/ecs/test_ecs_spatial.py"]
+command = "uv run pytest tests/unit/ecs/test_ecs_core.py tests/unit/ecs/test_ecs_plans.py tests/unit/ecs/test_ecs_schedule.py tests/unit/ecs/test_ecs_spatial.py -q"
 
 [checks.ecs_bridge]
 focus = "behavior"
-paths = ["tests/unit/test_ecs_bridge.py", "tests/unit/test_ecs_canvas_hooks.py"]
-command = "uv run pytest tests/unit/test_ecs_bridge.py tests/unit/test_ecs_canvas_hooks.py -q"
+paths = ["tests/unit/ecs/test_ecs_bridge.py", "tests/unit/ecs/test_ecs_canvas_hooks.py"]
+command = "uv run pytest tests/unit/ecs/test_ecs_bridge.py tests/unit/ecs/test_ecs_canvas_hooks.py -q"
 
 [checks.ecs_benchmark]
 focus = "behavior"
-paths = ["tests/benchmark/test_ecs_perf.py", "tests/benchmark/test_ecs_spatial_perf.py", "tests/stress/test_ecs_spatial_lifecycle_stress.py"]
-command = "uv run pytest tests/benchmark/test_ecs_perf.py tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks"
+paths = ["tests/benchmark/test_ecs_perf.py", "tests/benchmark/test_ecs_spatial_perf.py", "tests/benchmark/test_ecs_ants_2d_perf.py", "tests/stress/test_ecs_spatial_lifecycle_stress.py"]
+command = "uv run pytest tests/benchmark/test_ecs_perf.py tests/benchmark/test_ecs_spatial_perf.py tests/benchmark/test_ecs_ants_2d_perf.py --run-benchmarks"
+
+[checks.ecs_scenarios_benchmark]
+focus = "behavior"
+paths = ["tests/benchmark/test_ecs_scenarios_perf.py", "tests/benchmark/ecs_scenarios_perf_child.py", "examples/09_performance/ecs_scenarios/", "examples/11_temporary_perf_tests/"]
+command = "uv run pytest tests/benchmark/test_ecs_scenarios_perf.py --run-benchmarks"
 
 [checks.synth_bridge]
 focus = "behavior"
-paths = ["tests/unit/test_synth_tracks.py", "tests/unit/test_synth_tracks_plan.py", "tests/unit/test_synth_tracks_playback.py", "tests/unit/test_synth_tracks_lazy.py", "tests/benchmark/test_synth_offline_perf.py"]
-command = "uv run pytest tests/unit/test_synth_tracks.py tests/unit/test_synth_tracks_plan.py tests/unit/test_synth_tracks_playback.py tests/unit/test_synth_tracks_lazy.py -q"
+paths = ["tests/unit/synth/test_synth_tracks.py", "tests/unit/synth/test_synth_tracks_plan.py", "tests/unit/synth/test_synth_tracks_playback.py", "tests/unit/synth/test_synth_tracks_lazy.py", "tests/benchmark/test_synth_offline_perf.py"]
+command = "uv run pytest tests/unit/synth/test_synth_tracks.py tests/unit/synth/test_synth_tracks_plan.py tests/unit/synth/test_synth_tracks_playback.py tests/unit/synth/test_synth_tracks_lazy.py -q"
 
 [checks.rust_wrappers]
 focus = "implementation"
-paths = ["tests/unit/test_rust_canvas.py", "tests/unit/test_rust_canvas_backend.py", "tests/unit/test_rust_acceleration.py"]
-command = "uv run pytest tests/unit/test_rust_canvas.py tests/unit/test_rust_canvas_backend.py tests/unit/test_rust_acceleration.py -q"
+paths = ["tests/unit/canvas_runtime/test_rust_canvas.py", "tests/unit/canvas_runtime/test_rust_canvas_backend.py", "tests/unit/canvas_runtime/test_rust_acceleration.py"]
+command = "uv run pytest tests/unit/canvas_runtime/test_rust_canvas.py tests/unit/canvas_runtime/test_rust_canvas_backend.py tests/unit/canvas_runtime/test_rust_acceleration.py -q"
 
 [checks.rust_canvas]
 focus = "behavior"
-paths = ["crates/gummy_canvas/Cargo.toml", "tests/unit/test_rust_canvas.py", "tests/unit/test_rust_canvas_backend.py"]
+paths = ["crates/gummy_canvas/Cargo.toml", "tests/unit/canvas_runtime/test_rust_canvas.py", "tests/unit/canvas_runtime/test_rust_canvas_backend.py"]
 command = "cargo test --manifest-path crates/gummy_canvas/Cargo.toml"
 
 [checks.rust_ecs]
 focus = "behavior"
-paths = ["crates/gummy_ecs/Cargo.toml", "tests/unit/test_ecs_bridge.py", "tests/unit/test_ecs_plans.py"]
+paths = ["crates/gummy_ecs/Cargo.toml", "tests/unit/ecs/test_ecs_bridge.py", "tests/unit/ecs/test_ecs_plans.py"]
 command = "cargo test --manifest-path crates/gummy_ecs/Cargo.toml"
 
 [checks.rust_synth]
 focus = "behavior"
-paths = ["crates/gummy_synth/Cargo.toml", "tests/unit/test_synth_tracks_plan.py", "tests/benchmark/test_synth_offline_perf.py"]
+paths = ["crates/gummy_synth/Cargo.toml", "tests/unit/synth/test_synth_tracks_plan.py", "tests/benchmark/test_synth_offline_perf.py"]
 command = "cargo test --manifest-path crates/gummy_synth/Cargo.toml"
 
 [checks.rust_accel]
 focus = "implementation"
-paths = ["crates/gummy_accel/Cargo.toml", "tests/unit/test_rust_acceleration.py"]
+paths = ["crates/gummy_accel/Cargo.toml", "tests/unit/canvas_runtime/test_rust_acceleration.py"]
 command = "cargo test --manifest-path crates/gummy_accel/Cargo.toml"
 
 [checks.smoke_shapes]
@@ -145,22 +150,22 @@ command = "uv run python examples/12_synth/acid_walk.py --headless --frames 1 --
 
 [checks.impact_map_audit]
 focus = "implementation"
-paths = ["scripts/impact_map_audit.py", "tests/unit/test_impact_map_audit.py", "docs/contribute/source_test_impact_map.toml", "docs/contribute/source_test_impact_map.md"]
+paths = ["scripts/impact_map_audit.py", "tests/unit/tooling/test_impact_map_audit.py", "docs/contribute/source_test_impact_map.toml", "docs/contribute/source_test_impact_map.md"]
 command = "uv run python scripts/impact_map_audit.py"
 
 [checks.structure_audit]
 focus = "implementation"
-paths = ["scripts/structure_audit.py", "tests/unit/test_structure_audit.py", "scripts/source_size_audit.py", "tests/unit/test_source_size_audit.py"]
+paths = ["scripts/structure_audit.py", "tests/unit/tooling/test_structure_audit.py", "scripts/source_size_audit.py", "tests/unit/tooling/test_source_size_audit.py"]
 command = "uv run python scripts/structure_audit.py"
 
 [checks.asset_compilation]
 focus = "behavior"
-paths = ["scripts/compile_synth_assets.py", "tests/unit/test_compile_synth_assets.py", "assets/synths/src", "assets/fx/src"]
+paths = ["scripts/compile_synth_assets.py", "tests/unit/synth/test_compile_synth_assets.py", "assets/synths/src", "assets/fx/src"]
 command = "uv run python scripts/compile_synth_assets.py --check"
 
 [checks.distribution]
 focus = "behavior"
-paths = ["scripts/verify_distribution.py", "tests/unit/test_verify_distribution.py", "tests/fixtures/rust/downstream_runtime_api/Cargo.toml"]
+paths = ["scripts/verify_distribution.py", "tests/unit/tooling/test_verify_distribution.py", "tests/fixtures/rust/downstream_runtime_api/Cargo.toml"]
 command = "uv build --sdist"
 
 [checks.contributor_docs]
@@ -297,7 +302,7 @@ unit = ["ecs_plans", "ecs_bridge"]
 contract = ["N/A: ECS plan semantics are characterized at the public logical-plan boundary, not by interchangeable backend contracts."]
 integration = ["drawing_integration"]
 golden = ["N/A: ECS behavior is deterministic state/plan behavior; examples cover draw output."]
-benchmark = ["ecs_benchmark"]
+benchmark = ["ecs_benchmark", "ecs_scenarios_benchmark"]
 stress = ["ecs_benchmark"]
 example = ["smoke_ecs", "smoke_webgl"]
 documentation = ["contributor_docs"]
@@ -404,7 +409,7 @@ unit = ["rust_ecs"]
 contract = ["N/A: logical-plan semantics cross the Python/Rust boundary instead of an interchangeable backend contract."]
 integration = ["ecs_bridge"]
 golden = ["N/A: Rust ECS has no independent raster golden; drawing examples cover visible results."]
-benchmark = ["ecs_benchmark"]
+benchmark = ["ecs_benchmark", "ecs_scenarios_benchmark"]
 stress = ["ecs_benchmark"]
 example = ["smoke_ecs", "smoke_webgl"]
 documentation = ["contributor_docs"]

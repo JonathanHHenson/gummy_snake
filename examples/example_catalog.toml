@@ -1,0 +1,940 @@
+[catalog]
+version = 1
+
+# Every non-generated Python file under examples/ is listed here.  Entry points
+# carry their executable contract; support modules are explicit so a new module
+# cannot become invisible to review.
+
+[[files]]
+path = "examples/__init__.py"
+classification = "support_module"
+topic = "package marker"
+
+[[files]]
+path = "examples/common.py"
+classification = "support_module"
+topic = "shared CLI and output helpers"
+
+[[files]]
+path = "examples/01_getting_started/basic_shapes.py"
+classification = "entry_point"
+id = "basic_shapes"
+topic = "getting started / 2D drawing"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/01_getting_started/basic_shapes.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "fast"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/01_getting_started/timing_and_animation.py"
+classification = "entry_point"
+id = "timing_and_animation"
+topic = "getting started / lifecycle timing"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/01_getting_started/timing_and_animation.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/02_drawing/color_blend_erase.py"
+classification = "entry_point"
+id = "color_blend_erase"
+topic = "drawing / compositing"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/02_drawing/color_blend_erase.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/02_drawing/contours_clipping_tint_export.py"
+classification = "entry_point"
+id = "contours_clipping_tint_export"
+topic = "drawing / contours, clipping, tint, export"
+extras = []
+assets = ["examples/assets/playerShip1_blue.png"]
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/02_drawing/contours_clipping_tint_export.png"
+output_behavior = "PNG, SVG, PDF, and GIF when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "release"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/02_drawing/filled_arcs_curves.py"
+classification = "entry_point"
+id = "filled_arcs_curves"
+topic = "drawing / arcs and curves"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/02_drawing/filled_arcs_curves.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/02_drawing/pixels_and_export.py"
+classification = "entry_point"
+id = "pixels_and_export"
+topic = "drawing / pixels and export"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/02_drawing/pixels_and_export.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/02_drawing/shapes_curves.py"
+classification = "entry_point"
+id = "shapes_curves"
+topic = "drawing / shapes and curves"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/02_drawing/shapes_curves.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/02_drawing/transforms_and_modes.py"
+classification = "entry_point"
+id = "transforms_and_modes"
+topic = "drawing / transforms and modes"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/02_drawing/transforms_and_modes.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/03_assets/audio_analysis_synthesis.py"
+classification = "entry_point"
+id = "audio_analysis_synthesis"
+topic = "assets / sound analysis and synthesis"
+extras = []
+assets = ["examples/assets/coin-drop-4.wav"]
+capabilities = ["canvas", "synth"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/03_assets/audio_analysis_synthesis.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied; no playback is started"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/03_assets/data_files.py"
+classification = "entry_point"
+id = "data_files"
+topic = "assets / data files"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/03_assets/data_files.png"
+output_behavior = "Writes its demonstration data and PNG only under examples/output/ when frames are bounded"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/03_assets/images_and_sprites.py"
+classification = "entry_point"
+id = "images_and_sprites"
+topic = "assets / images and sprites"
+extras = []
+assets = ["examples/assets/playerShip1_blue.png", "examples/assets/ufoBlue.png", "examples/assets/Meteors/meteorGrey_big1.png", "examples/assets/Effects/shield3.png"]
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/03_assets/images_and_sprites.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "fast"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/03_assets/offscreen_graphics_compute.py"
+classification = "entry_point"
+id = "offscreen_graphics_compute"
+topic = "assets / offscreen graphics and compute"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/03_assets/offscreen_graphics_compute.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "extended"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/03_assets/sound_asset_metadata.py"
+classification = "entry_point"
+id = "sound_asset_metadata"
+topic = "assets / sound metadata"
+extras = []
+assets = ["examples/assets/coin-drop-4.wav"]
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/03_assets/sound_asset_metadata.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied; no playback is started"
+headless = true
+smoke_tier = "extended"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/04_text/typography_accessibility.py"
+classification = "entry_point"
+id = "typography_accessibility"
+topic = "text / typography and accessibility"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/04_text/typography_accessibility.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "fast"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/05_interaction/input_state.py"
+classification = "entry_point"
+id = "input_state"
+topic = "interaction / mouse and keyboard state"
+extras = []
+assets = []
+capabilities = ["canvas", "native_input"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/05_interaction/input_state.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/05_interaction/lifecycle_controls.py"
+classification = "entry_point"
+id = "lifecycle_controls"
+topic = "interaction / input-independent lifecycle controls"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/05_interaction/lifecycle_controls.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "fast"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/05_interaction/sensors_environment.py"
+classification = "entry_point"
+id = "sensors_environment"
+topic = "interaction / sensors and environment"
+extras = []
+assets = []
+capabilities = ["canvas", "native_input"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/05_interaction/sensors_environment.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/06_math/noise_vectors_random.py"
+classification = "entry_point"
+id = "noise_vectors_random"
+topic = "math / noise vectors and random"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/06_math/noise_vectors_random.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/07_plugins/plugin_hooks.py"
+classification = "entry_point"
+id = "plugin_hooks"
+topic = "plugins / lifecycle hooks"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/07_plugins/plugin_hooks.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/08_3d/advanced_webgpu_geometry.py"
+classification = "entry_point"
+id = "advanced_webgpu_geometry"
+topic = "3D / advanced geometry"
+extras = []
+assets = ["examples/assets/triangle.stl"]
+capabilities = ["canvas", "three_d"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/08_3d/advanced_webgpu_geometry.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "extended"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/08_3d/lorenz_attractor_3d.py"
+classification = "entry_point"
+id = "lorenz_attractor_3d"
+topic = "3D / animated model geometry"
+extras = []
+assets = []
+capabilities = ["canvas", "three_d"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/lorenz_attractor_3d.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/08_3d/webgl_scene.py"
+classification = "entry_point"
+id = "webgl_scene"
+topic = "3D / WEBGL lights, materials, and models"
+extras = []
+assets = ["examples/assets/teapot.obj"]
+capabilities = ["canvas", "three_d"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/08_3d/webgl_scene.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "fast"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/09_performance/ants_2d.py"
+classification = "entry_point"
+id = "ants_2d"
+topic = "performance / ECS ant colony"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+flag_source = "examples/09_performance/ant_colony_runtime/configuration.py"
+output = "examples/output/09_performance/ants_2d.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "canonical"
+
+[[files]]
+path = "examples/09_performance/boids_3d.py"
+classification = "entry_point"
+id = "boids_3d"
+topic = "performance / ECS spatial WEBGL boids"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs", "three_d"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/boids_3d.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "release"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = true
+compatibility = "canonical"
+
+[[files]]
+path = "examples/09_performance/nature_of_code_attractor.py"
+classification = "entry_point"
+id = "nature_of_code_attractor"
+topic = "performance / particle attractor"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/nature_of_code_attractor.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "canonical"
+
+[[files]]
+path = "examples/09_performance/sixty_fps_load_showcase.py"
+classification = "entry_point"
+id = "sixty_fps_load_showcase"
+topic = "performance / dense 2D drawing"
+extras = []
+assets = []
+capabilities = ["canvas"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/sixty_fps_load_showcase.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "canonical"
+
+[[files]]
+path = "examples/09_performance/ant_colony_runtime/__init__.py"
+classification = "support_module"
+topic = "performance / ant colony compatibility package"
+
+[[files]]
+path = "examples/09_performance/ant_colony_runtime/ant_simulation_query.py"
+classification = "support_module"
+topic = "performance / ant colony compatibility simulation"
+
+[[files]]
+path = "examples/09_performance/ant_colony_runtime/configuration.py"
+classification = "support_module"
+topic = "performance / ant colony compatibility configuration"
+
+[[files]]
+path = "examples/09_performance/ant_colony_runtime/sketch_systems.py"
+classification = "support_module"
+topic = "performance / ant colony compatibility sketch systems"
+
+[[files]]
+path = "examples/09_performance/ant_colony_runtime/world_setup_and_pheromones.py"
+classification = "support_module"
+topic = "performance / ant colony compatibility world setup"
+
+[[files]]
+path = "examples/09_performance/ecs_scenarios/__init__.py"
+classification = "support_module"
+topic = "performance / ECS scenario package"
+
+[[files]]
+path = "examples/09_performance/ecs_scenarios/python_systems_udfs_sprites.py"
+classification = "entry_point"
+id = "python_systems_udfs_sprites"
+topic = "performance / ECS Python UDF boundary"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/python_systems_udfs_sprites.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "canonical"
+
+[[files]]
+path = "examples/09_performance/ecs_scenarios/rust_2d_primitives_branching.py"
+classification = "entry_point"
+id = "rust_2d_primitives_branching"
+topic = "performance / ECS physical-plan 2D branching"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/rust_2d_primitives_branching.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "release"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = true
+compatibility = "canonical"
+
+[[files]]
+path = "examples/09_performance/ecs_scenarios/spatial_events_for_each_stress.py"
+classification = "entry_point"
+id = "spatial_events_for_each_stress"
+topic = "performance / ECS spatial events"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/spatial_events_for_each_stress.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "canonical"
+
+[[files]]
+path = "examples/09_performance/ecs_scenarios/structural_churn_tags_components.py"
+classification = "entry_point"
+id = "structural_churn_tags_components"
+topic = "performance / ECS structural churn"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/structural_churn_tags_components.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "canonical"
+
+[[files]]
+path = "examples/09_performance/ecs_scenarios/webgl_3d_ecs_primitives_models.py"
+classification = "entry_point"
+id = "webgl_3d_ecs_primitives_models"
+topic = "performance / ECS WEBGL models"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs", "three_d"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/webgl_3d_ecs_primitives_models.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "canonical"
+
+[[files]]
+path = "examples/10_ecs/crystal_moths.py"
+classification = "entry_point"
+id = "crystal_moths"
+topic = "ECS / components, resources, and spatial joins"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/10_ecs/crystal_moths.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "extended"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/10_ecs/firefly_constellation.py"
+classification = "entry_point"
+id = "firefly_constellation"
+topic = "ECS / dataclass components and system plans"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/10_ecs/firefly_constellation.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "fast"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/11_temporary_perf_tests/__init__.py"
+classification = "support_module"
+topic = "legacy performance scenario package"
+
+[[files]]
+path = "examples/11_temporary_perf_tests/python_systems_udfs_sprites.py"
+classification = "compatibility_entry_point"
+id = "legacy_python_systems_udfs_sprites"
+canonical_id = "python_systems_udfs_sprites"
+topic = "legacy performance / ECS Python UDF boundary"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/python_systems_udfs_sprites.png"
+output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "historical"
+
+[[files]]
+path = "examples/11_temporary_perf_tests/rust_2d_primitives_branching.py"
+classification = "compatibility_entry_point"
+id = "legacy_rust_2d_primitives_branching"
+canonical_id = "rust_2d_primitives_branching"
+topic = "legacy performance / ECS physical-plan 2D branching"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/rust_2d_primitives_branching.png"
+output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "historical"
+
+[[files]]
+path = "examples/11_temporary_perf_tests/spatial_events_for_each_stress.py"
+classification = "compatibility_entry_point"
+id = "legacy_spatial_events_for_each_stress"
+canonical_id = "spatial_events_for_each_stress"
+topic = "legacy performance / ECS spatial events"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/spatial_events_for_each_stress.png"
+output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "historical"
+
+[[files]]
+path = "examples/11_temporary_perf_tests/structural_churn_tags_components.py"
+classification = "compatibility_entry_point"
+id = "legacy_structural_churn_tags_components"
+canonical_id = "structural_churn_tags_components"
+topic = "legacy performance / ECS structural churn"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/structural_churn_tags_components.png"
+output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "historical"
+
+[[files]]
+path = "examples/11_temporary_perf_tests/webgl_3d_ecs_primitives_models.py"
+classification = "compatibility_entry_point"
+id = "legacy_webgl_3d_ecs_primitives_models"
+canonical_id = "webgl_3d_ecs_primitives_models"
+topic = "legacy performance / ECS WEBGL models"
+extras = []
+assets = []
+capabilities = ["canvas", "ecs", "three_d"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/09_performance/ecs_scenarios/webgl_3d_ecs_primitives_models.png"
+output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = true
+compatibility = "historical"
+
+[[files]]
+path = "examples/12_synth/acid_walk.py"
+classification = "entry_point"
+id = "acid_walk"
+topic = "synth / acid track"
+extras = []
+assets = ["assets/samples/sonic_pi", "assets/synths/compiled", "assets/fx/compiled"]
+capabilities = ["synth"]
+flags = ["--duration", "--output", "--no-play", "--no-save"]
+output = "examples/output/12_synth/acid_walk.wav"
+output_behavior = "WAV unless --no-save is supplied; playback occurs by default unless --no-play is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/12_synth/control_fx_and_scales.py"
+classification = "entry_point"
+id = "control_fx_and_scales"
+topic = "synth / controls, FX, and scales"
+extras = []
+assets = ["assets/samples/sonic_pi", "assets/synths/compiled", "assets/fx/compiled"]
+capabilities = ["synth"]
+flags = ["--duration", "--output", "--mp3", "--no-play", "--no-save"]
+output = "examples/output/12_synth/control_fx_and_scales.wav"
+output_behavior = "WAV unless --no-save is supplied; optional MP3 requires ffmpeg; playback is opt-out"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/12_synth/idm_breakout.py"
+classification = "entry_point"
+id = "idm_breakout"
+topic = "synth / IDM track"
+extras = []
+assets = ["assets/samples/sonic_pi", "assets/synths/compiled", "assets/fx/compiled"]
+capabilities = ["synth"]
+flags = ["--duration", "--output", "--no-play", "--no-save"]
+output = "examples/output/12_synth/idm_breakout.wav"
+output_behavior = "WAV unless --no-save is supplied; playback occurs by default unless --no-play is supplied"
+headless = true
+smoke_tier = "release"
+smoke_args = ["--duration", "0.1", "--no-play", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/12_synth/tron_bikes.py"
+classification = "entry_point"
+id = "tron_bikes"
+topic = "synth / threaded track"
+extras = []
+assets = ["assets/samples/sonic_pi", "assets/synths/compiled", "assets/fx/compiled"]
+capabilities = ["synth"]
+flags = ["--duration", "--output", "--no-play", "--no-save"]
+output = "examples/output/12_synth/tron_bikes.wav"
+output_behavior = "WAV unless --no-save is supplied; playback occurs by default unless --no-play is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/12_synth/wob_rhythm.py"
+classification = "entry_point"
+id = "wob_rhythm"
+topic = "synth / wobble rhythm and ambient choir"
+extras = []
+assets = ["assets/samples/sonic_pi", "assets/synths/compiled", "assets/fx/compiled"]
+capabilities = ["synth"]
+flags = ["--duration", "--output", "--no-play", "--no-save"]
+output = "examples/output/12_synth/wob_rhythm.wav"
+output_behavior = "WAV unless --no-save is supplied; playback occurs by default unless --no-play is supplied"
+headless = true
+smoke_tier = "fast"
+smoke_args = ["--duration", "0.1", "--no-play", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/12_synth/wob_rythm.py"
+classification = "compatibility_entry_point"
+id = "legacy_wob_rythm"
+canonical_id = "wob_rhythm"
+topic = "legacy synth / wobble rhythm and ambient choir"
+extras = []
+assets = ["assets/samples/sonic_pi", "assets/synths/compiled", "assets/fx/compiled"]
+capabilities = ["synth"]
+flags = ["--duration", "--output", "--no-play", "--no-save"]
+output = "examples/output/12_synth/wob_rythm.wav"
+output_behavior = "Preserves the historical WAV default and playback behavior while delegating to wob_rhythm"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "historical"
+
+[[files]]
+path = "examples/games/asteroids.py"
+classification = "entry_point"
+id = "asteroids"
+topic = "games / Asteroids"
+extras = []
+assets = ["examples/assets"]
+capabilities = ["canvas", "native_input"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/games/asteroids.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "extended"
+smoke_args = ["--headless", "--frames", "1", "--no-save"]
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/games/coin_runner.py"
+classification = "entry_point"
+id = "coin_runner"
+topic = "games / Coin Runner"
+extras = []
+assets = ["examples/assets"]
+capabilities = ["canvas", "native_input"]
+flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
+output = "examples/output/games/coin_runner.png"
+output_behavior = "PNG when --frames is positive unless --no-save is supplied"
+headless = true
+smoke_tier = "none"
+smoke_args = []
+performance_only = false
+compatibility = "canonical"
+
+[[files]]
+path = "examples/games/asteroids_game/__init__.py"
+classification = "support_module"
+topic = "games / Asteroids package"
+
+[[files]]
+path = "examples/games/asteroids_game/app.py"
+classification = "support_module"
+topic = "games / Asteroids application"
+
+[[files]]
+path = "examples/games/asteroids_game/constants.py"
+classification = "support_module"
+topic = "games / Asteroids constants"
+
+[[files]]
+path = "examples/games/asteroids_game/helpers.py"
+classification = "support_module"
+topic = "games / Asteroids helpers"
+
+[[files]]
+path = "examples/games/asteroids_game/logic.py"
+classification = "support_module"
+topic = "games / Asteroids logic"
+
+[[files]]
+path = "examples/games/asteroids_game/models.py"
+classification = "support_module"
+topic = "games / Asteroids models"
+
+[[files]]
+path = "examples/games/asteroids_game/rendering.py"
+classification = "support_module"
+topic = "games / Asteroids rendering"
+
+[[files]]
+path = "examples/games/coin_runner_game/__init__.py"
+classification = "support_module"
+topic = "games / Coin Runner package"
+
+[[files]]
+path = "examples/games/coin_runner_game/app.py"
+classification = "support_module"
+topic = "games / Coin Runner application"
+
+[[files]]
+path = "examples/games/coin_runner_game/constants.py"
+classification = "support_module"
+topic = "games / Coin Runner constants"
+
+[[files]]
+path = "examples/games/coin_runner_game/helpers.py"
+classification = "support_module"
+topic = "games / Coin Runner helpers"
+
+[[files]]
+path = "examples/games/coin_runner_game/logic.py"
+classification = "support_module"
+topic = "games / Coin Runner logic"
+
+[[files]]
+path = "examples/games/coin_runner_game/models.py"
+classification = "support_module"
+topic = "games / Coin Runner models"
+
+[[files]]
+path = "examples/games/coin_runner_game/rendering.py"
+classification = "support_module"
+topic = "games / Coin Runner rendering"
+
+[[files]]
+path = "examples/games/coin_runner_game/world.py"
+classification = "support_module"
+topic = "games / Coin Runner world"
+
+[[files]]
+path = "examples/support/__init__.py"
+classification = "support_module"
+topic = "shared example support package"
+
+[[files]]
+path = "examples/support/ant_colony/__init__.py"
+classification = "support_module"
+topic = "shared ant colony support package"
+
+[[files]]
+path = "examples/support/ant_colony/configuration.py"
+classification = "support_module"
+topic = "shared ant colony configuration"
+
+[[files]]
+path = "examples/support/ant_colony/simulation.py"
+classification = "support_module"
+topic = "shared ant colony simulation"
+
+[[files]]
+path = "examples/support/ant_colony/world.py"
+classification = "support_module"
+topic = "shared ant colony world"

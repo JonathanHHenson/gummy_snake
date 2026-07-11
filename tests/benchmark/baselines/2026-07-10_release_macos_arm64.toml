@@ -16,6 +16,9 @@ functional contract.
 '''
 
 [canvas_suite]
+benchmark_id = "canvas_backend_interactive_v1"
+scenario_support = "tests/benchmark/canvas_backend_perf/"
+comparison_tolerance = "same machine/build fingerprint; preserve the 240 FPS floor and documented scene margins"
 command = "uv run pytest tests/benchmark/test_canvas_backend_perf.py tests/benchmark/test_webgl_3d_perf.py --run-benchmarks -q -s"
 backend_mode = "interactive"
 frames = 120
@@ -70,6 +73,30 @@ status = "passed"
 command = "uv run pytest tests/benchmark/test_ecs_perf.py tests/benchmark/test_ecs_spatial_perf.py --run-benchmarks -q -s"
 status = "passed"
 required_hot_path_diagnostics = ["ecs_physical_system_runs > 0", "ecs_udf_calls == 0", "no physical-plan or execution errors"]
+
+[ecs_ants_2d]
+benchmark_id = "ecs_ants_2d_voxel_colony_v1"
+command = "uv run pytest tests/benchmark/test_ecs_ants_2d_perf.py --run-benchmarks -q -s"
+build_mode = "maturin develop --release"
+backend_mode = "ecs-world"
+frames = 120
+warmup_frames = 20
+repeats = 1
+metrics = ["counts", "ecs_physical_system_runs", "ecs_udf_calls", "compiled_plan_count"]
+comparison_tolerance = "same machine/build fingerprint; preserve 10,000 ants, zero UDF calls, and the 100 FPS gate"
+status = "path_metadata_only"
+
+[ecs_scenarios]
+benchmark_id = "ecs_performance_scenarios_v1"
+command = "uv run pytest tests/benchmark/test_ecs_scenarios_perf.py --run-benchmarks -q -s"
+build_mode = "maturin develop --release"
+backend_mode = "headless"
+frames = 120
+repeats = 1
+scenario_ids = ["rust_2d_primitives_branching", "python_systems_udfs_sprites", "structural_churn_tags_components", "spatial_events_for_each_stress", "webgl_3d_ecs_primitives_models"]
+metrics = ["fps", "renderer", "ecs", "python", "platform", "backend_mode"]
+comparison_tolerance = "same machine/build fingerprint; preserve each payload schema and the 120 FPS gate"
+status = "path_metadata_only"
 
 [synth_offline]
 command = "uv run pytest tests/benchmark/test_synth_offline_perf.py --run-benchmarks -q -s"

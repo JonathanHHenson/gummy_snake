@@ -203,13 +203,13 @@ src/gummysnake/sketch/       sketch lifecycle runtime, decorator builder, and ex
 Other important directories:
 
 ```text
-tests/unit/          focused API, state, assets, events, Rust wrapper tests
+tests/unit/          focused tests grouped by api_lifecycle, assets_media, canvas_runtime, ecs, synth, three_d, and tooling
 tests/contracts/     backend and renderer contract behavior
 tests/golden/        deterministic render comparisons
 tests/integration/   end-to-end sketch/rendering behavior
 tests/benchmark/     opt-in performance tests
 tests/stress/        opt-in resource lifecycle stress tests
-tests/helpers/       shared fake canvas runtimes, renderer fakes, and WebGL test helpers
+tests/helpers/       shared canvas_runtime fakes plus reusable ECS, synth, renderer, and WebGL test helpers
 tests/fixtures/      package-resource and file fixtures used by tests
 examples/            runnable sketches and smoke-test entry points; generated output belongs under ignored examples/output/
 docs/getting_started/ user learning path and first-sketch material
@@ -461,9 +461,9 @@ uv run python examples/01_getting_started/basic_shapes.py --headless --frames 1
 For ECS changes, run focused Python and Rust checks plus at least one ECS example:
 
 ```sh
-uv run ruff check src/gummysnake/ecs tests/unit/test_ecs.py
+uv run ruff check src/gummysnake/ecs tests/unit/ecs/test_ecs.py
 uv run mypy src/gummysnake/ecs
-uv run pytest tests/unit/test_ecs.py -q
+uv run pytest tests/unit/ecs/test_ecs.py -q
 cargo test --manifest-path crates/gummy_ecs/Cargo.toml
 uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save
 uv run python examples/10_ecs/crystal_moths.py --headless --frames 1 --no-save

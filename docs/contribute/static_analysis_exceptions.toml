@@ -15,7 +15,7 @@ tool = "type"
 codes = ["override"]
 owner = "ECS expression operators"
 reason = "Expression equality intentionally returns a lazy expression rather than bool."
-checks = ["uv run pytest tests/unit/test_ecs_plans.py", "uv run mypy src"]
+checks = ["uv run pytest tests/unit/ecs/test_ecs_plans.py", "uv run mypy src"]
 
 [[inline_suppressions]]
 path = "src/gummysnake/ecs/logical_plan/expressions/core.py"
@@ -24,7 +24,7 @@ tool = "type"
 codes = ["override"]
 owner = "ECS expression operators"
 reason = "Expression inequality intentionally returns a lazy expression rather than bool."
-checks = ["uv run pytest tests/unit/test_ecs_plans.py", "uv run mypy src"]
+checks = ["uv run pytest tests/unit/ecs/test_ecs_plans.py", "uv run mypy src"]
 
 [[inline_suppressions]]
 path = "src/gummysnake/synth/synth_runtime/values/foundation.py"
@@ -33,7 +33,7 @@ tool = "type"
 codes = ["override"]
 owner = "Synth expression operators"
 reason = "Expression equality intentionally returns a lazy synth expression rather than bool."
-checks = ["uv run pytest tests/unit/test_synth_tracks.py", "uv run mypy src"]
+checks = ["uv run pytest tests/unit/synth/test_synth_tracks.py", "uv run mypy src"]
 
 [[inline_suppressions]]
 path = "src/gummysnake/synth/synth_runtime/values/foundation.py"
@@ -42,4 +42,4 @@ tool = "type"
 codes = ["override"]
 owner = "Synth expression operators"
 reason = "Expression inequality intentionally returns a lazy synth expression rather than bool."
-checks = ["uv run pytest tests/unit/test_synth_tracks.py", "uv run mypy src"]
+checks = ["uv run pytest tests/unit/synth/test_synth_tracks.py", "uv run mypy src"]

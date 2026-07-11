@@ -29,6 +29,24 @@ IGNORED_PARTS = {
     "target",
 }
 IGNORED_RELATIVE_DIRS = (Path("examples/output"),)
+EXAMPLE_CATALOG_PATH = Path("examples/example_catalog.toml")
+EXAMPLE_CLASSIFICATIONS = frozenset(
+    {"entry_point", "support_module", "compatibility_entry_point", "generated"}
+)
+EXAMPLE_ENTRY_CLASSIFICATIONS = frozenset({"entry_point", "compatibility_entry_point"})
+EXAMPLE_SMOKE_TIERS = frozenset({"none", "fast", "extended", "release"})
+EXAMPLE_ALLOWED_EXTRAS = frozenset({"media", "numpy"})
+EXAMPLE_REQUIRED_FAST_IDS = frozenset(
+    {
+        "basic_shapes",
+        "images_and_sprites",
+        "typography_accessibility",
+        "lifecycle_controls",
+        "firefly_constellation",
+        "webgl_scene",
+        "wob_rhythm",
+    }
+)
 EXPECTED_GENERATED_IGNORE_ENTRIES = frozenset(
     {
         "examples/output/",
@@ -61,7 +79,7 @@ TEXT_ROOTS = (
 TEXT_SUFFIXES = {".py", ".rs", ".md", ".toml", ".txt", ".yaml", ".yml", ".json"}
 SELF_REFERENTIAL_AUDIT_FILES = {
     Path("scripts/structure_audit.py"),
-    Path("tests/unit/test_structure_audit.py"),
+    Path("tests/unit/tooling/test_structure_audit.py"),
 }
 REPOSITORY_PATH_PREFIXES = (
     "src/",
@@ -74,10 +92,7 @@ REPOSITORY_PATH_PREFIXES = (
 PATH_SKIP_MARKERS = ("...", "<", ">")
 PATH_WILDCARD_CHARACTERS = frozenset("*?[]{}")
 SUPPORT_CLUSTER_DIRECTORIES = (Path("tests/helpers"), Path("tests/benchmark"))
-INTENTIONAL_SUPPORT_PREFIX_CLUSTERS = {
-    Path("tests/helpers"): frozenset({"rust_canvas"}),
-    Path("tests/benchmark"): frozenset({"canvas_backend_perf_scene"}),
-}
+INTENTIONAL_SUPPORT_PREFIX_CLUSTERS: dict[Path, frozenset[str]] = {}
 MARKDOWN_INLINE_LINK_RE = re.compile(r"!?\[[^\]\n]*\]\((?P<destination><[^>\n]+>|[^)\n]+)\)")
 INLINE_CODE_SPAN_RE = re.compile(r"(?<!`)`(?P<content>[^`\n]+)`(?!`)")
 STALE_TEXT_PATTERNS = {
@@ -95,10 +110,10 @@ STALE_TEXT_PATTERNS = {
     "canvas_runtime.backend": "use `canvas_runtime.host` instead",
     "gummysnake.assets.image.model": "use `gummysnake.assets.image.core` instead",
     "assets/image/model.py": "use `assets/image/core.py` instead",
-    "rust_canvas_context_helpers": "use `tests.helpers.rust_canvas_context` instead",
-    "rust_canvas_asset_fakes": "use `tests.helpers.rust_canvas_assets` instead",
-    "rust_canvas_image_fakes": "use `tests.helpers.rust_canvas_image_kernels` instead",
-    "rust_canvas_state_fakes": "use `tests.helpers.rust_canvas_state` instead",
+    "rust_canvas_context_helpers": "use `tests.helpers.canvas_runtime.context` instead",
+    "rust_canvas_asset_fakes": "use `tests.helpers.canvas_runtime.assets` instead",
+    "rust_canvas_image_fakes": "use `tests.helpers.canvas_runtime.image_kernels` instead",
+    "rust_canvas_state_fakes": "use `tests.helpers.canvas_runtime.state` instead",
     "webgl_helpers": "use `tests.helpers.webgl` instead",
     "gummysnake.events.input_state": "use `gummysnake.core.input_events` instead",
     "gummysnake.events.input_events": "use `gummysnake.core.input_events` instead",
@@ -475,6 +490,368 @@ def _gitignore_entries(repo_root: Path) -> set[str]:
     }
 
 
+def _audit_example_catalog(repo_root: Path) -> list[StructureViolation]:
+    examples_root = repo_root / "examples"
+    catalog_path = repo_root / EXAMPLE_CATALOG_PATH
+    if not examples_root.is_dir():
+        return []
+    if not catalog_path.is_file():
+        return [
+            StructureViolation(
+                "missing_example_catalog",
+                EXAMPLE_CATALOG_PATH,
+                "add a machine-readable catalog for every examples Python file",
+            )
+        ]
+
+    try:
+        catalog = tomllib.loads(catalog_path.read_text())
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        return [
+            StructureViolation(
+                "invalid_example_catalog",
+                EXAMPLE_CATALOG_PATH,
+                f"catalog must be valid TOML: {error}",
+            )
+        ]
+
+    violations: list[StructureViolation] = []
+    if catalog.get("catalog") != {"version": 1}:
+        violations.append(
+            StructureViolation(
+                "invalid_example_catalog_schema",
+                EXAMPLE_CATALOG_PATH,
+                "catalog must declare `[catalog]` with `version = 1`",
+            )
+        )
+
+    entries = catalog.get("files")
+    if not isinstance(entries, list) or not all(isinstance(entry, dict) for entry in entries):
+        return [
+            *violations,
+            StructureViolation(
+                "invalid_example_catalog_schema",
+                EXAMPLE_CATALOG_PATH,
+                "catalog must declare one or more `[[files]]` tables",
+            ),
+        ]
+
+    discovered_paths = {
+        _display_path(repo_root, path)
+        for path in examples_root.rglob("*.py")
+        if path.is_file() and not _is_ignored_relative_path(_display_path(repo_root, path))
+    }
+    catalog_paths: set[Path] = set()
+    entries_by_id: dict[str, Mapping[str, object]] = {}
+    historical_entries: list[Mapping[str, object]] = []
+    smoke_ids: dict[str, set[str]] = {tier: set() for tier in EXAMPLE_SMOKE_TIERS - {"none"}}
+
+    for entry in entries:
+        path_value = entry.get("path")
+        classification = entry.get("classification")
+        topic = entry.get("topic")
+        if not isinstance(path_value, str):
+            violations.append(
+                StructureViolation(
+                    "invalid_example_catalog_entry",
+                    EXAMPLE_CATALOG_PATH,
+                    "each `[[files]]` entry needs a string `path`",
+                )
+            )
+            continue
+        path = Path(path_value)
+        catalog_paths.add(path)
+        if not path_value.startswith("examples/") or path.suffix != ".py":
+            violations.append(
+                StructureViolation(
+                    "invalid_example_catalog_path",
+                    path,
+                    "catalog paths must be Python files under `examples/`",
+                )
+            )
+            continue
+        if not (repo_root / path).is_file():
+            violations.append(
+                StructureViolation(
+                    "stale_example_catalog_path",
+                    path,
+                    "catalog path does not exist",
+                )
+            )
+        if classification not in EXAMPLE_CLASSIFICATIONS:
+            violations.append(
+                StructureViolation(
+                    "invalid_example_catalog_classification",
+                    path,
+                    f"classification must be one of {sorted(EXAMPLE_CLASSIFICATIONS)}",
+                )
+            )
+        if not isinstance(topic, str) or not topic.strip():
+            violations.append(
+                StructureViolation(
+                    "invalid_example_catalog_topic",
+                    path,
+                    "each catalog entry needs a non-empty topic",
+                )
+            )
+        if classification not in EXAMPLE_ENTRY_CLASSIFICATIONS:
+            continue
+
+        required_keys = {
+            "id",
+            "extras",
+            "assets",
+            "capabilities",
+            "flags",
+            "output",
+            "output_behavior",
+            "headless",
+            "smoke_tier",
+            "smoke_args",
+            "performance_only",
+            "compatibility",
+        }
+        missing_keys = sorted(required_keys - entry.keys())
+        if missing_keys:
+            violations.append(
+                StructureViolation(
+                    "incomplete_example_catalog_entry",
+                    path,
+                    f"entry point is missing: {', '.join(missing_keys)}",
+                )
+            )
+            continue
+
+        entry_id = entry["id"]
+        if not isinstance(entry_id, str) or not entry_id:
+            violations.append(
+                StructureViolation(
+                    "invalid_example_catalog_id",
+                    path,
+                    "entry point `id` must be a non-empty string",
+                )
+            )
+        elif entry_id in entries_by_id:
+            violations.append(
+                StructureViolation(
+                    "duplicate_example_catalog_id",
+                    path,
+                    f"duplicate entry point id `{entry_id}`",
+                )
+            )
+        else:
+            entries_by_id[entry_id] = entry
+
+        for field in ("extras", "assets", "capabilities", "flags", "smoke_args"):
+            value = entry[field]
+            if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+                violations.append(
+                    StructureViolation(
+                        "invalid_example_catalog_field",
+                        path,
+                        f"`{field}` must be a list of strings",
+                    )
+                )
+        extras = entry["extras"]
+        if isinstance(extras, list):
+            for extra in extras:
+                if isinstance(extra, str) and extra not in EXAMPLE_ALLOWED_EXTRAS:
+                    violations.append(
+                        StructureViolation(
+                            "unknown_example_extra",
+                            path,
+                            f"`{extra}` is not a declared optional dependency extra",
+                        )
+                    )
+        assets = entry["assets"]
+        if isinstance(assets, list):
+            for asset in assets:
+                if not isinstance(asset, str) or not (repo_root / asset).exists():
+                    violations.append(
+                        StructureViolation(
+                            "missing_example_asset",
+                            path,
+                            f"declared asset `{asset}` does not exist",
+                        )
+                    )
+        output = entry["output"]
+        if not isinstance(output, str) or not output.startswith("examples/output/"):
+            violations.append(
+                StructureViolation(
+                    "invalid_example_output_policy",
+                    path,
+                    "entry output must be a path below `examples/output/`",
+                )
+            )
+        if not isinstance(entry["output_behavior"], str) or not entry["output_behavior"].strip():
+            violations.append(
+                StructureViolation(
+                    "invalid_example_output_behavior",
+                    path,
+                    "entry point needs a non-empty output_behavior",
+                )
+            )
+        if not isinstance(entry["headless"], bool) or not isinstance(
+            entry["performance_only"], bool
+        ):
+            violations.append(
+                StructureViolation(
+                    "invalid_example_catalog_field",
+                    path,
+                    "`headless` and `performance_only` must be booleans",
+                )
+            )
+        smoke_tier = entry["smoke_tier"]
+        smoke_args = entry["smoke_args"]
+        if smoke_tier not in EXAMPLE_SMOKE_TIERS:
+            violations.append(
+                StructureViolation(
+                    "invalid_example_smoke_tier",
+                    path,
+                    f"smoke_tier must be one of {sorted(EXAMPLE_SMOKE_TIERS)}",
+                )
+            )
+        elif smoke_tier != "none":
+            if (
+                not entry["headless"]
+                or not isinstance(smoke_args, list)
+                or "--no-save" not in smoke_args
+            ):
+                violations.append(
+                    StructureViolation(
+                        "unsafe_example_smoke_command",
+                        path,
+                        "bounded smoke entries must be headless and include --no-save",
+                    )
+                )
+            capabilities = entry["capabilities"]
+            if (
+                isinstance(capabilities, list)
+                and "synth" in capabilities
+                and (not isinstance(smoke_args, list) or "--no-play" not in smoke_args)
+            ):
+                violations.append(
+                    StructureViolation(
+                        "unsafe_example_smoke_command",
+                        path,
+                        "synth smoke entries must include --no-play",
+                    )
+                )
+            if isinstance(entry_id, str):
+                smoke_ids[smoke_tier].add(entry_id)
+
+        source = (
+            (repo_root / path).read_text(errors="ignore") if (repo_root / path).is_file() else ""
+        )
+        flag_source = entry.get("flag_source")
+        if isinstance(flag_source, str):
+            flag_source_path = repo_root / flag_source
+            if not flag_source_path.is_file():
+                violations.append(
+                    StructureViolation(
+                        "stale_example_catalog_flag_source",
+                        path,
+                        f"flag_source `{flag_source}` does not exist",
+                    )
+                )
+            else:
+                source = flag_source_path.read_text(errors="ignore")
+        elif flag_source is not None:
+            violations.append(
+                StructureViolation(
+                    "invalid_example_catalog_flag_source",
+                    path,
+                    "flag_source must be a repository-relative string when provided",
+                )
+            )
+        flags = entry["flags"]
+        supports_common_flags = (
+            "example_parser" in source
+            or (" import run" in source and "run(__doc__)" in source)
+            or "_configuration.ARGS" in source
+        )
+        for flag in flags if isinstance(flags, list) else []:
+            if (
+                not supports_common_flags
+                and flag not in source
+                and classification != "compatibility_entry_point"
+            ):
+                violations.append(
+                    StructureViolation(
+                        "stale_example_catalog_flag",
+                        path,
+                        f"flag `{flag}` is not defined by this entry point",
+                    )
+                )
+
+        compatibility = entry["compatibility"]
+        if compatibility == "historical":
+            historical_entries.append(entry)
+        elif compatibility != "canonical":
+            violations.append(
+                StructureViolation(
+                    "invalid_example_compatibility",
+                    path,
+                    "entry point compatibility must be `canonical` or `historical`",
+                )
+            )
+
+    for path in sorted(discovered_paths - catalog_paths):
+        violations.append(
+            StructureViolation(
+                "unclassified_example_python_file",
+                path,
+                "add an explicit catalog entry with its classification",
+            )
+        )
+    for path in sorted(catalog_paths - discovered_paths):
+        if path not in {
+            Path(entry.get("path", ""))
+            for entry in entries
+            if entry.get("classification") == "generated"
+        }:
+            violations.append(
+                StructureViolation(
+                    "catalog_non_python_file",
+                    path,
+                    "catalog entry must correspond to a non-generated Python file",
+                )
+            )
+
+    for entry in historical_entries:
+        canonical_id = entry.get("canonical_id")
+        path = Path(str(entry.get("path")))
+        canonical = entries_by_id.get(canonical_id) if isinstance(canonical_id, str) else None
+        if canonical is None or canonical.get("compatibility") != "canonical":
+            violations.append(
+                StructureViolation(
+                    "invalid_example_compatibility_target",
+                    path,
+                    "historical entry point must reference one canonical_id",
+                )
+            )
+
+    for tier in ("fast", "extended", "release"):
+        if not smoke_ids[tier]:
+            violations.append(
+                StructureViolation(
+                    "empty_example_smoke_tier",
+                    EXAMPLE_CATALOG_PATH,
+                    f"smoke tier `{tier}` must contain at least one entry",
+                )
+            )
+    missing_fast_ids = sorted(EXAMPLE_REQUIRED_FAST_IDS - smoke_ids["fast"])
+    if missing_fast_ids:
+        violations.append(
+            StructureViolation(
+                "incomplete_fast_example_smoke_coverage",
+                EXAMPLE_CATALOG_PATH,
+                f"fast tier is missing: {', '.join(missing_fast_ids)}",
+            )
+        )
+    return violations
+
+
 def _audit_generated_example_output_policy(repo_root: Path) -> list[StructureViolation]:
     if not (repo_root / "examples").exists():
         return []
@@ -816,6 +1193,7 @@ def audit(repo_root: Path = Path(".")) -> list[StructureViolation]:
     violations.extend(_audit_maturin_include_patterns(root))
     violations.extend(_audit_local_cargo_dependencies(root))
     violations.extend(_audit_recipe_paths(root))
+    violations.extend(_audit_example_catalog(root))
     violations.extend(_audit_generated_example_output_policy(root))
     violations.extend(_audit_generated_ignore_entries(root))
     violations.extend(_audit_tracked_generated_artifacts(root))

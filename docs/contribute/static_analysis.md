@@ -47,6 +47,6 @@ an exception only with a focused behavior test and a manifest update in the same
 review.
 
 The focused guardrail tests live in
-[`tests/unit/test_static_analysis_audit.py`](../../tests/unit/test_static_analysis_audit.py).
+[`tests/unit/tooling/test_static_analysis_audit.py`](../../tests/unit/tooling/test_static_analysis_audit.py).
 The gate is tooling-only: it does not change sketch, renderer, ECS, synth, asset,
 or runtime capability behavior.

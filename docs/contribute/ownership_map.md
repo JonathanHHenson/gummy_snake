@@ -39,21 +39,21 @@ fallback. See [Runtime contracts](runtime_contracts.md) for the frozen boundary.
 
 | Area | Canonical owner | Composition or compatibility surface | Focused checks |
 | --- | --- | --- | --- |
-| Public API | `src/gummysnake/api/` | `src/gummysnake/__init__.py`, `src/gummysnake/api/global_mode/` | `tests/unit/test_public_api_contract.py`, `tests/unit/test_public_facade_contract.py` |
-| Constants | `src/gummysnake/constants/` | explicit package exports | `tests/unit/test_public_api_exports.py`, constants/reference checks |
-| Sketch lifecycle | `src/gummysnake/sketch/` | `src/gummysnake/sketch/__init__.py` | `tests/unit/test_lifecycle.py`, `tests/unit/test_plugins.py` |
-| Active context behavior | `src/gummysnake/context.py`, `src/gummysnake/context_mixins/` | public API/context facades | `tests/unit/test_global_api.py`, lifecycle and drawing tests |
-| Canvas host and renderer adapters | `src/gummysnake/backend/canvas_runtime/` | `src/gummysnake/backend/canvas.py`, `src/gummysnake/backend/canvas_renderer.py` | `tests/contracts/`, `tests/unit/test_rust_canvas_backend*.py` |
+| Public API | `src/gummysnake/api/` | `src/gummysnake/__init__.py`, `src/gummysnake/api/global_mode/` | `tests/unit/api_lifecycle/test_public_api_contract.py`, `tests/unit/api_lifecycle/test_public_facade_contract.py` |
+| Constants | `src/gummysnake/constants/` | explicit package exports | `tests/unit/api_lifecycle/test_public_api_exports.py`, constants/reference checks |
+| Sketch lifecycle | `src/gummysnake/sketch/` | `src/gummysnake/sketch/__init__.py` | `tests/unit/api_lifecycle/test_lifecycle.py`, `tests/unit/api_lifecycle/test_plugins.py` |
+| Active context behavior | `src/gummysnake/context.py`, `src/gummysnake/context_mixins/` | public API/context facades | `tests/unit/api_lifecycle/test_global_api.py`, lifecycle and drawing tests |
+| Canvas host and renderer adapters | `src/gummysnake/backend/canvas_runtime/` | `src/gummysnake/backend/canvas.py`, `src/gummysnake/backend/canvas_renderer.py` | `tests/contracts/`, `tests/unit/canvas_runtime/test_rust_canvas_backend*.py` |
 | Assets and data wrappers | `src/gummysnake/assets/` | topic APIs under `src/gummysnake/api/` | image, model, sound, media, and pixel unit tests |
-| Shared value/state types | `src/gummysnake/core/` | public API adapters | `tests/unit/test_color_transform.py`, input, pixel, and math tests |
+| Shared value/state types | `src/gummysnake/core/` | public API adapters | `tests/unit/api_lifecycle/test_color_transform.py`, input, pixel, and math tests |
 | Drawing and 3D helpers | `src/gummysnake/drawing/` | three-D context/API modules | integration WEBGL tests and opt-in WEBGL/model benchmarks |
 | Fast draw facade | `src/gummysnake/fast_draw_runtime/` | `gs.fast()` and `Sketch.fast()` | API-overhead benchmark and drawing tests |
-| Plugins | `src/gummysnake/plugins/` | `SketchContext` lifecycle dispatch | `tests/unit/test_plugins.py`, `test_ecs_schedule.py` |
-| ECS public and logical-plan layer | `src/gummysnake/ecs/logical_plan/` | `src/gummysnake/ecs/world.py` remains a compatibility facade; `world_facade/` owns the Python world implementation, while `logical_plan/` owns actions, expressions, build sessions, inspection, decorators, and specifications | `tests/unit/test_ecs_core.py`, `test_ecs_plans.py`, `test_ecs_schedule.py`, `test_ecs_spatial.py` |
+| Plugins | `src/gummysnake/plugins/` | `SketchContext` lifecycle dispatch | `tests/unit/api_lifecycle/test_plugins.py`, `tests/unit/ecs/test_ecs_schedule.py` |
+| ECS public and logical-plan layer | `src/gummysnake/ecs/logical_plan/` | `src/gummysnake/ecs/world.py` remains a compatibility facade; `world_facade/` owns the Python world implementation, while `logical_plan/` owns actions, expressions, build sessions, inspection, decorators, and specifications | `tests/unit/ecs/test_ecs_core.py`, `tests/unit/ecs/test_ecs_plans.py`, `tests/unit/ecs/test_ecs_schedule.py`, `tests/unit/ecs/test_ecs_spatial.py` |
 | ECS expressions and spatial relations | `src/gummysnake/ecs/logical_plan/expressions/`, `src/gummysnake/ecs/spatial/` | `src/gummysnake/ecs/actions.py`, `expressions/`, `systems.py`, and `physical.py` are explicit public composition surfaces | ECS plan and spatial tests |
 | Synth plans and playback controls | `src/gummysnake/synth/` | `src/gummysnake/synth/core.py` | synth unit tests and `tests/benchmark/test_synth_offline_perf.py` |
-| Rust wrapper boundary | `src/gummysnake/rust/` | package-local typed wrappers | `tests/unit/test_rust_canvas.py`, `test_ecs_bridge.py`, `test_rust_acceleration.py` |
-| Optional acceleration | `crates/gummy_accel/` plus `src/gummysnake/rust/` wrapper | optional `_accelerated` extension | `tests/unit/test_rust_acceleration.py` |
+| Rust wrapper boundary | `src/gummysnake/rust/` | package-local typed wrappers | `tests/unit/canvas_runtime/test_rust_canvas.py`, `tests/unit/ecs/test_ecs_bridge.py`, `tests/unit/canvas_runtime/test_rust_acceleration.py` |
+| Optional acceleration | `crates/gummy_accel/` plus `src/gummysnake/rust/` wrapper | optional `_accelerated` extension | `tests/unit/canvas_runtime/test_rust_acceleration.py` |
 
 `src/gummysnake/ecs/world.py` remains an import-compatible facade, not the
 implementation home. Likewise, `ecs/expressions/` and `ecs/spatial/` are packages;
