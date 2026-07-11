@@ -34,7 +34,6 @@ pub use execution::{
     ExecutionCanvasCommand, ExecutionCanvasFillBatch, ExecutionCanvasFillRecord, ExecutionReport,
     ExecutionWrite,
 };
-pub use hilbert::HilbertIndex;
 pub use plan::{
     compile_bridge_plan, validate_plan, ActionNode, BridgePlanPayload, BridgeQueryPayload,
     CanvasCommandNode, ExprNode, PhysicalPlan, PhysicalPlanHandle, PhysicalQuery, PlanCache,
@@ -49,14 +48,11 @@ pub use scheduler::{
 };
 pub use schema::{ComponentSchema, FieldSchema, SchemaRegistry, StorageType};
 pub use spatial::{
-    Dimensions, HashGridIndex, SpatialAabb, SpatialCapabilities, SpatialIndexBackend,
-    SpatialMemoryStats, SpatialPoint, SpatialRecord,
+    Dimensions, HashGridIndex, HilbertIndex, OctreeIndex, QuadtreeIndex, SpatialAabb,
+    SpatialAlgorithmKind, SpatialCapabilities, SpatialIndexBackend, SpatialIndexDescriptor,
+    SpatialIndexRegistry, SpatialIndexSlot, SpatialIndexStats, SpatialMemoryStats, SpatialPoint,
+    SpatialRecord,
 };
-pub use spatial_registry::{
-    SpatialAlgorithmKind, SpatialIndexDescriptor, SpatialIndexRegistry, SpatialIndexSlot,
-    SpatialIndexStats,
-};
-pub use tree_spatial::{OctreeIndex, QuadtreeIndex};
 pub use world::World;
 
 pub const ECS_ABI_VERSION: u32 = 4;
@@ -85,6 +81,43 @@ mod tests {
         assert_eq!(reused.index, first.index);
         assert_eq!(reused.generation, first.generation + 1);
         assert_eq!(world.alive_count(), 1);
+    }
+
+    #[test]
+    fn spatial_compatibility_modules_and_root_exports_resolve() {
+        fn accepts_spatial_backend(_backend: &impl SpatialIndexBackend) {}
+
+        let bounds_2d = SpatialAabb::point2(0.0, 0.0, 10.0, 10.0).unwrap();
+        let hilbert = hilbert::HilbertIndex::new(bounds_2d.clone(), 8).unwrap();
+        accepts_spatial_backend(&hilbert);
+        let _: SpatialCapabilities = hilbert.capabilities();
+        let _: HilbertIndex = hilbert;
+
+        let quadtree = tree_spatial::QuadtreeIndex::new(bounds_2d, 16).unwrap();
+        accepts_spatial_backend(&quadtree);
+        let _: QuadtreeIndex = quadtree;
+
+        let bounds_3d = SpatialAabb::point3(0.0, 0.0, 0.0, 10.0, 10.0, 10.0).unwrap();
+        let octree = tree_spatial::OctreeIndex::new(bounds_3d, 16).unwrap();
+        accepts_spatial_backend(&octree);
+        let _: OctreeIndex = octree;
+
+        let hash_grid = HashGridIndex::new(Dimensions::D2, 1.0).unwrap();
+        accepts_spatial_backend(&hash_grid);
+
+        let descriptor = spatial_registry::SpatialIndexDescriptor {
+            name: Some("positions".to_string()),
+            target_query: vec!["Position".to_string()],
+            dimensions: 2,
+            algorithm: spatial_registry::SpatialAlgorithmKind::HashGrid,
+            update_policy: "auto".to_string(),
+        };
+        let _: SpatialIndexDescriptor = descriptor.clone();
+        let _: SpatialAlgorithmKind = descriptor.algorithm.clone();
+        let mut registry: SpatialIndexRegistry = spatial_registry::SpatialIndexRegistry::new();
+        let id = registry.intern(descriptor);
+        let slot: &SpatialIndexSlot = registry.get(id).unwrap();
+        let _: SpatialIndexStats = slot.stats.clone();
     }
 
     #[test]

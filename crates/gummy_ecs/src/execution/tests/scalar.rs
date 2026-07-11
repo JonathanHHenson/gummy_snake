@@ -1,4 +1,5 @@
 use super::*;
+use crate::plan::CanvasCommandNode;
 
 #[test]
 fn physical_plan_executes_scalar_set_over_query_rows() {
@@ -183,4 +184,151 @@ fn optimized_f64_executor_reads_resources_and_input_state() {
     );
     assert_eq!(report.fields_written, 1);
     assert!(report.writes.is_empty());
+}
+
+#[test]
+fn row_local_canvas_compacts_fill_records_with_stable_order_and_conversions() {
+    let (mut world, first) = world_with_motion();
+    let second = add_motion_entity(&mut world, 10.0, 20.0, 0.0);
+    let payload = BridgePlanPayload {
+        version: BRIDGE_PLAN_VERSION,
+        schema_fingerprint: Some(world.schema_fingerprint()),
+        queries: vec![BridgeQueryPayload {
+            name: "entity".to_string(),
+            terms: vec![
+                QueryTerm::WithComponent("Position".to_string()),
+                QueryTerm::WithComponent("Velocity".to_string()),
+            ],
+            allowed_entities: None,
+        }],
+        expressions: vec![
+            ExprNode::LiteralF64(12.4),
+            ExprNode::LiteralF64(100.6),
+            ExprNode::LiteralF64(260.0),
+            ExprNode::LiteralF64(-3.0),
+            ExprNode::Field {
+                query: "entity".to_string(),
+                component: "Position".to_string(),
+                field: "x".to_string(),
+            },
+            ExprNode::Field {
+                query: "entity".to_string(),
+                component: "Position".to_string(),
+                field: "y".to_string(),
+            },
+            ExprNode::LiteralF64(4.0),
+            ExprNode::LiteralF64(5.0),
+            ExprNode::LiteralF64(6.0),
+        ],
+        actions: vec![
+            ActionNode::CanvasCommand(CanvasCommandNode {
+                command: "fill".to_string(),
+                args: vec![0, 1, 2, 3],
+            }),
+            ActionNode::CanvasCommand(CanvasCommandNode {
+                command: "no_stroke".to_string(),
+                args: Vec::new(),
+            }),
+            ActionNode::CanvasCommand(CanvasCommandNode {
+                command: "rect".to_string(),
+                args: vec![4, 5, 6, 7],
+            }),
+            ActionNode::CanvasCommand(CanvasCommandNode {
+                command: "circle".to_string(),
+                args: vec![4, 5, 8],
+            }),
+            ActionNode::Sequence(vec![0, 1, 2, 3]),
+        ],
+        root_action: 4,
+    };
+
+    let report = world.execute_bridge_plan(payload).unwrap();
+
+    assert_eq!(report.rows_scanned, 4);
+    assert_eq!(
+        report.canvas_commands,
+        vec![
+            ExecutionCanvasCommand {
+                command: "fill".to_string(),
+                args: vec![
+                    EcsValue::F64(12.4),
+                    EcsValue::F64(100.6),
+                    EcsValue::F64(260.0),
+                    EcsValue::F64(-3.0),
+                ],
+            },
+            ExecutionCanvasCommand {
+                command: "no_stroke".to_string(),
+                args: Vec::new(),
+            },
+        ]
+    );
+    assert_eq!(
+        report.canvas_fill_batches,
+        vec![ExecutionCanvasFillBatch {
+            records: vec![
+                ExecutionCanvasFillRecord {
+                    kind: 1,
+                    a: 2.0,
+                    b: 0.0,
+                    c: 4.0,
+                    d: 5.0,
+                    e: 0.0,
+                    f: 0.0,
+                    r: 12,
+                    g: 101,
+                    blue: 255,
+                    alpha: 0,
+                },
+                ExecutionCanvasFillRecord {
+                    kind: 1,
+                    a: 10.0,
+                    b: 20.0,
+                    c: 4.0,
+                    d: 5.0,
+                    e: 0.0,
+                    f: 0.0,
+                    r: 12,
+                    g: 101,
+                    blue: 255,
+                    alpha: 0,
+                },
+                ExecutionCanvasFillRecord {
+                    kind: 3,
+                    a: -1.0,
+                    b: -3.0,
+                    c: 6.0,
+                    d: 6.0,
+                    e: 0.0,
+                    f: 0.0,
+                    r: 12,
+                    g: 101,
+                    blue: 255,
+                    alpha: 0,
+                },
+                ExecutionCanvasFillRecord {
+                    kind: 3,
+                    a: 7.0,
+                    b: 17.0,
+                    c: 6.0,
+                    d: 6.0,
+                    e: 0.0,
+                    f: 0.0,
+                    r: 12,
+                    g: 101,
+                    blue: 255,
+                    alpha: 0,
+                },
+            ],
+        }]
+    );
+
+    assert_eq!(
+        world.get_field(first, "Position", "x").unwrap(),
+        EcsValue::F64(2.0)
+    );
+    assert_eq!(
+        world.get_field(second, "Position", "x").unwrap(),
+        EcsValue::F64(10.0)
+    );
 }

@@ -123,13 +123,14 @@ DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_canvas/src/sound.rs"),
     Path("crates/gummy_canvas/src/tests.rs"),
     Path("crates/gummy_ecs/src/execution.rs"),
-    Path("crates/gummy_ecs/src/execution/direct_point_hash_grid.rs"),
-    Path("crates/gummy_ecs/src/execution/f64_program.rs"),
+    Path("crates/gummy_ecs/src/execution/interpreter/actions.rs"),
+    Path("crates/gummy_ecs/src/execution/optimized/f64_program.rs"),
+    Path("crates/gummy_ecs/src/execution/row_local/compact_fill.rs"),
     Path("crates/gummy_ecs/src/execution/tests.rs"),
     Path("crates/gummy_ecs/src/plan.rs"),
     Path("crates/gummy_ecs/src/spatial.rs"),
     Path("crates/gummy_ecs/src/spatial/hash_grid.rs"),
-    Path("crates/gummy_ecs/src/tree_spatial.rs"),
+    Path("crates/gummy_ecs/src/spatial/tree_spatial.rs"),
     Path("crates/gummy_ecs/src/world.rs"),
 }
 

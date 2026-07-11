@@ -394,10 +394,10 @@ Use these rules of thumb:
   `gpu/shaders/primitive.rs`, `gpu/types.rs`, `runtime/desktop.rs`,
   `sketch_state.rs`, `sound.rs`, and `tests.rs` under
   `crates/gummy_canvas/src/`, plus `execution.rs`,
-  `execution/direct_point_hash_grid.rs`, `execution/f64_program.rs`,
-  `execution/tests.rs`, `plan.rs`, `spatial.rs`, `spatial/hash_grid.rs`,
-  `tree_spatial.rs`, and `world.rs` under
-  `crates/gummy_ecs/src/`.
+  `execution/interpreter/actions.rs`, `execution/optimized/f64_program.rs`,
+  `execution/row_local/compact_fill.rs`, `execution/tests.rs`, `plan.rs`,
+  `spatial.rs`, `spatial/hash_grid.rs`, `spatial/tree_spatial.rs`, and
+  `world.rs` under `crates/gummy_ecs/src/`.
 - Run `uv run python scripts/structure_audit.py` after layout changes. It checks
   for confusing Python sibling module/package patterns, source-package test
   fixtures, stale renamed package references, generated example output policy,

@@ -144,6 +144,55 @@ fn filtered_queries_support_required_and_excluded_tags() {
 }
 
 #[test]
+fn swap_removal_repairs_the_moved_entity_location() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let first = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let removed = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let moved = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world
+        .set_field(moved, "Position", "x", EcsValue::F64(3.0))
+        .unwrap();
+
+    world.despawn(removed).unwrap();
+
+    assert_eq!(
+        world.get_field(moved, "Position", "x").unwrap(),
+        EcsValue::F64(3.0)
+    );
+    world
+        .set_field(moved, "Position", "x", EcsValue::F64(30.0))
+        .unwrap();
+    assert_eq!(
+        world.query(["Position".to_string()]).unwrap(),
+        vec![first, moved]
+    );
+}
+
+#[test]
+fn clone_resets_derived_query_caches() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world.query(["Position".to_string()]).unwrap();
+    world.query(["Position".to_string()]).unwrap();
+    let before_clone = world.diagnostics();
+    assert_eq!(before_clone.query_cache_hits, 1);
+
+    let mut cloned = world.clone();
+    cloned.query(["Position".to_string()]).unwrap();
+    let clone_diagnostics = cloned.diagnostics();
+    assert_eq!(
+        clone_diagnostics.query_cache_misses,
+        before_clone.query_cache_misses + 1
+    );
+    assert_eq!(
+        clone_diagnostics.query_cache_hits,
+        before_clone.query_cache_hits
+    );
+}
+
+#[test]
 fn resources_and_events_are_owned_by_world() {
     let mut world = World::new();
     world
