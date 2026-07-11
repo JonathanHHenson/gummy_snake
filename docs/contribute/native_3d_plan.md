@@ -29,6 +29,22 @@ For the canvas backend today, `three_d` and `software_three_d` are true, while
 do not by themselves imply full native 3D capability or native user shader
 execution.
 
+## Python 3D Capability Ownership
+
+The Python layers adapt public sketch calls to the canvas runtime; they do not
+own alternate model storage or rendering paths. Keep new work in the narrowest
+layer below, preserving the compatibility barrels named in the first column.
+
+| Capability | Public compatibility surface | Authoritative Python layer | Rust/runtime boundary |
+| --- | --- | --- | --- |
+| Camera, projection, and world/screen conversion | `gummysnake.api.three_d` | `api/three_d_api/camera_api.py`, `context_mixins/three_d/camera_runtime/` | Camera/projection payloads are consumed by canvas model draws. Logical coordinates remain logical until Rust submits physical GPU vertices. |
+| Interaction controls and lights | `gummysnake.api.three_d` | `api/three_d_api/controls_and_lighting.py`, `context_mixins/three_d/camera_runtime/` and `material.py` | Rust owns built-in light execution and GPU uniforms. |
+| Materials, textures, and shader-style objects | `gummysnake.api.three_d` | `api/three_d_api/controls_and_lighting.py`, `materials_and_primitives.py`, `context_mixins/three_d/material.py` | Built-in Rust material/texture pipelines; this does not grant user-programmable native shaders. |
+| Custom geometry and built-in primitives | `gummysnake.api.three_d` | `context_mixins/three_d/primitives.py`, `drawing/software3d/primitives.py` | Generated models retain `CanvasModel3D`/`CanvasMesh3D` handles when supplied by the canvas runtime. |
+| Mesh/model wrappers and Python inspection data | `gummysnake.drawing.renderer3d` | `renderer3d/mesh_model/`, `renderer3d/model.py` | Rust handles are canonical; tuple and optional NumPy views hydrate lazily for inspection only. |
+| Model drawing and retained batching | object facade and `gummysnake.api.three_d` | `sketch/facade_mixins/three_d_facade/`, `context_mixins/three_d/model.py` | Rust-owned retained vertex/index buffers, transform/camera/material/light uniforms, ordering, depth testing, and diagnostics. |
+| Software projection, rasterization, and export | `gummysnake.drawing.software3d` | `drawing/software3d/` | Rust kernels own projection/shading/rasterization and streaming OBJ/STL export where available. |
+
 ## Target Runtime Shape
 
 The built-in GPU model path already moved part of this work into

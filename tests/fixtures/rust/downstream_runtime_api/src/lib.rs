@@ -5,7 +5,6 @@
 //! supported `gummy_canvas` boundary.
 
 use gummy_ecs as ecs;
-use pyo3::types::PyBytesMethods;
 
 const _: [(); 4] = [(); ecs::ECS_ABI_VERSION as usize];
 const _: [(); 2] = [(); ecs::BRIDGE_PLAN_VERSION as usize];
@@ -58,30 +57,15 @@ fn synth_stable_domain_api_compiles(plan: &gummy_synth::SynthPlaybackPlan) -> f6
     plan.duration_seconds()
 }
 
-/// Transitional PyO3-coupled source APIs. PBI 019 may migrate these atomically
-/// while preserving the Python `_canvas` surface and behavior.
+/// Typed synth APIs are ordinary Rust domain calls. The Python `_canvas`
+/// functions are intentionally owned and registered by `gummy_canvas`.
 #[allow(dead_code)]
-fn synth_transitional_pyo3_api_compiles() {
-    pyo3::Python::with_gil(|py| {
-        let module = pyo3::types::PyModule::new_bound(py, "runtime_contract")
-            .expect("contract module creation must compile");
-        let event = pyo3::types::PyDict::new_bound(py);
-        let events = pyo3::types::PyList::empty_bound(py);
-        let bytes = pyo3::types::PyBytes::new_bound(py, b"");
-
-        let _: pyo3::PyResult<()> = gummy_synth::register_pyfunctions(&module);
-        let _: pyo3::PyResult<pyo3::Bound<'_, pyo3::types::PyBytes>> =
-            gummy_synth::synth_render_event_wav(py, &event, 44_100);
-        let _: pyo3::PyResult<pyo3::Bound<'_, pyo3::types::PyBytes>> =
-            gummy_synth::synth_render_plan_wav(py, &events, 0.0, 44_100);
-        let _: pyo3::PyResult<pyo3::Bound<'_, pyo3::types::PyBytes>> =
-            gummy_synth::synth_render_serialized_plan_wav(py, &bytes, 44_100);
-        let _: pyo3::PyResult<f64> = gummy_synth::synth_sample_duration(bytes.as_any());
-        let _: pyo3::PyResult<Vec<u8>> =
-            gummy_synth::render_serialized_plan_wav_bytes(bytes.as_bytes(), 44_100);
-        let _: pyo3::PyResult<gummy_synth::SynthPlaybackPlan> =
-            gummy_synth::SynthPlaybackPlan::from_serialized_plan(bytes.as_bytes());
-    });
+fn synth_typed_api_compiles() {
+    let bytes = b"";
+    let _: gummy_synth::SynthResult<Vec<u8>> =
+        gummy_synth::render_serialized_plan_wav_bytes(bytes, 44_100);
+    let _: gummy_synth::SynthResult<gummy_synth::SynthPlaybackPlan> =
+        gummy_synth::SynthPlaybackPlan::from_serialized_plan(bytes);
 }
 
 // `gummy_canvas_runtime` is deliberately an unused direct dependency: cargo

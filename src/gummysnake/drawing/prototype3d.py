@@ -11,6 +11,19 @@ import math
 from dataclasses import dataclass
 
 from gummysnake.drawing.renderer3d import Camera3D, Mesh3D, Model3D, Vec3
+from gummysnake.drawing.renderer3d._math import (
+    cross as _shared_cross,
+)
+from gummysnake.drawing.renderer3d._math import (
+    dot as _shared_dot,
+)
+from gummysnake.drawing.renderer3d._math import (
+    normalized_or_none,
+)
+from gummysnake.drawing.renderer3d._math import (
+    subtract as _shared_subtract,
+)
+from gummysnake.drawing.renderer3d._projection_validation import validate_projection_rules
 from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
     OrthographicProjection,
@@ -83,15 +96,8 @@ def wireframe_segments(
 
 
 def _mesh_edges(mesh: Mesh3D) -> list[tuple[int, int]]:
-    edges: set[tuple[int, int]] = set()
-    for face in mesh.faces:
-        if len(face) < 2:
-            continue
-        for index, start in enumerate(face):
-            end = face[(index + 1) % len(face)]
-            edge = (start, end) if start < end else (end, start)
-            edges.add(edge)
-    return sorted(edges)
+    """Compatibility wrapper over the shared mesh-edge algorithm."""
+    return list(mesh.edges())
 
 
 def _project_point(
@@ -174,45 +180,27 @@ def _camera_space(point: Vec3, camera: Camera3D) -> Vec3:
 
 
 def _validate_projection(projection: Projection3D) -> None:
-    if projection.near <= 0:
-        raise ValueError("projection near plane must be positive.")
-    if projection.far <= projection.near:
-        raise ValueError("projection far plane must be greater than the near plane.")
-    if isinstance(projection, PerspectiveProjection):
-        if projection.fov_y <= 0 or projection.fov_y >= 180:
-            raise ValueError("perspective fov_y must be between 0 and 180 degrees.")
-        if projection.aspect is not None and projection.aspect <= 0:
-            raise ValueError("perspective aspect must be positive when provided.")
-    elif isinstance(projection, FrustumProjection):
-        if projection.left >= projection.right:
-            raise ValueError("frustum left must be less than right.")
-        if projection.bottom >= projection.top:
-            raise ValueError("frustum bottom must be less than top.")
-    elif projection.width <= 0 or projection.height <= 0:
-        raise ValueError("orthographic width and height must be positive.")
+    """Retain prototype ``ValueError`` compatibility over shared rules."""
+    validate_projection_rules(projection, error=ValueError)
 
 
 def _sub(a: Vec3, b: Vec3) -> Vec3:
-    return Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
+    return _shared_subtract(a, b)
 
 
 def _dot(a: Vec3, b: Vec3) -> float:
-    return a.x * b.x + a.y * b.y + a.z * b.z
+    return _shared_dot(a, b)
 
 
 def _cross(a: Vec3, b: Vec3) -> Vec3:
-    return Vec3(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x,
-    )
+    return _shared_cross(a, b)
 
 
 def _normalize(value: Vec3) -> Vec3:
-    length = math.sqrt(_dot(value, value))
-    if length == 0:
+    normalized = normalized_or_none(value)
+    if normalized is None:
         raise ValueError("camera eye/target/up vectors must define a valid orientation.")
-    return Vec3(value.x / length, value.y / length, value.z / length)
+    return normalized
 
 
 __all__ = ["ProjectedLine", "ScreenPoint", "cube_model", "wireframe_segments"]

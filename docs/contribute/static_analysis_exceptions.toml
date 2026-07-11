@@ -219,7 +219,7 @@ reason = "Expression inequality intentionally returns a lazy expression rather t
 checks = ["uv run pytest tests/unit/test_ecs_plans.py"]
 
 [[inline_suppressions]]
-path = "src/gummysnake/synth/synth_runtime/pattern_helpers.py"
+path = "src/gummysnake/synth/synth_runtime/values/pattern_helpers.py"
 line = 18
 tool = "noqa"
 codes = ["A001"]
@@ -228,8 +228,8 @@ reason = "The public Sonic Pi-compatible constructor is intentionally named rang
 checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
 
 [[inline_suppressions]]
-path = "src/gummysnake/synth/synth_runtime/runtime_foundation.py"
-line = 251
+path = "src/gummysnake/synth/synth_runtime/values/foundation.py"
+line = 237
 tool = "type"
 codes = ["override"]
 owner = "Synth expression operators"
@@ -237,8 +237,8 @@ reason = "Expression equality intentionally returns a lazy synth expression."
 checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
 
 [[inline_suppressions]]
-path = "src/gummysnake/synth/synth_runtime/runtime_foundation.py"
-line = 254
+path = "src/gummysnake/synth/synth_runtime/values/foundation.py"
+line = 240
 tool = "type"
 codes = ["override"]
 owner = "Synth expression operators"
@@ -246,13 +246,22 @@ reason = "Expression inequality intentionally returns a lazy synth expression."
 checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
 
 [[inline_suppressions]]
-path = "src/gummysnake/synth/synth_runtime/track.py"
-line = 92
+path = "src/gummysnake/synth/synth_runtime/playback_export/track.py"
+line = 95
 tool = "noqa"
 codes = ["A002"]
 owner = "Synth track API"
 reason = "The public save argument uses the documented format name."
 checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
+
+[[inline_suppressions]]
+path = "src/gummysnake/fast_draw_runtime/model_batching.py"
+line = 57
+tool = "type"
+codes = ["attr-defined"]
+owner = "Fast Draw model capability composition"
+reason = "The composed scope owns this statically declared transform capability without per-call dynamic lookup."
+checks = ["uv run pytest tests/unit/test_fast_draw_scope.py", "uv run mypy src"]
 
 [[inline_suppressions]]
 path = "tests/helpers/rust_canvas_assets.py"

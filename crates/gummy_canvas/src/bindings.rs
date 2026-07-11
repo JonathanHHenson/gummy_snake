@@ -2,6 +2,7 @@ mod ecs;
 mod health;
 mod image_ops;
 mod models;
+mod synth;
 
 use ecs::*;
 pub(crate) use health::{canvas_abi_version, gpu_available, health_check, native_window_available};
@@ -37,7 +38,7 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(project_shade_faces, m)?)?;
     m.add_function(wrap_pyfunction!(project_shade_model_handle, m)?)?;
     m.add_function(wrap_pyfunction!(rasterize_faces_rgba, m)?)?;
-    gummy_synth::register_pyfunctions(m)?;
+    synth::register(m)?;
     m.add_function(wrap_pyfunction!(synth_play_serialized_plan, m)?)?;
     m.add_function(wrap_pyfunction!(synth_play_wav_bytes, m)?)?;
     m.add("CANVAS_ABI_VERSION", CANVAS_ABI_VERSION)?;

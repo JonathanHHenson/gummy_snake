@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
-from typing import get_overloads
+from typing import Any, cast, get_overloads
 
 import gummysnake as gs
 from gummysnake.sketch.facade_mixins.media import SketchFacadeMediaMixin
@@ -99,17 +99,17 @@ def test_media_and_three_d_forwards_delegate_to_the_active_context() -> None:
 
     sketch = gs.Sketch()
     probe = ContextProbe()
-    sketch.context = probe  # type: ignore[assignment]
+    sketch.context = cast(Any, probe)
 
-    sketch.image("sprite", 1.0, 2.0)  # type: ignore[arg-type]
+    sketch.image(cast(Any, "sprite"), 1.0, 2.0)
     sketch.blend(0, 0, 1, 1, 0, 0, 1, 1, gs.BLEND)
     assert sketch.get(2, 3) == "get"
     assert sketch.camera() == "camera"
     assert sketch.orbit_control() == "orbit_control"
     sketch.ambient_light(255)
-    sketch.texture("texture")  # type: ignore[arg-type]
+    sketch.texture(cast(Any, "texture"))
     sketch.box(2)
-    sketch.model("model")  # type: ignore[arg-type]
+    sketch.model(cast(Any, "model"))
     assert [name for name, _, _ in probe.calls] == [
         "image",
         "blend",

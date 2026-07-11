@@ -68,18 +68,30 @@ spatial construction paths.
 `gummy_canvas` intentionally has no supported downstream Rust API: its supported
 surface is the Python `_canvas` extension validated above.
 
-The following public `gummy_synth` APIs are transitional workspace-internal source
-surfaces that PBI 019 may migrate atomically to typed errors while preserving the
-Python `_canvas` API and behavior:
-
-- `register_pyfunctions`
-- `synth_render_event_wav`, `synth_render_plan_wav`, and
-  `synth_render_serialized_plan_wav`
-- `synth_sample_duration` and `render_serialized_plan_wav_bytes`
-- `SynthPlaybackPlan::from_serialized_plan` and
-  `SynthPlaybackPlan::render_window_i16`
-
+`gummy_synth` is a PyO3-free typed Rust library. It exposes `SynthError`,
+`SynthResult`, typed event values, `render_serialized_plan_wav_bytes`,
+`SynthPlaybackPlan::from_serialized_plan`, and
+`SynthPlaybackPlan::render_window_i16`. Its public `codec` module owns the
+bounds-checked RIFF/WAV chunk scanner and optional metadata used by both synth
+sample decoding and `gummy_canvas`; it does not choose a supported audio format
+or construct Python errors. Synth samples retain their mono/stereo 8-, 16-, and
+32-bit PCM WAV plus FLAC policy, while canvas duration probing and SDL playback
+retain their respective metadata and uncompressed 16-bit PCM policies.
+`gummy_canvas/src/bindings/synth.rs` owns all Python dict/list parsing,
+registration of the existing `_canvas` synth functions, and conversion of typed
+synth failures back to the established Python `ValueError` messages.
 `SynthPlaybackPlan::duration_seconds` remains an ordinary domain API.
+
+### WAV caller-policy matrix
+
+The shared parser is intentionally structural. These callers retain their prior
+format decisions and public failure behavior:
+
+| Consumer | Accepted format policy | Container/error policy |
+| --- | --- | --- |
+| Synth sample decoder | Mono or stereo 8-, 16-, or 32-bit PCM-width WAV data; FLAC stays on its existing decoder path. The WAV audio-format tag is retained as metadata but is not a new synth decoder filter. | Unknown RIFF chunks and odd-byte padding are ignored; malformed chunks, missing required chunks, and unsupported width/channel combinations remain `SynthError` failures. A final incomplete stereo frame retains the prior truncation behavior. |
+| `CanvasSound` duration probe | Any WAV metadata that can determine frame bytes; it does not impose the SDL playback format restriction. | Non-WAV and incomplete metadata produce `None`; malformed chunk lengths and `fmt ` chunks retain their `ValueError` messages. |
+| SDL synth WAV playback | Exactly uncompressed 16-bit PCM with non-zero channel count/sample rate and 16-bit-aligned data. | The canvas adapter maps typed policy failures back to the existing `ValueError` messages before SDL stream setup. |
 
 ## Diagnostics and performance baseline
 

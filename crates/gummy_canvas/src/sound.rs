@@ -200,7 +200,8 @@ fn start_serialized_plan_streaming_playback(
             "synth live playback sample rate must be greater than zero.",
         ));
     }
-    let plan = gummy_synth::SynthPlaybackPlan::from_serialized_plan(payload)?;
+    let plan = gummy_synth::SynthPlaybackPlan::from_serialized_plan(payload)
+        .map_err(|error| PyValueError::new_err(error.message().to_owned()))?;
     let duration = plan.duration_seconds();
     if !duration.is_finite() || duration < 0.0 {
         return Err(PyValueError::new_err(

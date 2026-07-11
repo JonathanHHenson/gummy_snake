@@ -1,6 +1,7 @@
 import numpy as np
+import pytest
 
-from gummysnake.drawing.prototype3d import cube_model, wireframe_segments
+from gummysnake.drawing.prototype3d import _validate_projection, cube_model, wireframe_segments
 from gummysnake.drawing.renderer3d import (
     Camera3D,
     Mesh3D,
@@ -18,6 +19,8 @@ from gummysnake.drawing.software3d import (
     save_stl,
     torus_model,
 )
+from gummysnake.drawing.software3d.projection import validate_projection
+from gummysnake.exceptions import ArgumentValidationError
 
 
 def test_mesh3d_prefers_rust_handle_for_canonical_storage(monkeypatch):
@@ -110,6 +113,15 @@ def test_mesh3d_stores_numeric_data_as_readonly_numpy_arrays_with_friendly_views
     assert mesh.faces == ((0, 1, 2), (0, 2, 3, 1))
     assert mesh.texcoords == ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0))
     assert mesh.to_python()["vertices"] == mesh.vertices
+
+
+def test_shared_projection_rules_preserve_prototype_and_software_error_contracts():
+    invalid = PerspectiveProjection(near=0)
+
+    with pytest.raises(ValueError, match="projection near plane must be positive\\."):
+        _validate_projection(invalid)
+    with pytest.raises(ArgumentValidationError, match="projection near plane must be positive\\."):
+        validate_projection(invalid)
 
 
 def test_cube_wireframe_projects_twelve_edges():

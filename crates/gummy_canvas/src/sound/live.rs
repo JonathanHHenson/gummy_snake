@@ -204,7 +204,9 @@ fn queue_live_plan_window(
     let chunk_seconds = chunk_frames as f64 / sample_rate as f64;
     let mut samples = plan
         .render_window_i16(start_seconds, chunk_seconds, sample_rate)
-        .map_err(|err| format!("Rust synth live playback window render failed: {err}"))?;
+        .map_err(|err| {
+            format!("Rust synth live playback window render failed: ValueError: {err}")
+        })?;
     let max_samples = (remaining_frames as usize).saturating_mul(2);
     if samples.len() > max_samples {
         samples.truncate(max_samples);

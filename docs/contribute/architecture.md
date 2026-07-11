@@ -355,10 +355,17 @@ Use these rules of thumb:
   policy (`canvas/cache.rs`), dirty/render flag helpers (`canvas/dirty.rs`), image
   batch parsing (`canvas/images/batch.rs`), text layout helpers
   (`canvas/text/layout.rs`), and local GPU render-pass batching
-  (`gpu/render.rs`). It registers PyO3 bridge functions from linked runtime crates
-  such as `gummy_ecs` and `gummy_synth`.
-- `crates/gummy_synth/`: Rust synth/sample/FX rendering crate used by
+  (`gpu/render.rs`). Its focused `bindings/synth.rs` adapter owns PyO3 parsing,
+  registration, and Python error conversion for the synth functions linked from
+  `gummy_synth`.
+- `crates/gummy_synth/`: PyO3-free Rust synth/sample/FX rendering crate used by
   `gummysnake.synth` physical-plan playback/export through the canvas extension.
+  Its crate root exposes typed values, `SynthError`/`SynthResult`, plan rendering,
+  and `SynthPlaybackPlan`; `types.rs`, `plans.rs`, `playback.rs`, synth/voice
+  modules, `samples.rs`, FX-family modules, `dsp.rs`, `output.rs`, and
+  concern-based `tests/` own the corresponding audio domains. Serialized plan
+  header/schema/compression and WAV output are compatibility contracts; this crate
+  has no Python or alternate-renderer fallback.
 - `crates/gummy_accel/`: optional acceleration extension.
 
 ## Naming And Layout Conventions

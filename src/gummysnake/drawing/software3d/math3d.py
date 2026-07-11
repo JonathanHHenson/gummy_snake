@@ -2,22 +2,28 @@
 
 from __future__ import annotations
 
-import math
-
 from gummysnake.drawing.renderer3d import Vec3
+from gummysnake.drawing.renderer3d._math import (
+    add as _shared_add,
+)
+from gummysnake.drawing.renderer3d._math import (
+    cross as _shared_cross,
+)
+from gummysnake.drawing.renderer3d._math import (
+    dot as _shared_dot,
+)
+from gummysnake.drawing.renderer3d._math import (
+    normalized_or_none,
+)
+from gummysnake.drawing.renderer3d._math import (
+    subtract as _shared_subtract,
+)
 from gummysnake.exceptions import ArgumentValidationError
 
 
 def triangle_normal(a: Vec3, b: Vec3, c: Vec3) -> Vec3:
-    ux, uy, uz = b.x - a.x, b.y - a.y, b.z - a.z
-    vx, vy, vz = c.x - a.x, c.y - a.y, c.z - a.z
-    nx = uy * vz - uz * vy
-    ny = uz * vx - ux * vz
-    nz = ux * vy - uy * vx
-    length = math.sqrt(nx * nx + ny * ny + nz * nz)
-    if length == 0:
-        return Vec3(0.0, 0.0, 0.0)
-    return Vec3(nx / length, ny / length, nz / length)
+    normalized = normalized_or_none(cross(sub(b, a), sub(c, a)))
+    return Vec3(0.0, 0.0, 0.0) if normalized is None else normalized
 
 
 def face_center(points: list[Vec3]) -> Vec3:
@@ -39,27 +45,23 @@ def face_normal(points: list[Vec3]) -> Vec3 | None:
 
 
 def sub(a: Vec3, b: Vec3) -> Vec3:
-    return Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
+    return _shared_subtract(a, b)
 
 
 def add(a: Vec3, b: Vec3) -> Vec3:
-    return Vec3(a.x + b.x, a.y + b.y, a.z + b.z)
+    return _shared_add(a, b)
 
 
 def dot(a: Vec3, b: Vec3) -> float:
-    return a.x * b.x + a.y * b.y + a.z * b.z
+    return _shared_dot(a, b)
 
 
 def cross(a: Vec3, b: Vec3) -> Vec3:
-    return Vec3(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x,
-    )
+    return _shared_cross(a, b)
 
 
 def normalize(value: Vec3) -> Vec3:
-    length = math.sqrt(dot(value, value))
-    if length == 0:
+    normalized = normalized_or_none(value)
+    if normalized is None:
         raise ArgumentValidationError("3D vectors must have non-zero length.")
-    return Vec3(value.x / length, value.y / length, value.z / length)
+    return normalized
