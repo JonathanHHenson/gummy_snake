@@ -1,17 +1,17 @@
 import ast
 import io
-import time  # noqa: F401 - re-exported for split synth-track tests
+import time
 import wave
 from pathlib import Path
-from typing import Any, cast  # noqa: F401 - re-exported for split synth-track tests
+from typing import Any, cast
 
 from pytest import MonkeyPatch
 
-import gummysnake as gs  # noqa: F401 - re-exported for split synth-track tests
+import gummysnake as gs
 from gummysnake import synth as sy
-from gummysnake.synth.synth_runtime import playback as synth_playback  # noqa: F401
-from gummysnake.synth.synth_runtime import rendering as synth_rendering  # noqa: F401
-from gummysnake.synth.synth_runtime import runtime_foundation as synth_foundation  # noqa: F401
+from gummysnake.synth.synth_runtime.physical import rendering as synth_rendering
+from gummysnake.synth.synth_runtime.playback_export import playback as synth_playback
+from gummysnake.synth.synth_runtime.values import foundation as synth_foundation
 
 
 def patch_synth_runtime(monkeypatch: MonkeyPatch, runtime: Any) -> None:

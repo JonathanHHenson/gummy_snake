@@ -46,7 +46,7 @@ def _source_files(source_dir: Path) -> tuple[Path, ...]:
 def _deterministic_node_ids() -> Iterator[None]:
     """Compile source plans from a stable node-ID sequence without affecting callers."""
 
-    from gummysnake.synth.synth_runtime import builder_context
+    from gummysnake.synth.synth_runtime.composition import builder_context
 
     previous_node_counter = builder_context._NODE_COUNTER
     builder_context._NODE_COUNTER = 0

@@ -55,7 +55,7 @@ _EXPECTED_FINGERPRINTS = {
     "gummysnake.synth": {
         "count": 60,
         "exports": "8c8ba2dfaf19f83721f9d8ab85d3608c267567f3b3bc86bb8d24732e7212b2cb",
-        "surface": "54c28d81857291016df14ea468cf8326561279f30bfcf21c4beeeeb0fdd47ffa",
+        "surface": "c6b8a0c1755bac8aeb581d6a4b8cd4597c03d4b6ee393281e4bf0fe1ec953934",
     },
 }
 _COMPATIBILITY_MODULES = (
@@ -79,7 +79,7 @@ _EXPECTED_CLASS_METADATA = {
     "Image": ("gummysnake.assets.image.core", "Image"),
     "Sound": ("gummysnake.assets.sound", "Sound"),
     "Entity": ("gummysnake.ecs.runtime_view_model.entity_mutation", "Entity"),
-    "Track": ("gummysnake.synth.synth_runtime.track", "Track"),
+    "Track": ("gummysnake.synth.synth_runtime.playback_export.track", "Track"),
 }
 
 

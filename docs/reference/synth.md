@@ -26,7 +26,7 @@ The public `gummysnake.synth` and `gummysnake.synth.core` modules are stable com
 - `physical/` expands logical plans, serializes `.gss`/`.gsfx` payloads, and invokes the required canvas-linked Rust synth bridge.
 - `playback_export/` owns `Track` playback, WAV/MP3 and plan export, sample duration metadata, and in-memory `Sound` conversion.
 
-The former flat `synth_runtime` module paths remain thin compatibility shims. They retain object identity and import support, while new internal work should use the area that owns the responsibility. `playback_export` is deliberately not named `playback` so it cannot collide with the retained `synth_runtime.playback` module.
+The former flat `synth_runtime` module paths have been removed. Internal imports must use the owning area above; `gummysnake.synth` remains the supported public API. `playback_export` is deliberately not named `playback` so its ownership is explicit and it cannot collide with a flat runtime module.
 
 ## Track lifecycle
 

@@ -7,7 +7,6 @@ The runtime is organized by phase:
 * :mod:`.physical` expands and serializes plans before using the Rust bridge.
 * :mod:`.playback_export` owns bounded playback, export, and Sound conversion.
 
-The direct modules in this package are explicit compatibility shims for supported
-legacy imports. They deliberately do not share a stem with any implementation
-package, so imports cannot be shadowed by a module/package collision.
+The runtime has no flat implementation or compatibility modules. Import the
+owning domain package directly when working on internals.
 """

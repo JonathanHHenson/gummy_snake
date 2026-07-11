@@ -272,59 +272,7 @@ owner = "Rust canvas asset test helper"
 reason = "The fixed-width fake pixel slice is a test RGBA tuple."
 checks = ["uv run pytest tests/unit/test_rust_canvas_assets.py"]
 
-[[inline_suppressions]]
-path = "tests/helpers/synth_tracks_fixtures.py"
-line = 3
-tool = "noqa"
-codes = ["F401"]
-owner = "Synth track test fixtures"
-reason = "Fixture modules re-export shared split-test dependencies."
-checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
 
-[[inline_suppressions]]
-path = "tests/helpers/synth_tracks_fixtures.py"
-line = 6
-tool = "noqa"
-codes = ["F401"]
-owner = "Synth track test fixtures"
-reason = "Fixture modules re-export shared split-test dependencies."
-checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
-
-[[inline_suppressions]]
-path = "tests/helpers/synth_tracks_fixtures.py"
-line = 10
-tool = "noqa"
-codes = ["F401"]
-owner = "Synth track test fixtures"
-reason = "Fixture modules re-export shared split-test dependencies."
-checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
-
-[[inline_suppressions]]
-path = "tests/helpers/synth_tracks_fixtures.py"
-line = 12
-tool = "noqa"
-codes = ["F401"]
-owner = "Synth track test fixtures"
-reason = "Fixture modules re-export shared split-test dependencies."
-checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
-
-[[inline_suppressions]]
-path = "tests/helpers/synth_tracks_fixtures.py"
-line = 13
-tool = "noqa"
-codes = ["F401"]
-owner = "Synth track test fixtures"
-reason = "Fixture modules re-export shared split-test dependencies."
-checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
-
-[[inline_suppressions]]
-path = "tests/helpers/synth_tracks_fixtures.py"
-line = 14
-tool = "noqa"
-codes = ["F401"]
-owner = "Synth track test fixtures"
-reason = "Fixture modules re-export shared split-test dependencies."
-checks = ["uv run pytest tests/unit/test_synth_tracks.py"]
 
 [[inline_suppressions]]
 path = "tests/integration/test_drawing.py"
