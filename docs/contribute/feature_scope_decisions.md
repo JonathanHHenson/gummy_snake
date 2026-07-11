@@ -38,11 +38,14 @@ still represented by the separate `native_shaders` capability.
 ## Offscreen Render Targets
 
 `create_graphics()` and `create_framebuffer()` are public native offscreen
-render targets. They create isolated headless canvas contexts with their own
-style, transform, pixel, and 3D state; `Graphics.snapshot()`/`to_rgba_bytes()`
-provide readback, and `remove()` releases the offscreen backend. `Framebuffer`
-extends `Graphics` with depth-attachment metadata for render-target workflows.
-No DOM or browser canvas objects are exposed.
+render targets. Their backend-owned construction creates isolated headless
+`gummy_canvas` contexts with their own style, transform, pixel, and 3D state;
+`Graphics.snapshot()`/`to_rgba_bytes()` provide readback, and `remove()`
+releases the offscreen backend. `Graphics.drawing` is the statically documented
+drawing surface, while direct canvas-method forwarding remains compatible.
+`Framebuffer` extends `Graphics` with depth-attachment metadata for render-target
+workflows. No DOM, browser canvas, Pillow, Pyglet, or Python image fallback is
+exposed.
 
 ## WebGPU And Compute
 
@@ -62,13 +65,15 @@ raise Gummy Snake validation errors.
 
 ## Sound
 
-Core sound assets are native Gummy Snake assets. `load_sound()` returns a
+Core sound assets are native Gummy Snake assets. The stable public
+`gummysnake.assets.sound` loader is the sole loading authority and returns a
 `Sound` wrapper backed by a Rust-managed `CanvasSound` handle when supported.
-Metadata and byte access do not require an audio output device. Playback is a
-small native convenience layer over available platform players (`afplay`,
-`paplay`, `aplay`, or `ffplay`); if no player is available, `play()` raises a
-Gummy Snake capability error while non-audio sketches and metadata workflows can
-continue.
+Metadata and byte access do not require an audio output device. A focused native
+playback runtime owns platform-player selection, subprocess cleanup, and
+temporary playback resources. It selects `afplay`, `paplay`, `aplay`, or
+`ffplay` in that order; if none is available, `play()` raises a Gummy Snake
+capability error while non-audio sketches and metadata workflows can continue.
+No silent player or synthetic-audio fallback is used.
 
 Audio analysis and synthesis are public deterministic helpers. `AudioBuffer`,
 `Amplitude`, `FFT`, `Oscillator`, `Envelope`, `AudioFilter`, and `AudioInput`

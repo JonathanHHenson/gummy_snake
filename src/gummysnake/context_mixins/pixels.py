@@ -8,25 +8,25 @@ from typing import Any, overload
 
 from gummysnake import constants as c
 from gummysnake.assets.image import Image
-from gummysnake.context_mixins.pixel_compositing import blend as _blend_impl
-from gummysnake.context_mixins.pixel_compositing import blend_mode as _blend_mode_impl
-from gummysnake.context_mixins.pixel_compositing import erase as _erase_impl
-from gummysnake.context_mixins.pixel_compositing import filter_pixels as _filter_pixels_impl
-from gummysnake.context_mixins.pixel_compositing import no_erase as _no_erase_impl
-from gummysnake.context_mixins.pixel_exports import save_canvas as _save_canvas_impl
-from gummysnake.context_mixins.pixel_exports import save_frames as _save_frames_impl
-from gummysnake.context_mixins.pixel_exports import save_gif as _save_gif_impl
-from gummysnake.context_mixins.pixel_io import canvas_image as _canvas_image_impl
-from gummysnake.context_mixins.pixel_io import copy_pixels as _copy_pixels_impl
-from gummysnake.context_mixins.pixel_io import get_pixel as _get_pixel_impl
-from gummysnake.context_mixins.pixel_io import load_pixel_bytes as _load_pixel_bytes_impl
-from gummysnake.context_mixins.pixel_io import load_pixels as _load_pixels_impl
-from gummysnake.context_mixins.pixel_io import pixel_array as _pixel_array_impl
-from gummysnake.context_mixins.pixel_io import set_pixel as _set_pixel_impl
-from gummysnake.context_mixins.pixel_io import (
+from gummysnake.context_mixins.pixel_support.compositing import blend as _blend_impl
+from gummysnake.context_mixins.pixel_support.compositing import blend_mode as _blend_mode_impl
+from gummysnake.context_mixins.pixel_support.compositing import erase as _erase_impl
+from gummysnake.context_mixins.pixel_support.compositing import filter_pixels as _filter_pixels_impl
+from gummysnake.context_mixins.pixel_support.compositing import no_erase as _no_erase_impl
+from gummysnake.context_mixins.pixel_support.exports import save_canvas as _save_canvas_impl
+from gummysnake.context_mixins.pixel_support.exports import save_frames as _save_frames_impl
+from gummysnake.context_mixins.pixel_support.exports import save_gif as _save_gif_impl
+from gummysnake.context_mixins.pixel_support.io import canvas_image as _canvas_image_impl
+from gummysnake.context_mixins.pixel_support.io import copy_pixels as _copy_pixels_impl
+from gummysnake.context_mixins.pixel_support.io import get_pixel as _get_pixel_impl
+from gummysnake.context_mixins.pixel_support.io import load_pixel_bytes as _load_pixel_bytes_impl
+from gummysnake.context_mixins.pixel_support.io import load_pixels as _load_pixels_impl
+from gummysnake.context_mixins.pixel_support.io import pixel_array as _pixel_array_impl
+from gummysnake.context_mixins.pixel_support.io import set_pixel as _set_pixel_impl
+from gummysnake.context_mixins.pixel_support.io import (
     update_dirty_pixel_range as _update_dirty_pixel_range_impl,
 )
-from gummysnake.context_mixins.pixel_io import update_pixels as _update_pixels_impl
+from gummysnake.context_mixins.pixel_support.io import update_pixels as _update_pixels_impl
 from gummysnake.core.color import Color
 from gummysnake.core.pixels import FrameSaveInfo, PixelBuffer
 

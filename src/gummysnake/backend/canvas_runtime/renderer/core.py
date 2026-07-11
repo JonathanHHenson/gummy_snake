@@ -6,18 +6,18 @@ from typing import Any, cast
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
-from gummysnake.backend.canvas_runtime.renderer.batch_state import (
+from gummysnake.backend.canvas_runtime.renderer.bridge import CanvasRendererBridgeMixin
+from gummysnake.backend.canvas_runtime.renderer.lifecycle import CanvasRendererLifecycleMixin
+from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
     LineBatchState,
     ModelBatchState,
     PrimitiveBatchState,
 )
-from gummysnake.backend.canvas_runtime.renderer.bridge import CanvasRendererBridgeMixin
-from gummysnake.backend.canvas_runtime.renderer.counters import (
+from gummysnake.backend.canvas_runtime.renderer.renderer_state.counters import (
     CanvasRendererCounterMixin,
     PerformanceCounters,
 )
-from gummysnake.backend.canvas_runtime.renderer.lifecycle import CanvasRendererLifecycleMixin
-from gummysnake.backend.canvas_runtime.renderer.payloads import (
+from gummysnake.backend.canvas_runtime.renderer.renderer_state.payloads import (
     CanvasRendererPayloadCacheMixin,
     MatrixPayload,
     TextMetricKey,

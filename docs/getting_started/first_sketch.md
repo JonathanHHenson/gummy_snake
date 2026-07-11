@@ -26,8 +26,34 @@ gs.run()
 ```
 
 The decorators register callbacks on the current sketch module. You can also
-use `app = gs.sketch()` when you want a local sketch object, or pass callbacks
-explicitly to `gs.run(...)` for older Gummy Snake examples.
+use `app = gs.sketch()` when you want a local decorator registry, subclass
+`gs.Sketch` when you prefer object methods such as `self.create_canvas(...)`
+and `self.circle(...)`, or pass callbacks explicitly to `gs.run(...)` for older
+Gummy Snake examples.
+
+## Object-Oriented Sketches
+
+Object-mode sketches use the same lifecycle as decorator sketches. Public
+`self.*` drawing, media, input, ECS, and 3D methods delegate to the active
+sketch context, so they have the same validation and results as global `gs.*`
+calls.
+
+```python
+import gummysnake as gs
+
+
+class DotSketch(gs.Sketch):
+    def setup(self) -> None:
+        self.create_canvas(320, 180)
+
+    def draw(self) -> None:
+        self.background(245)
+        self.circle(self.width / 2, self.height / 2, 64)
+        self.no_loop()
+
+
+DotSketch().run()
+```
 
 ## Animate It
 

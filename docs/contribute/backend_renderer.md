@@ -117,8 +117,39 @@ current transform matrix, push/pop drawing state, image/text draw state, and
 batching state. New drawing operations should prefer Rust `*_current` methods
 that consume the Rust-owned current style and matrix instead of rebuilding a
 full Python style/matrix payload per command. Legacy payload-style methods may
+Legacy payload-style methods may
 remain as compatibility shims for tests and staged migrations, but they should
 not become the primary path for new renderer work.
+
+### Renderer and context navigation
+
+`canvas_renderer.py` and `canvas.py` are deliberately thin composition roots.
+The renderer implementation is grouped by responsibility beneath
+`backend/canvas_runtime/renderer/`; stable flat internal modules remain explicit
+import shims while implementation code depends on the descriptive homes below.
+This keeps established internal test imports working without creating a
+same-stem module/package pair.
+
+| Responsibility | Implementation home | Dependency direction |
+| --- | --- | --- |
+| Core bridge and lifecycle composition | `renderer/core.py`, `bridge.py`, `lifecycle.py` | composition calls grouped support; it does not own drawing-family policy |
+| Payload, cache, batch state, and diagnostics | `renderer/renderer_state/` | state is consumed by core and drawing support only |
+| Primitive batching, direct paths, clips, and shapes | `renderer/primitive_support/` | primitive mixin delegates into support, then the Rust canvas bridge |
+| Pixel payloads and pixel renderer mixin | `renderer/pixel_support/` | physical RGBA buffers stay in Rust; dirty regions cross the bridge unchanged |
+| Ordered image, text, primitive, and model mixins | `renderer/drawing/` | family boundaries flush prior work before invoking Rust commands |
+| Context pixel and shape helpers | `context_mixins/pixel_support/`, `context_mixins/shape_support/` | stable `PixelContextMixin` / `ShapeContextMixin` expose Python semantics and call the renderer |
+
+Do not move host responsibilities into these packages. Native event ingestion,
+logical-coordinate normalization, pointer-lock control, and text-input control
+remain in `backend/canvas_runtime/host/`; `context_mixins/input.py` only exposes
+callback-facing state. In particular, SDL3 payloads marked
+`coordinates = "logical"` must not be scaled by pixel density.
+
+The primitive flush sequence is intentionally divided into state draining,
+native payload/submission selection, counter recording, and the existing
+unbatched bridge path. This separation must not alter record formats, native
+batch decisions, or the counter names and values surfaced by
+`renderer_performance_counters()`.
 
 ## gummysnake.rust.canvas
 

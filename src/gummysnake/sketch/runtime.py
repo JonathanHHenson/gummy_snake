@@ -24,18 +24,22 @@ class Sketch(SketchFacadeMixin):
     """Base class for object-oriented Gummy Snake sketches."""
 
     def __init__(self, *, headless: bool | None = None) -> None:
+        """Create a sketch that optionally requests headless execution by default."""
         self.headless = headless
         self.context: SketchContext | None = None
         self._running = False
         self._draw_system_handle: SystemHandle | None = None
 
     def preload(self) -> object:
+        """Load assets before setup; subclasses may return an awaitable."""
         pass
 
     def setup(self) -> object:
+        """Initialize the canvas and sketch state once before drawing begins."""
         pass
 
     def draw(self) -> object:
+        """Draw one frame; subclasses may return an awaitable."""
         pass
 
     def run(
@@ -44,6 +48,11 @@ class Sketch(SketchFacadeMixin):
         headless: bool | None = None,
         max_frames: int | None = None,
     ) -> SketchContext:
+        """Run this sketch and return its initialized context.
+
+        ``headless`` overrides the constructor preference for this run, and
+        ``max_frames`` bounds the backend loop for tests, export, or CI.
+        """
         runtime_headless = self.headless if headless is None else headless
         backend_instance = create_backend(headless=runtime_headless)
         self.context = SketchContext(self, backend_instance, plugins=GLOBAL_PLUGIN_REGISTRY)
@@ -69,6 +78,7 @@ class Sketch(SketchFacadeMixin):
         return self.context
 
     def stop(self) -> None:
+        """Request that the active backend stops scheduling this sketch."""
         self._running = False
         if self.context is not None:
             self.context.backend.stop()
@@ -133,16 +143,19 @@ class FunctionSketch(Sketch):
         self._event_callbacks = event_callbacks or {}
 
     def preload(self) -> object:
+        """Run the registered function-mode preload callback when present."""
         if self._preload_func is not None:
             return self._preload_func()
         return None
 
     def setup(self) -> object:
+        """Run the registered function-mode setup callback when present."""
         if self._setup_func is not None:
             return self._setup_func()
         return None
 
     def draw(self) -> object:
+        """Run the registered function-mode draw callback when present."""
         if self._draw_func is not None:
             return self._draw_func()
         return None
@@ -166,6 +179,7 @@ class SketchBuilder:
     """Decorator-friendly sketch callback registry."""
 
     def __init__(self, *, headless: bool | None = None) -> None:
+        """Create a local decorator registry with an optional headless preference."""
         self.headless = headless
         self._preload_func: Callable[[], Any] | None = None
         self._setup_func: Callable[[], Any] | None = None
@@ -194,25 +208,30 @@ class SketchBuilder:
         return dict(self._event_callbacks)
 
     def preload[F: Callable[[], Any]](self, callback: F) -> F:
+        """Register a callback to run before setup."""
         self._preload_func = callback
         return callback
 
     def setup[F: Callable[[], Any]](self, callback: F) -> F:
+        """Register a callback to run once before the frame loop."""
         self._setup_func = callback
         return callback
 
     def draw[F: Callable[[], Any]](self, callback: F) -> F:
+        """Register a callback to draw each scheduled frame."""
         self._draw_func = callback
         self._draw_system = ecs_system(callback, group="draw")
         return callback
 
     def register_draw_system(self, definition: SystemDefinition) -> None:
+        """Use a prebuilt ECS draw-system definition for the registered draw callback."""
         self._draw_system = definition
         self._draw_func = definition.function  # compatibility for code that inspects the builder
 
     def on[F: Callable[..., Any]](
         self, event_name: str | c.CallbackEventName | c.TouchEventName
     ) -> Callable[[F], F]:
+        """Return a decorator that registers a named input or touch callback."""
         normalized_event_name = _normalize_event_name(event_name)
 
         def decorator(callback: F) -> F:
@@ -227,6 +246,7 @@ class SketchBuilder:
         raise AttributeError(name)
 
     def to_sketch(self, *, headless: bool | None = None) -> FunctionSketch:
+        """Build a function-mode sketch from the callbacks registered so far."""
         return FunctionSketch(
             preload=self._preload_func,
             setup=self._setup_func,
@@ -242,6 +262,7 @@ class SketchBuilder:
         headless: bool | None = None,
         max_frames: int | None = None,
     ) -> SketchContext:
+        """Build and run the registered callbacks as a function-mode sketch."""
         return self.to_sketch(headless=headless).run(max_frames=max_frames)
 
 

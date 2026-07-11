@@ -17,6 +17,17 @@ track.save("bassline.wav", duration=sy.duration(secs=8))
 sound = track.to_sound("bassline.wav", duration=sy.duration(secs=8))
 ```
 
+## Runtime organization
+
+The public `gummysnake.synth` and `gummysnake.synth.core` modules are stable compatibility facades. Internally, `synth_runtime` has one-way, documented areas so contributors can follow a track from source composition to Rust-owned audio execution:
+
+- `composition/` records decorators, contexts, event APIs, logical nodes, and plan builders.
+- `values/` owns deterministic lazy expressions, rings, music helpers, and immutable synth/FX specifications.
+- `physical/` expands logical plans, serializes `.gss`/`.gsfx` payloads, and invokes the required canvas-linked Rust synth bridge.
+- `playback_export/` owns `Track` playback, WAV/MP3 and plan export, sample duration metadata, and in-memory `Sound` conversion.
+
+The former flat `synth_runtime` module paths remain thin compatibility shims. They retain object identity and import support, while new internal work should use the area that owns the responsibility. `playback_export` is deliberately not named `playback` so it cannot collide with the retained `synth_runtime.playback` module.
+
 ## Track lifecycle
 
 - `@sy.track` decorates a function that records logical actions.

@@ -24,11 +24,13 @@ from gummysnake.backend.canvas_runtime.renderer.core import (
 from gummysnake.backend.canvas_runtime.renderer.core import (
     text_metric_key as _text_metric_key,
 )
-from gummysnake.backend.canvas_runtime.renderer.images import CanvasRendererImagesMixin
-from gummysnake.backend.canvas_runtime.renderer.models import CanvasRendererModelsMixin
-from gummysnake.backend.canvas_runtime.renderer.pixels import CanvasRendererPixelsMixin
-from gummysnake.backend.canvas_runtime.renderer.primitives import CanvasRendererPrimitivesMixin
-from gummysnake.backend.canvas_runtime.renderer.text import CanvasRendererTextMixin
+from gummysnake.backend.canvas_runtime.renderer.drawing.images import CanvasRendererImagesMixin
+from gummysnake.backend.canvas_runtime.renderer.drawing.models import CanvasRendererModelsMixin
+from gummysnake.backend.canvas_runtime.renderer.drawing.primitives import (
+    CanvasRendererPrimitivesMixin,
+)
+from gummysnake.backend.canvas_runtime.renderer.drawing.text import CanvasRendererTextMixin
+from gummysnake.backend.canvas_runtime.renderer.pixel_support.mixin import CanvasRendererPixelsMixin
 
 
 class CanvasRenderer(

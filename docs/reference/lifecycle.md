@@ -53,9 +53,10 @@ supported.
 ## Class Mode
 
 Subclass `gs.Sketch` when you prefer object-oriented sketches. Common canvas,
-shape, style, transform, image, text, input, timing, and media helpers are
-available as explicit `self.*` forwarding methods rather than dynamic attribute
-magic:
+shape, style, transform, image, text, input, timing, media, ECS, and 3D helpers
+are available as explicit `self.*` methods rather than dynamic attribute magic.
+Each method delegates to the same canonical context/API behavior as global mode,
+so validation, lifecycle ownership, and return values stay consistent:
 
 ```python
 import gummysnake as gs
@@ -71,6 +72,13 @@ class MySketch(gs.Sketch):
 
 MySketch().run()
 ```
+
+Object-mode methods are grouped by capability internally—capture/video,
+audio, images, text/accessibility, pixels/export, compositing, camera and
+projection, controls, lighting, materials/textures, geometry, primitives, and
+models—but those implementation groups do not change the public `Sketch` API.
+Editor help is available on every `Sketch` method; use it to discover the
+arguments and the equivalent global-mode operation.
 
 ## Async Callbacks
 

@@ -1,46 +1,33 @@
-"""Sound loading helpers."""
+"""Legacy loader import path forwarding to the public sound authority.
+
+New code must import loaders from :mod:`gummysnake.assets.sound`.  Keeping this
+module as a delegating shim preserves deliberate compatibility for integrations
+that imported the former internal path, without creating a second loader.
+"""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from gummysnake.assets._paths import resolve_asset_path
-from gummysnake.assets.sound_runtime.canvas_sound import CanvasSound
-from gummysnake.assets.sound_runtime.sound import Sound
-from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+if TYPE_CHECKING:
+    from gummysnake.assets.sound import Sound
 
 
 def load_sound(path: str | Path) -> Sound:
-    """Load a sound file for playback and byte access.
+    """Delegate to the stable public sound loader."""
 
-    Args:
-        path: File path or package-relative asset path to an existing sound.
+    from gummysnake.assets.sound import load_sound as public_load_sound
 
-    Returns:
-        A Sound object with playback controls and metadata.
-    """
-    sound_path = resolve_asset_path(path)
-    if not sound_path.exists():
-        raise ArgumentValidationError(f"Sound file does not exist: {sound_path!s}.")
-    try:
-        rust_sound = CanvasSound.from_file(sound_path)
-    except BackendCapabilityError:
-        raise
-    except Exception as exc:
-        raise ArgumentValidationError(f"Could not load sound {sound_path!s}.") from exc
-    return Sound(rust_sound, path=sound_path, rust_sound=rust_sound)
+    return public_load_sound(path)
 
 
 async def load_sound_async(path: str | Path) -> Sound:
-    """Load a sound file using the async asset-loading API.
+    """Delegate to the stable public asynchronous sound loader."""
 
-    Args:
-        path: File path or package-relative asset path to an existing sound.
+    from gummysnake.assets.sound import load_sound_async as public_load_sound_async
 
-    Returns:
-        A Sound object with playback controls and metadata.
-    """
-    return load_sound(path)
+    return await public_load_sound_async(path)
 
 
 __all__ = ["load_sound", "load_sound_async"]

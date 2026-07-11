@@ -281,10 +281,12 @@ GPU drawing is available. Fallback software projection/shading/rasterization is
 reserved for unsupported or CPU-only paths.
 
 `load_sound()` keeps sound bytes and metadata in a Rust-owned `CanvasSound`
-handle attached to the public `Sound` wrapper. Python still owns the friendly
-playback controls for now, but duration and byte access should flow through the
-Rust handle so future decoding, waveform analysis, resampling, and playback work
-can happen without first copying sound data into Python-owned structures.
+handle attached to the public `Sound` wrapper. Python owns the friendly playback
+control API, while the focused native playback runtime owns platform command
+selection, subprocess lifecycle, and temporary playback files. Duration and byte
+access flow through the Rust handle so future decoding, waveform analysis,
+resampling, and playback work can happen without first copying sound data into
+Python-owned structures.
 
 Remaining asset migration candidates are shader sources, font files/outline data,
 and large generic byte/data assets. Migrate them when a runtime-owned operation

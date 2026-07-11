@@ -1,139 +1,23 @@
+"""Public sound asset model, independent of native player implementation details."""
+
 from __future__ import annotations
 
-import atexit
-import shutil
-import signal
-import subprocess
-import tempfile
-import threading
-import weakref
 from collections.abc import Callable
-from contextlib import suppress
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, cast
 
 from gummysnake.assets.sound_runtime.canvas_sound import CanvasSound
+from gummysnake.assets.sound_runtime.native_playback import NativeAudioPlayer, PlaybackResource
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
-
-
-class _ByteSourceCallback(Protocol):
-    def __call__(self) -> bytes | bytearray | memoryview: ...
-
-
-class _NativeAudioPlayer:
-    def __init__(self, path: Path) -> None:
-        self._path = path
-        self._process: subprocess.Popen[bytes] | None = None
-        self.volume = 1.0
-        self.pitch = 1.0
-        self.position = (0.0, 0.0, 0.0)
-
-    def play(self) -> None:
-        command = _platform_play_command(self._path)
-        if command is None:
-            raise BackendCapabilityError(
-                "Audio playback requires an available platform player such as afplay, paplay, "
-                "aplay, or ffplay."
-            )
-        self._process = subprocess.Popen(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        _register_native_audio_player(self)
-
-    def pause(self) -> None:
-        if self._process is None:
-            return
-        if hasattr(signal, "SIGSTOP"):
-            self._process.send_signal(signal.SIGSTOP)
-        else:  # pragma: no cover - Windows-specific fallback
-            self.delete()
-
-    def seek(self, value: float) -> None:
-        if value == 0:
-            self.delete()
-
-    def delete(self) -> None:
-        process = self._process
-        self._process = None
-        _unregister_native_audio_player(self)
-        if process is None or process.poll() is not None:
-            return
-        process.terminate()
-        try:
-            process.wait(timeout=1.0)
-        except subprocess.TimeoutExpired:  # pragma: no cover - process-specific failure path
-            process.kill()
-            with suppress(Exception):
-                process.wait(timeout=1.0)
-
-
-_ACTIVE_NATIVE_PLAYERS: weakref.WeakSet[_NativeAudioPlayer] = weakref.WeakSet()
-_ACTIVE_NATIVE_PLAYERS_LOCK = threading.Lock()
-_NATIVE_PLAYER_MONITOR_STARTED = False
-
-
-def _register_native_audio_player(player: _NativeAudioPlayer) -> None:
-    global _NATIVE_PLAYER_MONITOR_STARTED
-    should_start_monitor = False
-    with _ACTIVE_NATIVE_PLAYERS_LOCK:
-        _ACTIVE_NATIVE_PLAYERS.add(player)
-        if not _NATIVE_PLAYER_MONITOR_STARTED:
-            _NATIVE_PLAYER_MONITOR_STARTED = True
-            should_start_monitor = True
-    if should_start_monitor:
-        threading.Thread(
-            target=_stop_native_audio_when_main_thread_exits,
-            name="gummysnake-audio-cleanup",
-            daemon=True,
-        ).start()
-
-
-def _unregister_native_audio_player(player: _NativeAudioPlayer) -> None:
-    with _ACTIVE_NATIVE_PLAYERS_LOCK:
-        _ACTIVE_NATIVE_PLAYERS.discard(player)
-
-
-def _stop_native_audio_when_main_thread_exits() -> None:
-    main_thread = threading.main_thread()
-    if threading.current_thread() is main_thread:  # pragma: no cover - defensive guard
-        return
-    with suppress(RuntimeError):
-        main_thread.join()
-    _stop_active_native_audio_players()
-
-
-def _stop_active_native_audio_players() -> None:
-    with _ACTIVE_NATIVE_PLAYERS_LOCK:
-        players = list(_ACTIVE_NATIVE_PLAYERS)
-    for player in players:
-        with suppress(Exception):
-            player.delete()
-
-
-atexit.register(_stop_active_native_audio_players)
-
-
-def _platform_play_command(path: Path) -> list[str] | None:
-    if player := shutil.which("afplay"):
-        return [player, str(path)]
-    if player := shutil.which("paplay"):
-        return [player, str(path)]
-    if player := shutil.which("aplay"):
-        return [player, str(path)]
-    if player := shutil.which("ffplay"):
-        return [player, "-nodisp", "-autoexit", "-loglevel", "quiet", str(path)]
-    return None
 
 
 class Sound:
     """Loaded sound asset with simple playback controls.
 
-    Loading is backend-neutral and does not require an audio device. Playback is
-    delegated to a small platform player when one is available; otherwise
-    ``play()`` raises ``BackendCapabilityError`` while metadata and controls
-    remain usable for sketches and tests.
+    Loading keeps bytes and metadata in a Rust-owned ``CanvasSound``. Playback
+    uses an explicitly supplied player factory, which defaults to the native
+    platform-player adapter; no audio device is required merely to inspect an
+    asset.
     """
 
     def __init__(
@@ -144,13 +28,14 @@ class Sound:
         rust_sound: CanvasSound | None = None,
         player_factory: Any | None = None,
     ) -> None:
-        """Create a playable sound wrapper around asset bytes or a generated source."""
+        """Create a playable sound wrapper around an asset or generated source."""
+
         self._source = source
         self._rust_sound = rust_sound
         self._path = path
-        self._player_factory = player_factory or _NativeAudioPlayer
+        self._player_factory = player_factory or NativeAudioPlayer
         self._player: Any | None = None
-        self._temporary_playback_path: Path | None = None
+        self._playback_resource: PlaybackResource | None = None
         self._volume = 1.0
         self._rate = 1.0
         self._pan = 0.0
@@ -183,17 +68,13 @@ class Sound:
         return self._rust_sound.byte_len
 
     def to_bytes(self) -> bytes:
-        """Return the encoded sound bytes.
-
-        Returns:
-            Audio file bytes for this sound.
-        """
+        """Return the encoded sound bytes."""
 
         if self._rust_sound is not None:
             return self._rust_sound.to_bytes()
         to_bytes = getattr(self._source, "to_bytes", None)
         if callable(to_bytes):
-            return bytes(cast(_ByteSourceCallback, to_bytes)())
+            return bytes(cast(Callable[[], bytes | bytearray | memoryview], to_bytes)())
         raise BackendCapabilityError("Sound bytes are unavailable for this sound source.")
 
     def play(self) -> None:
@@ -204,7 +85,8 @@ class Sound:
         self._queue_source(player)
         self._apply_controls(player)
         try:
-            player.play()
+            play = player.play
+            play()
         except BackendCapabilityError:
             self._dispose_player(player)
             raise
@@ -228,14 +110,7 @@ class Sound:
         self.looping(False)
 
     def looping(self, value: bool | None = None) -> bool:
-        """Get or set whether the sound repeats when it reaches the end.
-
-        Args:
-            value: Optional new looping flag.
-
-        Returns:
-            The current looping flag.
-        """
+        """Get or set whether the sound repeats when it reaches the end."""
 
         if value is not None:
             self._loop = bool(value)
@@ -276,14 +151,7 @@ class Sound:
         self.stop()
 
     def volume(self, value: float | None = None) -> float:
-        """Get or set playback volume.
-
-        Args:
-            value: Optional non-negative volume value, where ``1.0`` is normal volume.
-
-        Returns:
-            The current volume value.
-        """
+        """Get or set a non-negative playback volume."""
 
         if value is not None:
             if value < 0:
@@ -294,14 +162,7 @@ class Sound:
         return self._volume
 
     def rate(self, value: float | None = None) -> float:
-        """Get or set playback speed.
-
-        Args:
-            value: Optional positive speed multiplier, where ``1.0`` is normal speed.
-
-        Returns:
-            The current speed multiplier.
-        """
+        """Get or set a positive playback-speed multiplier."""
 
         if value is not None:
             if value <= 0:
@@ -312,29 +173,18 @@ class Sound:
         return self._rate
 
     def pan(self, value: float | None = None) -> float:
-        """Get or set stereo pan.
-
-        Args:
-            value: Optional pan value from ``-1.0`` for left to ``1.0`` for right.
-
-        Returns:
-            The current pan value.
-        """
+        """Get or set stereo pan from ``-1.0`` (left) to ``1.0`` (right)."""
 
         if value is not None:
             if not -1.0 <= value <= 1.0:
                 raise ArgumentValidationError("Sound.pan() must be between -1 and 1.")
             self._pan = float(value)
             if self._player is not None:
-                self._player.position = (self._pan, 0.0, 0.0)
+                self._player.position = self._pan, 0.0, 0.0
         return self._pan
 
     def seek(self, seconds: float) -> None:
-        """Move playback to a time in the sound.
-
-        Args:
-            seconds: Non-negative time position in seconds.
-        """
+        """Move playback to a non-negative time position in seconds."""
 
         if seconds < 0:
             raise ArgumentValidationError("Sound.seek() cannot be negative.")
@@ -350,10 +200,10 @@ class Sound:
         if self._player is not None:
             time = getattr(self._player, "time", None)
             if callable(time):
-                return float(cast(Any, time)())
+                return float(cast(float, time()))
             get_time = getattr(self._player, "get_time", None)
             if callable(get_time):
-                return float(cast(Any, get_time)())
+                return float(cast(float, get_time()))
         return self._position
 
     def is_playing(self) -> bool:
@@ -367,14 +217,7 @@ class Sound:
         return self._player is not None and not self._is_playing
 
     def on_ended(self, callback: Callable[[Sound], object]) -> Callable[[Sound], object]:
-        """Register a callback to run when playback ends.
-
-        Args:
-            callback: Function that accepts this ``Sound`` instance.
-
-        Returns:
-            The same callback, so the method can be used like a decorator.
-        """
+        """Register and return a callback invoked when playback ends."""
 
         if not callable(callback):
             raise ArgumentValidationError("Sound.on_ended() requires a callable.")
@@ -387,29 +230,17 @@ class Sound:
             callback(self)
 
     def _create_player(self) -> Any:
-        playback_path = self._materialize_playback_path()
+        resource = PlaybackResource(
+            self._path, self._source, rust_backed=self._rust_sound is not None
+        )
+        self._playback_resource = resource
         try:
-            return self._player_factory(playback_path)
+            return self._player_factory(resource.path)
         except Exception as exc:  # pragma: no cover - backend-specific failure path
-            self._remove_temporary_playback_file()
+            self._release_playback_resource()
             raise BackendCapabilityError(
                 "Audio playback is unavailable on this system. Could not create a sound player."
             ) from exc
-
-    def _materialize_playback_path(self) -> Path:
-        if self._rust_sound is not None:
-            return self._path
-        to_bytes = getattr(self._source, "to_bytes", None)
-        if not callable(to_bytes):
-            return self._path
-        suffix = self._path.suffix or ".wav"
-        with tempfile.NamedTemporaryFile(
-            prefix="gummysnake-sound-", suffix=suffix, delete=False
-        ) as file:
-            file.write(bytes(cast(_ByteSourceCallback, to_bytes)()))
-            temporary_path = Path(file.name)
-        self._temporary_playback_path = temporary_path
-        return temporary_path
 
     def _queue_source(self, player: Any) -> None:
         queue = getattr(player, "queue", None)
@@ -422,7 +253,7 @@ class Sound:
         if hasattr(player, "pitch"):
             player.pitch = self._rate
         if hasattr(player, "position"):
-            player.position = (self._pan, 0.0, 0.0)
+            player.position = self._pan, 0.0, 0.0
         if hasattr(player, "loop"):
             player.loop = self._loop
 
@@ -430,15 +261,13 @@ class Sound:
         delete = getattr(player, "delete", None)
         if callable(delete):
             delete()
-        self._remove_temporary_playback_file()
+        self._release_playback_resource()
 
-    def _remove_temporary_playback_file(self) -> None:
-        temporary_path = self._temporary_playback_path
-        self._temporary_playback_path = None
-        if temporary_path is None:
-            return
-        with suppress(OSError):
-            temporary_path.unlink(missing_ok=True)
+    def _release_playback_resource(self) -> None:
+        resource = self._playback_resource
+        self._playback_resource = None
+        if resource is not None:
+            resource.close()
 
 
 __all__ = ["Sound"]

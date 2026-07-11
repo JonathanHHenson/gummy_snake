@@ -152,15 +152,16 @@ animation duration.
 - `create_video(...)`
 - `create_video_async(...)`
 
-`load_sound()` returns the public `Sound` wrapper with a Rust-managed
-`CanvasSound` handle attached. Sound bytes and duration metadata stay in the
-canvas runtime until code asks for Python bytes with `sound.to_bytes()`, while
-Python keeps the current friendly `play()`, `pause()`, `stop()`, `close()`,
-`loop()`, `no_loop()`, `looping(...)`, `seek(seconds)`, `time()`, `is_playing()`,
-`is_paused()`, `volume()`, `rate()`, and `pan()` controls. Playback uses an
-available platform player (`afplay`, `paplay`, `aplay`, or `ffplay`) when
-present; otherwise `play()` raises a Gummy Snake capability error while metadata
-and bytes remain usable.
+`load_sound()` is the stable public loading authority and returns the public
+`Sound` wrapper with a Rust-managed `CanvasSound` handle attached. Sound bytes
+and duration metadata stay in the canvas runtime until code asks for Python
+bytes with `sound.to_bytes()`, while Python keeps the current friendly `play()`,
+`pause()`, `stop()`, `close()`, `loop()`, `no_loop()`, `looping(...)`,
+`seek(seconds)`, `time()`, `is_playing()`, `is_paused()`, `volume()`, `rate()`,
+and `pan()` controls. Playback uses the first available platform player in the
+order `afplay`, `paplay`, `aplay`, or `ffplay`; otherwise `play()` raises a
+Gummy Snake capability error while metadata and bytes remain usable. Loading and
+metadata access do not require a player, and no synthetic-audio fallback is used.
 
 Audio analysis and synthesis are deterministic, headless-safe Pythonic helpers.
 `AudioBuffer` stores sample tuples, `Amplitude` computes RMS levels, `FFT`
@@ -204,11 +205,13 @@ environments with a package-specific capability error.
 - `dispatch_compute(shader, x, y=1, z=1, **buffers)`
 
 `Graphics` is an offscreen canvas with isolated style, transform, pixel, and 3D
-state. Draw into it with normal canvas methods such as `background()`, `rect()`,
-`image()`, and `model()`, then use `snapshot()`, `to_rgba_bytes()`, `save()`, or
-`image(graphics, x, y)` on another canvas. `remove()` releases the offscreen
-backend. `Framebuffer` extends `Graphics` with depth metadata for render-target
-workflows.
+state, built by the mandatory canvas backend. Its `drawing` property provides a
+statically visible drawing surface; direct calls such as `graphics.background()`
+and `graphics.rect()` remain supported. Use `snapshot()`, `to_rgba_bytes()`,
+`save()`, or `image(graphics, x, y)` on another canvas. `pixel_density()` applies
+to the offscreen canvas backing buffer, and `remove()` releases its backend.
+`Framebuffer` extends `Graphics` with depth metadata for render-target workflows.
+There is no Python image or interactive fallback.
 
 The `WEBGPU` compute helpers are deterministic and safe in headless runs. They
 provide explicit storage buffers plus callback-backed compute dispatch without

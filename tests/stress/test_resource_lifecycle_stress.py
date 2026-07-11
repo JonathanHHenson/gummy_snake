@@ -43,9 +43,11 @@ def test_canvas_churns_images_pixels_and_resizes_without_inconsistent_state() ->
     counters = renderer.performance_counters()
     assert renderer.width > 0
     assert renderer.physical_width > 0
-    assert _counter_value(counters, "image_cache_misses") >= 100
+    native = counters.get("native")
+    assert isinstance(native, dict)
+    assert native["texture_uploads"] >= 100
     assert _counter_value(counters, "pixel_readbacks") >= 100
-    assert _counter_value(counters, "pixel_uploads") >= 100
+    assert _counter_value(counters, "pixel_noop_upload_skips") >= 100
     renderer.close()
 
 

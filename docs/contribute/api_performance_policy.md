@@ -50,7 +50,12 @@ def draw():
 
 Use normal global-mode calls in simple sketches and setup code. Use local
 bindings or `gs.fast()` in loops that issue hundreds or thousands of primitive,
-image, text-measurement, transform, or model calls per frame.
+image, text-measurement, transform, or model calls per frame. A fast scope is
+frame-local: it continues to read the current public `style()` and 2D
+`transform()` state, while its own `push()`/`pushed()` stack manages the model
+transform used by supported 3D draws. Camera, light, and material changes
+invalidate only incompatible retained model batches; they do not materialize
+model geometry in Python.
 
 Current optimized hot paths include compact line batches, mixed primitive
 batches with per-record style/transform data, transformed sprite/image atlas

@@ -1,7 +1,9 @@
-"""Sound runtime compatibility module.
+"""Stable public sound assets and loaders.
 
-Helper modules keep this public module path stable while preserving the small
-private playback hooks used by tests and older integrations.
+``Sound``, ``CanvasSound``, ``load_sound``, and ``load_sound_async`` are the
+public compatibility surface.  Native player implementation details live in
+``sound_runtime.native_playback``; private hook aliases below deliberately
+remain available for existing test and integration monkeypatches.
 """
 
 from __future__ import annotations
@@ -11,33 +13,35 @@ from pathlib import Path
 from typing import Any
 
 from gummysnake.assets._paths import resolve_asset_path
-from gummysnake.assets.sound_runtime import sound as _sound_runtime
 from gummysnake.assets.sound_runtime.canvas_sound import CanvasSound
+from gummysnake.assets.sound_runtime.native_playback import (
+    NativeAudioPlayer,
+)
+from gummysnake.assets.sound_runtime.native_playback import (
+    platform_play_command as _native_platform_play_command,
+)
+from gummysnake.assets.sound_runtime.native_playback import (
+    stop_active_native_audio_players as _stop_active_native_audio_players,
+)
 from gummysnake.assets.sound_runtime.sound import Sound as _RuntimeSound
-from gummysnake.assets.sound_runtime.sound import (
-    _NativeAudioPlayer as _RuntimeNativeAudioPlayer,
-)
-from gummysnake.assets.sound_runtime.sound import (
-    _platform_play_command as _runtime_platform_play_command,
-)
-from gummysnake.assets.sound_runtime.sound import (
-    _stop_active_native_audio_players,
-)
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
 
 def _platform_play_command(path: Path) -> list[str] | None:
-    return _runtime_platform_play_command(path)
+    """Return the selected platform-player command.
+
+    This private compatibility hook is intentionally retained for integrations
+    that instrument player selection.  Public code should use ``Sound.play()``.
+    """
+
+    return _native_platform_play_command(path)
 
 
-class _NativeAudioPlayer(_RuntimeNativeAudioPlayer):
-    def play(self) -> None:
-        previous = _sound_runtime._platform_play_command
-        _sound_runtime._platform_play_command = _platform_play_command
-        try:
-            super().play()
-        finally:
-            _sound_runtime._platform_play_command = previous
+class _NativeAudioPlayer(NativeAudioPlayer):
+    """Compatibility player whose command hook resolves through this module."""
+
+    def _play_command(self) -> list[str] | None:
+        return _platform_play_command(self._path)
 
 
 class Sound(_RuntimeSound):
@@ -60,7 +64,11 @@ class Sound(_RuntimeSound):
 
 
 def load_sound(path: str | Path) -> Sound:
-    """Load a sound file for playback and byte access."""
+    """Load a sound file for playback and byte access.
+
+    This is the authoritative sound-loading implementation.  It always returns
+    the stable public ``Sound`` type backed by a Rust-managed ``CanvasSound``.
+    """
 
     sound_path = resolve_asset_path(path)
     if not sound_path.exists():

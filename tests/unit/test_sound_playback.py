@@ -1,3 +1,5 @@
+import inspect
+import shutil
 import wave
 from pathlib import Path
 
@@ -6,6 +8,7 @@ import pytest
 import gummysnake as gs
 from gummysnake import BackendCapabilityError
 from gummysnake.assets import sound as sound_module
+from gummysnake.assets.sound_runtime import loading_and_playback
 
 
 class _FakePlayer:
@@ -51,6 +54,54 @@ def _write_wav(path: Path) -> None:
         wav.setsampwidth(2)
         wav.setframerate(8000)
         wav.writeframes(b"\0\0" * 10000)
+
+
+def test_public_sound_contract_and_legacy_loader_keep_public_identity(tmp_path: Path):
+    sound_path = tmp_path / "tone.wav"
+    _write_wav(sound_path)
+
+    import gummysnake.assets as assets
+
+    assert gs.Sound is sound_module.Sound
+    assert gs.CanvasSound is sound_module.CanvasSound
+    assert assets.Sound is sound_module.Sound
+    assert assets.CanvasSound is sound_module.CanvasSound
+    assert assets.load_sound is sound_module.load_sound
+    assert assets.load_sound_async is sound_module.load_sound_async
+    assert str(inspect.signature(sound_module.load_sound)) == "(path: 'str | Path') -> 'Sound'"
+    assert (
+        str(inspect.signature(sound_module.load_sound_async)) == "(path: 'str | Path') -> 'Sound'"
+    )
+
+    loaded = loading_and_playback.load_sound(sound_path)
+    assert type(loaded) is sound_module.Sound
+
+
+def test_platform_player_selection_keeps_supported_order(monkeypatch, tmp_path: Path):
+    sound_path = tmp_path / "tone.wav"
+    _write_wav(sound_path)
+    players = {
+        "afplay": None,
+        "paplay": "/usr/bin/paplay",
+        "aplay": "/usr/bin/aplay",
+        "ffplay": "/usr/bin/ffplay",
+    }
+    monkeypatch.setattr(shutil, "which", players.__getitem__)
+
+    assert sound_module._platform_play_command(sound_path) == ["/usr/bin/paplay", str(sound_path)]
+
+    players.update({"paplay": None, "aplay": None})
+    assert sound_module._platform_play_command(sound_path) == [
+        "/usr/bin/ffplay",
+        "-nodisp",
+        "-autoexit",
+        "-loglevel",
+        "quiet",
+        str(sound_path),
+    ]
+
+    players["ffplay"] = None
+    assert sound_module._platform_play_command(sound_path) is None
 
 
 def test_load_sound_and_create_audio_use_backend_neutral_player(monkeypatch, tmp_path: Path):

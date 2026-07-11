@@ -8,30 +8,36 @@ from typing import Any, cast
 
 from gummysnake import constants as c
 from gummysnake.context_mixins._protocols import SketchContextHost
-from gummysnake.context_mixins.shape_capture import (
+from gummysnake.context_mixins.shape_support.capture import (
     active_shape_vertices as _active_shape_vertices_impl,
 )
-from gummysnake.context_mixins.shape_capture import begin_clip as _begin_clip_impl
-from gummysnake.context_mixins.shape_capture import begin_contour as _begin_contour_impl
-from gummysnake.context_mixins.shape_capture import begin_shape as _begin_shape_impl
-from gummysnake.context_mixins.shape_capture import bezier_vertex as _bezier_vertex_impl
-from gummysnake.context_mixins.shape_capture import clip as _clip_impl
-from gummysnake.context_mixins.shape_capture import clip_path as _clip_path_impl
-from gummysnake.context_mixins.shape_capture import contour as _contour_impl
-from gummysnake.context_mixins.shape_capture import end_clip as _end_clip_impl
-from gummysnake.context_mixins.shape_capture import end_contour as _end_contour_impl
-from gummysnake.context_mixins.shape_capture import end_shape as _end_shape_impl
-from gummysnake.context_mixins.shape_capture import quadratic_vertex as _quadratic_vertex_impl
-from gummysnake.context_mixins.shape_capture import reset_shape_capture as _reset_shape_capture_impl
-from gummysnake.context_mixins.shape_capture import shape as _shape_impl
-from gummysnake.context_mixins.shape_capture import spline_vertex as _spline_vertex_impl
-from gummysnake.context_mixins.shape_capture import vertex as _vertex_impl
-from gummysnake.context_mixins.shape_curves import bezier as _bezier_impl
-from gummysnake.context_mixins.shape_curves import spline as _spline_impl
-from gummysnake.context_mixins.shape_curves import spline_point as _spline_point_impl
-from gummysnake.context_mixins.shape_curves import spline_properties as _spline_properties_impl
-from gummysnake.context_mixins.shape_curves import spline_property as _spline_property_impl
-from gummysnake.context_mixins.shape_curves import spline_tangent as _spline_tangent_impl
+from gummysnake.context_mixins.shape_support.capture import begin_clip as _begin_clip_impl
+from gummysnake.context_mixins.shape_support.capture import begin_contour as _begin_contour_impl
+from gummysnake.context_mixins.shape_support.capture import begin_shape as _begin_shape_impl
+from gummysnake.context_mixins.shape_support.capture import bezier_vertex as _bezier_vertex_impl
+from gummysnake.context_mixins.shape_support.capture import clip as _clip_impl
+from gummysnake.context_mixins.shape_support.capture import clip_path as _clip_path_impl
+from gummysnake.context_mixins.shape_support.capture import contour as _contour_impl
+from gummysnake.context_mixins.shape_support.capture import end_clip as _end_clip_impl
+from gummysnake.context_mixins.shape_support.capture import end_contour as _end_contour_impl
+from gummysnake.context_mixins.shape_support.capture import end_shape as _end_shape_impl
+from gummysnake.context_mixins.shape_support.capture import (
+    quadratic_vertex as _quadratic_vertex_impl,
+)
+from gummysnake.context_mixins.shape_support.capture import (
+    reset_shape_capture as _reset_shape_capture_impl,
+)
+from gummysnake.context_mixins.shape_support.capture import shape as _shape_impl
+from gummysnake.context_mixins.shape_support.capture import spline_vertex as _spline_vertex_impl
+from gummysnake.context_mixins.shape_support.capture import vertex as _vertex_impl
+from gummysnake.context_mixins.shape_support.curves import bezier as _bezier_impl
+from gummysnake.context_mixins.shape_support.curves import spline as _spline_impl
+from gummysnake.context_mixins.shape_support.curves import spline_point as _spline_point_impl
+from gummysnake.context_mixins.shape_support.curves import (
+    spline_properties as _spline_properties_impl,
+)
+from gummysnake.context_mixins.shape_support.curves import spline_property as _spline_property_impl
+from gummysnake.context_mixins.shape_support.curves import spline_tangent as _spline_tangent_impl
 from gummysnake.core.geometry import resolve_ellipse, resolve_rect
 
 
