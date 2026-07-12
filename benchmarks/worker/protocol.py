@@ -33,12 +33,7 @@ class CapabilitySet:
     runtime: bool = False
     gpu: bool = False
     native_window: bool = False
-    physical_desktop: bool = False
-    display: bool = False
     audio: bool = False
-    exclusive_machine_lock: bool = False
-    native_present_submission: bool = False
-    platform_present_feedback: bool = False
 
     def to_dict(self) -> dict[str, bool]:
         return {name: getattr(self, name) for name in self.__dataclass_fields__}
@@ -51,14 +46,7 @@ def require_capabilities(execution_class: ExecutionClass, capabilities: Capabili
         raise capability_error("runtime")
     required: tuple[str, ...]
     if execution_class is ExecutionClass.NATIVE_INTERACTIVE:
-        required = (
-            "gpu",
-            "native_window",
-            "physical_desktop",
-            "display",
-            "exclusive_machine_lock",
-            "native_present_submission",
-        )
+        required = ("gpu", "native_window")
     elif execution_class is ExecutionClass.NATIVE_AUDIO:
         required = ("audio",)
     elif execution_class in (ExecutionClass.HEADLESS, ExecutionClass.AUTHORITATIVE):

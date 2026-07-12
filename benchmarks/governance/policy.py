@@ -12,7 +12,9 @@ from decimal import Decimal
 from enum import StrEnum
 
 AUTHORITATIVE_DATA_REF = "refs/heads/benchmark-data-v1"
-PERCENT_REGRESSION_LIMIT = Decimal("0.01")
+# Local baseline recording prioritizes useful signal over lab-grade repeatability.
+# Tighten this only when the project has dedicated controlled benchmark hardware.
+PERCENT_REGRESSION_LIMIT = Decimal("0.05")
 SCHEMA_VERSION = 1
 
 

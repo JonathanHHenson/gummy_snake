@@ -50,11 +50,10 @@ def _integer(value: object, label: str) -> int:
 
 
 def detect_capabilities() -> CapabilitySet:
-    """Probe only installed public runtime capabilities.
+    """Probe the installed Canvas capabilities required for local recording.
 
-    Physical-desktop ownership, an exclusive machine reservation, and compositor
-    present feedback have no public Gummy Snake capability API today. They stay
-    false rather than being inferred from environment variables or host details.
+    Native-interactive workloads require the real native window route. They are never
+    rerouted to headless rendering when that route is unavailable.
     """
 
     try:

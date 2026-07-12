@@ -13,11 +13,18 @@ from benchmarks.worker import CapabilitySet, FreshWorker, WorkerRequest, require
 from benchmarks.worker import main as worker_main
 
 
-def test_capabilities_fail_closed_for_interactive() -> None:
-    with pytest.raises(AuthorityError):
+def test_capabilities_fail_closed_for_missing_native_window() -> None:
+    with pytest.raises(AuthorityError, match="native_window"):
         require_capabilities(
             ExecutionClass.NATIVE_INTERACTIVE, CapabilitySet(runtime=True, gpu=True)
         )
+
+
+def test_capabilities_accept_a_real_native_window_route() -> None:
+    require_capabilities(
+        ExecutionClass.NATIVE_INTERACTIVE,
+        CapabilitySet(runtime=True, gpu=True, native_window=True),
+    )
 
 
 def test_fresh_worker_requires_complete_single_jsonl_result(tmp_path: Path) -> None:
@@ -104,4 +111,5 @@ def test_jsonl_worker_capability_failure_is_a_single_failed_result(
     assert len(lines) == 1
     result = json.loads(lines[0])
     assert result["ok"] is False
+    assert "native_window" in result["error"]["message"]
     assert "no fallback" in result["error"]["message"]

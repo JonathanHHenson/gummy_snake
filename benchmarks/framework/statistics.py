@@ -1,4 +1,4 @@
-"""Deterministic hierarchical sampling and fixed one-percent decisions."""
+"""Deterministic hierarchical sampling and the current regression decision policy."""
 
 from __future__ import annotations
 
@@ -168,7 +168,7 @@ def compare_samples(
     at_max_stage: bool = True,
     seed: int = 270_005,
 ) -> ComparisonResult:
-    """Apply absolute zero gates or the fixed strict-greater-than-one-percent rule."""
+    """Apply absolute zero gates or the configured strict regression threshold."""
 
     baseline = median_of_process_medians(baseline_blocks_ns, work_per_block)
     candidate = median_of_process_medians(candidate_blocks_ns, work_per_block)
@@ -204,7 +204,7 @@ def compare_samples(
             candidate,
             change,
             interval,
-            "99% interval confirms >1.00% degradation",
+            "99% interval confirms >5.00% degradation",
         )
     if interval.upper <= PERCENT_REGRESSION_LIMIT:
         return ComparisonResult(
@@ -213,7 +213,7 @@ def compare_samples(
             candidate,
             change,
             interval,
-            "99% interval is at or below 1.00%",
+            "99% interval is at or below 5.00%",
         )
     state = Decision.INCONCLUSIVE if at_max_stage else Decision.INCONCLUSIVE
     reason = (

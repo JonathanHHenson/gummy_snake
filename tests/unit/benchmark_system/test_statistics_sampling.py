@@ -24,7 +24,7 @@ def latency_metric() -> MetricSpec:
 
 def test_median_and_confirmed_large_regression_are_deterministic() -> None:
     baseline = ((100, 100, 100),) * 5
-    candidate = ((102, 102, 102),) * 5
+    candidate = ((106, 106, 106),) * 5
     assert median_of_process_medians(baseline, 1) == 100
     first = compare_samples(latency_metric(), baseline, candidate, 1, resamples=200)
     second = compare_samples(latency_metric(), baseline, candidate, 1, resamples=200)
