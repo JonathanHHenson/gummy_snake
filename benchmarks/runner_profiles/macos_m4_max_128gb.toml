@@ -1,0 +1,49 @@
+# Canonical release-recording environment for the Apple MacBook Pro (Mac16,5)
+# maintained macOS Canvas baseline. This profile intentionally excludes host/user
+# identifiers, volume IDs, cache paths, dynamic telemetry, and fields that cannot be
+# measured consistently on this runner.
+schema_version = 1
+
+[expected]
+architecture = "arm64"
+hardware_architecture = "arm64"
+process_architecture = "arm64"
+hardware_model = "Mac16,5"
+runtime_route = "isolated-release-wheel-canvas"
+
+[expected.os]
+product = "macos"
+release = "26.5.1"
+build = "25F80"
+
+[expected.cpu]
+model = "Apple M4 Max"
+
+[expected.cpu.topology]
+logical_cores = 16
+physical_cores = 16
+
+[expected.memory]
+total_bytes = 137438953472
+gib_class = "128 GiB"
+
+[expected.toolchain]
+python = "3.12.11"
+rustc = "1.88.0"
+cargo = "1.88.0"
+uv = "0.8.8"
+
+[expected.gpu]
+model = "Apple M4 Max"
+core_count = 40
+# The probe normalizes system_profiler's "Metal 4" spelling into API and version.
+api = "metal"
+api_version = "4"
+
+[expected.display_route]
+route = "built-in"
+model = "Liquid Retina XDR Display"
+
+[expected.display_route.resolution]
+width = 3456
+height = 2234

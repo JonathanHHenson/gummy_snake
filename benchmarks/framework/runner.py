@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Protocol
 
 from ..governance import BenchmarkMode
+from ..runner_profiles import RunnerProfile, RunnerProfileError, load_runner_profile
 from ..schema.canonical import file_hash
 from ..schema.catalog import Catalog, CatalogError, Workload
 from ..schema.records import BenchmarkRecord, MetricResult, Provenance
@@ -223,12 +224,36 @@ class CanvasRecorderRunner:
             blocks.append(tuple(process_blocks))
         return tuple(blocks), tuple(diagnostics)
 
+    @staticmethod
+    def _runner_profile(mode: BenchmarkMode) -> RunnerProfile | None:
+        configured = os.environ.get("GUMMY_BENCHMARK_RUNNER_PROFILE")
+        if not configured:
+            if mode is BenchmarkMode.RECORD_HEAD:
+                raise RunnerError(
+                    "record-head requires GUMMY_BENCHMARK_RUNNER_PROFILE to name a runner profile"
+                )
+            return None
+        try:
+            return load_runner_profile(Path(configured))
+        except RunnerProfileError as error:
+            raise RunnerError(str(error)) from error
+
     def _record(
         self,
         plan: IsolatedRunPlan,
         wheel: Path,
         installed_location: str,
+        runner_profile: RunnerProfile | None = None,
     ) -> tuple[BenchmarkRecord, bool]:
+        fingerprint = probe_machine(
+            runtime_route="isolated-release-wheel-canvas",
+            build_settings={"tool": "uv", "wheel": "release", "source_import_forbidden": True},
+        )
+        if runner_profile is not None:
+            try:
+                runner_profile.validate(fingerprint.stable)
+            except RunnerProfileError as error:
+                raise RunnerError(str(error)) from error
         worker = self._worker_factory(plan.worker_command, plan.workspace)
         metrics: list[MetricResult] = []
         diagnostic_runs: dict[str, list[Mapping[str, object]]] = {}
@@ -254,11 +279,15 @@ class CanvasRecorderRunner:
                 )
             )
             diagnostic_runs[f"{workload.id}:{workload.case_id}"] = list(diagnostics)
-        fingerprint = probe_machine(
-            runtime_route="isolated-release-wheel-canvas",
-            build_settings={"tool": "uv", "wheel": "release", "source_import_forbidden": True},
-        )
         lockfile = self.repository / "uv.lock"
+        profile_condition = (
+            {
+                "runner_profile_path": str(runner_profile.path),
+                "runner_profile_digest": runner_profile.digest,
+            }
+            if runner_profile is not None
+            else {}
+        )
         provenance = Provenance(
             plan.snapshot.head,
             plan.snapshot.digest,
@@ -268,6 +297,7 @@ class CanvasRecorderRunner:
             {
                 "command": list(plan.build.command),
                 "declared_roots": list(plan.snapshot.declared_roots),
+                **profile_condition,
             },
             {"gummysnake_module": installed_location, "worker_command": list(plan.worker_command)},
         )
@@ -282,6 +312,7 @@ class CanvasRecorderRunner:
                 {
                     "worker_diagnostics": diagnostic_runs,
                     "all_catalog_workloads": len(self.catalog.workloads),
+                    **profile_condition,
                 },
             ),
             stable,
@@ -291,11 +322,12 @@ class CanvasRecorderRunner:
         """Build once, then run every declared workload without execution-class filtering."""
 
         try:
+            runner_profile = self._runner_profile(mode)
             plan = self.plan()
             wheel = self._build_and_install(plan)
             self._copy_worker_inputs(plan.workspace)
             installed_location = self._verify_installed_import(plan)
-            record, stable = self._record(plan, wheel, installed_location)
+            record, stable = self._record(plan, wheel, installed_location, runner_profile)
             return RunReport(record, complete=True, stable=stable)
         except (CatalogError, OSError, RunnerError, WorkerError, ValueError) as error:
             return RunReport(None, complete=False, stable=False, reason=str(error))

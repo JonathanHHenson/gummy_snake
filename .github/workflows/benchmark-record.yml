@@ -51,6 +51,7 @@ jobs:
         id: record
         env:
           PYTHONHASHSEED: "270005"
+          GUMMY_BENCHMARK_RUNNER_PROFILE: benchmarks/runner_profiles/macos_m4_max_128gb.toml
         run: |
           set -eu
           uv run python scripts/benchmark.py --repo . --remote origin record-head benchmarks/canvas_v1.toml
