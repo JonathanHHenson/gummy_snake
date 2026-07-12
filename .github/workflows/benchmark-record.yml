@@ -23,10 +23,8 @@ jobs:
     runs-on: [self-hosted, "${{ inputs.runner_label }}"]
     timeout-minutes: 180
     env:
-      # GitHub-hosted runner defaults point at /Users/runner, which does not
-      # exist or belong to this dedicated local macOS benchmark account.
-      HOME: ${{ github.workspace }}/.benchmark-home
-      RUNNER_TOOL_CACHE: ${{ github.workspace }}/.benchmark-tool-cache
+      # A dedicated runner owns its installed toolchain; keep only mutable uv
+      # cache data inside each checked-out benchmark workspace.
       UV_CACHE_DIR: ${{ github.workspace }}/.benchmark-uv-cache
     steps:
       - name: Check out the measured source commit
@@ -35,13 +33,13 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+      - name: Verify dedicated benchmark toolchain
+        run: |
+          set -eu
+          command -v python3.12
+          python3.12 --version
+          command -v uv
+          uv --version
 
       - name: Install development tools
         run: uv sync --dev
