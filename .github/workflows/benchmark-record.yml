@@ -22,6 +22,12 @@ jobs:
     name: Record Canvas benchmark on ${{ inputs.runner_label }}
     runs-on: [self-hosted, "${{ inputs.runner_label }}"]
     timeout-minutes: 180
+    env:
+      # GitHub-hosted runner defaults point at /Users/runner, which does not
+      # exist or belong to this dedicated local macOS benchmark account.
+      HOME: ${{ github.workspace }}/.benchmark-home
+      RUNNER_TOOL_CACHE: ${{ github.workspace }}/.benchmark-tool-cache
+      UV_CACHE_DIR: ${{ github.workspace }}/.benchmark-uv-cache
     steps:
       - name: Check out the measured source commit
         uses: actions/checkout@v4
