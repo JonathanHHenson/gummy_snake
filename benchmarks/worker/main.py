@@ -120,8 +120,8 @@ def run_request(request: WorkerRequest) -> WorkerResult:
         if last_run is None:
             raise WorkerError("timed phase completed no declared work")
         phases["synchronize"] = "ok"
-        if last_run.frame_count != last_run.plan.frames:
-            expected = last_run.plan.frames
+        expected = last_run.plan.expected_draw_callbacks
+        if last_run.frame_count != expected:
             actual = last_run.frame_count
             raise WorkerError(f"Canvas frame count mismatch: expected {expected}, got {actual}")
         phases["validate"] = "ok"

@@ -55,7 +55,7 @@ def test_jsonl_worker_runs_static_canvas_dispatch_and_emits_one_success(
         calls.append((workload_id, execution_class))
         return SimpleNamespace(
             frame_count=1,
-            plan=SimpleNamespace(frames=1),
+            plan=SimpleNamespace(frames=2, expected_draw_callbacks=1),
             pixels=b"rgba",
             physical_desktop_requested=False,
             diagnostics=SimpleNamespace(counters={"gpu_primitive_batches": 1}),
