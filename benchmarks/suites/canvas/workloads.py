@@ -17,7 +17,7 @@ from benchmarks.governance import ExecutionClass
 
 from .diagnostics import DiagnosticsSnapshot, capture_renderer_diagnostics
 from .fixtures import TEXT_CORPUS, sprite_image, validate_manifest
-from .oracles import assert_hidpi_dimensions
+from .oracles import assert_hidpi_dimensions, assert_presented_frames
 
 
 class CanvasWorkloadError(ValueError):
@@ -293,9 +293,8 @@ def dispatch(
 ) -> WorkloadRun:
     """Run one bounded actual Canvas sketch using a declared execution route.
 
-    ``native-interactive`` always calls the public runtime with ``headless=False``.
-    Success therefore means the installed runtime accepted a native-window route;
-    it does **not** claim compositor or physical scanout qualification. Missing
+    ``native-interactive`` always calls the public runtime with ``headless=False``
+    and requires its bounded frames to reach the public presentation counter. Missing
     native capability propagates the runtime's actionable capability error and is
     never retried headlessly.
     """
@@ -316,6 +315,8 @@ def dispatch(
     diagnostics = capture_renderer_diagnostics(
         context, required=_required_counters(plan.parameters)
     )
+    if not plan.headless:
+        assert_presented_frames(diagnostics.counters, plan.frames)
     return WorkloadRun(
         plan=plan,
         frame_count=int(context.frame_count),

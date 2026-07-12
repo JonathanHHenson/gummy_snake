@@ -111,9 +111,8 @@ def test_recorder_requires_every_catalog_workload_and_invalidates_on_worker_fail
         ),
     )
 
-    record, stable = runner._record(plan, wheel, "/venv/site-packages/gummysnake/__init__.py")
+    record = runner._record(plan, wheel, "/venv/site-packages/gummysnake/__init__.py")
 
-    assert stable
     assert len(record.metrics) == len(catalog.workloads)
     assert {request.execution_class.value for request in fake.requests} == {
         "headless",

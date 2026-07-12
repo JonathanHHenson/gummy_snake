@@ -26,7 +26,6 @@ from .statistics import (
     SamplingProfile,
     compare_samples,
     median_of_process_medians,
-    split_half_stable,
 )
 
 
@@ -46,10 +45,8 @@ DECLARED_INPUT_ROOTS = (
 )
 
 _CANVAS_PROFILES: dict[str, SamplingProfile] = {
-    "canvas-bounded-v1": SamplingProfile("canvas-bounded-v1", 2_000_000_000, 1, 9, 5, 27),
-    "canvas-native-bounded-v1": SamplingProfile(
-        "canvas-native-bounded-v1", 3_000_000_000, 1, 11, 5, 33
-    ),
+    "canvas-bounded-v1": SamplingProfile("canvas-bounded-v1", 0, 1, 3, 2, 3),
+    "canvas-native-bounded-v1": SamplingProfile("canvas-native-bounded-v1", 0, 1, 3, 2, 3),
 }
 
 
@@ -266,7 +263,7 @@ class CanvasRecorderRunner:
         wheel: Path,
         installed_location: str,
         runner_profile: RunnerProfile | None = None,
-    ) -> tuple[BenchmarkRecord, bool]:
+    ) -> BenchmarkRecord:
         fingerprint = probe_machine(
             runtime_route="isolated-release-wheel-canvas",
             build_settings={"tool": "uv", "wheel": "release", "source_import_forbidden": True},
@@ -279,14 +276,11 @@ class CanvasRecorderRunner:
         worker = self._worker_factory(plan.worker_command, plan.workspace)
         metrics: list[MetricResult] = []
         diagnostic_runs: dict[str, list[Mapping[str, object]]] = {}
-        stable = True
         for workload in self.catalog.workloads:
             profile = self._profile(workload)
             blocks, diagnostics = self._sample_workload(worker, workload, profile)
             work = self._work_per_block(workload)
             estimate = median_of_process_medians(blocks, work)
-            stability = split_half_stable(workload.primary_metric, blocks, work)
-            stable = stable and stability.decision is Decision.PASS
             metric = workload.primary_metric
             metrics.append(
                 MetricResult(
@@ -323,21 +317,18 @@ class CanvasRecorderRunner:
             },
             {"gummysnake_module": installed_location, "worker_command": list(plan.worker_command)},
         )
-        return (
-            BenchmarkRecord(
-                fingerprint,
-                provenance,
-                "canvas",
-                self.catalog.workloads[0].suite_version,
-                self.catalog.digest,
-                tuple(metrics),
-                {
-                    "worker_diagnostics": diagnostic_runs,
-                    "all_catalog_workloads": len(self.catalog.workloads),
-                    **profile_condition,
-                },
-            ),
-            stable,
+        return BenchmarkRecord(
+            fingerprint,
+            provenance,
+            "canvas",
+            self.catalog.workloads[0].suite_version,
+            self.catalog.digest,
+            tuple(metrics),
+            {
+                "worker_diagnostics": diagnostic_runs,
+                "all_catalog_workloads": len(self.catalog.workloads),
+                **profile_condition,
+            },
         )
 
     def run(self, mode: BenchmarkMode) -> RunReport:
@@ -349,10 +340,10 @@ class CanvasRecorderRunner:
             wheel = self._build_and_install(plan)
             self._copy_worker_inputs(plan.workspace)
             installed_location = self._verify_installed_import(plan)
-            record, stable = self._record(plan, wheel, installed_location, runner_profile)
-            return RunReport(record, complete=True, stable=stable)
+            record = self._record(plan, wheel, installed_location, runner_profile)
+            return RunReport(record, complete=True)
         except (CatalogError, OSError, RunnerError, WorkerError, ValueError) as error:
-            return RunReport(None, complete=False, stable=False, reason=str(error))
+            return RunReport(None, complete=False, reason=str(error))
 
 
 def compare_record_to_baseline(

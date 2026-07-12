@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -68,6 +68,24 @@ def assert_ordered_layers(
     assert_rgba_sentinels(pixels, physical_width, layers)
 
 
+def assert_presented_frames(counters: Mapping[str, object], expected_frames: int) -> None:
+    """Require every bounded native frame to reach the public presentation counter."""
+
+    presented = counters.get("frames_presented")
+    if (
+        isinstance(expected_frames, bool)
+        or not isinstance(expected_frames, int)
+        or expected_frames < 1
+    ):
+        raise CanvasOracleError("expected presented frame count must be a positive integer")
+    if isinstance(presented, bool) or not isinstance(presented, int):
+        raise CanvasOracleError("renderer frames_presented counter must be an integer")
+    if presented < expected_frames:
+        raise CanvasOracleError(
+            f"native workload presented {presented} frames, expected at least {expected_frames}"
+        )
+
+
 def assert_hidpi_dimensions(
     context: CanvasDimensions,
     pixels: Sequence[int] | bytes,
@@ -123,6 +141,7 @@ __all__ = [
     "assert_capability_failure",
     "assert_hidpi_dimensions",
     "assert_ordered_layers",
+    "assert_presented_frames",
     "assert_rgba_sentinels",
     "rgba_at",
 ]

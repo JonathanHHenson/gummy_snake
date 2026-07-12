@@ -27,7 +27,7 @@ class _Context:
         return bytes(self.width * self.height * 4)
 
     def renderer_performance_counters(self) -> dict[str, object]:
-        return {"cpu_fallbacks": 0}
+        return {"cpu_fallbacks": 0, "frames_presented": self.frame_count}
 
 
 def test_canvas_workload_builder_preserves_distinct_headless_and_native_routes() -> None:

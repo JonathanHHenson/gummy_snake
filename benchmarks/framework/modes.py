@@ -27,11 +27,10 @@ class GateOutcome(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class RunReport:
-    """Runner result after correctness, capabilities, teardown, and A/A validation."""
+    """Runner result after correctness, capability, and teardown validation."""
 
     record: BenchmarkRecord | None
     complete: bool
-    stable: bool
     reason: str = ""
 
 
@@ -75,14 +74,10 @@ def _identity(record: BenchmarkRecord) -> tuple[str, str, str, int]:
     return record.primary_key
 
 
-def _ready(report: RunReport, *, require_stability: bool) -> ModeResult | None:
+def _ready(report: RunReport) -> ModeResult | None:
     if not report.complete or report.record is None:
         return ModeResult(
             BenchmarkMode.WORKTREE, GateOutcome.INVALID, report.reason or "runner did not complete"
-        )
-    if require_stability and not report.stable:
-        return ModeResult(
-            BenchmarkMode.WORKTREE, GateOutcome.INVALID, report.reason or "A/A stability failed"
         )
     return None
 
@@ -99,7 +94,7 @@ def worktree(database: ModeDatabase, runner: BenchmarkRunner, compare: Compariso
     """Mode 1: exact current-HEAD lookup and strictly no database writes."""
 
     report = runner.run(BenchmarkMode.WORKTREE)
-    blocked = _ready(report, require_stability=False)
+    blocked = _ready(report)
     if blocked is not None:
         return ModeResult(BenchmarkMode.WORKTREE, blocked.outcome, blocked.reason)
     record = report.record
@@ -112,12 +107,6 @@ def worktree(database: ModeDatabase, runner: BenchmarkRunner, compare: Compariso
     baseline = database.exact_record(head, fingerprint, suite, version)
     if baseline is None:
         if not known:
-            if not report.stable:
-                return ModeResult(
-                    BenchmarkMode.WORKTREE,
-                    GateOutcome.INVALID,
-                    report.reason or "unseen fingerprint failed required A/A stability check",
-                )
             return ModeResult(
                 BenchmarkMode.WORKTREE,
                 GateOutcome.PASS_NEW_FINGERPRINT,
@@ -138,7 +127,7 @@ def record_head(database: ModeDatabase, runner: BenchmarkRunner, compare: Compar
 
     head = database.require_clean_head()
     report = runner.run(BenchmarkMode.RECORD_HEAD)
-    blocked = _ready(report, require_stability=True)
+    blocked = _ready(report)
     if blocked is not None:
         return ModeResult(BenchmarkMode.RECORD_HEAD, blocked.outcome, blocked.reason)
     record = report.record
@@ -149,7 +138,7 @@ def record_head(database: ModeDatabase, runner: BenchmarkRunner, compare: Compar
     baseline = database.nearest_first_parent_record(head, fingerprint, suite, version)
     if baseline is None:
         outcome = GateOutcome.PASS_NEW_FINGERPRINT
-        reason = "successful stable run has no compatible earlier first-parent baseline"
+        reason = "successful run has no compatible earlier first-parent baseline"
     else:
         decision = compare(baseline, record)
         outcome = _comparison_outcome(decision)

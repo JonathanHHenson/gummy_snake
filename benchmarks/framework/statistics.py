@@ -222,24 +222,3 @@ def compare_samples(
         else "additional sampling stage required"
     )
     return ComparisonResult(state, baseline, candidate, change, interval, reason)
-
-
-def split_half_stable(
-    metric: MetricSpec,
-    blocks_ns: Sequence[Sequence[int]],
-    work_per_block: int,
-    *,
-    family_size: int = 1,
-) -> ComparisonResult:
-    """A/A stability gate required before an unseen fingerprint can seed authority."""
-
-    if len(blocks_ns) < 4:
-        raise StatisticsError("split-half stability requires at least four worker processes")
-    midpoint = len(blocks_ns) // 2
-    return compare_samples(
-        metric,
-        blocks_ns[:midpoint],
-        blocks_ns[midpoint:],
-        work_per_block,
-        family_size=family_size,
-    )

@@ -60,12 +60,14 @@ source_files = [
   "suites/canvas/workloads.py",
 ]
 [workloads.parameters]
-frames = 1
-width = 64
-height = 48
+# Native cases must visibly present a desktop window rather than open and close in one frame.
+frames = 120
+width = 1280
+height = 720
 density = "1.0"
 frame_rate = 60
 dispatch_route = "global"
+required_counters = ["frames_presented"]
 frame_count_matrix = [1, 60, 600, 10000]
 frame_rate_matrix = [30, 60, 120, 1000]
 logical_size_matrix = ["640x480", "1280x720", "1920x1080", "3840x2160"]
@@ -140,13 +142,14 @@ source_files = [
   "suites/canvas/workloads.py",
 ]
 [workloads.parameters]
-frames = 1
-width = 64
-height = 48
+frames = 120
+width = 1280
+height = 720
 density = "1.0"
 draw_count = 32
 clip_depth = 1
 dispatch_route = "fast"
+required_counters = ["frames_presented"]
 primitive_count_matrix = [1000, 10000, 100000]
 mixed_record_matrix = [1000, 5000, 20000]
 line_segment_matrix = [1000, 10000, 50000]
@@ -228,14 +231,15 @@ source_files = [
   "suites/canvas/workloads.py",
 ]
 [workloads.parameters]
-frames = 1
-width = 64
-height = 48
+frames = 120
+width = 1280
+height = 720
 density = "1.0"
 image_count = 16
 text_size = 12
 effect = "gray"
 dispatch_route = "global"
+required_counters = ["frames_presented"]
 image_unique_matrix = [1, 8, 128]
 image_size_matrix = ["32x32", "256x256", "1920x1080"]
 image_draw_matrix = [1000, 10000]

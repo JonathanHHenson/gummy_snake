@@ -11,6 +11,7 @@ from benchmarks.suites.canvas.oracles import (
     assert_capability_failure,
     assert_hidpi_dimensions,
     assert_ordered_layers,
+    assert_presented_frames,
     assert_rgba_sentinels,
     rgba_at,
 )
@@ -75,6 +76,9 @@ def test_canvas_pixel_order_hidpi_and_capability_oracles_are_fail_closed() -> No
     assert_hidpi_dimensions(
         _DimensionsContext(1, 1, 2.0), bytes(16), logical_width=1, logical_height=1, density=2.0
     )
+    assert_presented_frames({"frames_presented": 2}, 2)
+    with pytest.raises(CanvasOracleError, match="presented 1 frames"):
+        assert_presented_frames({"frames_presented": 1}, 2)
 
     def missing_native_window() -> None:
         raise RuntimeError("native window capability unavailable")

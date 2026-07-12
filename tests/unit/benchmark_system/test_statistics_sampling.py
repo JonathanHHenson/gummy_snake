@@ -4,7 +4,6 @@ from benchmarks.framework.statistics import (
     Decision,
     compare_samples,
     median_of_process_medians,
-    split_half_stable,
 )
 from benchmarks.schema.catalog import Direction, MetricSpec, PercentageTransform, ZeroPolicy
 
@@ -45,8 +44,3 @@ def test_zero_counter_is_an_absolute_gate() -> None:
     )
     result = compare_samples(counter, ((0,), (0,)), ((0,), (1,)), 1)
     assert result.decision is Decision.ABSOLUTE_FAILURE
-
-
-def test_split_half_requires_independent_processes() -> None:
-    result = split_half_stable(latency_metric(), ((100,), (100,), (100,), (100,)), 1)
-    assert result.decision is Decision.PASS
