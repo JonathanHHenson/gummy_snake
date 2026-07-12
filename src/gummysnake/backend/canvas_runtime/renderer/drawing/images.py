@@ -134,7 +134,7 @@ class CanvasRendererImagesMixin:
             return
         renderer._call(
             "image drawing",
-            canvas.draw_canvas_image,
+            renderer._require_canvas_method("draw_canvas_image", "image drawing"),
             rust_image,
             dx,
             dy,
@@ -185,7 +185,7 @@ class CanvasRendererImagesMixin:
             renderer._count("gpu_draws")
             renderer._call(
                 "image drawing",
-                canvas.draw_canvas_image,
+                renderer._require_canvas_method("draw_canvas_image", "image drawing"),
                 rust_image,
                 dx,
                 dy,

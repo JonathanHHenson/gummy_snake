@@ -230,6 +230,100 @@ def test_canvas_renderer_rejects_a_queued_model_batch_without_native_draw_bridge
         renderer._flush_model_batch()
 
 
+def test_canvas_renderer_requires_pixel_readback_and_upload_bridges() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+
+    canvas.load_pixel_bytes = None
+    with pytest.raises(BackendCapabilityError, match="load_pixel_bytes\\(\\).*pixel byte readback"):
+        renderer.load_pixel_bytes()
+
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+    canvas.load_pixel_region = None
+    with pytest.raises(
+        BackendCapabilityError, match="load_pixel_region\\(\\).*pixel region readback"
+    ):
+        renderer.load_pixel_region(0, 0, 1, 1)
+
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+    canvas.update_pixels = None
+    with pytest.raises(BackendCapabilityError, match="update_pixels\\(\\).*pixel upload"):
+        renderer.update_pixels(bytes(8 * 8 * 4))
+
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+    canvas.update_pixel_region = None
+    with pytest.raises(
+        BackendCapabilityError, match="update_pixel_region\\(\\).*pixel region upload"
+    ):
+        renderer.update_pixel_region(bytes(4), 1, 1, 0, 0)
+
+
+def test_canvas_renderer_requires_pixel_effect_and_export_bridges(tmp_path) -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+    canvas.filter_pixels = None
+    with pytest.raises(BackendCapabilityError, match="filter_pixels\\(\\).*canvas pixel filtering"):
+        renderer.filter_pixels(c.INVERT)
+
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+    canvas.adjust_pixel_prefix = None
+    with pytest.raises(
+        BackendCapabilityError, match="adjust_pixel_prefix\\(\\).*pixel prefix adjustment"
+    ):
+        renderer.adjust_pixel_prefix(4, 4, 1, 1)
+
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+    canvas.save = None
+    with pytest.raises(BackendCapabilityError, match="save\\(\\).*canvas export"):
+        renderer.save(tmp_path / "canvas.png")
+
+
+def test_canvas_renderer_requires_direct_image_and_text_bridges() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+    canvas.batch_canvas_images = None
+    canvas.batch_canvas_images_transformed = None
+    canvas.draw_canvas_image = None
+    with pytest.raises(BackendCapabilityError, match="draw_canvas_image\\(\\).*image drawing"):
+        renderer._draw_rust_image(object(), 0, 0, 1, 1, StyleState(), Matrix2D.identity(), None)
+
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+    canvas.text_batch = None
+    canvas.text = None
+    renderer.text("x", 0, 0, StyleState(), Matrix2D.identity())
+    with pytest.raises(BackendCapabilityError, match="text\\(\\).*text drawing"):
+        renderer._flush_text_batch()
+
+
+def test_canvas_renderer_requires_text_metric_bridges() -> None:
+    style = StyleState()
+    for method_name, metric_name, call in (
+        ("text_width", "text measurement", lambda renderer: renderer.text_width("x", style)),
+        ("text_ascent", "text ascent measurement", lambda renderer: renderer.text_ascent(style)),
+        ("text_descent", "text descent measurement", lambda renderer: renderer.text_descent(style)),
+    ):
+        renderer = CanvasRenderer(FakeCanvasModule())
+        renderer.resize(8, 8)
+        setattr(renderer.runtime_canvas(), method_name, None)
+        with pytest.raises(BackendCapabilityError, match=metric_name):
+            call(renderer)
+
+
 def test_canvas_renderer_maps_rust_value_errors() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
 
