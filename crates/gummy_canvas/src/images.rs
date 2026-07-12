@@ -119,7 +119,13 @@ pub(crate) fn apply_rgba_mask(
     }
 }
 
-pub(crate) fn filter_rgba(pixels: &mut [u8], mode: &str, value: Option<f64>) -> PyResult<()> {
+pub(crate) fn filter_rgba(
+    pixels: &mut [u8],
+    width: usize,
+    height: usize,
+    mode: &str,
+    value: Option<f64>,
+) -> PyResult<()> {
     match mode {
         "gray" => {
             for pixel in pixels.chunks_exact_mut(4) {
@@ -145,7 +151,10 @@ pub(crate) fn filter_rgba(pixels: &mut [u8], mode: &str, value: Option<f64>) -> 
                 pixel[2] = bw;
             }
         }
-        "blur" | "posterize" | "erode" | "dilate" => {}
+        "blur" => blur_rgba_3x3(pixels, width, height),
+        "posterize" => posterize_rgba(pixels, value),
+        "erode" => morph_rgba_3x3(pixels, width, height, u8::min),
+        "dilate" => morph_rgba_3x3(pixels, width, height, u8::max),
         _ => {
             return Err(PyValueError::new_err(format!(
                 "Unsupported image filter {mode:?}."
@@ -153,6 +162,73 @@ pub(crate) fn filter_rgba(pixels: &mut [u8], mode: &str, value: Option<f64>) -> 
         }
     }
     Ok(())
+}
+
+fn blur_rgba_3x3(pixels: &mut [u8], width: usize, height: usize) {
+    let source = pixels.to_vec();
+    for y in 0..height {
+        for x in 0..width {
+            let mut totals = [0_u32; 4];
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let offset = pixel_offset(
+                        clamp_coordinate(x, dx, width),
+                        clamp_coordinate(y, dy, height),
+                        width,
+                    );
+                    for channel in 0..4 {
+                        totals[channel] += source[offset + channel] as u32;
+                    }
+                }
+            }
+            let offset = pixel_offset(x, y, width);
+            for channel in 0..4 {
+                pixels[offset + channel] = (totals[channel] / 9) as u8;
+            }
+        }
+    }
+}
+
+fn posterize_rgba(pixels: &mut [u8], value: Option<f64>) {
+    let levels = value.unwrap_or(4.0).floor().clamp(2.0, 255.0) as u16;
+    let scale = levels - 1;
+    for pixel in pixels.chunks_exact_mut(4) {
+        for channel in 0..3 {
+            let quantized = (u16::from(pixel[channel]) * scale + 127) / 255;
+            pixel[channel] = ((quantized * 255 + scale / 2) / scale) as u8;
+        }
+    }
+}
+
+fn morph_rgba_3x3(pixels: &mut [u8], width: usize, height: usize, combine: fn(u8, u8) -> u8) {
+    let source = pixels.to_vec();
+    for y in 0..height {
+        for x in 0..width {
+            let offset = pixel_offset(x, y, width);
+            for channel in 0..3 {
+                let mut result = source[offset + channel];
+                for dy in -1..=1 {
+                    for dx in -1..=1 {
+                        let neighbor = pixel_offset(
+                            clamp_coordinate(x, dx, width),
+                            clamp_coordinate(y, dy, height),
+                            width,
+                        );
+                        result = combine(result, source[neighbor + channel]);
+                    }
+                }
+                pixels[offset + channel] = result;
+            }
+        }
+    }
+}
+
+fn clamp_coordinate(coordinate: usize, delta: isize, limit: usize) -> usize {
+    coordinate.saturating_add_signed(delta).min(limit - 1)
+}
+
+fn pixel_offset(x: usize, y: usize, width: usize) -> usize {
+    (y * width + x) * 4
 }
 
 pub(crate) fn convert_media_frame_to_rgba(
@@ -232,4 +308,50 @@ pub(crate) fn alpha_composite_pixel(dst: &mut [u8], src: &[u8]) {
 
 fn luma(pixel: &[u8]) -> u8 {
     (pixel[0] as f64 * 0.299 + pixel[1] as f64 * 0.587 + pixel[2] as f64 * 0.114).round() as u8
+}
+
+#[cfg(test)]
+mod tests {
+    use super::filter_rgba;
+
+    #[test]
+    fn blur_averages_a_clamped_three_by_three_neighborhood() {
+        let mut pixels = vec![0_u8; 3 * 3 * 4];
+        pixels[(3 * 1 + 1) * 4..(3 * 1 + 1) * 4 + 4].copy_from_slice(&[255, 90, 0, 255]);
+
+        filter_rgba(&mut pixels, 3, 3, "blur", None).unwrap();
+
+        assert_eq!(
+            &pixels[(3 * 1 + 1) * 4..(3 * 1 + 1) * 4 + 4],
+            &[28, 10, 0, 28]
+        );
+    }
+
+    #[test]
+    fn posterize_uses_documented_default_and_preserves_alpha() {
+        let mut pixels = vec![128, 64, 1, 37];
+
+        filter_rgba(&mut pixels, 1, 1, "posterize", None).unwrap();
+
+        assert_eq!(pixels, vec![170, 85, 0, 37]);
+    }
+
+    #[test]
+    fn erosion_and_dilation_use_clamped_rgb_neighborhoods_and_preserve_alpha() {
+        let mut eroded = vec![10_u8; 3 * 3 * 4];
+        let center = (3 + 1) * 4;
+        eroded[center..center + 4].copy_from_slice(&[250, 200, 150, 91]);
+        for pixel in eroded.chunks_exact_mut(4) {
+            if pixel[3] != 91 {
+                pixel[3] = 37;
+            }
+        }
+        let mut dilated = eroded.clone();
+
+        filter_rgba(&mut eroded, 3, 3, "erode", None).unwrap();
+        filter_rgba(&mut dilated, 3, 3, "dilate", None).unwrap();
+
+        assert_eq!(&eroded[center..center + 4], &[10, 10, 10, 91]);
+        assert_eq!(&dilated[0..4], &[250, 200, 150, 37]);
+    }
 }

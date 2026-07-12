@@ -114,6 +114,26 @@ def test_image_local_operations_delegate_to_rust_and_preserve_semantics() -> Non
     assert target.to_rgba_bytes() == bytes([50, 0, 0, 255])
 
 
+def test_image_local_filters_match_declared_modes_and_preserve_alpha() -> None:
+    blur = gs.Image(3, 3, bytes([0, 0, 0, 255] * 9))
+    blur.set(1, 1, (255, 90, 0, 255))
+    blur.filter(gs.BLUR)
+    assert blur.get(1, 1).to_tuple() == (28, 10, 0, 255)
+
+    posterized = gs.Image(1, 1, bytes([128, 64, 1, 37]))
+    posterized.filter(gs.POSTERIZE)
+    assert posterized.get(0, 0).to_tuple() == (170, 85, 0, 37)
+
+    source = gs.Image(3, 3, bytes([10, 10, 10, 37] * 9))
+    source.set(1, 1, (250, 200, 150, 91))
+    eroded = source.copy()
+    eroded.filter(gs.ERODE)
+    dilated = source.copy()
+    dilated.filter(gs.DILATE)
+    assert eroded.get(1, 1).to_tuple() == (10, 10, 10, 91)
+    assert dilated.get(0, 0).to_tuple() == (250, 200, 150, 37)
+
+
 def test_image_save_uses_png_or_rejects_an_unsupported_suffix(tmp_path) -> None:
     image = gs.create_image(1, 1)
 

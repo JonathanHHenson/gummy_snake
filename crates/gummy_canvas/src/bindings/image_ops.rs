@@ -109,7 +109,7 @@ pub(crate) fn image_filter_rgba<'py>(
 ) -> PyResult<Bound<'py, PyBytes>> {
     validate_rgba_buffer(pixels.len(), width, height)?;
     let mut filtered = pixels;
-    filter_rgba(&mut filtered, mode, value)?;
+    filter_rgba(&mut filtered, width, height, mode, value)?;
     Ok(PyBytes::new_bound(py, &filtered))
 }
 

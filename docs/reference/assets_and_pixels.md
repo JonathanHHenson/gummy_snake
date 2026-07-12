@@ -24,7 +24,10 @@ uses the renderer's canvas-owned sprite path, and mutations such as `set()`,
 handle instead of switching to Python-owned pixel storage. Bulk image-local work
 such as resize, mask, filter, crop/copy, and alpha compositing is handled by the
 Rust canvas runtime so the public Python API does not run nested per-pixel loops
-for normal image sizes.
+for normal image sizes. Image-local `GRAY`, `INVERT`, `THRESHOLD`, `BLUR`,
+`POSTERIZE`, `ERODE`, and `DILATE` all execute in that Rust-owned kernel;
+threshold defaults to `0.5`, posterize defaults to four levels, and morphological
+filters preserve source alpha while operating on RGB channels.
 
 `smooth()` and `image_sampling(LINEAR)` request linear sampling.
 `no_smooth()` and `image_sampling(NEAREST)` request nearest-neighbor sampling.

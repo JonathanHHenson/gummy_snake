@@ -167,7 +167,7 @@ impl CanvasImage {
 
     #[pyo3(signature = (mode, value=None))]
     fn filter(&mut self, mode: &str, value: Option<f64>) -> PyResult<()> {
-        filter_rgba(&mut self.pixels, mode, value)?;
+        filter_rgba(&mut self.pixels, self.width, self.height, mode, value)?;
         self.bump_version();
         Ok(())
     }
