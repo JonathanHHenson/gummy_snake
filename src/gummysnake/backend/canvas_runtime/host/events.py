@@ -2,22 +2,19 @@
 
 from __future__ import annotations
 
-import math
-import re
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, cast
 
 from gummysnake.backend.canvas_runtime import events as canvas_events
 from gummysnake.backend.canvas_runtime.host._protocols import CanvasBackendHost
 from gummysnake.core.input_events import KeyboardEvent, MouseEvent, TouchEvent, TouchPoint
-from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
     from gummysnake.sketch import Sketch
 
-_TEXTURE_LIMIT_RE = re.compile(r"GPU texture limit of (\d+)")
 _EVENT_HANDLER_NAMES: dict[str, str] = {
     **dict.fromkeys(canvas_events.MOUSE_EVENT_TYPES, "_dispatch_mouse_canvas_event"),
     **dict.fromkeys(canvas_events.KEYBOARD_EVENT_TYPES, "_dispatch_keyboard_canvas_event"),
@@ -185,32 +182,7 @@ class CanvasBackendEventsMixin:
             "pixel_density",
             default=_backend(self).renderer.pixel_density,
         )
-        try:
-            _backend(self).renderer.resize_canvas(width, height, pixel_density)
-        except ArgumentValidationError as exc:
-            capped_density = self._resize_event_fallback_density(width, height, pixel_density, exc)
-            if capped_density is None:
-                raise
-            _backend(self).renderer.resize_canvas(width, height, capped_density)
-
-    def _resize_event_fallback_density(
-        self,
-        width: int,
-        height: int,
-        pixel_density: float,
-        exc: ArgumentValidationError,
-    ) -> float | None:
-        match = _TEXTURE_LIMIT_RE.search(str(exc))
-        if match is None:
-            return None
-        max_dimension = max(width, height)
-        if max_dimension <= 0:
-            return None
-        texture_limit = int(match.group(1))
-        capped_density = math.nextafter(texture_limit / max_dimension, 0.0)
-        if capped_density <= 0 or capped_density >= pixel_density:
-            return None
-        return capped_density
+        _backend(self).renderer.resize_canvas(width, height, pixel_density)
 
     def _logical_pointer_position(self, x: float, y: float) -> tuple[float, float]:
         density = _backend(self).renderer.pixel_density

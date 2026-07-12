@@ -117,12 +117,15 @@ timings.
 - `save_strings(lines, path)`
 - `create_writer(path)`
 
-`save_frames()` writes a deterministic numbered sequence from the current canvas
+Still-image exports (`Image.save()`, `save_canvas()`, and `save_frames()`) use
+Rust-owned PNG encoding. A suffixless destination receives `.png`; other
+still-image suffixes are rejected rather than writing mismatched file contents.
+`save_frames()` writes a deterministic PNG sequence from the current canvas
 state. Patterns may use `{index}`, `{frame}`, or `{frame_count}` placeholders;
 without placeholders, files are named with a zero-padded suffix. `save_gif()`
 uses the Rust canvas runtime to encode an animated GIF from the current canvas
-image; `count` repeats that captured image and `duration` controls the total
-animation duration.
+image; it accepts a suffixless or `.gif` destination, `count` repeats that
+captured image, and `duration` must produce a positive finite frame duration.
 
 ## Data and Text Assets
 

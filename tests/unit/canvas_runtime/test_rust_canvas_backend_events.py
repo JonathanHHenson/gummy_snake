@@ -6,6 +6,7 @@ from gummysnake import constants as c
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
 from gummysnake.core.input_events import KeyboardEvent
+from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from tests.helpers.canvas_runtime.context import (
     EventSketch,
@@ -222,7 +223,7 @@ def test_canvas_backend_handles_resize_events(monkeypatch: pytest.MonkeyPatch) -
     assert sketch.context.height == 80
 
 
-def test_canvas_backend_caps_oversized_interactive_resize_density(
+def test_canvas_backend_rejects_oversized_interactive_resize_without_lowering_density(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class LimitedTextureCanvas(FakeCanvas):
@@ -249,15 +250,15 @@ def test_canvas_backend_caps_oversized_interactive_resize_density(
     sketch._running = True
     context.create_canvas(100, 50, pixel_density=2)
 
-    backend._dispatch_canvas_event(
-        sketch,
-        {"type": "resized", "width": 1200, "height": 800, "pixel_density": 2},
-    )
+    with pytest.raises(ArgumentValidationError, match="GPU texture limit of 2048"):
+        backend._dispatch_canvas_event(
+            sketch,
+            {"type": "resized", "width": 1200, "height": 800, "pixel_density": 2},
+        )
 
-    assert backend.renderer.width == 1200
-    assert backend.renderer.height == 800
-    assert backend.renderer.physical_width <= 2048
-    assert backend.renderer.pixel_density < 2
-    assert context.width == 1200
-    assert context.height == 800
-    assert context.pixel_density() < 2
+    assert backend.renderer.width == 100
+    assert backend.renderer.height == 50
+    assert backend.renderer.pixel_density == 2
+    assert context.width == 100
+    assert context.height == 50
+    assert context.pixel_density() == 2

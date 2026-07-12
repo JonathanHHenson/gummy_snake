@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from math import isfinite
 from pathlib import Path
 from typing import Protocol
 
+from gummysnake.assets.image.exporting import png_export_path
 from gummysnake.core.pixels import FrameSaveInfo
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -42,15 +44,10 @@ def save_canvas(
     overwrite: bool = True,
 ) -> Path:
     output = Path(path)
-    if output.name in {"", "."}:
-        raise ArgumentValidationError("save_canvas() requires a file path, not a directory.")
     if extension is not None:
         suffix = extension if extension.startswith(".") else f".{extension}"
         output = output.with_suffix(suffix.lower())
-    elif output.suffix == "":
-        output = output.with_suffix(".png")
-    if output.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff"}:
-        raise ArgumentValidationError(f"Unsupported canvas export format {output.suffix!r}.")
+    output = png_export_path(output, operation="save_canvas()")
     if output.exists() and not overwrite:
         raise ArgumentValidationError(f"Refusing to overwrite existing file: {output!s}.")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -113,19 +110,28 @@ def save_gif(
     overwrite: bool = True,
 ) -> Path:
     output = Path(path)
+    if output.name in {"", "."}:
+        raise ArgumentValidationError("save_gif() requires a file path, not a directory.")
     if output.suffix == "":
         output = output.with_suffix(".gif")
-    if output.exists() and not overwrite:
-        raise ArgumentValidationError(f"Refusing to overwrite existing file: {output!s}.")
+    elif output.suffix.lower() != ".gif":
+        raise ArgumentValidationError(
+            f"save_gif() supports only GIF output; received {output.suffix!r}."
+        )
     if count <= 0:
         raise ArgumentValidationError("save_gif() count must be positive.")
-    frame_duration_ms = int(
-        round(
-            1000.0 / ctx.state.timing.target_frame_rate
-            if duration is None
-            else float(duration) * 1000.0 / count
-        )
+    total_duration = (
+        1.0 / ctx.state.timing.target_frame_rate if duration is None else float(duration)
     )
+    if not isfinite(total_duration) or total_duration <= 0:
+        raise ArgumentValidationError("save_gif() duration must be finite and positive.")
+    frame_duration_ms = int(round(total_duration * 1000.0 / count))
+    if frame_duration_ms <= 0:
+        raise ArgumentValidationError(
+            "save_gif() duration is too short to encode a positive frame duration."
+        )
+    if output.exists() and not overwrite:
+        raise ArgumentValidationError(f"Refusing to overwrite existing file: {output!s}.")
     output.parent.mkdir(parents=True, exist_ok=True)
     ctx.renderer.save_gif(output, count, frame_duration_ms)
     return output

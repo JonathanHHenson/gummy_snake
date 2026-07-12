@@ -107,6 +107,32 @@ def test_structure_audit_reports_stale_backticked_repository_path(tmp_path: Path
     )
 
 
+def test_structure_audit_allows_an_absent_explicitly_ignored_generated_output(
+    tmp_path: Path,
+) -> None:
+    documentation = Path("docs/guide.md")
+    _write(tmp_path / documentation, "Generated examples are written to `examples/output/`.\n")
+    _write(tmp_path / ".gitignore", "examples/output/\n")
+
+    assert "stale_repository_path" not in _codes(tmp_path)
+
+
+def test_structure_audit_rejects_an_absent_output_path_without_its_ignore_rule(
+    tmp_path: Path,
+) -> None:
+    documentation = Path("docs/guide.md")
+    _write(tmp_path / documentation, "Generated examples are written to `examples/output/`.\n")
+
+    violations = structure_audit.audit(tmp_path)
+
+    assert any(
+        violation.code == "stale_repository_path"
+        and violation.path == documentation
+        and "`examples/output/`" in violation.message
+        for violation in violations
+    )
+
+
 def test_structure_audit_reports_python_support_prefix_cluster(tmp_path: Path) -> None:
     for suffix in ("assets", "context", "image", "state"):
         _write(tmp_path / f"tests/helpers/fake_canvas_{suffix}.py")

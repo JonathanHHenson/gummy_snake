@@ -110,6 +110,7 @@ def test_save_canvas_adds_default_extension_and_validates_overwrite(tmp_path):
     output = context.save_canvas(tmp_path / "canvas")
 
     assert output.suffix == ".png"
+    assert output.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     image = gs.load_image(output)
     assert (image.width, image.height) == (3, 2)
     pixel = image.get(0, 0)
@@ -118,6 +119,10 @@ def test_save_canvas_adds_default_extension_and_validates_overwrite(tmp_path):
 
     with pytest.raises(ArgumentValidationError, match="Refusing to overwrite"):
         context.save_canvas(output, overwrite=False)
+    with pytest.raises(ArgumentValidationError, match="only PNG output"):
+        context.save_canvas(tmp_path / "canvas.jpg")
+    with pytest.raises(ArgumentValidationError, match="only PNG output"):
+        context.save_frames(tmp_path / "frame", extension="webp")
 
 
 def test_save_gif_uses_canvas_runtime_and_preserves_public_contract(tmp_path):
@@ -133,6 +138,14 @@ def test_save_gif_uses_canvas_runtime_and_preserves_public_contract(tmp_path):
 
     with pytest.raises(ArgumentValidationError, match="count must be positive"):
         context.save_gif(tmp_path / "bad.gif", count=0)
+    with pytest.raises(ArgumentValidationError, match="only GIF output"):
+        context.save_gif(tmp_path / "not-a-gif.png")
+    with pytest.raises(ArgumentValidationError, match="duration must be finite and positive"):
+        context.save_gif(tmp_path / "invalid.gif", duration=float("nan"))
+    with pytest.raises(ArgumentValidationError, match="duration must be finite and positive"):
+        context.save_gif(tmp_path / "invalid.gif", duration=0)
+    with pytest.raises(ArgumentValidationError, match="too short"):
+        context.save_gif(tmp_path / "too-short.gif", duration=0.0001)
     with pytest.raises(ArgumentValidationError, match="Refusing to overwrite"):
         context.save_gif(output, overwrite=False)
 

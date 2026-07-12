@@ -10,6 +10,7 @@ from typing import Self, cast, overload
 from gummysnake import constants as c
 from gummysnake.assets.image.canvas import CanvasImage
 from gummysnake.assets.image.deferred import ImageDeferredMixin
+from gummysnake.assets.image.exporting import png_export_path
 from gummysnake.assets.image.source import ImageSource, coerce_image_source
 from gummysnake.core.color import Color
 from gummysnake.exceptions import ArgumentValidationError, UnsupportedFeatureError
@@ -345,13 +346,13 @@ class Image(ImageDeferredMixin):
         self._rust_image.filter(normalized, value)
 
     def save(self, path: str | Path) -> None:
-        """Save this image to a file.
+        """Save this image as a PNG file.
 
         Args:
-            path: Destination path. The file extension selects the image format.
+            path: Destination path. A suffixless path receives a ``.png`` suffix.
         """
 
-        self._rust_image.save(path)
+        self._rust_image.save(str(png_export_path(path, operation="Image.save()")))
 
     def _crop(self, sx: int, sy: int, sw: int, sh: int) -> Image:
         if sw <= 0 or sh <= 0:

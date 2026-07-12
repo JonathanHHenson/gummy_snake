@@ -41,8 +41,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
       - uses: dtolnay/rust-toolchain@stable
       - uses: ./.github/actions/setup-linux
+      # `.cargo/config.toml` deliberately binds PyO3 to this managed interpreter.
+      - run: uv sync --dev --no-install-project
       - run: make rust-check
 
   package:

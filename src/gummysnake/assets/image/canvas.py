@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol, Self, cast
 
+from gummysnake.assets.image.exporting import png_export_path
+
 
 class _RustCanvasImage(Protocol):
     width: int
@@ -206,13 +208,13 @@ class CanvasImage:
         return bytes(self._rust_image.to_rgba_bytes())
 
     def save(self, path: str | Path) -> None:
-        """Save this image to a file.
+        """Save this image as a PNG file.
 
         Args:
-            path: Destination path. The extension selects the image format.
+            path: Destination path. A suffixless path receives a ``.png`` suffix.
         """
 
-        self._rust_image.save(str(path))
+        self._rust_image.save(str(png_export_path(path, operation="CanvasImage.save()")))
 
 
 __all__ = ["CanvasImage"]

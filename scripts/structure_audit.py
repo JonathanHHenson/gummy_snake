@@ -450,6 +450,15 @@ def _audit_local_markdown_links(repo_root: Path) -> list[StructureViolation]:
     return violations
 
 
+def _is_missing_documented_generated_path(repo_root: Path, candidate: str) -> bool:
+    """Whether an absent documented path is an explicitly ignored generated directory."""
+    normalized = Path(candidate.rstrip("/"))
+    return (
+        normalized in IGNORED_RELATIVE_DIRS
+        and f"{normalized.as_posix()}/" in _gitignore_entries(repo_root)
+    )
+
+
 def _audit_backticked_repository_paths(repo_root: Path) -> list[StructureViolation]:
     violations: list[StructureViolation] = []
     for path in _iter_text_files(repo_root):
@@ -469,7 +478,9 @@ def _audit_backticked_repository_paths(repo_root: Path) -> list[StructureViolati
                     candidates.add(candidate)
         for candidate in sorted(candidates):
             target = (repo_root / candidate).resolve()
-            if _is_within_repo(repo_root, target) and target.exists():
+            if _is_within_repo(repo_root, target) and (
+                target.exists() or _is_missing_documented_generated_path(repo_root, candidate)
+            ):
                 continue
             violations.append(
                 StructureViolation(

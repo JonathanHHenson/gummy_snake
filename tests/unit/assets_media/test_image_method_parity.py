@@ -114,6 +114,20 @@ def test_image_local_operations_delegate_to_rust_and_preserve_semantics() -> Non
     assert target.to_rgba_bytes() == bytes([50, 0, 0, 255])
 
 
+def test_image_save_uses_png_or_rejects_an_unsupported_suffix(tmp_path) -> None:
+    image = gs.create_image(1, 1)
+
+    suffixless_path = tmp_path / "image"
+    image.save(suffixless_path)
+
+    output = tmp_path / "image.png"
+    assert output.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    with pytest.raises(ArgumentValidationError, match="only PNG output"):
+        image.save(tmp_path / "image.webp")
+    with pytest.raises(ArgumentValidationError, match="only PNG output"):
+        image.rust_image.save(tmp_path / "image.jpg")
+
+
 def test_image_deferred_methods_raise_package_specific_errors() -> None:
     image = gs.create_image(1, 1)
 
