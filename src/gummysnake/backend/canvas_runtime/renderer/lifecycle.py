@@ -19,6 +19,7 @@ class _LifecycleHost(Protocol):
     def _canvas_type(self) -> type[Any]: ...
     def _sync_dimensions(self) -> None: ...
     def _require_canvas(self) -> Any: ...
+    def _require_canvas_method(self, name: str, operation: str) -> Any: ...
     def _pump_native_events_if_due(self, *, force: bool = False) -> bool: ...
     def _should_close(self) -> bool: ...
     def _count(self, name: str, amount: int = 1) -> None: ...
@@ -48,9 +49,12 @@ class CanvasRendererLifecycleMixin:
         host.renderer_mode = renderer
         try:
             if host._canvas is None:
-                host._canvas = canvas_type(width, height, pixel_density, mode, c.P2D)
+                host._canvas = canvas_type(width, height, pixel_density, mode, renderer)
             else:
-                host._canvas.resize(width, height, pixel_density, c.P2D)
+                resize = cast(CanvasRendererHost, self)._require_canvas_method(
+                    "resize", "canvas resizing"
+                )
+                resize(width, height, pixel_density, renderer)
             host._sync_dimensions()
             self._rust_transform_synced = True
             self._rust_style_synced = True
@@ -68,11 +72,10 @@ class CanvasRendererLifecycleMixin:
         cast(CanvasRendererHost, self)._flush_line_batch()
         renderer_mode = host.renderer_mode if renderer is None else renderer
         try:
-            resize_canvas = getattr(host._require_canvas(), "resize_canvas", None)
-            if callable(resize_canvas):
-                resize_canvas(width, height, pixel_density, c.P2D)
-            else:
-                host._require_canvas().resize(width, height, pixel_density, c.P2D)
+            resize_canvas = cast(CanvasRendererHost, self)._require_canvas_method(
+                "resize_canvas", "native canvas resizing"
+            )
+            resize_canvas(width, height, pixel_density, renderer_mode)
             host.renderer_mode = renderer_mode
             host._sync_dimensions()
             self._rust_transform_synced = True
@@ -85,7 +88,7 @@ class CanvasRendererLifecycleMixin:
         host._abort_frame_on_native_close = True
         host._skip_canvas_end_frame = False
         host._pump_native_events_if_due(force=True)
-        host._require_canvas().begin_frame()
+        cast(CanvasRendererHost, self)._require_canvas_method("begin_frame", "frame rendering")()
 
     def end_frame(self) -> None:
         host = cast(_LifecycleHost, self)
@@ -98,7 +101,9 @@ class CanvasRendererLifecycleMixin:
             renderer._flush_text_batch(final=True)
             self.restore_clip_depth(0)
             if not host._skip_canvas_end_frame:
-                host._require_canvas().end_frame()
+                cast(CanvasRendererHost, self)._require_canvas_method(
+                    "end_frame", "frame rendering"
+                )()
         finally:
             host._abort_frame_on_native_close = False
 
@@ -107,7 +112,9 @@ class CanvasRendererLifecycleMixin:
         cast(CanvasRendererHost, self)._flush_line_batch()
         if host._pump_native_events_if_due(force=True) or host._should_close():
             return
-        host._require_canvas().present()
+        cast(CanvasRendererHost, self)._require_canvas_method(
+            "present", "native canvas presentation"
+        )()
         host._count("frames_presented")
 
     def close(self) -> None:
@@ -115,7 +122,7 @@ class CanvasRendererLifecycleMixin:
         host._abort_frame_on_native_close = False
         cast(CanvasRendererHost, self)._flush_line_batch()
         if host._canvas is not None:
-            host._canvas.close()
+            cast(CanvasRendererHost, self)._require_canvas_method("close", "canvas shutdown")()
 
     def runtime_canvas(self) -> Any:
         return cast(_LifecycleHost, self)._require_canvas()

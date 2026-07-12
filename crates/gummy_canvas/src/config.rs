@@ -4,6 +4,7 @@
 //! names are registered by `bindings` from the crate root.
 
 pub(crate) const SUPPORTED_RENDERER: &str = "p2d";
+pub(crate) const SUPPORTED_RENDERERS: &[&str] = &[SUPPORTED_RENDERER, "webgl", "webgpu"];
 pub(crate) const SUPPORTED_MODE: &str = "headless";
 pub(crate) const INTERACTIVE_MODE: &str = "interactive";
 pub(crate) const BLEND_MODE_BLEND: &str = "blend";

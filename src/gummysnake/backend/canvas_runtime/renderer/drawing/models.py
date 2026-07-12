@@ -75,10 +75,7 @@ class CanvasRendererModelsMixin:
             )
             return
 
-        draw = getattr(canvas, "draw_model_shaded", None)
-        if not callable(draw):
-            renderer._count("model_batch_fallbacks", len(transforms))
-            return
+        draw = renderer._require_canvas_method("draw_model_shaded", "3D model drawing")
         renderer._count("model_batch_fallbacks", len(transforms))
         for transform in transforms:
             renderer._count("direct_model_draws")

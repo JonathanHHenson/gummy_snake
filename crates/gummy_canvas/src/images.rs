@@ -193,9 +193,9 @@ fn posterize_rgba(pixels: &mut [u8], value: Option<f64>) {
     let levels = value.unwrap_or(4.0).floor().clamp(2.0, 255.0) as u16;
     let scale = levels - 1;
     for pixel in pixels.chunks_exact_mut(4) {
-        for channel in 0..3 {
-            let quantized = (u16::from(pixel[channel]) * scale + 127) / 255;
-            pixel[channel] = ((quantized * 255 + scale / 2) / scale) as u8;
+        for channel in pixel.iter_mut().take(3) {
+            let quantized = (u16::from(*channel) * scale + 127) / 255;
+            *channel = ((quantized * 255 + scale / 2) / scale) as u8;
         }
     }
 }
@@ -317,14 +317,12 @@ mod tests {
     #[test]
     fn blur_averages_a_clamped_three_by_three_neighborhood() {
         let mut pixels = vec![0_u8; 3 * 3 * 4];
-        pixels[(3 * 1 + 1) * 4..(3 * 1 + 1) * 4 + 4].copy_from_slice(&[255, 90, 0, 255]);
+        let center = (3 + 1) * 4;
+        pixels[center..center + 4].copy_from_slice(&[255, 90, 0, 255]);
 
         filter_rgba(&mut pixels, 3, 3, "blur", None).unwrap();
 
-        assert_eq!(
-            &pixels[(3 * 1 + 1) * 4..(3 * 1 + 1) * 4 + 4],
-            &[28, 10, 0, 28]
-        );
+        assert_eq!(&pixels[center..center + 4], &[28, 10, 0, 28]);
     }
 
     #[test]

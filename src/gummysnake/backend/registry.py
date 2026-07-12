@@ -13,8 +13,12 @@ def canvas_default_eligibility() -> tuple[bool, str]:
 
     canvas_bridge.require_canvas_runtime()
     if not bool(canvas_bridge.canvas_gpu_available()):
-        return False, "gummy_canvas did not report an available GPU adapter"
-    return True, "canvas runtime is available"
+        return (
+            True,
+            "canvas runtime is available for bounded headless rendering; GPU-accelerated "
+            "drawing and native interactive presentation may be unavailable",
+        )
+    return True, "canvas runtime and GPU adapter are available"
 
 
 def create_backend(*, headless: bool | None = None) -> Backend:

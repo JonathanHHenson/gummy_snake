@@ -4,10 +4,11 @@ import pytest
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas_renderer import CanvasRenderer
+from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import ModelBatchKey
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
-from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 from tests.helpers.canvas_runtime.modules import FakeCanvasModule
 
 
@@ -23,6 +24,18 @@ def test_canvas_renderer_allocates_and_mirrors_dimensions() -> None:
     assert renderer.pixel_density == 1.5
     assert renderer.runtime_canvas().gpu_available() is True
     assert renderer.runtime_canvas().gpu_status() == "available"
+
+
+@pytest.mark.parametrize("mode", [c.WEBGL, c.WEBGPU])
+def test_canvas_renderer_forwards_requested_renderer_mode(mode: c.RendererMode) -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+
+    renderer.resize(10, 10, renderer=mode)
+    canvas = renderer.runtime_canvas()
+    renderer.resize_canvas(12, 8)
+
+    assert canvas.renderer == mode
+    assert ("resize_canvas", 12, 8, 1.0, mode) in canvas.calls
 
 
 def test_canvas_renderer_pump_native_events_syncs_resized_canvas_dimensions() -> None:
@@ -165,6 +178,56 @@ def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None
     assert transformed_call[2] is changed_call[2]
     assert transformed_call[3] is not changed_call[3]
     assert transformed_call[3] == (1.0, 0.0, 0.0, 1.0, 4, 5)
+
+
+def test_canvas_renderer_fails_clearly_for_missing_lifecycle_bridge_methods() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+
+    canvas.resize_canvas = None
+    with pytest.raises(BackendCapabilityError, match="resize_canvas\\(\\).*native canvas resizing"):
+        renderer.resize_canvas(9, 9)
+
+    canvas.begin_frame = None
+    with pytest.raises(BackendCapabilityError, match="begin_frame\\(\\).*frame rendering"):
+        renderer.begin_frame()
+
+    canvas.end_frame = None
+    with pytest.raises(BackendCapabilityError, match="end_frame\\(\\).*frame rendering"):
+        renderer.end_frame()
+
+    canvas.present = None
+    renderer._last_native_event_pump = 0.0
+    with pytest.raises(BackendCapabilityError, match="present\\(\\).*native canvas presentation"):
+        renderer.present()
+
+    canvas.close = None
+    with pytest.raises(BackendCapabilityError, match="close\\(\\).*canvas shutdown"):
+        renderer.close()
+
+
+def test_canvas_renderer_rejects_a_queued_model_batch_without_native_draw_bridge() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    canvas = renderer.runtime_canvas()
+    canvas._draw_model_shaded_batch = lambda *args: None
+    key = ModelBatchKey(
+        model_handle=object(),
+        camera={},
+        projection={},
+        viewport_width=8,
+        viewport_height=8,
+        material={},
+        lights=[],
+        normal_material=False,
+        cull_backfaces=True,
+    )
+    assert renderer._queue_model_batch(key, (1.0,) * 16) is True
+    canvas._draw_model_shaded_batch = None
+
+    with pytest.raises(BackendCapabilityError, match="draw_model_shaded\\(\\).*3D model drawing"):
+        renderer._flush_model_batch()
 
 
 def test_canvas_renderer_maps_rust_value_errors() -> None:

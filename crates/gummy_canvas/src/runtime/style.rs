@@ -1,4 +1,4 @@
-use crate::config::{INTERACTIVE_MODE, SUPPORTED_MODE, SUPPORTED_RENDERER};
+use crate::config::{INTERACTIVE_MODE, SUPPORTED_MODE, SUPPORTED_RENDERERS};
 use crate::runtime::RuntimeEvent;
 use crate::types::{BlendMode, Rgba, Style};
 use pyo3::exceptions::PyValueError;
@@ -91,9 +91,9 @@ pub(crate) fn validate_mode_and_renderer(mode: &str, renderer: &str) -> PyResult
 }
 
 pub(crate) fn validate_renderer(renderer: &str) -> PyResult<()> {
-    if renderer != SUPPORTED_RENDERER {
+    if !SUPPORTED_RENDERERS.contains(&renderer) {
         return Err(PyValueError::new_err(format!(
-            "Unsupported renderer {renderer:?}; only {SUPPORTED_RENDERER:?} is implemented."
+            "Unsupported renderer {renderer:?}; supported renderers are {SUPPORTED_RENDERERS:?}."
         )));
     }
     Ok(())

@@ -34,6 +34,18 @@ def test_canvas_default_eligibility_requires_runtime(
         registry.canvas_default_eligibility()
 
 
+def test_canvas_default_eligibility_keeps_headless_runtime_eligible_without_gpu(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(canvas_bridge, "require_canvas_runtime", lambda: object())
+    monkeypatch.setattr(canvas_bridge, "canvas_gpu_available", lambda: False)
+
+    eligible, reason = registry.canvas_default_eligibility()
+
+    assert eligible is True
+    assert "bounded headless" in reason
+
+
 def test_canvas_default_eligibility_reports_available_runtime(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
