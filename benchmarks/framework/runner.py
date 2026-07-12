@@ -163,10 +163,11 @@ class CanvasRecorderRunner:
             raise RunnerError(f"installed wheel import failed: {result.stderr.strip()}")
         location = Path(result.stdout.strip()).resolve()
         virtual_environment = plan.build.isolated_environment.resolve()
+        source_tree = (self.repository / "src").resolve()
         if (
             not location.is_relative_to(virtual_environment)
             or "site-packages" not in location.parts
-            or location.is_relative_to(self.repository)
+            or location.is_relative_to(source_tree)
         ):
             raise RunnerError(
                 "gummysnake must resolve from the isolated venv site-packages, not source"
