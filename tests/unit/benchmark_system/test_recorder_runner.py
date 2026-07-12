@@ -60,7 +60,7 @@ def test_runner_build_install_and_import_verification_are_isolated(
             plan.build.output_directory.mkdir(parents=True, exist_ok=True)
             (plan.build.output_directory / "gummy_snake-0.8.0.whl").write_bytes(b"wheel")
 
-    runner._run_command = command  # type: ignore[method-assign]
+    monkeypatch.setattr(runner, "_run_command", command)
     wheel = runner._build_and_install(plan)
     runner._copy_worker_inputs(plan.workspace)
     installed = (
@@ -86,6 +86,29 @@ def test_runner_build_install_and_import_verification_are_isolated(
     assert commands[2][:3] == ("uv", "pip", "install")
     assert not (plan.workspace / "src").exists()
     assert (plan.workspace / "benchmarks" / "worker" / "main.py").is_file()
+
+
+@pytest.mark.parametrize(
+    ("case_id", "draw_count"),
+    [
+        ("headless-uniform-primitives-1k", 1_000),
+        ("headless-mixed-primitives-5k", 5_000),
+        ("headless-paths-1k-by-32", 1_000),
+        ("headless-nested-clips-depth-4-by-32", 1_000),
+        ("headless-sprite-uniqueness-mutation", 17),
+        ("headless-text-reuse-script", 36),
+        ("headless-pixel-read-write-locality", 64),
+        ("headless-ordered-effects", 1),
+    ],
+)
+def test_recorder_uses_each_declared_draw_record_count(
+    tmp_path: Path, case_id: str, draw_count: int
+) -> None:
+    catalog = load_catalog(CATALOG)
+    runner = CanvasRecorderRunner(ROOT, catalog, tmp_path / "build")
+    workload = next(workload for workload in catalog.workloads if workload.case_id == case_id)
+
+    assert runner._work_per_block(workload) == draw_count
 
 
 def test_recorder_requires_every_catalog_workload_and_invalidates_on_worker_failure(
@@ -125,7 +148,7 @@ def test_recorder_requires_every_catalog_workload_and_invalidates_on_worker_fail
     assert len(fake.requests) == expected
     diagnostics = record.run_conditions["worker_diagnostics"]
     assert isinstance(diagnostics, dict)
-    first = diagnostics["lifecycle-hidpi:headless-matrix"]
+    first = diagnostics["lifecycle-hidpi:headless-continuous-clear-loop"]
     assert isinstance(first, list)
     assert first[0]["renderer"]["gpu_encode_time_ms"] == Decimal("1.5")
 

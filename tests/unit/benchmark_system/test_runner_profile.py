@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import NoReturn, cast
 
 import pytest
 
@@ -117,7 +117,7 @@ architecture = "arm64"
     profile = load_runner_profile(profile_path)
     worker_created = False
 
-    def unexpected_worker(*_args: object, **_kwargs: object) -> object:
+    def unexpected_worker(*_args: object, **_kwargs: object) -> NoReturn:
         nonlocal worker_created
         worker_created = True
         raise AssertionError("profile validation must precede worker creation")
@@ -126,7 +126,7 @@ architecture = "arm64"
         ROOT,
         load_catalog(CATALOG),
         tmp_path / "build",
-        worker_factory=unexpected_worker,  # type: ignore[arg-type]
+        worker_factory=unexpected_worker,
     )
     monkeypatch.setattr(
         "benchmarks.framework.runner.probe_machine",

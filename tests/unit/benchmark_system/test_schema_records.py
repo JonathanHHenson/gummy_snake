@@ -53,6 +53,42 @@ precision = 3
     assert catalog.workloads[0].primary_metric.normalized(50, 10) == Decimal(5)
 
 
+def test_catalog_rejects_unexecuted_matrix_parameters(tmp_path: Path) -> None:
+    (tmp_path / "work.py").write_text("print('benchmark')\n")
+    catalog_path = tmp_path / "catalog.toml"
+    catalog_path.write_text(
+        """
+schema_version = 1
+[suite]
+id = "canvas"
+version = 1
+[[workloads]]
+id = "fill"
+version = 1
+case_id = "small"
+execution_class = "headless"
+capabilities = ["gpu"]
+correctness = "checksum"
+sampling_profile = "micro"
+source_files = ["work.py"]
+[workloads.parameters]
+count_matrix = [10, 100]
+[workloads.primary_metric]
+id = "elapsed"
+version = 1
+unit = "ns"
+work_unit = "draw"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+"""
+    )
+
+    with pytest.raises(CatalogError, match=r"count_matrix.*separate workload"):
+        load_catalog(catalog_path)
+
+
 def test_metric_zero_policy_and_fingerprint_provenance_exclusion_are_strict() -> None:
     with pytest.raises(CatalogError):
         MetricSpec(

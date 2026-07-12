@@ -61,6 +61,19 @@ def _string_list(value: object, label: str) -> tuple[str, ...]:
     return tuple(value)
 
 
+def _runtime_parameters(raw: Mapping[str, object]) -> dict[str, object]:
+    """Validate values passed unchanged to a workload dispatcher."""
+
+    matrix_keys = sorted(key for key in raw if key.endswith("_matrix"))
+    if matrix_keys:
+        names = ", ".join(repr(key) for key in matrix_keys)
+        raise CatalogError(
+            "workload parameters must contain only dispatched runtime values; "
+            f"remove matrix parameter(s) {names} and declare a separate workload for each value"
+        )
+    return dict(raw)
+
+
 @dataclass(frozen=True, slots=True)
 class MetricSpec:
     id: str
@@ -206,7 +219,7 @@ def _workload(root: Path, raw: Mapping[str, object], suite_id: str, suite_versio
             id=_id(raw["id"], "workload id"),
             version=_version(raw["version"], "workload version"),
             case_id=_id(raw["case_id"], "case id"),
-            parameters=dict(parameters),
+            parameters=_runtime_parameters(parameters),
             execution_class=ExecutionClass(str(raw["execution_class"])),
             capabilities=_string_list(raw.get("capabilities", []), "capabilities"),
             correctness=str(raw["correctness"]),
