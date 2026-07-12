@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import cast
+
 import pytest
 
 from gummysnake import constants as c
@@ -228,6 +231,45 @@ def test_canvas_renderer_rejects_a_queued_model_batch_without_native_draw_bridge
 
     with pytest.raises(BackendCapabilityError, match="draw_model_shaded\\(\\).*3D model drawing"):
         renderer._flush_model_batch()
+
+
+@pytest.mark.parametrize(
+    ("method_name", "operation", "invoke"),
+    [
+        (
+            "set_current_style",
+            "current style update",
+            lambda renderer: renderer.set_current_style(StyleState()),
+        ),
+        (
+            "set_current_matrix",
+            "current matrix update",
+            lambda renderer: renderer.set_current_matrix(Matrix2D.identity()),
+        ),
+        ("push_canvas_state", "canvas state push", lambda renderer: renderer.push_canvas_state()),
+        ("pop_canvas_state", "canvas state pop", lambda renderer: renderer.pop_canvas_state()),
+        ("translate", "canvas translation", lambda renderer: renderer.translate(1, 2)),
+        ("rotate", "canvas rotation", lambda renderer: renderer.rotate(0.5)),
+        ("scale", "canvas scale", lambda renderer: renderer.scale(2)),
+        ("shear_x", "canvas x shear", lambda renderer: renderer.shear_x(0.5)),
+        ("shear_y", "canvas y shear", lambda renderer: renderer.shear_y(0.5)),
+        (
+            "apply_matrix",
+            "canvas matrix application",
+            lambda renderer: renderer.apply_matrix(Matrix2D.identity()),
+        ),
+        ("reset_matrix", "canvas matrix reset", lambda renderer: renderer.reset_matrix()),
+    ],
+)
+def test_canvas_renderer_requires_non_p2d_state_bridge_methods(
+    method_name: str, operation: str, invoke: object
+) -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8, renderer=c.WEBGL)
+    setattr(renderer.runtime_canvas(), method_name, None)
+
+    with pytest.raises(BackendCapabilityError, match=operation):
+        cast(Callable[[CanvasRenderer], None], invoke)(renderer)
 
 
 def test_canvas_renderer_requires_pixel_readback_and_upload_bridges() -> None:

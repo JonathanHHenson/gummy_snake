@@ -113,10 +113,9 @@ class CanvasRendererCore(
         if self.renderer_mode == c.P2D:
             self._rust_style_synced = False
             return
-        callback = getattr(self._require_canvas(), "set_current_style", None)
-        if callable(callback):
-            self._call("current style update", callback, self._style_payload(style))
-            self._rust_style_synced = True
+        callback = host._require_canvas_method("set_current_style", "current style update")
+        self._call("current style update", callback, self._style_payload(style))
+        self._rust_style_synced = True
 
     def set_current_matrix(self, transform: Matrix2D) -> None:
         """Record the active transform matrix and sync it to Rust when needed.
@@ -132,10 +131,11 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "set_current_matrix", None)
-        if callable(callback):
-            self._call("current matrix update", callback, self._matrix_payload(transform))
-            self._rust_transform_synced = True
+        callback = cast(CanvasRendererHost, self)._require_canvas_method(
+            "set_current_matrix", "current matrix update"
+        )
+        self._call("current matrix update", callback, self._matrix_payload(transform))
+        self._rust_transform_synced = True
 
     def push_canvas_state(self) -> None:
         """Push the current style and transform state onto the Rust canvas stack."""
@@ -147,23 +147,26 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         if not self._rust_style_synced and self._current_style is not None:
-            callback = getattr(self._require_canvas(), "set_current_style", None)
-            if callable(callback):
-                self._call(
-                    "current style update",
-                    callback,
-                    self._style_payload(self._current_style),
-                )
-                self._rust_style_synced = True
+            callback = cast(CanvasRendererHost, self)._require_canvas_method(
+                "set_current_style", "current style update"
+            )
+            self._call(
+                "current style update",
+                callback,
+                self._style_payload(self._current_style),
+            )
+            self._rust_style_synced = True
         if not self._rust_transform_synced:
-            callback = getattr(self._require_canvas(), "set_current_matrix", None)
-            if callable(callback):
-                self._call("current matrix update", callback, self._current_matrix_payload)
-                self._rust_transform_synced = True
+            callback = cast(CanvasRendererHost, self)._require_canvas_method(
+                "set_current_matrix", "current matrix update"
+            )
+            self._call("current matrix update", callback, self._current_matrix_payload)
+            self._rust_transform_synced = True
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "push_canvas_state", None)
-        if callable(callback):
-            self._call("canvas state push", callback)
+        callback = cast(CanvasRendererHost, self)._require_canvas_method(
+            "push_canvas_state", "canvas state push"
+        )
+        self._call("canvas state push", callback)
 
     def pop_canvas_state(self) -> None:
         """Pop the most recently pushed style and transform state from Rust."""
@@ -175,11 +178,12 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "pop_canvas_state", None)
-        if callable(callback):
-            self._call("canvas state pop", callback)
-            self._rust_transform_synced = True
-            self._rust_style_synced = True
+        callback = cast(CanvasRendererHost, self)._require_canvas_method(
+            "pop_canvas_state", "canvas state pop"
+        )
+        self._call("canvas state pop", callback)
+        self._rust_transform_synced = True
+        self._rust_style_synced = True
 
     def translate(self, x: float, y: float) -> None:
         """Move the Rust canvas coordinate system by a logical offset.
@@ -195,10 +199,11 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "translate", None)
-        if callable(callback):
-            self._call("canvas translation", callback, float(x), float(y))
-            self._rust_transform_synced = True
+        callback = cast(CanvasRendererHost, self)._require_canvas_method(
+            "translate", "canvas translation"
+        )
+        self._call("canvas translation", callback, float(x), float(y))
+        self._rust_transform_synced = True
 
     def rotate(self, angle: float) -> None:
         """Rotate the Rust canvas coordinate system.
@@ -213,10 +218,11 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "rotate", None)
-        if callable(callback):
-            self._call("canvas rotation", callback, float(angle))
-            self._rust_transform_synced = True
+        callback = cast(CanvasRendererHost, self)._require_canvas_method(
+            "rotate", "canvas rotation"
+        )
+        self._call("canvas rotation", callback, float(angle))
+        self._rust_transform_synced = True
 
     def scale(self, x: float, y: float | None = None) -> None:
         """Scale the Rust canvas coordinate system.
@@ -232,10 +238,9 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "scale", None)
-        if callable(callback):
-            self._call("canvas scale", callback, float(x), None if y is None else float(y))
-            self._rust_transform_synced = True
+        callback = cast(CanvasRendererHost, self)._require_canvas_method("scale", "canvas scale")
+        self._call("canvas scale", callback, float(x), None if y is None else float(y))
+        self._rust_transform_synced = True
 
     def shear_x(self, angle: float) -> None:
         """Shear the Rust canvas coordinate system along the x-axis.
@@ -250,10 +255,11 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "shear_x", None)
-        if callable(callback):
-            self._call("canvas x shear", callback, float(angle))
-            self._rust_transform_synced = True
+        callback = cast(CanvasRendererHost, self)._require_canvas_method(
+            "shear_x", "canvas x shear"
+        )
+        self._call("canvas x shear", callback, float(angle))
+        self._rust_transform_synced = True
 
     def shear_y(self, angle: float) -> None:
         """Shear the Rust canvas coordinate system along the y-axis.
@@ -268,10 +274,11 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "shear_y", None)
-        if callable(callback):
-            self._call("canvas y shear", callback, float(angle))
-            self._rust_transform_synced = True
+        callback = cast(CanvasRendererHost, self)._require_canvas_method(
+            "shear_y", "canvas y shear"
+        )
+        self._call("canvas y shear", callback, float(angle))
+        self._rust_transform_synced = True
 
     def apply_matrix(self, transform: Matrix2D) -> None:
         """Apply an additional transform matrix to the Rust canvas state.
@@ -286,10 +293,11 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "apply_matrix", None)
-        if callable(callback):
-            self._call("canvas matrix application", callback, self._matrix_payload(transform))
-            self._rust_transform_synced = True
+        callback = cast(CanvasRendererHost, self)._require_canvas_method(
+            "apply_matrix", "canvas matrix application"
+        )
+        self._call("canvas matrix application", callback, self._matrix_payload(transform))
+        self._rust_transform_synced = True
 
     def reset_matrix(self) -> None:
         """Reset the Rust canvas transform to the identity matrix."""
@@ -300,10 +308,11 @@ class CanvasRendererCore(
             self._rust_transform_synced = False
             return
         cast(CanvasRendererHost, self)._flush_line_batch()
-        callback = getattr(self._require_canvas(), "reset_matrix", None)
-        if callable(callback):
-            self._call("canvas matrix reset", callback)
-            self._rust_transform_synced = True
+        callback = cast(CanvasRendererHost, self)._require_canvas_method(
+            "reset_matrix", "canvas matrix reset"
+        )
+        self._call("canvas matrix reset", callback)
+        self._rust_transform_synced = True
 
     def _can_use_current_state(self, style: StyleState, transform: Matrix2D) -> bool:
         return (
