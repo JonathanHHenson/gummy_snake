@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import math
 import os
 import shutil
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Protocol
 
@@ -71,6 +73,26 @@ class _FreshWorkerFactory(Protocol):
 
 def _default_worker(command: tuple[str, ...], cwd: Path) -> FreshWorker:
     return FreshWorker(command, cwd=cwd)
+
+
+def _canonical_diagnostic_value(value: object) -> object:
+    """Preserve public diagnostics while representing measured floats exactly in records."""
+
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise RunnerError("renderer diagnostics contain a non-finite floating-point value")
+        return Decimal(str(value))
+    if isinstance(value, Mapping):
+        if not all(isinstance(key, str) for key in value):
+            raise RunnerError("renderer diagnostics must use string mapping keys")
+        return {key: _canonical_diagnostic_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return tuple(_canonical_diagnostic_value(item) for item in value)
+    return value
+
+
+def _canonical_diagnostics(value: Mapping[str, object]) -> Mapping[str, object]:
+    return {key: _canonical_diagnostic_value(item) for key, item in value.items()}
 
 
 def plan_isolated_run(repository: Path, output_directory: Path) -> IsolatedRunPlan:
@@ -220,7 +242,7 @@ class CanvasRecorderRunner:
                 if result.elapsed_ns is None:
                     raise RunnerError("fresh worker returned no elapsed duration")
                 process_blocks.append(result.elapsed_ns)
-                diagnostics.append(dict(result.diagnostics))
+                diagnostics.append(_canonical_diagnostics(result.diagnostics))
             blocks.append(tuple(process_blocks))
         return tuple(blocks), tuple(diagnostics)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,7 @@ class FakeWorker:
             {phase: "ok" for phase in PHASES},
             100,
             request.work_units,
-            {"renderer": {"gpu_primitive_batches": 1}},
+            {"renderer": {"gpu_primitive_batches": 1, "gpu_encode_time_ms": 1.5}},
         )
 
 
@@ -123,6 +124,11 @@ def test_recorder_requires_every_catalog_workload_and_invalidates_on_worker_fail
         for workload in catalog.workloads
     )
     assert len(fake.requests) == expected
+    diagnostics = record.run_conditions["worker_diagnostics"]
+    assert isinstance(diagnostics, dict)
+    first = diagnostics["lifecycle-hidpi:headless-matrix"]
+    assert isinstance(first, list)
+    assert first[0]["renderer"]["gpu_encode_time_ms"] == Decimal("1.5")
 
     class FailingWorker:
         def run(self, request: WorkerRequest) -> WorkerResult:
