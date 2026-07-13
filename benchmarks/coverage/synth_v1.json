@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:f097dbc1237e287af80bade9fa2005469e07ccf3c1baff7b7137a900f380f9b6",
+  "catalog_digest": "sha256:fd94010a7f8afc17afafdff263fb4cd24c84608fd0ee82fd48ecec5a6841cd8f",
   "entries": [
     {
       "capabilities": [
@@ -8,7 +8,7 @@
       ],
       "case_id": "flat-events-1k",
       "correctness_label": "normalized-plan-digest-and-exact-event-order-without-audio-render",
-      "definition_digest": "sha256:15cd83ed431dd9f20a21ef2a42f0c401b7396df2750c88c1562b6e5a62861ed9",
+      "definition_digest": "sha256:25a3f31fd1abc6c2f2cb8577c7f5be59957f5000c1c85d8aada324e777766435",
       "metric_identity": {
         "id": "composition-elapsed-ns",
         "version": 1
@@ -34,7 +34,7 @@
       ],
       "case_id": "nested-lazy-depth-5",
       "correctness_label": "normalized-nested-expansion-digest-events-times-and-condition-order",
-      "definition_digest": "sha256:e2b60f87628dedaf263fe89fbc8621b2090a776897cc35cc37b8ef7dc1e49f03",
+      "definition_digest": "sha256:862d4c9af16426103c120aaa7b8852b0b6ca00a72c0bde0d4d67e8a05d9fa87c",
       "metric_identity": {
         "id": "expansion-elapsed-ns",
         "version": 1
@@ -61,7 +61,7 @@
       ],
       "case_id": "source-synth-fx-templates-64",
       "correctness_label": "source-template-override-expansion-and-normalized-plan-digest",
-      "definition_digest": "sha256:20b92e2bd1049e6cba916e7b7b0e103bc2a6c4884348eb70493b846e73dbf8f1",
+      "definition_digest": "sha256:269468da416289967bcd995ef3cb884e65b92450fb2964a342784da7914a56a2",
       "metric_identity": {
         "id": "template-expansion-elapsed-ns",
         "version": 1
@@ -89,7 +89,7 @@
       ],
       "case_id": "bounded-compile-render-longevity",
       "correctness_label": "stable-plan-and-pcm-digests-across-bounded-clean-worker-cycles",
-      "definition_digest": "sha256:92074f30b27c89fb785169df660123d2cb1eed23427b63666117d3fe7646c9b6",
+      "definition_digest": "sha256:79f33a4ff8220ff7fd34ad651f6b2aa1287ca4e27de302f0ab963a392655f409",
       "metric_identity": {
         "id": "longevity-cycle-elapsed-ns",
         "version": 1
@@ -115,7 +115,7 @@
       ],
       "case_id": "fail-closed-validation",
       "correctness_label": "actionable-bounded-errors-without-parser-decoder-or-player-substitution",
-      "definition_digest": "sha256:361933700a207910ebd1b57e21240fe3c5536bfd1f1ea287f8914ace4578d659",
+      "definition_digest": "sha256:68101651e1f9d1832f6e9d654cb8ced8d1b825c65813aaa451ae770542c574cf",
       "metric_identity": {
         "id": "failure-validation-elapsed-ns",
         "version": 1
@@ -142,7 +142,7 @@
       ],
       "case_id": "all-practical-rust-fx-families",
       "correctness_label": "every-practical-fx-is-finite-audibly-non-noop-and-signal-summarized",
-      "definition_digest": "sha256:92b3a809a6f5d7c618b9c1d50e80be4272e0742dd9f9402e4e95fa027520138d",
+      "definition_digest": "sha256:e41869bf28c3d3db18d266ec853cf1b386eaa3a20ace2f6741275f3014f34359",
       "metric_identity": {
         "id": "fx-render-elapsed-ns",
         "version": 1
@@ -170,7 +170,7 @@
       ],
       "case_id": "shared-buses-limiter-normaliser-output",
       "correctness_label": "shared-bus-difference-limiter-ceiling-and-byte-file-output-parity",
-      "definition_digest": "sha256:67a26b7d70a3e00a8b36645d429bf5ff9f1211f4196b134c96e682380868685b",
+      "definition_digest": "sha256:efdacf42c5430e259f4dd5a739f4f9d2ed494e4a3576e49640f5797cb00dab9b",
       "metric_identity": {
         "id": "mix-output-elapsed-ns",
         "version": 1
@@ -197,7 +197,7 @@
       ],
       "case_id": "generated-pcm-decode-resample-cache",
       "correctness_label": "generated-wav-duration-channel-resample-repeat-digest-and-cleanup",
-      "definition_digest": "sha256:334119575880cf82f09a58bef224adf4d08ba4ba2c54952e7cd5b8c988ba98c8",
+      "definition_digest": "sha256:013bedb441b166087593412dacd548009f7ec9afe42dc7db3d1418da556c0e47",
       "metric_identity": {
         "id": "sample-path-elapsed-ns",
         "version": 1
@@ -225,7 +225,7 @@
       ],
       "case_id": "direct-serialized-pyo3-parity-64",
       "correctness_label": "direct-and-serialized-bridge-exact-pcm-parity-and-semantic-digest",
-      "definition_digest": "sha256:d2e182b06c7a33323dd48886d04b35df9c40768a5272586cfaf779007cfc64ee",
+      "definition_digest": "sha256:0d61cdc511e8b2f0e87fe1a2d08bad08bc9a930748baebf6c7fdc88f15e5c73d",
       "metric_identity": {
         "id": "bridge-render-elapsed-ns",
         "version": 1
@@ -270,7 +270,7 @@
       ],
       "case_id": "plan-roundtrip-256",
       "correctness_label": "exact-normalized-semantic-roundtrip-digest-and-bounded-container",
-      "definition_digest": "sha256:091daefff6c1441abce2657473d7502f4fb1909c095481242eee8cd52bacfa79",
+      "definition_digest": "sha256:8f60e311d365335f6c5c851fbf45d873cacd6ffecd4b0127bf8d15622fb326d5",
       "metric_identity": {
         "id": "serialization-elapsed-ns",
         "version": 1
@@ -298,7 +298,7 @@
       ],
       "case_id": "serialized-render-python-heartbeat-128",
       "correctness_label": "python-heartbeat-progresses-during-synchronous-serialized-render-and-reports-maximum-pause",
-      "definition_digest": "sha256:9e8ff940a52f9ab24d28f208a2caac93348b6fb768465c479b251a0a5942bda9",
+      "definition_digest": "sha256:c1ce6a14258b2127a809ec928cec43962b0fc676e6a62ad2d1e5917cd037c795",
       "metric_identity": {
         "id": "serialized-heartbeat-render-elapsed-ns",
         "version": 1
@@ -340,7 +340,7 @@
       ],
       "case_id": "public-sound-headless-state",
       "correctness_label": "exact-generated-sound-bytes-metadata-and-safe-headless-control-state",
-      "definition_digest": "sha256:a3f872300920f178b117ed5a38925837c5542fbd630e0fb096d274d0c8188d87",
+      "definition_digest": "sha256:a92150e7b554aaadab40126e35bad22e9a7e2484afd2013ef9f1ab9b0bf21ac7",
       "metric_identity": {
         "id": "sound-state-elapsed-ns",
         "version": 1
@@ -368,7 +368,7 @@
       ],
       "case_id": "simulated-realtime-pcm-block-sink",
       "correctness_label": "exact-pcm-concatenation-bounded-queue-and-zero-simulated-underruns",
-      "definition_digest": "sha256:7e38bb857394ebdafb3fa156af46c3ec81d32d46ea2cadca74eb4a2457eaa3b7",
+      "definition_digest": "sha256:c7724de771170e72701d3c527c6409cc28b6f3977bc68eac79e9da9dd09b81f5",
       "metric_identity": {
         "id": "simulated-block-elapsed-ns",
         "version": 1
@@ -396,7 +396,7 @@
       ],
       "case_id": "all-primitive-oscillators-polyphony-4",
       "correctness_label": "finite-bounded-repeatable-pcm-per-primitive-with-sine-frequency-oracle",
-      "definition_digest": "sha256:010afb634976fd51a3a79ec670d54b78e27985c4d29d34de3c24b49a23c1561d",
+      "definition_digest": "sha256:cefafffa3a84733754feda0d3251e5ea9d4192c1e9bd3f8f054c14b7be50e3c3",
       "metric_identity": {
         "id": "voice-render-elapsed-ns",
         "version": 1
@@ -426,7 +426,7 @@
       ],
       "case_id": "layers-envelope-filter-automation",
       "correctness_label": "repeatable-layered-pcm-envelope-shape-controls-and-filtered-signal",
-      "definition_digest": "sha256:988a9e06d83ba40d28d87299407ce977bf782feac83ae8c9f04950534fef645d",
+      "definition_digest": "sha256:cf5e0372cb1df2ad6b86f5c8b3d5fd9d2c7a9a00b750b4f7be1fc175de6e12db",
       "metric_identity": {
         "id": "layer-voice-render-elapsed-ns",
         "version": 1

@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = ROOT / "benchmarks" / "ecs_v1.toml"
 CHECKED_PATH = ROOT / "benchmarks" / "coverage" / "ecs_v1.json"
 
-EXPECTED_LAYER_AVAILABILITY = {"R": False, "P": False, "H": True, "I": False}
+_UNIMPLEMENTED_LAYERS = {"R": False, "I": False}
 
 
 def test_ecs_checked_coverage_is_the_exact_24_case_catalog_projection() -> None:
@@ -36,13 +36,16 @@ def test_ecs_checked_coverage_is_the_exact_24_case_catalog_projection() -> None:
         declared = entry.runtime_parameters["required_counters"]
         assert isinstance(declared, list)
         assert entry.required_counters == tuple(declared)
-        assert entry.runtime_parameters["execution_layer"] == "H"
+        execution_layer = entry.runtime_parameters["execution_layer"]
+        assert isinstance(execution_layer, str)
+        assert execution_layer in {"P", "H"}
         layer_capabilities = entry.runtime_parameters["execution_layer_capabilities"]
         assert isinstance(layer_capabilities, dict)
         assert {
-            layer: capability["available"] for layer, capability in layer_capabilities.items()
-        } == EXPECTED_LAYER_AVAILABILITY
-        assert layer_capabilities["H"]["available"] is True
+            layer: layer_capabilities[layer]["available"] for layer in _UNIMPLEMENTED_LAYERS
+        } == _UNIMPLEMENTED_LAYERS
+        assert layer_capabilities[execution_layer]["available"] is True
+        assert layer_capabilities[{"P": "H", "H": "P"}[execution_layer]]["available"] is False
         expected_digest = entry.runtime_parameters["expected_correctness_digest"]
         assert isinstance(expected_digest, str) and expected_digest.startswith("sha256:")
         assert len(expected_digest) == 71

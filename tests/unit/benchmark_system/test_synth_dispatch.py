@@ -197,6 +197,27 @@ def test_registry_dispatch_executes_every_synth_case_kind(
     assert result.diagnostics["physical_audio_qualified"] is False
     assert result.diagnostics["audibility_claimed"] is False
     assert result.diagnostics["path"]
+    if workload_id == "serialization-bridge":
+        for name in (
+            "python_to_dict_normalize_ns",
+            "python_plan_container_ns",
+            "serialized_validation_ns",
+            "python_json_serialize_ns",
+            "python_zlib_compress_ns",
+            "python_json_bytes",
+            "python_zlib_bytes",
+            "native_plan_container_bytes",
+            "pre_dsp_serialization_ns",
+        ):
+            value = result.diagnostics[name]
+            assert isinstance(value, int)
+            assert value >= 0
+        assert isinstance(result.diagnostics["python_zlib_ratio"], float)
+        assert result.diagnostics["python_zlib_ratio"] > 0.0
+        if parameters["case_kind"] != "gil-heartbeat":
+            lifecycle = result.diagnostics["benchmark_lifecycle"]
+            assert isinstance(lifecycle, dict)
+            assert lifecycle["schema_version"] == 1
     if parameters["case_kind"] == "gil-heartbeat":
         observations = result.diagnostics["python_heartbeat_observations"]
         max_pause_ns = result.diagnostics["python_heartbeat_max_pause_ns"]

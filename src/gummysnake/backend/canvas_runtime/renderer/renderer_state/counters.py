@@ -10,6 +10,8 @@ _PERFORMANCE_COUNTER_KEYS = (
     "gpu_region_effect_passes",
     "cpu_fallbacks",
     "pixel_readbacks",
+    "pixel_readback_requested_bytes",
+    "pixel_readback_copied_bytes",
     "pixel_uploads",
     "image_cache_hits",
     "image_cache_misses",
@@ -88,6 +90,8 @@ class CanvasRendererCounterMixin:
                 promoted_native_keys = (
                     "packed_primitive_records",
                     "packed_primitive_bytes",
+                    "pixel_readback_requested_bytes",
+                    "pixel_readback_copied_bytes",
                     "image_cache_hits",
                     "image_cache_misses",
                     "image_source_clones_avoided",

@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:fb5ed239d3b4e3bf644b0155582d88999db8ab53503269208f02664ce517e928",
+  "catalog_digest": "sha256:9011c42c540ec289e795c548fee3f804da877e62df272c10282a826e24a1b038",
   "entries": [
     {
       "capabilities": [
@@ -8,7 +8,7 @@
       ],
       "case_id": "bounded-longevity-48x32",
       "correctness_label": "bounded-longevity-resources-world-digest",
-      "definition_digest": "sha256:df666aff80b545eebe85d142ea46814efa4d1aaa8d5a35b8ec3b08395db5e061",
+      "definition_digest": "sha256:a7a24638a59aba71c560ab947e77e7898b8424d667b991b8ea54d67652ffe0ad",
       "metric_identity": {
         "id": "longevity-row-frame-elapsed-ns",
         "version": 1
@@ -25,19 +25,19 @@
         "case_kind": "bounded-longevity",
         "churn_count": 4,
         "entity_count": 48,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -66,7 +66,7 @@
       ],
       "case_id": "diagnostics-snapshot-reset",
       "correctness_label": "diagnostics-reset-counter-digest",
-      "definition_digest": "sha256:1e07a8c225d2e75603279e7e09bcfbd45a78257df4dbe0996c8675efdbc717c1",
+      "definition_digest": "sha256:6833a0f27050c90ed005508deeca9ef297b300208013d093d3c47f1c921023d7",
       "metric_identity": {
         "id": "diagnostic-snapshot-elapsed-ns",
         "version": 1
@@ -80,19 +80,19 @@
       "runtime_parameters": {
         "case_kind": "diagnostics-reset",
         "entity_count": 64,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -118,7 +118,7 @@
       ],
       "case_id": "stale-strict-spatial-failures",
       "correctness_label": "actionable-failure-type-message-digest",
-      "definition_digest": "sha256:67bdaeb517550bf83e0bf15f074b23f4a1e90a14c77ca879bfb51771be17616e",
+      "definition_digest": "sha256:1ce495b8d90bd21bc21354a3e0c8d2039f68031dea30e3c2b59e70c342828806",
       "metric_identity": {
         "id": "failure-check-elapsed-ns",
         "version": 1
@@ -130,19 +130,19 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "failure-contracts",
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -169,7 +169,7 @@
       ],
       "case_id": "compact-fill-64x3",
       "correctness_label": "headless-world-frame-command-digest",
-      "definition_digest": "sha256:b83ac6786a4a4e05b36c1d59fb5b9c03d18ddeb0c09394c32b5d276a27ceae3f",
+      "definition_digest": "sha256:8a46c65cbdc07270c02f0814bdc4d338e21334886c72c8723d2334b687d7272f",
       "metric_identity": {
         "id": "headless-draw-record-elapsed-ns",
         "version": 1
@@ -226,7 +226,7 @@
       ],
       "case_id": "simulation-render-128x4",
       "correctness_label": "headless-simulation-world-frame-digest",
-      "definition_digest": "sha256:5e23f79343c979fe922fcef311914ddf6d6f574b36346f910f3ed5ca85da3a50",
+      "definition_digest": "sha256:de818177afd8c5c62efe8cef9245d4795d12fcf6c2a1ba1876d942207662b259",
       "metric_identity": {
         "id": "headless-simulation-row-frame-ns",
         "version": 1
@@ -283,7 +283,7 @@
       ],
       "case_id": "changed-filter-structural-remove-96",
       "correctness_label": "change-filter-deferred-structural-digest",
-      "definition_digest": "sha256:12b19af7abbd21661c870d067c49ee3d909933d36e372ce4de4b3cbfc6a61087",
+      "definition_digest": "sha256:b31c8242135eaa93f6f406970dc1aa28ef037872fe19694e5819b797bf566106",
       "metric_identity": {
         "id": "mutation-row-elapsed-ns",
         "version": 1
@@ -297,19 +297,19 @@
       "runtime_parameters": {
         "case_kind": "change-structural",
         "entity_count": 96,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -335,7 +335,7 @@
       ],
       "case_id": "explicit-python-system-udf-128",
       "correctness_label": "python-system-udf-boundary-writeback-digest",
-      "definition_digest": "sha256:cbafb54263272bd57e0212652ae3ed98a96028f29a2ffc22e57c095a1d9ce4b7",
+      "definition_digest": "sha256:e76343549e6231de5aa1bf915f12bf33d4bbca80b6b6cd1ee25736fab9fec98a",
       "metric_identity": {
         "id": "python-boundary-row-elapsed-ns",
         "version": 1
@@ -350,19 +350,19 @@
       "runtime_parameters": {
         "case_kind": "python-system-udf",
         "entity_count": 128,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -389,7 +389,7 @@
       ],
       "case_id": "resource-event-reduction-128",
       "correctness_label": "resource-event-order-retention-digest",
-      "definition_digest": "sha256:5f1696aca1e6eea2700a6029c7c04126ad7fd71d8a605171831970889e0d085f",
+      "definition_digest": "sha256:0ee38a1150028859a12137bec114d8744e18c79a5dc40db26f6867afe42b1679",
       "metric_identity": {
         "id": "event-elapsed-ns",
         "version": 1
@@ -403,19 +403,19 @@
       "runtime_parameters": {
         "case_kind": "resources-events",
         "event_count": 128,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -441,7 +441,7 @@
       ],
       "case_id": "udf-plan-inline-128",
       "correctness_label": "udf-plan-zero-runtime-python-digest",
-      "definition_digest": "sha256:dc55181bc6a868335503420e965b25e73947e1ed71f96adc1ea4c4b396da1ded",
+      "definition_digest": "sha256:63a5244e5ad5d34acff33570a57c3aaff1258813091829b69db8f73f9fd834d6",
       "metric_identity": {
         "id": "udf-plan-row-elapsed-ns",
         "version": 1
@@ -455,19 +455,19 @@
       "runtime_parameters": {
         "case_kind": "udf-plan",
         "entity_count": 128,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -493,7 +493,7 @@
       ],
       "case_id": "cache-reuse-release-four-by-four",
       "correctness_label": "plan-cache-reuse-release-digest",
-      "definition_digest": "sha256:5b384773f696a710e3726e0ae403968f1c6056b93e59aec1f38fefe6dd25a3c9",
+      "definition_digest": "sha256:6fcb4bf7ec6910dbfdf038f346f1910919e4e49dbf3dd6ad8d06a20c214592d1",
       "metric_identity": {
         "id": "plan-lifecycle-elapsed-ns",
         "version": 1
@@ -507,19 +507,19 @@
       "runtime_parameters": {
         "case_kind": "plan-cache-release",
         "cycles": 4,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -546,7 +546,7 @@
       ],
       "case_id": "logical-build-compile-eight",
       "correctness_label": "plan-explain-compile-counter-digest",
-      "definition_digest": "sha256:35f3f4244d23e0d20fa537c06a34cf06cf656c7a8c1dc17edd922c42e8c555e4",
+      "definition_digest": "sha256:1dd28363ce227598bcbb21480e8856e860c8e0e1071f621e1a611195d31bc7b3",
       "metric_identity": {
         "id": "plan-node-elapsed-ns",
         "version": 1
@@ -559,19 +559,19 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "plan-build-compile",
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -598,7 +598,7 @@
       ],
       "case_id": "batch-four-field-transport-256",
       "correctness_label": "batch-selected-field-value-digest",
-      "definition_digest": "sha256:a68742a3f10bc92f3e58ed163a5ca8df5b4f306847e64c91bfc36ca679c8fdeb",
+      "definition_digest": "sha256:c04838b95928d876c31517957e1823fc6816ec3a699a86c165c5321be08a5b9c",
       "metric_identity": {
         "id": "transport-row-elapsed-ns",
         "version": 1
@@ -611,19 +611,19 @@
       "runtime_parameters": {
         "case_kind": "batch-transport",
         "entity_count": 256,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -648,7 +648,7 @@
       ],
       "case_id": "cardinality-zero-one-many",
       "correctness_label": "cardinality-outcome-digest",
-      "definition_digest": "sha256:693ef0f3737aa0116126850a92132f590aa8a8a190c1a7961b1e399d6e521ba1",
+      "definition_digest": "sha256:783e58fd435a753e736cd2da43a0e9642ade01833bdaf230eccb5aa739caec5a",
       "metric_identity": {
         "id": "cardinality-check-elapsed-ns",
         "version": 1
@@ -660,19 +660,19 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "cardinality",
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -697,7 +697,7 @@
       ],
       "case_id": "ordered-filtered-views-192",
       "correctness_label": "query-order-view-value-digest",
-      "definition_digest": "sha256:426ad69ba5ca21538304e20fc6497cfbf935d0290276fcf6a908b13df0dbc4fa",
+      "definition_digest": "sha256:c8551d17aa22e0b242272b20b46766dcdc507459d3c3a153a20246e8637c3120",
       "metric_identity": {
         "id": "query-row-elapsed-ns",
         "version": 1
@@ -710,19 +710,19 @@
       "runtime_parameters": {
         "case_kind": "query-order",
         "entity_count": 192,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -747,7 +747,7 @@
       ],
       "case_id": "ordered-groups-eight-frames",
       "correctness_label": "group-order-serial-result-digest",
-      "definition_digest": "sha256:70f01ba0cbed582ef12954d163709173b202f45a5b55746d98cee96e31be28de",
+      "definition_digest": "sha256:3e68cade543ddd36f7f4757a2e662f513bce9c53b82fa39cb59c3707d7ab9735",
       "metric_identity": {
         "id": "scheduled-system-elapsed-ns",
         "version": 1
@@ -760,19 +760,19 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "group-order",
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -799,7 +799,7 @@
       ],
       "case_id": "parallel-snapshot-128x2",
       "correctness_label": "parallel-snapshot-field-digest",
-      "definition_digest": "sha256:d32faec1612fdc768857bb02fc6b0cd842eecb9bc8e19c08831b8595704fdedd",
+      "definition_digest": "sha256:23090c6acd49161b5b02fb30fadd6a3f0c2b50ff96c2040c0728a36098f02514",
       "metric_identity": {
         "id": "parallel-field-elapsed-ns",
         "version": 1
@@ -813,19 +813,19 @@
       "runtime_parameters": {
         "case_kind": "parallel-snapshot",
         "entity_count": 128,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -851,7 +851,7 @@
       ],
       "case_id": "simulated-four-system-eight-frame",
       "correctness_label": "simulated-multisystem-world-digest",
-      "definition_digest": "sha256:fc905b9625b3949e08ecbd2f81c36404f66a4c05d33d034db6708212cbcf3ba5",
+      "definition_digest": "sha256:932c14431e72873d39cbea368b17d05b058fb5f0e4e91e19d5e8de0254e86c60",
       "metric_identity": {
         "id": "simulated-row-system-elapsed-ns",
         "version": 1
@@ -866,19 +866,19 @@
       "runtime_parameters": {
         "case_kind": "simulated-multisystem",
         "entity_count": 64,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -908,7 +908,7 @@
       ],
       "case_id": "hash-grid-auto-96x3",
       "correctness_label": "hash-grid-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:b02508e645c669491c9bae6e2f9c88b607621a87f6424756c04aeab96ec7b511",
+      "definition_digest": "sha256:a7dfe695f709e4a044104f60dc7fa280085a0b223d8484e2257a798e124fe4c6",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -926,19 +926,19 @@
       "runtime_parameters": {
         "case_kind": "spatial-hash-grid",
         "entity_count": 96,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -972,7 +972,7 @@
       ],
       "case_id": "hilbert-rebuild-use-96x3",
       "correctness_label": "hilbert-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:c678265543a3e21f4bbfbc29e40d1281c2f31eabe261d8b7e7481b0deaf169a8",
+      "definition_digest": "sha256:8ba41d910648ffede0cd5577fd15a469bc42de5e9a9114c458e95aecdb8579a7",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -990,19 +990,19 @@
       "runtime_parameters": {
         "case_kind": "spatial-hilbert",
         "entity_count": 96,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -1036,7 +1036,7 @@
       ],
       "case_id": "octree-incremental-96x3",
       "correctness_label": "octree-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:fc289a35971d7ef7968edad5f39992e2cae68db5dd681d530db6f697b49b1e3c",
+      "definition_digest": "sha256:74aea5984efe58abc7d7f2e92b1984bba1e0ddbd79ba4c2b209ecf0572729688",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -1054,19 +1054,19 @@
       "runtime_parameters": {
         "case_kind": "spatial-octree",
         "entity_count": 96,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -1100,7 +1100,7 @@
       ],
       "case_id": "quadtree-rebuild-frame-96x3",
       "correctness_label": "quadtree-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:3a14736129b12f867beffcded6bd6a9682246092cc16c8ff1f11688f89d48868",
+      "definition_digest": "sha256:81f32c936f838928706bbb89106ca2a39674e0d0f3a70f2e95e0963d5569e272",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -1118,19 +1118,19 @@
       "runtime_parameters": {
         "case_kind": "spatial-quadtree",
         "entity_count": 96,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -1163,7 +1163,7 @@
       ],
       "case_id": "schema-storage-families",
       "correctness_label": "idempotent-schema-storage-mapping-digest",
-      "definition_digest": "sha256:32bb8234e63f4e618e3d3668a45e8cef33e7fb40666efc24d4da054ac901b30b",
+      "definition_digest": "sha256:bda7c60786af6f7f240730a333ed25056aaea5827c58243d0e36684d9d661503",
       "metric_identity": {
         "id": "schema-validation-elapsed-ns",
         "version": 1
@@ -1175,19 +1175,19 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "schema-storage",
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -1213,7 +1213,7 @@
       ],
       "case_id": "spawn-mixed-archetypes-128",
       "correctness_label": "spawn-values-tags-order-digest",
-      "definition_digest": "sha256:862df7d5682e4bf0843767c43f74b43eed5c66e6c524f221fb12c2aacbadf588",
+      "definition_digest": "sha256:869de963ce59db1fe563dacc44d4fe7e6450512e9877b3d3f9660cd826b57a2d",
       "metric_identity": {
         "id": "entity-operation-elapsed-ns",
         "version": 1
@@ -1227,19 +1227,19 @@
       "runtime_parameters": {
         "case_kind": "spawn-archetypes",
         "entity_count": 128,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,
@@ -1265,7 +1265,7 @@
       ],
       "case_id": "structural-generation-churn-96x4",
       "correctness_label": "structural-churn-values-generations-digest",
-      "definition_digest": "sha256:84688540e41af1bd2cd11177b99c052d4210f77b1127518841cf486018690fbd",
+      "definition_digest": "sha256:1f8495a8d23bf124ce3f1804925c383a5e3b5837b4c0eabcb0baedc004e9cc45",
       "metric_identity": {
         "id": "churn-row-elapsed-ns",
         "version": 1
@@ -1280,19 +1280,19 @@
         "case_kind": "structural-churn",
         "churn_count": 24,
         "entity_count": 96,
-        "execution_layer": "H",
+        "execution_layer": "P",
         "execution_layer_capabilities": {
           "H": {
-            "available": true,
-            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+            "available": false,
+            "detail": "Bounded headless sketch lifecycle is not exercised by this direct bridge case."
           },
           "I": {
             "available": false,
             "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
           },
           "P": {
-            "available": false,
-            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+            "available": true,
+            "detail": "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade."
           },
           "R": {
             "available": false,

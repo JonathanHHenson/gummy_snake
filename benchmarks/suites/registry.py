@@ -37,7 +37,7 @@ def _canvas(
         )
     return SuiteExecution(
         diagnostics={
-            "renderer": dict(run.diagnostics.counters),
+            "renderer": run.diagnostics.as_record(),
             "physical_desktop_requested": run.physical_desktop_requested,
         },
         summary={"frames": run.frame_count, "pixel_bytes": len(run.pixels)},

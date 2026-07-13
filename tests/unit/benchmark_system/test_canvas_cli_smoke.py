@@ -41,6 +41,7 @@ def test_smoke_runs_only_static_headless_canvas_cases(monkeypatch, capsys) -> No
         ("images-text-pixels-effects", "headless-text-reuse-script"),
         ("images-text-pixels-effects", "headless-pixel-read-write-locality"),
         ("images-text-pixels-effects", "headless-ordered-effects"),
+        ("assets-media-models", "headless-generated-media-frame-conversion"),
     ]
     assert all(line["execution_class"] == "headless" for line in lines)
     assert [workload_id for workload_id, _ in calls] == [line["workload"] for line in lines]

@@ -25,7 +25,7 @@ def test_canvas_checked_manifest_is_an_exact_catalog_projection() -> None:
 
     assert_checked_manifest(catalog, checked)
     assert manifest.to_dict() == checked.to_dict()
-    assert len(manifest.entries) == len(catalog.workloads) == 22
+    assert len(manifest.entries) == len(catalog.workloads) == 23
     for entry in manifest.entries:
         declared_counters = entry.runtime_parameters.get("required_counters", ())
         assert isinstance(declared_counters, (list, tuple))

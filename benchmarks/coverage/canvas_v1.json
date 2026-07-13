@@ -1,1 +1,854 @@
-{"catalog_digest":"sha256:fa81a4443afbb5ea0d7f1acb76eb9b9d054027d2d21dbf664bcf952761a5a36f","entries":[{"capabilities":["canvas-runtime","offscreen-rendering","effects","pixel-readback"],"case_id":"headless-ordered-effects","correctness_label":"ordered-invert-effect-and-overlay-exact-pixels","definition_digest":"sha256:c64d41669237a40725fc49fdd45854607450b8dede6f301bf01e31b4ce3bc7a9","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["gpu_region_effect_passes"],"route":"headless","runtime_parameters":{"case_kind":"ordered-effects","density":"1.0","dispatch_route":"global","draw_count":1,"effect":"invert","frame_rate":60,"frames":1,"height":48,"required_counters":["gpu_region_effect_passes"],"width":64},"sampling_profile":"canvas-bounded-v1","workload_id":"images-text-pixels-effects","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","pixels","pixel-readback"],"case_id":"headless-pixel-read-write-locality","correctness_label":"localized-fixture-pixel-read-write-exact-rectangle","definition_digest":"sha256:93bbefac2f858fee804be47e8e36658b9c5aee7263a2772e0057642dc0b14bfb","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["pixel_readbacks","pixel_uploads"],"route":"headless","runtime_parameters":{"case_kind":"pixel-read-write-locality","density":"1.0","dispatch_route":"global","draw_count":64,"frame_rate":60,"frames":1,"height":48,"locality_height":8,"locality_width":8,"required_counters":["pixel_readbacks","pixel_uploads"],"width":64},"sampling_profile":"canvas-bounded-v1","workload_id":"images-text-pixels-effects","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","images","pixel-readback"],"case_id":"headless-sprite-uniqueness-mutation","correctness_label":"unique-sprite-cache-and-mutated-sprite-final-pixel","definition_digest":"sha256:a5f9d7aae8eb4cf451b459cf5e66a4e5cd45be27976fb523059edee3f60b1be4","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["image_cache_misses","image_cache_hits","texture_uploads"],"route":"headless","runtime_parameters":{"case_kind":"sprite-uniqueness-mutation","density":"1.0","dispatch_route":"global","draw_count":17,"frame_rate":60,"frames":1,"height":48,"mutation_count":8,"required_counters":["image_cache_misses","image_cache_hits","texture_uploads"],"sprite_count":16,"width":64},"sampling_profile":"canvas-bounded-v1","workload_id":"images-text-pixels-effects","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","text","pixel-readback"],"case_id":"headless-text-reuse-script","correctness_label":"reused-and-multiscript-text-final-order-pixel","definition_digest":"sha256:7cfee021a840be1e5d10904cd9f849eede16fdbebfb71807b2571f886cc7675b","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["text_cache_misses","text_cache_hits"],"route":"headless","runtime_parameters":{"case_kind":"text-reuse-script","density":"1.0","dispatch_route":"global","draw_count":36,"frame_rate":60,"frames":1,"height":48,"required_counters":["text_cache_misses","text_cache_hits"],"text_reuse_count":32,"width":64},"sampling_profile":"canvas-bounded-v1","workload_id":"images-text-pixels-effects","workload_version":1},{"capabilities":["canvas-runtime","native-window","effects"],"case_id":"native-interactive-ordered-effects","correctness_label":"native-ordered-invert-effect-and-overlay-exact-pixels","definition_digest":"sha256:754ff17e83852f690e847557d3d33fe75ad5950c6931c14d4ca00eaa35b7f82f","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["gpu_region_effect_passes","frames_presented"],"route":"native-interactive","runtime_parameters":{"case_kind":"ordered-effects","density":"2.0","dispatch_route":"global","draw_count":1,"effect":"invert","frame_rate":60,"frames":30,"height":720,"required_counters":["gpu_region_effect_passes","frames_presented"],"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"images-text-pixels-effects","workload_version":1},{"capabilities":["canvas-runtime","native-window","pixels"],"case_id":"native-interactive-pixel-read-write-locality","correctness_label":"native-localized-fixture-pixel-read-write-exact-rectangle","definition_digest":"sha256:66d03c02f392b9427e16fbedbeccf2fcc1f7b9746dfcbd7780324d5ebaf712da","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["pixel_readbacks","pixel_uploads","frames_presented"],"route":"native-interactive","runtime_parameters":{"case_kind":"pixel-read-write-locality","density":"2.0","dispatch_route":"global","draw_count":64,"frame_rate":60,"frames":30,"height":720,"locality_height":8,"locality_width":8,"required_counters":["pixel_readbacks","pixel_uploads","frames_presented"],"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"images-text-pixels-effects","workload_version":1},{"capabilities":["canvas-runtime","native-window","images"],"case_id":"native-interactive-sprite-uniqueness-mutation","correctness_label":"native-unique-sprite-cache-and-mutated-sprite-final-pixel","definition_digest":"sha256:737fc44c9f97682e95952bfe0c9c2911f9b709fd84c843c9866fa696b967cac7","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["image_cache_misses","image_cache_hits","texture_uploads","frames_presented"],"route":"native-interactive","runtime_parameters":{"case_kind":"sprite-uniqueness-mutation","density":"2.0","dispatch_route":"global","draw_count":17,"frame_rate":60,"frames":30,"height":720,"mutation_count":8,"required_counters":["image_cache_misses","image_cache_hits","texture_uploads","frames_presented"],"sprite_count":16,"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"images-text-pixels-effects","workload_version":1},{"capabilities":["canvas-runtime","native-window","text"],"case_id":"native-interactive-text-reuse-script","correctness_label":"native-reused-and-multiscript-text-final-order-pixel","definition_digest":"sha256:a56dcec5704e8b37c83557355ce407afc3e7dbfafbd442bbc7f03e30ccf8f72c","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["text_cache_misses","text_cache_hits","frames_presented"],"route":"native-interactive","runtime_parameters":{"case_kind":"text-reuse-script","density":"2.0","dispatch_route":"global","draw_count":36,"frame_rate":60,"frames":30,"height":720,"required_counters":["text_cache_misses","text_cache_hits","frames_presented"],"text_reuse_count":32,"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"images-text-pixels-effects","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","pixel-readback"],"case_id":"headless-continuous-clear-loop","correctness_label":"continuous-clear-loop-exact-callback-and-frame-count","definition_digest":"sha256:bf6ccf6e7a12e32aabbdccaf18ee5bea253af708f11790b5ae96f6788810350d","metric_identity":{"id":"frame-elapsed-ns","version":1},"required_counters":[],"route":"headless","runtime_parameters":{"density":"1.0","dispatch_route":"global","expected_draw_callbacks":120,"frame_rate":60,"frames":120,"height":48,"lifecycle_mode":"continuous-clear-loop","width":64},"sampling_profile":"canvas-bounded-v1","workload_id":"lifecycle-hidpi","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","pixel-readback"],"case_id":"headless-explicit-redraw","correctness_label":"explicit-redraw-exact-callback-and-frame-count","definition_digest":"sha256:cd3e52c5d9bede8f0ef36ce6ee8c3023c2e1c9333610221e53ed2a434efd5ffd","metric_identity":{"id":"lifecycle-elapsed-ns","version":1},"required_counters":[],"route":"headless","runtime_parameters":{"density":"1.0","dispatch_route":"global","expected_draw_callbacks":1,"frame_rate":60,"frames":2,"height":48,"lifecycle_mode":"explicit-redraw","width":64},"sampling_profile":"canvas-bounded-v1","workload_id":"lifecycle-hidpi","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","pixel-readback"],"case_id":"headless-no-loop-idle","correctness_label":"no-loop-idle-exact-callback-and-frame-count","definition_digest":"sha256:7bfe36e5f6234d4c69007c05a15a43520a03bfccda8d3ee4c1b6cf31d8559003","metric_identity":{"id":"lifecycle-elapsed-ns","version":1},"required_counters":[],"route":"headless","runtime_parameters":{"density":"1.0","dispatch_route":"global","expected_draw_callbacks":1,"frame_rate":60,"frames":2,"height":48,"lifecycle_mode":"no-loop-idle","width":64},"sampling_profile":"canvas-bounded-v1","workload_id":"lifecycle-hidpi","workload_version":1},{"capabilities":["canvas-runtime","native-window"],"case_id":"native-interactive-continuous-clear-loop","correctness_label":"native-continuous-clear-loop-exact-callback-and-frame-count","definition_digest":"sha256:ed931db1a9aefd97b09917a38d52cb479ee5993cbeffff872e22341baf0222a7","metric_identity":{"id":"frame-elapsed-ns","version":1},"required_counters":["frames_presented"],"route":"native-interactive","runtime_parameters":{"density":"2.0","dispatch_route":"global","expected_draw_callbacks":120,"frame_rate":60,"frames":120,"height":720,"lifecycle_mode":"continuous-clear-loop","required_counters":["frames_presented"],"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"lifecycle-hidpi","workload_version":1},{"capabilities":["canvas-runtime","native-window"],"case_id":"native-interactive-explicit-redraw","correctness_label":"native-explicit-redraw-exact-callback-and-frame-count","definition_digest":"sha256:c7b82ebb5a414212a86d1e1b65624abfa0639ceb3312d126ce506df480bd6f05","metric_identity":{"id":"lifecycle-elapsed-ns","version":1},"required_counters":["frames_presented"],"route":"native-interactive","runtime_parameters":{"density":"2.0","dispatch_route":"global","expected_draw_callbacks":1,"frame_rate":60,"frames":2,"height":720,"lifecycle_mode":"explicit-redraw","required_counters":["frames_presented"],"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"lifecycle-hidpi","workload_version":1},{"capabilities":["canvas-runtime","native-window"],"case_id":"native-interactive-no-loop-idle","correctness_label":"native-no-loop-idle-exact-callback-and-frame-count","definition_digest":"sha256:730714367bbfb36d09508622582b8dfce2034db6864be0ab0e1a34afbe838127","metric_identity":{"id":"lifecycle-elapsed-ns","version":1},"required_counters":["frames_presented"],"route":"native-interactive","runtime_parameters":{"density":"2.0","dispatch_route":"global","expected_draw_callbacks":1,"frame_rate":60,"frames":2,"height":720,"lifecycle_mode":"no-loop-idle","required_counters":["frames_presented"],"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"lifecycle-hidpi","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","primitives","pixel-readback"],"case_id":"headless-mixed-primitives-5k","correctness_label":"mixed-primitive-final-order-sentinel-and-declared-records","definition_digest":"sha256:fb0b2578c09943a9a43e3550dffcb8dcc186fd255589967459519324faba9370","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["primitive_batch_records","packed_primitive_records","packed_primitive_bytes"],"route":"headless","runtime_parameters":{"case_kind":"mixed-primitives","density":"1.0","dispatch_route":"global","draw_count":5000,"frame_rate":60,"frames":1,"height":180,"required_counters":["primitive_batch_records","packed_primitive_records","packed_primitive_bytes"],"style_count":16,"width":320},"sampling_profile":"canvas-bounded-v1","workload_id":"primitives-paths-order","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","paths","clips","pixel-readback"],"case_id":"headless-nested-clips-depth-4-by-32","correctness_label":"nested-clip-intersection-restoration-order-and-declared-records","definition_digest":"sha256:84ead15ad4329cbd7cab71b2497d24b4d354f364c2794ad55124a80a0afb8e61","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["direct_shape_finalizations"],"route":"headless","runtime_parameters":{"case_kind":"nested-clips","clip_depth":4,"clip_segments":32,"density":"1.0","dispatch_route":"global","draw_count":1000,"frame_rate":60,"frames":1,"height":180,"required_counters":["direct_shape_finalizations"],"width":320},"sampling_profile":"canvas-bounded-v1","workload_id":"primitives-paths-order","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","paths","pixel-readback"],"case_id":"headless-paths-1k-by-32","correctness_label":"path-final-order-sentinel-and-declared-records","definition_digest":"sha256:1b751454e9b6725d8e4cea942dd49bb376f3cd50efd7a2f0415715f45fb2a528","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["direct_shape_finalizations"],"route":"headless","runtime_parameters":{"case_kind":"paths","density":"1.0","dispatch_route":"global","draw_count":1000,"frame_rate":60,"frames":1,"height":180,"required_counters":["direct_shape_finalizations"],"segments_per_path":32,"width":320},"sampling_profile":"canvas-bounded-v1","workload_id":"primitives-paths-order","workload_version":1},{"capabilities":["canvas-runtime","offscreen-rendering","primitives","pixel-readback"],"case_id":"headless-uniform-primitives-1k","correctness_label":"uniform-primitive-final-order-sentinel-and-declared-records","definition_digest":"sha256:fdb4cffea6f8802766e601912f4b293e8a51c4d626d95297281500a79bbe3f09","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["primitive_batch_records","packed_primitive_records","packed_primitive_bytes"],"route":"headless","runtime_parameters":{"case_kind":"uniform-primitives","density":"1.0","dispatch_route":"global","draw_count":1000,"frame_rate":60,"frames":1,"height":180,"primitive_kind":"rect","required_counters":["primitive_batch_records","packed_primitive_records","packed_primitive_bytes"],"width":320},"sampling_profile":"canvas-bounded-v1","workload_id":"primitives-paths-order","workload_version":1},{"capabilities":["canvas-runtime","native-window","primitives"],"case_id":"native-interactive-mixed-primitives-5k","correctness_label":"native-mixed-primitive-final-order-sentinel-and-declared-records","definition_digest":"sha256:96bbdcbfa7e749e772dfaf181f97346c59c24bd91a59c526eb8cadf7911096df","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["primitive_batch_records","packed_primitive_records","packed_primitive_bytes","frames_presented"],"route":"native-interactive","runtime_parameters":{"case_kind":"mixed-primitives","density":"2.0","dispatch_route":"global","draw_count":5000,"frame_rate":60,"frames":30,"height":720,"required_counters":["primitive_batch_records","packed_primitive_records","packed_primitive_bytes","frames_presented"],"style_count":16,"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"primitives-paths-order","workload_version":1},{"capabilities":["canvas-runtime","native-window","paths","clips"],"case_id":"native-interactive-nested-clips-depth-4-by-32","correctness_label":"native-nested-clip-intersection-restoration-order-and-declared-records","definition_digest":"sha256:a6f02829336deccae31bb35470ba6e1933e85c8bf769c28b91633667a1b3bd12","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["direct_shape_finalizations","frames_presented"],"route":"native-interactive","runtime_parameters":{"case_kind":"nested-clips","clip_depth":4,"clip_segments":32,"density":"2.0","dispatch_route":"global","draw_count":1000,"frame_rate":60,"frames":30,"height":720,"required_counters":["direct_shape_finalizations","frames_presented"],"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"primitives-paths-order","workload_version":1},{"capabilities":["canvas-runtime","native-window","paths"],"case_id":"native-interactive-paths-1k-by-32","correctness_label":"native-path-final-order-sentinel-and-declared-records","definition_digest":"sha256:4cc20b3fae825573825cd35053e6866cb1af5fa5380a742f020a6fec5f6ac69c","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["direct_shape_finalizations","frames_presented"],"route":"native-interactive","runtime_parameters":{"case_kind":"paths","density":"2.0","dispatch_route":"global","draw_count":1000,"frame_rate":60,"frames":30,"height":720,"required_counters":["direct_shape_finalizations","frames_presented"],"segments_per_path":32,"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"primitives-paths-order","workload_version":1},{"capabilities":["canvas-runtime","native-window","primitives"],"case_id":"native-interactive-uniform-primitives-1k","correctness_label":"native-uniform-primitive-final-order-sentinel-and-declared-records","definition_digest":"sha256:32df7283d4c6ac56b24328f72234bf5dea1559fb81854853f5c490b18975bcef","metric_identity":{"id":"draw-elapsed-ns","version":1},"required_counters":["primitive_batch_records","packed_primitive_records","packed_primitive_bytes","frames_presented"],"route":"native-interactive","runtime_parameters":{"case_kind":"uniform-primitives","density":"2.0","dispatch_route":"global","draw_count":1000,"frame_rate":60,"frames":30,"height":720,"primitive_kind":"rect","required_counters":["primitive_batch_records","packed_primitive_records","packed_primitive_bytes","frames_presented"],"width":1280},"sampling_profile":"canvas-native-bounded-v1","workload_id":"primitives-paths-order","workload_version":1}],"schema_version":1}
+{
+  "catalog_digest": "sha256:cab88a19b320793af85f068fa19ee74628320fa0263c76ddb0af6a777c41b1a6",
+  "entries": [
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "media-frame-conversion"
+      ],
+      "case_id": "headless-generated-media-frame-conversion",
+      "correctness_label": "generated-gray-bgr-bgra-conversion-exact-rgba",
+      "definition_digest": "sha256:1d2e0f930ebd2b43ef00265ba2d8d762ea16e68b08cfd60b60bac05adbfee52b",
+      "metric_identity": {
+        "id": "media-frame-conversion-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "media-frame-conversion",
+        "conversion_count": 30,
+        "density": "1.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 12,
+        "required_counters": [],
+        "width": 16
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "effects",
+        "pixel-readback"
+      ],
+      "case_id": "headless-ordered-effects",
+      "correctness_label": "ordered-invert-effect-and-overlay-exact-pixels",
+      "definition_digest": "sha256:db187ace2109347297af6950f2698828ec4b5eee39051cbb2e1bab7102d72e1a",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "ordered-effects",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "effect": "invert",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 48,
+        "required_counters": [
+          "gpu_region_effect_passes"
+        ],
+        "width": 64
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixels",
+        "pixel-readback"
+      ],
+      "case_id": "headless-pixel-read-write-locality",
+      "correctness_label": "localized-fixture-pixel-read-write-exact-rectangle",
+      "definition_digest": "sha256:cf6e0cb9eb735aeab24a84892c60f24ef7f4fba6c6c5f4c7306e24d5dbe34261",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_readbacks",
+        "pixel_readback_requested_bytes",
+        "pixel_readback_copied_bytes",
+        "pixel_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-read-write-locality",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 64,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 48,
+        "locality_height": 8,
+        "locality_width": 8,
+        "required_counters": [
+          "pixel_readbacks",
+          "pixel_readback_requested_bytes",
+          "pixel_readback_copied_bytes",
+          "pixel_uploads"
+        ],
+        "width": 64
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "images",
+        "pixel-readback"
+      ],
+      "case_id": "headless-sprite-uniqueness-mutation",
+      "correctness_label": "unique-sprite-cache-and-mutated-sprite-final-pixel",
+      "definition_digest": "sha256:cbe1311ddf4afd4a9327811c4161c11d657b27aa8f4c151681d7fc6b64db8cf1",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "image_cache_misses",
+        "image_cache_hits",
+        "texture_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "sprite-uniqueness-mutation",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 17,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 48,
+        "mutation_count": 8,
+        "required_counters": [
+          "image_cache_misses",
+          "image_cache_hits",
+          "texture_uploads"
+        ],
+        "sprite_count": 16,
+        "width": 64
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "text",
+        "pixel-readback"
+      ],
+      "case_id": "headless-text-reuse-script",
+      "correctness_label": "reused-and-multiscript-text-final-order-pixel",
+      "definition_digest": "sha256:029a457440a445dbf75cc96ddfc51014fc5485165d18315d1850b5b4a0189fd8",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "text_cache_misses",
+        "text_cache_hits"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "text-reuse-script",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 36,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 48,
+        "required_counters": [
+          "text_cache_misses",
+          "text_cache_hits"
+        ],
+        "text_reuse_count": 32,
+        "width": 64
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "effects"
+      ],
+      "case_id": "native-interactive-ordered-effects",
+      "correctness_label": "native-ordered-invert-effect-and-overlay-exact-pixels",
+      "definition_digest": "sha256:03ec24c02ee1551be08a0dfafbbc3450095c126bda4849f9455156550167b2a4",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "ordered-effects",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "effect": "invert",
+        "frame_rate": 60,
+        "frames": 30,
+        "height": 720,
+        "required_counters": [
+          "gpu_region_effect_passes",
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "pixels"
+      ],
+      "case_id": "native-interactive-pixel-read-write-locality",
+      "correctness_label": "native-localized-fixture-pixel-read-write-exact-rectangle",
+      "definition_digest": "sha256:7999e9ef6914396f3e98444216de806611f8153097f0b4b5e93bcb31e0f603f9",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_readbacks",
+        "pixel_readback_requested_bytes",
+        "pixel_readback_copied_bytes",
+        "pixel_uploads",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "pixel-read-write-locality",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 64,
+        "frame_rate": 60,
+        "frames": 30,
+        "height": 720,
+        "locality_height": 8,
+        "locality_width": 8,
+        "required_counters": [
+          "pixel_readbacks",
+          "pixel_readback_requested_bytes",
+          "pixel_readback_copied_bytes",
+          "pixel_uploads",
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "images"
+      ],
+      "case_id": "native-interactive-sprite-uniqueness-mutation",
+      "correctness_label": "native-unique-sprite-cache-and-mutated-sprite-final-pixel",
+      "definition_digest": "sha256:3dc5502134e5c83e35a33027e45035ddf81a72135c201344b3466a216acf9a05",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "image_cache_misses",
+        "image_cache_hits",
+        "texture_uploads",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "sprite-uniqueness-mutation",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 17,
+        "frame_rate": 60,
+        "frames": 30,
+        "height": 720,
+        "mutation_count": 8,
+        "required_counters": [
+          "image_cache_misses",
+          "image_cache_hits",
+          "texture_uploads",
+          "frames_presented"
+        ],
+        "sprite_count": 16,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "text"
+      ],
+      "case_id": "native-interactive-text-reuse-script",
+      "correctness_label": "native-reused-and-multiscript-text-final-order-pixel",
+      "definition_digest": "sha256:cabf0fac59e3a0079be96cfa5776d93d20149ed5944437934053333b192b3d3f",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "text_cache_misses",
+        "text_cache_hits",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "text-reuse-script",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 36,
+        "frame_rate": 60,
+        "frames": 30,
+        "height": 720,
+        "required_counters": [
+          "text_cache_misses",
+          "text_cache_hits",
+          "frames_presented"
+        ],
+        "text_reuse_count": 32,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-continuous-clear-loop",
+      "correctness_label": "continuous-clear-loop-exact-callback-and-frame-count",
+      "definition_digest": "sha256:658808f46d8587dca59591992fd9139cb2ddede89b5ebb3bf5cebc3d7d8ea6b9",
+      "metric_identity": {
+        "id": "frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "1.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 120,
+        "frame_rate": 60,
+        "frames": 120,
+        "height": 48,
+        "lifecycle_mode": "continuous-clear-loop",
+        "width": 64
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-explicit-redraw",
+      "correctness_label": "explicit-redraw-exact-callback-and-frame-count",
+      "definition_digest": "sha256:732c86cf2e5c6545425de5c850c67e7207d96dff30f475da05c8de58ce43f248",
+      "metric_identity": {
+        "id": "lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "1.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 1,
+        "frame_rate": 60,
+        "frames": 2,
+        "height": 48,
+        "lifecycle_mode": "explicit-redraw",
+        "width": 64
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-no-loop-idle",
+      "correctness_label": "no-loop-idle-exact-callback-and-frame-count",
+      "definition_digest": "sha256:876cd1f33750cc64608b9857d9bd5f335211cb185f718fd39b0c6e75abe87f94",
+      "metric_identity": {
+        "id": "lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "1.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 1,
+        "frame_rate": 60,
+        "frames": 2,
+        "height": 48,
+        "lifecycle_mode": "no-loop-idle",
+        "width": 64
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window"
+      ],
+      "case_id": "native-interactive-continuous-clear-loop",
+      "correctness_label": "native-continuous-clear-loop-exact-callback-and-frame-count",
+      "definition_digest": "sha256:49df500838cb603d03dc2e3894e4dfbb0c9f205d553f98bb2f2df68336611c70",
+      "metric_identity": {
+        "id": "frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "density": "2.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 120,
+        "frame_rate": 60,
+        "frames": 120,
+        "height": 720,
+        "lifecycle_mode": "continuous-clear-loop",
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window"
+      ],
+      "case_id": "native-interactive-explicit-redraw",
+      "correctness_label": "native-explicit-redraw-exact-callback-and-frame-count",
+      "definition_digest": "sha256:f361f54b02c1cfa5afbc902bd7789bb6b042cf574b06d3fefa4208274ff25be7",
+      "metric_identity": {
+        "id": "lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "density": "2.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 1,
+        "frame_rate": 60,
+        "frames": 2,
+        "height": 720,
+        "lifecycle_mode": "explicit-redraw",
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window"
+      ],
+      "case_id": "native-interactive-no-loop-idle",
+      "correctness_label": "native-no-loop-idle-exact-callback-and-frame-count",
+      "definition_digest": "sha256:37edae29af6879c5033d74568261fab65b1c9f5ab5e3ff844a1eed5e5bc7338c",
+      "metric_identity": {
+        "id": "lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "density": "2.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 1,
+        "frame_rate": 60,
+        "frames": 2,
+        "height": 720,
+        "lifecycle_mode": "no-loop-idle",
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "primitives",
+        "pixel-readback"
+      ],
+      "case_id": "headless-mixed-primitives-5k",
+      "correctness_label": "mixed-primitive-final-order-sentinel-and-declared-records",
+      "definition_digest": "sha256:4dcfc30eed43549e4ad20a14ba1aa690854ac888e5572d30ec7e2a4d0936518e",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records",
+        "packed_primitive_records",
+        "packed_primitive_bytes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "mixed-primitives",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 5000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "primitive_batch_records",
+          "packed_primitive_records",
+          "packed_primitive_bytes"
+        ],
+        "style_count": 16,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "paths",
+        "clips",
+        "pixel-readback"
+      ],
+      "case_id": "headless-nested-clips-depth-4-by-32",
+      "correctness_label": "nested-clip-intersection-restoration-order-and-declared-records",
+      "definition_digest": "sha256:18a1d6c699a44fd12e70a2d696db17597c8d45b0d6affa18d7172118666b3553",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "nested-clips",
+        "clip_depth": 4,
+        "clip_segments": 32,
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "paths",
+        "pixel-readback"
+      ],
+      "case_id": "headless-paths-1k-by-32",
+      "correctness_label": "path-final-order-sentinel-and-declared-records",
+      "definition_digest": "sha256:981737d28575bf84713590db649022c88b9f58a39701673349c85440e03591a4",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "paths",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "segments_per_path": 32,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "primitives",
+        "pixel-readback"
+      ],
+      "case_id": "headless-uniform-primitives-1k",
+      "correctness_label": "uniform-primitive-final-order-sentinel-and-declared-records",
+      "definition_digest": "sha256:38e578076c49aa22c30f83c9572e12078500109ce211f85b1db28340cc4839b9",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records",
+        "packed_primitive_records",
+        "packed_primitive_bytes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "uniform-primitives",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "primitive_kind": "rect",
+        "required_counters": [
+          "primitive_batch_records",
+          "packed_primitive_records",
+          "packed_primitive_bytes"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "primitives"
+      ],
+      "case_id": "native-interactive-mixed-primitives-5k",
+      "correctness_label": "native-mixed-primitive-final-order-sentinel-and-declared-records",
+      "definition_digest": "sha256:ad4316823c6042e0a728c2750305c4eaeebde38960b4519b2b8eae66175e5b1d",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records",
+        "packed_primitive_records",
+        "packed_primitive_bytes",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "mixed-primitives",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 5000,
+        "frame_rate": 60,
+        "frames": 30,
+        "height": 720,
+        "required_counters": [
+          "primitive_batch_records",
+          "packed_primitive_records",
+          "packed_primitive_bytes",
+          "frames_presented"
+        ],
+        "style_count": 16,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "paths",
+        "clips"
+      ],
+      "case_id": "native-interactive-nested-clips-depth-4-by-32",
+      "correctness_label": "native-nested-clip-intersection-restoration-order-and-declared-records",
+      "definition_digest": "sha256:6ba8ad4d6d7d3e649c2cea07a6a9f6456d0846e57f7849155bd8c350ffe29565",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "nested-clips",
+        "clip_depth": 4,
+        "clip_segments": 32,
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 30,
+        "height": 720,
+        "required_counters": [
+          "direct_shape_finalizations",
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "paths"
+      ],
+      "case_id": "native-interactive-paths-1k-by-32",
+      "correctness_label": "native-path-final-order-sentinel-and-declared-records",
+      "definition_digest": "sha256:24285325c10b049ee608a0edec77ee240076d5a42070baadc0d1efe440545145",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "paths",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 30,
+        "height": 720,
+        "required_counters": [
+          "direct_shape_finalizations",
+          "frames_presented"
+        ],
+        "segments_per_path": 32,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "primitives"
+      ],
+      "case_id": "native-interactive-uniform-primitives-1k",
+      "correctness_label": "native-uniform-primitive-final-order-sentinel-and-declared-records",
+      "definition_digest": "sha256:df9b42de2c9c5b961df05decaf58de4a87154dbd25998fdfdf361e326b6e37dc",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records",
+        "packed_primitive_records",
+        "packed_primitive_bytes",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "uniform-primitives",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 30,
+        "height": 720,
+        "primitive_kind": "rect",
+        "required_counters": [
+          "primitive_batch_records",
+          "packed_primitive_records",
+          "packed_primitive_bytes",
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 1
+    }
+  ],
+  "schema_version": 1
+}

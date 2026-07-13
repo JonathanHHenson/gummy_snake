@@ -109,8 +109,18 @@ fn performance_counters_track_and_reset_runtime_paths() {
 
     assert!(canvas.performance_counters.pixel_uploads >= 1);
     assert!(canvas.performance_counters.pixel_readbacks >= 1);
+    assert_eq!(
+        canvas.performance_counters.pixel_readback_requested_bytes,
+        8
+    );
+    assert_eq!(canvas.performance_counters.pixel_readback_copied_bytes, 8);
 
     canvas.reset_performance_counters();
     assert_eq!(canvas.performance_counters.pixel_uploads, 0);
     assert_eq!(canvas.performance_counters.pixel_readbacks, 0);
+    assert_eq!(
+        canvas.performance_counters.pixel_readback_requested_bytes,
+        0
+    );
+    assert_eq!(canvas.performance_counters.pixel_readback_copied_bytes, 0);
 }

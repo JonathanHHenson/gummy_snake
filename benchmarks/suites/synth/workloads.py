@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 import threading
+import zlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from hashlib import sha256
@@ -14,6 +16,7 @@ from typing import Any
 from benchmarks.governance import ExecutionClass
 from benchmarks.suites.registry import SuiteExecution
 
+from .adapters import CallableSynthAdapter, merge_lifecycle_diagnostics, run_adapter
 from .diagnostics import path_diagnostics, require_route
 from .fixtures import fixture_manifest, generated_sample_files, validate_manifest
 from .oracles import (
@@ -403,6 +406,7 @@ def _serialized_render_heartbeat(
     serialized_plan: bytes,
     sample_rate: int,
     semantic_digest: str,
+    serialization_metrics: Mapping[str, object],
     execution_class: ExecutionClass,
     work_units: int,
     event_count: int,
@@ -475,6 +479,7 @@ def _serialized_render_heartbeat(
             "python_heartbeat_max_pause_ns": observed["max_pause_ns"],
             "python_heartbeat_render_elapsed_ns": render_elapsed_ns,
             "python_heartbeat_progressed": True,
+            **serialization_metrics,
             **runtime_diagnostics,
         },
     )
@@ -508,28 +513,93 @@ def _serialization_bridge(
         base_plan.metadata,
     )
     metadata = {"benchmark": "synth-v1", "nested": {"depth": [1, 2, 3]}}
-    plan_dict = plan.to_dict(metadata=metadata)
-    semantic_digest = semantic_plan_digest(plan_dict)
-    serialized = plan.to_bytes(metadata=metadata)
-    loaded = type(plan).from_bytes(serialized)
-    if semantic_plan_digest(loaded.to_dict()) != semantic_plan_digest(
-        plan.to_dict(metadata=metadata)
-    ):
-        raise SynthOracleError("physical plan serialization changed normalized semantics")
+    serialization_state: dict[str, object] = {}
+    prepared_plan_dict: Mapping[str, object] | None = None
+
+    def prepare_serialization() -> dict[str, object]:
+        serialization_state["plan"] = plan
+        return serialization_state
+
+    def warm_serialization(state: dict[str, object]) -> None:
+        nonlocal prepared_plan_dict
+        prepared_plan_dict = plan.to_dict(metadata=metadata)
+        state["plan_dict"] = prepared_plan_dict
+
+    def serialize_plan(_state: dict[str, object]) -> bytes:
+        return plan.to_bytes(metadata=metadata)
+
+    def validate_serialization(state: dict[str, object], payload: bytes) -> None:
+        loaded = type(plan).from_bytes(payload)
+        plan_dict = state["plan_dict"]
+        if not isinstance(plan_dict, Mapping):
+            raise SynthWorkloadError("serialization adapter lost its prepared plan dictionary")
+        if semantic_plan_digest(loaded.to_dict()) != semantic_plan_digest(plan_dict):
+            raise SynthOracleError("physical plan serialization changed normalized semantics")
+
+    serialization_run = run_adapter(
+        CallableSynthAdapter(
+            prepare=prepare_serialization,
+            warm=warm_serialization,
+            timed=serialize_plan,
+            synchronize=lambda _state, _payload: None,
+            validate=validate_serialization,
+            teardown=lambda state: state.clear(),
+        )
+    )
+    if prepared_plan_dict is None:
+        raise SynthWorkloadError("serialization adapter did not prepare its plan dictionary")
+    semantic_digest = semantic_plan_digest(prepared_plan_dict)
+    json_started_ns = perf_counter_ns()
+    json_payload = json.dumps(
+        prepared_plan_dict,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    json_elapsed_ns = perf_counter_ns() - json_started_ns
+    zlib_started_ns = perf_counter_ns()
+    zlib_payload = zlib.compress(json_payload)
+    zlib_elapsed_ns = perf_counter_ns() - zlib_started_ns
+    serialized = serialization_run.output
+    serialization_metrics: dict[str, object] = {
+        "python_to_dict_normalize_ns": serialization_run.phases.warm_ns,
+        "python_plan_container_ns": serialization_run.phases.timed_ns,
+        "serialized_validation_ns": serialization_run.phases.validate_ns,
+        "python_json_serialize_ns": json_elapsed_ns,
+        "python_zlib_compress_ns": zlib_elapsed_ns,
+        "python_json_bytes": len(json_payload),
+        "python_zlib_bytes": len(zlib_payload),
+        "native_plan_container_bytes": len(serialized),
+        "python_zlib_ratio": len(zlib_payload) / max(1, len(json_payload)),
+        "pre_dsp_serialization_ns": (
+            serialization_run.phases.prepare_ns
+            + serialization_run.phases.warm_ns
+            + serialization_run.phases.timed_ns
+            + serialization_run.phases.synchronize_ns
+            + serialization_run.phases.validate_ns
+        ),
+    }
     runtime = _runtime()
     if case_kind == "roundtrip":
-        diagnostics = path_diagnostics(
-            execution_class,
-            ("physical-plan", "to-dict", "json-zlib-container", "python-roundtrip"),
-            work_units=work_units,
-            details={"rendered_audio": False, "semantic_digest": semantic_digest},
+        diagnostics = merge_lifecycle_diagnostics(
+            path_diagnostics(
+                execution_class,
+                ("physical-plan", "to-dict", "json-zlib-container", "python-roundtrip"),
+                work_units=work_units,
+                details={
+                    "rendered_audio": False,
+                    "semantic_digest": semantic_digest,
+                    **serialization_metrics,
+                },
+            ),
+            serialization_run,
         )
         return SuiteExecution(
             diagnostics,
             {
                 "events": len(plan.events),
                 "controls": len(plan.controls),
-                "raw_dict_keys": len(plan_dict),
+                "raw_dict_keys": len(prepared_plan_dict),
                 "compressed_bytes": len(serialized),
             },
         )
@@ -547,27 +617,31 @@ def _serialization_bridge(
                     _event_payloads(plan), plan.duration_seconds, sample_rate
                 )
             )
-            bridged = bytes(runtime.synth_render_serialized_plan_wav(plan.to_bytes(), sample_rate))
+            bridged = bytes(runtime.synth_render_serialized_plan_wav(serialized, sample_rate))
             runtime_diagnostics = dict(runtime.synth_diagnostics())
             digest = assert_repeatable(
                 direct, bridged, label="direct and serialized PyO3 bridge routes"
             )
             signal = assert_wav_contract(bridged, sample_rate=sample_rate)
-            diagnostics = path_diagnostics(
-                execution_class,
-                (
-                    "python-physical-plan",
-                    "direct-pyo3-typed-values",
-                    "serialized-pyo3-zlib-json",
-                    "gummy-synth-rust-dsp",
-                    "wav-memory-sink",
+            diagnostics = merge_lifecycle_diagnostics(
+                path_diagnostics(
+                    execution_class,
+                    (
+                        "python-physical-plan",
+                        "direct-pyo3-typed-values",
+                        "serialized-pyo3-zlib-json",
+                        "gummy-synth-rust-dsp",
+                        "wav-memory-sink",
+                    ),
+                    work_units=work_units,
+                    details={
+                        "semantic_digest": semantic_digest,
+                        "pcm_digest": digest,
+                        **serialization_metrics,
+                        **runtime_diagnostics,
+                    },
                 ),
-                work_units=work_units,
-                details={
-                    "semantic_digest": semantic_digest,
-                    "pcm_digest": digest,
-                    **runtime_diagnostics,
-                },
+                serialization_run,
             )
             return SuiteExecution(
                 diagnostics,
@@ -584,9 +658,10 @@ def _serialization_bridge(
         if case_kind == "gil-heartbeat":
             return _serialized_render_heartbeat(
                 runtime,
-                plan.to_bytes(),
+                serialized,
                 sample_rate,
                 semantic_digest,
+                serialization_metrics,
                 execution_class,
                 work_units,
                 len(plan.events),

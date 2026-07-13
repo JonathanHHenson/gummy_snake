@@ -16,8 +16,8 @@ sampling_profile = "micro"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "schema-storage"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:5bb98204f8bcebfc64d8dde9cbe1213df7c9192a4c658c63d059e9f19606b4ed"
 passes = 8
 work_units = 32
@@ -43,8 +43,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "spawn-archetypes"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:fcf819cf94d0b8f09b4ddb833d4237b6ed6595c69ff351928f872b921abcb927"
 entity_count = 128
 work_units = 128
@@ -70,8 +70,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "structural-churn"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:25d5bb7f13f80d1cc37272de7183f16bc761201adb81454e8c7365f06b4d4272"
 entity_count = 96
 iterations = 4
@@ -99,8 +99,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "query-order"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:22c752b045879c4295c6a6a819c4dfd99ce94a0860b30b2620e77ec0060e007e"
 entity_count = 192
 work_units = 192
@@ -126,8 +126,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "batch-transport"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:3bd863d355694fc75923f8ab495a35c4b86200fb8cd40d10b4ba8d0bf313040b"
 entity_count = 256
 work_units = 256
@@ -153,8 +153,8 @@ sampling_profile = "micro"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "cardinality"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:9ef0055cfd09ac889e760622f93280c8648d0ee5e1d940c42a11cf539ed053c5"
 work_units = 3
 required_counters = ["ecs_entities_alive", "ecs_rust_entities_alive"]
@@ -179,8 +179,8 @@ sampling_profile = "micro"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "plan-build-compile"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:654a52d7eee7bb0097aaf970809aa5c680b8ae92dd86168679e3b7d20639042b"
 system_count = 8
 work_units = 16
@@ -206,8 +206,8 @@ sampling_profile = "micro"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "plan-cache-release"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:aa6a7a5ae8f726e39e620c18f7e9a50dfcd8867ca98741cbe6787286a00c5219"
 frames = 4
 cycles = 4
@@ -234,8 +234,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "group-order"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:2e4ea4f04e92b10a8cb0b9d66240d27bac2ffbdc0b91f07b1857d810882a4cf7"
 frames = 8
 work_units = 24
@@ -261,8 +261,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "parallel-snapshot"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:d9e7e559a000794264b1a0b055b26fa2fa9fee07d8387228de1dd09065f15707"
 entity_count = 128
 work_units = 256
@@ -288,8 +288,8 @@ sampling_profile = "simulated-realtime"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "simulated-multisystem"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:01281fb751ddcb36153a344aa40acd35f898fc4acb5a9924b56ea27da8670c17"
 entity_count = 64
 frames = 8
@@ -317,8 +317,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "change-structural"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:e31bae020f35916821326aabc3803455f7bc853555c114a2b00442d19e41ad38"
 entity_count = 96
 work_units = 96
@@ -344,8 +344,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "resources-events"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:d01837e25e361bf46089955def17a8ebdf3e77ffe792fdebe9bfc655b5b976d8"
 event_count = 128
 work_units = 128
@@ -371,8 +371,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "python-system-udf"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:46ed0a970df7ec5c4c5c82f56a6472c450a6211aadcb404b503da353d1b377da"
 entity_count = 128
 work_units = 256
@@ -398,8 +398,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "udf-plan"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:5d141e57710d562ac63dd2cfd807e0c8874df4a840441ae27634c3f1392d321a"
 entity_count = 128
 work_units = 128
@@ -425,8 +425,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "spatial-hash-grid"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:6791a1ac2e30d3dbbba2fe10db62f67851f3bea453b3bcfdaac98d73e65327da"
 entity_count = 96
 frames = 3
@@ -455,8 +455,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "spatial-quadtree"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:cd7a7f2136f5ca61a5d8d2d81f916f5ba0031e836713e1b35d0360ea335eb770"
 entity_count = 96
 frames = 3
@@ -485,8 +485,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "spatial-octree"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:1dd72619edcb369cdc0ba09748031d8bac4fbfa7bc736d9090e1e32f72758337"
 entity_count = 96
 frames = 3
@@ -515,8 +515,8 @@ sampling_profile = "bulk-headless"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "spatial-hilbert"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:cb8e50b822d9c62133c41a6d0548f4cb9f3b69a32bcd22496b90dd3d49f073e8"
 entity_count = 96
 frames = 3
@@ -605,8 +605,8 @@ sampling_profile = "micro"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "diagnostics-reset"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:f0b6aae53523bb44a628a95eb7dace6115832b59c720274b7e71c63a485603f2"
 entity_count = 64
 work_units = 2
@@ -632,8 +632,8 @@ sampling_profile = "micro"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "failure-contracts"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:05d8efeabcb840517435ed76f427e9779e93f96f259e5e2d0b6e2d883abcbd92"
 work_units = 3
 required_counters = ["ecs_strict_mode_errors", "ecs_physical_duplicate_writes"]
@@ -658,8 +658,8 @@ sampling_profile = "simulated-realtime"
 source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
 [workloads.parameters]
 case_kind = "bounded-longevity"
-execution_layer = "H"
-execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
+execution_layer = "P"
+execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
 expected_correctness_digest = "sha256:75373c0132d179e36b7d561665ddfcbd0210251095cc8aecbcee6cfd25829c0a"
 entity_count = 48
 frames = 32

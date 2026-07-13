@@ -111,7 +111,14 @@ def test_jsonl_worker_runs_static_canvas_dispatch_and_emits_one_success(
             plan=SimpleNamespace(frames=2, expected_draw_callbacks=1),
             pixels=b"rgba",
             physical_desktop_requested=False,
-            diagnostics=SimpleNamespace(counters={"gpu_primitive_batches": 1}),
+            diagnostics=SimpleNamespace(
+                counters={"gpu_primitive_batches": 1},
+                as_record=lambda: {
+                    "schema_version": 1,
+                    "source": "renderer_performance_counters",
+                    "counters": {"gpu_primitive_batches": 1},
+                },
+            ),
         )
 
     request = WorkerRequest(

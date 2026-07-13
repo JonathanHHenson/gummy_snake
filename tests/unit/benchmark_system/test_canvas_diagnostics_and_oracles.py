@@ -4,7 +4,11 @@ from dataclasses import dataclass
 
 import pytest
 
-from benchmarks.suites.canvas.diagnostics import DiagnosticsError, capture_renderer_diagnostics
+from benchmarks.suites.canvas.diagnostics import (
+    CANVAS_DIAGNOSTICS_SCHEMA_VERSION,
+    DiagnosticsError,
+    capture_renderer_diagnostics,
+)
 from benchmarks.suites.canvas.fixtures import SPRITE_CACHE_RESET, sprite_image
 from benchmarks.suites.canvas.oracles import (
     CanvasOracleError,
@@ -46,8 +50,17 @@ def test_canvas_diagnostics_adapter_uses_only_available_public_counters() -> Non
 
     assert snapshot.counter("gpu_region_effect_passes") == 2
     assert snapshot.counter("native.cpu_fallbacks") == 0
+    assert snapshot.as_record() == {
+        "schema_version": CANVAS_DIAGNOSTICS_SCHEMA_VERSION,
+        "source": "renderer_performance_counters",
+        "counters": {"gpu_region_effect_passes": 2, "native": {"cpu_fallbacks": 0}},
+    }
     with pytest.raises(DiagnosticsError, match="required renderer counter unavailable"):
         capture_renderer_diagnostics(context, required=("gpu_draw_calls",))
+    with pytest.raises(DiagnosticsError, match="unsupported value type"):
+        capture_renderer_diagnostics(_DiagnosticsContext({"private": object()}))
+    with pytest.raises(DiagnosticsError, match="not boolean"):
+        capture_renderer_diagnostics(_DiagnosticsContext({"private": True}))
 
 
 def test_headless_sprite_cache_reset_preserves_warm_resources_and_fails_closed() -> None:

@@ -17,10 +17,20 @@ from typing import Any, Protocol, cast
 from benchmarks.governance import ExecutionClass
 
 from .diagnostics import DiagnosticsSnapshot, capture_renderer_diagnostics
-from .fixtures import PIXEL_BUFFER, TEXT_CORPUS, sprite_image, validate_manifest
+from .fixtures import (
+    MEDIA_FRAME_BGR,
+    MEDIA_FRAME_BGRA,
+    MEDIA_FRAME_GRAY,
+    PIXEL_BUFFER,
+    TEXT_CORPUS,
+    MediaFrameFixture,
+    sprite_image,
+    validate_manifest,
+)
 from .oracles import (
     PixelSentinel,
     assert_hidpi_dimensions,
+    assert_media_frame_rgba,
     assert_ordered_layers,
     assert_presented_frames,
 )
@@ -100,6 +110,7 @@ _WORKLOAD_IDS = frozenset(
         "lifecycle-hidpi",
         "primitives-paths-order",
         "images-text-pixels-effects",
+        "assets-media-models",
     }
 )
 _PUBLIC_DISPATCH_ROUTES = frozenset({"global", "object", "fast"})
@@ -107,6 +118,13 @@ _LIFECYCLE_MODES = frozenset({"continuous-clear-loop", "explicit-redraw", "no-lo
 _PRIMITIVE_CASE_KINDS = frozenset(
     {"uniform-primitives", "mixed-primitives", "paths", "nested-clips"}
 )
+_MEDIA_CASE_KINDS = frozenset({"media-frame-conversion"})
+_MEDIA_FRAME_FIXTURES: tuple[MediaFrameFixture, ...] = (
+    MEDIA_FRAME_GRAY,
+    MEDIA_FRAME_BGR,
+    MEDIA_FRAME_BGRA,
+)
+
 _FEATURE_CASE_KINDS = frozenset(
     {
         "sprite-uniqueness-mutation",
@@ -305,11 +323,43 @@ def _required_feature_parameters(parameters: Mapping[str, object]) -> int:
     return draw_count
 
 
+def _required_media_parameters(parameters: Mapping[str, object]) -> int:
+    """Validate the generated native media-frame conversion workload."""
+
+    kind = parameters.get("case_kind")
+    if not isinstance(kind, str) or kind not in _MEDIA_CASE_KINDS:
+        raise CanvasWorkloadError(
+            f"case_kind must be one of {sorted(_MEDIA_CASE_KINDS)}, got {kind!r}"
+        )
+    allowed = {
+        "case_kind",
+        "conversion_count",
+        "frames",
+        "width",
+        "height",
+        "density",
+        "frame_rate",
+        "dispatch_route",
+        "required_counters",
+    }
+    unexpected = sorted(set(parameters) - allowed)
+    if unexpected:
+        raise CanvasWorkloadError(
+            "media-frame-conversion has unexecuted or unsupported parameter(s): "
+            + ", ".join(unexpected)
+        )
+    if parameters.get("dispatch_route", "global") != "global":
+        raise CanvasWorkloadError("media-frame-conversion requires global public API dispatch")
+    return _positive_int(parameters, "conversion_count", 1, 100_000)
+
+
 def _declared_draw_records(workload_id: str, parameters: Mapping[str, object]) -> int:
     if workload_id == "primitives-paths-order":
         return _required_primitive_parameters(parameters)
     if workload_id == "images-text-pixels-effects":
         return _required_feature_parameters(parameters)
+    if workload_id == "assets-media-models":
+        return _required_media_parameters(parameters)
     return 0
 
 
@@ -558,6 +608,48 @@ def _draw_ordered_effects(gs: Any, plan: WorkloadPlan) -> int:
     return 1
 
 
+@dataclass(frozen=True, slots=True)
+class _FixtureMediaFrame:
+    """Minimal decoded-frame surface for the public Rust media conversion helper."""
+
+    payload: bytes
+    width: int
+    height: int
+    channels: int
+
+    @property
+    def shape(self) -> tuple[int, int] | tuple[int, int, int]:
+        if self.channels == 1:
+            return self.height, self.width
+        return self.height, self.width, self.channels
+
+    def tobytes(self) -> bytes:
+        return self.payload
+
+
+def _draw_media_frame_conversion(plan: WorkloadPlan) -> int:
+    """Convert reviewed grayscale/BGR/BGRA frames through the public Rust helper."""
+
+    from gummysnake.assets.media.frame import convert_frame_bytes
+
+    conversion_count = _positive_int(plan.parameters, "conversion_count", 1, 100_000)
+    for index in range(conversion_count):
+        fixture = _MEDIA_FRAME_FIXTURES[index % len(_MEDIA_FRAME_FIXTURES)]
+        converted = convert_frame_bytes(
+            _FixtureMediaFrame(
+                fixture.pixels,
+                fixture.width,
+                fixture.height,
+                fixture.channels,
+            ),
+            fixture.width,
+            fixture.height,
+            fixture.channels,
+        )
+        assert_media_frame_rgba(fixture, converted)
+    return conversion_count
+
+
 def _draw_images_text_pixels_effects(
     gs: Any, plan: WorkloadPlan, images: tuple[MutableSpriteImage, ...]
 ) -> int:
@@ -606,8 +698,10 @@ def _callbacks(
                 gs.no_loop()
         elif plan.workload_id == "primitives-paths-order":
             accounting.draw_records += _draw_primitives_paths_order(gs, plan)
-        else:
+        elif plan.workload_id == "images-text-pixels-effects":
             accounting.draw_records += _draw_images_text_pixels_effects(gs, plan, images)
+        else:
+            accounting.draw_records += _draw_media_frame_conversion(plan)
 
     return setup, draw, accounting
 

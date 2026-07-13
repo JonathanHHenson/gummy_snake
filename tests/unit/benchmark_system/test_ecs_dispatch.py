@@ -7,6 +7,11 @@ import pytest
 
 from benchmarks.governance import ExecutionClass
 from benchmarks.schema.catalog import load_catalog
+from benchmarks.suites.ecs.oracles import (
+    CounterExpectation,
+    assert_path_counters,
+    world_state_digest,
+)
 from benchmarks.suites.ecs.workloads import (
     EcsOracleError,
     EcsWorkloadError,
@@ -55,7 +60,7 @@ def test_every_ecs_catalog_case_dispatches_through_the_static_registry() -> None
         assert result.summary["case_kind"] == workload.parameters["case_kind"]
         assert result.summary["work_units"] == workload.parameters["work_units"]
         assert result.summary["execution_route"] == workload.execution_class.value
-        assert result.summary["execution_layer"] == workload.parameters["execution_layer"] == "H"
+        assert result.summary["execution_layer"] == workload.parameters["execution_layer"]
         digest = result.summary["correctness_digest"]
         assert digest == workload.parameters["expected_correctness_digest"]
         diagnostics = result.diagnostics["ecs"]
@@ -75,7 +80,7 @@ def test_every_headless_correctness_digest_is_repeatable() -> None:
         expected_digest = workload.parameters["expected_correctness_digest"]
         assert first.summary["correctness_digest"] == expected_digest
         assert second.summary["correctness_digest"] == expected_digest
-        assert first.summary["execution_layer"] == second.summary["execution_layer"] == "H"
+        assert first.summary["execution_layer"] == second.summary["execution_layer"]
         assert first.summary["work_units"] == second.summary["work_units"]
 
 
@@ -106,8 +111,8 @@ def test_ecs_builder_rejects_unknown_routes_cases_and_parameters() -> None:
     with pytest.raises(ExecutionRouteError, match="requires execution_class='headless'"):
         build_workload("query-view-transport", base, ExecutionClass.SIMULATED_REALTIME)
     with pytest.raises(ExecutionRouteError, match="declared unavailable") as error:
-        build_workload("query-view-transport", {**base, "execution_layer": "P"}, "headless")
-    assert "Public Python/PyO3 bridge route" in str(error.value)
+        build_workload("query-view-transport", {**base, "execution_layer": "R"}, "trial")
+    assert "Direct release gummy_ecs Rust harness" in str(error.value)
     assert "No fallback route is available" in str(error.value)
     with pytest.raises(EcsWorkloadError, match="expected_correctness_digest"):
         build_workload(
@@ -135,7 +140,6 @@ def test_ecs_builder_rejects_unknown_routes_cases_and_parameters() -> None:
     ("layer", "route", "detail"),
     (
         ("R", ExecutionClass.TRIAL, "Direct release gummy_ecs Rust harness"),
-        ("P", ExecutionClass.HEADLESS, "Public Python/PyO3 bridge route"),
         ("I", ExecutionClass.NATIVE_INTERACTIVE, "Native interactive SDL3 presentation route"),
     ),
 )
@@ -156,6 +160,38 @@ def test_ecs_builder_fails_closed_for_each_unavailable_execution_layer(
 
     assert detail in str(error.value)
     assert "No fallback route is available" in str(error.value)
+
+
+def test_ecs_path_and_world_digest_oracles_are_explicit_and_fail_closed() -> None:
+    diagnostics = {
+        "ecs_entities_alive": 2,
+        "ecs_rust_entities_alive": 2,
+        "ecs_rust_structural_revision": 4,
+        "ecs_rust_field_revision": 7,
+        "ecs_change_journal_updates": 3,
+    }
+
+    assert_path_counters(
+        diagnostics,
+        (
+            CounterExpectation("ecs_change_journal_updates", minimum=3),
+            CounterExpectation("ecs_rust_entities_alive", exact=2),
+        ),
+    )
+    with pytest.raises(EcsOracleError, match="expected exactly 0"):
+        assert_path_counters(
+            diagnostics, (CounterExpectation("ecs_change_journal_updates", exact=0),)
+        )
+
+    class _World:
+        def diagnostics(self) -> dict[str, object]:
+            return diagnostics
+
+    first = world_state_digest(_World(), {"entities": ((0, 1), (1, 2)), "events": ()})
+    second = world_state_digest(_World(), {"events": (), "entities": ((0, 1), (1, 2))})
+    assert first.digest() == second.digest()
+    assert first.alive_entities == 2
+    assert first.structural_revision == 4
 
 
 def test_dispatch_rejects_declared_work_that_does_not_match_completed_work() -> None:

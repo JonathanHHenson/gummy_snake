@@ -20,6 +20,7 @@ The stable top-level counters are:
 | `gpu_draws` | Drawing commands queued for the renderer/GPU-oriented path. |
 | `cpu_fallbacks` | Operations that require CPU compositing or CPU pixel work. |
 | `pixel_readbacks` | Canvas pixel reads into Python or CPU memory. |
+| `pixel_readback_requested_bytes` / `pixel_readback_copied_bytes` | RGBA bytes callers requested and bytes copied into the returned readback buffer. They distinguish a small requested region from the amount actually returned without estimating hidden GPU work. |
 | `pixel_uploads` | Full pixel or texture uploads back to the canvas. |
 | `gpu_blend_commands` | Non-default blend commands that stayed in the GPU command stream. |
 | `gpu_region_effect_passes` | Bounded GPU region-effect passes, such as internal pixel-prefix mutation. |
@@ -81,6 +82,7 @@ records use ABI-19 fixed-width little-endian layouts: 32-byte lines, 56-byte
 styled/current primitive records, 60-byte fill records, and 64-byte mixed
 records with `u32` style/matrix side-table indices. Pixel pipeline
 diagnostics include `gpu_pixel_readbacks`, `pixel_bytes_created`,
+`pixel_readback_requested_bytes`, `pixel_readback_copied_bytes`,
 `pixel_noop_upload_skips`, `pixel_full_uploads`, and `pixel_region_uploads`.
 Retained reuse diagnostics include `retained_batch_cache_hits`,
 `retained_batch_cache_misses`, `retained_batch_cache_evictions`, and

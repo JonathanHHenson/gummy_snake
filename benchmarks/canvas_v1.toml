@@ -561,7 +561,7 @@ case_kind = "pixel-read-write-locality"
 locality_width = 8
 locality_height = 8
 dispatch_route = "global"
-required_counters = ["pixel_readbacks", "pixel_uploads"]
+required_counters = ["pixel_readbacks", "pixel_readback_requested_bytes", "pixel_readback_copied_bytes", "pixel_uploads"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
 version = 1
@@ -592,7 +592,7 @@ case_kind = "pixel-read-write-locality"
 locality_width = 8
 locality_height = 8
 dispatch_route = "global"
-required_counters = ["pixel_readbacks", "pixel_uploads", "frames_presented"]
+required_counters = ["pixel_readbacks", "pixel_readback_requested_bytes", "pixel_readback_copied_bytes", "pixel_uploads", "frames_presented"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
 version = 1
@@ -658,6 +658,35 @@ id = "draw-elapsed-ns"
 version = 1
 unit = "ns"
 work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 1
+case_id = "headless-generated-media-frame-conversion"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "media-frame-conversion"]
+correctness = "generated-gray-bgr-bgra-conversion-exact-rgba"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 16
+height = 12
+density = "1.0"
+frame_rate = 60
+case_kind = "media-frame-conversion"
+conversion_count = 30
+dispatch_route = "global"
+required_counters = []
+[workloads.primary_metric]
+id = "media-frame-conversion-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "media-frame"
 direction = "lower-is-better"
 transform = "ratio"
 zero_policy = "positive-baseline"

@@ -21,6 +21,9 @@ impl Canvas {
             self.read_gpu_pixels();
         }
         self.ensure_cpu_pixel_buffer();
+        let byte_count = self.pixels.len() as u64;
+        self.performance_counters.pixel_readback_requested_bytes += byte_count;
+        self.performance_counters.pixel_readback_copied_bytes += byte_count;
         self.pixels.clone()
     }
 
@@ -32,6 +35,9 @@ impl Canvas {
             self.read_gpu_pixels();
         }
         self.ensure_cpu_pixel_buffer();
+        let byte_count = self.pixels.len() as u64;
+        self.performance_counters.pixel_readback_requested_bytes += byte_count;
+        self.performance_counters.pixel_readback_copied_bytes += byte_count;
         self.performance_counters.pixel_bytes_created += 1;
         PyBytes::new_bound(py, &self.pixels)
     }
@@ -56,6 +62,10 @@ impl Canvas {
             self.read_gpu_pixels();
         }
         self.ensure_cpu_pixel_buffer();
+        let requested_bytes = (width as u64)
+            .checked_mul(height as u64)
+            .and_then(|pixels| pixels.checked_mul(4))
+            .ok_or_else(|| PyValueError::new_err("Pixel region byte length is too large."))?;
         let region = crop_rgba_with_padding(
             &self.pixels,
             self.physical_width,
@@ -65,6 +75,9 @@ impl Canvas {
             width as usize,
             height as usize,
         );
+        self.performance_counters.pixel_readback_requested_bytes += requested_bytes;
+        self.performance_counters.pixel_readback_copied_bytes += region.len() as u64;
+        self.performance_counters.pixel_bytes_created += 1;
         Ok(PyBytes::new_bound(py, &region))
     }
 }

@@ -8,6 +8,10 @@ pub(crate) struct PerformanceCounters {
     pub(crate) gpu_region_effect_passes: u64,
     pub(crate) cpu_fallbacks: u64,
     pub(crate) pixel_readbacks: u64,
+    /// Bytes callers requested through pixel readback APIs, before any bridge copy.
+    pub(crate) pixel_readback_requested_bytes: u64,
+    /// Bytes copied into a returned Python-owned/readback buffer.
+    pub(crate) pixel_readback_copied_bytes: u64,
     pub(crate) pixel_uploads: u64,
     pub(crate) gpu_pixel_readbacks: u64,
     pub(crate) pixel_bytes_created: u64,
@@ -75,6 +79,14 @@ impl PerformanceCounters {
         dict.set_item("gpu_region_effect_passes", self.gpu_region_effect_passes)?;
         dict.set_item("cpu_fallbacks", self.cpu_fallbacks)?;
         dict.set_item("pixel_readbacks", self.pixel_readbacks)?;
+        dict.set_item(
+            "pixel_readback_requested_bytes",
+            self.pixel_readback_requested_bytes,
+        )?;
+        dict.set_item(
+            "pixel_readback_copied_bytes",
+            self.pixel_readback_copied_bytes,
+        )?;
         dict.set_item("pixel_uploads", self.pixel_uploads)?;
         dict.set_item("gpu_pixel_readbacks", self.gpu_pixel_readbacks)?;
         dict.set_item("pixel_bytes_created", self.pixel_bytes_created)?;

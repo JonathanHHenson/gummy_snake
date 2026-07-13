@@ -46,6 +46,8 @@ class _Context:
             "text_cache_misses": 1,
             "text_cache_hits": 1,
             "pixel_readbacks": 1,
+            "pixel_readback_requested_bytes": 1,
+            "pixel_readback_copied_bytes": 1,
             "pixel_uploads": 1,
             "gpu_region_effect_passes": 1,
         }

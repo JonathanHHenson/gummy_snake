@@ -39,6 +39,7 @@ from .oracles import (
     entity_rows,
     require_counter_minimums,
     require_counters,
+    world_state_digest,
 )
 
 
@@ -52,7 +53,10 @@ class ExecutionRouteError(EcsWorkloadError):
 
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _EXECUTION_LAYERS = frozenset({"R", "P", "H", "I"})
-_IMPLEMENTED_LAYER_ROUTES: Mapping[str, ExecutionClass] = {"H": ExecutionClass.HEADLESS}
+_IMPLEMENTED_LAYER_ROUTES: Mapping[str, ExecutionClass] = {
+    "P": ExecutionClass.HEADLESS,
+    "H": ExecutionClass.HEADLESS,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,10 +276,12 @@ def _spawn_world(entity_count: int, *, full: bool = False, three_d: bool = False
 
 def _outcome(world: EcsWorld, state: object, actual_work_units: int) -> _Outcome:
     diagnostics = world.diagnostics()
+    canonical_state = world_state_digest(world, state)
     return _Outcome(
         diagnostics,
         {
             "correctness_digest": correctness_digest(state),
+            "world_state_digest": canonical_state.digest(),
             "entities_alive": int(diagnostics["ecs_entities_alive"]),
         },
         actual_work_units,

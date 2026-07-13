@@ -26,6 +26,7 @@ from benchmarks.suites.canvas.oracles import (
     assert_obj_fixture_topology,
     assert_text_corpus,
 )
+from benchmarks.suites.canvas.workloads import dispatch as dispatch_canvas
 from gummysnake.rust.canvas import require_canvas_runtime
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -59,6 +60,27 @@ def test_media_frame_fixtures_match_the_native_canvas_conversion(
     assert_media_frame_rgba(fixture, actual)
     with pytest.raises(CanvasOracleError, match="native RGBA conversion"):
         assert_media_frame_rgba(fixture, bytes(len(fixture.expected_rgba.pixels)))
+
+
+def test_generated_media_frame_workload_exercises_the_public_rust_conversion_path() -> None:
+    run = dispatch_canvas(
+        "assets-media-models",
+        {
+            "frames": 1,
+            "width": 16,
+            "height": 12,
+            "density": 1.0,
+            "frame_rate": 60,
+            "case_kind": "media-frame-conversion",
+            "conversion_count": 9,
+            "dispatch_route": "global",
+            "required_counters": [],
+        },
+        "headless",
+    )
+
+    assert run.draw_callbacks == 1
+    assert run.draw_records == 9
 
 
 def test_obj_fixture_manifest_and_real_native_load_preserve_reviewed_topology(
@@ -158,6 +180,11 @@ def test_canvas_catalog_is_static_and_hashes_suite_sources() -> None:
             "native-interactive-ordered-effects",
             "native-interactive",
         ),
+        (
+            "assets-media-models",
+            "headless-generated-media-frame-conversion",
+            "headless",
+        ),
     }
     lifecycle_cases = [
         workload for workload in catalog.workloads if workload.id == "lifecycle-hidpi"
@@ -231,7 +258,12 @@ def test_canvas_catalog_is_static_and_hashes_suite_sources() -> None:
     expected_counters = {
         "sprite-uniqueness-mutation": {"image_cache_misses", "image_cache_hits", "texture_uploads"},
         "text-reuse-script": {"text_cache_misses", "text_cache_hits"},
-        "pixel-read-write-locality": {"pixel_readbacks", "pixel_uploads"},
+        "pixel-read-write-locality": {
+            "pixel_readbacks",
+            "pixel_readback_requested_bytes",
+            "pixel_readback_copied_bytes",
+            "pixel_uploads",
+        },
         "ordered-effects": {"gpu_region_effect_passes"},
     }
     for workload in feature_cases:
