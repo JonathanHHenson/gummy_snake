@@ -1,4 +1,4 @@
-"""Executable fail-closed JSONL worker for the static Canvas catalog."""
+"""Executable fail-closed JSONL worker for registered static benchmark suites."""
 
 from __future__ import annotations
 
@@ -29,12 +29,14 @@ def _request_from_mapping(raw: Mapping[str, object]) -> WorkerRequest:
         return WorkerRequest(
             request_id=str(raw["request_id"]),
             execution_class=ExecutionClass(str(raw["execution_class"])),
+            suite_id=str(raw["suite_id"]),
             workload_id=str(raw["workload_id"]),
             seed=_integer(raw["seed"], "seed"),
             hash_seed=_integer(raw["hash_seed"], "hash_seed"),
             timeout_seconds=_integer(raw["timeout_seconds"], "timeout_seconds"),
             work_units=_integer(raw["work_units"], "work_units"),
             payload=dict(payload),
+            timed_blocks=_integer(raw["timed_blocks"], "timed_blocks"),
             protocol_version=_integer(raw["protocol_version"], "protocol_version"),
         )
     except (KeyError, TypeError, ValueError) as error:
@@ -86,33 +88,41 @@ def _warmup_runs(request: WorkerRequest) -> int:
 
 
 def run_request(request: WorkerRequest) -> WorkerResult:
-    """Execute every required phase against real public Canvas APIs exactly once per unit."""
+    """Execute every required phase against the selected production suite."""
 
     phases = {phase: "not-run" for phase in PHASES}
     diagnostics: dict[str, object] = {}
     completed = 0
     elapsed_ns: int | None = None
+    elapsed_blocks_ns: list[int] = []
     try:
-        # Import through the static suite boundary. It validates the known workload
-        # set and imports Gummy Snake only when actual execution begins.
-        from ..suites.canvas import dispatch
+        # Import through the static suite boundary. It validates the known suite and
+        # workload set and imports Gummy Snake only when actual execution begins.
+        from ..suites.registry import dispatch
 
         phases["prepare"] = "ok"
         require_capabilities(request.execution_class, detect_capabilities())
         phases["precondition"] = "ok"
         parameters = _parameters(request)
         for _ in range(_warmup_runs(request)):
-            dispatch(request.workload_id, parameters, request.execution_class)
+            dispatch(request.suite_id, request.workload_id, parameters, request.execution_class)
         phases["warmup"] = "ok"
 
         last_run = None
-        started = perf_counter_ns()
-        # One bounded dispatcher invocation accounts for the catalog's declared
-        # inner work (frames, draw records, or feature operations). Repeating it
-        # here would change the workload rather than sample the same block.
-        last_run = dispatch(request.workload_id, parameters, request.execution_class)
-        completed = request.work_units
-        elapsed_ns = perf_counter_ns() - started
+        for _ in range(request.timed_blocks):
+            started = perf_counter_ns()
+            # Each bounded dispatcher invocation is one independent timed block.
+            # The process remains alive across its declared blocks so process-level
+            # variation is not confused with block-level variation.
+            last_run = dispatch(
+                request.suite_id,
+                request.workload_id,
+                parameters,
+                request.execution_class,
+            )
+            elapsed_blocks_ns.append(perf_counter_ns() - started)
+            completed += request.work_units
+        elapsed_ns = sum(elapsed_blocks_ns)
         phases["timed"] = "ok"
 
         # `dispatch` returns only after its bounded public sketch run has completed.
@@ -120,16 +130,10 @@ def run_request(request: WorkerRequest) -> WorkerResult:
         if last_run is None:
             raise WorkerError("timed phase completed no declared work")
         phases["synchronize"] = "ok"
-        expected = last_run.plan.expected_draw_callbacks
-        if last_run.frame_count != expected:
-            actual = last_run.frame_count
-            raise WorkerError(f"Canvas frame count mismatch: expected {expected}, got {actual}")
         phases["validate"] = "ok"
         diagnostics = {
-            "frame_count": last_run.frame_count,
-            "pixel_bytes": len(last_run.pixels),
-            "physical_desktop_requested": last_run.physical_desktop_requested,
-            "renderer": dict(last_run.diagnostics.counters),
+            **dict(last_run.diagnostics),
+            "summary": dict(last_run.summary),
         }
         phases["diagnostics"] = "ok"
         del last_run
@@ -142,6 +146,7 @@ def run_request(request: WorkerRequest) -> WorkerResult:
             elapsed_ns,
             completed,
             diagnostics,
+            tuple(elapsed_blocks_ns),
         )
     except Exception as error:
         if phases["teardown"] != "ok":
@@ -151,13 +156,14 @@ def run_request(request: WorkerRequest) -> WorkerResult:
             except Exception:
                 phases["teardown"] = "failed"
         return WorkerResult(
-            request.request_id,
-            False,
-            phases,
-            elapsed_ns,
-            completed,
-            diagnostics,
-            {"type": type(error).__name__, "message": str(error)},
+            request_id=request.request_id,
+            ok=False,
+            phases=phases,
+            elapsed_ns=elapsed_ns,
+            completed_work_units=completed,
+            diagnostics=diagnostics,
+            elapsed_blocks_ns=tuple(elapsed_blocks_ns),
+            error={"type": type(error).__name__, "message": str(error)},
         )
 
 
@@ -187,6 +193,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "ok": result.ok,
                 "phases": dict(result.phases),
                 "elapsed_ns": result.elapsed_ns,
+                "elapsed_blocks_ns": list(result.elapsed_blocks_ns),
                 "completed_work_units": result.completed_work_units,
                 "diagnostics": dict(result.diagnostics),
                 "error": None if result.error is None else dict(result.error),

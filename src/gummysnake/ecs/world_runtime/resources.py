@@ -89,7 +89,7 @@ def resource_snapshot(world: EcsWorld, resource_type: type[Any]) -> DataclassIns
 def emit_event(
     world: EcsWorld, event: EcsEventValue, *, expected_type: type[Any] | None = None
 ) -> None:
-    """Validate and enqueue an event in Rust and Python frame-local event storage."""
+    """Validate and enqueue an event in the Rust-owned frame-local queue."""
     event_type = expected_type or type(event)
     if expected_type is not None and type(event) is not expected_type:
         raise ComponentSchemaError(
@@ -99,8 +99,6 @@ def emit_event(
     register_event_type(world, event_type)
     payload = _event_payload_to_bridge(event)
     world._rust.emit_event(_schema_name(event_type), payload)
-    world._events.setdefault(event_type, []).append((world._ecs_frame, copy.deepcopy(event)))
-    world._diagnostics["ecs_events_emitted"] += 1
 
 
 def read_events[ComponentT](
@@ -109,22 +107,15 @@ def read_events[ComponentT](
     """Return deep-copied events of the requested type from the Rust event queue."""
     register_event_type(world, event_type)
     raw_events = world._rust.read_events(_schema_name(event_type))
-    events = tuple(
+    return tuple(
         cast(ComponentT, _event_payload_from_bridge(event_type, event["payload"]))
         for event in raw_events
     )
-    world._diagnostics["ecs_events_read"] += len(events)
-    return events
 
 
 def clear_events(world: EcsWorld, event_type: type[Any] | None = None) -> None:
-    """Clear all events or only events of one type from Python and Rust event queues."""
-    if event_type is None:
-        world._events.clear()
-        world._rust.clear_events(None)
-        return
-    world._events.pop(event_type, None)
-    world._rust.clear_events(_schema_name(event_type))
+    """Clear all events or one event type from the Rust-owned queues."""
+    world._rust.clear_events(None if event_type is None else _schema_name(event_type))
 
 
 def register_event_type(world: EcsWorld, event_type: type[Any]) -> None:

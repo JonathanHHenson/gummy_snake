@@ -62,7 +62,10 @@ batches with per-record style/transform data, transformed sprite/image atlas
 batches, batched cached-text atlas fallback for ordered overlays, procedural GPU
 instances for supported fill-only primitives, retained replay for static
 unchanged command streams, direct Rust shape/clip finalization, and retained GPU
-model buffers for supported WEBGL draws. Preserve the public API shape while
+model buffers for supported WEBGL draws. Rust `CanvasImage` batches retain stable
+shared immutable payloads instead of cloning full RGBA sources, while image and
+texture caches are bounded by both entry count and bytes and use image generation
+changes to decide when uploads are dirty. Preserve the public API shape while
 keeping these paths visible through renderer diagnostics when changing code from
 the renderer performance epics.
 

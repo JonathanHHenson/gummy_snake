@@ -34,18 +34,10 @@ def validate_schema(world: EcsWorld, component_type: type[Any]) -> dict[str, Sto
     for field in fields(component_type):
         annotation = hints.get(field.name, field.type)
         schema[field.name] = _storage_type_for(annotation, component_type, field.name)
-    try:
-        world._rust.register_schema(
-            _schema_name(component_type),
-            [(field_name, storage_type.name) for field_name, storage_type in schema.items()],
-        )
-    except ValueError as exc:
-        if "unknown ECS storage type" not in str(exc):
-            raise
-        # Older editable builds may expose the ECS ABI before vector/list markers were added.
-        # Keep Python-side schema validation functional; a rebuilt Rust bridge records the
-        # exact storage names.
-        world._diagnostics["ecs_rust_schema_registration_fallbacks"] += 1
+    world._rust.register_schema(
+        _schema_name(component_type),
+        [(field_name, storage_type.name) for field_name, storage_type in schema.items()],
+    )
     world._schemas[component_type] = schema
     world._diagnostics["ecs_component_schemas_total"] = len(world._schemas)
     world._diagnostics["ecs_rust_component_schemas_total"] = world._rust.schema_count()

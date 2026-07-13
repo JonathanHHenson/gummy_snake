@@ -81,6 +81,26 @@ class Velocity2D:
     xy: Annotated[tuple[float, float], ecs_t.Vec2F32]
 ```
 
+Declared markers control the physical Rust layout: integer widths use matching
+`i8`/`u8` through `i64`/`u64` columns, `Float32` uses `f32`, categorical strings
+use reclaiming dictionary codes, and lists use packed row offsets with a typed
+contiguous value buffer. Nested typed lists are not supported and are rejected at
+marker construction.
+
+All component, resource, event, batch, structural, and physical-plan writes use
+the same checked conversion policy:
+
+- integer writes must be integral and in the declared range; overflow/underflow
+  raises an error rather than wrapping, saturating, or widening the column;
+- integer `+`, `-`, `*`, `//`, `%`, comparisons, `min`/`max`, and integer sums stay
+  in an exact integer domain instead of passing through `float`;
+- `Float32` writes round once to IEEE-754 binary32 (round-to-nearest, ties-to-even)
+  at every write boundary, and reads expose that rounded value as a Python `float`;
+- non-finite `Float32`/`Float64` values and finite values outside the `Float32`
+  range are rejected;
+- categorical reads and writes retain exact Python string equality even though
+  rows physically store dictionary codes.
+
 Rust owns canonical entity, component, tag, resource, and event storage. Python
 uses dataclasses to declare schemas and to pass initial component/resource values,
 then exposes lightweight Rust-backed entity/resource views for draw code and UDF

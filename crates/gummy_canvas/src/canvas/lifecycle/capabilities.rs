@@ -41,30 +41,40 @@ impl Canvas {
     ) -> PyResult<Bound<'py, PyDict>> {
         let dict = self.performance_counters.to_dict(py)?;
         if let Some(gpu) = self.gpu.as_ref() {
-            let (
-                allocations,
-                uploads,
-                uploaded_vertex_bytes,
-                primitive_batches,
-                image_batches,
-                encode_time_ms,
-                retained_batch_cache_hits,
-                retained_batch_cache_misses,
-                retained_batch_reused_bytes,
-                retained_batch_cache_evictions,
-            ) = gpu.render_loop_counters();
-            dict.set_item("gpu_vertex_buffer_allocations", allocations)?;
-            dict.set_item("gpu_vertex_uploads", uploads)?;
-            dict.set_item("gpu_uploaded_vertex_bytes", uploaded_vertex_bytes)?;
-            dict.set_item("gpu_primitive_batches", primitive_batches)?;
-            dict.set_item("gpu_image_batches", image_batches)?;
-            dict.set_item("gpu_encode_time_ms", encode_time_ms)?;
-            dict.set_item("retained_batch_cache_hits", retained_batch_cache_hits)?;
-            dict.set_item("retained_batch_cache_misses", retained_batch_cache_misses)?;
-            dict.set_item("retained_batch_reused_bytes", retained_batch_reused_bytes)?;
+            let gpu_counters = gpu.render_loop_counters();
+            dict.set_item(
+                "gpu_vertex_buffer_allocations",
+                gpu_counters.vertex_buffer_allocations,
+            )?;
+            dict.set_item("gpu_vertex_uploads", gpu_counters.vertex_uploads)?;
+            dict.set_item(
+                "gpu_uploaded_vertex_bytes",
+                gpu_counters.uploaded_vertex_bytes,
+            )?;
+            dict.set_item("gpu_primitive_batches", gpu_counters.primitive_batches)?;
+            dict.set_item("gpu_image_batches", gpu_counters.image_batches)?;
+            dict.set_item("gpu_encode_time_ms", gpu_counters.encode_time_ms)?;
+            dict.set_item(
+                "retained_batch_cache_hits",
+                gpu_counters.retained_batch_cache_hits,
+            )?;
+            dict.set_item(
+                "retained_batch_cache_misses",
+                gpu_counters.retained_batch_cache_misses,
+            )?;
+            dict.set_item(
+                "retained_batch_reused_bytes",
+                gpu_counters.retained_batch_reused_bytes,
+            )?;
             dict.set_item(
                 "retained_batch_cache_evictions",
-                retained_batch_cache_evictions,
+                gpu_counters.retained_batch_cache_evictions,
+            )?;
+            dict.set_item("gpu_command_clone_count", gpu_counters.command_clone_count)?;
+            dict.set_item("gpu_command_clone_bytes", gpu_counters.command_clone_bytes)?;
+            dict.set_item(
+                "gpu_command_segment_allocation_count",
+                gpu_counters.command_segment_allocation_count,
             )?;
         }
         Ok(dict)
@@ -72,6 +82,15 @@ impl Canvas {
 
     pub(crate) fn reset_performance_counters_impl(&mut self) {
         self.performance_counters = PerformanceCounters::default();
+        let image_resident = self.image_cache.resident_bytes() as u64;
+        let texture_resident = self.texture_cache_versions.resident_bytes() as u64;
+        let atlas_resident = self.texture_cache_versions.atlas_resident_bytes() as u64;
+        self.performance_counters.image_cache_resident_bytes = image_resident;
+        self.performance_counters.image_cache_peak_bytes = image_resident;
+        self.performance_counters.texture_resident_bytes = texture_resident;
+        self.performance_counters.texture_peak_bytes = texture_resident;
+        self.performance_counters.image_atlas_resident_bytes = atlas_resident;
+        self.performance_counters.image_atlas_peak_bytes = atlas_resident;
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.reset_render_loop_counters();
         }

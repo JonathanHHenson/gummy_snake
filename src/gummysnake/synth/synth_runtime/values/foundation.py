@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import random as _random
 import struct
 from dataclasses import dataclass, field
@@ -45,6 +46,15 @@ _PHYSICAL_PLAN_SCHEMA = "gummysnake.synth.physical_plan.v1"
 _GSS_MAGIC = b"GSSPLAN\x01"
 _GSS_HEADER = struct.Struct(">8sII")
 _GSS_COMPRESSION = 1
+_MAX_SERIALIZED_PLAN_BYTES = 16 * 1024 * 1024
+_MAX_DECOMPRESSED_PLAN_BYTES = 64 * 1024 * 1024
+_MAX_PLAN_EVENTS = 100_000
+_MAX_PLAN_CONTROLS = 100_000
+_MAX_PLAN_VALUE_DEPTH = 64
+_MAX_PLAN_VALUE_ITEMS = 1_000_000
+_MAX_FX_CHAIN_DEPTH = 64
+_MAX_SAMPLE_RATE = 384_000
+_MAX_OUTPUT_FRAMES = 50_000_000
 _BUILTIN_SYNTH_COMPILED_DIR = _asset_dir("assets", "synths", "compiled")
 _BUILTIN_FX_COMPILED_DIR = _asset_dir("assets", "fx", "compiled")
 
@@ -82,8 +92,8 @@ class Duration:
     seconds: float
 
     def __post_init__(self) -> None:
-        if self.seconds < 0:
-            raise ArgumentValidationError("duration cannot be negative.")
+        if not math.isfinite(self.seconds) or self.seconds < 0:
+            raise ArgumentValidationError("duration must be finite and non-negative.")
 
     @property
     def beats(self) -> float:
@@ -116,8 +126,11 @@ def duration(
         A concrete :class:`Duration`.
     """
 
-    if bpm <= 0:
-        raise ArgumentValidationError("duration bpm must be positive.")
+    values = (hours, mins, secs, beats, bpm)
+    if any(not isinstance(value, int | float) or isinstance(value, bool) for value in values):
+        raise ArgumentValidationError("duration values must be numeric.")
+    if not all(math.isfinite(float(value)) for value in values) or bpm <= 0:
+        raise ArgumentValidationError("duration values must be finite and bpm must be positive.")
     total = hours * 3600.0 + mins * 60.0 + secs + beats * 60.0 / bpm
     return Duration(float(total))
 
@@ -165,6 +178,7 @@ class EvalContext:
     """State used when evaluating logical expressions."""
 
     rng: _random.Random
+    plan_seed: int = 0
     ticks: dict[str, int] = field(default_factory=dict)
     scope: tuple[object, ...] = ()
     repeat_scope: tuple[object, ...] = ()

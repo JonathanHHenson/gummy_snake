@@ -159,10 +159,7 @@ def record_physical_report(
     world._diagnostics["ecs_physical_resource_fields_written"] += int(
         report.get("resource_fields_written", 0)
     )
-    world._diagnostics["ecs_events_emitted"] += int(report.get("events_emitted", 0))
-    world._diagnostics["ecs_structural_commands_applied"] += int(
-        report.get("structural_commands", 0)
-    )
+
     world._diagnostics["ecs_canvas_direct_fill_primitives"] += int(
         report.get("canvas_direct_fill_primitives", 0)
     )

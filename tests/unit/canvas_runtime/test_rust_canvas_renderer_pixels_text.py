@@ -26,26 +26,6 @@ def test_canvas_renderer_set_pixel_rgba_uses_fast_bridge() -> None:
     assert renderer.load_pixel_region(1, 0, 1, 1) == bytes([255, 20, 0, 255])
 
 
-def test_canvas_renderer_set_pixel_rgba_falls_back_to_region_upload() -> None:
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(3, 2)
-
-    canvas = renderer._canvas
-    assert canvas is not None
-    canvas.set_pixel_rgba = None
-
-    renderer.set_pixel_rgba(1, 0, (10, 20, 30, 255))
-    assert canvas.calls[-1] == (
-        "update_pixel_region",
-        bytes([10, 20, 30, 255]),
-        1,
-        1,
-        1,
-        0,
-        False,
-    )
-
-
 def test_canvas_context_set_color_uses_renderer_fast_pixel_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

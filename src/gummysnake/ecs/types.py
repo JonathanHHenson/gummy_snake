@@ -48,8 +48,8 @@ Vec3F64 = StorageType("Vec3F64", tuple, element_type=Float64, fixed_length=3)
 def List(element_type: StorageType = Float64) -> StorageType:
     """Create a Rust-owned list column storage marker for ``typing.Annotated``.
 
-    The Python MVP stores these as list-like dataclass values while preserving the
-    explicit storage marker for the Rust-backed column implementation.
+    Rust stores list rows as packed offsets plus a contiguous typed element buffer.
+    Nested list markers are not part of the current bridge ABI and are rejected.
 
     Args:
         element_type: Storage marker for each value stored in the list.
@@ -60,6 +60,8 @@ def List(element_type: StorageType = Float64) -> StorageType:
 
     if not isinstance(element_type, StorageType):
         raise TypeError("ecs.types.List() expects an ecs storage type marker.")
+    if element_type.python_type is list:
+        raise TypeError("Nested ecs.types.List() storage is not supported by the ECS ABI.")
     return StorageType(f"List[{element_type.name}]", list, element_type=element_type)
 
 

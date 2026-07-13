@@ -68,7 +68,7 @@ class CanvasRendererImagesMixin:
         style: dict[str, object],
         matrix: MatrixPayload,
     ) -> None:
-        """Append an already-normalized fast-scope image to the ordered image batch."""
+        """Append a stable Rust handle without materializing its RGBA payload in Python."""
         renderer = _renderer(self)
         if renderer._image_batch and not _same_image_batch_style(
             renderer._image_batch_style, style
@@ -109,6 +109,7 @@ class CanvasRendererImagesMixin:
                 style_payload,
             ):
                 renderer._flush_image_batch()
+            # Keep ordered records handle-only; Rust owns payload sharing and revision uploads.
             renderer._image_batch.append((rust_image, dx, dy, dw, dh, source, matrix_payload))
             renderer._image_batch_style = style_payload
             renderer._image_batch_matrix = matrix_payload
@@ -134,7 +135,7 @@ class CanvasRendererImagesMixin:
             return
         renderer._call(
             "image drawing",
-            renderer._require_canvas_method("draw_canvas_image", "image drawing"),
+            canvas.draw_canvas_image,
             rust_image,
             dx,
             dy,
@@ -185,7 +186,7 @@ class CanvasRendererImagesMixin:
             renderer._count("gpu_draws")
             renderer._call(
                 "image drawing",
-                renderer._require_canvas_method("draw_canvas_image", "image drawing"),
+                canvas.draw_canvas_image,
                 rust_image,
                 dx,
                 dy,

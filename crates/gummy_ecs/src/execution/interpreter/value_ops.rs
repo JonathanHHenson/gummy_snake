@@ -4,6 +4,8 @@ use crate::plan::typed_ir::{BinaryOp, UnaryOp};
 use crate::plan::ExprNode;
 use crate::schema::StorageType;
 
+pub(in crate::execution) use crate::column::coerce_value_for_storage;
+
 pub(in crate::execution) fn bool_f64(value: bool) -> f64 {
     if value {
         1.0
@@ -40,8 +42,16 @@ pub(in crate::execution) fn eval_unary(
 ) -> Result<EcsValue> {
     match op {
         UnaryOp::Neg => match input {
-            EcsValue::I64(value) => Ok(EcsValue::I64(-value)),
-            EcsValue::U64(value) => Ok(EcsValue::I64(-(value as i64))),
+            EcsValue::I64(value) => value
+                .checked_neg()
+                .map(EcsValue::I64)
+                .ok_or_else(|| integer_overflow("neg")),
+            EcsValue::U64(value) => {
+                let value = i128::from(value)
+                    .checked_neg()
+                    .ok_or_else(|| integer_overflow("neg"))?;
+                integer_result(value, false)
+            }
             EcsValue::F64(value) => Ok(EcsValue::F64(-value)),
             other => Err(EcsError::InvalidPlan(format!(
                 "unary neg expects a numeric value, got {}",
@@ -49,7 +59,18 @@ pub(in crate::execution) fn eval_unary(
             ))),
         },
         UnaryOp::Not => Ok(EcsValue::Bool(!truthy(&input)?)),
-        UnaryOp::Abs => Ok(EcsValue::F64(numeric_f64(&input)?.abs())),
+        UnaryOp::Abs => match input {
+            EcsValue::I64(value) => value
+                .checked_abs()
+                .map(EcsValue::I64)
+                .ok_or_else(|| integer_overflow("abs")),
+            EcsValue::U64(value) => Ok(EcsValue::U64(value)),
+            EcsValue::F64(value) => Ok(EcsValue::F64(value.abs())),
+            other => Err(EcsError::InvalidPlan(format!(
+                "abs expects a numeric value, got {}",
+                other.kind_name()
+            ))),
+        },
         UnaryOp::Sqrt => Ok(EcsValue::F64(numeric_f64(&input)?.sqrt())),
         UnaryOp::Sin => Ok(EcsValue::F64(numeric_f64(&input)?.sin())),
         UnaryOp::Cos => Ok(EcsValue::F64(numeric_f64(&input)?.cos())),
@@ -76,33 +97,27 @@ pub(in crate::execution) fn eval_binary(
     right: EcsValue,
 ) -> Result<EcsValue> {
     match op {
-        BinaryOp::Add => numeric_arithmetic(left, right, |a, b| a + b),
-        BinaryOp::Sub => numeric_arithmetic(left, right, |a, b| a - b),
-        BinaryOp::Mul => numeric_arithmetic(left, right, |a, b| a * b),
+        BinaryOp::Add => numeric_arithmetic(left, right, "add", i128::checked_add, |a, b| a + b),
+        BinaryOp::Sub => numeric_arithmetic(left, right, "sub", i128::checked_sub, |a, b| a - b),
+        BinaryOp::Mul => numeric_arithmetic(left, right, "mul", i128::checked_mul, |a, b| a * b),
         BinaryOp::TrueDiv => Ok(EcsValue::F64(numeric_f64(&left)? / numeric_f64(&right)?)),
-        BinaryOp::FloorDiv => Ok(EcsValue::F64(
-            (numeric_f64(&left)? / numeric_f64(&right)?).floor(),
-        )),
-        BinaryOp::Mod => Ok(EcsValue::F64(numeric_f64(&left)? % numeric_f64(&right)?)),
+        BinaryOp::FloorDiv => integer_or_float_division(left, right, true),
+        BinaryOp::Mod => integer_or_float_modulo(left, right),
         BinaryOp::Pow => Ok(EcsValue::F64(
             numeric_f64(&left)?.powf(numeric_f64(&right)?),
         )),
-        BinaryOp::Lt => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| a < b)?)),
-        BinaryOp::Le => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| {
-            a <= b
-        })?)),
-        BinaryOp::Gt => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| a > b)?)),
-        BinaryOp::Ge => Ok(EcsValue::Bool(compare_values(&left, &right, |a, b| {
-            a >= b
-        })?)),
+        BinaryOp::Lt => Ok(EcsValue::Bool(compare_values(&left, &right)?.is_lt())),
+        BinaryOp::Le => Ok(EcsValue::Bool(!compare_values(&left, &right)?.is_gt())),
+        BinaryOp::Gt => Ok(EcsValue::Bool(compare_values(&left, &right)?.is_gt())),
+        BinaryOp::Ge => Ok(EcsValue::Bool(!compare_values(&left, &right)?.is_lt())),
         BinaryOp::Eq => Ok(EcsValue::Bool(values_equal(&left, &right)?)),
         BinaryOp::Ne => Ok(EcsValue::Bool(!values_equal(&left, &right)?)),
-        BinaryOp::Min => Ok(if numeric_f64(&left)? <= numeric_f64(&right)? {
+        BinaryOp::Min => Ok(if compare_values(&left, &right)?.is_le() {
             left
         } else {
             right
         }),
-        BinaryOp::Max => Ok(if numeric_f64(&left)? >= numeric_f64(&right)? {
+        BinaryOp::Max => Ok(if compare_values(&left, &right)?.is_ge() {
             left
         } else {
             right
@@ -113,12 +128,92 @@ pub(in crate::execution) fn eval_binary(
     }
 }
 
+fn integer_overflow(operation: &str) -> EcsError {
+    EcsError::InvalidPlan(format!(
+        "checked ECS integer {operation} overflowed its 64-bit transport domain"
+    ))
+}
+
+fn integer_parts(value: &EcsValue) -> Option<(i128, bool)> {
+    match value {
+        EcsValue::I64(value) => Some((i128::from(*value), false)),
+        EcsValue::U64(value) => Some((i128::from(*value), true)),
+        _ => None,
+    }
+}
+
+fn integer_result(value: i128, prefer_unsigned: bool) -> Result<EcsValue> {
+    if value < 0 || !prefer_unsigned {
+        return i64::try_from(value)
+            .map(EcsValue::I64)
+            .map_err(|_| integer_overflow("operation"));
+    }
+    u64::try_from(value)
+        .map(EcsValue::U64)
+        .map_err(|_| integer_overflow("operation"))
+}
+
 fn numeric_arithmetic(
     left: EcsValue,
     right: EcsValue,
-    op: impl FnOnce(f64, f64) -> f64,
+    operation: &str,
+    integer_op: fn(i128, i128) -> Option<i128>,
+    float_op: fn(f64, f64) -> f64,
 ) -> Result<EcsValue> {
-    Ok(EcsValue::F64(op(numeric_f64(&left)?, numeric_f64(&right)?)))
+    if let (Some((left_value, left_unsigned)), Some((right_value, right_unsigned))) =
+        (integer_parts(&left), integer_parts(&right))
+    {
+        let value =
+            integer_op(left_value, right_value).ok_or_else(|| integer_overflow(operation))?;
+        return integer_result(value, left_unsigned || right_unsigned);
+    }
+    Ok(EcsValue::F64(float_op(
+        numeric_f64(&left)?,
+        numeric_f64(&right)?,
+    )))
+}
+
+fn integer_or_float_division(left: EcsValue, right: EcsValue, floor: bool) -> Result<EcsValue> {
+    if let (Some((left_value, left_unsigned)), Some((right_value, right_unsigned))) =
+        (integer_parts(&left), integer_parts(&right))
+    {
+        if right_value == 0 {
+            return Err(EcsError::InvalidPlan(
+                "ECS integer floor division by zero".to_string(),
+            ));
+        }
+        let quotient = left_value / right_value;
+        let remainder = left_value % right_value;
+        let quotient = if floor && remainder != 0 && (remainder < 0) != (right_value < 0) {
+            quotient - 1
+        } else {
+            quotient
+        };
+        return integer_result(quotient, left_unsigned && right_unsigned);
+    }
+    Ok(EcsValue::F64(
+        (numeric_f64(&left)? / numeric_f64(&right)?).floor(),
+    ))
+}
+
+fn integer_or_float_modulo(left: EcsValue, right: EcsValue) -> Result<EcsValue> {
+    if let (Some((left_value, left_unsigned)), Some((right_value, right_unsigned))) =
+        (integer_parts(&left), integer_parts(&right))
+    {
+        if right_value == 0 {
+            return Err(EcsError::InvalidPlan(
+                "ECS integer modulo by zero".to_string(),
+            ));
+        }
+        let remainder = left_value % right_value;
+        let remainder = if remainder != 0 && (remainder < 0) != (right_value < 0) {
+            remainder + right_value
+        } else {
+            remainder
+        };
+        return integer_result(remainder, left_unsigned && right_unsigned);
+    }
+    Ok(EcsValue::F64(numeric_f64(&left)? % numeric_f64(&right)?))
 }
 
 pub(in crate::execution) fn literal_expr_numeric(expr: &ExprNode) -> Option<f64> {
@@ -157,18 +252,23 @@ pub(in crate::execution) fn truthy(value: &EcsValue) -> Result<bool> {
     }
 }
 
-fn compare_values(
-    left: &EcsValue,
-    right: &EcsValue,
-    op: impl FnOnce(f64, f64) -> bool,
-) -> Result<bool> {
-    Ok(op(numeric_f64(left)?, numeric_f64(right)?))
+fn compare_values(left: &EcsValue, right: &EcsValue) -> Result<std::cmp::Ordering> {
+    if let (Some((left, _)), Some((right, _))) = (integer_parts(left), integer_parts(right)) {
+        return Ok(left.cmp(&right));
+    }
+    numeric_f64(left)?
+        .partial_cmp(&numeric_f64(right)?)
+        .ok_or_else(|| EcsError::InvalidPlan("cannot compare NaN ECS values".to_string()))
 }
 
 fn values_equal(left: &EcsValue, right: &EcsValue) -> Result<bool> {
     match (left, right) {
         (EcsValue::Bool(left), EcsValue::Bool(right)) => Ok(left == right),
         (EcsValue::String(left), EcsValue::String(right)) => Ok(left == right),
+        (EcsValue::I64(_) | EcsValue::U64(_), EcsValue::I64(_) | EcsValue::U64(_)) => {
+            Ok(integer_parts(left).map(|value| value.0)
+                == integer_parts(right).map(|value| value.0))
+        }
         (
             EcsValue::I64(_) | EcsValue::U64(_) | EcsValue::F64(_),
             EcsValue::I64(_) | EcsValue::U64(_) | EcsValue::F64(_),
@@ -177,93 +277,31 @@ fn values_equal(left: &EcsValue, right: &EcsValue) -> Result<bool> {
     }
 }
 
-pub(in crate::execution) fn coerce_value_for_storage(
-    storage_type: StorageType,
-    value: EcsValue,
-) -> Result<EcsValue> {
-    match storage_type {
-        StorageType::Bool => match value {
-            EcsValue::Bool(value) => Ok(EcsValue::Bool(value)),
-            other => Err(type_mismatch("Bool", other)),
-        },
-        StorageType::Int8 | StorageType::Int16 | StorageType::Int32 | StorageType::Int64 => {
-            match value {
-                EcsValue::I64(value) => Ok(EcsValue::I64(value)),
-                EcsValue::U64(value) if value <= i64::MAX as u64 => Ok(EcsValue::I64(value as i64)),
-                EcsValue::F64(value)
-                    if value.is_finite()
-                        && value.fract() == 0.0
-                        && value >= i64::MIN as f64
-                        && value <= i64::MAX as f64 =>
-                {
-                    Ok(EcsValue::I64(value as i64))
-                }
-                other => Err(type_mismatch("I64", other)),
-            }
-        }
-        StorageType::UInt8 | StorageType::UInt16 | StorageType::UInt32 | StorageType::UInt64 => {
-            match value {
-                EcsValue::U64(value) => Ok(EcsValue::U64(value)),
-                EcsValue::I64(value) if value >= 0 => Ok(EcsValue::U64(value as u64)),
-                EcsValue::F64(value)
-                    if value.is_finite()
-                        && value.fract() == 0.0
-                        && value >= 0.0
-                        && value <= u64::MAX as f64 =>
-                {
-                    Ok(EcsValue::U64(value as u64))
-                }
-                other => Err(type_mismatch("U64", other)),
-            }
-        }
-        StorageType::Float32 | StorageType::Float64 => match value {
-            EcsValue::F64(value) => Ok(EcsValue::F64(value)),
-            EcsValue::I64(value) => Ok(EcsValue::F64(value as f64)),
-            EcsValue::U64(value) => Ok(EcsValue::F64(value as f64)),
-            other => Err(type_mismatch("F64", other)),
-        },
-        StorageType::String | StorageType::CategoricalString => match value {
-            EcsValue::String(value) => Ok(EcsValue::String(value)),
-            other => Err(type_mismatch("String", other)),
-        },
-        StorageType::Vec2F32 => match value {
-            EcsValue::Vec2F32(value) => Ok(EcsValue::Vec2F32(value)),
-            EcsValue::Vec2F64(value) => Ok(EcsValue::Vec2F32([value[0] as f32, value[1] as f32])),
-            other => Err(type_mismatch("Vec2F32", other)),
-        },
-        StorageType::Vec2F64 => match value {
-            EcsValue::Vec2F64(value) => Ok(EcsValue::Vec2F64(value)),
-            EcsValue::Vec2F32(value) => Ok(EcsValue::Vec2F64([value[0] as f64, value[1] as f64])),
-            other => Err(type_mismatch("Vec2F64", other)),
-        },
-        StorageType::Vec3F32 => match value {
-            EcsValue::Vec3F32(value) => Ok(EcsValue::Vec3F32(value)),
-            EcsValue::Vec3F64(value) => Ok(EcsValue::Vec3F32([
-                value[0] as f32,
-                value[1] as f32,
-                value[2] as f32,
-            ])),
-            other => Err(type_mismatch("Vec3F32", other)),
-        },
-        StorageType::Vec3F64 => match value {
-            EcsValue::Vec3F64(value) => Ok(EcsValue::Vec3F64(value)),
-            EcsValue::Vec3F32(value) => Ok(EcsValue::Vec3F64([
-                value[0] as f64,
-                value[1] as f64,
-                value[2] as f64,
-            ])),
-            other => Err(type_mismatch("Vec3F64", other)),
-        },
-        StorageType::List => match value {
-            EcsValue::List(value) => Ok(EcsValue::List(value)),
-            other => Err(type_mismatch("List", other)),
-        },
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-fn type_mismatch(expected: &'static str, value: EcsValue) -> EcsError {
-    EcsError::ColumnTypeMismatch {
-        expected,
-        got: value.kind_name(),
+    #[test]
+    fn integer_arithmetic_remains_exact_above_f64_integer_precision() {
+        let value = 9_007_199_254_740_993_i64;
+        assert_eq!(
+            eval_binary(BinaryOp::Add, "add", EcsValue::I64(value), EcsValue::I64(2),).unwrap(),
+            EcsValue::I64(value + 2)
+        );
+        assert_eq!(
+            eval_binary(BinaryOp::Mod, "mod", EcsValue::I64(-5), EcsValue::I64(3),).unwrap(),
+            EcsValue::I64(1)
+        );
+    }
+
+    #[test]
+    fn checked_integer_transport_overflow_is_an_execution_error() {
+        assert!(eval_binary(
+            BinaryOp::Add,
+            "add",
+            EcsValue::I64(i64::MAX),
+            EcsValue::I64(1),
+        )
+        .is_err());
     }
 }

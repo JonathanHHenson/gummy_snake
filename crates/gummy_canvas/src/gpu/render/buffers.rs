@@ -5,12 +5,12 @@ pub(super) fn aligned_stroke_path_record_offset(record_offset: usize) -> usize {
 }
 
 impl GpuRenderer {
-    pub(super) fn ensure_render_vertex_buffers(&mut self) {
+    pub(super) fn ensure_render_vertex_buffers(&mut self, commands: &[DrawCommand]) {
         let mut primitive_vertices = 0usize;
         let mut procedural_instances = 0usize;
         let mut stroke_path_records = 0usize;
         let mut image_vertices = 0usize;
-        for command in &self.commands {
+        for command in commands {
             match command {
                 DrawCommand::Triangles { vertices, .. } => {
                     primitive_vertices += vertices.len();
@@ -63,8 +63,7 @@ impl GpuRenderer {
         self.ensure_procedural_primitive_capacity(procedural_instances);
         self.ensure_stroke_path_record_capacity(stroke_path_records);
         self.ensure_image_vertex_capacity(image_vertices);
-        let model_uniforms = self
-            .commands
+        let model_uniforms = commands
             .iter()
             .map(|command| match command {
                 DrawCommand::Model { .. }

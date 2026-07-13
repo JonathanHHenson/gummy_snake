@@ -13,24 +13,26 @@ impl GpuRenderer {
     pub(super) fn encode_plain_commands(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
+        commands: &[DrawCommand],
         render_offsets: &mut RenderBufferOffsets,
+        clear_depth: bool,
     ) {
-        let clear = self.commands.iter().rev().find_map(|command| {
+        let clear = commands.iter().rev().find_map(|command| {
             if let DrawCommand::Clear(color) = command {
                 Some(*color)
             } else {
                 None
             }
         });
-        let last_clear_index = self
-            .commands
+        let last_clear_index = commands
             .iter()
             .rposition(|command| matches!(command, DrawCommand::Clear(_)));
         let (image_offsets, mut image_staging) =
-            self.stage_image_vertices(last_clear_index, render_offsets);
-        let model_uniform_indices = self.stage_model_uniforms(last_clear_index, render_offsets);
+            self.stage_image_vertices(commands, last_clear_index, render_offsets);
+        let model_uniform_indices =
+            self.stage_model_uniforms(commands, last_clear_index, render_offsets);
         let (stroke_path_bindings, next_stroke_path_record) =
-            self.prepare_stroke_path_bindings(render_offsets.stroke_path_record);
+            self.prepare_stroke_path_bindings(commands, render_offsets.stroke_path_record);
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("gummy_canvas primitive render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -47,8 +49,12 @@ impl GpuRenderer {
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: &self.depth_texture_view,
                 depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
-                    store: wgpu::StoreOp::Discard,
+                    load: if clear_depth {
+                        wgpu::LoadOp::Clear(1.0)
+                    } else {
+                        wgpu::LoadOp::Load
+                    },
+                    store: wgpu::StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
@@ -97,7 +103,7 @@ impl GpuRenderer {
 
         let mut skip_until_last_clear = clear.is_some();
         let mut skip_image_commands_until = 0usize;
-        for (command_index, command) in self.commands.iter().enumerate() {
+        for (command_index, command) in commands.iter().enumerate() {
             match command {
                 DrawCommand::Clear(color) => {
                     if skip_until_last_clear && Some(*color) == clear {
@@ -264,7 +270,7 @@ impl GpuRenderer {
                     }
                     skip_image_commands_until = batcher.draw_image_commands(
                         command_index,
-                        &self.commands,
+                        commands,
                         &image_offsets,
                         self.textures.get(key),
                         *key,
@@ -287,9 +293,10 @@ impl GpuRenderer {
 
     fn prepare_stroke_path_bindings(
         &self,
+        commands: &[DrawCommand],
         start_record_offset: usize,
     ) -> (Vec<Option<StrokePathBinding>>, usize) {
-        let has_stroke_paths = self.commands.iter().any(|command| {
+        let has_stroke_paths = commands.iter().any(|command| {
             matches!(
                 command,
                 DrawCommand::StrokePath { .. }
@@ -305,9 +312,9 @@ impl GpuRenderer {
             .stroke_path_buffer
             .as_ref()
             .expect("stroke path storage buffer is prepared");
-        let mut bindings = Vec::with_capacity(self.commands.len());
+        let mut bindings = Vec::with_capacity(commands.len());
         let mut record_offset = start_record_offset;
-        for command in &self.commands {
+        for command in commands {
             let records = match command {
                 DrawCommand::StrokePath { records, .. }
                 | DrawCommand::FillPath { records, .. }

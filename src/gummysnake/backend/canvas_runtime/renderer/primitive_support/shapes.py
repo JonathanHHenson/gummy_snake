@@ -76,13 +76,9 @@ def line(
         return
     renderer = _renderer(self)
     renderer._flush_image_batch()
-    batch_lines_current = (
-        getattr(renderer._require_canvas(), "batch_lines_current", None)
-        if renderer._can_use_current_state(style, transform)
-        else None
-    )
+    use_current_state = renderer._can_use_current_state(style, transform)
     line_batch = renderer._line_batch_state
-    if callable(batch_lines_current):
+    if use_current_state:
         if line_batch.has_records() and not line_batch.matches_current():
             renderer._flush_line_batch()
         line_batch.append_current((x1, y1, x2, y2))

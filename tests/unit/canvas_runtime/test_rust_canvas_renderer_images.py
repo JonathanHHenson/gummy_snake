@@ -187,6 +187,41 @@ def test_canvas_renderer_performance_counters_cover_representative_paths() -> No
     assert reset["text_cache_evictions"] == 0
 
 
+def test_canvas_renderer_promotes_native_image_resource_counters() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(4, 2)
+    canvas = renderer._canvas
+    assert canvas is not None
+    canvas.performance_counters = lambda: {
+        "image_source_clones_avoided": 3,
+        "image_source_clone_bytes_avoided": 48,
+        "image_cache_resident_bytes": 16,
+        "image_cache_peak_bytes": 32,
+        "image_cache_evictions": 2,
+        "image_cache_evicted_bytes": 24,
+        "texture_uploads": 2,
+        "texture_upload_bytes": 32,
+        "texture_dirty_uploads": 1,
+        "texture_resident_bytes": 16,
+        "texture_peak_bytes": 32,
+        "texture_cache_evictions": 1,
+        "texture_destructions": 2,
+        "image_atlas_resident_bytes": 16,
+        "image_atlas_peak_bytes": 16,
+        "image_atlas_evictions": 1,
+        "image_atlas_destructions": 1,
+    }
+
+    counters = renderer.performance_counters()
+
+    assert counters["image_source_clones_avoided"] == 3
+    assert counters["image_source_clone_bytes_avoided"] == 48
+    assert counters["texture_dirty_uploads"] == 1
+    assert counters["texture_resident_bytes"] == 16
+    assert counters["image_atlas_destructions"] == 1
+    assert counters["native"] == canvas.performance_counters()
+
+
 def test_adjust_pixel_prefix_counts_gpu_region_effect_not_pixel_roundtrip() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(4, 2)

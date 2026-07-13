@@ -26,7 +26,7 @@ pub mod tree_spatial;
 pub mod world;
 
 pub use archetype::{Archetype, ComponentRow, ComponentSetKey, ComponentTable, EntityRowData};
-pub use column::{Column, EcsValue};
+pub use column::{coerce_value_for_storage, Column, EcsValue};
 pub use command::{Command, CommandBuffer};
 pub use diagnostics::Diagnostics;
 pub use entity::{Entity, EntityAllocator};
@@ -48,7 +48,7 @@ pub use scheduler::{
     merge_command_batches_stably, AccessKey, AccessSummary, CommandBatch, SchedulePlan,
     ScheduleWave, ScheduledSystem, SchedulerDiagnostics, SchedulerOptions,
 };
-pub use schema::{ComponentSchema, FieldSchema, SchemaRegistry, StorageType};
+pub use schema::{ComponentSchema, FieldSchema, ListElementType, SchemaRegistry, StorageType};
 pub use spatial::{
     Dimensions, HashGridIndex, HilbertIndex, OctreeIndex, QuadtreeIndex, SpatialAabb,
     SpatialAlgorithmKind, SpatialCapabilities, SpatialIndexBackend, SpatialIndexDescriptor,
@@ -57,10 +57,11 @@ pub use spatial::{
 };
 pub use world::World;
 
-pub const ECS_ABI_VERSION: u32 = 4;
+pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const ECS_ABI_VERSION: u32 = 5;
 
 pub fn health_check() -> &'static str {
-    "gummy-ecs 3"
+    "gummy-ecs 5"
 }
 
 #[cfg(test)]

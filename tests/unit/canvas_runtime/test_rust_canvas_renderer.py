@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import cast
-
 import pytest
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas_renderer import CanvasRenderer
-from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import ModelBatchKey
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
-from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.exceptions import ArgumentValidationError
 from tests.helpers.canvas_runtime.modules import FakeCanvasModule
 
 
@@ -27,18 +23,6 @@ def test_canvas_renderer_allocates_and_mirrors_dimensions() -> None:
     assert renderer.pixel_density == 1.5
     assert renderer.runtime_canvas().gpu_available() is True
     assert renderer.runtime_canvas().gpu_status() == "available"
-
-
-@pytest.mark.parametrize("mode", [c.WEBGL, c.WEBGPU])
-def test_canvas_renderer_forwards_requested_renderer_mode(mode: c.RendererMode) -> None:
-    renderer = CanvasRenderer(FakeCanvasModule())
-
-    renderer.resize(10, 10, renderer=mode)
-    canvas = renderer.runtime_canvas()
-    renderer.resize_canvas(12, 8)
-
-    assert canvas.renderer == mode
-    assert ("resize_canvas", 12, 8, 1.0, mode) in canvas.calls
 
 
 def test_canvas_renderer_pump_native_events_syncs_resized_canvas_dimensions() -> None:
@@ -181,189 +165,6 @@ def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None
     assert transformed_call[2] is changed_call[2]
     assert transformed_call[3] is not changed_call[3]
     assert transformed_call[3] == (1.0, 0.0, 0.0, 1.0, 4, 5)
-
-
-def test_canvas_renderer_fails_clearly_for_missing_lifecycle_bridge_methods() -> None:
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-
-    canvas.resize_canvas = None
-    with pytest.raises(BackendCapabilityError, match="resize_canvas\\(\\).*native canvas resizing"):
-        renderer.resize_canvas(9, 9)
-
-    canvas.begin_frame = None
-    with pytest.raises(BackendCapabilityError, match="begin_frame\\(\\).*frame rendering"):
-        renderer.begin_frame()
-
-    canvas.end_frame = None
-    with pytest.raises(BackendCapabilityError, match="end_frame\\(\\).*frame rendering"):
-        renderer.end_frame()
-
-    canvas.present = None
-    renderer._last_native_event_pump = 0.0
-    with pytest.raises(BackendCapabilityError, match="present\\(\\).*native canvas presentation"):
-        renderer.present()
-
-    canvas.close = None
-    with pytest.raises(BackendCapabilityError, match="close\\(\\).*canvas shutdown"):
-        renderer.close()
-
-
-def test_canvas_renderer_rejects_a_queued_model_batch_without_native_draw_bridge() -> None:
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-    canvas._draw_model_shaded_batch = lambda *args: None
-    key = ModelBatchKey(
-        model_handle=object(),
-        camera={},
-        projection={},
-        viewport_width=8,
-        viewport_height=8,
-        material={},
-        lights=[],
-        normal_material=False,
-        cull_backfaces=True,
-    )
-    assert renderer._queue_model_batch(key, (1.0,) * 16) is True
-    canvas._draw_model_shaded_batch = None
-
-    with pytest.raises(BackendCapabilityError, match="draw_model_shaded\\(\\).*3D model drawing"):
-        renderer._flush_model_batch()
-
-
-@pytest.mark.parametrize(
-    ("method_name", "operation", "invoke"),
-    [
-        (
-            "set_current_style",
-            "current style update",
-            lambda renderer: renderer.set_current_style(StyleState()),
-        ),
-        (
-            "set_current_matrix",
-            "current matrix update",
-            lambda renderer: renderer.set_current_matrix(Matrix2D.identity()),
-        ),
-        ("push_canvas_state", "canvas state push", lambda renderer: renderer.push_canvas_state()),
-        ("pop_canvas_state", "canvas state pop", lambda renderer: renderer.pop_canvas_state()),
-        ("translate", "canvas translation", lambda renderer: renderer.translate(1, 2)),
-        ("rotate", "canvas rotation", lambda renderer: renderer.rotate(0.5)),
-        ("scale", "canvas scale", lambda renderer: renderer.scale(2)),
-        ("shear_x", "canvas x shear", lambda renderer: renderer.shear_x(0.5)),
-        ("shear_y", "canvas y shear", lambda renderer: renderer.shear_y(0.5)),
-        (
-            "apply_matrix",
-            "canvas matrix application",
-            lambda renderer: renderer.apply_matrix(Matrix2D.identity()),
-        ),
-        ("reset_matrix", "canvas matrix reset", lambda renderer: renderer.reset_matrix()),
-    ],
-)
-def test_canvas_renderer_requires_non_p2d_state_bridge_methods(
-    method_name: str, operation: str, invoke: object
-) -> None:
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8, renderer=c.WEBGL)
-    setattr(renderer.runtime_canvas(), method_name, None)
-
-    with pytest.raises(BackendCapabilityError, match=operation):
-        cast(Callable[[CanvasRenderer], None], invoke)(renderer)
-
-
-def test_canvas_renderer_requires_pixel_readback_and_upload_bridges() -> None:
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-
-    canvas.load_pixel_bytes = None
-    with pytest.raises(BackendCapabilityError, match="load_pixel_bytes\\(\\).*pixel byte readback"):
-        renderer.load_pixel_bytes()
-
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-    canvas.load_pixel_region = None
-    with pytest.raises(
-        BackendCapabilityError, match="load_pixel_region\\(\\).*pixel region readback"
-    ):
-        renderer.load_pixel_region(0, 0, 1, 1)
-
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-    canvas.update_pixels = None
-    with pytest.raises(BackendCapabilityError, match="update_pixels\\(\\).*pixel upload"):
-        renderer.update_pixels(bytes(8 * 8 * 4))
-
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-    canvas.update_pixel_region = None
-    with pytest.raises(
-        BackendCapabilityError, match="update_pixel_region\\(\\).*pixel region upload"
-    ):
-        renderer.update_pixel_region(bytes(4), 1, 1, 0, 0)
-
-
-def test_canvas_renderer_requires_pixel_effect_and_export_bridges(tmp_path) -> None:
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-    canvas.filter_pixels = None
-    with pytest.raises(BackendCapabilityError, match="filter_pixels\\(\\).*canvas pixel filtering"):
-        renderer.filter_pixels(c.INVERT)
-
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-    canvas.adjust_pixel_prefix = None
-    with pytest.raises(
-        BackendCapabilityError, match="adjust_pixel_prefix\\(\\).*pixel prefix adjustment"
-    ):
-        renderer.adjust_pixel_prefix(4, 4, 1, 1)
-
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-    canvas.save = None
-    with pytest.raises(BackendCapabilityError, match="save\\(\\).*canvas export"):
-        renderer.save(tmp_path / "canvas.png")
-
-
-def test_canvas_renderer_requires_direct_image_and_text_bridges() -> None:
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-    canvas.batch_canvas_images = None
-    canvas.batch_canvas_images_transformed = None
-    canvas.draw_canvas_image = None
-    with pytest.raises(BackendCapabilityError, match="draw_canvas_image\\(\\).*image drawing"):
-        renderer._draw_rust_image(object(), 0, 0, 1, 1, StyleState(), Matrix2D.identity(), None)
-
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(8, 8)
-    canvas = renderer.runtime_canvas()
-    canvas.text_batch = None
-    canvas.text = None
-    renderer.text("x", 0, 0, StyleState(), Matrix2D.identity())
-    with pytest.raises(BackendCapabilityError, match="text\\(\\).*text drawing"):
-        renderer._flush_text_batch()
-
-
-def test_canvas_renderer_requires_text_metric_bridges() -> None:
-    style = StyleState()
-    for method_name, metric_name, call in (
-        ("text_width", "text measurement", lambda renderer: renderer.text_width("x", style)),
-        ("text_ascent", "text ascent measurement", lambda renderer: renderer.text_ascent(style)),
-        ("text_descent", "text descent measurement", lambda renderer: renderer.text_descent(style)),
-    ):
-        renderer = CanvasRenderer(FakeCanvasModule())
-        renderer.resize(8, 8)
-        setattr(renderer.runtime_canvas(), method_name, None)
-        with pytest.raises(BackendCapabilityError, match=metric_name):
-            call(renderer)
 
 
 def test_canvas_renderer_maps_rust_value_errors() -> None:

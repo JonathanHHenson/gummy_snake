@@ -7,6 +7,7 @@ fn render_synth_event_produces_stereo_samples() {
     opts.insert("release".to_owned(), SynthValue::Float(0.05));
     let event = EventPayload {
         node_id: 1,
+        seed: 0,
         order: 0,
         kind: "play".to_owned(),
         time_seconds: 0.0,
@@ -33,6 +34,7 @@ fn synth_cutoff_control_slides_filter_during_event() {
     static_opts.insert("cutoff_slide".to_owned(), SynthValue::Float(0.05));
     let static_event = EventPayload {
         node_id: 2,
+        seed: 0,
         order: 0,
         kind: "play".to_owned(),
         time_seconds: 0.0,
@@ -81,6 +83,7 @@ fn synth_normalise_runs_before_amp_fudge() {
     loud_opts.insert("amp_fudge".to_owned(), SynthValue::Float(2.0));
     let event = |opts: OptMap| EventPayload {
         node_id: 22,
+        seed: 0,
         order: 0,
         kind: "play".to_owned(),
         time_seconds: 0.0,
@@ -123,6 +126,7 @@ fn synth_cutoff_envelope_sweeps_resonant_filter() {
     opts.insert("res".to_owned(), SynthValue::Float(0.9));
     let event = EventPayload {
         node_id: 21,
+        seed: 0,
         order: 0,
         kind: "play".to_owned(),
         time_seconds: 0.0,

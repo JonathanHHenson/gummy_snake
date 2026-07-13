@@ -17,5 +17,7 @@ pub(crate) const BLEND_MODE_MULTIPLY: &str = "multiply";
 pub(crate) const BLEND_MODE_REPLACE: &str = "replace";
 pub(crate) const BLEND_MODE_SCREEN: &str = "screen";
 pub(crate) const IMAGE_CACHE_LIMIT: usize = 1024;
+pub(crate) const IMAGE_CACHE_BYTE_LIMIT: usize = 128 * 1024 * 1024;
 pub(crate) const TEXTURE_CACHE_LIMIT: usize = 1024;
+pub(crate) const TEXTURE_CACHE_BYTE_LIMIT: usize = 256 * 1024 * 1024;
 pub(crate) const TEXT_CACHE_LIMIT: usize = 512;

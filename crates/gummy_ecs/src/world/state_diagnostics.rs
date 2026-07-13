@@ -43,7 +43,12 @@ impl World {
         diagnostics.archetypes_total = self.archetypes.len();
         diagnostics.resources_total = self.resources.len();
         diagnostics.event_queues_total = self.events.queue_count();
+        diagnostics.event_records_total = self.events.record_count();
         diagnostics
+    }
+
+    pub fn record_diagnostic_message(&mut self, message: impl Into<String>) {
+        self.diagnostics.record_message(message);
     }
 
     pub fn reset_diagnostics(&mut self) {

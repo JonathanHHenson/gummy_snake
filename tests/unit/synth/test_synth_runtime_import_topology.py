@@ -25,7 +25,7 @@ _INTERNAL_AREAS = {
         "pattern_helpers",
         "scales_and_specs",
     ),
-    "physical": ("physical_plan", "rendering", "serialization"),
+    "physical": ("execution", "physical_plan", "rendering", "serialization"),
     "playback_export": ("playback", "samples_and_export", "track"),
 }
 
@@ -47,11 +47,13 @@ def test_synth_runtime_uses_only_canonical_internal_areas() -> None:
 def test_public_synth_exports_retain_identity_and_canonical_metadata() -> None:
     """The public facade keeps its exports while exposing their canonical owners."""
 
-    assert len(sy.__all__) == 60
+    assert len(sy.__all__) == 65
     assert sy.__all__ == core.__all__
     for name in sy.__all__:
         assert getattr(sy, name) is getattr(core, name), name
 
     assert sy.Track.__module__ == "gummysnake.synth.synth_runtime.playback_export.track"
     assert sy.PhysicalPlan.__module__ == "gummysnake.synth.synth_runtime.physical.physical_plan"
+    assert sy.configure_workers.__module__ == "gummysnake.synth.synth_runtime.physical.execution"
+    assert sy.synth_diagnostics.__module__ == "gummysnake.synth.synth_runtime.physical.execution"
     assert sy.track.__module__ == "gummysnake.synth.synth_runtime.composition.track_decorator"

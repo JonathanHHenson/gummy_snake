@@ -1,0 +1,837 @@
+{
+  "catalog_digest": "sha256:817e5d2f309e59293588e434cd5fb8596d064cf902f4a018cc6d991108f07950",
+  "entries": [
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "bounded-longevity-48x32",
+      "correctness_label": "bounded-longevity-resources-world-digest",
+      "definition_digest": "sha256:9608dc2104927f254fe99c166af29f7b0da2eff8dd77d7c0471999fc270f6d4a",
+      "metric_identity": {
+        "id": "longevity-row-frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_physical_system_runs",
+        "ecs_events_emitted",
+        "ecs_structural_commands_applied",
+        "ecs_rust_compiled_plans",
+        "ecs_entities_alive"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "bounded-longevity",
+        "churn_count": 4,
+        "entity_count": 48,
+        "frames": 32,
+        "required_counters": [
+          "ecs_physical_system_runs",
+          "ecs_events_emitted",
+          "ecs_structural_commands_applied",
+          "ecs_rust_compiled_plans",
+          "ecs_entities_alive"
+        ],
+        "work_units": 1536
+      },
+      "sampling_profile": "simulated-realtime",
+      "workload_id": "diagnostics-failures-longevity",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "diagnostics-snapshot-reset",
+      "correctness_label": "diagnostics-reset-counter-digest",
+      "definition_digest": "sha256:4b847ae41c28d42fa86cbceb01c83c94b71d5e56c704e1e483a5f6f2eb1a2ce1",
+      "metric_identity": {
+        "id": "diagnostic-snapshot-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_physical_system_runs",
+        "ecs_physical_rows_scanned",
+        "ecs_physical_fields_written"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "diagnostics-reset",
+        "entity_count": 64,
+        "required_counters": [
+          "ecs_physical_system_runs",
+          "ecs_physical_rows_scanned",
+          "ecs_physical_fields_written"
+        ],
+        "work_units": 2
+      },
+      "sampling_profile": "micro",
+      "workload_id": "diagnostics-failures-longevity",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "stale-strict-spatial-failures",
+      "correctness_label": "actionable-failure-type-message-digest",
+      "definition_digest": "sha256:043f79ac7368e8b921adde9fb1fadd7c68111c7f7652e21ffd557dc682f7e277",
+      "metric_identity": {
+        "id": "failure-check-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_strict_mode_errors",
+        "ecs_physical_duplicate_writes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "failure-contracts",
+        "required_counters": [
+          "ecs_strict_mode_errors",
+          "ecs_physical_duplicate_writes"
+        ],
+        "work_units": 3
+      },
+      "sampling_profile": "micro",
+      "workload_id": "diagnostics-failures-longevity",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "compact-fill-64x3",
+      "correctness_label": "headless-world-frame-command-digest",
+      "definition_digest": "sha256:fcca87c9824c3da7d33c104a7b46165a8442cf14dc7e410b9f302f6725343664",
+      "metric_identity": {
+        "id": "headless-draw-record-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_physical_system_runs",
+        "ecs_canvas_commands",
+        "ecs_canvas_direct_fill_primitives"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "compact-fill",
+        "entity_count": 64,
+        "frames": 3,
+        "height": 96,
+        "required_counters": [
+          "ecs_physical_system_runs",
+          "ecs_canvas_commands",
+          "ecs_canvas_direct_fill_primitives"
+        ],
+        "width": 128,
+        "work_units": 192
+      },
+      "sampling_profile": "frame-headless",
+      "workload_id": "integrated-headless-frame",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "simulation-render-128x4",
+      "correctness_label": "headless-simulation-world-frame-digest",
+      "definition_digest": "sha256:1a7d2fdf997fbe57c0dd11ca0688fc6cd32503b9671e1fff7f87007e22433762",
+      "metric_identity": {
+        "id": "headless-simulation-row-frame-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_physical_system_runs",
+        "ecs_physical_fields_written",
+        "ecs_canvas_commands",
+        "ecs_canvas_direct_fill_primitives"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "simulation-render",
+        "entity_count": 128,
+        "frames": 4,
+        "height": 120,
+        "required_counters": [
+          "ecs_physical_system_runs",
+          "ecs_physical_fields_written",
+          "ecs_canvas_commands",
+          "ecs_canvas_direct_fill_primitives"
+        ],
+        "width": 160,
+        "work_units": 512
+      },
+      "sampling_profile": "frame-headless",
+      "workload_id": "integrated-headless-frame",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "changed-filter-structural-remove-96",
+      "correctness_label": "change-filter-deferred-structural-digest",
+      "definition_digest": "sha256:47395d1ccee2205e310d52639ed55f71df0d80d1e95e8cfc9a8c21173f0b829a",
+      "metric_identity": {
+        "id": "mutation-row-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_change_detection_refreshes",
+        "ecs_structural_commands_applied",
+        "ecs_physical_system_runs"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "change-structural",
+        "entity_count": 96,
+        "required_counters": [
+          "ecs_change_detection_refreshes",
+          "ecs_structural_commands_applied",
+          "ecs_physical_system_runs"
+        ],
+        "work_units": 96
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "mutation-boundaries",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "explicit-python-system-udf-128",
+      "correctness_label": "python-system-udf-boundary-writeback-digest",
+      "definition_digest": "sha256:6b52e5dc4bca8e038e7324edb93325a5dc5e8e8fc15500f10fb02ee0e1667510",
+      "metric_identity": {
+        "id": "python-boundary-row-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_python_system_calls",
+        "ecs_python_system_barriers",
+        "ecs_python_system_entities_materialized",
+        "ecs_udf_calls"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "python-system-udf",
+        "entity_count": 128,
+        "required_counters": [
+          "ecs_python_system_calls",
+          "ecs_python_system_barriers",
+          "ecs_python_system_entities_materialized",
+          "ecs_udf_calls"
+        ],
+        "work_units": 256
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "mutation-boundaries",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "resource-event-reduction-128",
+      "correctness_label": "resource-event-order-retention-digest",
+      "definition_digest": "sha256:e11c0956688acc0a3bafcf7f5396028c6ec31f65b6600a73acc13c96e0a53c31",
+      "metric_identity": {
+        "id": "event-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_events_emitted",
+        "ecs_events_read",
+        "ecs_physical_resource_fields_written"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "resources-events",
+        "event_count": 128,
+        "required_counters": [
+          "ecs_events_emitted",
+          "ecs_events_read",
+          "ecs_physical_resource_fields_written"
+        ],
+        "work_units": 128
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "mutation-boundaries",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "udf-plan-inline-128",
+      "correctness_label": "udf-plan-zero-runtime-python-digest",
+      "definition_digest": "sha256:531a1efd0e39ef31b7ab0c7b5272b4a86377562e03a9012b09f4d52c6cf201e9",
+      "metric_identity": {
+        "id": "udf-plan-row-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_physical_system_runs",
+        "ecs_physical_rows_scanned",
+        "ecs_physical_fields_written"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "udf-plan",
+        "entity_count": 128,
+        "required_counters": [
+          "ecs_physical_system_runs",
+          "ecs_physical_rows_scanned",
+          "ecs_physical_fields_written"
+        ],
+        "work_units": 128
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "mutation-boundaries",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "cache-reuse-release-four-by-four",
+      "correctness_label": "plan-cache-reuse-release-digest",
+      "definition_digest": "sha256:02c9db87b140cdcd8cbfe8ea599919a27e3eaf088b49bdb98668cbc62d9907e6",
+      "metric_identity": {
+        "id": "plan-lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_physical_plan_compiles",
+        "ecs_physical_system_runs",
+        "ecs_rust_compiled_plans"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "plan-cache-release",
+        "cycles": 4,
+        "frames": 4,
+        "required_counters": [
+          "ecs_physical_plan_compiles",
+          "ecs_physical_system_runs",
+          "ecs_rust_compiled_plans"
+        ],
+        "work_units": 16
+      },
+      "sampling_profile": "micro",
+      "workload_id": "plan-compile-cache",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "logical-build-compile-eight",
+      "correctness_label": "plan-explain-compile-counter-digest",
+      "definition_digest": "sha256:dd646704f27fefd0fe99c36a09e4ff8e9d68ecf9c03f12ede842b03cfdb3eac7",
+      "metric_identity": {
+        "id": "plan-node-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_physical_plan_compiles",
+        "ecs_rust_compiled_plans",
+        "ecs_schedule_rebuilds"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "plan-build-compile",
+        "required_counters": [
+          "ecs_physical_plan_compiles",
+          "ecs_rust_compiled_plans",
+          "ecs_schedule_rebuilds"
+        ],
+        "system_count": 8,
+        "work_units": 16
+      },
+      "sampling_profile": "micro",
+      "workload_id": "plan-compile-cache",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "batch-four-field-transport-256",
+      "correctness_label": "batch-selected-field-value-digest",
+      "definition_digest": "sha256:0704fde7deb7ff59fd54c5c296b4b7679bcde5b2811acf41e6ebe45bea4c71aa",
+      "metric_identity": {
+        "id": "transport-row-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_entities_alive",
+        "ecs_rust_component_schemas_total"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "batch-transport",
+        "entity_count": 256,
+        "required_counters": [
+          "ecs_entities_alive",
+          "ecs_rust_component_schemas_total"
+        ],
+        "work_units": 256
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "query-view-transport",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "cardinality-zero-one-many",
+      "correctness_label": "cardinality-outcome-digest",
+      "definition_digest": "sha256:311eeef1d8b98d02352209fcf95e47817cf3957fd0a948c56ec398ff3f6338d0",
+      "metric_identity": {
+        "id": "cardinality-check-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_entities_alive",
+        "ecs_rust_entities_alive"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "cardinality",
+        "required_counters": [
+          "ecs_entities_alive",
+          "ecs_rust_entities_alive"
+        ],
+        "work_units": 3
+      },
+      "sampling_profile": "micro",
+      "workload_id": "query-view-transport",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "ordered-filtered-views-192",
+      "correctness_label": "query-order-view-value-digest",
+      "definition_digest": "sha256:9d91df0053bad21948cc54c5a6871f0f8ed441d1bfbf3682124bdf1d3e0d0fe2",
+      "metric_identity": {
+        "id": "query-row-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_entities_alive",
+        "ecs_rust_entities_alive"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "query-order",
+        "entity_count": 192,
+        "required_counters": [
+          "ecs_entities_alive",
+          "ecs_rust_entities_alive"
+        ],
+        "work_units": 192
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "query-view-transport",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "ordered-groups-eight-frames",
+      "correctness_label": "group-order-serial-result-digest",
+      "definition_digest": "sha256:2365b9778f3b59af0ebe53cc0ad8f63435e8cf88d7da2c4c89a216a84ebd07de",
+      "metric_identity": {
+        "id": "scheduled-system-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_schedule_rebuilds",
+        "ecs_physical_system_runs",
+        "ecs_physical_fields_written"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "group-order",
+        "frames": 8,
+        "required_counters": [
+          "ecs_schedule_rebuilds",
+          "ecs_physical_system_runs",
+          "ecs_physical_fields_written"
+        ],
+        "work_units": 24
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "scheduler-executor",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "parallel-snapshot-128x2",
+      "correctness_label": "parallel-snapshot-field-digest",
+      "definition_digest": "sha256:bed816f41642d2df8ebbe8aae9113bec45bc186d711f30dda5304ef4b6f30e70",
+      "metric_identity": {
+        "id": "parallel-field-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_physical_system_runs",
+        "ecs_physical_rows_scanned",
+        "ecs_physical_fields_written"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "parallel-snapshot",
+        "entity_count": 128,
+        "required_counters": [
+          "ecs_physical_system_runs",
+          "ecs_physical_rows_scanned",
+          "ecs_physical_fields_written"
+        ],
+        "work_units": 256
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "scheduler-executor",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "simulated-four-system-eight-frame",
+      "correctness_label": "simulated-multisystem-world-digest",
+      "definition_digest": "sha256:49c971559a2b295c96f078ce04048b09f71b005f6c881ccce473c107fa8c5cb9",
+      "metric_identity": {
+        "id": "simulated-row-system-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_physical_system_runs",
+        "ecs_physical_rows_scanned",
+        "ecs_physical_fields_written",
+        "ecs_rust_compiled_plans"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "simulated-multisystem",
+        "entity_count": 64,
+        "frames": 8,
+        "required_counters": [
+          "ecs_physical_system_runs",
+          "ecs_physical_rows_scanned",
+          "ecs_physical_fields_written",
+          "ecs_rust_compiled_plans"
+        ],
+        "system_count": 4,
+        "work_units": 2048
+      },
+      "sampling_profile": "simulated-realtime",
+      "workload_id": "scheduler-executor",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime",
+        "spatial-index"
+      ],
+      "case_id": "hash-grid-auto-96x3",
+      "correctness_label": "hash-grid-bruteforce-update-cache-digest",
+      "definition_digest": "sha256:3fcd74152d3a1f27c46ab769ae0ab3fb2e86293a2b2e590a223de76889a9ab5d",
+      "metric_identity": {
+        "id": "spatial-row-frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_spatial_algorithm_hash_grid",
+        "ecs_spatial_candidate_rows",
+        "ecs_spatial_exact_rows",
+        "ecs_spatial_indexes_built",
+        "ecs_spatial_index_reuses",
+        "ecs_spatial_index_full_rebuilds",
+        "ecs_spatial_index_incremental_updates"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "spatial-hash-grid",
+        "entity_count": 96,
+        "frames": 3,
+        "radius": "20.0",
+        "required_counters": [
+          "ecs_spatial_algorithm_hash_grid",
+          "ecs_spatial_candidate_rows",
+          "ecs_spatial_exact_rows",
+          "ecs_spatial_indexes_built",
+          "ecs_spatial_index_reuses",
+          "ecs_spatial_index_full_rebuilds",
+          "ecs_spatial_index_incremental_updates"
+        ],
+        "update_policy": "auto",
+        "work_units": 288
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "spatial-algorithms",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime",
+        "spatial-index"
+      ],
+      "case_id": "hilbert-rebuild-use-96x3",
+      "correctness_label": "hilbert-bruteforce-update-cache-digest",
+      "definition_digest": "sha256:e0c3be2275cdab44985dea81cc4ad6fc4de04108ebbea05080e250a5961a2735",
+      "metric_identity": {
+        "id": "spatial-row-frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_spatial_algorithm_hilbert_curve",
+        "ecs_spatial_candidate_rows",
+        "ecs_spatial_exact_rows",
+        "ecs_spatial_indexes_built",
+        "ecs_spatial_index_reuses",
+        "ecs_spatial_index_full_rebuilds",
+        "ecs_spatial_index_incremental_updates"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "spatial-hilbert",
+        "entity_count": 96,
+        "frames": 3,
+        "radius": "20.0",
+        "required_counters": [
+          "ecs_spatial_algorithm_hilbert_curve",
+          "ecs_spatial_candidate_rows",
+          "ecs_spatial_exact_rows",
+          "ecs_spatial_indexes_built",
+          "ecs_spatial_index_reuses",
+          "ecs_spatial_index_full_rebuilds",
+          "ecs_spatial_index_incremental_updates"
+        ],
+        "update_policy": "rebuild_each_use",
+        "work_units": 288
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "spatial-algorithms",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime",
+        "spatial-index"
+      ],
+      "case_id": "octree-incremental-96x3",
+      "correctness_label": "octree-bruteforce-update-cache-digest",
+      "definition_digest": "sha256:aeddf28ffe3812c730df44ab71d80fb219195f5bdef295528ee892ab1df3b88e",
+      "metric_identity": {
+        "id": "spatial-row-frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_spatial_algorithm_octree",
+        "ecs_spatial_candidate_rows",
+        "ecs_spatial_exact_rows",
+        "ecs_spatial_indexes_built",
+        "ecs_spatial_index_reuses",
+        "ecs_spatial_index_full_rebuilds",
+        "ecs_spatial_index_incremental_updates"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "spatial-octree",
+        "entity_count": 96,
+        "frames": 3,
+        "radius": "20.0",
+        "required_counters": [
+          "ecs_spatial_algorithm_octree",
+          "ecs_spatial_candidate_rows",
+          "ecs_spatial_exact_rows",
+          "ecs_spatial_indexes_built",
+          "ecs_spatial_index_reuses",
+          "ecs_spatial_index_full_rebuilds",
+          "ecs_spatial_index_incremental_updates"
+        ],
+        "update_policy": "incremental",
+        "work_units": 288
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "spatial-algorithms",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime",
+        "spatial-index"
+      ],
+      "case_id": "quadtree-rebuild-frame-96x3",
+      "correctness_label": "quadtree-bruteforce-update-cache-digest",
+      "definition_digest": "sha256:0458785ca747707ef4f632f834025879d577c32090588a2ca90fe5a60c57e852",
+      "metric_identity": {
+        "id": "spatial-row-frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_spatial_algorithm_quadtree",
+        "ecs_spatial_candidate_rows",
+        "ecs_spatial_exact_rows",
+        "ecs_spatial_indexes_built",
+        "ecs_spatial_index_reuses",
+        "ecs_spatial_index_full_rebuilds",
+        "ecs_spatial_index_incremental_updates"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "spatial-quadtree",
+        "entity_count": 96,
+        "frames": 3,
+        "radius": "20.0",
+        "required_counters": [
+          "ecs_spatial_algorithm_quadtree",
+          "ecs_spatial_candidate_rows",
+          "ecs_spatial_exact_rows",
+          "ecs_spatial_indexes_built",
+          "ecs_spatial_index_reuses",
+          "ecs_spatial_index_full_rebuilds",
+          "ecs_spatial_index_incremental_updates"
+        ],
+        "update_policy": "rebuild_each_frame",
+        "work_units": 288
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "spatial-algorithms",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "schema-storage-families",
+      "correctness_label": "idempotent-schema-storage-mapping-digest",
+      "definition_digest": "sha256:c9b67a71ccb1320ebb057225764f10a219df0b36d1f7ec1b11ada30331cb1146",
+      "metric_identity": {
+        "id": "schema-validation-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_component_schemas_total",
+        "ecs_rust_component_schemas_total"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "schema-storage",
+        "passes": 8,
+        "required_counters": [
+          "ecs_component_schemas_total",
+          "ecs_rust_component_schemas_total"
+        ],
+        "work_units": 32
+      },
+      "sampling_profile": "micro",
+      "workload_id": "storage-entity-archetype",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "spawn-mixed-archetypes-128",
+      "correctness_label": "spawn-values-tags-order-digest",
+      "definition_digest": "sha256:0c1db9ad0eb6dc6206bce886fd3397a2d9647d506474bbee3dbe961b1697e420",
+      "metric_identity": {
+        "id": "entity-operation-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_entities_alive",
+        "ecs_rust_entities_alive",
+        "ecs_rust_component_schemas_total"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "spawn-archetypes",
+        "entity_count": 128,
+        "required_counters": [
+          "ecs_entities_alive",
+          "ecs_rust_entities_alive",
+          "ecs_rust_component_schemas_total"
+        ],
+        "work_units": 128
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "storage-entity-archetype",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "ecs-runtime"
+      ],
+      "case_id": "structural-generation-churn-96x4",
+      "correctness_label": "structural-churn-values-generations-digest",
+      "definition_digest": "sha256:7ddba99b10430ff06baa6c5a1d5203831d7afe5be8832500d9099da04fd6027b",
+      "metric_identity": {
+        "id": "churn-row-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "ecs_entities_alive",
+        "ecs_structural_commands_applied",
+        "ecs_entity_generation_reuses"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "structural-churn",
+        "churn_count": 24,
+        "entity_count": 96,
+        "iterations": 4,
+        "required_counters": [
+          "ecs_entities_alive",
+          "ecs_structural_commands_applied",
+          "ecs_entity_generation_reuses"
+        ],
+        "work_units": 384
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "storage-entity-archetype",
+      "workload_version": 1
+    }
+  ],
+  "schema_version": 1
+}

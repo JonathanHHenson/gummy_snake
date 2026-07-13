@@ -366,10 +366,14 @@ Use these rules of thumb:
   `gummysnake.synth` physical-plan playback/export through the canvas extension.
   Its crate root exposes typed values, `SynthError`/`SynthResult`, plan rendering,
   and `SynthPlaybackPlan`; `types.rs`, `plans.rs`, `playback.rs`, synth/voice
-  modules, `samples.rs`, FX-family modules, `dsp.rs`, `output.rs`, and
-  concern-based `tests/` own the corresponding audio domains. Serialized plan
-  header/schema/compression and WAV output are compatibility contracts; this crate
-  has no Python or alternate-renderer fallback.
+  modules, `samples.rs`, FX-family modules, `dsp.rs`, `output.rs`, `executor.rs`,
+  and concern-based `tests/` own the corresponding audio domains. `executor.rs`
+  owns the single bounded persistent offline worker pool, stable indexed dry-event
+  regions, worker configuration, scratch limits, and synth execution diagnostics.
+  Serialized plan header/schema/compression and WAV output are compatibility
+  contracts; this crate has no Python or alternate-renderer fallback. The canvas
+  PyO3 adapter validates/copies Python inputs before releasing the GIL around
+  Rust-owned compile/render/decode/WAV work.
 - `crates/gummy_accel/`: optional acceleration extension.
 
 ## Naming And Layout Conventions

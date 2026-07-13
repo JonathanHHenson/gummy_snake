@@ -32,6 +32,13 @@ from gummysnake.synth.synth_runtime.composition.event_api import (
 )
 from gummysnake.synth.synth_runtime.composition.logical_nodes import NodeHandle, TrackPlan
 from gummysnake.synth.synth_runtime.composition.track_decorator import track
+from gummysnake.synth.synth_runtime.physical.execution import (
+    SynthRuntimeDiagnostics,
+    WorkerCount,
+    configure_workers,
+    reset_synth_diagnostics,
+    synth_diagnostics,
+)
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
 from gummysnake.synth.synth_runtime.playback_export.playback import TrackPlayback
 from gummysnake.synth.synth_runtime.playback_export.track import (
@@ -90,12 +97,14 @@ __all__ = [
     "Ring",
     "SynthDefinition",
     "SynthPlanError",
+    "SynthRuntimeDiagnostics",
     "SynthSignal",
     "Track",
     "TrackDefinition",
     "TrackInstance",
     "TrackPlan",
     "TrackPlayback",
+    "WorkerCount",
     "bools",
     "builtin_fx_names",
     "builtin_fx_path",
@@ -103,6 +112,7 @@ __all__ = [
     "builtin_synth_path",
     "chord",
     "choose",
+    "configure_workers",
     "control",
     "dice",
     "duration",
@@ -124,6 +134,7 @@ __all__ = [
     "rand",
     "rand_i",
     "range",
+    "reset_synth_diagnostics",
     "ring",
     "rrand",
     "rrand_i",
@@ -133,6 +144,7 @@ __all__ = [
     "sleep",
     "spread",
     "synth",
+    "synth_diagnostics",
     "synth_input",
     "synth_output",
     "thread",

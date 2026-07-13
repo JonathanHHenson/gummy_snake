@@ -7,7 +7,11 @@ pub(crate) fn apply_fx(
     opts: &OptMap,
     sample_rate: u32,
     start_time_seconds: f64,
-) -> (Vec<f64>, Vec<f64>) {
+) -> SynthResult<(Vec<f64>, Vec<f64>)> {
+    validate_sample_rate(sample_rate)?;
+    validate_fx_options(name, opts)?;
+    let mut item_count = 0;
+    validate_opt_map(opts, 0, &mut item_count, "synth FX opts")?;
     let key = name.trim_start_matches(':').to_ascii_lowercase();
     let primitive_key = key.strip_prefix('_').unwrap_or(key.as_str());
     let input_left = left;
@@ -20,8 +24,14 @@ pub(crate) fn apply_fx(
     let dry_right = scale_samples(&fx_in_right, pre_mix);
     let bypass_left = scale_samples(&fx_in_left, 1.0 - pre_mix);
     let bypass_right = scale_samples(&fx_in_right, 1.0 - pre_mix);
+    validate_fx_output_budget(
+        primitive_key,
+        dry_left.len().max(dry_right.len()),
+        opts,
+        sample_rate,
+    )?;
     let wet = match primitive_key {
-        "chain" => fx_chain(&dry_left, &dry_right, opts, sample_rate, start_time_seconds),
+        "chain" => fx_chain(&dry_left, &dry_right, opts, sample_rate, start_time_seconds)?,
         "bitcrusher" => fx_bitcrusher(&dry_left, &dry_right, opts, sample_rate),
         "krush" => fx_krush(&dry_left, &dry_right, opts, sample_rate),
         "reverb" => fx_reverb(&dry_left, &dry_right, opts, sample_rate),
@@ -122,165 +132,74 @@ pub(crate) fn apply_fx(
         "octaver" => fx_octaver(&dry_left, &dry_right, opts, sample_rate),
         "vowel" => fx_vowel(&dry_left, &dry_right, opts, sample_rate),
         "flanger" => fx_flanger(&dry_left, &dry_right, opts, sample_rate, start_time_seconds),
-        _ => return (input_left, input_right),
+        _ => {
+            return Err(SynthError::new(format!(
+                "unsupported synth FX name {name:?}; no dry-pass fallback is available."
+            )))
+        }
     };
+    if wet.0.len().max(wet.1.len()) > MAX_OUTPUT_FRAMES {
+        return Err(SynthError::new(format!(
+            "synth FX {name:?} output exceeds the synth output budget of {MAX_OUTPUT_FRAMES} frames."
+        )));
+    }
     let wet = add_signal_pair(&wet.0, &wet.1, &bypass_left, &bypass_right);
     let mix = float_opt(opts, "mix", default_fx_mix(primitive_key)).clamp(0.0, 1.0);
     let amp = float_opt(opts, "amp", 1.0).max(0.0);
-    blend_fx(&fx_in_left, &fx_in_right, &wet.0, &wet.1, mix, amp)
+    Ok(blend_fx(
+        &fx_in_left,
+        &fx_in_right,
+        &wet.0,
+        &wet.1,
+        mix,
+        amp,
+    ))
+}
+
+pub(crate) fn validate_fx_output_budget(
+    name: &str,
+    input_frames: usize,
+    opts: &OptMap,
+    sample_rate: u32,
+) -> SynthResult<()> {
+    if input_frames > MAX_OUTPUT_FRAMES {
+        return Err(SynthError::new(format!(
+            "synth FX {name:?} input exceeds the synth output budget of {MAX_OUTPUT_FRAMES} frames."
+        )));
+    }
+    let extra_seconds = match name {
+        "reverb" => float_opt(
+            opts,
+            "tail",
+            0.7 + float_opt(opts, "room", 0.6).clamp(0.0, 1.0) * 2.4,
+        )
+        .max(0.05),
+        "gverb" => float_opt(opts, "release", 3.0).max(0.05),
+        "echo" => {
+            let max_phase = float_opt(opts, "max_phase", 2.0).max(0.001);
+            let phase = float_opt(opts, "phase", 0.25).clamp(0.001, max_phase);
+            let decay = float_opt(opts, "decay", 2.0).max(0.0);
+            if decay <= 0.0 {
+                0.0
+            } else {
+                phase * (decay / phase).ceil().max(1.0)
+            }
+        }
+        _ => 0.0,
+    };
+    checked_extended_frame_count(
+        input_frames,
+        extra_seconds,
+        sample_rate,
+        &format!("synth FX {name:?} output"),
+    )?;
+    Ok(())
 }
 
 #[derive(Clone, Copy)]
 pub(crate) enum FilterKind {
     Low,
     High,
-}
-
-pub(crate) fn fx_chain(
-    left: &[f64],
-    right: &[f64],
-    opts: &OptMap,
-    sample_rate: u32,
-    start_time_seconds: f64,
-) -> (Vec<f64>, Vec<f64>) {
-    let Some(SynthValue::List(ops)) = opts.get("ops") else {
-        return (left.to_vec(), right.to_vec());
-    };
-    let mut current_left = left.to_vec();
-    let mut current_right = right.to_vec();
-    for op_value in ops {
-        let op_opts = fx_op_map(op_value);
-        let op_name = string_opt(&op_opts, "op", "level");
-        let mut merged = merge_chain_op_opts(opts, &op_opts);
-        if op_name == "reverb" {
-            if let Some(mix) = opts.get("mix") {
-                merged.insert("reverb_mix".to_owned(), mix.clone());
-            }
-        }
-        let next = fx_chain_op(
-            &op_name,
-            &current_left,
-            &current_right,
-            &merged,
-            sample_rate,
-            start_time_seconds,
-        );
-        current_left = next.0;
-        current_right = next.1;
-    }
-    (current_left, current_right)
-}
-
-pub(crate) fn fx_op_map(value: &SynthValue) -> OptMap {
-    match value {
-        SynthValue::Dict(map) => map.clone(),
-        SynthValue::List(values) => {
-            let mut map = OptMap::new();
-            if let Some(SynthValue::String(name)) = values.first() {
-                map.insert("op".to_owned(), SynthValue::String(name.clone()));
-            }
-            let mut index = 1;
-            while index + 1 < values.len() {
-                if let SynthValue::String(key) = &values[index] {
-                    map.insert(key.clone(), values[index + 1].clone());
-                }
-                index += 2;
-            }
-            map
-        }
-        _ => OptMap::new(),
-    }
-}
-
-pub(crate) fn merge_chain_op_opts(chain_opts: &OptMap, op_opts: &OptMap) -> OptMap {
-    let mut merged = op_opts.clone();
-    for (key, value) in chain_opts {
-        if key == "ops" || is_fx_wrapper_opt(key) {
-            continue;
-        }
-        merged.insert(key.clone(), value.clone());
-    }
-    merged
-}
-
-pub(crate) fn is_fx_wrapper_opt(key: &str) -> bool {
-    matches!(
-        key,
-        "amp"
-            | "amp_slide"
-            | "amp_slide_shape"
-            | "amp_slide_curve"
-            | "mix"
-            | "mix_slide"
-            | "mix_slide_shape"
-            | "mix_slide_curve"
-            | "pre_amp"
-            | "pre_amp_slide"
-            | "pre_amp_slide_shape"
-            | "pre_amp_slide_curve"
-            | "pre_mix"
-            | "pre_mix_slide"
-            | "pre_mix_slide_shape"
-            | "pre_mix_slide_curve"
-    )
-}
-
-pub(crate) fn fx_chain_op(
-    name: &str,
-    left: &[f64],
-    right: &[f64],
-    opts: &OptMap,
-    sample_rate: u32,
-    start_time_seconds: f64,
-) -> (Vec<f64>, Vec<f64>) {
-    match name {
-        "level" => (left.to_vec(), right.to_vec()),
-        "decimator" => fx_bitcrusher(left, right, opts, sample_rate),
-        "krush_shape" => fx_krush_shape(left, right, opts),
-        "distortion_shape" => fx_distortion(left, right, opts),
-        "tanh_shape" => fx_tanh(left, right, opts),
-        "filter" => {
-            let kind = match string_opt(opts, "kind", "low").as_str() {
-                "high" | "hpf" | "highpass" => FilterKind::High,
-                _ => FilterKind::Low,
-            };
-            fx_filter_pair(
-                left,
-                right,
-                opts,
-                sample_rate,
-                kind,
-                bool_opt(opts, "resonant", false),
-                bool_opt(opts, "normalise", false) || bool_opt(opts, "normalize", false),
-            )
-        }
-        "bandpass" => fx_bandpass_pair(
-            left,
-            right,
-            opts,
-            sample_rate,
-            bool_opt(opts, "resonant", false),
-            bool_opt(opts, "normalise", false) || bool_opt(opts, "normalize", false),
-        ),
-        "band_eq" => fx_band_eq(left, right, opts, sample_rate),
-        "normalise" | "normalize" => fx_normaliser(left, right, opts),
-        "pan" => fx_pan(left, right, opts),
-        "reverb" => fx_reverb(left, right, opts, sample_rate),
-        "gverb" => fx_gverb(left, right, opts, sample_rate),
-        "echo" => fx_echo(left, right, opts, sample_rate),
-        "slicer" => fx_slicer(left, right, opts, sample_rate, start_time_seconds),
-        "panslicer" => fx_panslicer(left, right, opts, sample_rate, start_time_seconds),
-        "wobble" => fx_wobble(left, right, opts, sample_rate, start_time_seconds),
-        "ixi_techno" => fx_ixi_techno(left, right, opts, sample_rate, start_time_seconds),
-        "compressor" => fx_compressor(left, right, opts, sample_rate),
-        "pitch_shift" => fx_pitch_shift(left, right, opts),
-        "whammy" => fx_whammy(left, right, opts),
-        "ring_mod" => fx_ring_mod(left, right, opts, sample_rate, start_time_seconds),
-        "octaver" => fx_octaver(left, right, opts, sample_rate),
-        "vowel" => fx_vowel(left, right, opts, sample_rate),
-        "flanger" => fx_flanger(left, right, opts, sample_rate, start_time_seconds),
-        _ => (left.to_vec(), right.to_vec()),
-    }
 }
 
 pub(crate) fn default_fx_mix(name: &str) -> f64 {

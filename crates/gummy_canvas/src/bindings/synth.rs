@@ -4,16 +4,25 @@
 //! This module preserves the established Python values, defaults, function names,
 //! and `ValueError` surface at the mandatory canvas extension boundary.
 
-use gummy_synth::{ControlPayload, EventPayload, FxPayload, OptMap, SynthResult, SynthValue};
+use gummy_synth::{
+    ControlPayload, EventPayload, FxPayload, GilReleasedOperation, OptMap, SynthResult, SynthValue,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyModule, PyTuple};
+use pyo3::types::{PyAny, PyBool, PyBytes, PyDict, PyList, PyModule, PyTuple};
+use std::fs;
+use std::path::PathBuf;
 
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(synth_render_event_wav, m)?)?;
     m.add_function(wrap_pyfunction!(synth_render_plan_wav, m)?)?;
     m.add_function(wrap_pyfunction!(synth_render_serialized_plan_wav, m)?)?;
+    m.add_function(wrap_pyfunction!(synth_render_serialized_plan_wav_file, m)?)?;
+    m.add_function(wrap_pyfunction!(synth_write_wav_file, m)?)?;
     m.add_function(wrap_pyfunction!(synth_sample_duration, m)?)?;
+    m.add_function(wrap_pyfunction!(synth_set_worker_count, m)?)?;
+    m.add_function(wrap_pyfunction!(synth_diagnostics, m)?)?;
+    m.add_function(wrap_pyfunction!(synth_reset_diagnostics, m)?)?;
     Ok(())
 }
 
@@ -24,7 +33,10 @@ fn synth_render_event_wav<'py>(
     sample_rate: u32,
 ) -> PyResult<Bound<'py, PyBytes>> {
     let event = parse_event(event)?;
-    let payload = synth_value_result(gummy_synth::render_event_wav(&event, sample_rate))?;
+    gummy_synth::record_gil_released_call(GilReleasedOperation::Render);
+    let payload = py
+        .allow_threads(move || gummy_synth::render_event_wav(&event, sample_rate))
+        .map_err(synth_error)?;
     Ok(PyBytes::new_bound(py, &payload))
 }
 
@@ -40,11 +52,12 @@ fn synth_render_plan_wav<'py>(
         let dict = event.downcast::<PyDict>()?;
         parsed_events.push(parse_event(dict)?);
     }
-    let payload = synth_value_result(gummy_synth::render_plan_events(
-        parsed_events,
-        duration_seconds,
-        sample_rate,
-    ))?;
+    gummy_synth::record_gil_released_call(GilReleasedOperation::Render);
+    let payload = py
+        .allow_threads(move || {
+            gummy_synth::render_plan_events(parsed_events, duration_seconds, sample_rate)
+        })
+        .map_err(synth_error)?;
     Ok(PyBytes::new_bound(py, &payload))
 }
 
@@ -54,26 +67,173 @@ fn synth_render_serialized_plan_wav<'py>(
     payload: &Bound<'_, PyBytes>,
     sample_rate: u32,
 ) -> PyResult<Bound<'py, PyBytes>> {
-    let payload = synth_value_result(gummy_synth::render_serialized_plan_wav_bytes(
-        payload.as_bytes(),
-        sample_rate,
-    ))?;
+    let payload = payload.as_bytes().to_vec();
+    gummy_synth::record_gil_released_call(GilReleasedOperation::CompileAndRender);
+    let payload = py
+        .allow_threads(move || gummy_synth::render_serialized_plan_wav_bytes(&payload, sample_rate))
+        .map_err(synth_error)?;
     Ok(PyBytes::new_bound(py, &payload))
 }
 
 #[pyfunction]
-fn synth_sample_duration(value: &Bound<'_, PyAny>) -> PyResult<f64> {
+fn synth_render_serialized_plan_wav_file<'py>(
+    py: Python<'py>,
+    payload: &Bound<'_, PyBytes>,
+    sample_rate: u32,
+    path: String,
+) -> PyResult<Bound<'py, PyBytes>> {
+    let payload = payload.as_bytes().to_vec();
+    let path = PathBuf::from(path);
+    gummy_synth::record_gil_released_call(GilReleasedOperation::CompileRenderAndWriteWav);
+    let payload = py
+        .allow_threads(move || {
+            gummy_synth::render_serialized_plan_wav_file(&payload, sample_rate, &path)
+        })
+        .map_err(synth_error)?;
+    Ok(PyBytes::new_bound(py, &payload))
+}
+
+#[pyfunction]
+fn synth_write_wav_file(
+    py: Python<'_>,
+    payload: &Bound<'_, PyBytes>,
+    path: String,
+) -> PyResult<()> {
+    let payload = payload.as_bytes().to_vec();
+    let path = PathBuf::from(path);
+    let display_path = path.display().to_string();
+    gummy_synth::record_gil_released_call(GilReleasedOperation::WriteWav);
+    py.allow_threads(move || fs::write(&path, payload))
+        .map_err(|error| {
+            PyValueError::new_err(format!(
+                "could not write rendered synth WAV {display_path}: {error}"
+            ))
+        })
+}
+
+#[pyfunction]
+fn synth_sample_duration(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<f64> {
     let value = parse_py_value(value)?;
-    synth_value_result(gummy_synth::sample_duration(&value))
+    gummy_synth::record_gil_released_call(GilReleasedOperation::Decode);
+    py.allow_threads(move || gummy_synth::sample_duration(&value))
+        .map_err(synth_error)
+}
+
+#[pyfunction]
+fn synth_set_worker_count(value: &Bound<'_, PyAny>) -> PyResult<usize> {
+    let worker_count = if value.is_instance_of::<PyBool>() {
+        return Err(PyValueError::new_err(
+            "synth worker count must be one of 1, 2, 4, 8, or 'auto'.",
+        ));
+    } else if let Ok(value) = value.extract::<String>() {
+        if value != "auto" {
+            return Err(PyValueError::new_err(
+                "synth worker count must be one of 1, 2, 4, 8, or 'auto'.",
+            ));
+        }
+        None
+    } else if let Ok(value) = value.extract::<usize>() {
+        Some(value)
+    } else {
+        return Err(PyValueError::new_err(
+            "synth worker count must be one of 1, 2, 4, 8, or 'auto'.",
+        ));
+    };
+    synth_value_result(gummy_synth::set_worker_count(worker_count))
+}
+
+#[pyfunction]
+fn synth_diagnostics<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+    let diagnostics = gummy_synth::diagnostics();
+    let payload = PyDict::new_bound(py);
+    payload.set_item(
+        "configured_worker_count",
+        diagnostics.configured_worker_count,
+    )?;
+    payload.set_item(
+        "worker_mode",
+        if diagnostics.configured_worker_count.is_some() {
+            "explicit"
+        } else {
+            "auto"
+        },
+    )?;
+    payload.set_item("worker_count", diagnostics.worker_count)?;
+    payload.set_item("worker_pool_capacity", diagnostics.worker_pool_capacity)?;
+    payload.set_item(
+        "worker_pool_initializations",
+        diagnostics.worker_pool_initializations,
+    )?;
+    payload.set_item("gil_released_calls", diagnostics.gil_released_calls)?;
+    payload.set_item(
+        "gil_released_render_calls",
+        diagnostics.gil_released_render_calls,
+    )?;
+    payload.set_item(
+        "gil_released_compile_calls",
+        diagnostics.gil_released_compile_calls,
+    )?;
+    payload.set_item(
+        "gil_released_decode_calls",
+        diagnostics.gil_released_decode_calls,
+    )?;
+    payload.set_item(
+        "gil_released_wav_write_calls",
+        diagnostics.gil_released_wav_write_calls,
+    )?;
+    payload.set_item("parallel_regions", diagnostics.parallel_regions)?;
+    payload.set_item("parallel_tasks", diagnostics.parallel_tasks)?;
+    payload.set_item("parallel_events", diagnostics.parallel_events)?;
+    payload.set_item("serial_events", diagnostics.serial_events)?;
+    payload.set_item(
+        "parallel_scratch_peak_bytes",
+        diagnostics.parallel_scratch_peak_bytes,
+    )?;
+    payload.set_item(
+        "parallel_scratch_limit_bytes",
+        diagnostics.parallel_scratch_limit_bytes,
+    )?;
+    payload.set_item(
+        "parallel_min_scratch_bytes",
+        diagnostics.parallel_min_scratch_bytes,
+    )?;
+    Ok(payload)
+}
+
+#[pyfunction]
+fn synth_reset_diagnostics() {
+    gummy_synth::reset_diagnostics();
+}
+
+fn synth_error(error: gummy_synth::SynthError) -> PyErr {
+    PyValueError::new_err(error.message().to_owned())
 }
 
 fn synth_value_result<T>(result: SynthResult<T>) -> PyResult<T> {
-    result.map_err(|error| PyValueError::new_err(error.message().to_owned()))
+    result.map_err(synth_error)
 }
 
 fn parse_event(dict: &Bound<'_, PyDict>) -> PyResult<EventPayload> {
+    validate_dict_keys(
+        dict,
+        &[
+            "node_id",
+            "seed",
+            "order",
+            "kind",
+            "time_seconds",
+            "value",
+            "opts",
+            "synth_name",
+            "synth_opts",
+            "fx_chain",
+            "controls",
+        ],
+        "synth event payload",
+    )?;
     Ok(EventPayload {
         node_id: get_u64(dict, "node_id", 0)?,
+        seed: get_u64(dict, "seed", 0)?,
         order: get_u64(dict, "order", 0)?,
         kind: get_string(dict, "kind", "play")?,
         time_seconds: get_f64(dict, "time_seconds", 0.0)?,
@@ -99,8 +259,6 @@ fn get_u64(dict: &Bound<'_, PyDict>, key: &str, default: u64) -> PyResult<u64> {
         Some(value) => {
             if let Ok(value) = value.extract::<u64>() {
                 Ok(value)
-            } else if let Ok(value) = value.extract::<i64>() {
-                Ok(value.max(0) as u64)
             } else {
                 Err(PyValueError::new_err(format!(
                     "synth event key {key:?} must be an integer."
@@ -113,9 +271,17 @@ fn get_u64(dict: &Bound<'_, PyDict>, key: &str, default: u64) -> PyResult<u64> {
 
 fn get_f64(dict: &Bound<'_, PyDict>, key: &str, default: f64) -> PyResult<f64> {
     match dict.get_item(key)? {
-        Some(value) => value.extract::<f64>().map_err(|_| {
-            PyValueError::new_err(format!("synth event key {key:?} must be numeric."))
-        }),
+        Some(value) => {
+            let value = value.extract::<f64>().map_err(|_| {
+                PyValueError::new_err(format!("synth event key {key:?} must be numeric."))
+            })?;
+            if !value.is_finite() {
+                return Err(PyValueError::new_err(format!(
+                    "synth event key {key:?} must be finite."
+                )));
+            }
+            Ok(value)
+        }
         None => Ok(default),
     }
 }
@@ -144,6 +310,7 @@ fn get_fx_chain(dict: &Bound<'_, PyDict>) -> PyResult<Vec<FxPayload>> {
     let mut output = Vec::with_capacity(list.len());
     for item in list.iter() {
         let item = item.downcast::<PyDict>()?;
+        validate_dict_keys(item, &["id", "name", "opts"], "synth FX handle")?;
         output.push(FxPayload {
             id: get_u64(item, "id", 0)?,
             name: get_string(item, "name", "")?,
@@ -161,6 +328,7 @@ fn get_controls(dict: &Bound<'_, PyDict>) -> PyResult<Vec<ControlPayload>> {
     let mut output = Vec::with_capacity(list.len());
     for item in list.iter() {
         let item = item.downcast::<PyDict>()?;
+        validate_dict_keys(item, &["time_seconds", "opts"], "synth control payload")?;
         output.push(ControlPayload {
             time_seconds: get_f64(item, "time_seconds", 0.0)?,
             opts: get_opt_map(item, "opts")?,
@@ -171,14 +339,49 @@ fn get_controls(dict: &Bound<'_, PyDict>) -> PyResult<Vec<ControlPayload>> {
 }
 
 fn parse_opt_map(dict: &Bound<'_, PyDict>) -> PyResult<OptMap> {
+    let mut item_count = 0usize;
     let mut output = OptMap::with_capacity(dict.len());
     for (key, value) in dict.iter() {
-        output.insert(key.extract::<String>()?, parse_py_value(&value)?);
+        let key = key.extract::<String>().map_err(|_| {
+            PyValueError::new_err(
+                "synth option mapping keys must be strings; keys are not coerced.",
+            )
+        })?;
+        if key.is_empty() {
+            return Err(PyValueError::new_err(
+                "synth option mapping keys cannot be empty.",
+            ));
+        }
+        output.insert(key, parse_py_value_at_depth(&value, 0, &mut item_count)?);
     }
     Ok(output)
 }
 
 fn parse_py_value(value: &Bound<'_, PyAny>) -> PyResult<SynthValue> {
+    let mut item_count = 0usize;
+    parse_py_value_at_depth(value, 0, &mut item_count)
+}
+
+fn parse_py_value_at_depth(
+    value: &Bound<'_, PyAny>,
+    depth: usize,
+    item_count: &mut usize,
+) -> PyResult<SynthValue> {
+    const MAX_VALUE_DEPTH: usize = 64;
+    const MAX_VALUE_ITEMS: usize = 1_000_000;
+    if depth > MAX_VALUE_DEPTH {
+        return Err(PyValueError::new_err(format!(
+            "synth payload nesting exceeds the limit of {MAX_VALUE_DEPTH}."
+        )));
+    }
+    *item_count = item_count.checked_add(1).ok_or_else(|| {
+        PyValueError::new_err("synth payload item count overflowed the validation budget.")
+    })?;
+    if *item_count > MAX_VALUE_ITEMS {
+        return Err(PyValueError::new_err(format!(
+            "synth payload item count exceeds the limit of {MAX_VALUE_ITEMS}."
+        )));
+    }
     if value.is_none() {
         return Ok(SynthValue::None);
     }
@@ -186,29 +389,74 @@ fn parse_py_value(value: &Bound<'_, PyAny>) -> PyResult<SynthValue> {
         return Ok(SynthValue::Bool(value));
     }
     if let Ok(value) = value.extract::<f64>() {
+        if !value.is_finite() {
+            return Err(PyValueError::new_err(
+                "synth payload numeric values must be finite.",
+            ));
+        }
         return Ok(SynthValue::Float(value));
     }
     if let Ok(value) = value.extract::<String>() {
         return Ok(SynthValue::String(value));
     }
     if let Ok(list) = value.downcast::<PyList>() {
-        return parse_sequence(list.iter());
+        return parse_sequence(list.iter(), depth + 1, item_count);
     }
     if let Ok(tuple) = value.downcast::<PyTuple>() {
-        return parse_sequence(tuple.iter());
+        return parse_sequence(tuple.iter(), depth + 1, item_count);
     }
     if let Ok(dict) = value.downcast::<PyDict>() {
-        return Ok(SynthValue::Dict(parse_opt_map(dict)?));
+        let mut output = OptMap::with_capacity(dict.len());
+        for (key, value) in dict.iter() {
+            let key = key.extract::<String>().map_err(|_| {
+                PyValueError::new_err(
+                    "synth payload mapping keys must be strings; keys are not coerced.",
+                )
+            })?;
+            if key.is_empty() {
+                return Err(PyValueError::new_err(
+                    "synth payload mapping keys cannot be empty.",
+                ));
+            }
+            output.insert(key, parse_py_value_at_depth(&value, depth + 1, item_count)?);
+        }
+        return Ok(SynthValue::Dict(output));
     }
     Err(PyValueError::new_err(
-        "synth payload values must be None, bool, number, string, list, or tuple.",
+        "synth payload values must be None, bool, finite number, string, list, tuple, or string-keyed mapping.",
     ))
 }
 
-fn parse_sequence<'py>(items: impl Iterator<Item = Bound<'py, PyAny>>) -> PyResult<SynthValue> {
+fn parse_sequence<'py>(
+    items: impl Iterator<Item = Bound<'py, PyAny>>,
+    depth: usize,
+    item_count: &mut usize,
+) -> PyResult<SynthValue> {
     let mut output = Vec::new();
     for item in items {
-        output.push(parse_py_value(&item)?);
+        output.push(parse_py_value_at_depth(&item, depth, item_count)?);
     }
     Ok(SynthValue::List(output))
+}
+
+fn validate_dict_keys(dict: &Bound<'_, PyDict>, allowed: &[&str], label: &str) -> PyResult<()> {
+    let mut unexpected = Vec::new();
+    for (key, _) in dict.iter() {
+        let key = key.extract::<String>().map_err(|_| {
+            PyValueError::new_err(format!(
+                "{label} keys must be strings; keys are not coerced."
+            ))
+        })?;
+        if !allowed.contains(&key.as_str()) {
+            unexpected.push(key);
+        }
+    }
+    unexpected.sort();
+    if unexpected.is_empty() {
+        return Ok(());
+    }
+    Err(PyValueError::new_err(format!(
+        "{label} contains unsupported key(s): {}.",
+        unexpected.join(", ")
+    )))
 }

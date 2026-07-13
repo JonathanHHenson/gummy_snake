@@ -187,7 +187,13 @@ impl<'a> PlanExecutor<'a> {
         targets_seen: &mut HashSet<WriteKey>,
     ) -> Result<()> {
         self.merge_parallel_counters(&child_report);
-        self.report.events.extend(child_report.events);
+        for event in child_report.events {
+            self.world
+                .emit_event(&event.event_type, event.payload.clone())?;
+            if self.report_writes {
+                self.report.events.push(event);
+            }
+        }
         self.report
             .canvas_commands
             .extend(child_report.canvas_commands);

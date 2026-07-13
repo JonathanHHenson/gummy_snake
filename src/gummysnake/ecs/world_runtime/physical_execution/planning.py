@@ -192,10 +192,14 @@ def _prepare_physical_batch(
 def _refresh_scheduled_batch_plan(
     world: EcsWorld, scheduled: _ScheduledSystem, schema_fingerprint: int
 ) -> bool:
+    if scheduled.physical_payload_dynamic:
+        return True
     built = require_plan_built(scheduled)
     if _needs_physical_recompile(scheduled, schema_fingerprint):
         set_physical_payload(scheduled, build_and_compile_payload(world, scheduled, built))
-    return scheduled.physical_has_input_state or scheduled.physical_payload_dynamic
+    else:
+        world._diagnostics["ecs_steady_physical_plan_reuses"] += 1
+    return scheduled.physical_has_input_state
 
 
 def _needs_physical_recompile(scheduled: _ScheduledSystem, schema_fingerprint: int) -> bool:
@@ -276,7 +280,11 @@ def run_physical_system(
                 or scheduled.physical_payload_dynamic
             )
             if needs_recompile:
+                if scheduled.physical_payload_dynamic:
+                    world._diagnostics["ecs_dynamic_change_plan_recompiles"] += 1
                 set_physical_payload(scheduled, build_and_compile_payload(world, scheduled, built))
+            else:
+                world._diagnostics["ecs_steady_physical_plan_reuses"] += 1
             execution_payload = scheduled.physical_payload
             if scheduled.physical_plan_handle is None:
                 raise SystemPlanError(

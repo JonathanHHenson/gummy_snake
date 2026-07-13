@@ -9,6 +9,7 @@ fn playback_plan_window_matches_full_render_window_for_simple_synth() {
     let plan = SynthPlaybackPlan {
         events: vec![EventPayload {
             node_id: 90,
+            seed: 0,
             order: 0,
             kind: "play".to_owned(),
             time_seconds: 0.0,

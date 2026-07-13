@@ -122,13 +122,15 @@ def _set_template_path(root: object, path: Sequence[object], value: object) -> N
 _CURRENT_BUILDER: ContextVar[PlanBuilder | None] = ContextVar(
     "gummysnake_synth_builder", default=None
 )
+# Kept only because the asset compiler's scoped reset still references this marker.
+# Identity allocation no longer reads or mutates it.
 _NODE_COUNTER = 0
 
 
 def _next_node_id() -> int:
-    global _NODE_COUNTER
-    _NODE_COUNTER += 1
-    return _NODE_COUNTER
+    """Allocate an identity from the active plan's local deterministic sequence."""
+
+    return _current_builder().next_node_id()
 
 
 def _current_builder() -> PlanBuilder:

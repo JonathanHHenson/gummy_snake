@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import copy
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.runtime_views import Entity
-from gummysnake.ecs.schema_helpers import _event_payload_from_bridge
 from gummysnake.ecs.world_helpers import _current_delta_time, _current_key_down
 from gummysnake.exceptions import SystemExecutionError
 
@@ -250,7 +248,7 @@ def refresh_rust_input_states(world: EcsWorld, payload: dict[str, Any] | None) -
 
 
 def apply_physical_report(world: EcsWorld, report: dict[str, Any]) -> None:
-    """Apply component/resource/event mutations reported by Rust physical execution."""
+    """Apply component/resource invalidations reported by Rust physical execution."""
     previous_defer_spatial = world._defer_spatial_invalidation
     previous_spatial_invalidated = world._spatial_invalidated_deferred
     world._defer_spatial_invalidation = True
@@ -260,12 +258,7 @@ def apply_physical_report(world: EcsWorld, report: dict[str, Any]) -> None:
             component_type = world._component_type_for_schema(str(write["component"]))
             entity = Entity(int(write["index"]), int(write["generation"]), world._world_id)
             world._mark_component_changed(entity, component_type)
-        for event in report.get("events", ()):
-            event_type = world._component_type_for_schema(str(event["event_type"]))
-            payload = _event_payload_from_bridge(event_type, event["payload"])
-            world._events.setdefault(event_type, []).append(
-                (world._ecs_frame, copy.deepcopy(payload))
-            )
+
         for write in report.get("resource_writes", ()):
             world._component_type_for_schema(str(write["resource"]))
             world._note_resource_update()

@@ -13,8 +13,24 @@ _PERFORMANCE_COUNTER_KEYS = (
     "pixel_uploads",
     "image_cache_hits",
     "image_cache_misses",
+    "image_source_clones_avoided",
+    "image_source_clone_bytes_avoided",
+    "image_cache_resident_bytes",
+    "image_cache_peak_bytes",
+    "image_cache_evictions",
+    "image_cache_evicted_bytes",
     "texture_cache_hits",
     "texture_uploads",
+    "texture_upload_bytes",
+    "texture_dirty_uploads",
+    "texture_resident_bytes",
+    "texture_peak_bytes",
+    "texture_cache_evictions",
+    "texture_destructions",
+    "image_atlas_resident_bytes",
+    "image_atlas_peak_bytes",
+    "image_atlas_evictions",
+    "image_atlas_destructions",
     "text_cache_hits",
     "text_cache_misses",
     "text_cache_evictions",
@@ -41,6 +57,8 @@ _PERFORMANCE_COUNTER_KEYS = (
     "model_batch_flushes",
     "model_batch_max_records",
     "model_batch_fallbacks",
+    "packed_primitive_records",
+    "packed_primitive_bytes",
 )
 NativePerformanceCounterValue = int | float
 PerformanceCounterValue = int | float | dict[str, NativePerformanceCounterValue]
@@ -61,11 +79,40 @@ class CanvasRendererCounterMixin:
         if callable(callback):
             native = callback()
             if isinstance(native, dict):
-                counters["native"] = {
+                native_counters = {
                     str(key): value
                     for key, value in native.items()
                     if isinstance(value, int | float)
                 }
+                counters["native"] = native_counters
+                promoted_native_keys = (
+                    "packed_primitive_records",
+                    "packed_primitive_bytes",
+                    "image_cache_hits",
+                    "image_cache_misses",
+                    "image_source_clones_avoided",
+                    "image_source_clone_bytes_avoided",
+                    "image_cache_resident_bytes",
+                    "image_cache_peak_bytes",
+                    "image_cache_evictions",
+                    "image_cache_evicted_bytes",
+                    "texture_cache_hits",
+                    "texture_uploads",
+                    "texture_upload_bytes",
+                    "texture_dirty_uploads",
+                    "texture_resident_bytes",
+                    "texture_peak_bytes",
+                    "texture_cache_evictions",
+                    "texture_destructions",
+                    "image_atlas_resident_bytes",
+                    "image_atlas_peak_bytes",
+                    "image_atlas_evictions",
+                    "image_atlas_destructions",
+                )
+                for key in promoted_native_keys:
+                    value = native_counters.get(key)
+                    if isinstance(value, int | float):
+                        counters[key] = value
         return counters
 
     def reset_performance_counters(self) -> None:

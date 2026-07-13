@@ -183,48 +183,54 @@ impl Canvas {
         let _ = py;
         self.line_current_impl(x1, y1, x2, y2)
     }
-    pub(crate) fn batch_lines(
+
+    pub(crate) fn batch_lines_packed(
         &mut self,
-        lines: Vec<(f64, f64, f64, f64)>,
+        lines: &Bound<'_, PyBytes>,
         style: &Bound<'_, PyAny>,
         matrix: Matrix,
     ) -> PyResult<()> {
-        self.batch_lines_impl(lines, style, matrix)
+        self.ingest_packed_lines(lines.as_bytes(), style, matrix)
     }
-    pub(crate) fn batch_lines_current(
+
+    pub(crate) fn batch_lines_current_packed(
         &mut self,
-        py: Python<'_>,
-        lines: Vec<(f64, f64, f64, f64)>,
+        lines: &Bound<'_, PyBytes>,
     ) -> PyResult<()> {
-        let _ = py;
-        self.batch_lines_current_impl(lines)
+        self.ingest_packed_current_lines(lines.as_bytes())
     }
-    pub(crate) fn batch_primitives(
+
+    pub(crate) fn batch_primitives_packed(
         &mut self,
-        records: Vec<(u8, f64, f64, f64, f64, f64, f64)>,
+        records: &Bound<'_, PyBytes>,
         style: &Bound<'_, PyAny>,
         matrix: Matrix,
     ) -> PyResult<()> {
-        self.batch_primitives_impl(records, style, matrix)
+        self.ingest_packed_primitives(records.as_bytes(), style, matrix)
     }
-    pub(crate) fn batch_primitives_current(
+
+    pub(crate) fn batch_primitives_current_packed(
         &mut self,
-        py: Python<'_>,
-        records: Vec<(u8, f64, f64, f64, f64, f64, f64)>,
+        records: &Bound<'_, PyBytes>,
     ) -> PyResult<()> {
-        let _ = py;
-        self.batch_primitives_current_impl(records)
+        self.ingest_packed_current_primitives(records.as_bytes())
     }
-    pub(crate) fn batch_primitives_mixed(&mut self, records: &Bound<'_, PyAny>) -> PyResult<()> {
-        self.batch_primitives_mixed_impl(records)
-    }
-    #[allow(clippy::type_complexity)]
-    pub(crate) fn batch_fill_primitives(
+
+    pub(crate) fn batch_primitives_mixed_packed(
         &mut self,
-        records: Vec<(u8, f64, f64, f64, f64, f64, f64, u8, u8, u8, u8)>,
+        records: &Bound<'_, PyBytes>,
+        styles: &Bound<'_, PyList>,
+        matrices: &Bound<'_, PyList>,
+    ) -> PyResult<()> {
+        self.ingest_packed_mixed_primitives(records.as_bytes(), styles, matrices)
+    }
+
+    pub(crate) fn batch_fill_primitives_packed(
+        &mut self,
+        records: &Bound<'_, PyBytes>,
         matrix: Matrix,
     ) -> PyResult<()> {
-        self.batch_fill_primitives_impl(records, matrix)
+        self.ingest_packed_fill_primitives(records.as_bytes(), matrix)
     }
     pub(crate) fn replay_fill_primitive_batch(&mut self) -> PyResult<bool> {
         self.replay_fill_primitive_batch_impl()

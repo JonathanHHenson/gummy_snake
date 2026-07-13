@@ -4,24 +4,25 @@ use crate::gpu::types::*;
 impl GpuRenderer {
     pub(super) fn stage_image_vertices(
         &mut self,
+        commands: &[DrawCommand],
         last_clear_index: Option<usize>,
         render_offsets: &mut RenderBufferOffsets,
     ) -> (Vec<Option<(usize, usize)>>, Vec<ImageVertex>) {
-        let has_image_commands = self.commands.iter().any(|command| {
+        let has_image_commands = commands.iter().any(|command| {
             matches!(
                 command,
                 DrawCommand::Image { .. } | DrawCommand::ImageBatch { .. }
             )
         });
         let mut image_offsets = if has_image_commands {
-            vec![None; self.commands.len()]
+            vec![None; commands.len()]
         } else {
             Vec::new()
         };
         let mut image_staging = std::mem::take(&mut self.image_staging);
         image_staging.clear();
         if has_image_commands {
-            for (command_index, command) in self.commands.iter().enumerate() {
+            for (command_index, command) in commands.iter().enumerate() {
                 if last_clear_index.is_some_and(|index| command_index <= index) {
                     continue;
                 }
@@ -71,11 +72,12 @@ impl GpuRenderer {
 
     pub(super) fn stage_model_uniforms(
         &mut self,
+        commands: &[DrawCommand],
         last_clear_index: Option<usize>,
         render_offsets: &mut RenderBufferOffsets,
     ) -> Vec<Option<u32>> {
         let mut model_uniforms = Vec::new();
-        let mut model_uniform_indices = if self.commands.iter().any(|command| {
+        let mut model_uniform_indices = if commands.iter().any(|command| {
             matches!(
                 command,
                 DrawCommand::Model { .. }
@@ -84,11 +86,11 @@ impl GpuRenderer {
                     | DrawCommand::TexturedModel { .. }
             )
         }) {
-            vec![None; self.commands.len()]
+            vec![None; commands.len()]
         } else {
             Vec::new()
         };
-        for (command_index, command) in self.commands.iter().enumerate() {
+        for (command_index, command) in commands.iter().enumerate() {
             if last_clear_index.is_some_and(|index| command_index <= index) {
                 continue;
             }

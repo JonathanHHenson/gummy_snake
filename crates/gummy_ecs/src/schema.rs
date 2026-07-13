@@ -4,6 +4,96 @@ use std::hash::{Hash, Hasher};
 use crate::error::{EcsError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ListElementType {
+    Bool,
+    Int8,
+    UInt8,
+    Int16,
+    UInt16,
+    Int32,
+    UInt32,
+    Int64,
+    UInt64,
+    Float32,
+    Float64,
+    String,
+    CategoricalString,
+    Vec2F32,
+    Vec2F64,
+    Vec3F32,
+    Vec3F64,
+}
+
+impl ListElementType {
+    fn parse(name: &str) -> Result<Self> {
+        match name {
+            "Bool" => Ok(Self::Bool),
+            "Int8" => Ok(Self::Int8),
+            "UInt8" => Ok(Self::UInt8),
+            "Int16" => Ok(Self::Int16),
+            "UInt16" => Ok(Self::UInt16),
+            "Int32" => Ok(Self::Int32),
+            "UInt32" => Ok(Self::UInt32),
+            "Int64" => Ok(Self::Int64),
+            "UInt64" => Ok(Self::UInt64),
+            "Float32" => Ok(Self::Float32),
+            "Float64" => Ok(Self::Float64),
+            "String" => Ok(Self::String),
+            "CategoricalString" => Ok(Self::CategoricalString),
+            "Vec2F32" => Ok(Self::Vec2F32),
+            "Vec2F64" => Ok(Self::Vec2F64),
+            "Vec3F32" => Ok(Self::Vec3F32),
+            "Vec3F64" => Ok(Self::Vec3F64),
+            other => Err(EcsError::UnknownStorageType(format!("List[{other}]"))),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Bool => "Bool",
+            Self::Int8 => "Int8",
+            Self::UInt8 => "UInt8",
+            Self::Int16 => "Int16",
+            Self::UInt16 => "UInt16",
+            Self::Int32 => "Int32",
+            Self::UInt32 => "UInt32",
+            Self::Int64 => "Int64",
+            Self::UInt64 => "UInt64",
+            Self::Float32 => "Float32",
+            Self::Float64 => "Float64",
+            Self::String => "String",
+            Self::CategoricalString => "CategoricalString",
+            Self::Vec2F32 => "Vec2F32",
+            Self::Vec2F64 => "Vec2F64",
+            Self::Vec3F32 => "Vec3F32",
+            Self::Vec3F64 => "Vec3F64",
+        }
+    }
+
+    pub fn storage_type(self) -> StorageType {
+        match self {
+            Self::Bool => StorageType::Bool,
+            Self::Int8 => StorageType::Int8,
+            Self::UInt8 => StorageType::UInt8,
+            Self::Int16 => StorageType::Int16,
+            Self::UInt16 => StorageType::UInt16,
+            Self::Int32 => StorageType::Int32,
+            Self::UInt32 => StorageType::UInt32,
+            Self::Int64 => StorageType::Int64,
+            Self::UInt64 => StorageType::UInt64,
+            Self::Float32 => StorageType::Float32,
+            Self::Float64 => StorageType::Float64,
+            Self::String => StorageType::String,
+            Self::CategoricalString => StorageType::CategoricalString,
+            Self::Vec2F32 => StorageType::Vec2F32,
+            Self::Vec2F64 => StorageType::Vec2F64,
+            Self::Vec3F32 => StorageType::Vec3F32,
+            Self::Vec3F64 => StorageType::Vec3F64,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum StorageType {
     Bool,
     Int8,
@@ -22,7 +112,7 @@ pub enum StorageType {
     Vec2F64,
     Vec3F32,
     Vec3F64,
-    List,
+    List(ListElementType),
 }
 
 impl StorageType {
@@ -45,7 +135,10 @@ impl StorageType {
             "Vec2F64" => Ok(Self::Vec2F64),
             "Vec3F32" => Ok(Self::Vec3F32),
             "Vec3F64" => Ok(Self::Vec3F64),
-            name if name.starts_with("List[") && name.ends_with(']') => Ok(Self::List),
+            name if name.starts_with("List[") && name.ends_with(']') => {
+                let element = &name[5..name.len() - 1];
+                Ok(Self::List(ListElementType::parse(element)?))
+            }
             other => Err(EcsError::UnknownStorageType(other.to_string())),
         }
     }
@@ -69,7 +162,30 @@ impl StorageType {
             Self::Vec2F64 => "Vec2F64",
             Self::Vec3F32 => "Vec3F32",
             Self::Vec3F64 => "Vec3F64",
-            Self::List => "List",
+            Self::List(ListElementType::Bool) => "List[Bool]",
+            Self::List(ListElementType::Int8) => "List[Int8]",
+            Self::List(ListElementType::UInt8) => "List[UInt8]",
+            Self::List(ListElementType::Int16) => "List[Int16]",
+            Self::List(ListElementType::UInt16) => "List[UInt16]",
+            Self::List(ListElementType::Int32) => "List[Int32]",
+            Self::List(ListElementType::UInt32) => "List[UInt32]",
+            Self::List(ListElementType::Int64) => "List[Int64]",
+            Self::List(ListElementType::UInt64) => "List[UInt64]",
+            Self::List(ListElementType::Float32) => "List[Float32]",
+            Self::List(ListElementType::Float64) => "List[Float64]",
+            Self::List(ListElementType::String) => "List[String]",
+            Self::List(ListElementType::CategoricalString) => "List[CategoricalString]",
+            Self::List(ListElementType::Vec2F32) => "List[Vec2F32]",
+            Self::List(ListElementType::Vec2F64) => "List[Vec2F64]",
+            Self::List(ListElementType::Vec3F32) => "List[Vec3F32]",
+            Self::List(ListElementType::Vec3F64) => "List[Vec3F64]",
+        }
+    }
+
+    pub fn list_element(self) -> Option<ListElementType> {
+        match self {
+            Self::List(element) => Some(element),
+            _ => None,
         }
     }
 }
@@ -216,5 +332,13 @@ mod tests {
             )),
             Err(EcsError::DuplicateSchema(_))
         ));
+    }
+
+    #[test]
+    fn list_schema_preserves_declared_element_type() {
+        let storage = StorageType::parse("List[UInt16]").unwrap();
+        assert_eq!(storage, StorageType::List(ListElementType::UInt16));
+        assert_eq!(storage.name(), "List[UInt16]");
+        assert!(StorageType::parse("List[List[Int8]]").is_err());
     }
 }

@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
+import pytest
+
+from gummysnake.exceptions import ArgumentValidationError
 from tests.helpers.synth_tracks_fixtures import (
     Path,
     _beat_loop,
@@ -162,6 +167,65 @@ def test_same_time_fx_controls_follow_source_order() -> None:
     assert payloads[0]["time_seconds"] == payloads[1]["time_seconds"] == 0.0
     assert cast(dict[str, object], first_fx["opts"])["mix"] == 0.1
     assert cast(dict[str, object], second_fx["opts"])["mix"] == 0.8
+
+
+def test_plan_local_ids_and_event_seed_do_not_depend_on_prior_track_builds() -> None:
+    @sy.track(seed=77)
+    def stable_noise() -> None:
+        with sy.synth("noise"):
+            sy.play(60, release=0.01)
+
+    @sy.track(seed=999)
+    def unrelated() -> None:
+        with sy.loop(times=4):
+            sy.play(40, release=0.01)
+
+    first = stable_noise().physical_plan(duration=0.05)
+    for _ in range(3):
+        unrelated().physical_plan(duration=0.05)
+    second = stable_noise().physical_plan(duration=0.05)
+
+    assert first.to_dict() == second.to_dict()
+    assert first.events[0].node_id == second.events[0].node_id
+    assert first.events[0].seed == second.events[0].seed == 77
+
+
+def test_serialization_rejects_unknown_values_keys_depth_and_container_bombs() -> None:
+    plan = _lead_line().physical_plan(duration=0.1)
+    event = plan.events[0]
+
+    with pytest.raises(ArgumentValidationError, match="keys must be strings"):
+        replace(plan, events=(replace(event, opts={1: "collision"}),))
+    with pytest.raises(ArgumentValidationError, match="Synth values must be"):
+        replace(plan, events=(replace(event, value=object()),))
+
+    nested: object = 1
+    for _ in range(synth_foundation._MAX_PLAN_VALUE_DEPTH + 1):
+        nested = [nested]
+    with pytest.raises(ArgumentValidationError, match="nesting exceeds"):
+        replace(plan, events=(replace(event, value=nested),))
+
+    payload = plan.to_dict()
+    payload["unsupported"] = True
+    with pytest.raises(ArgumentValidationError, match="unsupported key"):
+        sy.PhysicalPlan.from_dict(payload)
+
+    bomb = synth_foundation._GSS_HEADER.pack(
+        synth_foundation._GSS_MAGIC,
+        synth_foundation._GSS_COMPRESSION,
+        synth_foundation._MAX_DECOMPRESSED_PLAN_BYTES + 1,
+    )
+    with pytest.raises(ArgumentValidationError, match="decompressed payload"):
+        sy.PhysicalPlan.from_bytes(bomb)
+
+
+def test_positional_sample_filters_fail_instead_of_being_ignored() -> None:
+    @sy.track
+    def filtered_sample() -> None:
+        sy.sample("loop_amen", "unknown_filter")
+
+    with pytest.raises(ArgumentValidationError, match="Positional sample filters"):
+        filtered_sample()
 
 
 def test_synth_decorator_expands_source_definition_to_primitive_events() -> None:

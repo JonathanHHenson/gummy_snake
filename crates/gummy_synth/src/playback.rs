@@ -11,31 +11,95 @@ pub fn render_plan_events(
             "synth plan render duration cannot be negative.",
         ));
     }
+    let total_samples = validate_plan_render(&parsed_events, duration_seconds, sample_rate)?;
     parsed_events.sort_by(|a, b| a.time_seconds.total_cmp(&b.time_seconds));
-    let total_samples = (duration_seconds * sample_rate as f64).ceil().max(1.0) as usize;
     let mut root = FxBusNode::root(total_samples, 0.0);
-    for event in parsed_events {
-        let (event_left, event_right) = render_dry_event(&event, sample_rate)
+    let worker_count = effective_worker_count();
+    let mut event_index = 0usize;
+    while event_index < parsed_events.len() {
+        let mut region_end = event_index;
+        let mut region_scratch_bytes = 0usize;
+        while worker_count > 1
+            && region_end < parsed_events.len()
+            && region_end - event_index < worker_count
+        {
+            let Some(event_scratch_bytes) =
+                dry_event_parallel_scratch_bytes(&parsed_events[region_end], sample_rate)?
+            else {
+                break;
+            };
+            let Some(next_scratch_bytes) = region_scratch_bytes.checked_add(event_scratch_bytes)
+            else {
+                break;
+            };
+            if next_scratch_bytes > SYNTH_PARALLEL_SCRATCH_LIMIT_BYTES {
+                break;
+            }
+            region_scratch_bytes = next_scratch_bytes;
+            region_end += 1;
+        }
+
+        if region_end - event_index >= 2 && region_scratch_bytes >= SYNTH_PARALLEL_MIN_SCRATCH_BYTES
+        {
+            let region = &parsed_events[event_index..region_end];
+            let rendered = render_dry_event_region(region, sample_rate, region_scratch_bytes)
+                .map_err(|error| SynthError::new(format!("ValueError: {error}")))?;
+            for (event, (event_left, event_right)) in region.iter().zip(rendered) {
+                mix_rendered_event(&mut root, event, sample_rate, &event_left, &event_right)?;
+            }
+            event_index = region_end;
+            continue;
+        }
+
+        let event = &parsed_events[event_index];
+        let (event_left, event_right) = render_dry_event(event, sample_rate)
             .map_err(|error| SynthError::new(format!("ValueError: {error}")))?;
-        let start = (event.time_seconds * sample_rate as f64).round().max(0.0) as usize;
-        root.mix_event(
-            &event.fx_chain,
-            event.time_seconds,
-            event.order,
-            start,
-            &event_left,
-            &event_right,
-        );
+        record_serial_event();
+        mix_rendered_event(&mut root, event, sample_rate, &event_left, &event_right)?;
+        event_index += 1;
     }
-    let (left, right) = root.render(sample_rate);
+    let (left, right) = root.render(sample_rate)?;
     let (left, right) = output_limit_prefix(&left, &right, total_samples, sample_rate);
     Ok(stereo_wav_bytes(&left, &right, sample_rate))
+}
+
+fn mix_rendered_event(
+    root: &mut FxBusNode,
+    event: &EventPayload,
+    sample_rate: u32,
+    event_left: &[f64],
+    event_right: &[f64],
+) -> SynthResult<()> {
+    let start = (event.time_seconds * sample_rate as f64).round().max(0.0) as usize;
+    root.mix_event(
+        &event.fx_chain,
+        event.time_seconds,
+        event.order,
+        start,
+        event_left,
+        event_right,
+    )
 }
 
 pub fn render_serialized_plan_wav_bytes(payload: &[u8], sample_rate: u32) -> SynthResult<Vec<u8>> {
     let (events, duration_seconds) = parse_serialized_plan(payload)
         .map_err(|error| SynthError::new(format!("ValueError: {error}")))?;
     render_plan_events(events, duration_seconds, sample_rate)
+}
+
+pub fn render_serialized_plan_wav_file(
+    payload: &[u8],
+    sample_rate: u32,
+    path: &Path,
+) -> SynthResult<Vec<u8>> {
+    let wav = render_serialized_plan_wav_bytes(payload, sample_rate)?;
+    fs::write(path, &wav).map_err(|error| {
+        SynthError::new(format!(
+            "could not write rendered synth WAV {}: {error}",
+            path.display()
+        ))
+    })?;
+    Ok(wav)
 }
 
 pub(crate) fn render_plan_window_samples_result(
@@ -49,27 +113,33 @@ pub(crate) fn render_plan_window_samples_result(
             "synth live render window start and duration cannot be negative.",
         ));
     }
-    if sample_rate == 0 {
-        return Err(SynthError::new(
-            "synth live render sample rate must be greater than zero.",
-        ));
-    }
+    validate_finite_non_negative(start_seconds, "synth live render window start")?;
+    validate_finite_non_negative(duration_seconds, "synth live render window duration")?;
+    validate_sample_rate(sample_rate)?;
     if start_seconds >= plan.duration_seconds || duration_seconds <= 0.0 {
         return Ok((Vec::new(), Vec::new()));
     }
 
     let window_start = start_seconds;
     let window_duration = duration_seconds.min(plan.duration_seconds - window_start);
-    let window_samples = (window_duration * sample_rate as f64).ceil().max(0.0) as usize;
+    let window_samples = checked_frame_count(
+        window_duration,
+        sample_rate,
+        "synth live render window duration",
+        0,
+    )?;
     if window_samples == 0 {
         return Ok((Vec::new(), Vec::new()));
     }
 
     let context_start = (window_start - live_render_context_seconds()).max(0.0);
     let context_end = window_start + window_duration;
-    let context_samples = ((context_end - context_start) * sample_rate as f64)
-        .ceil()
-        .max(1.0) as usize;
+    let context_samples = checked_frame_count(
+        context_end - context_start,
+        sample_rate,
+        "synth live render context duration",
+        1,
+    )?;
     let mut root = FxBusNode::root(context_samples, context_start);
     let mut sorted_events: Vec<(usize, &EventPayload)> = plan.events.iter().enumerate().collect();
     sorted_events.sort_by(|(_, a), (_, b)| a.time_seconds.total_cmp(&b.time_seconds));
@@ -104,10 +174,10 @@ pub(crate) fn render_plan_window_samples_result(
             start,
             &signal.left[skip_left..],
             &signal.right[skip_right..],
-        );
+        )?;
     }
 
-    let (left, right) = root.render(sample_rate);
+    let (left, right) = root.render(sample_rate)?;
     let offset = ((window_start - context_start) * sample_rate as f64)
         .round()
         .max(0.0) as usize;
@@ -215,7 +285,7 @@ impl FxBusNode {
         start_sample: usize,
         left: &[f64],
         right: &[f64],
-    ) {
+    ) -> SynthResult<()> {
         if let Some((fx, remaining_chain)) = fx_chain.split_first() {
             let child = self.child_mut(fx);
             child.option_snapshots.push(FxOptionSnapshot {
@@ -230,8 +300,8 @@ impl FxBusNode {
                 start_sample,
                 left,
                 right,
-            );
-            return;
+            )?;
+            return Ok(());
         }
         mix_signal_into(
             &mut self.input_left,
@@ -239,7 +309,7 @@ impl FxBusNode {
             start_sample,
             left,
             right,
-        );
+        )
     }
 
     fn child_mut(&mut self, fx: &FxPayload) -> &mut FxBusNode {
@@ -263,19 +333,19 @@ impl FxBusNode {
             .is_some_and(|current| current.id == fx.id && current.name == fx.name)
     }
 
-    fn render(mut self, sample_rate: u32) -> (Vec<f64>, Vec<f64>) {
+    fn render(mut self, sample_rate: u32) -> SynthResult<(Vec<f64>, Vec<f64>)> {
         for child in self.children {
-            let (child_left, child_right) = child.render(sample_rate);
+            let (child_left, child_right) = child.render(sample_rate)?;
             mix_signal_into(
                 &mut self.input_left,
                 &mut self.input_right,
                 0,
                 &child_left,
                 &child_right,
-            );
+            )?;
         }
         let Some(fx) = self.fx else {
-            return (self.input_left, self.input_right);
+            return Ok((self.input_left, self.input_right));
         };
         render_fx_bus_signal(
             &fx,
@@ -295,7 +365,7 @@ pub(crate) fn render_fx_bus_signal(
     input_right: Vec<f64>,
     sample_rate: u32,
     time_origin_seconds: f64,
-) -> (Vec<f64>, Vec<f64>) {
+) -> SynthResult<(Vec<f64>, Vec<f64>)> {
     let segments = fx_option_segments(
         fx,
         snapshots,
@@ -333,16 +403,16 @@ pub(crate) fn render_fx_bus_signal(
             &opts,
             sample_rate,
             start_time_seconds,
-        );
+        )?;
         mix_signal_into(
             &mut output_left,
             &mut output_right,
             start,
             &fx_left,
             &fx_right,
-        );
+        )?;
     }
-    (output_left, output_right)
+    Ok((output_left, output_right))
 }
 
 pub(crate) fn fx_option_segments(
@@ -401,8 +471,15 @@ pub(crate) fn mix_signal_into(
     start: usize,
     left: &[f64],
     right: &[f64],
-) {
-    let required = start + left.len().max(right.len());
+) -> SynthResult<()> {
+    let required = start
+        .checked_add(left.len().max(right.len()))
+        .filter(|value| *value <= MAX_OUTPUT_FRAMES)
+        .ok_or_else(|| {
+            SynthError::new(format!(
+                "synth mixed output exceeds the budget of {MAX_OUTPUT_FRAMES} frames."
+            ))
+        })?;
     if target_left.len() < required {
         target_left.resize(required, 0.0);
     }
@@ -413,6 +490,7 @@ pub(crate) fn mix_signal_into(
         target_left[start + index] += left.get(index).copied().unwrap_or(0.0);
         target_right[start + index] += right.get(index).copied().unwrap_or(0.0);
     }
+    Ok(())
 }
 
 pub(crate) fn slice_with_zeros(samples: &[f64], start: usize, end: usize) -> Vec<f64> {

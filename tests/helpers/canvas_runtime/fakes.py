@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Buffer
 from pathlib import Path
+from struct import Struct
 from typing import cast
 
 from tests.helpers.canvas_runtime.image_kernels import FakeCanvasImageKernelsMixin
@@ -194,11 +196,61 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
     def batch_lines(self, *args: object) -> None:
         self.calls.append(("batch_lines", *args))
 
+    def batch_lines_packed(
+        self,
+        payload: bytes,
+        style: dict[str, object],
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None:
+        record_format = Struct("<4d")
+        records = [
+            record_format.unpack_from(payload, offset) for offset in range(0, len(payload), 32)
+        ]
+        self.calls.append(("batch_lines", records, style, matrix))
+
+    def batch_lines_current_packed(self, payload: bytes) -> None:
+        record_format = Struct("<4d")
+        records = [
+            record_format.unpack_from(payload, offset) for offset in range(0, len(payload), 32)
+        ]
+        self.calls.append(("batch_lines_current", records))
+
     def batch_primitives(self, *args: object) -> None:
         self.calls.append(("batch_primitives", *args))
 
+    def batch_primitives_packed(
+        self,
+        payload: bytes,
+        style: dict[str, object],
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None:
+        record_format = Struct("<B7x6d")
+        records = [
+            record_format.unpack_from(payload, offset) for offset in range(0, len(payload), 56)
+        ]
+        self.calls.append(("batch_primitives", records, style, matrix))
+
+    def batch_primitives_current_packed(self, payload: bytes) -> None:
+        record_format = Struct("<B7x6d")
+        records = [
+            record_format.unpack_from(payload, offset) for offset in range(0, len(payload), 56)
+        ]
+        self.calls.append(("batch_primitives_current", records))
+
     def batch_fill_primitives(self, *args: object) -> None:
         self.calls.append(("batch_fill_primitives", *args))
+
+    def batch_fill_primitives_packed(
+        self,
+        payload: bytes,
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None:
+        record_format = Struct("<B7x6d4B")
+        records = [
+            record_format.unpack_from(payload, offset)
+            for offset in range(0, len(payload), record_format.size)
+        ]
+        self.calls.append(("batch_fill_primitives", records, matrix))
 
     def replay_fill_primitive_batch(self) -> bool:
         self.calls.append(("replay_fill_primitive_batch",))
@@ -307,6 +359,9 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
             raise ValueError(f"Pixel buffer length must be {expected}, got {len(pixels)}.")
         self.pixels = pixels
 
+    def update_pixel_buffer(self, pixels: Buffer) -> None:
+        self.update_pixels(bytes(pixels))
+
     def set_pixel_rgba(self, x: int, y: int, rgba: tuple[int, int, int, int]) -> None:
         self.calls.append(("set_pixel_rgba", x, y, rgba))
         if x < 0 or y < 0 or x >= self.physical_width or y >= self.physical_height:
@@ -325,6 +380,17 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
         alpha_composite: bool = True,
     ) -> None:
         self.calls.append(("update_pixel_region", pixels, width, height, x, y, alpha_composite))
+
+    def update_pixel_region_buffer(
+        self,
+        pixels: Buffer,
+        width: int,
+        height: int,
+        x: int,
+        y: int,
+        alpha_composite: bool = True,
+    ) -> None:
+        self.update_pixel_region(bytes(pixels), width, height, x, y, alpha_composite)
 
     def adjust_pixel_prefix(
         self,

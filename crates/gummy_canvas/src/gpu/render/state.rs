@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use crate::gpu::renderer_state::GpuRenderLoopCounters;
 use crate::gpu::types::*;
 
 impl GpuRenderer {
@@ -13,17 +14,22 @@ impl GpuRenderer {
             self.retained_batch_cache_misses += 1;
         }
         self.write_viewport(self.texture_size.width, self.texture_size.height);
-        self.ensure_render_vertex_buffers();
+        let mut commands = std::mem::take(&mut self.commands);
+        self.ensure_render_vertex_buffers(&commands);
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("gummy_canvas render encoder"),
             });
         let encode_start = Instant::now();
-        self.encode_commands(&mut encoder);
+        self.encode_commands(&mut encoder, &commands);
         self.queue.submit([encoder.finish()]);
         self.encode_time_ms += encode_start.elapsed().as_secs_f64() * 1000.0;
-        self.previous_render_commands = self.commands.clone();
+        // Retain the encoded stream for replay comparison while recycling the
+        // previous stream's allocation for the next frame.
+        std::mem::swap(&mut commands, &mut self.previous_render_commands);
+        commands.clear();
+        self.commands = commands;
         self.previous_render_clip_generation = self.clip_generation;
     }
 
@@ -118,19 +124,22 @@ impl GpuRenderer {
         true
     }
 
-    pub fn render_loop_counters(&self) -> (u64, u64, u64, u64, u64, f64, u64, u64, u64, u64) {
-        (
-            self.vertex_buffer_allocations,
-            self.vertex_uploads,
-            self.uploaded_vertex_bytes,
-            self.primitive_batches,
-            self.image_batches,
-            self.encode_time_ms,
-            self.retained_batch_cache_hits,
-            self.retained_batch_cache_misses,
-            self.retained_batch_reused_bytes,
-            self.retained_batch_cache_evictions,
-        )
+    pub(crate) fn render_loop_counters(&self) -> GpuRenderLoopCounters {
+        GpuRenderLoopCounters {
+            vertex_buffer_allocations: self.vertex_buffer_allocations,
+            vertex_uploads: self.vertex_uploads,
+            uploaded_vertex_bytes: self.uploaded_vertex_bytes,
+            primitive_batches: self.primitive_batches,
+            image_batches: self.image_batches,
+            encode_time_ms: self.encode_time_ms,
+            retained_batch_cache_hits: self.retained_batch_cache_hits,
+            retained_batch_cache_misses: self.retained_batch_cache_misses,
+            retained_batch_reused_bytes: self.retained_batch_reused_bytes,
+            retained_batch_cache_evictions: self.retained_batch_cache_evictions,
+            command_clone_count: self.command_clone_count,
+            command_clone_bytes: self.command_clone_bytes,
+            command_segment_allocation_count: self.command_segment_allocation_count,
+        }
     }
 
     pub fn reset_render_loop_counters(&mut self) {
@@ -144,5 +153,8 @@ impl GpuRenderer {
         self.retained_batch_cache_misses = 0;
         self.retained_batch_reused_bytes = 0;
         self.retained_batch_cache_evictions = 0;
+        self.command_clone_count = 0;
+        self.command_clone_bytes = 0;
+        self.command_segment_allocation_count = 0;
     }
 }

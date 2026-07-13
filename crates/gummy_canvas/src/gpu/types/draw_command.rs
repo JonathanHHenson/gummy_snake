@@ -4,7 +4,7 @@ use super::{
 };
 use crate::types::BlendMode;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum DrawCommand {
     Clear(GpuColor),
     Triangles {

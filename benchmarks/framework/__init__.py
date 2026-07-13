@@ -1,28 +1,5 @@
-"""Git store, source snapshots, statistics, and frozen operating modes."""
+"""Benchmark execution, Git storage, source snapshots, statistics, and operating modes.
 
-from .database import DatabaseError, GitBenchmarkDatabase, StagedCandidate, audit_database
-from .modes import GateOutcome, ModeResult, record_head, worktree
-from .runner import CanvasRecorderRunner, IsolatedRunPlan, RunnerError, plan_isolated_run
-from .snapshot import SnapshotError, SourceSnapshot, snapshot_declared_roots
-from .statistics import SamplingProfile, compare_samples, median_of_process_medians
-
-__all__ = [
-    "DatabaseError",
-    "GateOutcome",
-    "GitBenchmarkDatabase",
-    "IsolatedRunPlan",
-    "ModeResult",
-    "RunnerError",
-    "SamplingProfile",
-    "StagedCandidate",
-    "SnapshotError",
-    "SourceSnapshot",
-    "audit_database",
-    "CanvasRecorderRunner",
-    "compare_samples",
-    "median_of_process_medians",
-    "plan_isolated_run",
-    "record_head",
-    "snapshot_declared_roots",
-    "worktree",
-]
+Import concrete owners from their modules; this package intentionally has no barrel
+re-export surface.
+"""

@@ -125,7 +125,7 @@ impl Canvas {
         if self.try_draw_gpu_image_atlas_batch(unique_images, records, parsed_style)? {
             return Ok(true);
         }
-        self.draw_image_batch_records(unique_images, records, parsed_style, false, true)?;
+        self.draw_image_batch_records(unique_images, records, parsed_style, true)?;
         Ok(true)
     }
 

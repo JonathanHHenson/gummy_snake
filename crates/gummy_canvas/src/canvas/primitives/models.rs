@@ -217,16 +217,29 @@ impl Canvas {
             self.performance_counters.texture_cache_hits += 1;
             return Ok(());
         }
-        self.performance_counters.texture_uploads += 1;
-        self.evict_texture_cache_if_needed(image.key);
-        let Some(gpu) = self.gpu.as_mut() else {
-            return Ok(());
-        };
-        gpu.upload_texture(image.key, image.width, image.height, &image.pixels)
+        self.evict_texture_cache_if_needed(image.key, image.pixels.len())?;
+        let replaced = {
+            let Some(gpu) = self.gpu.as_mut() else {
+                return Ok(());
+            };
+            gpu.upload_texture(
+                image.key,
+                image.width,
+                image.height,
+                image.pixels.as_slice(),
+            )
             .map_err(|err| {
                 PyValueError::new_err(format!("Failed to upload image texture: {err}"))
-            })?;
-        self.texture_cache_versions.insert(image.key, image.version);
+            })?
+        };
+        self.record_texture_upload(
+            image.key,
+            image.version,
+            image.pixels.len(),
+            false,
+            texture_version.is_some(),
+            replaced,
+        );
         Ok(())
     }
 }

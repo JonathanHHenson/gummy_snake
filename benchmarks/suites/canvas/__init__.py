@@ -1,19 +1,5 @@
-"""Self-contained Canvas benchmark fixtures, oracles, and workload dispatcher."""
+"""Self-contained Canvas benchmark fixtures, oracles, and workloads.
 
-from .workloads import (
-    CanvasWorkloadError,
-    ExecutionRouteError,
-    WorkloadPlan,
-    WorkloadRun,
-    build_workload,
-    dispatch,
-)
-
-__all__ = [
-    "CanvasWorkloadError",
-    "ExecutionRouteError",
-    "WorkloadPlan",
-    "WorkloadRun",
-    "build_workload",
-    "dispatch",
-]
+The workload implementation lives in `workloads`; this package intentionally does
+not mirror that module through a barrel re-export.
+"""

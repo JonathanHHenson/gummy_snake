@@ -52,44 +52,21 @@ class CanvasRendererModelsMixin:
         if key is None or not transforms:
             return
 
-        canvas = renderer._require_canvas()
-        batch = getattr(canvas, "_draw_model_shaded_batch", None)
-        if callable(batch):
-            renderer._count("direct_model_draws", len(transforms))
-            renderer._count("model_batch_records", len(transforms))
-            renderer._count("model_batch_flushes")
-            renderer._max_count("model_batch_max_records", len(transforms))
-            renderer._call(
-                "batched 3D model drawing",
-                batch,
-                key.model_handle,
-                key.camera,
-                key.projection,
-                key.viewport_width,
-                key.viewport_height,
-                key.material,
-                key.lights,
-                key.normal_material,
-                key.cull_backfaces,
-                transforms,
-            )
-            return
-
-        draw = renderer._require_canvas_method("draw_model_shaded", "3D model drawing")
-        renderer._count("model_batch_fallbacks", len(transforms))
-        for transform in transforms:
-            renderer._count("direct_model_draws")
-            renderer._call(
-                "3D model drawing",
-                draw,
-                key.model_handle,
-                key.camera,
-                key.projection,
-                key.viewport_width,
-                key.viewport_height,
-                key.material,
-                key.lights,
-                key.normal_material,
-                key.cull_backfaces,
-                transform,
-            )
+        renderer._count("direct_model_draws", len(transforms))
+        renderer._count("model_batch_records", len(transforms))
+        renderer._count("model_batch_flushes")
+        renderer._max_count("model_batch_max_records", len(transforms))
+        renderer._call(
+            "batched 3D model drawing",
+            renderer._require_canvas()._draw_model_shaded_batch,
+            key.model_handle,
+            key.camera,
+            key.projection,
+            key.viewport_width,
+            key.viewport_height,
+            key.material,
+            key.lights,
+            key.normal_material,
+            key.cull_backfaces,
+            transforms,
+        )

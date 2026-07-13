@@ -39,9 +39,13 @@ impl Canvas {
             atlas_x_offsets.push(next_x);
             next_x += image.width;
         }
-        if self.texture_cache_versions.version(atlas_key) != Some(atlas_version) {
-            self.performance_counters.texture_uploads += 1;
-            let mut atlas_pixels = vec![0u8; atlas_width * atlas_height * 4];
+        let texture_version = self.texture_cache_versions.version(atlas_key);
+        if texture_version != Some(atlas_version) {
+            let atlas_bytes = atlas_width
+                .checked_mul(atlas_height)
+                .and_then(|value| value.checked_mul(4))
+                .ok_or_else(|| PyValueError::new_err("Image atlas dimensions are too large."))?;
+            let mut atlas_pixels = vec![0u8; atlas_bytes];
             for (image, x_offset) in images.iter().zip(atlas_x_offsets.iter().copied()) {
                 for y in 0..image.height {
                     let src_start = y * image.width * 4;
@@ -52,16 +56,27 @@ impl Canvas {
                         .copy_from_slice(&image.pixels[src_start..src_end]);
                 }
             }
-            self.evict_texture_cache_if_needed(atlas_key);
+            self.evict_texture_cache_if_needed(atlas_key, atlas_bytes)?;
             self.upload_stale_texture(false)?;
-            let Some(gpu) = self.gpu.as_mut() else {
-                return Ok(false);
+            let replaced = {
+                let Some(gpu) = self.gpu.as_mut() else {
+                    return Ok(false);
+                };
+                gpu.upload_texture(atlas_key, atlas_width, atlas_height, &atlas_pixels)
+                    .map_err(|err| {
+                        PyValueError::new_err(format!(
+                            "Failed to upload image atlas texture: {err}"
+                        ))
+                    })?
             };
-            gpu.upload_texture(atlas_key, atlas_width, atlas_height, &atlas_pixels)
-                .map_err(|err| {
-                    PyValueError::new_err(format!("Failed to upload image atlas texture: {err}"))
-                })?;
-            self.texture_cache_versions.insert(atlas_key, atlas_version);
+            self.record_texture_upload(
+                atlas_key,
+                atlas_version,
+                atlas_bytes,
+                true,
+                texture_version.is_some(),
+                replaced,
+            );
         } else {
             self.performance_counters.texture_cache_hits += records.len() as u64;
             self.upload_stale_texture(false)?;

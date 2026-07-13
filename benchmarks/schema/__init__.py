@@ -1,20 +1,75 @@
-"""Strict, versioned catalog and immutable record schemas."""
+"""Strict, versioned catalog, fingerprint, and immutable record schemas."""
 
-from .canonical import CanonicalJsonError, canonical_json, content_hash
-from .catalog import Catalog, CatalogError, MetricSpec, Workload, load_catalog
-from .records import BenchmarkRecord, ComparisonFingerprint, Provenance, Revocation
+from .canonical import (
+    CanonicalJsonError,
+    canonical_json,
+    canonical_json_loads,
+    content_hash,
+    definition_digest,
+)
+from .catalog import (
+    CATALOG_SCHEMA_VERSION,
+    VERSIONING_RULES,
+    Catalog,
+    CatalogEntryIdentity,
+    CatalogError,
+    Direction,
+    MetricDomain,
+    MetricSpec,
+    PercentageTransform,
+    VersioningRules,
+    Workload,
+    ZeroPolicy,
+    load_catalog,
+)
+from .records import (
+    FINGERPRINT_SCHEMA_VERSION,
+    RECORD_SCHEMA_VERSION,
+    BenchmarkRecord,
+    CapabilityResult,
+    ComparisonEvidence,
+    ComparisonFingerprint,
+    CorrectnessResult,
+    Invalidation,
+    MetricResult,
+    Provenance,
+    RecordError,
+    Revocation,
+    normalize_architecture,
+    parse_benchmark_record,
+)
 
 __all__ = [
+    "CATALOG_SCHEMA_VERSION",
+    "FINGERPRINT_SCHEMA_VERSION",
+    "RECORD_SCHEMA_VERSION",
+    "VERSIONING_RULES",
     "BenchmarkRecord",
     "CanonicalJsonError",
+    "CapabilityResult",
     "Catalog",
+    "CatalogEntryIdentity",
     "CatalogError",
+    "ComparisonEvidence",
     "ComparisonFingerprint",
+    "CorrectnessResult",
+    "Direction",
+    "Invalidation",
+    "MetricDomain",
+    "MetricResult",
     "MetricSpec",
+    "PercentageTransform",
     "Provenance",
+    "RecordError",
     "Revocation",
+    "VersioningRules",
     "Workload",
+    "ZeroPolicy",
     "canonical_json",
+    "canonical_json_loads",
     "content_hash",
+    "definition_digest",
     "load_catalog",
+    "normalize_architecture",
+    "parse_benchmark_record",
 ]

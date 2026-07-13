@@ -170,15 +170,7 @@ pub(super) fn execution_report_to_dict<'py>(
             }
         }
     }
-    let events = PyList::empty_bound(py);
-    for event in &report.events {
-        let item = PyDict::new_bound(py);
-        item.set_item("event_type", &event.event_type)?;
-        item.set_item("payload", ecs_value_to_py(py, &event.payload)?)?;
-        events.append(item)?;
-    }
     dict.set_item("component_writes", component_writes)?;
     dict.set_item("resource_writes", resource_writes)?;
-    dict.set_item("events", events)?;
     Ok(dict)
 }

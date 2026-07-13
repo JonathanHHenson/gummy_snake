@@ -35,6 +35,14 @@ class _FakeRustWorld:
     def compiled_plan_count(self) -> int:
         return 0
 
+    def diagnostics(self) -> dict[str, int | list[str]]:
+        return {
+            "entities_alive": 0,
+            "component_schemas_total": len(self.registered_schemas),
+            "event_records_read": 0,
+            "messages": [],
+        }
+
 
 @dataclass
 class _Position:

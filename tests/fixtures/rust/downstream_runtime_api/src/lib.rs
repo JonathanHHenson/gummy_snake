@@ -6,7 +6,7 @@
 
 use gummy_ecs as ecs;
 
-const _: [(); 4] = [(); ecs::ECS_ABI_VERSION as usize];
+const _: [(); 5] = [(); ecs::ECS_ABI_VERSION as usize];
 const _: [(); 2] = [(); ecs::BRIDGE_PLAN_VERSION as usize];
 
 #[allow(dead_code)]

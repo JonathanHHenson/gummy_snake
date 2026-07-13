@@ -5,7 +5,9 @@
 //! and synth/sample/FX rendering belongs to `gummy_synth`.
 
 use crate::prelude::*;
-pub(crate) use health::{canvas_abi_version, gpu_available, health_check, native_window_available};
+pub(crate) use health::{
+    benchmark_provenance, canvas_abi_version, gpu_available, health_check, native_window_available,
+};
 use image_ops::*;
 use models::*;
 use pyo3::wrap_pyfunction;
@@ -20,6 +22,7 @@ use ecs::*;
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(health_check, m)?)?;
     m.add_function(wrap_pyfunction!(canvas_abi_version, m)?)?;
+    m.add_function(wrap_pyfunction!(benchmark_provenance, m)?)?;
     m.add_function(wrap_pyfunction!(native_window_available, m)?)?;
     m.add_function(wrap_pyfunction!(gpu_available, m)?)?;
     m.add_function(wrap_pyfunction!(ecs_abi_version, m)?)?;

@@ -28,6 +28,36 @@ The public `gummysnake.synth` and `gummysnake.synth.core` modules are stable com
 
 The former flat `synth_runtime` module paths have been removed. Internal imports must use the owning area above; `gummysnake.synth` remains the supported public API. `playback_export` is deliberately not named `playback` so its ownership is explicit and it cannot collide with a flat runtime module.
 
+## Offline workers and diagnostics
+
+Pure-Rust physical-plan decode/compile, offline rendering, sample-duration decode,
+PCM WAV preparation, and Rust WAV file writes release the Python GIL after Python
+values have been validated and copied into Rust-owned data. This lets unrelated
+Python threads and sketch callbacks continue while a synchronous synth operation
+runs; active canvas objects and `SketchContext` state are not sent to synth workers.
+
+Offline dry-event rendering uses one process-wide, lazily initialized Rust worker
+pool. Configure the maximum active tasks for a prepared region with:
+
+```python
+sy.configure_workers("auto")  # or 1, 2, 4, 8
+```
+
+The setting changes performance only. Each event produces an indexed private
+buffer, and the existing event/FX-bus mix consumes those buffers in the same stable
+order used by worker count `1`, so WAV bytes remain identical across worker counts.
+Only dependency-safe synth-event regions above the runtime threshold are parallel;
+sample events, small regions, ordered FX reduction, and realtime/device windows
+remain serial. Conservatively estimated parallel dry-event scratch is capped at
+64 MiB per region, and the
+pool itself is never recreated by a render call.
+
+Use `sy.synth_diagnostics()` and `sy.reset_synth_diagnostics()` for benchmark and
+responsiveness checks. The report includes resolved/configured worker count, pool
+capacity/initializations, GIL-released compile/render/decode/WAV-write calls,
+parallel regions/tasks/events, serial events, and scratch peak/limit/threshold.
+Resetting counters does not destroy the persistent pool or change its configuration.
+
 ## Track lifecycle
 
 - `@sy.track` decorates a function that records logical actions.
@@ -112,6 +142,10 @@ wav_bytes = plan.render()
 Bundled Sonic Pi-style synth source definitions live as one `@sy.synth` module per synth in `assets/synths/src/`. They use the `SynthSignal` builder to compose low-level primitive or `_layered` synth events and are compiled to `assets/synths/compiled/*.gss`.
 
 Bundled Sonic Pi-style FX source definitions live as one `@sy.fx` module per FX in `assets/fx/src/`. They use `sy.fx_input()`/`sy.fx_output()` with `FxSignal` methods to compose generic low-level FX operations and are compiled to `assets/fx/compiled/*.gsfx`.
+
+Physical plans are fail-closed at both the Python serializer and Rust renderer boundaries. Unsupported Python values and non-string mapping keys are rejected rather than converted with `str()`. Unknown structural keys, primitive synth names, FX names, low-level chain operations, layered oscillator waves, and positional sample filters raise actionable errors; they are never substituted with sine, `level`, dry input, or another operation. Newly expanded events include the track seed, and stochastic Rust voices combine that seed with stable plan-local event IDs, so unrelated earlier track builds do not alter noise output.
+
+Resource validation happens before DSP allocation. Schema-v1 containers are limited to 16 MiB compressed and 64 MiB decompressed; nested values are limited to depth 64 and 1,000,000 items; plans are limited to 100,000 events and 100,000 controls; an event FX chain is limited to 64 processors; sample rates must be in `1..=384000`; and any render/intermediate signal is limited to 50,000,000 frames. Times, durations, option numbers, and control times that reach Rust must be finite, with timeline values non-negative. These are safety limits, not alternate rendering modes, and exceeding one raises instead of truncating or reducing quality.
 
 Compile both asset sets with:
 

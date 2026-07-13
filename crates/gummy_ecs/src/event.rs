@@ -95,20 +95,26 @@ impl EventStore {
         Ok((events.len(), sum))
     }
 
-    pub fn clear(&mut self, event_type: Option<&str>) {
+    pub fn clear(&mut self, event_type: Option<&str>) -> usize {
         if let Some(event_type) = event_type {
-            self.queues.remove(event_type);
+            self.queues
+                .remove(event_type)
+                .map_or(0, |events| events.len())
         } else {
+            let removed = self.record_count();
             self.queues.clear();
+            removed
         }
     }
 
-    pub fn begin_frame(&mut self, frame: u64) {
+    pub fn begin_frame(&mut self, frame: u64) -> usize {
+        let before = self.record_count();
         let min_frame = frame.saturating_sub(self.retention_frames);
         self.queues.retain(|_, events| {
             events.retain(|event| event.frame >= min_frame);
             !events.is_empty()
         });
+        before - self.record_count()
     }
 
     pub fn queue_len(&self, event_type: &str) -> usize {
@@ -117,6 +123,10 @@ impl EventStore {
 
     pub fn queue_count(&self) -> usize {
         self.queues.len()
+    }
+
+    pub fn record_count(&self) -> usize {
+        self.queues.values().map(Vec::len).sum()
     }
 
     pub fn validate_type(&self, event_type: &str) -> Result<()> {

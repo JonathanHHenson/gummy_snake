@@ -30,36 +30,42 @@ def configure(
 
 
 def diagnostics(world: EcsWorld) -> dict[str, Any]:
-    """Collect Python and Rust ECS diagnostic counters into a new dictionary."""
+    """Merge Python boundary counters with the canonical Rust ECS snapshot."""
     enabled = sum(1 for system in world._systems if system.enabled)
     data: dict[str, Any] = dict(world._diagnostics)
-    spatial_index_cache_len = _optional_rust_int(world._rust, "spatial_index_cache_len")
-    structural_revision = _optional_rust_int(world._rust, "structural_revision")
-    field_revision = _optional_rust_int(world._rust, "field_revision")
+    rust_snapshot = dict(world._rust.diagnostics())
+    messages = list(rust_snapshot.pop("messages"))
+    for name, value in rust_snapshot.items():
+        data[f"ecs_{name}"] = value
+        data[f"ecs_rust_{name}"] = value
+    data["ecs_events_read"] = data["ecs_event_records_read"]
     data.update(
         {
             "ecs_systems_registered": len(world._systems),
             "ecs_systems_enabled": enabled,
-            "ecs_entities_alive": world._rust.alive_count(),
             "ecs_rust_core": "available",
-            "ecs_rust_entities_alive": world._rust.alive_count(),
-            "ecs_rust_component_schemas_total": world._rust.schema_count(),
             "ecs_rust_compiled_plans": world._rust.compiled_plan_count(),
-            "ecs_spatial_index_cache_len": spatial_index_cache_len,
-            "ecs_rust_structural_revision": structural_revision,
-            "ecs_rust_field_revision": field_revision,
+            "ecs_spatial_index_cache_len": _optional_rust_int(
+                world._rust, "spatial_index_cache_len"
+            ),
+            "ecs_rust_structural_revision": _optional_rust_int(world._rust, "structural_revision"),
+            "ecs_rust_field_revision": _optional_rust_int(world._rust, "field_revision"),
             "ecs_strict": world.strict,
             "ecs_warn_on_ambiguity": world.warn_on_ambiguity,
-            "messages": list(world._messages),
+            "messages": messages,
         }
     )
+    data.setdefault("ecs_python_event_mirror_entries", 0)
+    data.setdefault("ecs_python_event_payload_materializations", 0)
+    data.setdefault("ecs_dynamic_change_plan_recompiles", 0)
+    data.setdefault("ecs_steady_physical_plan_reuses", 0)
     return data
 
 
 def reset_diagnostics(world: EcsWorld) -> None:
-    """Clear accumulated ECS diagnostic counters and messages."""
+    """Reset Rust-owned diagnostics, then clear Python-only boundary counters."""
+    world._rust.reset_diagnostics()
     world._diagnostics.clear()
-    world._messages.clear()
 
 
 def record_ambiguity(world: EcsWorld, message: str) -> None:
@@ -68,7 +74,7 @@ def record_ambiguity(world: EcsWorld, message: str) -> None:
         world._diagnostics["ecs_strict_mode_errors"] += 1
         raise SystemPlanError(message)
     world._diagnostics["ecs_ambiguity_warnings"] += 1
-    world._messages.append(message)
+    world._rust.record_diagnostic_message(message)
     if world.warn_on_ambiguity:
         warnings.warn(message, RuntimeWarning, stacklevel=3)
     else:
@@ -177,10 +183,6 @@ def begin_change_frame(world: EcsWorld) -> None:
     """Start a new ECS change-detection frame."""
     world._ecs_frame += 1
     world._rust.set_frame(world._ecs_frame)
-    world._events = {
-        event_type: [(frame, event) for frame, event in events if frame >= world._ecs_frame - 1]
-        for event_type, events in world._events.items()
-    }
     world._diagnostics["ecs_change_detection_refreshes"] += 1
 
 

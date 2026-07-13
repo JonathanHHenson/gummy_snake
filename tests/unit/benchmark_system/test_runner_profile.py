@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import NoReturn, cast
+from typing import NoReturn
 
 import pytest
 
-from benchmarks.framework.runner import CanvasRecorderRunner, IsolatedRunPlan, RunnerError
+from benchmarks.framework.runner import BenchmarkRecorderRunner, IsolatedRunPlan, RunnerError
 from benchmarks.governance import BenchmarkMode
 from benchmarks.runner_profiles import RunnerProfileError, load_runner_profile
 from benchmarks.schema.catalog import load_catalog
@@ -82,11 +82,25 @@ hostname = "private-machine"
         load_runner_profile(profile_path)
 
 
+def test_runner_profile_rejects_volatile_telemetry_fields(tmp_path: Path) -> None:
+    profile_path = tmp_path / "volatile.toml"
+    profile_path.write_text(
+        """schema_version = 1
+
+[expected.cpu]
+current_frequency = 4200
+"""
+    )
+
+    with pytest.raises(RunnerProfileError, match="private field expected.cpu.current_frequency"):
+        load_runner_profile(profile_path)
+
+
 def test_runner_profile_record_head_requires_a_configured_profile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("GUMMY_BENCHMARK_RUNNER_PROFILE", raising=False)
-    runner = CanvasRecorderRunner(ROOT, load_catalog(CATALOG), tmp_path / "build")
+    runner = BenchmarkRecorderRunner(ROOT, load_catalog(CATALOG), tmp_path / "build")
     build_started = False
 
     def unexpected_build(_plan: IsolatedRunPlan) -> Path:
@@ -122,7 +136,7 @@ architecture = "arm64"
         worker_created = True
         raise AssertionError("profile validation must precede worker creation")
 
-    runner = CanvasRecorderRunner(
+    runner = BenchmarkRecorderRunner(
         ROOT,
         load_catalog(CATALOG),
         tmp_path / "build",
@@ -133,6 +147,7 @@ architecture = "arm64"
         lambda **_kwargs: ComparisonFingerprint({"architecture": "x86_64"}),
     )
 
+    plan = runner.plan()
     with pytest.raises(RunnerError, match=r"mismatch at expected.architecture"):
-        runner._record(cast(IsolatedRunPlan, object()), tmp_path / "wheel.whl", "", profile)
+        runner._record(plan, tmp_path / "wheel.whl", "", profile)
     assert worker_created is False

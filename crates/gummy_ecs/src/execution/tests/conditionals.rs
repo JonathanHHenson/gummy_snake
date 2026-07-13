@@ -65,6 +65,43 @@ fn physical_plan_executes_conditionals_and_resources() {
 }
 
 #[test]
+fn parallel_event_actions_copy_back_to_the_canonical_world_queue() {
+    let (mut world, _) = world_with_motion();
+    let payload = BridgePlanPayload {
+        version: BRIDGE_PLAN_VERSION,
+        schema_fingerprint: Some(world.schema_fingerprint()),
+        queries: vec![],
+        expressions: vec![ExprNode::LiteralI64(1), ExprNode::LiteralI64(2)],
+        actions: vec![
+            ActionNode::EmitEvent {
+                event_type: "Ping".to_string(),
+                value: 0,
+            },
+            ActionNode::EmitEvent {
+                event_type: "Pong".to_string(),
+                value: 1,
+            },
+            ActionNode::Parallel(vec![0, 1]),
+        ],
+        root_action: 2,
+    };
+
+    let report = world.execute_bridge_plan(payload).unwrap();
+
+    assert_eq!(report.events_emitted, 2);
+    assert_eq!(report.events.len(), 2);
+    assert_eq!(world.diagnostics().events_emitted, 2);
+    assert_eq!(
+        world.read_events("Ping").unwrap()[0].payload,
+        EcsValue::I64(1)
+    );
+    assert_eq!(
+        world.read_events("Pong").unwrap()[0].payload,
+        EcsValue::I64(2)
+    );
+}
+
+#[test]
 fn row_local_conditional_writes_match_report_writes_fallback_in_sequence_order() {
     fn payload(world: &World) -> BridgePlanPayload {
         BridgePlanPayload {

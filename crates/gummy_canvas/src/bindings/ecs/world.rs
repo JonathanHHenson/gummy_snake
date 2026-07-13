@@ -526,11 +526,11 @@ impl PyEcsWorld {
     }
 
     fn read_events<'py>(
-        &self,
+        &mut self,
         py: Python<'py>,
         event_type: String,
     ) -> PyResult<Bound<'py, PyList>> {
-        read_events_to_list(py, &self.world, &event_type)
+        read_events_to_list(py, &mut self.world, &event_type)
     }
 
     #[pyo3(signature = (event_type=None))]
@@ -566,6 +566,10 @@ impl PyEcsWorld {
 
     fn staged_command_count(&self) -> usize {
         self.world.staged_command_count()
+    }
+
+    fn record_diagnostic_message(&mut self, message: String) {
+        self.world.record_diagnostic_message(message);
     }
 
     fn reset_diagnostics(&mut self) {

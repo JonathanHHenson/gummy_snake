@@ -16,8 +16,24 @@ pub(crate) struct PerformanceCounters {
     pub(crate) pixel_region_uploads: u64,
     pub(crate) image_cache_hits: u64,
     pub(crate) image_cache_misses: u64,
+    pub(crate) image_source_clones_avoided: u64,
+    pub(crate) image_source_clone_bytes_avoided: u64,
+    pub(crate) image_cache_resident_bytes: u64,
+    pub(crate) image_cache_peak_bytes: u64,
+    pub(crate) image_cache_evictions: u64,
+    pub(crate) image_cache_evicted_bytes: u64,
     pub(crate) texture_cache_hits: u64,
     pub(crate) texture_uploads: u64,
+    pub(crate) texture_upload_bytes: u64,
+    pub(crate) texture_dirty_uploads: u64,
+    pub(crate) texture_resident_bytes: u64,
+    pub(crate) texture_peak_bytes: u64,
+    pub(crate) texture_cache_evictions: u64,
+    pub(crate) texture_destructions: u64,
+    pub(crate) image_atlas_resident_bytes: u64,
+    pub(crate) image_atlas_peak_bytes: u64,
+    pub(crate) image_atlas_evictions: u64,
+    pub(crate) image_atlas_destructions: u64,
     pub(crate) text_cache_hits: u64,
     pub(crate) text_cache_misses: u64,
     pub(crate) text_cache_evictions: u64,
@@ -44,6 +60,8 @@ pub(crate) struct PerformanceCounters {
     pub(crate) native_staged_image_vertices: u64,
     pub(crate) native_primitive_records: u64,
     pub(crate) native_primitive_batches: u64,
+    pub(crate) packed_primitive_records: u64,
+    pub(crate) packed_primitive_bytes: u64,
     pub(crate) native_command_ingest_time_ms: f64,
     pub(crate) gpu_encode_time_ms: f64,
     pub(crate) gpu_present_time_ms: f64,
@@ -65,8 +83,36 @@ impl PerformanceCounters {
         dict.set_item("pixel_region_uploads", self.pixel_region_uploads)?;
         dict.set_item("image_cache_hits", self.image_cache_hits)?;
         dict.set_item("image_cache_misses", self.image_cache_misses)?;
+        dict.set_item(
+            "image_source_clones_avoided",
+            self.image_source_clones_avoided,
+        )?;
+        dict.set_item(
+            "image_source_clone_bytes_avoided",
+            self.image_source_clone_bytes_avoided,
+        )?;
+        dict.set_item(
+            "image_cache_resident_bytes",
+            self.image_cache_resident_bytes,
+        )?;
+        dict.set_item("image_cache_peak_bytes", self.image_cache_peak_bytes)?;
+        dict.set_item("image_cache_evictions", self.image_cache_evictions)?;
+        dict.set_item("image_cache_evicted_bytes", self.image_cache_evicted_bytes)?;
         dict.set_item("texture_cache_hits", self.texture_cache_hits)?;
         dict.set_item("texture_uploads", self.texture_uploads)?;
+        dict.set_item("texture_upload_bytes", self.texture_upload_bytes)?;
+        dict.set_item("texture_dirty_uploads", self.texture_dirty_uploads)?;
+        dict.set_item("texture_resident_bytes", self.texture_resident_bytes)?;
+        dict.set_item("texture_peak_bytes", self.texture_peak_bytes)?;
+        dict.set_item("texture_cache_evictions", self.texture_cache_evictions)?;
+        dict.set_item("texture_destructions", self.texture_destructions)?;
+        dict.set_item(
+            "image_atlas_resident_bytes",
+            self.image_atlas_resident_bytes,
+        )?;
+        dict.set_item("image_atlas_peak_bytes", self.image_atlas_peak_bytes)?;
+        dict.set_item("image_atlas_evictions", self.image_atlas_evictions)?;
+        dict.set_item("image_atlas_destructions", self.image_atlas_destructions)?;
         dict.set_item("text_cache_hits", self.text_cache_hits)?;
         dict.set_item("text_cache_misses", self.text_cache_misses)?;
         dict.set_item("text_cache_evictions", self.text_cache_evictions)?;
@@ -108,6 +154,8 @@ impl PerformanceCounters {
         )?;
         dict.set_item("native_primitive_records", self.native_primitive_records)?;
         dict.set_item("native_primitive_batches", self.native_primitive_batches)?;
+        dict.set_item("packed_primitive_records", self.packed_primitive_records)?;
+        dict.set_item("packed_primitive_bytes", self.packed_primitive_bytes)?;
         dict.set_item(
             "native_command_ingest_time_ms",
             self.native_command_ingest_time_ms,

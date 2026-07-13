@@ -1,5 +1,6 @@
 mod codec;
 mod effects;
+mod executor;
 mod plans_and_fx;
 mod playback_and_output;
 mod sample_and_dsp;

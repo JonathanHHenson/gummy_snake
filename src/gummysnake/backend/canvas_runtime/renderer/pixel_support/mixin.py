@@ -32,20 +32,21 @@ class CanvasRendererPixelsMixin:
     def load_pixels(self) -> PixelBuffer:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("pixel_readbacks")
-        callback = _renderer(self)._require_canvas_method("load_pixel_bytes", "pixel byte readback")
-        pixels = _renderer(self)._call("pixel byte readback", callback)
+        pixels = _renderer(self)._call(
+            "pixel byte readback", _renderer(self)._require_canvas().load_pixel_bytes
+        )
         return PixelBuffer(pixels)
 
     def load_pixel_bytes(self) -> bytes:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("pixel_readbacks")
-        callback = _renderer(self)._require_canvas_method("load_pixel_bytes", "pixel byte readback")
-        pixels = _renderer(self)._call("pixel byte readback", callback)
+        pixels = _renderer(self)._call(
+            "pixel byte readback", _renderer(self)._require_canvas().load_pixel_bytes
+        )
         if isinstance(pixels, bytes):
             self._last_pixel_bytes = pixels
             return pixels
-        pixels = cast(Buffer | Sequence[int], pixels)
-        pixel_bytes = bytes(pixels)
+        pixel_bytes = bytes(cast(Buffer | Sequence[int], pixels))
         self._last_pixel_bytes = pixel_bytes
         return pixel_bytes
 
@@ -55,9 +56,7 @@ class CanvasRendererPixelsMixin:
         return bytes(
             _renderer(self)._call(
                 "pixel region readback",
-                _renderer(self)._require_canvas_method(
-                    "load_pixel_region", "pixel region readback"
-                ),
+                _renderer(self)._require_canvas().load_pixel_region,
                 int(x),
                 int(y),
                 int(width),
@@ -80,20 +79,17 @@ class CanvasRendererPixelsMixin:
             return
         payload = self._pixel_payload(pixels)
         _renderer(self)._count("pixel_uploads")
-        callback = (
-            getattr(_renderer(self)._require_canvas(), "update_pixel_buffer", None)
-            if payload is pixels
-            else None
-        )
-        if callable(callback):
-            _renderer(self)._call("pixel buffer upload", callback, payload)
+        if payload is pixels:
+            _renderer(self)._call(
+                "pixel buffer upload",
+                _renderer(self)._require_canvas().update_pixel_buffer,
+                payload,
+            )
             if isinstance(pixels, PixelBuffer):
                 pixels.clear_dirty()
             return
         _renderer(self)._call(
-            "pixel upload",
-            _renderer(self)._require_canvas_method("update_pixels", "pixel upload"),
-            payload,
+            "pixel upload", _renderer(self)._require_canvas().update_pixels, payload
         )
         if isinstance(pixels, PixelBuffer):
             pixels.clear_dirty()
@@ -101,25 +97,12 @@ class CanvasRendererPixelsMixin:
     def set_pixel_rgba(self, x: int, y: int, rgba: tuple[int, int, int, int]) -> None:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("pixel_uploads")
-        callback = getattr(_renderer(self)._require_canvas(), "set_pixel_rgba", None)
-        if callable(callback):
-            _renderer(self)._call(
-                "pixel write",
-                callback,
-                int(x),
-                int(y),
-                tuple(max(0, min(255, int(channel))) for channel in rgba),
-            )
-            return
         _renderer(self)._call(
-            "pixel region upload",
-            _renderer(self)._require_canvas_method("update_pixel_region", "pixel region upload"),
-            bytes(max(0, min(255, int(channel))) for channel in rgba),
-            1,
-            1,
+            "pixel write",
+            _renderer(self)._require_canvas().set_pixel_rgba,
             int(x),
             int(y),
-            False,
+            tuple(max(0, min(255, int(channel))) for channel in rgba),
         )
 
     def update_pixel_region(
@@ -135,15 +118,10 @@ class CanvasRendererPixelsMixin:
         _renderer(self)._flush_line_batch()
         payload = self._pixel_payload(pixels)
         _renderer(self)._count("pixel_uploads")
-        callback = (
-            getattr(_renderer(self)._require_canvas(), "update_pixel_region_buffer", None)
-            if payload is pixels
-            else None
-        )
-        if callable(callback):
+        if payload is pixels:
             _renderer(self)._call(
                 "pixel region buffer upload",
-                callback,
+                _renderer(self)._require_canvas().update_pixel_region_buffer,
                 payload,
                 int(width),
                 int(height),
@@ -154,7 +132,7 @@ class CanvasRendererPixelsMixin:
             return
         _renderer(self)._call(
             "pixel region upload",
-            _renderer(self)._require_canvas_method("update_pixel_region", "pixel region upload"),
+            _renderer(self)._require_canvas().update_pixel_region,
             payload,
             int(width),
             int(height),
@@ -171,13 +149,10 @@ class CanvasRendererPixelsMixin:
         green_delta: int,
     ) -> None:
         _renderer(self)._flush_line_batch()
-        callback = _renderer(self)._require_canvas_method(
-            "adjust_pixel_prefix", "pixel prefix adjustment"
-        )
         _renderer(self)._count("gpu_region_effect_passes")
         _renderer(self)._call(
             "pixel prefix adjustment",
-            callback,
+            _renderer(self)._require_canvas().adjust_pixel_prefix,
             int(byte_limit),
             int(stride),
             int(red_delta),
@@ -188,10 +163,7 @@ class CanvasRendererPixelsMixin:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_region_effect_passes")
         _renderer(self)._call(
-            "pixel filter",
-            _renderer(self)._require_canvas_method("filter_pixels", "canvas pixel filtering"),
-            mode.value,
-            value,
+            "pixel filter", _renderer(self)._require_canvas().filter_pixels, mode.value, value
         )
 
     def blend_region(
@@ -238,11 +210,7 @@ class CanvasRendererPixelsMixin:
 
     def save(self, path: str | Path) -> None:
         _renderer(self)._flush_line_batch()
-        _renderer(self)._call(
-            "canvas export",
-            _renderer(self)._require_canvas_method("save", "canvas export"),
-            str(path),
-        )
+        _renderer(self)._call("canvas export", _renderer(self)._require_canvas().save, str(path))
 
     def save_gif(self, path: str | Path, count: int, frame_duration_ms: int) -> None:
         _renderer(self)._flush_line_batch()

@@ -13,19 +13,12 @@ impl Canvas {
         matrix: Matrix,
         source: Option<(i64, i64, i64, i64)>,
     ) -> PyResult<()> {
-        self.cache_canvas_image_payload(
-            image.key,
-            image.version,
-            image.width,
-            image.height,
-            &image.pixels,
-        );
         if self.try_draw_gpu_image_parts_for_payload(
             image.key,
             image.version,
             image.width,
             image.height,
-            &image.pixels,
+            image.pixels.as_slice(),
             dx,
             dy,
             dw,
@@ -37,7 +30,7 @@ impl Canvas {
             return Ok(());
         }
         self.draw_image_pixels(
-            &image.pixels,
+            image.pixels.as_slice(),
             image.width,
             image.height,
             dx,
@@ -62,19 +55,12 @@ impl Canvas {
     ) -> PyResult<()> {
         let style = self.current_style.clone();
         let matrix = self.current_matrix;
-        self.cache_canvas_image_payload(
-            image.key,
-            image.version,
-            image.width,
-            image.height,
-            &image.pixels,
-        );
         if self.try_draw_gpu_image_parts(
             image.key,
             image.version,
             image.width,
             image.height,
-            &image.pixels,
+            image.pixels.as_slice(),
             dx,
             dy,
             dw,
@@ -86,7 +72,7 @@ impl Canvas {
             return Ok(());
         }
         self.draw_image_pixels_with_style(
-            &image.pixels,
+            image.pixels.as_slice(),
             image.width,
             image.height,
             dx,
@@ -108,13 +94,14 @@ impl Canvas {
         let ingest_start = std::time::Instant::now();
         let style = self.cached_style(style)?;
         let batch = ImageBatchBuilder::parse_canvas_records(records, matrix)?;
+        self.record_shared_batch_payloads(&batch);
         if self.try_draw_gpu_image_atlas_batch(batch.unique_images(), batch.records(), &style)? {
             self.performance_counters.native_command_ingest_time_ms +=
                 ingest_start.elapsed().as_secs_f64() * 1000.0;
             return Ok(());
         }
         let (unique_images, records) = batch.into_parts();
-        let result = self.draw_image_batch_records(&unique_images, &records, &style, true, true);
+        let result = self.draw_image_batch_records(&unique_images, &records, &style, true);
         self.performance_counters.native_command_ingest_time_ms +=
             ingest_start.elapsed().as_secs_f64() * 1000.0;
         result
@@ -128,13 +115,14 @@ impl Canvas {
         let ingest_start = std::time::Instant::now();
         let style = self.cached_style(style)?;
         let batch = ImageBatchBuilder::parse_transformed_canvas_records(records)?;
+        self.record_shared_batch_payloads(&batch);
         if self.try_draw_gpu_image_atlas_batch(batch.unique_images(), batch.records(), &style)? {
             self.performance_counters.native_command_ingest_time_ms +=
                 ingest_start.elapsed().as_secs_f64() * 1000.0;
             return Ok(());
         }
         let (unique_images, records) = batch.into_parts();
-        let result = self.draw_image_batch_records(&unique_images, &records, &style, false, true);
+        let result = self.draw_image_batch_records(&unique_images, &records, &style, true);
         self.performance_counters.native_command_ingest_time_ms +=
             ingest_start.elapsed().as_secs_f64() * 1000.0;
         result
@@ -151,6 +139,7 @@ impl Canvas {
         let ingest_start = std::time::Instant::now();
         let style = self.cached_style(style)?;
         let batch = ImageBatchBuilder::parse_motion_records(records, &images, frame, matrix)?;
+        self.record_shared_batch_payloads(&batch);
         if batch.is_empty() {
             self.performance_counters.native_command_ingest_time_ms +=
                 ingest_start.elapsed().as_secs_f64() * 1000.0;
@@ -162,9 +151,18 @@ impl Canvas {
             return Ok(());
         }
         let (unique_images, records) = batch.into_parts();
-        let result = self.draw_image_batch_records(&unique_images, &records, &style, false, false);
+        let result = self.draw_image_batch_records(&unique_images, &records, &style, false);
         self.performance_counters.native_command_ingest_time_ms +=
             ingest_start.elapsed().as_secs_f64() * 1000.0;
         result
+    }
+
+    fn record_shared_batch_payloads(&mut self, batch: &ImageBatchBuilder) {
+        self.performance_counters.image_source_clones_avoided += batch.unique_len() as u64;
+        self.performance_counters.image_source_clone_bytes_avoided += batch
+            .unique_images()
+            .iter()
+            .map(|image| image.pixels.len() as u64)
+            .sum::<u64>();
     }
 }

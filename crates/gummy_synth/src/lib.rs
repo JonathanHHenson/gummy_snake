@@ -19,6 +19,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 pub mod codec;
 
 mod dsp;
+mod executor;
+mod fx_chain;
 mod fx_core;
 mod fx_modulation;
 mod fx_space;
@@ -29,17 +31,27 @@ mod sample_voice;
 mod samples;
 mod synth_rendering;
 mod types;
+mod validation;
 mod voice_controls;
 mod voice_core;
 
 pub(crate) use dsp::*;
+pub(crate) use executor::*;
+pub(crate) use fx_chain::*;
 pub(crate) use fx_core::*;
 pub(crate) use fx_modulation::*;
 pub(crate) use fx_space::*;
 pub(crate) use output::*;
 pub(crate) use plans::*;
 
-pub use playback::{render_plan_events, render_serialized_plan_wav_bytes};
+pub use executor::{
+    diagnostics, effective_worker_count, record_gil_released_call, reset_diagnostics,
+    set_worker_count, GilReleasedOperation, SynthDiagnostics, SYNTH_PARALLEL_MIN_SCRATCH_BYTES,
+    SYNTH_PARALLEL_SCRATCH_LIMIT_BYTES, SYNTH_WORKER_POOL_CAPACITY,
+};
+pub use playback::{
+    render_plan_events, render_serialized_plan_wav_bytes, render_serialized_plan_wav_file,
+};
 pub(crate) use sample_voice::*;
 pub use samples::sample_duration;
 pub(crate) use samples::*;
@@ -50,6 +62,9 @@ pub use types::{
     ControlPayload, EventPayload, FxPayload, OptMap, SynthError, SynthPlaybackPlan, SynthResult,
     SynthValue,
 };
+pub(crate) use validation::*;
+
+pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub(crate) use voice_controls::*;
 pub(crate) use voice_core::*;
 

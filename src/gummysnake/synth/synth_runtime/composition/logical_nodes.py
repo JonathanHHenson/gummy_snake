@@ -142,6 +142,7 @@ class ScheduledEvent:
     synth_opts: Mapping[str, object]
     fx_chain: tuple[FxHandle, ...]
     order: int = 0
+    seed: int = 0
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,55 +1,13 @@
 from __future__ import annotations
 
-import subprocess
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
-from benchmarks.framework.database import DatabaseError, GitBenchmarkDatabase, audit_database
-from benchmarks.schema.records import (
-    BenchmarkRecord,
-    ComparisonFingerprint,
-    MetricResult,
-    Provenance,
-)
-
-
-def git(repository: Path, *args: str) -> str:
-    return subprocess.run(
-        ("git", "-C", str(repository), *args), check=True, text=True, stdout=subprocess.PIPE
-    ).stdout.strip()
-
-
-def record(subject: str) -> BenchmarkRecord:
-    return BenchmarkRecord(
-        fingerprint=ComparisonFingerprint({"architecture": "arm64", "runtime_route": "headless"}),
-        provenance=Provenance(
-            subject,
-            "sha256:source",
-            "sha256:tree",
-            "sha256:wheel",
-            "sha256:lock",
-            {"profile": "release"},
-            {},
-        ),
-        suite_id="canvas",
-        suite_version=1,
-        catalog_digest="sha256:catalog",
-        metrics=(
-            MetricResult(
-                ("fill", 1, "small", "sha256:param", "elapsed", 1, 1),
-                ((10, 11), (12, 13)),
-                1,
-                Decimal("11.5"),
-                "ns",
-                "lower-is-better",
-                "ratio",
-                Decimal("11.5"),
-            ),
-        ),
-        run_conditions={},
-    )
+from benchmarks.framework.git_database import DatabaseError
+from benchmarks.framework.git_database.audit import audit_database
+from benchmarks.framework.git_database.store import GitBenchmarkDatabase
+from tests.unit.benchmark_system.test_database_support import git, record
 
 
 def test_missing_authoritative_ref_is_an_actionable_infrastructure_error(tmp_path: Path) -> None:
@@ -80,11 +38,19 @@ def test_stage_candidate_writes_immutable_shards_without_advancing_authority(
     authority_tip = database.data_tip()
     staged = database.stage_candidate(stored)
 
-    assert staged.branch == f"benchmark-record/{subject[:12]}-{stored.fingerprint.id[:12]}"
+    assert staged.branch == (
+        f"benchmark-record/{subject[:12]}-{stored.fingerprint.id[:12]}-canvas-v1"
+    )
     assert git(tmp_path, "rev-parse", "refs/heads/benchmark-data-v1") == authority_tip
     assert git(tmp_path, "rev-parse", staged.branch) == staged.commit
     assert git(tmp_path, "rev-parse", f"{staged.commit}^") == authority_tip
     assert database.exact_record(subject, stored.fingerprint.id, "canvas", 1) is None
+    assert database.record_path(stored).startswith(
+        f"records/v1/{stored.fingerprint.id[:2]}/{stored.fingerprint.id}/{subject[:2]}/"
+    )
+    assert database.fingerprint_path(stored.fingerprint.id).startswith(
+        f"fingerprints/v1/{stored.fingerprint.id[:2]}/"
+    )
     assert database._show(database.record_path(stored), staged.commit) is not None
     assert "Benchmark-Subject: " + subject in git(
         tmp_path, "show", "-s", "--format=%B", staged.commit

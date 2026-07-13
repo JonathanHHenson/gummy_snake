@@ -13,6 +13,7 @@ impl<'a> PlanExecutor<'a> {
     ) -> Result<()> {
         for ctx in contexts {
             let payload = self.eval_expr(value, ctx)?;
+            let payload = self.world.coerce_event_payload(event_type, payload)?;
             self.world.emit_event(event_type, payload.clone())?;
             self.report.events_emitted += 1;
             if self.report_writes {
@@ -78,6 +79,12 @@ impl<'a> PlanExecutor<'a> {
         let ExprNode::ResourceField { resource, field } = &self.plan.expressions[target] else {
             return None;
         };
+        if !matches!(
+            self.world.storage_type_for_field(resource, field).ok()?,
+            crate::schema::StorageType::Float32 | crate::schema::StorageType::Float64
+        ) {
+            return None;
+        }
         let ExprNode::Binary { op, left, right } = &self.plan.expressions[value] else {
             return None;
         };

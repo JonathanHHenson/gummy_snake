@@ -66,6 +66,7 @@ pub(crate) struct ScheduledControlPayload {
 #[derive(Clone, Debug, PartialEq)]
 pub struct EventPayload {
     pub node_id: u64,
+    pub seed: u64,
     pub order: u64,
     pub kind: String,
     pub time_seconds: f64,
@@ -144,6 +145,7 @@ pub(crate) struct ScheduledFxPayload {
 pub(crate) struct ScheduledEventPayload {
     pub(crate) instance_key: String,
     pub(crate) node_id: u64,
+    pub(crate) seed: u64,
     pub(crate) order: u64,
     pub(crate) kind: String,
     pub(crate) time_seconds: f64,

@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use std::sync::Arc;
 
 impl Canvas {
     pub(crate) fn draw_cached_image_impl(
@@ -29,7 +30,7 @@ impl Canvas {
             cached.version,
             cached.width,
             cached.height,
-            &cached.pixels,
+            cached.pixels.as_slice(),
             dx,
             dy,
             dw,
@@ -41,7 +42,7 @@ impl Canvas {
             return Ok(());
         }
         self.draw_image_pixels_with_style(
-            &cached.pixels,
+            cached.pixels.as_slice(),
             cached.width,
             cached.height,
             dx,
@@ -82,7 +83,7 @@ impl Canvas {
             cached.version,
             cached.width,
             cached.height,
-            &cached.pixels,
+            cached.pixels.as_slice(),
             dx,
             dy,
             dw,
@@ -94,7 +95,7 @@ impl Canvas {
             return Ok(());
         }
         self.draw_image_pixels_with_style(
-            &cached.pixels,
+            cached.pixels.as_slice(),
             cached.width,
             cached.height,
             dx,
@@ -126,14 +127,20 @@ impl Canvas {
                 )
             })?;
             validate_rgba_buffer(pixels.len(), image_width, image_height)?;
-            self.evict_image_cache_if_needed(image_key);
-            self.image_cache.insert(
+            if pixels.len() > self.image_cache.max_bytes() {
+                return Err(PyValueError::new_err(format!(
+                    "Image payload is {} bytes, exceeding the bounded image cache budget of {} bytes.",
+                    pixels.len(),
+                    self.image_cache.max_bytes()
+                )));
+            }
+            self.insert_image_cache_entry(
                 image_key,
                 CachedImage {
                     version: image_version,
                     width: image_width,
                     height: image_height,
-                    pixels,
+                    pixels: Arc::new(pixels),
                 },
             );
         } else {

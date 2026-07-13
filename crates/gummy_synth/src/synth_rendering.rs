@@ -4,11 +4,54 @@ pub(crate) fn render_dry_event(
     event: &EventPayload,
     sample_rate: u32,
 ) -> SynthResult<(Vec<f64>, Vec<f64>)> {
-    if event.kind == "sample" {
-        render_sample_event(event, sample_rate)
-    } else {
-        render_synth_event(event, sample_rate)
+    validate_event(event, sample_rate)?;
+    match event.kind.as_str() {
+        "sample" => render_sample_event(event, sample_rate),
+        "play" => render_synth_event(event, sample_rate),
+        unsupported => Err(SynthError::new(format!(
+            "unsupported synth event kind {unsupported:?}; expected 'play' or 'sample'."
+        ))),
     }
+}
+
+pub(crate) fn dry_event_parallel_scratch_bytes(
+    event: &EventPayload,
+    sample_rate: u32,
+) -> SynthResult<Option<usize>> {
+    if event.kind != "play" {
+        return Ok(None);
+    }
+    let kind = synth_kind(&event.synth_name);
+    if matches!(kind, SynthKind::Unknown | SynthKind::Silence) {
+        return Ok(None);
+    }
+    let mut opts = event.synth_opts.clone();
+    opts.extend(event.opts.clone());
+    let note_source = opts.get("note").unwrap_or(&event.value);
+    if note_values(note_source)?.is_empty() {
+        return Ok(None);
+    }
+    let (default_attack, default_decay, default_sustain, default_release) =
+        default_synth_envelope(kind);
+    let total_seconds = (float_opt(&opts, "attack", default_attack).max(0.0)
+        + float_opt(&opts, "decay", default_decay).max(0.0)
+        + float_opt(&opts, "sustain", default_sustain).max(0.0)
+        + float_opt(&opts, "release", default_release).max(0.0))
+    .max(natural_synth_tail(kind, &opts))
+    .max(0.01);
+    let frames = checked_frame_count(
+        total_seconds,
+        sample_rate,
+        "parallel synth event envelope duration",
+        1,
+    )?;
+    // Conservatively account for the mono, envelope, post-processing, and
+    // stereo output buffers that may coexist while one dry event is rendered.
+    let bytes = frames
+        .checked_mul(8)
+        .and_then(|value| value.checked_mul(std::mem::size_of::<f64>()))
+        .ok_or_else(|| SynthError::new("parallel synth event scratch size overflowed."))?;
+    Ok(Some(bytes))
 }
 
 pub(crate) fn render_event(
@@ -24,7 +67,7 @@ pub(crate) fn render_event(
             &fx.opts,
             sample_rate,
             event.time_seconds,
-        );
+        )?;
         left = new_left;
         right = new_right;
     }
@@ -33,6 +76,7 @@ pub(crate) fn render_event(
 
 /// Render one typed event to a stereo WAV payload.
 pub fn render_event_wav(event: &EventPayload, sample_rate: u32) -> SynthResult<Vec<u8>> {
+    validate_event(event, sample_rate)?;
     let (left, right) = render_event(event, sample_rate)?;
     let (left, right) = output_limit_pair(&left, &right, sample_rate);
     Ok(stereo_wav_bytes(&left, &right, sample_rate))
@@ -43,11 +87,17 @@ pub(crate) fn render_synth_event(
     sample_rate: u32,
 ) -> SynthResult<(Vec<f64>, Vec<f64>)> {
     let kind = synth_kind(&event.synth_name);
+    if kind == SynthKind::Unknown {
+        return Err(SynthError::new(format!(
+            "unsupported primitive synth {:?}; no sine substitution is available.",
+            event.synth_name
+        )));
+    }
     let mut opts = event.synth_opts.clone();
     opts.extend(event.opts.clone());
 
     if matches!(kind, SynthKind::Silence) {
-        return Ok(render_no_source_event(&opts, sample_rate));
+        return render_no_source_event(&opts, sample_rate);
     }
     if matches!(kind, SynthKind::Layered) {
         return render_layered_synth_event(event, &opts, sample_rate);
@@ -69,13 +119,19 @@ pub(crate) fn render_synth_event(
     let total_seconds = (attack + decay + sustain + release)
         .max(natural_tail)
         .max(0.01);
-    let count = (total_seconds * sample_rate as f64).ceil() as usize;
+    let count = checked_frame_count(
+        total_seconds,
+        sample_rate,
+        "synth event envelope duration",
+        1,
+    )?;
     let amp = float_opt(&opts, "amp", 1.0).max(0.0) * synth_amp_fudge(kind, &opts);
     let env_curve = float_opt(&opts, "env_curve", 1.0).round() as i32;
     let attack_level = float_opt(&opts, "attack_level", 1.0).max(0.0);
     let sustain_level = float_opt(&opts, "sustain_level", 1.0).max(0.0);
     let decay_level = decay_level_opt(&opts, sustain_level);
     let waveform = synth_waveform(kind, &opts);
+    let stochastic_identity = stochastic_identity(event.seed, event.node_id);
     let pan_base = float_opt(&opts, "pan", 0.0);
     let note_auto = automation(notes[0], "note", &event.controls, &opts, event.time_seconds);
     let cutoff_auto = automation(
@@ -135,7 +191,7 @@ pub(crate) fn render_synth_event(
                 index,
                 note_index,
                 &opts,
-                event.node_id,
+                stochastic_identity,
                 sample_rate,
             );
             sample += voice;
@@ -179,10 +235,7 @@ pub(crate) fn render_layered_synth_event(
     opts: &OptMap,
     sample_rate: u32,
 ) -> SynthResult<(Vec<f64>, Vec<f64>)> {
-    let layers = layered_specs(opts);
-    if layers.is_empty() {
-        return Ok(render_no_source_event(opts, sample_rate));
-    }
+    let layers = layered_specs(opts)?;
 
     let note_source = opts.get("note").unwrap_or(&event.value);
     let notes = note_values(note_source)?;
@@ -200,13 +253,19 @@ pub(crate) fn render_layered_synth_event(
     let total_seconds = (attack + decay + sustain + release)
         .max(natural_tail)
         .max(0.01);
-    let count = (total_seconds * sample_rate as f64).ceil() as usize;
+    let count = checked_frame_count(
+        total_seconds,
+        sample_rate,
+        "layered synth event envelope duration",
+        1,
+    )?;
     let amp = float_opt(opts, "amp", 1.0).max(0.0) * synth_amp_fudge(SynthKind::Layered, opts);
     let env_curve = float_opt(opts, "env_curve", 1.0).round() as i32;
     let attack_level = float_opt(opts, "attack_level", 1.0).max(0.0);
     let sustain_level = float_opt(opts, "sustain_level", 1.0).max(0.0);
     let decay_level = decay_level_opt(opts, sustain_level);
     let pan_base = float_opt(opts, "pan", 0.0);
+    let stochastic_identity = stochastic_identity(event.seed, event.node_id);
     let note_auto = automation(notes[0], "note", &event.controls, opts, event.time_seconds);
     let cutoff_auto = automation(
         Some(float_opt(
@@ -275,7 +334,7 @@ pub(crate) fn render_layered_synth_event(
                     index,
                     phase_index,
                     &layer.opts,
-                    event.node_id,
+                    stochastic_identity,
                     sample_rate,
                 );
                 sample += voice * layer.amp;
@@ -316,33 +375,88 @@ pub(crate) fn render_layered_synth_event(
     Ok((left, right))
 }
 
-pub(crate) fn layered_specs(opts: &OptMap) -> Vec<LayerSpec> {
+pub(crate) fn layered_specs(opts: &OptMap) -> SynthResult<Vec<LayerSpec>> {
     let Some(SynthValue::List(values)) = opts.get("layers") else {
-        return Vec::new();
+        return Err(SynthError::new(
+            "primitive synth '_layered' requires a non-empty 'layers' list.",
+        ));
     };
+    if values.is_empty() {
+        return Err(SynthError::new(
+            "primitive synth '_layered' requires a non-empty 'layers' list.",
+        ));
+    }
     values
         .iter()
-        .filter_map(|value| layer_spec(value, opts))
+        .enumerate()
+        .map(|(index, value)| layer_spec(value, opts, index))
         .collect()
 }
 
-pub(crate) fn layer_spec(value: &SynthValue, base_opts: &OptMap) -> Option<LayerSpec> {
+pub(crate) fn layer_spec(
+    value: &SynthValue,
+    base_opts: &OptMap,
+    layer_index: usize,
+) -> SynthResult<LayerSpec> {
     let SynthValue::Dict(mapping) = value else {
-        return None;
+        return Err(SynthError::new(format!(
+            "layered synth layer {layer_index} must be an object."
+        )));
     };
-    let wave = mapping.get("wave").and_then(value_as_str).unwrap_or("sine");
+    let unexpected: Vec<&str> = mapping
+        .keys()
+        .map(String::as_str)
+        .filter(|key| !matches!(*key, "wave" | "transpose" | "amp" | "opts"))
+        .collect();
+    if !unexpected.is_empty() {
+        return Err(SynthError::new(format!(
+            "layered synth layer {layer_index} contains unsupported key(s): {}.",
+            unexpected.join(", ")
+        )));
+    }
+    let wave = mapping
+        .get("wave")
+        .and_then(value_as_str)
+        .filter(|wave| !wave.is_empty())
+        .ok_or_else(|| {
+            SynthError::new(format!(
+                "layered synth layer {layer_index} requires a non-empty string 'wave'."
+            ))
+        })?;
     let kind = synth_kind(&format!("_{}", wave.trim_start_matches('_')));
+    if matches!(
+        kind,
+        SynthKind::Unknown | SynthKind::Layered | SynthKind::Silence
+    ) {
+        return Err(SynthError::new(format!(
+            "unsupported layered synth primitive wave {wave:?} at layer {layer_index}."
+        )));
+    }
     let transpose = mapping
         .get("transpose")
         .and_then(value_as_f64)
-        .unwrap_or(0.0);
-    let amp = mapping.get("amp").and_then(value_as_f64).unwrap_or(1.0);
+        .ok_or_else(|| {
+            SynthError::new(format!(
+                "layered synth layer {layer_index} requires numeric 'transpose'."
+            ))
+        })?;
+    let amp = mapping.get("amp").and_then(value_as_f64).ok_or_else(|| {
+        SynthError::new(format!(
+            "layered synth layer {layer_index} requires numeric 'amp'."
+        ))
+    })?;
     let mut opts = base_opts.clone();
     opts.remove("layers");
-    if let Some(SynthValue::Dict(layer_opts)) = mapping.get("opts") {
-        opts.extend(layer_opts.clone());
+    match mapping.get("opts") {
+        Some(SynthValue::Dict(layer_opts)) => opts.extend(layer_opts.clone()),
+        Some(_) => {
+            return Err(SynthError::new(format!(
+                "layered synth layer {layer_index} 'opts' must be an object."
+            )))
+        }
+        None => {}
     }
-    Some(LayerSpec {
+    Ok(LayerSpec {
         kind,
         waveform: synth_waveform(kind, &opts),
         transpose,

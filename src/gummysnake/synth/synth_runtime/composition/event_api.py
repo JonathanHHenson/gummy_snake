@@ -63,8 +63,12 @@ def play(value: object, **opts: object) -> NodeHandle:
 def sample(value: object, *filters: object, **opts: object) -> NodeHandle:
     """Trigger a built-in, external, or generated sample at the current beat."""
 
-    sample_value: object = value if not filters else (value, *filters)
-    return _current_builder().add_event("sample", sample_value, dict(opts))
+    if filters:
+        raise ArgumentValidationError(
+            "Positional sample filters are not supported; no filter substitution is available. "
+            "Use documented sample options or an explicit sy.fx(...) context."
+        )
+    return _current_builder().add_event("sample", value, dict(opts))
 
 
 def sleep(beats: object) -> None:

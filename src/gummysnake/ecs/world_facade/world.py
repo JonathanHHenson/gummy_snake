@@ -46,7 +46,6 @@ class EcsWorld:
         strict: bool
         warn_on_ambiguity: bool
         _diagnostics: Counter[str]
-        _messages: list[str]
         _schemas: dict[type[Any], dict[str, StorageType]]
         _spatial_epoch: int
         _spatial_index_cache: dict[object, object]
@@ -59,7 +58,6 @@ class EcsWorld:
         _added_components: set[tuple[int, int, type[Any]]]
         _changed_components: set[tuple[int, int, type[Any]]]
         _removed_components: set[tuple[int, int, type[Any]]]
-        _events: dict[type[Any], list[tuple[int, object]]]
         _event_types: dict[str, type[Any]]
         _has_change_filtered_systems_cache: bool | None
         _active_python_access_batch: Any | None

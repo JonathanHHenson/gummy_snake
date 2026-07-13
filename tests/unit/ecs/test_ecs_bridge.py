@@ -90,6 +90,59 @@ def test_rust_ecs_bridge_executes_plan_payload() -> None:
     ]
 
 
+def test_rust_ecs_bridge_enforces_typed_storage_at_all_write_boundaries() -> None:
+    import struct
+
+    world = rust_ecs.create_ecs_world()
+    world.register_schema(
+        "Typed",
+        [
+            ("count", "UInt8"),
+            ("ratio", "Float32"),
+            ("kind", "CategoricalString"),
+            ("samples", "List[Int16]"),
+        ],
+    )
+    index, generation = world.spawn_with_defaults(["Typed"])
+
+    world.set_field(index, generation, "Typed", "count", 255)
+    with pytest.raises(ValueError, match="UInt8 range"):
+        world.set_field(index, generation, "Typed", "count", 256)
+
+    world.set_field(index, generation, "Typed", "ratio", 1.0 / 3.0)
+    rounded = struct.unpack("!f", struct.pack("!f", 1.0 / 3.0))[0]
+    assert world.get_field(index, generation, "Typed", "ratio") == rounded
+    with pytest.raises(ValueError, match="finite"):
+        world.set_field(index, generation, "Typed", "ratio", float("inf"))
+
+    world.set_field(index, generation, "Typed", "kind", "enemy")
+    world.set_field(index, generation, "Typed", "samples", [-32768, 32767])
+    assert world.get_field(index, generation, "Typed", "kind") == "enemy"
+    assert world.get_field(index, generation, "Typed", "samples") == [-32768, 32767]
+    with pytest.raises(ValueError, match="Int16 range"):
+        world.set_field(index, generation, "Typed", "samples", [32768])
+
+    world.insert_resource(
+        "Typed",
+        {"count": 7, "ratio": 0.1, "kind": "resource", "samples": [1, 2]},
+    )
+    with pytest.raises(ValueError, match="UInt8 range"):
+        world.set_resource_field("Typed", "count", -1)
+
+    world.emit_event(
+        "Typed",
+        {"count": 9, "ratio": 0.2, "kind": "event", "samples": [3, 4]},
+    )
+    payload = world.read_events("Typed")[0]["payload"]
+    assert payload["count"] == 9
+    assert payload["ratio"] == struct.unpack("!f", struct.pack("!f", 0.2))[0]
+    with pytest.raises(ValueError, match="UInt8 range"):
+        world.emit_event(
+            "Typed",
+            {"count": 300, "ratio": 0.2, "kind": "event", "samples": []},
+        )
+
+
 def test_rust_ecs_wrapper_validates_abi_and_spatial_registry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

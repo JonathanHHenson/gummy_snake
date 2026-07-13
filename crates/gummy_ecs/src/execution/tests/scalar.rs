@@ -332,3 +332,99 @@ fn row_local_canvas_compacts_fill_records_with_stable_order_and_conversions() {
         EcsValue::F64(10.0)
     );
 }
+
+#[test]
+fn physical_integer_arithmetic_is_exact_and_target_overflow_is_checked() {
+    let mut world = World::new();
+    world
+        .register_schema(ComponentSchema::new(
+            "Exact",
+            vec![FieldSchema::new("value", StorageType::Int64)],
+        ))
+        .unwrap();
+    world
+        .register_schema(ComponentSchema::new(
+            "Narrow",
+            vec![FieldSchema::new("value", StorageType::Int8)],
+        ))
+        .unwrap();
+    let entity = world
+        .spawn_with_defaults(["Exact".to_string(), "Narrow".to_string()])
+        .unwrap();
+    world
+        .set_field(
+            entity,
+            "Exact",
+            "value",
+            EcsValue::I64(9_007_199_254_740_993),
+        )
+        .unwrap();
+    world
+        .set_field(entity, "Narrow", "value", EcsValue::I64(127))
+        .unwrap();
+    let query = BridgeQueryPayload {
+        name: "entity".to_string(),
+        terms: vec![
+            QueryTerm::WithComponent("Exact".to_string()),
+            QueryTerm::WithComponent("Narrow".to_string()),
+        ],
+        allowed_entities: None,
+    };
+    let exact_payload = BridgePlanPayload {
+        version: BRIDGE_PLAN_VERSION,
+        schema_fingerprint: Some(world.schema_fingerprint()),
+        queries: vec![query.clone()],
+        expressions: vec![
+            ExprNode::Field {
+                query: "entity".to_string(),
+                component: "Exact".to_string(),
+                field: "value".to_string(),
+            },
+            ExprNode::LiteralI64(2),
+            ExprNode::Binary {
+                op: "add".to_string(),
+                left: 0,
+                right: 1,
+            },
+        ],
+        actions: vec![ActionNode::SetField {
+            target: 0,
+            value: 2,
+        }],
+        root_action: 0,
+    };
+    world.execute_bridge_plan(exact_payload).unwrap();
+    assert_eq!(
+        world.get_field(entity, "Exact", "value").unwrap(),
+        EcsValue::I64(9_007_199_254_740_995)
+    );
+
+    let overflow_payload = BridgePlanPayload {
+        version: BRIDGE_PLAN_VERSION,
+        schema_fingerprint: Some(world.schema_fingerprint()),
+        queries: vec![query],
+        expressions: vec![
+            ExprNode::Field {
+                query: "entity".to_string(),
+                component: "Narrow".to_string(),
+                field: "value".to_string(),
+            },
+            ExprNode::LiteralI64(2),
+            ExprNode::Binary {
+                op: "add".to_string(),
+                left: 0,
+                right: 1,
+            },
+        ],
+        actions: vec![ActionNode::SetField {
+            target: 0,
+            value: 2,
+        }],
+        root_action: 0,
+    };
+    assert!(world.execute_bridge_plan(overflow_payload).is_err());
+    assert_eq!(
+        world.get_field(entity, "Narrow", "value").unwrap(),
+        EcsValue::I64(127)
+    );
+}

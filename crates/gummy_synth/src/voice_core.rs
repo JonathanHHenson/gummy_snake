@@ -146,15 +146,21 @@ pub(crate) fn natural_synth_tail(_kind: SynthKind, _opts: &OptMap) -> f64 {
     0.01
 }
 
-pub(crate) fn render_no_source_event(opts: &OptMap, sample_rate: u32) -> (Vec<f64>, Vec<f64>) {
+pub(crate) fn render_no_source_event(
+    opts: &OptMap,
+    sample_rate: u32,
+) -> SynthResult<(Vec<f64>, Vec<f64>)> {
     let attack = float_opt(opts, "attack", 0.0).max(0.0);
     let decay = float_opt(opts, "decay", 0.0).max(0.0);
     let sustain = float_opt(opts, "sustain", 0.0).max(0.0);
     let release = float_opt(opts, "release", 0.01).max(0.01);
-    let count = ((attack + decay + sustain + release) * sample_rate as f64)
-        .ceil()
-        .max(1.0) as usize;
-    (vec![0.0; count], vec![0.0; count])
+    let count = checked_frame_count(
+        attack + decay + sustain + release,
+        sample_rate,
+        "silent synth event envelope duration",
+        1,
+    )?;
+    Ok((vec![0.0; count], vec![0.0; count]))
 }
 
 pub(crate) fn synth_waveform(kind: SynthKind, _opts: &OptMap) -> &'static str {
@@ -275,9 +281,16 @@ pub(crate) fn noise_voice(
     }
 }
 
+pub(crate) fn stochastic_identity(plan_seed: u64, node_id: u64) -> u64 {
+    let mut value = plan_seed ^ node_id.wrapping_add(0x9e37_79b9_7f4a_7c15);
+    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    value ^ (value >> 31)
+}
+
 pub(crate) fn deterministic_noise(sample_index: usize, note_index: usize, node_id: u64) -> f64 {
-    let x = (sample_index as f64 * 12.9898 + note_index as f64 * 78.233 + node_id as f64 * 37.719)
-        .sin()
+    let identity = node_id as f64;
+    let x = (sample_index as f64 * 12.9898 + note_index as f64 * 78.233 + identity * 37.719).sin()
         * 43_758.545_3;
     (x - x.floor()) * 2.0 - 1.0
 }

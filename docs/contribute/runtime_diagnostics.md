@@ -23,8 +23,16 @@ The stable top-level counters are:
 | `pixel_uploads` | Full pixel or texture uploads back to the canvas. |
 | `gpu_blend_commands` | Non-default blend commands that stayed in the GPU command stream. |
 | `gpu_region_effect_passes` | Bounded GPU region-effect passes, such as internal pixel-prefix mutation. |
-| `image_cache_hits` / `image_cache_misses` | Legacy Python image byte-cache reuse or upload; Rust-backed `Image` draws normally bypass this path. |
-| `texture_cache_hits` / `texture_uploads` | Native texture reuse or upload, including canvas-managed image handles. |
+| `image_cache_hits` / `image_cache_misses` | Bounded legacy image-cache reuse or insertion. Rust `CanvasImage` entries retain shared immutable payload ownership rather than cloning RGBA bytes. |
+| `image_source_clones_avoided` / `image_source_clone_bytes_avoided` | Full RGBA source clones avoided when ordered batches and cache entries retain shared Rust image payloads. |
+| `image_cache_resident_bytes` / `image_cache_peak_bytes` | Current and peak logical RGBA bytes retained by the bounded CPU image cache. Shared `Arc` payloads are counted once per cache entry even when the canonical handle also owns the same allocation. |
+| `image_cache_evictions` / `image_cache_evicted_bytes` | CPU image-cache entries and logical payload bytes released to satisfy count or byte limits. |
+| `texture_cache_hits` / `texture_uploads` | Native texture reuse or upload, including canvas-managed image handles and the existing ordered image atlas path. |
+| `texture_upload_bytes` / `texture_dirty_uploads` | RGBA bytes uploaded and uploads caused by an existing stable texture key advancing to a new image/atlas generation. |
+| `texture_resident_bytes` / `texture_peak_bytes` | Current and peak GPU RGBA texture bytes tracked by the bounded texture cache. |
+| `texture_cache_evictions` / `texture_destructions` | Texture-cache evictions and actual resources removed/replaced in the GPU texture map. Resources referenced by pending ordered commands remain frame-pinned until a later safe eviction opportunity. |
+| `image_atlas_resident_bytes` / `image_atlas_peak_bytes` | Current and peak bytes belonging to textures produced by the single ordered image/text atlas path. |
+| `image_atlas_evictions` / `image_atlas_destructions` | Atlas entries evicted and actual atlas GPU resources removed or replaced. |
 | `text_cache_hits` / `text_cache_misses` | Text metric or glyph cache reuse. |
 | `text_cache_evictions` | Bounded text or text-metric cache entries evicted during dynamic text churn. |
 | `text_measurements` | Native text measurement calls. |
@@ -49,18 +57,29 @@ The stable top-level counters are:
 
 When the installed Rust canvas exposes native counters, the Python report also
 contains a `native` dictionary. Treat that dictionary as diagnostic detail; use
-the top-level keys in tests and docs.
+the top-level keys in tests and docs. Image ownership, texture upload, byte
+residency, eviction, and destruction counters listed above are promoted from the
+native report to those stable top-level keys.
 
 Native diagnostics may also include GPU render-loop counters:
 `gpu_vertex_buffer_allocations`, `gpu_vertex_uploads`, `gpu_primitive_batches`,
-`gpu_uploaded_vertex_bytes`, `gpu_image_batches`, `gpu_encode_time_ms`, and
-`gpu_present_time_ms`. Native command-stream diagnostics include
+`gpu_uploaded_vertex_bytes`, `gpu_image_batches`, `gpu_encode_time_ms`,
+`gpu_present_time_ms`, `gpu_command_clone_count`, `gpu_command_clone_bytes`, and
+`gpu_command_segment_allocation_count`. The three command-stream allocation
+counters should remain zero on normal borrowed-range encoding and retained
+replay paths; a nonzero value indicates that full-stream cloning or owned
+command-segment materialization has been reintroduced. Native command-stream
+diagnostics include
 `native_draw_commands`, `native_triangle_commands`, `native_ellipse_commands`,
 `native_image_commands`, `native_text_commands`, `native_model_commands`,
 `native_erase_commands`, `native_region_effect_commands`,
 `native_primitive_instance_commands`, `native_staged_primitive_vertices`,
 `native_staged_image_vertices`, `native_primitive_records`,
-`native_primitive_batches`, and `native_command_ingest_time_ms`. Pixel pipeline
+`native_primitive_batches`, `packed_primitive_records`,
+`packed_primitive_bytes`, and `native_command_ingest_time_ms`. Packed primitive
+records use ABI-19 fixed-width little-endian layouts: 32-byte lines, 56-byte
+styled/current primitive records, 60-byte fill records, and 64-byte mixed
+records with `u32` style/matrix side-table indices. Pixel pipeline
 diagnostics include `gpu_pixel_readbacks`, `pixel_bytes_created`,
 `pixel_noop_upload_skips`, `pixel_full_uploads`, and `pixel_region_uploads`.
 Retained reuse diagnostics include `retained_batch_cache_hits`,
@@ -79,6 +98,36 @@ ingest. Normal interactive frames should keep `pixel_readbacks` at zero unless
 user code calls an explicit readback or export API. Sprite- and text-heavy
 stress scenes should show texture-cache and text-cache reuse after their first
 unique layouts have been shaped.
+
+## Synth Diagnostics
+
+Use the synth-scoped diagnostics around bounded offline work:
+
+```python
+from gummysnake import synth as sy
+
+sy.configure_workers("auto")  # or 1, 2, 4, 8
+sy.reset_synth_diagnostics()
+# compile, render, decode, or save
+report = sy.synth_diagnostics()
+```
+
+`worker_count` is the resolved active-task limit, `worker_mode` distinguishes
+explicit and automatic selection, and `worker_pool_capacity` is the fixed bound on
+the one process-wide persistent pool. `worker_pool_initializations` is a lifetime
+counter and must never exceed one. `gil_released_*` counters identify validated
+pure-Rust compile, render, decode, and WAV-write calls that ran outside the Python
+GIL. `parallel_regions`, `parallel_tasks`, and `parallel_events` describe profitable
+independent dry-event work; `serial_events` includes small or dependency-ineligible
+events. `parallel_scratch_peak_bytes` must not exceed
+`parallel_scratch_limit_bytes`, and `parallel_min_scratch_bytes` records the current
+threshold used to avoid scheduling tiny regions.
+
+Diagnostics are process-wide and intended for tests and benchmark metadata.
+Worker selection affects only performance: indexed event outputs are reduced in
+stable event/FX order. Realtime/device window rendering is not counted as parallel
+work because it remains serial until deadline-safe behavior is separately
+qualified.
 
 ## ECS Diagnostics
 
@@ -99,7 +148,8 @@ Common stable counters include:
 | `ecs_schedule_rebuilds` | System registration, removal, enable state, dependencies, or group configuration changed schedule ordering. |
 | `ecs_system_frame_runs` | ECS group phases executed on drawn frames. This should advance with drawn frames. |
 | `ecs_canvas_commands` | Canvas draw commands emitted by Rust-executed ECS systems and replayed into the canvas runtime. |
-| `ecs_physical_plan_compiles` | Logical action trees serialized and compiled into Rust physical plans. Repeated compiles usually mean schema fingerprints or dynamic UDF iterable sources are changing. |
+| `ecs_physical_plan_compiles` | Logical action trees serialized and compiled into Rust physical plans. |
+| `ecs_steady_physical_plan_reuses` / `ecs_dynamic_change_plan_recompiles` | Cached plan reuse versus current Python `allowed_entities` recompilation for change-filtered plans. The dynamic counter remains a migration gap until Rust change journals own those filters. |
 | `ecs_rust_compiled_plans` | Rust physical-plan handles cached by the world. |
 | `ecs_physical_system_runs` | Non-UDF systems executed through Rust physical plans. It should advance when validating a Rust-executed hot path. |
 | `ecs_physical_rows_scanned` | Rows scanned by the Rust physical executor. |
@@ -108,7 +158,10 @@ Common stable counters include:
 | `ecs_udf_calls` | Explicit Python UDF action or iterable-source invocations. These are flexibility boundaries, not accelerated work. |
 | `ecs_ambiguity_warnings` / `ecs_ambiguity_warnings_suppressed` | Deterministic last-write-wins situations in non-strict mode. Suppression only hides logs; diagnostics still count. |
 | `ecs_strict_mode_errors` | Duplicate/ambiguous writes rejected in strict mode. |
-| `ecs_events_emitted` / `ecs_events_read` | Typed ECS event queue activity. |
+| `ecs_events_emitted` / `ecs_events_read` | Canonical Rust-owned typed event records emitted/read. |
+| `ecs_event_records_total` / `ecs_event_records_pruned` / `ecs_event_records_cleared` | Current Rust queue size and lifecycle removals. |
+| `ecs_python_event_mirror_entries` / `ecs_python_event_payload_materializations` | Prohibited Python event paths; both remain zero. |
+| `ecs_diagnostic_messages_deduplicated` / `ecs_diagnostic_messages_dropped` | Repeated messages and unique messages evicted from the bounded Rust store. Exact warning/error counters are unaffected. |
 | `ecs_entities_alive` / `ecs_rust_entities_alive` | Public and Rust-side live entity counts; these should agree. |
 | `ecs_spatial_indexes_built` / `ecs_spatial_index_reuses` | Rust spatial-index construction and reuse. |
 | `ecs_spatial_candidate_rows` / `ecs_spatial_exact_rows` / `ecs_spatial_false_positive_rows` | Broad-phase and exact-filter spatial relation shape. |
@@ -116,10 +169,12 @@ Common stable counters include:
 | `ecs_spatial_algorithm_hash_grid`, `ecs_spatial_algorithm_quadtree`, `ecs_spatial_algorithm_octree`, `ecs_spatial_algorithm_hilbert_curve` | Per-algorithm Rust spatial index usage. |
 | `ecs_spatial_parallel_workers` / `ecs_spatial_parallel_chunks` | Parallel spatial execution shape where the runtime used worker chunks. |
 
-The Rust bridge may also expose core storage counters such as entity generation
-reuse, structural and field revisions, query cache refreshes, matched archetypes,
-matched rows, resources, and event queue totals. Treat debug-only Rust detail as
-triage data; tests and docs should prefer the public `ecs_*` counters above.
+The public snapshot exposes canonical Rust values as both `ecs_<name>` and
+`ecs_rust_<name>` while Python lifecycle/UDF boundary counters retain their existing
+`ecs_*` names. `reset_ecs_diagnostics()` resets Rust counters/messages and Python-only
+boundary counters without clearing event data, entities, resources, plans, or caches.
+Core storage counters include entity generation reuse, query cache refreshes, matched
+archetypes/rows, resources, and event queue totals.
 
 When debugging a system, start with `system.explain()` to inspect the action tree
 and relation/aggregate shape, then compare diagnostics before and after a small

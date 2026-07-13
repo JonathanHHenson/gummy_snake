@@ -39,31 +39,55 @@ impl World {
 
     pub fn set_frame(&mut self, frame: u64) {
         self.current_frame = frame;
-        self.events.begin_frame(frame);
+        self.diagnostics.event_records_pruned += self.events.begin_frame(frame);
+    }
+
+    pub fn coerce_event_payload(&self, event_type: &str, payload: EcsValue) -> Result<EcsValue> {
+        if self.schema(event_type).is_none() {
+            return Ok(payload);
+        }
+        match payload {
+            EcsValue::Struct(fields) => self
+                .coerce_component_row(event_type, fields)
+                .map(EcsValue::Struct),
+            other => Err(crate::error::EcsError::ColumnTypeMismatch {
+                expected: "Struct",
+                got: other.kind_name(),
+            }),
+        }
     }
 
     pub fn emit_event(&mut self, event_type: &str, payload: EcsValue) -> Result<()> {
         self.events.validate_type(event_type)?;
+        let payload = self.coerce_event_payload(event_type, payload)?;
         self.events.emit(event_type, self.current_frame, payload);
+        self.diagnostics.events_emitted += 1;
         Ok(())
     }
 
-    pub fn read_events(&self, event_type: &str) -> Result<Vec<EventRecord>> {
+    pub fn read_events(&mut self, event_type: &str) -> Result<Vec<EventRecord>> {
         self.events.validate_type(event_type)?;
-        Ok(self.events.read(event_type))
+        let events = self.events.read(event_type);
+        self.diagnostics.event_read_calls += 1;
+        self.diagnostics.event_records_read += events.len();
+        Ok(events)
     }
 
     pub fn sum_event_numeric_payload_field(
-        &self,
+        &mut self,
         event_type: &str,
         field: &str,
     ) -> Result<(usize, f64)> {
         self.events.validate_type(event_type)?;
-        self.events.sum_numeric_payload_field(event_type, field)
+        let result = self.events.sum_numeric_payload_field(event_type, field)?;
+        self.diagnostics.event_read_calls += 1;
+        self.diagnostics.event_records_read += result.0;
+        Ok(result)
     }
 
     pub fn clear_events(&mut self, event_type: Option<&str>) {
-        self.events.clear(event_type);
+        self.diagnostics.event_clear_calls += 1;
+        self.diagnostics.event_records_cleared += self.events.clear(event_type);
     }
 
     pub fn event_queue_len(&self, event_type: &str) -> usize {

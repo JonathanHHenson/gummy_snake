@@ -4,7 +4,7 @@ schema_version = 1
 [suite]
 id = "canvas"
 # Version 2 materializes new lifecycle, primitive/path, and feature case identities.
-version = 2
+version = 3
 
 [[workloads]]
 id = "lifecycle-hidpi"
@@ -196,7 +196,7 @@ draw_count = 1000
 case_kind = "uniform-primitives"
 primitive_kind = "rect"
 dispatch_route = "global"
-required_counters = ["primitive_batch_records"]
+required_counters = ["primitive_batch_records", "packed_primitive_records", "packed_primitive_bytes"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
 version = 1
@@ -226,7 +226,7 @@ draw_count = 1000
 case_kind = "uniform-primitives"
 primitive_kind = "rect"
 dispatch_route = "global"
-required_counters = ["primitive_batch_records", "frames_presented"]
+required_counters = ["primitive_batch_records", "packed_primitive_records", "packed_primitive_bytes", "frames_presented"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
 version = 1
@@ -256,7 +256,7 @@ draw_count = 5000
 case_kind = "mixed-primitives"
 style_count = 16
 dispatch_route = "global"
-required_counters = ["primitive_batch_records"]
+required_counters = ["primitive_batch_records", "packed_primitive_records", "packed_primitive_bytes"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
 version = 1
@@ -286,7 +286,7 @@ draw_count = 5000
 case_kind = "mixed-primitives"
 style_count = 16
 dispatch_route = "global"
-required_counters = ["primitive_batch_records", "frames_presented"]
+required_counters = ["primitive_batch_records", "packed_primitive_records", "packed_primitive_bytes", "frames_presented"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
 version = 1

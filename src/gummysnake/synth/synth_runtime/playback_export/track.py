@@ -24,6 +24,8 @@ from gummysnake.synth.synth_runtime.physical.rendering import (
     _beats_to_seconds,
     _expand_physical_plan,
     _render_physical_plan,
+    _render_physical_plan_to_file,
+    _write_wav_file,
 )
 from gummysnake.synth.synth_runtime.playback_export.playback import (
     TrackPlayback,
@@ -124,14 +126,19 @@ class Track:
                 },
             )
             return output_path
-        wav_payload = self.render(duration_seconds, sample_rate=sample_rate)
+        cache_key = (duration_seconds, int(sample_rate))
         if resolved_format == Format.WAV:
-            output_path.write_bytes(wav_payload)
-            cache_key = (duration_seconds, int(sample_rate))
-            cached = self._render_cache.get(cache_key)
-            if cached is not None:
+            if cached := self._render_cache.get(cache_key):
+                _write_wav_file(cached.payload, output_path)
                 cached.path = output_path
+                return output_path
+            plan = _expand_physical_plan(self.logical_plan, duration_seconds)
+            wav_payload = _render_physical_plan_to_file(plan, output_path, sample_rate=sample_rate)
+            self._render_cache[cache_key] = _RenderedTrackCacheEntry(
+                wav_payload, _wav_duration_seconds(wav_payload), output_path
+            )
             return output_path
+        wav_payload = self.render(duration_seconds, sample_rate=sample_rate)
         _write_mp3_with_ffmpeg(wav_payload, output_path)
         return output_path
 

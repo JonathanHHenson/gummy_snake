@@ -9,7 +9,7 @@ from typing import Any, Protocol, cast
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
 
-EXPECTED_ECS_ABI_VERSION = 4
+EXPECTED_ECS_ABI_VERSION = 5
 
 
 class _RustEcsWorld(Protocol):
@@ -129,9 +129,11 @@ class _RustEcsWorld(Protocol):
 
     def staged_command_count(self) -> int: ...
 
+    def record_diagnostic_message(self, message: str) -> None: ...
+
     def reset_diagnostics(self) -> None: ...
 
-    def diagnostics(self) -> dict[str, int]: ...
+    def diagnostics(self) -> dict[str, int | list[str]]: ...
 
 
 class _RustEcsSpatialIndexRegistry(Protocol):

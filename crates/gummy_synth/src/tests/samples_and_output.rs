@@ -34,6 +34,7 @@ fn render_stereo_sample_preserves_channel_image() {
     std::fs::write(&path, wav).expect("test WAV should be writable");
     let event = EventPayload {
         node_id: 3,
+        seed: 0,
         order: 0,
         kind: "sample".to_owned(),
         time_seconds: 0.0,

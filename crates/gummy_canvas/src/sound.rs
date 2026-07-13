@@ -23,12 +23,18 @@ pub(crate) struct CanvasSound {
 #[pymethods]
 impl CanvasSound {
     #[staticmethod]
-    fn from_file(path: &str) -> PyResult<Self> {
-        let bytes = fs::read(path)
-            .map_err(|err| PyValueError::new_err(format!("Could not load sound {path}: {err}")))?;
-        let duration = wav_duration_seconds(&bytes)?;
+    fn from_file(py: Python<'_>, path: String) -> PyResult<Self> {
+        gummy_synth::record_gil_released_call(gummy_synth::GilReleasedOperation::Decode);
+        let worker_path = path.clone();
+        let (bytes, duration) = py.allow_threads(move || {
+            let bytes = fs::read(&worker_path).map_err(|err| {
+                PyValueError::new_err(format!("Could not load sound {worker_path}: {err}"))
+            })?;
+            let duration = wav_duration_seconds(&bytes)?;
+            Ok::<_, PyErr>((bytes, duration))
+        })?;
         Ok(Self {
-            path: path.to_owned(),
+            path,
             bytes,
             duration,
         })
@@ -154,20 +160,36 @@ impl Drop for CanvasAudioPlayback {
 }
 
 #[pyfunction]
-pub(crate) fn synth_play_wav_bytes(payload: &Bound<'_, PyBytes>) -> PyResult<CanvasAudioPlayback> {
-    start_wav_playback(payload.as_bytes())
+pub(crate) fn synth_play_wav_bytes(
+    py: Python<'_>,
+    payload: &Bound<'_, PyBytes>,
+) -> PyResult<CanvasAudioPlayback> {
+    let payload = payload.as_bytes().to_vec();
+    gummy_synth::record_gil_released_call(gummy_synth::GilReleasedOperation::Decode);
+    let wav = py.allow_threads(move || parse_pcm_s16_wav(&payload))?;
+    start_prepared_wav_playback(wav)
 }
 
 #[pyfunction]
 pub(crate) fn synth_play_serialized_plan(
+    py: Python<'_>,
     payload: &Bound<'_, PyBytes>,
     sample_rate: u32,
 ) -> PyResult<CanvasAudioPlayback> {
-    start_serialized_plan_streaming_playback(payload.as_bytes(), sample_rate)
+    if sample_rate == 0 {
+        return Err(PyValueError::new_err(
+            "synth live playback sample rate must be greater than zero.",
+        ));
+    }
+    let payload = payload.as_bytes().to_vec();
+    gummy_synth::record_gil_released_call(gummy_synth::GilReleasedOperation::Compile);
+    let plan = py
+        .allow_threads(move || gummy_synth::SynthPlaybackPlan::from_serialized_plan(&payload))
+        .map_err(|error| PyValueError::new_err(error.message().to_owned()))?;
+    start_prepared_serialized_plan_playback(plan, sample_rate)
 }
 
-fn start_wav_playback(payload: &[u8]) -> PyResult<CanvasAudioPlayback> {
-    let wav = parse_pcm_s16_wav(payload)?;
+fn start_prepared_wav_playback(wav: wav::PcmS16Wav) -> PyResult<CanvasAudioPlayback> {
     let (sdl, stream) = open_sdl_audio_stream(wav.sample_rate, wav.channels)?;
     stream.put_data_i16(&wav.samples).map_err(|err| {
         PyRuntimeError::new_err(format!(
@@ -191,17 +213,10 @@ fn start_wav_playback(payload: &[u8]) -> PyResult<CanvasAudioPlayback> {
     })
 }
 
-fn start_serialized_plan_streaming_playback(
-    payload: &[u8],
+fn start_prepared_serialized_plan_playback(
+    plan: gummy_synth::SynthPlaybackPlan,
     sample_rate: u32,
 ) -> PyResult<CanvasAudioPlayback> {
-    if sample_rate == 0 {
-        return Err(PyValueError::new_err(
-            "synth live playback sample rate must be greater than zero.",
-        ));
-    }
-    let plan = gummy_synth::SynthPlaybackPlan::from_serialized_plan(payload)
-        .map_err(|error| PyValueError::new_err(error.message().to_owned()))?;
     let duration = plan.duration_seconds();
     if !duration.is_finite() || duration < 0.0 {
         return Err(PyValueError::new_err(

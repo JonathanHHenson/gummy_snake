@@ -143,7 +143,7 @@ impl GpuRenderer {
         width: usize,
         height: usize,
         pixels: &[u8],
-    ) -> Result<(), String> {
+    ) -> Result<Option<usize>, String> {
         let expected = width
             .checked_mul(height)
             .and_then(|value| value.checked_mul(4))
@@ -213,16 +213,40 @@ impl GpuRenderer {
                 },
             ],
         });
-        self.textures.insert(
+        let replaced = self.textures.insert(
             key,
             TextureAsset {
                 _texture: texture,
                 _view: view,
                 nearest_bind_group,
                 linear_bind_group,
+                bytes: expected,
             },
         );
-        Ok(())
+        if replaced.is_some() {
+            self.invalidate_retained_render_cache();
+        }
+        Ok(replaced.map(|asset| asset.bytes))
+    }
+
+    pub fn texture_is_pending(&self, key: u64) -> bool {
+        self.commands.iter().any(|command| {
+            matches!(
+                command,
+                DrawCommand::Image { key: command_key, .. }
+                    | DrawCommand::ImageBatch { key: command_key, .. }
+                    | DrawCommand::TexturedModel {
+                        texture_key: command_key,
+                        ..
+                    } if *command_key == key
+            )
+        })
+    }
+
+    pub fn remove_texture(&mut self, key: u64) -> Option<usize> {
+        let removed = self.textures.remove(&key)?;
+        self.invalidate_retained_render_cache();
+        Some(removed.bytes)
     }
 
     pub fn draw_image(

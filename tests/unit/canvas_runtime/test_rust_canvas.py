@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+from struct import pack
+
 import pytest
 
+from gummysnake import Image
+from gummysnake.backend.canvas_renderer import CanvasRenderer
+from gummysnake.core.state import StyleState
+from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust.canvas import (
     EXPECTED_CANVAS_ABI_VERSION,
@@ -27,14 +33,187 @@ from tests.helpers.canvas_runtime.modules import (
 )
 
 
+def _packed_test_style(fill: tuple[int, int, int, int] = (255, 0, 0, 255)) -> dict[str, object]:
+    return {
+        "fill": fill,
+        "stroke": (255, 255, 255, 255),
+        "stroke_weight": 1.0,
+        "image_tint": None,
+        "blend_mode": "blend",
+        "erasing": False,
+        "image_sampling": "linear",
+        "text_font_path": None,
+        "text_font_name": "default",
+        "text_size": 12.0,
+        "text_align_x": "left",
+        "text_align_y": "baseline",
+        "text_leading": 14.0,
+    }
+
+
 def test_canvas_health_check_reports_required_runtime() -> None:
     assert canvas_health_check() == "rust-canvas"
     assert canvas_abi_version() == EXPECTED_CANVAS_ABI_VERSION
+    provenance = require_canvas_runtime().benchmark_provenance()
+    assert provenance["canvas_crate_version"]
+    assert provenance["renderer"] == "wgpu-high-performance-adapter"
+    assert provenance["ecs_crate_version"]
+    assert provenance["synth_crate_version"]
+    assert isinstance(provenance["features"], list)
+    assert provenance["gpu_available"] in {True, False}
     assert canvas_native_window_available() in {True, False}
     assert canvas_gpu_available() in {True, False}
     assert canvas_gpu_status()
     assert is_canvas_runtime_available() is True
     assert canvas_import_error() is None
+
+
+def test_renderer_exposes_zero_copy_gpu_command_stream_counters() -> None:
+    if not canvas_gpu_available():
+        pytest.skip("GPU renderer is unavailable")
+    renderer = CanvasRenderer(require_canvas_runtime())
+    renderer.resize(8, 8)
+    renderer.reset_performance_counters()
+
+    counters = renderer.performance_counters()
+    native = counters["native"]
+    assert isinstance(native, dict)
+
+    assert native["gpu_command_clone_count"] == 0
+    assert native["gpu_command_clone_bytes"] == 0
+    assert native["gpu_command_segment_allocation_count"] == 0
+
+
+def test_canvas_image_batches_share_sources_and_upload_only_dirty_generations() -> None:
+    if not canvas_gpu_available():
+        pytest.skip("GPU renderer is unavailable")
+    renderer = CanvasRenderer(require_canvas_runtime())
+    renderer.resize(8, 8)
+    image = Image(1, 1, bytes([255, 0, 0, 255]))
+    style = StyleState(fill_color=None, stroke_color=None)
+    transform = Matrix2D.identity()
+
+    renderer.reset_performance_counters()
+    renderer.draw_image(image, 0, 0, 1, 1, style, transform)
+    renderer.draw_image(image, 1, 0, 1, 1, style, transform)
+    renderer.end_frame()
+    first = renderer.performance_counters()
+    assert first["image_source_clones_avoided"] == 1
+    assert first["image_source_clone_bytes_avoided"] == 4
+    assert first["texture_uploads"] == 1
+    assert first["texture_upload_bytes"] == 4
+    assert first["texture_dirty_uploads"] == 0
+    assert first["texture_resident_bytes"] == 4
+    assert first["image_atlas_resident_bytes"] == 4
+
+    renderer.reset_performance_counters()
+    renderer.draw_image(image, 0, 0, 1, 1, style, transform)
+    renderer.draw_image(image, 1, 0, 1, 1, style, transform)
+    renderer.end_frame()
+    unchanged = renderer.performance_counters()
+    assert unchanged["image_source_clones_avoided"] == 1
+    assert unchanged["image_source_clone_bytes_avoided"] == 4
+    assert unchanged["texture_uploads"] == 0
+    assert unchanged["texture_dirty_uploads"] == 0
+    assert unchanged["texture_resident_bytes"] == 4
+
+    image.update_pixels(bytes([0, 0, 255, 255]))
+    renderer.reset_performance_counters()
+    renderer.draw_image(image, 0, 0, 1, 1, style, transform)
+    renderer.end_frame()
+    mutated = renderer.performance_counters()
+    assert mutated["texture_uploads"] == 1
+    assert mutated["texture_upload_bytes"] == 4
+    assert mutated["texture_dirty_uploads"] == 1
+    assert mutated["texture_destructions"] == 1
+    assert mutated["image_atlas_destructions"] == 1
+    assert mutated["texture_resident_bytes"] == 4
+
+
+def test_canvas_packed_primitive_protocol_reports_records_and_bytes() -> None:
+    runtime = require_canvas_runtime()
+    canvas = runtime.Canvas(16, 16, 1.0, "headless", "p2d")
+    style = _packed_test_style()
+    matrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+    primitive = pack("<B7x6d", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0)
+    mixed = pack("<B7x6dII", 3, 8.0, 8.0, 2.0, 2.0, 0.0, 0.0, 0, 0)
+    fill = pack("<B7x6d4B", 2, 1.0, 1.0, 4.0, 1.0, 1.0, 4.0, 0, 255, 0, 255)
+    line = pack("<4d", 0.0, 0.0, 15.0, 15.0)
+    canvas.set_current_style(style)
+
+    canvas.batch_primitives_packed(primitive, style, matrix)
+    canvas.batch_primitives_current_packed(primitive)
+    canvas.batch_primitives_mixed_packed(mixed, [style], [matrix])
+    canvas.batch_fill_primitives_packed(fill, matrix)
+    canvas.batch_lines_packed(line, style, matrix)
+    canvas.batch_lines_current_packed(line)
+
+    counters = canvas.performance_counters()
+    assert counters["packed_primitive_records"] == 6
+    assert counters["packed_primitive_bytes"] == 300
+
+
+def test_canvas_packed_protocol_rejects_malformed_batches_transactionally() -> None:
+    runtime = require_canvas_runtime()
+    canvas = runtime.Canvas(16, 16, 1.0, "headless", "p2d")
+    style = _packed_test_style()
+    matrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+    invalid_reserved = bytearray(pack("<B7x6d", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0))
+    invalid_reserved[1] = 1
+    invalid_fill_reserved = bytearray(
+        pack("<B7x6d4B", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 255, 0, 0, 255)
+    )
+    invalid_fill_reserved[7] = 1
+    invalid_mixed_reserved = bytearray(pack("<B7x6dII", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0, 0))
+    invalid_mixed_reserved[3] = 1
+
+    invalid_calls = (
+        lambda: canvas.batch_lines_packed(b"invalid", style, matrix),
+        lambda: canvas.batch_primitives_packed(b"invalid", style, matrix),
+        lambda: canvas.batch_primitives_packed(bytes(invalid_reserved), style, matrix),
+        lambda: canvas.batch_primitives_packed(
+            pack("<B7x6d", 99, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0), style, matrix
+        ),
+        lambda: canvas.batch_fill_primitives_packed(b"invalid", matrix),
+        lambda: canvas.batch_fill_primitives_packed(bytes(invalid_fill_reserved), matrix),
+        lambda: canvas.batch_primitives_mixed_packed(b"invalid", [style], [matrix]),
+        lambda: canvas.batch_primitives_mixed_packed(
+            bytes(invalid_mixed_reserved), [style], [matrix]
+        ),
+        lambda: canvas.batch_primitives_mixed_packed(
+            pack("<B7x6dII", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 1, 0),
+            [style],
+            [matrix],
+        ),
+        lambda: canvas.batch_primitives_mixed_packed(
+            pack("<B7x6dII", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0, 1),
+            [style],
+            [matrix],
+        ),
+    )
+    for invalid_call in invalid_calls:
+        with pytest.raises(ValueError):
+            invalid_call()
+
+    counters = canvas.performance_counters()
+    assert counters["packed_primitive_records"] == 0
+    assert counters["packed_primitive_bytes"] == 0
+    assert counters["native_primitive_records"] == 0
+
+
+def test_canvas_exposes_only_packed_batch_ingress() -> None:
+    runtime = require_canvas_runtime()
+    canvas = runtime.Canvas(8, 8, 1.0, "headless", "p2d")
+
+    for legacy_name in (
+        "batch_lines",
+        "batch_lines_current",
+        "batch_primitives",
+        "batch_primitives_current",
+        "batch_primitives_mixed",
+        "batch_fill_primitives",
+    ):
+        assert not hasattr(canvas, legacy_name)
 
 
 def test_canvas_wrapper_uses_loaded_runtime(monkeypatch: pytest.MonkeyPatch) -> None:

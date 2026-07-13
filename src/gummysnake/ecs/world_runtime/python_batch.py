@@ -199,12 +199,8 @@ class PythonEcsAccessBatch:
 
         schema = self._world._schemas[component_type]
         storage_type = schema[field_name]
-        stored: object
-        if storage_type.python_type is float and isinstance(value, int | float):
-            stored = value
-        else:
-            _validate_storage_value(component_type, field_name, value, storage_type)
-            stored = _copy_stored_value(value)
+        _validate_storage_value(component_type, field_name, value, storage_type)
+        stored = _copy_stored_value(value)
         row[field_index] = stored
         self._dirty.setdefault((component_type, field_name), {})[entity] = stored
         self._world._diagnostics["ecs_rows_updated"] += 1

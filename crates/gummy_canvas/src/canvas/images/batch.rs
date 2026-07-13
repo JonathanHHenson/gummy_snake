@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use pyo3::types::{PyAny, PyList, PyTuple};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub(crate) const IMAGE_ATLAS_MAX_UNIQUE_IMAGES: usize = 128;
 const MOTION_SPRITE_RECORD_SIZE: usize = 16;
@@ -20,7 +21,7 @@ pub(crate) struct BatchUniqueImage {
     pub(crate) version: u64,
     pub(crate) width: usize,
     pub(crate) height: usize,
-    pub(crate) pixels: Vec<u8>,
+    pub(crate) pixels: Arc<Vec<u8>>,
 }
 
 pub(crate) struct ImageBatchBuilder {
@@ -146,10 +147,13 @@ impl ImageBatchBuilder {
         source: Option<(i64, i64, i64, i64)>,
         matrix: Matrix,
     ) {
-        let unique_index =
-            self.unique_index_for(image.key, image.version, image.width, image.height, || {
-                image.pixels.clone()
-            });
+        let unique_index = self.unique_index_for(
+            image.key,
+            image.version,
+            image.width,
+            image.height,
+            Arc::clone(&image.pixels),
+        );
         self.records.push(BatchCanvasImage {
             unique_index,
             dx,
@@ -175,7 +179,7 @@ impl ImageBatchBuilder {
             cached.image.version,
             cached.image.width,
             cached.image.height,
-            || cached.image.pixels.clone(),
+            Arc::clone(&cached.image.pixels),
         );
         self.records.push(BatchCanvasImage {
             unique_index,
@@ -224,7 +228,7 @@ impl ImageBatchBuilder {
         version: u64,
         width: usize,
         height: usize,
-        pixels: impl FnOnce() -> Vec<u8>,
+        pixels: Arc<Vec<u8>>,
     ) -> usize {
         let unique_key = (key, version);
         if let Some(index) = self.unique_indices.get(&unique_key) {
@@ -236,7 +240,7 @@ impl ImageBatchBuilder {
             version,
             width,
             height,
-            pixels: pixels(),
+            pixels,
         });
         self.unique_indices.insert(unique_key, index);
         index
@@ -250,7 +254,7 @@ impl BatchUniqueImage {
             version: image.version,
             width: image.width,
             height: image.height,
-            pixels: image.pixels.clone(),
+            pixels: Arc::clone(&image.pixels),
         }
     }
 }

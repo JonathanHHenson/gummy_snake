@@ -1,6 +1,11 @@
 use super::*;
 
 pub(crate) fn parse_serialized_plan(payload: &[u8]) -> SynthResult<(Vec<EventPayload>, f64)> {
+    if payload.len() > MAX_SERIALIZED_PLAN_BYTES {
+        return Err(SynthError::new(format!(
+            "serialized synth physical plan exceeds the compressed payload limit of {MAX_SERIALIZED_PLAN_BYTES} bytes."
+        )));
+    }
     if payload.len() < 16 {
         return Err(SynthError::new(
             "serialized synth physical plan is too short.",
@@ -22,13 +27,26 @@ pub(crate) fn parse_serialized_plan(payload: &[u8]) -> SynthResult<(Vec<EventPay
             "unsupported synth physical-plan compression mode {compression}."
         )));
     }
-    let mut decoder = ZlibDecoder::new(&payload[16..]);
-    let mut raw = Vec::with_capacity(raw_size);
-    decoder.read_to_end(&mut raw).map_err(|err| {
-        SynthError::new(format!(
-            "could not decompress serialized synth physical plan: {err}"
-        ))
-    })?;
+    if raw_size > MAX_DECOMPRESSED_PLAN_BYTES {
+        return Err(SynthError::new(format!(
+            "serialized synth physical plan declares {raw_size} decompressed bytes, exceeding the limit of {MAX_DECOMPRESSED_PLAN_BYTES}."
+        )));
+    }
+    let decoder = ZlibDecoder::new(&payload[16..]);
+    let mut raw = Vec::with_capacity(raw_size.min(MAX_DECOMPRESSED_PLAN_BYTES));
+    decoder
+        .take((MAX_DECOMPRESSED_PLAN_BYTES + 1) as u64)
+        .read_to_end(&mut raw)
+        .map_err(|err| {
+            SynthError::new(format!(
+                "could not decompress serialized synth physical plan: {err}"
+            ))
+        })?;
+    if raw.len() > MAX_DECOMPRESSED_PLAN_BYTES {
+        return Err(SynthError::new(format!(
+            "serialized synth physical plan decompressed payload exceeds the limit of {MAX_DECOMPRESSED_PLAN_BYTES} bytes."
+        )));
+    }
     if raw.len() != raw_size {
         return Err(SynthError::new(
             "serialized synth physical plan size check failed.",
@@ -42,19 +60,47 @@ pub(crate) fn parse_serialized_plan(payload: &[u8]) -> SynthResult<(Vec<EventPay
     let root = root.as_object().ok_or_else(|| {
         SynthError::new("serialized synth physical plan payload must be an object.")
     })?;
-    let schema = root
-        .get("schema")
-        .and_then(JsonValue::as_str)
-        .unwrap_or_default();
+    validate_json_object_keys(
+        root,
+        &[
+            "schema",
+            "duration_seconds",
+            "sample_rate",
+            "events",
+            "controls",
+            "metadata",
+        ],
+        "serialized synth physical plan",
+    )?;
+    let schema = required_json_string(root.get("schema"), "serialized synth physical plan schema")?;
     if schema != PHYSICAL_PLAN_SCHEMA {
         return Err(SynthError::new(format!(
             "unsupported synth physical-plan schema {schema:?}."
         )));
     }
-    let duration_seconds = root
-        .get("duration_seconds")
-        .and_then(JsonValue::as_f64)
-        .unwrap_or(0.0);
+    let duration_seconds = required_json_f64(
+        root.get("duration_seconds"),
+        "serialized synth physical plan duration_seconds",
+    )?;
+    validate_finite_non_negative(
+        duration_seconds,
+        "serialized synth physical plan duration_seconds",
+    )?;
+    if let Some(sample_rate) = root.get("sample_rate") {
+        let sample_rate = required_json_u64(
+            Some(sample_rate),
+            "serialized synth physical plan sample_rate",
+        )?;
+        let sample_rate = u32::try_from(sample_rate).map_err(|_| {
+            SynthError::new("serialized synth physical plan sample_rate is out of range.")
+        })?;
+        validate_sample_rate(sample_rate)?;
+    }
+    if let Some(metadata) = root.get("metadata") {
+        let metadata = json_to_synth_value(metadata)?;
+        let mut item_count = 0;
+        validate_synth_value(&metadata, 0, &mut item_count, "serialized synth metadata")?;
+    }
     let mut controls = parse_serialized_controls(root.get("controls"))?;
     controls.sort_by(|a, b| {
         a.time_seconds
@@ -72,12 +118,18 @@ pub(crate) fn parse_serialized_plan(payload: &[u8]) -> SynthResult<(Vec<EventPay
 pub(crate) fn parse_serialized_events(
     value: Option<&JsonValue>,
 ) -> SynthResult<Vec<ScheduledEventPayload>> {
-    let Some(value) = value else {
-        return Ok(Vec::new());
-    };
+    let value = value.ok_or_else(|| {
+        SynthError::new("serialized synth physical plan is missing required key \"events\".")
+    })?;
     let events = value
         .as_array()
         .ok_or_else(|| SynthError::new("serialized synth physical plan events must be a list."))?;
+    if events.len() > MAX_PLAN_EVENTS {
+        return Err(SynthError::new(format!(
+            "serialized synth plan event count {} exceeds the limit of {MAX_PLAN_EVENTS}.",
+            events.len()
+        )));
+    }
     events.iter().map(parse_serialized_event).collect()
 }
 
@@ -85,16 +137,49 @@ pub(crate) fn parse_serialized_event(value: &JsonValue) -> SynthResult<Scheduled
     let object = value
         .as_object()
         .ok_or_else(|| SynthError::new("serialized synth event must be an object."))?;
+    validate_json_object_keys(
+        object,
+        &[
+            "instance",
+            "node_id",
+            "seed",
+            "order",
+            "kind",
+            "time_seconds",
+            "value",
+            "opts",
+            "synth_name",
+            "synth_opts",
+            "fx_chain",
+        ],
+        "serialized synth event",
+    )?;
     Ok(ScheduledEventPayload {
-        instance_key: json_key(object.get("instance").unwrap_or(&JsonValue::Null)),
-        node_id: json_u64(object.get("node_id"), 0),
-        order: json_u64(object.get("order"), 0),
-        kind: json_string(object.get("kind"), "play"),
-        time_seconds: json_f64(object.get("time_seconds"), 0.0),
-        value: json_to_synth_value(object.get("value").unwrap_or(&JsonValue::Null))?,
-        opts: json_to_opt_map(object.get("opts"))?,
-        synth_name: json_string(object.get("synth_name"), "beep"),
-        synth_opts: json_to_opt_map(object.get("synth_opts"))?,
+        instance_key: json_identity_key(required_json_value(
+            object.get("instance"),
+            "serialized synth event instance",
+        )?)?,
+        node_id: required_json_u64(object.get("node_id"), "serialized synth event node_id")?,
+        seed: optional_json_u64(object.get("seed"), 0, "serialized synth event seed")?,
+        order: required_json_u64(object.get("order"), "serialized synth event order")?,
+        kind: required_json_string(object.get("kind"), "serialized synth event kind")?,
+        time_seconds: required_json_f64(
+            object.get("time_seconds"),
+            "serialized synth event time_seconds",
+        )?,
+        value: json_to_synth_value(required_json_value(
+            object.get("value"),
+            "serialized synth event value",
+        )?)?,
+        opts: json_to_required_opt_map(object.get("opts"), "serialized synth event opts")?,
+        synth_name: required_json_string(
+            object.get("synth_name"),
+            "serialized synth event synth_name",
+        )?,
+        synth_opts: json_to_required_opt_map(
+            object.get("synth_opts"),
+            "serialized synth event synth_opts",
+        )?,
         fx_chain: parse_serialized_fx_chain(object.get("fx_chain"))?,
     })
 }
@@ -102,22 +187,36 @@ pub(crate) fn parse_serialized_event(value: &JsonValue) -> SynthResult<Scheduled
 pub(crate) fn parse_serialized_fx_chain(
     value: Option<&JsonValue>,
 ) -> SynthResult<Vec<ScheduledFxPayload>> {
-    let Some(value) = value else {
-        return Ok(Vec::new());
-    };
+    let value = value.ok_or_else(|| {
+        SynthError::new("serialized synth event is missing required key \"fx_chain\".")
+    })?;
     let handles = value
         .as_array()
         .ok_or_else(|| SynthError::new("serialized synth event fx_chain must be a list."))?;
+    if handles.len() > MAX_FX_CHAIN_DEPTH {
+        return Err(SynthError::new(format!(
+            "serialized synth FX chain depth {} exceeds the limit of {MAX_FX_CHAIN_DEPTH}.",
+            handles.len()
+        )));
+    }
     handles
         .iter()
         .map(|value| {
             let object = value
                 .as_object()
                 .ok_or_else(|| SynthError::new("serialized synth FX handle must be an object."))?;
+            validate_json_object_keys(
+                object,
+                &["id", "name", "opts"],
+                "serialized synth FX handle",
+            )?;
             Ok(ScheduledFxPayload {
-                id: json_u64(object.get("id"), 0),
-                name: json_string(object.get("name"), "level"),
-                opts: json_to_opt_map(object.get("opts"))?,
+                id: required_json_u64(object.get("id"), "serialized synth FX handle id")?,
+                name: required_json_string(object.get("name"), "serialized synth FX handle name")?,
+                opts: json_to_required_opt_map(
+                    object.get("opts"),
+                    "serialized synth FX handle opts",
+                )?,
             })
         })
         .collect()
@@ -126,26 +225,53 @@ pub(crate) fn parse_serialized_fx_chain(
 pub(crate) fn parse_serialized_controls(
     value: Option<&JsonValue>,
 ) -> SynthResult<Vec<ScheduledControlPayload>> {
-    let Some(value) = value else {
-        return Ok(Vec::new());
-    };
+    let value = value.ok_or_else(|| {
+        SynthError::new("serialized synth physical plan is missing required key \"controls\".")
+    })?;
     let controls = value.as_array().ok_or_else(|| {
         SynthError::new("serialized synth physical plan controls must be a list.")
     })?;
+    if controls.len() > MAX_PLAN_CONTROLS {
+        return Err(SynthError::new(format!(
+            "serialized synth plan control count {} exceeds the limit of {MAX_PLAN_CONTROLS}.",
+            controls.len()
+        )));
+    }
     controls
         .iter()
         .map(|value| {
             let object = value
                 .as_object()
                 .ok_or_else(|| SynthError::new("serialized synth control must be an object."))?;
+            validate_json_object_keys(
+                object,
+                &[
+                    "target_instance",
+                    "target_id",
+                    "time_seconds",
+                    "opts",
+                    "order",
+                ],
+                "serialized synth control",
+            )?;
             Ok(ScheduledControlPayload {
-                target_instance_key: json_key(
-                    object.get("target_instance").unwrap_or(&JsonValue::Null),
-                ),
-                target_id: json_u64(object.get("target_id"), 0),
-                time_seconds: json_f64(object.get("time_seconds"), 0.0),
-                opts: json_to_opt_map(object.get("opts"))?,
-                order: json_u64(object.get("order"), 0),
+                target_instance_key: json_identity_key(required_json_value(
+                    object.get("target_instance"),
+                    "serialized synth control target_instance",
+                )?)?,
+                target_id: required_json_u64(
+                    object.get("target_id"),
+                    "serialized synth control target_id",
+                )?,
+                time_seconds: required_json_f64(
+                    object.get("time_seconds"),
+                    "serialized synth control time_seconds",
+                )?,
+                opts: json_to_required_opt_map(
+                    object.get("opts"),
+                    "serialized synth control opts",
+                )?,
+                order: required_json_u64(object.get("order"), "serialized synth control order")?,
             })
         })
         .collect()
@@ -194,6 +320,7 @@ impl ScheduledEventPayload {
             .collect();
         EventPayload {
             node_id: self.node_id,
+            seed: self.seed,
             order: self.order,
             kind: self.kind,
             time_seconds: self.time_seconds,
@@ -208,71 +335,156 @@ impl ScheduledEventPayload {
 }
 
 pub(crate) fn json_to_synth_value(value: &JsonValue) -> SynthResult<SynthValue> {
+    json_to_synth_value_at_depth(value, 0)
+}
+
+fn json_to_synth_value_at_depth(value: &JsonValue, depth: usize) -> SynthResult<SynthValue> {
+    if depth > MAX_VALUE_DEPTH {
+        return Err(SynthError::new(format!(
+            "serialized synth value nesting exceeds the limit of {MAX_VALUE_DEPTH}."
+        )));
+    }
     match value {
         JsonValue::Null => Ok(SynthValue::None),
         JsonValue::Bool(value) => Ok(SynthValue::Bool(*value)),
-        JsonValue::Number(value) => value.as_f64().map(SynthValue::Float).ok_or_else(|| {
-            SynthError::new("serialized synth numeric value is not representable as f64.")
-        }),
+        JsonValue::Number(value) => value
+            .as_f64()
+            .filter(|value| value.is_finite())
+            .map(SynthValue::Float)
+            .ok_or_else(|| {
+                SynthError::new(
+                    "serialized synth numeric value must be finite and representable as f64.",
+                )
+            }),
         JsonValue::String(value) => Ok(SynthValue::String(value.clone())),
         JsonValue::Array(values) => values
             .iter()
-            .map(json_to_synth_value)
+            .map(|value| json_to_synth_value_at_depth(value, depth + 1))
             .collect::<SynthResult<Vec<_>>>()
             .map(SynthValue::List),
         JsonValue::Object(mapping) => {
             let mut output = OptMap::with_capacity(mapping.len());
             for (key, value) in mapping {
-                output.insert(key.clone(), json_to_synth_value(value)?);
+                if key.is_empty() {
+                    return Err(SynthError::new(
+                        "serialized synth mappings cannot contain empty keys.",
+                    ));
+                }
+                output.insert(key.clone(), json_to_synth_value_at_depth(value, depth + 1)?);
             }
             Ok(SynthValue::Dict(output))
         }
     }
 }
 
-pub(crate) fn json_to_opt_map(value: Option<&JsonValue>) -> SynthResult<OptMap> {
-    let Some(value) = value else {
-        return Ok(OptMap::new());
-    };
+pub(crate) fn json_to_required_opt_map(
+    value: Option<&JsonValue>,
+    label: &str,
+) -> SynthResult<OptMap> {
+    let value = required_json_value(value, label)?;
     let object = value
         .as_object()
-        .ok_or_else(|| SynthError::new("serialized synth opts must be an object."))?;
+        .ok_or_else(|| SynthError::new(format!("{label} must be an object.")))?;
     let mut output = OptMap::with_capacity(object.len());
     for (key, value) in object {
+        if key.is_empty() {
+            return Err(SynthError::new(format!(
+                "{label} cannot contain an empty key."
+            )));
+        }
         output.insert(key.clone(), json_to_synth_value(value)?);
     }
     Ok(output)
 }
 
-pub(crate) fn json_key(value: &JsonValue) -> String {
+pub(crate) fn json_identity_key(value: &JsonValue) -> SynthResult<String> {
+    json_identity_key_at_depth(value, 0)
+}
+
+fn json_identity_key_at_depth(value: &JsonValue, depth: usize) -> SynthResult<String> {
+    if depth > MAX_VALUE_DEPTH {
+        return Err(SynthError::new(format!(
+            "serialized synth identity nesting exceeds the limit of {MAX_VALUE_DEPTH}."
+        )));
+    }
     match value {
+        JsonValue::Null | JsonValue::Bool(_) | JsonValue::String(_) => Ok(value.to_string()),
+        JsonValue::Number(number) if number.as_i64().is_some() || number.as_u64().is_some() => {
+            Ok(value.to_string())
+        }
         JsonValue::Array(values) => {
-            let parts: Vec<String> = values.iter().map(json_key).collect();
-            format!("[{}]", parts.join(","))
-        }
-        JsonValue::Object(mapping) => {
-            let mut parts: Vec<String> = mapping
+            let parts = values
                 .iter()
-                .map(|(key, value)| format!("{key}:{}", json_key(value)))
-                .collect();
-            parts.sort();
-            format!("{{{}}}", parts.join(","))
+                .map(|value| json_identity_key_at_depth(value, depth + 1))
+                .collect::<SynthResult<Vec<_>>>()?;
+            Ok(format!("[{}]", parts.join(",")))
         }
-        other => other.to_string(),
+        JsonValue::Number(_) => Err(SynthError::new(
+            "serialized synth identity values must use integer numbers.",
+        )),
+        JsonValue::Object(_) => Err(SynthError::new(
+            "serialized synth identity values do not support mappings.",
+        )),
     }
 }
 
-pub(crate) fn json_string(value: Option<&JsonValue>, default: &str) -> String {
-    value
-        .and_then(JsonValue::as_str)
-        .unwrap_or(default)
-        .to_owned()
+pub(crate) fn validate_json_object_keys(
+    object: &serde_json::Map<String, JsonValue>,
+    allowed: &[&str],
+    label: &str,
+) -> SynthResult<()> {
+    let mut unexpected: Vec<&str> = object
+        .keys()
+        .map(String::as_str)
+        .filter(|key| !allowed.contains(key))
+        .collect();
+    unexpected.sort_unstable();
+    if unexpected.is_empty() {
+        return Ok(());
+    }
+    Err(SynthError::new(format!(
+        "{label} contains unsupported key(s): {}.",
+        unexpected.join(", ")
+    )))
 }
 
-pub(crate) fn json_f64(value: Option<&JsonValue>, default: f64) -> f64 {
-    value.and_then(JsonValue::as_f64).unwrap_or(default)
+pub(crate) fn required_json_value<'a>(
+    value: Option<&'a JsonValue>,
+    label: &str,
+) -> SynthResult<&'a JsonValue> {
+    value.ok_or_else(|| SynthError::new(format!("{label} is required.")))
 }
 
-pub(crate) fn json_u64(value: Option<&JsonValue>, default: u64) -> u64 {
-    value.and_then(JsonValue::as_u64).unwrap_or(default)
+pub(crate) fn required_json_string(value: Option<&JsonValue>, label: &str) -> SynthResult<String> {
+    required_json_value(value, label)?
+        .as_str()
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .ok_or_else(|| SynthError::new(format!("{label} must be a non-empty string.")))
+}
+
+pub(crate) fn required_json_f64(value: Option<&JsonValue>, label: &str) -> SynthResult<f64> {
+    required_json_value(value, label)?
+        .as_f64()
+        .filter(|value| value.is_finite())
+        .ok_or_else(|| SynthError::new(format!("{label} must be a finite number.")))
+}
+
+pub(crate) fn required_json_u64(value: Option<&JsonValue>, label: &str) -> SynthResult<u64> {
+    required_json_value(value, label)?
+        .as_u64()
+        .ok_or_else(|| SynthError::new(format!("{label} must be a non-negative integer.")))
+}
+
+pub(crate) fn optional_json_u64(
+    value: Option<&JsonValue>,
+    default: u64,
+    label: &str,
+) -> SynthResult<u64> {
+    match value {
+        Some(value) => value
+            .as_u64()
+            .ok_or_else(|| SynthError::new(format!("{label} must be a non-negative integer."))),
+        None => Ok(default),
+    }
 }

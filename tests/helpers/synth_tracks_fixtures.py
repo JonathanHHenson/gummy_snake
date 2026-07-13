@@ -323,11 +323,33 @@ class _FakeSynthRuntime:
         self.playbacks: list[_FakeCanvasAudioPlayback] = []
         self.plan_calls: list[tuple[list[dict[str, object]], float, int]] = []
         self.event_calls: list[tuple[dict[str, object], int]] = []
+        self.worker_count: int | str = "auto"
+        self.diagnostic_counters: dict[str, object] = {}
 
     def synth_render_serialized_plan_wav(self, payload: bytes, sample_rate: int) -> bytes:
         self.serialized_plan_calls.append((bytes(payload), sample_rate))
         plan = sy.PhysicalPlan.from_bytes(payload)
         return _wav_payload(plan.duration_seconds, sample_rate)
+
+    def synth_render_serialized_plan_wav_file(
+        self, payload: bytes, sample_rate: int, path: str
+    ) -> bytes:
+        rendered = self.synth_render_serialized_plan_wav(payload, sample_rate)
+        Path(path).write_bytes(rendered)
+        return rendered
+
+    def synth_write_wav_file(self, payload: bytes, path: str) -> None:
+        Path(path).write_bytes(payload)
+
+    def synth_set_worker_count(self, worker_count: int | str) -> int:
+        self.worker_count = worker_count
+        return 1 if worker_count == "auto" else int(worker_count)
+
+    def synth_diagnostics(self) -> dict[str, object]:
+        return dict(self.diagnostic_counters)
+
+    def synth_reset_diagnostics(self) -> None:
+        self.diagnostic_counters.clear()
 
     def synth_play_serialized_plan(
         self, payload: bytes, sample_rate: int

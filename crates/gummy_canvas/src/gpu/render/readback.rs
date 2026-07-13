@@ -34,13 +34,17 @@ impl GpuRenderer {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("gummy_canvas readback encoder"),
             });
-        if encode_render {
+        let commands = if encode_render {
             self.write_viewport(self.texture_size.width, self.texture_size.height);
-            self.ensure_render_vertex_buffers();
+            let commands = std::mem::take(&mut self.commands);
+            self.ensure_render_vertex_buffers(&commands);
             let encode_start = Instant::now();
-            self.encode_commands(&mut encoder);
+            self.encode_commands(&mut encoder, &commands);
             self.encode_time_ms += encode_start.elapsed().as_secs_f64() * 1000.0;
-        }
+            Some(commands)
+        } else {
+            None
+        };
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
                 texture: &self.texture,
@@ -59,6 +63,9 @@ impl GpuRenderer {
             self.texture_size,
         );
         self.queue.submit([encoder.finish()]);
+        if let Some(commands) = commands {
+            self.commands = commands;
+        }
         let slice = output.slice(..);
         let (sender, receiver) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |result| {

@@ -32,6 +32,6 @@ pub(crate) use crate::CANVAS_ABI_VERSION;
 pub(crate) use crate::{sketch_state, software3d};
 pub(crate) use pyo3::exceptions::PyValueError;
 pub(crate) use pyo3::prelude::*;
-pub(crate) use pyo3::types::{PyAny, PyBytes, PyDict, PyList, PyTuple};
+pub(crate) use pyo3::types::{PyAny, PyBytes, PyDict, PyList};
 pub(crate) use std::collections::VecDeque;
 pub(crate) use std::f64::consts::PI;

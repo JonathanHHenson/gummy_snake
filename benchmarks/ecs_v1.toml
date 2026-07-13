@@ -1,0 +1,605 @@
+# Static, self-contained replacement ECS benchmark catalog for Epic 290.
+schema_version = 1
+
+[suite]
+id = "ecs"
+version = 1
+
+[[workloads]]
+id = "storage-entity-archetype"
+version = 1
+case_id = "schema-storage-families"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "idempotent-schema-storage-mapping-digest"
+sampling_profile = "micro"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "schema-storage"
+passes = 8
+work_units = 32
+required_counters = ["ecs_component_schemas_total", "ecs_rust_component_schemas_total"]
+[workloads.primary_metric]
+id = "schema-validation-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "schema-validation"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "storage-entity-archetype"
+version = 1
+case_id = "spawn-mixed-archetypes-128"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "spawn-values-tags-order-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "spawn-archetypes"
+entity_count = 128
+work_units = 128
+required_counters = ["ecs_entities_alive", "ecs_rust_entities_alive", "ecs_rust_component_schemas_total"]
+[workloads.primary_metric]
+id = "entity-operation-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "entity-operation"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "storage-entity-archetype"
+version = 1
+case_id = "structural-generation-churn-96x4"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "structural-churn-values-generations-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "structural-churn"
+entity_count = 96
+iterations = 4
+churn_count = 24
+work_units = 384
+required_counters = ["ecs_entities_alive", "ecs_structural_commands_applied", "ecs_entity_generation_reuses"]
+[workloads.primary_metric]
+id = "churn-row-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "churn-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "query-view-transport"
+version = 1
+case_id = "ordered-filtered-views-192"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "query-order-view-value-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "query-order"
+entity_count = 192
+work_units = 192
+required_counters = ["ecs_entities_alive", "ecs_rust_entities_alive"]
+[workloads.primary_metric]
+id = "query-row-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "query-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "query-view-transport"
+version = 1
+case_id = "batch-four-field-transport-256"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "batch-selected-field-value-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "batch-transport"
+entity_count = 256
+work_units = 256
+required_counters = ["ecs_entities_alive", "ecs_rust_component_schemas_total"]
+[workloads.primary_metric]
+id = "transport-row-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "transport-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "query-view-transport"
+version = 1
+case_id = "cardinality-zero-one-many"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "cardinality-outcome-digest"
+sampling_profile = "micro"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "cardinality"
+work_units = 3
+required_counters = ["ecs_entities_alive", "ecs_rust_entities_alive"]
+[workloads.primary_metric]
+id = "cardinality-check-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "cardinality-check"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "plan-compile-cache"
+version = 1
+case_id = "logical-build-compile-eight"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "plan-explain-compile-counter-digest"
+sampling_profile = "micro"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "plan-build-compile"
+system_count = 8
+work_units = 16
+required_counters = ["ecs_physical_plan_compiles", "ecs_rust_compiled_plans", "ecs_schedule_rebuilds"]
+[workloads.primary_metric]
+id = "plan-node-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "plan-node"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "plan-compile-cache"
+version = 1
+case_id = "cache-reuse-release-four-by-four"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "plan-cache-reuse-release-digest"
+sampling_profile = "micro"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "plan-cache-release"
+frames = 4
+cycles = 4
+work_units = 16
+required_counters = ["ecs_physical_plan_compiles", "ecs_physical_system_runs", "ecs_rust_compiled_plans"]
+[workloads.primary_metric]
+id = "plan-lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "plan-lifecycle"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "scheduler-executor"
+version = 1
+case_id = "ordered-groups-eight-frames"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "group-order-serial-result-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "group-order"
+frames = 8
+work_units = 24
+required_counters = ["ecs_schedule_rebuilds", "ecs_physical_system_runs", "ecs_physical_fields_written"]
+[workloads.primary_metric]
+id = "scheduled-system-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "scheduled-system"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "scheduler-executor"
+version = 1
+case_id = "parallel-snapshot-128x2"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "parallel-snapshot-field-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "parallel-snapshot"
+entity_count = 128
+work_units = 256
+required_counters = ["ecs_physical_system_runs", "ecs_physical_rows_scanned", "ecs_physical_fields_written"]
+[workloads.primary_metric]
+id = "parallel-field-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "parallel-field"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "scheduler-executor"
+version = 1
+case_id = "simulated-four-system-eight-frame"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "simulated-multisystem-world-digest"
+sampling_profile = "simulated-realtime"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "simulated-multisystem"
+entity_count = 64
+frames = 8
+system_count = 4
+work_units = 2048
+required_counters = ["ecs_physical_system_runs", "ecs_physical_rows_scanned", "ecs_physical_fields_written", "ecs_rust_compiled_plans"]
+[workloads.primary_metric]
+id = "simulated-row-system-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "row-system"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "mutation-boundaries"
+version = 1
+case_id = "changed-filter-structural-remove-96"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "change-filter-deferred-structural-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "change-structural"
+entity_count = 96
+work_units = 96
+required_counters = ["ecs_change_detection_refreshes", "ecs_structural_commands_applied", "ecs_physical_system_runs"]
+[workloads.primary_metric]
+id = "mutation-row-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "mutation-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "mutation-boundaries"
+version = 1
+case_id = "resource-event-reduction-128"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "resource-event-order-retention-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "resources-events"
+event_count = 128
+work_units = 128
+required_counters = ["ecs_events_emitted", "ecs_events_read", "ecs_physical_resource_fields_written"]
+[workloads.primary_metric]
+id = "event-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "event"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "mutation-boundaries"
+version = 1
+case_id = "explicit-python-system-udf-128"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "python-system-udf-boundary-writeback-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "python-system-udf"
+entity_count = 128
+work_units = 256
+required_counters = ["ecs_python_system_calls", "ecs_python_system_barriers", "ecs_python_system_entities_materialized", "ecs_udf_calls"]
+[workloads.primary_metric]
+id = "python-boundary-row-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "python-boundary-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "mutation-boundaries"
+version = 1
+case_id = "udf-plan-inline-128"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "udf-plan-zero-runtime-python-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "udf-plan"
+entity_count = 128
+work_units = 128
+required_counters = ["ecs_physical_system_runs", "ecs_physical_rows_scanned", "ecs_physical_fields_written"]
+[workloads.primary_metric]
+id = "udf-plan-row-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "udf-plan-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "spatial-algorithms"
+version = 1
+case_id = "hash-grid-auto-96x3"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime", "spatial-index"]
+correctness = "hash-grid-bruteforce-update-cache-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "spatial-hash-grid"
+entity_count = 96
+frames = 3
+radius = "20.0"
+update_policy = "auto"
+work_units = 288
+required_counters = ["ecs_spatial_algorithm_hash_grid", "ecs_spatial_candidate_rows", "ecs_spatial_exact_rows", "ecs_spatial_indexes_built", "ecs_spatial_index_reuses", "ecs_spatial_index_full_rebuilds", "ecs_spatial_index_incremental_updates"]
+[workloads.primary_metric]
+id = "spatial-row-frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "spatial-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "spatial-algorithms"
+version = 1
+case_id = "quadtree-rebuild-frame-96x3"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime", "spatial-index"]
+correctness = "quadtree-bruteforce-update-cache-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "spatial-quadtree"
+entity_count = 96
+frames = 3
+radius = "20.0"
+update_policy = "rebuild_each_frame"
+work_units = 288
+required_counters = ["ecs_spatial_algorithm_quadtree", "ecs_spatial_candidate_rows", "ecs_spatial_exact_rows", "ecs_spatial_indexes_built", "ecs_spatial_index_reuses", "ecs_spatial_index_full_rebuilds", "ecs_spatial_index_incremental_updates"]
+[workloads.primary_metric]
+id = "spatial-row-frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "spatial-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "spatial-algorithms"
+version = 1
+case_id = "octree-incremental-96x3"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime", "spatial-index"]
+correctness = "octree-bruteforce-update-cache-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "spatial-octree"
+entity_count = 96
+frames = 3
+radius = "20.0"
+update_policy = "incremental"
+work_units = 288
+required_counters = ["ecs_spatial_algorithm_octree", "ecs_spatial_candidate_rows", "ecs_spatial_exact_rows", "ecs_spatial_indexes_built", "ecs_spatial_index_reuses", "ecs_spatial_index_full_rebuilds", "ecs_spatial_index_incremental_updates"]
+[workloads.primary_metric]
+id = "spatial-row-frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "spatial-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "spatial-algorithms"
+version = 1
+case_id = "hilbert-rebuild-use-96x3"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime", "spatial-index"]
+correctness = "hilbert-bruteforce-update-cache-digest"
+sampling_profile = "bulk-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "spatial-hilbert"
+entity_count = 96
+frames = 3
+radius = "20.0"
+update_policy = "rebuild_each_use"
+work_units = 288
+required_counters = ["ecs_spatial_algorithm_hilbert_curve", "ecs_spatial_candidate_rows", "ecs_spatial_exact_rows", "ecs_spatial_indexes_built", "ecs_spatial_index_reuses", "ecs_spatial_index_full_rebuilds", "ecs_spatial_index_incremental_updates"]
+[workloads.primary_metric]
+id = "spatial-row-frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "spatial-row"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "integrated-headless-frame"
+version = 1
+case_id = "compact-fill-64x3"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "headless-world-frame-command-digest"
+sampling_profile = "frame-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "compact-fill"
+entity_count = 64
+frames = 3
+width = 128
+height = 96
+work_units = 192
+required_counters = ["ecs_physical_system_runs", "ecs_canvas_commands", "ecs_canvas_direct_fill_primitives"]
+[workloads.primary_metric]
+id = "headless-draw-record-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "integrated-headless-frame"
+version = 1
+case_id = "simulation-render-128x4"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "headless-simulation-world-frame-digest"
+sampling_profile = "frame-headless"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "simulation-render"
+entity_count = 128
+frames = 4
+width = 160
+height = 120
+work_units = 512
+required_counters = ["ecs_physical_system_runs", "ecs_physical_fields_written", "ecs_canvas_commands", "ecs_canvas_direct_fill_primitives"]
+[workloads.primary_metric]
+id = "headless-simulation-row-frame-ns"
+version = 1
+unit = "ns"
+work_unit = "row-frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "diagnostics-failures-longevity"
+version = 1
+case_id = "diagnostics-snapshot-reset"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "diagnostics-reset-counter-digest"
+sampling_profile = "micro"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "diagnostics-reset"
+entity_count = 64
+work_units = 2
+required_counters = ["ecs_physical_system_runs", "ecs_physical_rows_scanned", "ecs_physical_fields_written"]
+[workloads.primary_metric]
+id = "diagnostic-snapshot-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "diagnostic-snapshot"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "diagnostics-failures-longevity"
+version = 1
+case_id = "stale-strict-spatial-failures"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "actionable-failure-type-message-digest"
+sampling_profile = "micro"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "failure-contracts"
+work_units = 3
+required_counters = ["ecs_strict_mode_errors", "ecs_physical_duplicate_writes"]
+[workloads.primary_metric]
+id = "failure-check-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "failure-check"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "diagnostics-failures-longevity"
+version = 1
+case_id = "bounded-longevity-48x32"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "ecs-runtime"]
+correctness = "bounded-longevity-resources-world-digest"
+sampling_profile = "simulated-realtime"
+source_files = ["suites/ecs/__init__.py", "suites/ecs/fixtures.py", "suites/ecs/oracles.py", "suites/ecs/workloads.py"]
+[workloads.parameters]
+case_kind = "bounded-longevity"
+entity_count = 48
+frames = 32
+churn_count = 4
+work_units = 1536
+required_counters = ["ecs_physical_system_runs", "ecs_events_emitted", "ecs_structural_commands_applied", "ecs_rust_compiled_plans", "ecs_entities_alive"]
+[workloads.primary_metric]
+id = "longevity-row-frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "row-frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3

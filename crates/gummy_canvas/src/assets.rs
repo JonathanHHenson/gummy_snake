@@ -6,6 +6,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 static NEXT_IMAGE_KEY: AtomicU64 = AtomicU64::new(1);
 
@@ -14,7 +15,7 @@ pub(crate) struct CachedImage {
     pub(crate) version: u64,
     pub(crate) width: usize,
     pub(crate) height: usize,
-    pub(crate) pixels: Vec<u8>,
+    pub(crate) pixels: Arc<Vec<u8>>,
 }
 
 #[derive(Clone, Debug)]
@@ -40,7 +41,7 @@ pub(crate) struct CanvasImage {
     pub(crate) version: u64,
     pub(crate) width: usize,
     pub(crate) height: usize,
-    pub(crate) pixels: Vec<u8>,
+    pub(crate) pixels: Arc<Vec<u8>>,
 }
 
 #[pymethods]
@@ -96,20 +97,20 @@ impl CanvasImage {
 
     fn set_pixel(&mut self, x: usize, y: usize, r: u8, g: u8, b: u8, a: u8) -> PyResult<()> {
         let offset = self.pixel_offset(x, y)?;
-        self.pixels[offset..offset + 4].copy_from_slice(&[r, g, b, a]);
+        Arc::make_mut(&mut self.pixels)[offset..offset + 4].copy_from_slice(&[r, g, b, a]);
         self.bump_version();
         Ok(())
     }
 
     fn replace_rgba_bytes(&mut self, pixels: Vec<u8>) -> PyResult<()> {
         validate_rgba_buffer(pixels.len(), self.width, self.height)?;
-        self.pixels = pixels;
+        self.pixels = Arc::new(pixels);
         self.bump_version();
         Ok(())
     }
 
     fn copy(&self) -> Self {
-        Self::from_pixels(self.width, self.height, self.pixels.clone())
+        Self::from_pixels(self.width, self.height, self.pixels.as_ref().clone())
     }
 
     fn crop(&self, sx: i64, sy: i64, sw: i64, sh: i64) -> PyResult<Self> {
@@ -122,7 +123,7 @@ impl CanvasImage {
             sw as usize,
             sh as usize,
             crop_rgba_with_padding(
-                &self.pixels,
+                self.pixels.as_slice(),
                 self.width,
                 self.height,
                 sx,
@@ -139,13 +140,13 @@ impl CanvasImage {
                 "Image.resize() dimensions must be positive.",
             ));
         }
-        self.pixels = resize_rgba_nearest(
-            &self.pixels,
+        self.pixels = Arc::new(resize_rgba_nearest(
+            self.pixels.as_slice(),
             self.width,
             self.height,
             target_width,
             target_height,
-        );
+        ));
         self.width = target_width;
         self.height = target_height;
         self.bump_version();
@@ -154,10 +155,10 @@ impl CanvasImage {
 
     fn mask(&mut self, mask: PyRef<'_, CanvasImage>) -> PyResult<()> {
         apply_rgba_mask(
-            &mut self.pixels,
+            Arc::make_mut(&mut self.pixels).as_mut_slice(),
             self.width,
             self.height,
-            &mask.pixels,
+            mask.pixels.as_slice(),
             mask.width,
             mask.height,
         );
@@ -167,17 +168,23 @@ impl CanvasImage {
 
     #[pyo3(signature = (mode, value=None))]
     fn filter(&mut self, mode: &str, value: Option<f64>) -> PyResult<()> {
-        filter_rgba(&mut self.pixels, self.width, self.height, mode, value)?;
+        filter_rgba(
+            Arc::make_mut(&mut self.pixels).as_mut_slice(),
+            self.width,
+            self.height,
+            mode,
+            value,
+        )?;
         self.bump_version();
         Ok(())
     }
 
     fn alpha_composite(&mut self, source: PyRef<'_, CanvasImage>, dx: i64, dy: i64) {
         alpha_composite_rgba_region(
-            &mut self.pixels,
+            Arc::make_mut(&mut self.pixels).as_mut_slice(),
             self.width,
             self.height,
-            &source.pixels,
+            source.pixels.as_slice(),
             source.width,
             source.height,
             dx,
@@ -189,7 +196,7 @@ impl CanvasImage {
     fn save(&self, path: &str) -> PyResult<()> {
         image::save_buffer_with_format(
             path,
-            &self.pixels,
+            self.pixels.as_slice(),
             self.width as u32,
             self.height as u32,
             image::ColorType::Rgba8,
@@ -199,7 +206,7 @@ impl CanvasImage {
     }
 
     fn to_rgba_bytes<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
-        PyBytes::new_bound(py, &self.pixels)
+        PyBytes::new_bound(py, self.pixels.as_slice())
     }
 }
 
@@ -210,7 +217,7 @@ impl CanvasImage {
             version: 0,
             width,
             height,
-            pixels,
+            pixels: Arc::new(pixels),
         }
     }
 
@@ -225,5 +232,23 @@ impl CanvasImage {
 
     fn bump_version(&mut self) {
         self.version = self.version.wrapping_add(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn canvas_image_mutation_is_copy_on_write_and_versioned() {
+        let mut image = CanvasImage::from_pixels(1, 1, vec![1, 2, 3, 4]);
+        let shared = Arc::clone(&image.pixels);
+
+        image.set_pixel(0, 0, 9, 8, 7, 6).unwrap();
+
+        assert_eq!(shared.as_slice(), &[1, 2, 3, 4]);
+        assert_eq!(image.pixels.as_slice(), &[9, 8, 7, 6]);
+        assert!(!Arc::ptr_eq(&shared, &image.pixels));
+        assert_eq!(image.version, 1);
     }
 }

@@ -22,6 +22,13 @@ pub enum EcsError {
         expected: &'static str,
         got: &'static str,
     },
+    ValueOutOfRange {
+        storage_type: &'static str,
+        value: String,
+    },
+    NonFiniteFloat {
+        storage_type: &'static str,
+    },
     RowOutOfBounds,
     InvalidEventType,
     InvalidPlan(String),
@@ -48,6 +55,13 @@ impl fmt::Display for EcsError {
             Self::MissingResource(name) => write!(f, "ECS resource {name} is not present"),
             Self::ColumnTypeMismatch { expected, got } => {
                 write!(f, "ECS column expected {expected} value, got {got}")
+            }
+            Self::ValueOutOfRange {
+                storage_type,
+                value,
+            } => write!(f, "ECS value {value} is outside the {storage_type} range"),
+            Self::NonFiniteFloat { storage_type } => {
+                write!(f, "ECS {storage_type} values must be finite")
             }
             Self::RowOutOfBounds => write!(f, "ECS row index is out of bounds"),
             Self::InvalidEventType => write!(f, "ECS event type name cannot be empty"),

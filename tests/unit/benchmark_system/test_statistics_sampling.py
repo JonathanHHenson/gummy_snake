@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
+import pytest
+
 from benchmarks.framework.statistics import (
+    PROFILES,
     Decision,
+    StatisticsError,
     compare_samples,
     median_of_process_medians,
 )
@@ -44,3 +50,36 @@ def test_zero_counter_is_an_absolute_gate() -> None:
     )
     result = compare_samples(counter, ((0,), (0,)), ((0,), (1,)), 1)
     assert result.decision is Decision.ABSOLUTE_FAILURE
+
+
+def test_local_policy_uses_six_two_by_two_sampling_profiles() -> None:
+    assert set(PROFILES) == {
+        "micro",
+        "bulk-headless",
+        "frame-headless",
+        "frame-interactive",
+        "simulated-realtime",
+        "native-audio",
+    }
+    assert all(profile.policy_version == 1 for profile in PROFILES.values())
+    assert all(profile.processes == 2 for profile in PROFILES.values())
+    assert all(profile.blocks_per_process == 2 for profile in PROFILES.values())
+
+
+def test_exact_five_percent_degradation_passes_and_any_greater_value_fails() -> None:
+    baseline = ((100, 100), (100, 100))
+    at_boundary = ((105, 105), (105, 105))
+    over_boundary = ((106, 106), (106, 106))
+
+    passed = compare_samples(latency_metric(), baseline, at_boundary, 1)
+    failed = compare_samples(latency_metric(), baseline, over_boundary, 1)
+
+    assert passed.decision is Decision.PASS
+    assert passed.change == Decimal("0.05")
+    assert passed.interval is None
+    assert failed.decision is Decision.REGRESSION
+
+
+def test_ratio_gate_rejects_non_positive_baseline() -> None:
+    with pytest.raises(StatisticsError, match="strictly positive"):
+        compare_samples(latency_metric(), ((0, 0), (0, 0)), ((1, 1), (1, 1)), 1)

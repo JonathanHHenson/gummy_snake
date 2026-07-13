@@ -131,7 +131,7 @@ make verify-wheel-accel WHEEL_DIR=dist/canvas ACCELERATED_WHEEL_DIR=dist/acceler
 The verifier inspects wheel members, compares every public native module
 function’s symbol and runtime signature to its shipped `.pyi` file, then uses
 `uv run --isolated` to type-check and execute a consumer installed from the
-wheel. That consumer requires canvas ABI 18, ECS ABI 4, health checks, an
+wheel. That consumer requires canvas ABI 19, ECS ABI 4, health checks, an
 empty Rust ECS world, a headless frame, packaged synth/FX/sample lookup, and a
 non-empty Rust-rendered WAV. A separate consumer blocks the native extension and
 requires the clear rebuild-guidance capability error rather than a Python
@@ -139,12 +139,20 @@ fallback. Both consumers reject source-tree imports.
 
 ## Performance Investigation
 
-The repository does not maintain an automated performance suite. For local
-performance investigation, build `gummy_canvas` in release mode, exercise the
-affected contract or integration tests and bounded smoke examples, then inspect
-`renderer_performance_counters()` and `ecs_diagnostics()`. Compare timing only
-between equivalent machines, OS versions, Python versions, revisions, and release
-builds; debug-build and native-audio-playback timing are diagnostic only.
+The governed replacement benchmark system has self-contained Canvas, ECS, and
+Synth catalogs. Run every bounded headless case with:
+
+```sh
+make benchmark-smoke
+```
+
+Use `scripts/benchmark.py worktree <catalog>` for uncommitted changes against the
+exact current-HEAD record and `record-head <catalog>` for a clean HEAD against the
+nearest compatible first-parent record. Authoritative recording builds an isolated
+release wheel from a verified materialized snapshot; smoke timing is functional and
+non-authoritative. The current local policy fails degradation greater than 5.00% on
+an exact fingerprint and leaves tighter controlled-runner qualification for a future
+reviewed policy version.
 
 For Rust-executed ECS hot paths, confirm `ecs_physical_system_runs` advances while
 `ecs_udf_calls` remains zero. For spatial paths, inspect candidate/exact rows and
@@ -165,7 +173,7 @@ functional, smoke, and stress checks.
 
 Run these before releases and when changing canvas resize, shutdown, image
 texture caching, text/font caching, pixel readback/upload, direct shape/clip
-finalization, ECS spatial index lifecycle, or CPU/GPU fallback boundaries. The
+finalization, ECS spatial index lifecycle, or CPU/GPU route boundaries.
 current scenarios churn transient images, dynamic text, repeated pixel
 readback/upload, repeated resize, repeated close/recreate, CPU fallback paths,
 and ECS spatial storage/index state where those tests are enabled. They assert

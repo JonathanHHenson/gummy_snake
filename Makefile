@@ -30,7 +30,7 @@ help:
 	  '  make check                 Comprehensive local gate; requires a release canvas runtime.' \
 	  '  make test-focused          Unit and contract suites for quick feedback.' \
 	  '  make test-full             Full Python suite; stress tests stay opt-in.' \
-	  '  make benchmark-smoke       Run self-contained replacement Canvas headless cases once.' \
+	'  make benchmark-smoke       Run all self-contained replacement headless benchmark cases once.'
 	  '  make benchmark-audit       Audit the fixed-ref replacement benchmark data store.' \
 	  '  make rust-check            Format, Clippy, and direct tests for every Rust crate.' \
 	  '  make release-candidate     Release runtime plus smoke and opt-in stress validation.' \
@@ -107,6 +107,8 @@ release-candidate: runtime-develop-release smoke-release test-stress
 # their isolated release worker and qualified runner requirements are satisfied.
 benchmark-smoke:
 	$(PYTHON) scripts/benchmark.py smoke benchmarks/canvas_v1.toml
+	$(PYTHON) scripts/benchmark.py smoke benchmarks/ecs_v1.toml
+	$(PYTHON) scripts/benchmark.py smoke benchmarks/synth_v1.toml
 
 benchmark-audit:
 	$(PYTHON) scripts/benchmark.py --repo . audit

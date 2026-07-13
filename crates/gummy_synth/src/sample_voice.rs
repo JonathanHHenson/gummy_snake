@@ -56,7 +56,13 @@ pub(crate) fn render_sample_event_with_opts(
         (segment_left, segment_right) =
             anti_alias_sample_segment(segment_left, segment_right, step, sample_rate);
     }
-    let output_count = ((segment_left.len() as f64 / step).ceil().max(1.0)) as usize;
+    let output_count_value = (segment_left.len() as f64 / step).ceil().max(1.0);
+    if !output_count_value.is_finite() || output_count_value > MAX_OUTPUT_FRAMES as f64 {
+        return Err(SynthError::new(format!(
+            "sample playback output exceeds the synth output budget of {MAX_OUTPUT_FRAMES} frames."
+        )));
+    }
+    let output_count = output_count_value as usize;
     let attack = float_opt(opts, "attack", 0.0).max(0.0);
     let release = float_opt(opts, "release", 0.0).max(0.0);
     let sustain_opt = opts

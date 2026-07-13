@@ -13,7 +13,7 @@ Use this matrix when validating local builds, wheels, and release candidates.
 | Renderer modes | `P2D`, `WEBGL`, and `WEBGPU` identifiers are accepted by the Rust canvas lifecycle | `gummy_canvas` records the requested renderer mode while using its one canonical Rust/WGPU canvas architecture | canvas construction and resize forward the requested `RendererMode` without coercing it to `P2D` | `uv run pytest tests/unit/canvas_runtime/test_rust_canvas_renderer.py -q` |
 | WEBGL path | Required for accepted `WEBGL` mode | Rust-owned model handles, fallback software 3D paths, and built-in retained GPU model pipelines when GPU drawing is available | backend flags `three_d=True`, `software_three_d=True`, `native_three_d=False`, `native_shaders=False` | `uv run python examples/09_performance/boids_3d.py --headless --frames 1 --no-save` |
 | ECS runtime | Required for ECS system storage and physical execution; only explicit Python UDF bodies execute outside Rust | `crates/gummy_ecs` linked into `crates/gummy_canvas`, exposed through `gummysnake.rust._canvas` | `gummysnake.rust.ecs.ecs_abi_version()` and `gummysnake.rust.ecs.require_ecs_runtime()` validate the ECS ABI and bridge classes | `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` plus `uv run pytest tests/unit/ecs/test_ecs.py -q` |
-| Synth runtime | Required for `gummysnake.synth` rendering, sample decoding, and FX execution | `crates/gummy_synth` linked into `crates/gummy_canvas`, exposed through `gummysnake.rust._canvas` | `gummysnake.rust.canvas.require_canvas_runtime()` validates the canvas ABI and synth bridge functions | `cargo test --manifest-path crates/gummy_synth/Cargo.toml` plus `uv run pytest tests/unit/synth/test_synth_tracks.py -q` |
+| Synth runtime | Required for `gummysnake.synth` rendering, sample decoding, FX execution, and bounded offline workers | `crates/gummy_synth` linked into `crates/gummy_canvas`, exposed through `gummysnake.rust._canvas`; validated pure-Rust compile/render/decode/WAV calls release the GIL | `gummysnake.rust.canvas.require_canvas_runtime()` validates the canvas ABI and synth bridge functions; `sy.configure_workers(...)` and `sy.synth_diagnostics()` expose worker/GIL route metadata | `cargo test --manifest-path crates/gummy_synth/Cargo.toml` plus `uv run pytest tests/unit/synth/test_synth_tracks.py -q` |
 
 ## Compatibility Marker
 
@@ -41,7 +41,7 @@ Gummy Snake publishes a typed package. Every canvas wheel must ship
 `gummysnake/py.typed`, both native stub files (`_canvas.pyi` and
 `_accelerated.pyi`), the mandatory native `_canvas` extension, and the Maturin
 assets. `scripts/verify_distribution.py --wheel <canvas-wheel>` installs only
-the wheel through an isolated `uv` consumer environment, requires canvas ABI 18
+the wheel through an isolated `uv` consumer environment, requires canvas ABI 19
 and ECS ABI 4, validates health checks, exercises an empty Rust ECS world and a
 headless render, and renders a WAV using packaged synth/FX/sample assets. A
 second isolated consumer deliberately blocks the native canvas import and

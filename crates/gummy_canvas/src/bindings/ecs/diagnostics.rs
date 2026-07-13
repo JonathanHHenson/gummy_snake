@@ -41,5 +41,21 @@ pub(super) fn diagnostics_to_dict<'py>(
     dict.set_item("query_matched_rows", diagnostics.query_matched_rows)?;
     dict.set_item("resources_total", diagnostics.resources_total)?;
     dict.set_item("event_queues_total", diagnostics.event_queues_total)?;
+    dict.set_item("event_records_total", diagnostics.event_records_total)?;
+    dict.set_item("events_emitted", diagnostics.events_emitted)?;
+    dict.set_item("event_read_calls", diagnostics.event_read_calls)?;
+    dict.set_item("event_records_read", diagnostics.event_records_read)?;
+    dict.set_item("event_clear_calls", diagnostics.event_clear_calls)?;
+    dict.set_item("event_records_cleared", diagnostics.event_records_cleared)?;
+    dict.set_item("event_records_pruned", diagnostics.event_records_pruned)?;
+    dict.set_item(
+        "diagnostic_messages_deduplicated",
+        diagnostics.diagnostic_messages_deduplicated,
+    )?;
+    dict.set_item(
+        "diagnostic_messages_dropped",
+        diagnostics.diagnostic_messages_dropped,
+    )?;
+    dict.set_item("messages", diagnostics.messages)?;
     Ok(dict)
 }

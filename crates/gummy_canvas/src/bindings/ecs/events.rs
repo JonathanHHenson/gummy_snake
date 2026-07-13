@@ -6,7 +6,7 @@ use super::values::ecs_value_to_py;
 
 pub(super) fn read_events_to_list<'py>(
     py: Python<'py>,
-    world: &World,
+    world: &mut World,
     event_type: &str,
 ) -> PyResult<Bound<'py, PyList>> {
     let events = world

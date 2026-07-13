@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from struct import Struct
+from typing import cast
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
@@ -16,6 +18,87 @@ _PRIMITIVE_RECT = 1
 _PRIMITIVE_TRIANGLE = 2
 _PRIMITIVE_ELLIPSE = 3
 _PRIMITIVE_LINE = 4
+_PACKED_LINE_RECORD = Struct("<4d")
+_PACKED_PRIMITIVE_RECORD = Struct("<B7x6d")
+_PACKED_FILL_PRIMITIVE_RECORD = Struct("<B7x6d4B")
+_PACKED_MIXED_PRIMITIVE_RECORD = Struct("<B7x6dII")
+_FillPrimitiveRecord = tuple[int, float, float, float, float, float, float, int, int, int, int]
+
+
+def _pack_primitive_records(
+    records: list[tuple[int, float, float, float, float, float, float]],
+) -> bytes:
+    """Encode styled primitive records for the versioned Rust-owned command ingress."""
+    payload = bytearray(_PACKED_PRIMITIVE_RECORD.size * len(records))
+    for index, (kind, a, b, c1, d, e, f) in enumerate(records):
+        _PACKED_PRIMITIVE_RECORD.pack_into(
+            payload,
+            index * _PACKED_PRIMITIVE_RECORD.size,
+            int(kind),
+            float(a),
+            float(b),
+            float(c1),
+            float(d),
+            float(e),
+            float(f),
+        )
+    return bytes(payload)
+
+
+def _pack_fill_primitive_records(records: list[_FillPrimitiveRecord]) -> bytes:
+    payload = bytearray(_PACKED_FILL_PRIMITIVE_RECORD.size * len(records))
+    for index, (kind, a, b, c1, d, e, f, red, green, blue, alpha) in enumerate(records):
+        _PACKED_FILL_PRIMITIVE_RECORD.pack_into(
+            payload,
+            index * _PACKED_FILL_PRIMITIVE_RECORD.size,
+            int(kind),
+            float(a),
+            float(b),
+            float(c1),
+            float(d),
+            float(e),
+            float(f),
+            int(red),
+            int(green),
+            int(blue),
+            int(alpha),
+        )
+    return bytes(payload)
+
+
+def _pack_mixed_primitive_records(
+    records: list[tuple[object, ...]],
+) -> tuple[bytes, list[dict[str, object]], list[tuple[float, float, float, float, float, float]]]:
+    payload = bytearray(_PACKED_MIXED_PRIMITIVE_RECORD.size * len(records))
+    styles: list[dict[str, object]] = []
+    style_indexes: dict[int, int] = {}
+    matrices: list[tuple[float, float, float, float, float, float]] = []
+    matrix_indexes: dict[tuple[float, float, float, float, float, float], int] = {}
+    for index, (kind, a, b, c1, d, e, f, style, matrix) in enumerate(records):
+        typed_style = cast(dict[str, object], style)
+        typed_matrix = cast(tuple[float, float, float, float, float, float], matrix)
+        style_index = style_indexes.setdefault(id(typed_style), len(styles))
+        if style_index == len(styles):
+            styles.append(typed_style)
+        matrix_index = matrix_indexes.setdefault(typed_matrix, len(matrices))
+        if matrix_index == len(matrices):
+            matrices.append(typed_matrix)
+        _PACKED_MIXED_PRIMITIVE_RECORD.pack_into(
+            payload,
+            index * _PACKED_MIXED_PRIMITIVE_RECORD.size,
+            int(cast(int, kind)),
+            *cast(tuple[float, float, float, float, float, float], (a, b, c1, d, e, f)),
+            style_index,
+            matrix_index,
+        )
+    return bytes(payload), styles, matrices
+
+
+def _pack_line_records(records: list[tuple[float, float, float, float]]) -> bytes:
+    payload = bytearray(_PACKED_LINE_RECORD.size * len(records))
+    for index, record in enumerate(records):
+        _PACKED_LINE_RECORD.pack_into(payload, index * _PACKED_LINE_RECORD.size, *record)
+    return bytes(payload)
 
 
 def flush_line_batch(self: CanvasRendererHost) -> None:
@@ -35,7 +118,9 @@ def queue_fill_primitive_fast_path(
 ) -> bool:
     fill_color = style.fill_rgba
     canvas = getattr(self, "_canvas", None)
-    batch_fill = getattr(canvas, "batch_fill_primitives", None) if canvas is not None else None
+    batch_fill = (
+        getattr(canvas, "batch_fill_primitives_packed", None) if canvas is not None else None
+    )
     if (
         kind == _PRIMITIVE_LINE
         or fill_color is None
@@ -67,7 +152,7 @@ def queue_primitive_batch(
 
     canvas = self._require_canvas()
     matrix_payload = self._matrix_payload(transform)
-    batch_mixed = getattr(canvas, "batch_primitives_mixed", None)
+    batch_mixed = getattr(canvas, "batch_primitives_mixed_packed", None)
     if callable(batch_mixed):
         flush_batches_before_primitive_batch(self)
         primitive_batch = self._primitive_batch_state
@@ -79,7 +164,7 @@ def queue_primitive_batch(
         return True
 
     current = (
-        getattr(canvas, "batch_primitives_current", None)
+        getattr(canvas, "batch_primitives_current_packed", None)
         if self._can_use_current_state(style, transform)
         else None
     )
@@ -91,7 +176,7 @@ def queue_primitive_batch(
         self._primitive_batch_state.append_current((kind, *coords))
         return True
 
-    batch = getattr(canvas, "batch_primitives", None)
+    batch = getattr(canvas, "batch_primitives_packed", None)
     if not callable(batch):
         return False
     style_payload = self._style_payload(style)
@@ -124,29 +209,19 @@ def flush_line_batch_only(self: CanvasRendererHost) -> None:
     style = snapshot.style
     matrix = snapshot.matrix
     if snapshot.current:
-        canvas = renderer._require_canvas()
-        batch_lines_current = getattr(canvas, "batch_lines_current", None)
-        if callable(batch_lines_current):
-            renderer._count("gpu_draws", len(lines))
-            renderer._call("batched line drawing", batch_lines_current, lines)
-            return
-        for x1, y1, x2, y2 in lines:
-            line_current = getattr(canvas, "line_current", None)
-            if callable(line_current):
-                renderer._count("gpu_draws")
-                renderer._call("line drawing", line_current, x1, y1, x2, y2)
+        batch_lines_current = renderer._require_canvas_method(
+            "batch_lines_current_packed", "packed current-state line batch drawing"
+        )
+        renderer._count("gpu_draws", len(lines))
+        renderer._call(
+            "packed current-state line drawing", batch_lines_current, _pack_line_records(lines)
+        )
         return
     if style is None or matrix is None:
         return
-    canvas = renderer._require_canvas()
-    batch_lines = getattr(canvas, "batch_lines", None)
-    if callable(batch_lines):
-        renderer._count("gpu_draws", len(lines))
-        renderer._call("batched line drawing", batch_lines, lines, style, matrix)
-        return
-    for x1, y1, x2, y2 in lines:
-        renderer._count("gpu_draws")
-        renderer._call("line drawing", canvas.line, x1, y1, x2, y2, style, matrix)
+    batch_lines = renderer._require_canvas_method("batch_lines_packed", "packed line batch drawing")
+    renderer._count("gpu_draws", len(lines))
+    renderer._call("packed line drawing", batch_lines, _pack_line_records(lines), style, matrix)
 
 
 def _drain_primitive_batch(renderer: CanvasRendererHost) -> PrimitiveBatchSnapshot:
@@ -159,24 +234,53 @@ def _native_primitive_batch_submission(
     snapshot: PrimitiveBatchSnapshot,
 ) -> tuple[str, Callable[..., object], tuple[object, ...]] | None:
     """Select the native call and payload tuple for an already-drained batch."""
-    canvas = renderer._require_canvas()
     records = snapshot.records
     if snapshot.mode == "mixed":
-        callback = getattr(canvas, "batch_primitives_mixed", None)
-        if callable(callback):
-            return "mixed batched primitive drawing", callback, (records,)
+        callback = renderer._require_canvas_method(
+            "batch_primitives_mixed_packed", "packed mixed primitive batch drawing"
+        )
+        payload, styles, matrices = _pack_mixed_primitive_records(records)
+        return "packed mixed primitive drawing", callback, (payload, styles, matrices)
     if snapshot.mode == "fill" and snapshot.matrix is not None:
-        callback = getattr(canvas, "batch_fill_primitives", None)
-        if callable(callback):
-            return "batched fill primitive drawing", callback, (records, snapshot.matrix)
+        callback = renderer._require_canvas_method(
+            "batch_fill_primitives_packed", "packed fill primitive batch drawing"
+        )
+        return (
+            "packed fill primitive drawing",
+            callback,
+            (
+                _pack_fill_primitive_records(cast(list[_FillPrimitiveRecord], records)),
+                snapshot.matrix,
+            ),
+        )
     if snapshot.current:
-        callback = getattr(canvas, "batch_primitives_current", None)
-        if callable(callback):
-            return "batched primitive drawing", callback, (records,)
+        callback = renderer._require_canvas_method(
+            "batch_primitives_current_packed", "packed current-state primitive batch drawing"
+        )
+        return (
+            "packed current-state primitive drawing",
+            callback,
+            (
+                _pack_primitive_records(
+                    cast(list[tuple[int, float, float, float, float, float, float]], records)
+                ),
+            ),
+        )
     if snapshot.style is not None and snapshot.matrix is not None:
-        callback = getattr(canvas, "batch_primitives", None)
-        if callable(callback):
-            return "batched primitive drawing", callback, (records, snapshot.style, snapshot.matrix)
+        callback = renderer._require_canvas_method(
+            "batch_primitives_packed", "packed primitive batch drawing"
+        )
+        return (
+            "packed batched primitive drawing",
+            callback,
+            (
+                _pack_primitive_records(
+                    cast(list[tuple[int, float, float, float, float, float, float]], records)
+                ),
+                snapshot.style,
+                snapshot.matrix,
+            ),
+        )
     return None
 
 

@@ -36,7 +36,6 @@ def initialize_world(world: EcsWorld, context: SketchContext | None) -> None:
     world.strict = False
     world.warn_on_ambiguity = True
     world._diagnostics = Counter()
-    world._messages = []
     world._schemas = {}
     world._spatial_epoch = 0
     world._spatial_index_cache = {}
@@ -49,7 +48,6 @@ def initialize_world(world: EcsWorld, context: SketchContext | None) -> None:
     world._added_components = set()
     world._changed_components = set()
     world._removed_components = set()
-    world._events = {}
     world._event_types = {}
     world._has_change_filtered_systems_cache = None
     world._active_python_access_batch = None

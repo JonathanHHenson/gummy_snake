@@ -132,51 +132,59 @@ impl Canvas {
         ];
         let texture_version = self.texture_cache_versions.version(image_key);
         if texture_version != Some(image_version) {
-            self.performance_counters.texture_uploads += 1;
-            self.evict_texture_cache_if_needed(image_key);
+            self.evict_texture_cache_if_needed(image_key, image_pixels.len())?;
         } else {
             self.performance_counters.texture_cache_hits += 1;
         }
-        if let Some(gpu) = self.gpu.as_mut() {
-            if texture_version != Some(image_version) {
+        if texture_version != Some(image_version) {
+            let replaced = {
+                let Some(gpu) = self.gpu.as_mut() else {
+                    return Ok(false);
+                };
                 gpu.upload_texture(image_key, image_width, image_height, image_pixels)
                     .map_err(|err| {
                         PyValueError::new_err(format!("Failed to upload image texture: {err}"))
-                    })?;
-                self.texture_cache_versions.insert(image_key, image_version);
-            }
-            let u0 = sx as f32 / image_width as f32;
-            let v0 = sy as f32 / image_height as f32;
-            let u1 = (sx + sw) as f32 / image_width as f32;
-            let v1 = (sy + sh) as f32 / image_height as f32;
-            let tint = style.image_tint.unwrap_or(Rgba {
-                r: 255,
-                g: 255,
-                b: 255,
-                a: 255,
-            });
-            let tint = crate::gpu::GpuColor {
-                r: tint.r,
-                g: tint.g,
-                b: tint.b,
-                a: tint.a,
+                    })?
             };
-            let vertices = [
-                (point_to_f32(corners[0]), [u0, v0], tint),
-                (point_to_f32(corners[1]), [u1, v0], tint),
-                (point_to_f32(corners[2]), [u1, v1], tint),
-                (point_to_f32(corners[0]), [u0, v0], tint),
-                (point_to_f32(corners[2]), [u1, v1], tint),
-                (point_to_f32(corners[3]), [u0, v1], tint),
-            ];
-            self.upload_stale_texture(false)?;
-            let Some(gpu) = self.gpu.as_mut() else {
-                return Ok(false);
-            };
-            gpu.draw_image(image_key, vertices, linear_sampling, style.blend_mode_kind);
-            self.record_native_image_draw(style.blend_mode_kind, vertices.len());
-            return Ok(true);
+            self.record_texture_upload(
+                image_key,
+                image_version,
+                image_pixels.len(),
+                false,
+                texture_version.is_some(),
+                replaced,
+            );
         }
-        Ok(false)
+        let u0 = sx as f32 / image_width as f32;
+        let v0 = sy as f32 / image_height as f32;
+        let u1 = (sx + sw) as f32 / image_width as f32;
+        let v1 = (sy + sh) as f32 / image_height as f32;
+        let tint = style.image_tint.unwrap_or(Rgba {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        });
+        let tint = crate::gpu::GpuColor {
+            r: tint.r,
+            g: tint.g,
+            b: tint.b,
+            a: tint.a,
+        };
+        let vertices = [
+            (point_to_f32(corners[0]), [u0, v0], tint),
+            (point_to_f32(corners[1]), [u1, v0], tint),
+            (point_to_f32(corners[2]), [u1, v1], tint),
+            (point_to_f32(corners[0]), [u0, v0], tint),
+            (point_to_f32(corners[2]), [u1, v1], tint),
+            (point_to_f32(corners[3]), [u0, v1], tint),
+        ];
+        self.upload_stale_texture(false)?;
+        let Some(gpu) = self.gpu.as_mut() else {
+            return Ok(false);
+        };
+        gpu.draw_image(image_key, vertices, linear_sampling, style.blend_mode_kind);
+        self.record_native_image_draw(style.blend_mode_kind, vertices.len());
+        Ok(true)
     }
 }

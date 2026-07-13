@@ -186,7 +186,7 @@ def test_archive_discovery_requires_exactly_one_matching_distribution(tmp_path: 
 def test_wheel_consumer_requires_exact_abis_and_clear_no_fallback_failures() -> None:
     verify_distribution = load_verify_distribution_module()
 
-    assert "EXPECTED_CANVAS_ABI_VERSION != 18" in verify_distribution._WHEEL_CONSUMER_SCRIPT
+    assert "EXPECTED_CANVAS_ABI_VERSION != 19" in verify_distribution._WHEEL_CONSUMER_SCRIPT
     assert "EXPECTED_ECS_ABI_VERSION != 4" in verify_distribution._WHEEL_CONSUMER_SCRIPT
     assert "assets/samples/sonic_pi/bd_haus.flac" in verify_distribution._WHEEL_CONSUMER_SCRIPT
     assert "BlockNativeCanvas" in verify_distribution._NO_FALLBACK_CONSUMER_SCRIPT

@@ -1,11 +1,16 @@
-"""Release-wheel, isolated-worker Canvas benchmark recorder."""
+"""Release-wheel, isolated-worker recorder for registered benchmark suites."""
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import os
 import shutil
 import subprocess
+import sys
+import tomllib
+import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
@@ -17,11 +22,26 @@ from ..runner_profiles import RunnerProfile, RunnerProfileError, load_runner_pro
 from ..schema.canonical import file_hash
 from ..schema.catalog import Catalog, CatalogError, Workload
 from ..schema.records import BenchmarkRecord, MetricResult, Provenance
+from ..suites.registry import REGISTERED_SUITE_IDS
 from ..worker.protocol import FreshWorker, WorkerError, WorkerRequest, WorkerResult
-from ..worker.provenance import ReleaseBuildPlan, probe_machine, release_build_plan
+from ..worker.provenance import (
+    ReleaseBuildPlan,
+    probe_machine,
+    probe_run_conditions,
+    release_build_plan,
+    release_build_provenance,
+)
 from .modes import RunReport
-from .snapshot import SourceSnapshot, snapshot_declared_roots
+from .snapshot import (
+    SnapshotError,
+    SourceSnapshot,
+    materialize_source_snapshot,
+    snapshot_declared_roots,
+    validate_referenced_build_inputs,
+    verify_materialized_source,
+)
 from .statistics import (
+    PROFILES,
     Decision,
     SamplingProfile,
     compare_samples,
@@ -37,16 +57,22 @@ class RunnerError(RuntimeError):
 # intentionally fixed rather than inferred from package discovery.
 DECLARED_INPUT_ROOTS = (
     ".cargo",
+    ".python-version",
+    "Cargo.lock",
+    "Cargo.toml",
+    "README.md",
+    "assets",
     "benchmarks",
     "crates",
+    "license.txt",
     "pyproject.toml",
     "src",
     "uv.lock",
 )
 
-_CANVAS_PROFILES: dict[str, SamplingProfile] = {
-    "canvas-bounded-v1": SamplingProfile("canvas-bounded-v1", 0, 1, 3, 2, 3),
-    "canvas-native-bounded-v1": SamplingProfile("canvas-native-bounded-v1", 0, 1, 3, 2, 3),
+_SUITE_PROFILE_ALIASES: dict[str, SamplingProfile] = {
+    "canvas-bounded-v1": SamplingProfile("canvas-bounded-v1", 0, 1, 2, 2, 2),
+    "canvas-native-bounded-v1": SamplingProfile("canvas-native-bounded-v1", 0, 1, 2, 2, 2),
 }
 
 
@@ -55,6 +81,7 @@ class IsolatedRunPlan:
     """The reproducible release build and worker layout for one source snapshot."""
 
     snapshot: SourceSnapshot
+    source_directory: Path
     build: ReleaseBuildPlan
     workspace: Path
     worker_command: tuple[str, ...]
@@ -93,20 +120,28 @@ def _canonical_diagnostics(value: Mapping[str, object]) -> Mapping[str, object]:
 
 
 def plan_isolated_run(repository: Path, output_directory: Path) -> IsolatedRunPlan:
-    """Snapshot every declared input before any release build is run."""
+    """Freeze every declared input into an external tree before planning the build."""
 
     repository = repository.resolve()
+    output_directory = output_directory.resolve()
     snapshot = snapshot_declared_roots(repository, DECLARED_INPUT_ROOTS)
-    build = release_build_plan(repository, output_directory)
-    workspace = build.output_directory / "worker-workspace"
-    interpreter = build.isolated_environment / "bin" / "python"
+    validate_referenced_build_inputs(repository, snapshot)
+    source_directory = materialize_source_snapshot(
+        repository, snapshot, output_directory / "source-snapshot"
+    )
+    build = release_build_plan(source_directory, output_directory / "artifacts")
+    workspace = output_directory / "worker-workspace"
     return IsolatedRunPlan(
-        snapshot, build, workspace, (str(interpreter), "-m", "benchmarks.worker.main")
+        snapshot,
+        source_directory,
+        build,
+        workspace,
+        (str(build.interpreter), "-m", "benchmarks.worker.main"),
     )
 
 
-class CanvasRecorderRunner:
-    """Run the entire static Canvas catalog from a wheel-installed fresh worker."""
+class BenchmarkRecorderRunner:
+    """Run one complete static suite catalog from wheel-installed fresh workers."""
 
     def __init__(
         self,
@@ -120,39 +155,88 @@ class CanvasRecorderRunner:
         self.catalog = catalog
         self.output_directory = output_directory.resolve()
         self._worker_factory = worker_factory
-        if any(workload.suite_id != "canvas" for workload in catalog.workloads):
-            raise RunnerError("the isolated recorder supports only the static Canvas suite")
+        suite_ids = {workload.suite_id for workload in catalog.workloads}
+        if len(suite_ids) != 1 or not suite_ids <= REGISTERED_SUITE_IDS:
+            raise RunnerError("the isolated recorder requires one registered static suite")
 
     def plan(self) -> IsolatedRunPlan:
         return plan_isolated_run(self.repository, self.output_directory)
 
-    def _run_command(self, command: tuple[str, ...], *, cwd: Path) -> None:
-        result = subprocess.run(command, cwd=cwd, text=True, capture_output=True, check=False)
+    def _run_command(
+        self,
+        command: tuple[str, ...],
+        *,
+        cwd: Path,
+        environment: Mapping[str, str] | None = None,
+    ) -> None:
+        process_environment = os.environ.copy()
+        if environment:
+            process_environment.update(environment)
+        result = subprocess.run(
+            command,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=process_environment,
+        )
         if result.returncode:
             detail = result.stderr.strip() or result.stdout.strip()
             raise RunnerError(f"isolated command failed ({' '.join(command)}): {detail}")
 
     def _build_and_install(self, plan: IsolatedRunPlan) -> Path:
-        plan.build.output_directory.mkdir(parents=True, exist_ok=True)
-        self._run_command(plan.build.command, cwd=self.repository)
+        if plan.build.repository.resolve() != plan.source_directory.resolve():
+            raise RunnerError("release build source must be the materialized snapshot")
+        verify_materialized_source(plan.snapshot, plan.source_directory)
+        if plan.build.output_directory.exists():
+            shutil.rmtree(plan.build.output_directory)
+        plan.build.output_directory.mkdir(parents=True)
+        build_environment = {
+            **plan.build.environment,
+            "GUMMY_BENCHMARK_SOURCE_COMMIT": plan.snapshot.head,
+            "GUMMY_BENCHMARK_SOURCE_DIGEST": plan.snapshot.digest,
+            "GUMMY_BENCHMARK_TREE_DIGEST": plan.snapshot.tree_digest,
+            "GUMMY_BENCHMARK_BUILD_PROFILE": plan.build.profile,
+            "GUMMY_BENCHMARK_BUILD_FEATURES": ",".join(plan.build.features),
+        }
+        self._run_command(
+            plan.build.command,
+            cwd=plan.source_directory,
+            environment=build_environment,
+        )
+        verify_materialized_source(plan.snapshot, plan.source_directory)
         wheels = sorted(plan.build.output_directory.glob("gummy_snake-*.whl"))
         if len(wheels) != 1:
             raise RunnerError("release build must produce exactly one gummy-snake wheel")
         wheel = wheels[0]
-        self._run_command(("uv", "venv", str(plan.build.isolated_environment)), cwd=self.repository)
-        interpreter = plan.build.isolated_environment / "bin" / "python"
+        if plan.build.isolated_environment.exists():
+            shutil.rmtree(plan.build.isolated_environment)
         self._run_command(
-            ("uv", "pip", "install", "--python", str(interpreter), str(wheel)), cwd=self.repository
+            ("uv", "venv", "--python", sys.executable, str(plan.build.isolated_environment)),
+            cwd=plan.source_directory,
+        )
+        self._run_command(
+            (
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                str(plan.build.interpreter),
+                "--no-cache",
+                str(wheel),
+            ),
+            cwd=plan.source_directory,
         )
         return wheel
 
-    def _copy_worker_inputs(self, workspace: Path) -> None:
-        """Copy only the benchmark modules/catalog used by an isolated worker."""
+    def _copy_worker_inputs(self, plan: IsolatedRunPlan) -> None:
+        """Copy worker code only from the already-verified materialized snapshot."""
 
+        workspace = plan.workspace
         if workspace.exists():
             shutil.rmtree(workspace)
         workspace.mkdir(parents=True)
-        source = self.repository / "benchmarks"
+        source = plan.source_directory / "benchmarks"
         destination = workspace / "benchmarks"
         destination.mkdir()
         for name in ("__init__.py",):
@@ -163,10 +247,19 @@ class CanvasRecorderRunner:
                 destination / name,
                 ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
             )
-        shutil.copy2(self.catalog.path, destination / self.catalog.path.name)
+        try:
+            catalog_relative = self.catalog.path.resolve().relative_to(self.repository)
+        except ValueError as error:
+            raise RunnerError(
+                "benchmark catalog must be inside the snapshotted repository"
+            ) from error
+        snapshotted_catalog = plan.source_directory / catalog_relative
+        if not snapshotted_catalog.is_file():
+            raise RunnerError("benchmark catalog is absent from the materialized source snapshot")
+        shutil.copy2(snapshotted_catalog, destination / self.catalog.path.name)
 
     def _verify_installed_import(self, plan: IsolatedRunPlan) -> str:
-        interpreter = plan.build.isolated_environment / "bin" / "python"
+        interpreter = plan.build.interpreter
         code = "import gummysnake; print(gummysnake.__file__)"
         environment = os.environ.copy()
         environment.pop("PYTHONPATH", None)
@@ -195,12 +288,155 @@ class CanvasRecorderRunner:
         return str(location)
 
     @staticmethod
-    def _profile(workload: Workload) -> SamplingProfile:
+    def _wheel_build_metadata(wheel: Path) -> Mapping[str, object]:
         try:
-            return _CANVAS_PROFILES[workload.sampling_profile]
+            with zipfile.ZipFile(wheel) as archive:
+                wheel_files = [
+                    name for name in archive.namelist() if name.endswith(".dist-info/WHEEL")
+                ]
+                if len(wheel_files) != 1:
+                    raise RunnerError("release wheel must contain exactly one WHEEL metadata file")
+                lines = archive.read(wheel_files[0]).decode("utf-8").splitlines()
+        except (OSError, UnicodeDecodeError, zipfile.BadZipFile, KeyError) as error:
+            raise RunnerError(f"cannot inspect release wheel build metadata: {error}") from error
+        generator = [
+            line.split(":", 1)[1].strip() for line in lines if line.startswith("Generator:")
+        ]
+        tags = sorted(line.split(":", 1)[1].strip() for line in lines if line.startswith("Tag:"))
+        if len(generator) != 1 or not generator[0].lower().startswith("maturin ") or not tags:
+            raise RunnerError("release wheel must report one Maturin generator and platform tag")
+        return {"generator": generator[0], "tags": tags}
+
+    @staticmethod
+    def _wheel_native_artifact(wheel: Path) -> tuple[str, str]:
+        try:
+            with zipfile.ZipFile(wheel) as archive:
+                members = [
+                    name
+                    for name in archive.namelist()
+                    if name.startswith("gummysnake/rust/_canvas")
+                    and name.endswith((".so", ".pyd", ".dylib"))
+                ]
+                if len(members) != 1:
+                    raise RunnerError(
+                        "release wheel must contain exactly one native Canvas extension artifact"
+                    )
+                payload = archive.read(members[0])
+        except (OSError, zipfile.BadZipFile, KeyError) as error:
+            raise RunnerError(f"cannot inspect release wheel runtime artifact: {error}") from error
+        return members[0], "sha256:" + hashlib.sha256(payload).hexdigest()
+
+    def _verify_runtime_provenance(
+        self, plan: IsolatedRunPlan, wheel: Path, installed_location: str
+    ) -> Mapping[str, object]:
+        """Verify the loaded runtime against the built wheel before creating any worker."""
+
+        wheel_build = self._wheel_build_metadata(wheel)
+        wheel_member, wheel_extension_hash = self._wheel_native_artifact(wheel)
+        with (plan.source_directory / "pyproject.toml").open("rb") as source:
+            project = tomllib.load(source).get("project", {})
+        expected_version = project.get("version") if isinstance(project, Mapping) else None
+        if not isinstance(expected_version, str) or not expected_version:
+            raise RunnerError("materialized pyproject has no package version")
+        code = """
+import hashlib, importlib.metadata, json
+from pathlib import Path
+import gummysnake
+from gummysnake.rust import canvas, ecs
+native = canvas.require_canvas_runtime()
+native_path = Path(native.__file__).resolve()
+reported = native.benchmark_provenance()
+print(json.dumps({
+    "package_location": str(Path(gummysnake.__file__).resolve()),
+    "package_version": importlib.metadata.version("gummy-snake"),
+    "native_location": str(native_path),
+    "native_hash": "sha256:" + hashlib.sha256(native_path.read_bytes()).hexdigest(),
+    "canvas_abi": canvas.canvas_abi_version(),
+    "expected_canvas_abi": canvas.EXPECTED_CANVAS_ABI_VERSION,
+    "ecs_abi": ecs.ecs_abi_version(),
+    "expected_ecs_abi": ecs.EXPECTED_ECS_ABI_VERSION,
+    "health": canvas.canvas_health_check(),
+    "native_reported": reported,
+}, sort_keys=True, separators=(",", ":")))
+"""
+        environment = os.environ.copy()
+        environment.pop("PYTHONPATH", None)
+        environment.pop("PYTHONHOME", None)
+        environment["PYTHONSAFEPATH"] = "1"
+        result = subprocess.run(
+            (str(plan.build.interpreter), "-c", code),
+            cwd=plan.workspace,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=environment,
+        )
+        if result.returncode:
+            raise RunnerError(f"installed runtime provenance probe failed: {result.stderr.strip()}")
+        try:
+            raw = json.loads(result.stdout)
+        except json.JSONDecodeError as error:
+            raise RunnerError("installed runtime provenance probe emitted invalid JSON") from error
+        if not isinstance(raw, Mapping):
+            raise RunnerError("installed runtime provenance probe must emit an object")
+        package_location = Path(str(raw.get("package_location", ""))).resolve()
+        native_location = Path(str(raw.get("native_location", ""))).resolve()
+        environment_root = plan.build.isolated_environment.resolve()
+        if str(package_location) != installed_location:
+            raise RunnerError("runtime probe imported a different package than import preflight")
+        if (
+            not native_location.is_relative_to(environment_root)
+            or "site-packages" not in native_location.parts
+        ):
+            raise RunnerError("native Canvas extension did not load from isolated site-packages")
+        if raw.get("native_hash") != wheel_extension_hash:
+            raise RunnerError("installed native Canvas artifact does not match the release wheel")
+        if raw.get("package_version") != expected_version:
+            raise RunnerError(
+                "installed package version does not match materialized build metadata"
+            )
+        for name in ("canvas", "ecs"):
+            if raw.get(f"{name}_abi") != raw.get(f"expected_{name}_abi"):
+                raise RunnerError(f"installed {name} runtime ABI does not match its Python wrapper")
+        if raw.get("health") != "rust-canvas":
+            raise RunnerError("installed native Canvas runtime failed its health check")
+        expected_native = {
+            "source_commit": plan.snapshot.head,
+            "source_digest": plan.snapshot.digest,
+            "tree_digest": plan.snapshot.tree_digest,
+            "profile": plan.build.profile,
+            "features": list(plan.build.features),
+        }
+        reported = raw.get("native_reported")
+        if not isinstance(reported, Mapping):
+            raise RunnerError("native benchmark provenance must be an object")
+        for key, expected in expected_native.items():
+            if key not in reported or reported[key] != expected:
+                raise RunnerError(f"native benchmark provenance mismatch for {key}")
+        return {
+            "gummysnake_module": package_location.relative_to(environment_root).as_posix(),
+            "package_version": expected_version,
+            "native_module": native_location.relative_to(environment_root).as_posix(),
+            "native_wheel_member": wheel_member,
+            "native_artifact_hash": wheel_extension_hash,
+            "canvas_abi": raw["canvas_abi"],
+            "ecs_abi": raw["ecs_abi"],
+            "build_profile": plan.build.profile,
+            "build_features": list(plan.build.features),
+            "native_reported": dict(reported),
+            "wheel_build": dict(wheel_build),
+        }
+
+    @staticmethod
+    def _profile(workload: Workload) -> SamplingProfile:
+        alias = _SUITE_PROFILE_ALIASES.get(workload.sampling_profile)
+        if alias is not None:
+            return alias
+        try:
+            return PROFILES[workload.sampling_profile]
         except KeyError as error:
             raise RunnerError(
-                f"unsupported static Canvas sampling profile: {workload.sampling_profile}"
+                f"unsupported static sampling profile: {workload.sampling_profile}"
             ) from error
 
     @staticmethod
@@ -211,7 +447,9 @@ class CanvasRecorderRunner:
             "feature-operation": "image_count",
         }
         parameter = parameter_by_unit.get(workload.primary_metric.work_unit)
-        value = workload.parameters.get(parameter, 1) if parameter else 1
+        value = workload.parameters.get("work_units")
+        if value is None:
+            value = workload.parameters.get(parameter, 1) if parameter else 1
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
             raise RunnerError(f"workload {workload.id} has invalid declared work for its metric")
         return value
@@ -223,24 +461,24 @@ class CanvasRecorderRunner:
         diagnostics: list[Mapping[str, object]] = []
         work = self._work_per_block(workload)
         for process_index in range(profile.processes):
-            process_blocks: list[int] = []
-            for block_index in range(profile.blocks_per_process):
-                request = WorkerRequest(
-                    request_id=f"{workload.id}-{workload.case_id}-{process_index}-{block_index}",
-                    execution_class=workload.execution_class,
-                    workload_id=workload.id,
-                    seed=process_index * profile.blocks_per_process + block_index,
-                    hash_seed=270_005 + process_index * profile.blocks_per_process + block_index,
-                    timeout_seconds=120,
-                    work_units=work,
-                    payload={"parameters": dict(workload.parameters), "warmup_runs": 1},
-                )
-                result = worker.run(request)
-                if result.elapsed_ns is None:
-                    raise RunnerError("fresh worker returned no elapsed duration")
-                process_blocks.append(result.elapsed_ns)
-                diagnostics.append(_canonical_diagnostics(result.diagnostics))
-            blocks.append(tuple(process_blocks))
+            request = WorkerRequest(
+                request_id=f"{workload.id}-{workload.case_id}-{process_index}",
+                execution_class=workload.execution_class,
+                workload_id=workload.id,
+                suite_id=workload.suite_id,
+                seed=process_index,
+                hash_seed=270_005 + process_index,
+                timeout_seconds=120,
+                work_units=work,
+                payload={"parameters": dict(workload.parameters), "warmup_runs": 1},
+                timed_blocks=profile.blocks_per_process,
+            )
+            result = worker.run(request)
+            result.require_complete(request)
+            if len(result.elapsed_blocks_ns) != profile.blocks_per_process:
+                raise RunnerError("fresh worker returned an incomplete timed block set")
+            blocks.append(result.elapsed_blocks_ns)
+            diagnostics.append(_canonical_diagnostics(result.diagnostics))
         return tuple(blocks), tuple(diagnostics)
 
     @staticmethod
@@ -263,10 +501,13 @@ class CanvasRecorderRunner:
         wheel: Path,
         installed_location: str,
         runner_profile: RunnerProfile | None = None,
+        runtime_provenance: Mapping[str, object] | None = None,
     ) -> BenchmarkRecord:
+        build_facts = release_build_provenance(plan.build)
+        suite_id = self.catalog.workloads[0].suite_id
         fingerprint = probe_machine(
-            runtime_route="isolated-release-wheel-canvas",
-            build_settings={"tool": "uv", "wheel": "release", "source_import_forbidden": True},
+            runtime_route=f"isolated-release-wheel-{suite_id}",
+            build_settings={"tool": "uv", "wheel": "release", **build_facts},
         )
         if runner_profile is not None:
             try:
@@ -295,7 +536,8 @@ class CanvasRecorderRunner:
                 )
             )
             diagnostic_runs[f"{workload.id}:{workload.case_id}"] = list(diagnostics)
-        lockfile = self.repository / "uv.lock"
+        lockfile = plan.source_directory / "uv.lock"
+        cargo_lockfile = plan.source_directory / "Cargo.lock"
         profile_condition = (
             {
                 "runner_profile_path": str(runner_profile.path),
@@ -304,29 +546,41 @@ class CanvasRecorderRunner:
             if runner_profile is not None
             else {}
         )
+        raw_artifact_build = (runtime_provenance or {}).get("wheel_build", {})
+        artifact_build = dict(raw_artifact_build) if isinstance(raw_artifact_build, Mapping) else {}
         provenance = Provenance(
             plan.snapshot.head,
             plan.snapshot.digest,
-            plan.snapshot.digest,
+            plan.snapshot.tree_digest,
             file_hash(wheel),
             file_hash(lockfile),
             {
+                **build_facts,
                 "command": list(plan.build.command),
                 "declared_roots": list(plan.snapshot.declared_roots),
+                "lockfiles": {
+                    "uv.lock": file_hash(lockfile),
+                    "Cargo.lock": file_hash(cargo_lockfile),
+                },
+                "artifact": artifact_build,
                 **profile_condition,
             },
-            {"gummysnake_module": installed_location, "worker_command": list(plan.worker_command)},
+            {
+                **dict(runtime_provenance or {"gummysnake_module": installed_location}),
+                "worker_command": list(plan.worker_command),
+            },
         )
         return BenchmarkRecord(
             fingerprint,
             provenance,
-            "canvas",
+            suite_id,
             self.catalog.workloads[0].suite_version,
             self.catalog.digest,
             tuple(metrics),
             {
                 "worker_diagnostics": diagnostic_runs,
                 "all_catalog_workloads": len(self.catalog.workloads),
+                "machine": probe_run_conditions(),
                 **profile_condition,
             },
         )
@@ -338,11 +592,25 @@ class CanvasRecorderRunner:
             runner_profile = self._runner_profile(mode)
             plan = self.plan()
             wheel = self._build_and_install(plan)
-            self._copy_worker_inputs(plan.workspace)
+            self._copy_worker_inputs(plan)
             installed_location = self._verify_installed_import(plan)
-            record = self._record(plan, wheel, installed_location, runner_profile)
+            runtime_provenance = self._verify_runtime_provenance(plan, wheel, installed_location)
+            record = self._record(
+                plan,
+                wheel,
+                installed_location,
+                runner_profile,
+                runtime_provenance,
+            )
             return RunReport(record, complete=True)
-        except (CatalogError, OSError, RunnerError, WorkerError, ValueError) as error:
+        except (
+            CatalogError,
+            OSError,
+            RunnerError,
+            SnapshotError,
+            WorkerError,
+            ValueError,
+        ) as error:
             return RunReport(None, complete=False, reason=str(error))
 
 

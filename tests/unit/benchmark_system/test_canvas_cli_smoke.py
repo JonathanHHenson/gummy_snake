@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 from benchmarks.cli import main
-from benchmarks.suites import canvas
+from benchmarks.suites import registry
+from benchmarks.suites.registry import SuiteExecution
 
 ROOT = Path(__file__).resolve().parents[3]
 CATALOG = ROOT / "benchmarks" / "canvas_v1.toml"
@@ -14,11 +14,17 @@ CATALOG = ROOT / "benchmarks" / "canvas_v1.toml"
 def test_smoke_runs_only_static_headless_canvas_cases(monkeypatch, capsys) -> None:
     calls: list[tuple[str, str]] = []
 
-    def fake_dispatch(workload_id: str, _parameters: object, execution_class: object) -> object:
+    def fake_dispatch(
+        suite_id: str,
+        workload_id: str,
+        _parameters: object,
+        execution_class: object,
+    ) -> SuiteExecution:
+        assert suite_id == "canvas"
         calls.append((workload_id, str(execution_class)))
-        return SimpleNamespace(frame_count=1, pixels=b"rgba")
+        return SuiteExecution({}, {"frames": 1, "pixel_bytes": 4})
 
-    monkeypatch.setattr(canvas, "dispatch", fake_dispatch)
+    monkeypatch.setattr(registry, "dispatch", fake_dispatch)
 
     assert main(["smoke", str(CATALOG)]) == 0
 

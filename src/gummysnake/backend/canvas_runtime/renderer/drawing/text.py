@@ -75,7 +75,7 @@ class CanvasRendererTextMixin:
         return _renderer(self)._cached_text_metric(
             text_metric_key("width", style, value),
             "text measurement",
-            _renderer(self)._require_canvas_method("text_width", "text measurement"),
+            _renderer(self)._require_canvas().text_width,
             value,
             _renderer(self)._style_payload(style),
         )
@@ -101,7 +101,7 @@ class CanvasRendererTextMixin:
         return _renderer(self)._cached_text_metric(
             text_metric_key("ascent", style),
             "text ascent measurement",
-            _renderer(self)._require_canvas_method("text_ascent", "text ascent measurement"),
+            _renderer(self)._require_canvas().text_ascent,
             _renderer(self)._style_payload(style),
         )
 
@@ -126,7 +126,7 @@ class CanvasRendererTextMixin:
         return _renderer(self)._cached_text_metric(
             text_metric_key("descent", style),
             "text descent measurement",
-            _renderer(self)._require_canvas_method("text_descent", "text descent measurement"),
+            _renderer(self)._require_canvas().text_descent,
             _renderer(self)._style_payload(style),
         )
 
@@ -150,12 +150,4 @@ class CanvasRendererTextMixin:
                 _renderer(self)._skip_canvas_end_frame = True
             return
         for value, x, y in items:
-            _renderer(self)._call(
-                "text drawing",
-                _renderer(self)._require_canvas_method("text", "text drawing"),
-                value,
-                x,
-                y,
-                style,
-                matrix,
-            )
+            _renderer(self)._call("text drawing", canvas.text, value, x, y, style, matrix)

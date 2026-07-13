@@ -28,6 +28,20 @@ _PRIVATE_FIELD_TOKENS = frozenset(
         "volumeuuid",
         "device_id",
         "deviceid",
+        "user",
+        "username",
+        "home",
+        "path",
+        "mountpoint",
+        "address",
+        "ip",
+        "free_memory",
+        "temperature",
+        "current_frequency",
+        "load",
+        "process_id",
+        "pid",
+        "timestamp",
     }
 )
 

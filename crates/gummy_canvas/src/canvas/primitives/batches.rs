@@ -87,38 +87,93 @@ impl Canvas {
         }
     }
 
-    pub(crate) fn batch_primitives_mixed_impl(
+    pub(crate) fn batch_primitives_mixed_packed_impl(
         &mut self,
-        records: &Bound<'_, PyAny>,
+        bytes: &[u8],
+        styles: &Bound<'_, PyList>,
+        matrices: &Bound<'_, PyList>,
     ) -> PyResult<()> {
-        let sequence = records.downcast::<PyList>()?;
-        if sequence.is_empty() {
+        const RECORD_BYTES: usize = 64;
+        if bytes.len() % RECORD_BYTES != 0 {
+            return Err(PyValueError::new_err(format!(
+                "Packed mixed primitive records must use {RECORD_BYTES}-byte records; got {} bytes.",
+                bytes.len()
+            )));
+        }
+        if bytes.is_empty() {
             return Ok(());
         }
+        let parsed_styles = styles
+            .iter()
+            .map(|style| self.cached_style(&style))
+            .collect::<PyResult<Vec<_>>>()?;
+        for style in &parsed_styles {
+            ensure_supported_style(style)?;
+        }
+        let parsed_matrices = matrices
+            .iter()
+            .map(|matrix| matrix.extract::<Matrix>())
+            .collect::<PyResult<Vec<_>>>()?;
+        let parsed_records = bytes
+            .chunks_exact(RECORD_BYTES)
+            .map(|record| {
+                if record[1..8] != [0; 7] {
+                    return Err(PyValueError::new_err(
+                        "Packed mixed primitive record reserved bytes must be zero.",
+                    ));
+                }
+                let value = |index: usize| {
+                    let offset = 8 + index * 8;
+                    f64::from_le_bytes(
+                        record[offset..offset + 8]
+                            .try_into()
+                            .expect("mixed primitive records have a validated fixed width"),
+                    )
+                };
+                let style_index = u32::from_le_bytes(
+                    record[56..60]
+                        .try_into()
+                        .expect("mixed primitive records have a validated fixed width"),
+                ) as usize;
+                let matrix_index = u32::from_le_bytes(
+                    record[60..64]
+                        .try_into()
+                        .expect("mixed primitive records have a validated fixed width"),
+                ) as usize;
+                if style_index >= parsed_styles.len() {
+                    return Err(PyValueError::new_err(format!(
+                        "Packed primitive style index {style_index} is invalid."
+                    )));
+                }
+                if matrix_index >= parsed_matrices.len() {
+                    return Err(PyValueError::new_err(format!(
+                        "Packed primitive matrix index {matrix_index} is invalid."
+                    )));
+                }
+                let record = PrimitiveBatchRecord {
+                    kind: record[0],
+                    a: value(0),
+                    b: value(1),
+                    c: value(2),
+                    d: value(3),
+                    e: value(4),
+                    f: value(5),
+                };
+                PrimitiveBatchKind::try_from(record.kind).map_err(|kind| {
+                    PyValueError::new_err(unknown_primitive_batch_kind_message(kind))
+                })?;
+                Ok((record, style_index, matrix_index))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
         let ingest_start = std::time::Instant::now();
         self.performance_counters.native_primitive_batches += 1;
-        self.performance_counters.native_primitive_records += sequence.len() as u64;
-        for item in sequence.iter() {
-            let record = item.downcast::<PyTuple>()?;
-            if record.len() != 9 {
-                return Err(PyValueError::new_err(
-                    "Mixed primitive records must contain kind, six coordinates, style, and matrix.",
-                ));
-            }
-            let primitive = PrimitiveBatchRecord {
-                kind: record.get_item(0)?.extract::<u8>()?,
-                a: record.get_item(1)?.extract::<f64>()?,
-                b: record.get_item(2)?.extract::<f64>()?,
-                c: record.get_item(3)?.extract::<f64>()?,
-                d: record.get_item(4)?.extract::<f64>()?,
-                e: record.get_item(5)?.extract::<f64>()?,
-                f: record.get_item(6)?.extract::<f64>()?,
-            };
-            let style_obj = record.get_item(7)?;
-            let style = self.cached_style(&style_obj)?;
-            ensure_supported_style(&style)?;
-            let matrix = record.get_item(8)?.extract::<Matrix>()?;
-            self.draw_primitive_batch_record(primitive, &style, matrix)?;
+        self.performance_counters.native_primitive_records += parsed_records.len() as u64;
+        for (record, style_index, matrix_index) in parsed_records {
+            self.draw_primitive_batch_record(
+                record,
+                &parsed_styles[style_index],
+                parsed_matrices[matrix_index],
+            )?;
         }
         self.performance_counters.native_command_ingest_time_ms +=
             ingest_start.elapsed().as_secs_f64() * 1000.0;

@@ -1,4 +1,7 @@
 use crate::*;
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
+use std::io::Write;
 
 #[test]
 fn primitive_synth_keys_are_recognized_and_render() {
@@ -25,6 +28,7 @@ fn primitive_synth_keys_are_recognized_and_render() {
         }
         let event = EventPayload {
             node_id: 44,
+            seed: 0,
             order: 0,
             kind: "play".to_owned(),
             time_seconds: 0.0,
@@ -67,6 +71,7 @@ fn plan_renderer_groups_matching_fx_handles_into_shared_bus() {
     fx_opts.insert("slope_above".to_owned(), SynthValue::Float(0.15));
     let event = EventPayload {
         node_id: 70,
+        seed: 0,
         order: 0,
         kind: "play".to_owned(),
         time_seconds: 0.0,
@@ -150,7 +155,8 @@ fn documented_fx_keys_are_native_and_audible() {
     for name in names {
         let opts = test_fx_opts(name);
         let (out_left, out_right) =
-            apply_fx(name, left.clone(), right.clone(), &opts, sample_rate, 0.125);
+            apply_fx(name, left.clone(), right.clone(), &opts, sample_rate, 0.125)
+                .expect("documented FX should render");
 
         assert!(!out_left.is_empty(), "{name} produced no left samples");
         assert!(!out_right.is_empty(), "{name} produced no right samples");
@@ -196,6 +202,152 @@ fn test_fx_opts(name: &str) -> OptMap {
         _ => {}
     }
     opts
+}
+
+#[test]
+fn unknown_primitive_fx_and_chain_operations_fail_closed() {
+    let event = EventPayload {
+        node_id: 1,
+        seed: 42,
+        order: 0,
+        kind: "play".to_owned(),
+        time_seconds: 0.0,
+        value: SynthValue::Float(60.0),
+        opts: OptMap::new(),
+        synth_name: "_not_a_primitive".to_owned(),
+        synth_opts: OptMap::new(),
+        fx_chain: Vec::new(),
+        controls: Vec::new(),
+    };
+    let primitive_error = render_event(&event, 8_000).expect_err("unknown synth must fail");
+    assert!(primitive_error
+        .message()
+        .contains("unsupported primitive synth"));
+
+    let fx_error = apply_fx(
+        "not_an_fx",
+        vec![0.25; 8],
+        vec![0.25; 8],
+        &OptMap::new(),
+        8_000,
+        0.0,
+    )
+    .expect_err("unknown FX must fail");
+    assert!(fx_error.message().contains("no dry-pass fallback"));
+
+    let mut chain_op = OptMap::new();
+    chain_op.insert(
+        "op".to_owned(),
+        SynthValue::String("not_an_operation".to_owned()),
+    );
+    let mut chain_opts = OptMap::new();
+    chain_opts.insert(
+        "ops".to_owned(),
+        SynthValue::List(vec![SynthValue::Dict(chain_op)]),
+    );
+    let chain_error = apply_fx("_chain", Vec::new(), Vec::new(), &chain_opts, 8_000, 0.0)
+        .expect_err("unknown chain operation must fail");
+    assert!(chain_error
+        .message()
+        .contains("unsupported synth FX chain operation"));
+}
+
+#[test]
+fn stochastic_voice_identity_includes_plan_seed() {
+    let event = |seed| EventPayload {
+        node_id: 7,
+        seed,
+        order: 0,
+        kind: "play".to_owned(),
+        time_seconds: 0.0,
+        value: SynthValue::Float(60.0),
+        opts: HashMap::from([
+            ("attack".to_owned(), SynthValue::Float(0.0)),
+            ("sustain".to_owned(), SynthValue::Float(0.02)),
+            ("release".to_owned(), SynthValue::Float(0.0)),
+        ]),
+        synth_name: "_noise".to_owned(),
+        synth_opts: OptMap::new(),
+        fx_chain: Vec::new(),
+        controls: Vec::new(),
+    };
+
+    let first = render_event(&event(310), 8_000).expect("noise renders");
+    let repeated = render_event(&event(310), 8_000).expect("noise repeats");
+    let other_seed = render_event(&event(311), 8_000).expect("other noise seed renders");
+
+    assert_eq!(first, repeated);
+    assert_ne!(first, other_seed);
+}
+
+#[test]
+fn serialized_plan_rejects_unknown_keys_and_declared_decompression_bombs() {
+    let raw = br#"{"schema":"gummysnake.synth.physical_plan.v1","duration_seconds":0.0,"sample_rate":8000,"events":[],"controls":[],"unexpected":true}"#;
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(raw).expect("test JSON compresses");
+    let compressed = encoder.finish().expect("test JSON compression finishes");
+    let mut payload = Vec::new();
+    payload.extend_from_slice(GSS_MAGIC);
+    payload.extend_from_slice(&GSS_COMPRESSION_ZLIB.to_be_bytes());
+    payload.extend_from_slice(&(raw.len() as u32).to_be_bytes());
+    payload.extend_from_slice(&compressed);
+
+    let key_error = parse_serialized_plan(&payload).expect_err("unknown root key must fail");
+    assert!(key_error.message().contains("unsupported key"));
+
+    let mut bomb = Vec::new();
+    bomb.extend_from_slice(GSS_MAGIC);
+    bomb.extend_from_slice(&GSS_COMPRESSION_ZLIB.to_be_bytes());
+    bomb.extend_from_slice(&((MAX_DECOMPRESSED_PLAN_BYTES + 1) as u32).to_be_bytes());
+    let bomb_error = parse_serialized_plan(&bomb).expect_err("oversized declaration must fail");
+    assert!(bomb_error.message().contains("decompressed bytes"));
+}
+
+#[test]
+fn non_finite_and_oversized_render_values_fail_before_allocation() {
+    let duration_error = render_plan_events(Vec::new(), f64::NAN, 8_000)
+        .expect_err("non-finite plan duration must fail");
+    assert!(duration_error.message().contains("finite"));
+
+    let event = EventPayload {
+        node_id: 1,
+        seed: 0,
+        order: 0,
+        kind: "play".to_owned(),
+        time_seconds: 0.0,
+        value: SynthValue::Float(60.0),
+        opts: HashMap::from([("release".to_owned(), SynthValue::Float(f64::INFINITY))]),
+        synth_name: "_sine".to_owned(),
+        synth_opts: OptMap::new(),
+        fx_chain: Vec::new(),
+        controls: Vec::new(),
+    };
+    let value_error = render_event(&event, 8_000).expect_err("non-finite option must fail");
+    assert!(value_error.message().contains("non-finite"));
+
+    let rate_error =
+        render_plan_events(Vec::new(), 0.1, 0).expect_err("zero sample rate must fail");
+    assert!(rate_error.message().contains("sample rate"));
+
+    let sample_event = EventPayload {
+        node_id: 2,
+        seed: 0,
+        order: 0,
+        kind: "sample".to_owned(),
+        time_seconds: 0.0,
+        value: SynthValue::List(vec![
+            SynthValue::String("sample.wav".to_owned()),
+            SynthValue::String("unknown_filter".to_owned()),
+        ]),
+        opts: OptMap::new(),
+        synth_name: "sample".to_owned(),
+        synth_opts: OptMap::new(),
+        fx_chain: Vec::new(),
+        controls: Vec::new(),
+    };
+    let filter_error = render_event(&sample_event, 8_000)
+        .expect_err("serialized sample filters must fail before file lookup");
+    assert!(filter_error.message().contains("positional filter"));
 }
 
 fn signal_changed(left: &[f64], right: &[f64], out_left: &[f64], out_right: &[f64]) -> bool {

@@ -17,7 +17,7 @@ GUMMY_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml "
     "--features extension-module"
 )
-EXPECTED_CANVAS_ABI_VERSION = 18
+EXPECTED_CANVAS_ABI_VERSION = 19
 
 
 class _RustCanvasImage(Protocol):
@@ -161,6 +161,18 @@ class _CanvasModule(Protocol):
     ) -> bytes: ...
 
     def synth_render_serialized_plan_wav(self, payload: bytes, sample_rate: int) -> bytes: ...
+
+    def synth_render_serialized_plan_wav_file(
+        self, payload: bytes, sample_rate: int, path: str
+    ) -> bytes: ...
+
+    def synth_write_wav_file(self, payload: bytes, path: str) -> None: ...
+
+    def synth_set_worker_count(self, worker_count: int | str) -> int: ...
+
+    def synth_diagnostics(self) -> dict[str, Any]: ...
+
+    def synth_reset_diagnostics(self) -> None: ...
 
     def synth_play_serialized_plan(
         self, payload: bytes, sample_rate: int

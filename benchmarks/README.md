@@ -10,8 +10,9 @@ or source-tree test helpers.
 - A remote name or URL may be supplied by operations, but a caller cannot select
   another data branch, comparison threshold, fingerprint bypass, force-record,
   or arbitrary sampling override.
-- Percentage degradation is a fixed strict `> 1.00%` policy. A zero-tolerance
-  counter is an absolute gate, not a percentage metric.
+- Percentage degradation is a fixed strict `> 5.00%` local policy. Exactly 5.00%
+  passes. A zero-tolerance counter is an absolute gate, not a percentage metric.
+  Tighter statistical qualification is reserved for a reviewed future policy version.
 - Missing runtime, GPU, desktop/window, display, audio, or other declared
   capability is an error. The framework does not select a fallback route.
 
@@ -22,13 +23,16 @@ make benchmark-smoke
 make benchmark-audit
 uv run python scripts/benchmark.py catalog benchmarks/canvas_v1.toml
 uv run python scripts/benchmark.py smoke benchmarks/canvas_v1.toml
+uv run python scripts/benchmark.py smoke benchmarks/ecs_v1.toml
+uv run python scripts/benchmark.py smoke benchmarks/synth_v1.toml
 uv run python scripts/benchmark.py worktree benchmarks/canvas_v1.toml
 uv run python scripts/benchmark.py record-head benchmarks/canvas_v1.toml
 ```
 
-`smoke` executes every static headless Canvas case once through production public
-APIs and writes neither records nor baselines. It excludes native-interactive
-cases instead of downgrading them. `worktree` and `record-head` currently plan
+`smoke` executes every static headless case in the selected Canvas, ECS, or Synth
+catalog once through production public APIs and writes neither records nor baselines.
+It excludes native-interactive and native-audio cases instead of downgrading them.
+`worktree` and `record-head` plan
 the isolated release build and require qualified worker/runner integration. They
 deliberately refuse to substitute source imports, a Python renderer, or synthetic
 measurements. `audit` validates the fixed-ref immutable store.
@@ -45,9 +49,9 @@ Records use canonical JSON (sorted keys, one newline, no binary floats or
 non-finite values) and live on the data branch as:
 
 ```text
-fingerprints/v1/<fingerprint-id>.json
-records/v1/<fingerprint-id>/<subject-commit>/<suite-id>@<suite-version>.json
-revocations/v1/<revocation-id>.json
+fingerprints/v1/<first-two>/<fingerprint-id>.json
+records/v1/<fingerprint-prefix>/<fingerprint-id>/<subject-prefix>/<subject-commit>/<suite-id>@<suite-version>.json
+revocations/v1/<first-two>/<revocation-id>.json
 ```
 
 The fingerprint carries stable comparison environment fields only. Source
@@ -55,6 +59,11 @@ commit, source snapshot, artifact hashes, and runtime build identity are
 provenance fields and are explicitly excluded from the fingerprint.
 
 ## Operational boundary
+
+Worker protocol v3 carries the suite identity through one registry and records two
+timed blocks in each of two fresh processes under the current local profiles. Raw
+blocks are retained without deletion; the gate uses the declared metric transform
+and median of process medians.
 
 The local Git transaction provides lock, temp-file, fsync/rename, compare-and-
 swap ref update, and immutable first-writer-wins keys. Remote branch protection,

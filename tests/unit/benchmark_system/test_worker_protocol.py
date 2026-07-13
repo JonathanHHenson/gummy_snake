@@ -9,8 +9,16 @@ from types import SimpleNamespace
 import pytest
 
 from benchmarks.governance import AuthorityError, ExecutionClass
-from benchmarks.worker import CapabilitySet, FreshWorker, WorkerRequest, require_capabilities
+from benchmarks.worker import (
+    CapabilitySet,
+    FreshWorker,
+    WorkerError,
+    WorkerRequest,
+    WorkerResult,
+    require_capabilities,
+)
 from benchmarks.worker import main as worker_main
+from benchmarks.worker.protocol import PHASES, PROTOCOL_VERSION
 
 
 def test_capabilities_fail_closed_for_missing_native_window() -> None:
@@ -33,9 +41,10 @@ def test_fresh_worker_requires_complete_single_jsonl_result(tmp_path: Path) -> N
         """import json, sys
 request = json.loads(sys.stdin.readline())
 print(json.dumps({
- 'protocol_version': 1, 'request_id': request['request_id'], 'ok': True,
+ 'protocol_version': request['protocol_version'], 'request_id': request['request_id'], 'ok': True,
  'phases': {phase: 'ok' for phase in request['phases']}, 'elapsed_ns': 10,
- 'completed_work_units': request['work_units'], 'diagnostics': {}
+ 'elapsed_blocks_ns': [10], 'completed_work_units': request['work_units'],
+ 'diagnostics': {}, 'error': None
 }))
 """
     )
@@ -44,10 +53,54 @@ print(json.dumps({
     assert result.elapsed_ns == 10
 
 
+def test_worker_result_rejects_coerced_types_unknown_fields_and_teardown_leaks() -> None:
+    base: dict[str, object] = {
+        "protocol_version": PROTOCOL_VERSION,
+        "request_id": "strict",
+        "ok": True,
+        "phases": {phase: "ok" for phase in PHASES},
+        "elapsed_ns": 10,
+        "elapsed_blocks_ns": [10],
+        "completed_work_units": 1,
+        "diagnostics": {},
+        "error": None,
+    }
+    with pytest.raises(WorkerError, match="envelope fields mismatch"):
+        WorkerResult.from_dict({**base, "unexpected": True})
+    with pytest.raises(WorkerError, match="exact JSON types"):
+        WorkerResult.from_dict({**base, "ok": 1})
+
+    request = WorkerRequest("strict", ExecutionClass.HEADLESS, "fill", 1, 1, 5, 1)
+    phases = {phase: "ok" for phase in PHASES}
+    phases["teardown"] = "failed"
+    result = WorkerResult(
+        request_id="strict",
+        ok=False,
+        phases=phases,
+        elapsed_ns=10,
+        completed_work_units=1,
+        diagnostics={},
+        elapsed_blocks_ns=(10,),
+        error={"type": "ResourceLeak", "message": "canvas remained live"},
+    )
+    with pytest.raises(WorkerError, match="resource leak"):
+        result.require_complete(request)
+
+
+def test_worker_request_rejects_invalid_hash_seed_and_non_json_payload() -> None:
+    with pytest.raises(WorkerError, match="seeds"):
+        WorkerRequest("bad", ExecutionClass.HEADLESS, "fill", 1, 2**32, 5, 1)
+    request = WorkerRequest(
+        "bad-json", ExecutionClass.HEADLESS, "fill", 1, 1, 5, 1, {"value": float("nan")}
+    )
+    with pytest.raises(WorkerError, match="strict JSON"):
+        request.to_jsonl()
+
+
 def test_jsonl_worker_runs_static_canvas_dispatch_and_emits_one_success(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    from benchmarks.suites import canvas
+    from benchmarks.suites.canvas import workloads
 
     calls: list[tuple[str, object]] = []
 
@@ -70,8 +123,9 @@ def test_jsonl_worker_runs_static_canvas_dispatch_and_emits_one_success(
         5,
         1,
         {"parameters": {"frames": 1}, "warmup_runs": 1},
+        timed_blocks=2,
     )
-    monkeypatch.setattr(canvas, "dispatch", dispatch)
+    monkeypatch.setattr(workloads, "dispatch", dispatch)
     monkeypatch.setattr(
         worker_main,
         "detect_capabilities",
@@ -85,7 +139,9 @@ def test_jsonl_worker_runs_static_canvas_dispatch_and_emits_one_success(
     result = json.loads(lines[0])
     assert result["ok"] is True
     assert set(result["phases"].values()) == {"ok"}
-    assert calls == [("lifecycle-hidpi", ExecutionClass.HEADLESS)] * 2
+    assert calls == [("lifecycle-hidpi", ExecutionClass.HEADLESS)] * 3
+    assert len(result["elapsed_blocks_ns"]) == 2
+    assert result["completed_work_units"] == 2
 
 
 def test_jsonl_worker_capability_failure_is_a_single_failed_result(

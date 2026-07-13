@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from benchmarks.cli import main
-from benchmarks.framework.database import DatabaseError
+from benchmarks.framework.git_database import DatabaseError
 from benchmarks.framework.modes import GateOutcome, RunReport, record_head, worktree
 from benchmarks.framework.statistics import Decision
 from benchmarks.governance import BenchmarkMode
@@ -126,7 +126,7 @@ def test_cli_worktree_uses_runner_and_record_head_stages_only_after_precondition
             return report
 
     monkeypatch.setattr("benchmarks.cli.GitBenchmarkDatabase", CliDatabase)
-    monkeypatch.setattr("benchmarks.cli.CanvasRecorderRunner", CliRunner)
+    monkeypatch.setattr("benchmarks.cli.BenchmarkRecorderRunner", CliRunner)
     monkeypatch.setattr(
         "benchmarks.cli.load_catalog", lambda _path: type("Catalog", (), {"digest": "sha256:c"})()
     )

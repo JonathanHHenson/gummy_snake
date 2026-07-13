@@ -37,7 +37,6 @@ def add_entity(
         world._mark_component_added(entity, component_type)
     for tag in tags:
         world._rust.add_tag(index, generation, _tag_name(tag))
-    world._diagnostics["ecs_entities_alive"] = world._rust.alive_count()
     world._invalidate_spatial_indexes()
     return entity
 
@@ -52,8 +51,6 @@ def despawn_entity(world: EcsWorld, entity: Entity) -> None:
     world._rust.despawn_entity(entity.index, entity.generation)
     for component_type in removed_components:
         world._mark_component_removed(entity, component_type)
-    world._diagnostics["ecs_entities_alive"] = world._rust.alive_count()
-    world._diagnostics["ecs_entity_generation_reuses"] += 1
     world._invalidate_spatial_indexes()
 
 
@@ -91,7 +88,6 @@ def upsert_component(
         world._note_field_update(entity, component_type)
     else:
         world._mark_component_added(entity, component_type)
-        world._diagnostics["ecs_structural_commands_applied"] += 1
         world._invalidate_spatial_indexes()
 
 
@@ -102,7 +98,6 @@ def remove_component(world: EcsWorld, entity: Entity, component_type: type[Any])
         raise MissingComponentError(component_type.__name__)
     world._rust.remove_component(entity.index, entity.generation, _schema_name(component_type))
     world._mark_component_removed(entity, component_type)
-    world._diagnostics["ecs_structural_commands_applied"] += 1
     world._invalidate_spatial_indexes()
 
 
@@ -112,7 +107,6 @@ def add_tag(world: EcsWorld, entity: Entity, tag: EcsTag) -> None:
     tag_name = _tag_name(tag)
     if tag_name not in world._rust.entity_tags(entity.index, entity.generation):
         world._rust.add_tag(entity.index, entity.generation, tag_name)
-        world._diagnostics["ecs_structural_commands_applied"] += 1
         world._invalidate_spatial_indexes()
 
 
@@ -122,7 +116,6 @@ def remove_tag(world: EcsWorld, entity: Entity, tag: EcsTag) -> None:
     tag_name = _tag_name(tag)
     if tag_name in world._rust.entity_tags(entity.index, entity.generation):
         world._rust.remove_tag(entity.index, entity.generation, tag_name)
-        world._diagnostics["ecs_structural_commands_applied"] += 1
         world._invalidate_spatial_indexes()
 
 

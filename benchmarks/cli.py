@@ -9,9 +9,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from time import perf_counter_ns
 
-from .framework.database import GitBenchmarkDatabase, audit_database
+from .framework.git_database.audit import audit_database
+from .framework.git_database.store import GitBenchmarkDatabase
 from .framework.modes import record_head, worktree
-from .framework.runner import CanvasRecorderRunner, compare_record_to_baseline
+from .framework.runner import BenchmarkRecorderRunner, compare_record_to_baseline
 from .governance import ExecutionClass, GovernanceError, reject_authority_overrides
 from .schema.catalog import Catalog, CatalogError, load_catalog
 from .schema.records import BenchmarkRecord
@@ -46,33 +47,36 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _dispatch_canvas_smoke(catalog: Catalog) -> list[dict[str, object]]:
-    """Run each static Canvas headless workload once through its production dispatcher.
+def _dispatch_smoke(catalog: Catalog) -> list[dict[str, object]]:
+    """Run each static headless workload once through its registered suite dispatcher.
 
     This command is intentionally non-authoritative: it performs no baseline lookup,
-    comparison, build, or database write. Native-interactive workloads are excluded
+    comparison, build, or database write. Interactive/device workloads are excluded
     rather than being downgraded to headless execution.
     """
 
-    if any(workload.suite_id != "canvas" for workload in catalog.workloads):
-        raise CatalogError("the smoke command currently supports only the static canvas suite")
-    from .suites.canvas import dispatch
+    from .suites.registry import dispatch
 
     results: list[dict[str, object]] = []
     for workload in catalog.workloads:
         if workload.execution_class is not ExecutionClass.HEADLESS:
             continue
         start = perf_counter_ns()
-        run = dispatch(workload.id, workload.parameters, workload.execution_class)
+        run = dispatch(
+            workload.suite_id,
+            workload.id,
+            workload.parameters,
+            workload.execution_class,
+        )
         elapsed_ns = perf_counter_ns() - start
         results.append(
             {
+                "suite": workload.suite_id,
                 "workload": workload.id,
                 "case": workload.case_id,
                 "elapsed_ns": elapsed_ns,
-                "frames": run.frame_count,
-                "pixel_bytes": len(run.pixels),
                 "execution_class": workload.execution_class.value,
+                **dict(run.summary),
             }
         )
     if not results:
@@ -97,7 +101,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if namespace.command == "smoke":
             catalog = load_catalog(namespace.catalog)
-            for result in _dispatch_canvas_smoke(catalog):
+            for result in _dispatch_smoke(catalog):
                 print(json.dumps(result, sort_keys=True, separators=(",", ":")))
             return 0
         database = GitBenchmarkDatabase(namespace.repo)
@@ -112,7 +116,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("benchmark database audit passed")
             return 0
         catalog = load_catalog(namespace.catalog)
-        runner = CanvasRecorderRunner(namespace.repo, catalog, namespace.output)
+        runner = BenchmarkRecorderRunner(namespace.repo, catalog, namespace.output)
 
         def compare(baseline: object, candidate: BenchmarkRecord):
             return compare_record_to_baseline(catalog, baseline, candidate)

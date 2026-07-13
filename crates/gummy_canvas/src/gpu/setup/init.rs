@@ -166,6 +166,9 @@ impl GpuRenderer {
             retained_batch_cache_misses: 0,
             retained_batch_reused_bytes: 0,
             retained_batch_cache_evictions: 0,
+            command_clone_count: 0,
+            command_clone_bytes: 0,
+            command_segment_allocation_count: 0,
             #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
             surface: None,
         };
@@ -193,12 +196,17 @@ impl GpuRenderer {
     }
 
     pub fn is_available() -> bool {
+        Self::adapter_info().is_some()
+    }
+
+    pub fn adapter_info() -> Option<wgpu::AdapterInfo> {
         let instance = wgpu::Instance::default();
         block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
             compatible_surface: None,
             force_fallback_adapter: false,
         }))
-        .is_ok()
+        .ok()
+        .map(|adapter| adapter.get_info())
     }
 }

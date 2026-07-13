@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import copy
+import math
+import struct
 from dataclasses import fields, is_dataclass
 from typing import Annotated, Any, cast, get_args, get_origin
 
@@ -92,12 +94,10 @@ def _validate_storage_value(
                 f"{component_type.__name__}.{field_name} expects {storage_type.name} with "
                 f"{storage_type.fixed_length} numeric values, got {value!r}."
             )
+        if storage_type.element_type is None:
+            raise ComponentSchemaError(f"{storage_type.name} is missing its element storage type.")
         for item in value:
-            if not isinstance(item, int | float):
-                raise ComponentSchemaError(
-                    f"{component_type.__name__}.{field_name} expects numeric vector values, "
-                    f"got {value!r}."
-                )
+            _validate_storage_value(component_type, field_name, item, storage_type.element_type)
         return
     if storage_type.element_type is not None and storage_type.python_type is list:
         if not isinstance(value, list):
@@ -109,11 +109,28 @@ def _validate_storage_value(
             _validate_storage_value(component_type, field_name, item, storage_type.element_type)
         return
     if storage_type.python_type is float:
-        if not isinstance(value, int | float):
+        if isinstance(value, bool) or not isinstance(value, int | float):
             raise ComponentSchemaError(
                 f"{component_type.__name__}.{field_name} expects {storage_type.name}, "
                 f"got {value!r}."
             )
+        try:
+            converted = float(value)
+        except OverflowError as exc:
+            raise ValueError(
+                f"{component_type.__name__}.{field_name} overflows {storage_type.name}."
+            ) from exc
+        if not math.isfinite(converted):
+            raise ValueError(
+                f"{component_type.__name__}.{field_name} requires finite {storage_type.name}."
+            )
+        if storage_type.name == "Float32":
+            try:
+                struct.pack("!f", converted)
+            except OverflowError as exc:
+                raise ValueError(
+                    f"{component_type.__name__}.{field_name} overflows Float32."
+                ) from exc
         return
     if storage_type.python_type is int:
         if isinstance(value, bool) or not isinstance(value, int):

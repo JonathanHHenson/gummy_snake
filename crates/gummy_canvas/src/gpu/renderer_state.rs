@@ -15,6 +15,7 @@ pub(super) struct TextureAsset {
     pub(super) _view: wgpu::TextureView,
     pub(super) nearest_bind_group: wgpu::BindGroup,
     pub(super) linear_bind_group: wgpu::BindGroup,
+    pub(super) bytes: usize,
 }
 
 pub(super) struct ClipTextureAsset {
@@ -30,6 +31,22 @@ pub(super) struct GpuModelMesh {
     pub(super) _wire_index_buffer: wgpu::Buffer,
     pub(super) index_count: u32,
     pub(super) wire_index_count: u32,
+}
+
+pub(crate) struct GpuRenderLoopCounters {
+    pub(crate) vertex_buffer_allocations: u64,
+    pub(crate) vertex_uploads: u64,
+    pub(crate) uploaded_vertex_bytes: u64,
+    pub(crate) primitive_batches: u64,
+    pub(crate) image_batches: u64,
+    pub(crate) encode_time_ms: f64,
+    pub(crate) retained_batch_cache_hits: u64,
+    pub(crate) retained_batch_cache_misses: u64,
+    pub(crate) retained_batch_reused_bytes: u64,
+    pub(crate) retained_batch_cache_evictions: u64,
+    pub(crate) command_clone_count: u64,
+    pub(crate) command_clone_bytes: u64,
+    pub(crate) command_segment_allocation_count: u64,
 }
 
 /// Owns the GPU device resources, retained assets, and ordered draw command stream.
@@ -116,6 +133,9 @@ pub struct GpuRenderer {
     pub(super) retained_batch_cache_misses: u64,
     pub(super) retained_batch_reused_bytes: u64,
     pub(super) retained_batch_cache_evictions: u64,
+    pub(super) command_clone_count: u64,
+    pub(super) command_clone_bytes: u64,
+    pub(super) command_segment_allocation_count: u64,
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     pub(super) surface: Option<GpuSurface>,
 }

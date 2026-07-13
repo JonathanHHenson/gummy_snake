@@ -117,8 +117,10 @@ Rust ECS storage is canonical:
 
 Python keeps only light metadata required for the public API: dataclass type to
 schema mappings, live entity slot metadata for friendly errors, scheduled-system
-configuration, change-detection bookkeeping, UDF definitions, and diagnostics
-aggregation. `EntityView` and `ResourceView` are Rust-backed accessors; they are
+configuration, change-detection bookkeeping, UDF definitions, and Python-boundary
+diagnostic counters. Rust owns event queues, event counters, and bounded diagnostic
+message storage; the public snapshot merges those canonical values. `EntityView` and
+`ResourceView` are Rust-backed accessors; they are
 not independent Python component copies. `iter_component_fields()` is the
 preferred draw-side path when a sketch needs many scalar field values because it
 performs a Rust-backed batch read of selected columns.
@@ -182,9 +184,19 @@ class SpriteTile:
     trail: Annotated[list[float], ecs_t.List(ecs_t.Float32)]
 ```
 
-Validation should reject values outside fixed integer ranges, wrong field types,
-wrong vector/list lengths, and non-dataclass component/resource values before
-storage reaches Rust.
+The marker is physical metadata, not only validation metadata. Rust allocates
+matching narrow scalar vectors, dictionary-coded categorical columns, fixed-width
+vector columns, and packed typed-list offsets/value buffers. `List[T]` preserves
+`T` in schema fingerprints and the ECS ABI; nested lists are rejected rather than
+falling back to generic values.
+
+Conversion is checked and centralized in `gummy_ecs::coerce_value_for_storage`.
+Every Rust write boundary (components, resources, typed events, structural values,
+batches, and plan writes) applies it. Integers never wrap or saturate and exact
+integer executor operations do not route through `f64`. `Float32` narrows once at
+each write using IEEE-754 round-to-nearest/ties-to-even, while non-finite values
+and Float32 range overflow are errors. Python performs matching early validation,
+but Rust remains authoritative for all bridge and physical-plan inputs.
 
 ## System lifecycle
 
@@ -316,9 +328,11 @@ def apply_damage(reader: ecs.EventReader[Damage], health: ecs.ResMut[Health]) ->
         health[Health].value.decrease_by(event.amount)
 ```
 
-Event queues are frame-stamped and retained long enough for the next ECS phase to
-consume callback-emitted events. Avoid using events as an unbounded data log;
-clear or aggregate them when appropriate.
+Event queues are Rust-owned, frame-stamped, and retained long enough for the next
+ECS phase to consume callback-emitted events. Public reads decode the Rust queue
+directly; Python does not retain a second event list or receive emitted-event payloads
+in physical execution reports. Avoid using events as an unbounded data log; clear or
+aggregate them when appropriate.
 
 ## Spatial relations
 
@@ -368,10 +382,13 @@ scheduler, physical execution, ambiguity, UDF, event, resource, query, and
 spatial counters. Important performance counters include:
 
 - `ecs_physical_plan_compiles`, `ecs_physical_system_runs`,
+- `ecs_steady_physical_plan_reuses`, `ecs_dynamic_change_plan_recompiles`,
 - `ecs_physical_rows_scanned`, `ecs_physical_fields_written`,
 - `ecs_rust_compiled_plans`,
 - `ecs_udf_calls`,
 - `ecs_ambiguity_warnings`, `ecs_strict_mode_errors`,
+- `ecs_event_records_total`, `ecs_events_emitted`, `ecs_events_read`,
+- `ecs_python_event_mirror_entries`, `ecs_python_event_payload_materializations`,
 - `ecs_spatial_candidate_rows`, `ecs_spatial_exact_rows`,
 - `ecs_spatial_algorithm_hash_grid`, `ecs_spatial_algorithm_quadtree`,
   `ecs_spatial_algorithm_octree`, `ecs_spatial_algorithm_hilbert_curve`.

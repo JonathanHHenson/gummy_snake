@@ -3,16 +3,144 @@ use crate::prelude::*;
 use crate::runtime::style::parse_style;
 use ab_glyph::FontArc;
 use pyo3::types::PyDict;
+use std::sync::Arc;
 
 impl Canvas {
-    pub(crate) fn evict_image_cache_if_needed(&mut self, incoming_key: u64) {
-        if let Some(evicted_key) = self.image_cache.evict_if_needed(incoming_key) {
-            self.texture_cache_versions.remove(evicted_key);
-        }
+    pub(crate) fn insert_image_cache_entry(&mut self, key: u64, image: CachedImage) -> bool {
+        let (evictions, evicted_bytes, inserted) = self.image_cache.insert(key, image);
+        self.performance_counters.image_cache_evictions += evictions as u64;
+        self.performance_counters.image_cache_evicted_bytes += evicted_bytes as u64;
+        self.update_image_cache_byte_counters();
+        inserted
     }
 
-    pub(crate) fn evict_texture_cache_if_needed(&mut self, incoming_key: u64) {
-        let _ = self.texture_cache_versions.evict_if_needed(incoming_key);
+    pub(crate) fn evict_texture_cache_if_needed(
+        &mut self,
+        incoming_key: u64,
+        incoming_bytes: usize,
+    ) -> PyResult<()> {
+        if incoming_bytes > self.texture_cache_versions.max_bytes() {
+            return Err(PyValueError::new_err(format!(
+                "Image texture is {incoming_bytes} bytes, exceeding the bounded GPU texture cache budget of {} bytes.",
+                self.texture_cache_versions.max_bytes()
+            )));
+        }
+        let mut pinned_checks = 0;
+        while self
+            .texture_cache_versions
+            .needs_eviction(incoming_key, incoming_bytes)
+            && pinned_checks < self.texture_cache_versions.len()
+        {
+            let Some(evicted_key) = self.texture_cache_versions.oldest_key_except(incoming_key)
+            else {
+                break;
+            };
+            if self
+                .gpu
+                .as_ref()
+                .is_some_and(|gpu| gpu.texture_is_pending(evicted_key))
+            {
+                self.texture_cache_versions.touch(evicted_key);
+                pinned_checks += 1;
+                continue;
+            }
+            let Some(evicted) = self.texture_cache_versions.remove(evicted_key) else {
+                break;
+            };
+            self.performance_counters.texture_cache_evictions += 1;
+            if evicted.is_atlas {
+                self.performance_counters.image_atlas_evictions += 1;
+            }
+            if self
+                .gpu
+                .as_mut()
+                .and_then(|gpu| gpu.remove_texture(evicted_key))
+                .is_some()
+            {
+                self.performance_counters.texture_destructions += 1;
+                if evicted.is_atlas {
+                    self.performance_counters.image_atlas_destructions += 1;
+                }
+            }
+        }
+        self.update_texture_cache_byte_counters();
+        Ok(())
+    }
+
+    pub(crate) fn record_texture_upload(
+        &mut self,
+        key: u64,
+        version: u64,
+        bytes: usize,
+        is_atlas: bool,
+        dirty: bool,
+        replaced_gpu_bytes: Option<usize>,
+    ) {
+        self.performance_counters.texture_uploads += 1;
+        self.performance_counters.texture_upload_bytes += bytes as u64;
+        if dirty {
+            self.performance_counters.texture_dirty_uploads += 1;
+        }
+        if replaced_gpu_bytes.is_some() {
+            self.performance_counters.texture_destructions += 1;
+            if is_atlas {
+                self.performance_counters.image_atlas_destructions += 1;
+            }
+        }
+        self.texture_cache_versions
+            .insert(key, version, bytes, is_atlas);
+        self.update_texture_cache_byte_counters();
+    }
+
+    pub(crate) fn remove_cached_texture_if_unpinned(&mut self, key: u64) {
+        if self
+            .gpu
+            .as_ref()
+            .is_some_and(|gpu| gpu.texture_is_pending(key))
+        {
+            return;
+        }
+        let Some(removed) = self.texture_cache_versions.remove(key) else {
+            return;
+        };
+        self.performance_counters.texture_cache_evictions += 1;
+        if removed.is_atlas {
+            self.performance_counters.image_atlas_evictions += 1;
+        }
+        if self
+            .gpu
+            .as_mut()
+            .and_then(|gpu| gpu.remove_texture(key))
+            .is_some()
+        {
+            self.performance_counters.texture_destructions += 1;
+            if removed.is_atlas {
+                self.performance_counters.image_atlas_destructions += 1;
+            }
+        }
+        self.update_texture_cache_byte_counters();
+    }
+
+    fn update_image_cache_byte_counters(&mut self) {
+        let resident = self.image_cache.resident_bytes() as u64;
+        self.performance_counters.image_cache_resident_bytes = resident;
+        self.performance_counters.image_cache_peak_bytes = self
+            .performance_counters
+            .image_cache_peak_bytes
+            .max(resident);
+    }
+
+    fn update_texture_cache_byte_counters(&mut self) {
+        let resident = self.texture_cache_versions.resident_bytes() as u64;
+        let atlas_resident = self.texture_cache_versions.atlas_resident_bytes() as u64;
+        self.performance_counters.texture_resident_bytes = resident;
+        self.performance_counters.texture_peak_bytes =
+            self.performance_counters.texture_peak_bytes.max(resident);
+        self.performance_counters.image_atlas_resident_bytes = atlas_resident;
+        self.performance_counters.image_atlas_peak_bytes = self
+            .performance_counters
+            .image_atlas_peak_bytes
+            .max(atlas_resident);
     }
 
     pub(crate) fn cached_style(&mut self, style: &Bound<'_, PyAny>) -> PyResult<Style> {
@@ -115,7 +243,7 @@ impl Canvas {
                 version: 0,
                 width: rendered.width,
                 height: rendered.height,
-                pixels: rendered.pixels,
+                pixels: Arc::new(rendered.pixels),
             },
             bbox_left: rendered.bbox_left,
             bbox_top: rendered.bbox_top,
@@ -145,7 +273,7 @@ impl Canvas {
                 break;
             };
             if let Some(evicted) = self.text_cache.remove(&evicted_key) {
-                self.texture_cache_versions.remove(evicted.texture_key);
+                self.remove_cached_texture_if_unpinned(evicted.texture_key);
                 self.performance_counters.text_cache_evictions += 1;
             }
         }

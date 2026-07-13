@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import math
 import random as _random
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any, cast
 
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
@@ -22,6 +24,9 @@ from gummysnake.synth.synth_runtime.composition.logical_nodes import (
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
 from gummysnake.synth.synth_runtime.physical.serialization import _control_lookup, _event_payload
 from gummysnake.synth.synth_runtime.values.foundation import (
+    _MAX_OUTPUT_FRAMES,
+    _MAX_PLAN_CONTROLS,
+    _MAX_PLAN_EVENTS,
     _SAMPLE_RATE,
     EvalContext,
     _as_float,
@@ -31,8 +36,14 @@ from gummysnake.synth.synth_runtime.values.scales_and_specs import FxHandle
 
 
 def _expand_physical_plan(plan: TrackPlan, duration_seconds: float) -> PhysicalPlan:
+    if not math.isfinite(duration_seconds) or duration_seconds < 0.0:
+        raise ArgumentValidationError("Synth render duration must be finite and non-negative.")
+    if math.ceil(duration_seconds * _SAMPLE_RATE) > _MAX_OUTPUT_FRAMES:
+        raise ArgumentValidationError(
+            f"Synth render duration exceeds the output budget of {_MAX_OUTPUT_FRAMES} frames."
+        )
     duration_beats = duration_seconds * plan.bpm / 60.0
-    ctx = EvalContext(_random.Random(plan.seed))
+    ctx = EvalContext(_random.Random(plan.seed), plan_seed=plan.seed)
     events: list[ScheduledEvent] = []
     controls: list[ScheduledControl] = []
     root_repetitions = (
@@ -44,6 +55,8 @@ def _expand_physical_plan(plan: TrackPlan, duration_seconds: float) -> PhysicalP
     iteration = 0
     start_beat = 0.0
     while True:
+        if iteration >= _MAX_PLAN_EVENTS + _MAX_PLAN_CONTROLS:
+            raise ArgumentValidationError("Synth root expansion exceeds the iteration budget.")
         if root_repetitions is not None and iteration >= root_repetitions:
             break
         if start_beat >= duration_beats:
@@ -182,10 +195,15 @@ def _expand_event_node(
     with _eval_scope(ctx, scope, repeat_scope):
         if node.condition is not None and not bool(resolve_value(node.condition, ctx)):
             return
+        if len(events) >= _MAX_PLAN_EVENTS:
+            raise ArgumentValidationError(
+                f"Synth physical expansion exceeds the event limit of {_MAX_PLAN_EVENTS}."
+            )
         events.append(
             ScheduledEvent(
                 instance=(*scope, node.id),
                 node_id=node.id,
+                seed=ctx.plan_seed & ((1 << 64) - 1),
                 kind=node.kind,
                 time_seconds=_beats_to_seconds(absolute_beat, bpm),
                 value=resolve_value(node.value, ctx),
@@ -236,6 +254,10 @@ def _expand_control_node(
     with _eval_scope(ctx, scope, repeat_scope):
         if node.condition is not None and not bool(resolve_value(node.condition, ctx)):
             return
+        if len(controls) >= _MAX_PLAN_CONTROLS:
+            raise ArgumentValidationError(
+                f"Synth physical expansion exceeds the control limit of {_MAX_PLAN_CONTROLS}."
+            )
         controls.append(
             ScheduledControl(
                 target_instance=(*scope, *node.target_scope_suffix, node.target_id),
@@ -335,6 +357,8 @@ def _expand_loop_node(
     loop_elapsed = 0.0
     first_body_beats: float | None = None
     while True:
+        if iteration >= _MAX_PLAN_EVENTS + _MAX_PLAN_CONTROLS:
+            raise ArgumentValidationError("Synth loop expansion exceeds the iteration budget.")
         if max_iterations is not None and iteration >= max_iterations:
             break
         loop_start = start_beat + loop_elapsed
@@ -375,17 +399,35 @@ def _render_physical_plan(plan: PhysicalPlan, *, sample_rate: int = _SAMPLE_RATE
     return bytes(runtime.synth_render_serialized_plan_wav(plan.to_bytes(), int(sample_rate)))
 
 
+def _render_physical_plan_to_file(
+    plan: PhysicalPlan, path: Path, *, sample_rate: int = _SAMPLE_RATE
+) -> bytes:
+    runtime = _require_synth_runtime()
+    return bytes(
+        runtime.synth_render_serialized_plan_wav_file(plan.to_bytes(), int(sample_rate), str(path))
+    )
+
+
+def _write_wav_file(payload: bytes, path: Path) -> None:
+    _require_synth_runtime().synth_write_wav_file(payload, str(path))
+
+
 def _require_synth_runtime() -> Any:
     from gummysnake.rust.canvas import require_canvas_runtime
 
     runtime = require_canvas_runtime()
     required_functions = (
         "synth_render_serialized_plan_wav",
+        "synth_render_serialized_plan_wav_file",
+        "synth_write_wav_file",
         "synth_play_serialized_plan",
         "synth_play_wav_bytes",
         "synth_render_plan_wav",
         "synth_render_event_wav",
         "synth_sample_duration",
+        "synth_set_worker_count",
+        "synth_diagnostics",
+        "synth_reset_diagnostics",
     )
     if not all(callable(getattr(runtime, name, None)) for name in required_functions):
         raise BackendCapabilityError(

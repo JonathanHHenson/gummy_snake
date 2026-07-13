@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from gummysnake.exceptions import ArgumentValidationError
@@ -48,14 +49,27 @@ from gummysnake.synth.synth_runtime.values.scales_and_specs import (
 class PlanBuilder:
     """Mutable logical-plan builder used while a track function executes."""
 
-    def __init__(self, *, bpm: float = 60.0, seed: int = 0, repeat_depth: int = 1) -> None:
-        if bpm <= 0:
-            raise ArgumentValidationError("Track BPM must be positive.")
+    def __init__(
+        self,
+        *,
+        bpm: float = 60.0,
+        seed: int = 0,
+        repeat_depth: int = 1,
+        _id_state: list[int] | None = None,
+    ) -> None:
+        if (
+            not isinstance(bpm, int | float)
+            or isinstance(bpm, bool)
+            or not math.isfinite(bpm)
+            or bpm <= 0
+        ):
+            raise ArgumentValidationError("Track BPM must be finite and positive.")
         self.nodes: list[PlanNode] = []
         self.current_beat = 0.0
         self.bpm = float(bpm)
         self.seed = int(seed)
         self.repeat_depth = int(repeat_depth)
+        self._id_state = [0] if _id_state is None else _id_state
         self.synth_stack: list[SynthSpec] = [SynthSpec("beep", {})]
         self.fx_stack: list[FxHandle] = []
 
@@ -64,10 +78,15 @@ class PlanBuilder:
             bpm=self.bpm,
             seed=self.seed,
             repeat_depth=self.repeat_depth if repeat_depth is None else repeat_depth,
+            _id_state=self._id_state,
         )
         child.synth_stack = list(self.synth_stack)
         child.fx_stack = list(self.fx_stack)
         return child
+
+    def next_node_id(self) -> int:
+        self._id_state[0] += 1
+        return self._id_state[0]
 
     @property
     def current_synth(self) -> SynthSpec:
@@ -184,7 +203,7 @@ class PlanBuilder:
         timeline_items: list[tuple[float, int, PlanNode]] = []
 
         for event_index, payload in enumerate(event_payloads):
-            scheduled_event = _scheduled_event_from_dict(payload)
+            scheduled_event = _scheduled_event_from_dict(payload, allow_expressions=True)
             event_id = _next_node_id()
             event_id_map[scheduled_event.node_id] = event_id
             event_opts = dict(scheduled_event.opts)
@@ -206,7 +225,7 @@ class PlanBuilder:
             timeline_items.append((scheduled_event.time_seconds, event_index * 2, event_node))
 
         for control_index, payload in enumerate(control_payloads):
-            scheduled_control = _scheduled_control_from_dict(payload)
+            scheduled_control = _scheduled_control_from_dict(payload, allow_expressions=True)
             target_id = event_id_map.get(scheduled_control.target_id, scheduled_control.target_id)
             control_node = ControlNode(
                 target_id=target_id,
