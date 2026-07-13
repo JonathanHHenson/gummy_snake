@@ -193,7 +193,10 @@ class TrackPlayback:
             raise SynthPlanError("Finite realtime playback requires a physical plan.")
         _ = cached
         runtime = _require_synth_runtime()
-        playback = runtime.synth_play_serialized_plan(self._plan.to_bytes(), int(self._sample_rate))
+        program = runtime.CanvasSynthProgram.from_serialized(
+            self._plan.to_bytes(), int(self._sample_rate)
+        )
+        playback = runtime.synth_play_compiled_program(program)
         self._rust_playback = playback
         if self._stop_event.is_set():
             self._close_rust_playback()

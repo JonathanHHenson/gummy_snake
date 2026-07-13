@@ -1,7 +1,7 @@
 use crate::column::EcsValue;
 use crate::diagnostics::Diagnostics;
 
-use super::World;
+use super::{ChangeJournal, World};
 
 impl World {
     pub fn structural_revision(&self) -> u64 {
@@ -17,6 +17,10 @@ impl World {
             .get(&(component.to_string(), field.to_string()))
             .copied()
             .unwrap_or(0)
+    }
+
+    pub fn change_journal(&self) -> &ChangeJournal {
+        &self.change_journal
     }
 
     pub fn set_input_state(&mut self, name: impl Into<String>, code: Option<i64>, value: EcsValue) {

@@ -131,7 +131,7 @@ make verify-wheel-accel WHEEL_DIR=dist/canvas ACCELERATED_WHEEL_DIR=dist/acceler
 The verifier inspects wheel members, compares every public native module
 function’s symbol and runtime signature to its shipped `.pyi` file, then uses
 `uv run --isolated` to type-check and execute a consumer installed from the
-wheel. That consumer requires canvas ABI 19, ECS ABI 4, health checks, an
+wheel. That consumer requires canvas ABI 20, ECS ABI 4, health checks, an
 empty Rust ECS world, a headless frame, packaged synth/FX/sample lookup, and a
 non-empty Rust-rendered WAV. A separate consumer blocks the native extension and
 requires the clear rebuild-guidance capability error rather than a Python

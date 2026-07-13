@@ -3,7 +3,7 @@ use crate::entity::Entity;
 use crate::error::{EcsError, Result};
 use crate::schema::ComponentSchema;
 
-use super::{EntityLocation, World};
+use super::{ChangeKind, EntityLocation, World};
 
 impl World {
     pub fn spawn_empty(&mut self) -> Entity {
@@ -16,6 +16,7 @@ impl World {
             .expect("empty archetype row");
         self.locations
             .insert(entity.raw(), EntityLocation { archetype, row });
+        self.change_journal.record(entity, ChangeKind::Spawned);
         self.note_structural_revision();
         entity
     }
@@ -26,19 +27,48 @@ impl World {
     ) -> Result<Entity> {
         let key = ComponentSetKey::new(components);
         self.validate_component_set(&key)?;
+        let component_names = key.component_names().cloned().collect::<Vec<_>>();
+        let tag_names = key.tag_names().map(ToString::to_string).collect::<Vec<_>>();
         let entity = self.entities.spawn();
         let archetype = self.ensure_archetype(key)?;
         let row = self.archetypes[archetype].push_default_row(entity)?;
         self.locations
             .insert(entity.raw(), EntityLocation { archetype, row });
+        self.change_journal.record(entity, ChangeKind::Spawned);
+        for component in component_names {
+            self.change_journal
+                .record(entity, ChangeKind::ComponentAdded { component });
+        }
+        for tag in tag_names {
+            self.change_journal
+                .record(entity, ChangeKind::TagAdded { tag });
+        }
         self.note_structural_revision();
         Ok(entity)
     }
 
     pub fn despawn(&mut self, entity: Entity) -> Result<()> {
-        self.entities.validate(entity)?;
+        let location = self.location(entity)?;
+        let key = self.archetypes[location.archetype].key().clone();
         self.remove_entity_row(entity)?;
         self.entities.despawn(entity)?;
+        for component in key.component_names() {
+            self.change_journal.record(
+                entity,
+                ChangeKind::ComponentRemoved {
+                    component: component.clone(),
+                },
+            );
+        }
+        for tag in key.tag_names() {
+            self.change_journal.record(
+                entity,
+                ChangeKind::TagRemoved {
+                    tag: tag.to_string(),
+                },
+            );
+        }
+        self.change_journal.record(entity, ChangeKind::Despawned);
         self.diagnostics.structural_commands_applied += 1;
         self.note_structural_revision();
         Ok(())
@@ -102,8 +132,10 @@ impl World {
         if old_key.contains_component(&component) {
             return Err(EcsError::DuplicateComponent(component));
         }
-        let new_key = old_key.with(component);
+        let new_key = old_key.with(&component);
         self.move_entity_to_archetype(entity, new_key, None)?;
+        self.change_journal
+            .record(entity, ChangeKind::ComponentAdded { component });
         self.diagnostics.structural_commands_applied += 1;
         self.note_structural_revision();
         Ok(())
@@ -117,6 +149,12 @@ impl World {
         }
         let new_key = old_key.without(component);
         self.move_entity_to_archetype(entity, new_key, Some(component))?;
+        self.change_journal.record(
+            entity,
+            ChangeKind::ComponentRemoved {
+                component: component.to_string(),
+            },
+        );
         self.diagnostics.structural_commands_applied += 1;
         self.note_structural_revision();
         Ok(())
@@ -134,6 +172,12 @@ impl World {
             return Ok(());
         }
         self.move_entity_to_archetype(entity, old_key.with_tag(tag), None)?;
+        self.change_journal.record(
+            entity,
+            ChangeKind::TagAdded {
+                tag: tag.to_string(),
+            },
+        );
         self.diagnostics.structural_commands_applied += 1;
         self.note_structural_revision();
         Ok(())
@@ -146,6 +190,12 @@ impl World {
             return Ok(());
         }
         self.move_entity_to_archetype(entity, old_key.without_tag(tag), None)?;
+        self.change_journal.record(
+            entity,
+            ChangeKind::TagRemoved {
+                tag: tag.to_string(),
+            },
+        );
         self.diagnostics.structural_commands_applied += 1;
         self.note_structural_revision();
         Ok(())

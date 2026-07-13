@@ -6,6 +6,8 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+from .fixtures import MediaFrameFixture, ObjFixture, ResourceResetFixture, TextCorpusFixture
+
 
 class CanvasOracleError(AssertionError):
     """A Canvas workload completed with incorrect observable behavior."""
@@ -66,6 +68,56 @@ def assert_ordered_layers(
     """Assert visible sentinels from an ordered multi-family command stream."""
 
     assert_rgba_sentinels(pixels, physical_width, layers)
+
+
+def assert_media_frame_rgba(fixture: MediaFrameFixture, actual_rgba: Sequence[int] | bytes) -> None:
+    """Require an actual native media conversion to match reviewed RGBA bytes."""
+
+    actual = bytes(actual_rgba)
+    expected = fixture.expected_rgba.pixels
+    if len(actual) != len(expected):
+        raise CanvasOracleError(
+            f"{fixture.name} RGBA byte length expected {len(expected)}, got {len(actual)}"
+        )
+    if actual != expected:
+        raise CanvasOracleError(f"{fixture.name} native RGBA conversion did not match its fixture")
+
+
+def assert_obj_fixture_topology(model: object, fixture: ObjFixture) -> None:
+    """Require a real OBJ load to preserve the reviewed vertices and face order."""
+
+    meshes = getattr(model, "meshes", None)
+    if meshes is None:
+        raise CanvasOracleError(f"{fixture.name} model does not expose public meshes")
+    try:
+        mesh_values = tuple(meshes)
+    except TypeError as error:
+        raise CanvasOracleError(f"{fixture.name} model meshes are not iterable") from error
+    if len(mesh_values) != 1:
+        raise CanvasOracleError(f"{fixture.name} expected one mesh, got {len(mesh_values)}")
+    mesh = mesh_values[0]
+    try:
+        vertices = tuple(
+            (float(vertex.x), float(vertex.y), float(vertex.z)) for vertex in mesh.vertices
+        )
+        faces = tuple(tuple(int(index) for index in face) for face in mesh.faces)
+    except (AttributeError, TypeError, ValueError) as error:
+        raise CanvasOracleError(
+            f"{fixture.name} mesh does not expose numeric vertices and faces"
+        ) from error
+    if vertices != fixture.vertices:
+        raise CanvasOracleError(f"{fixture.name} vertices did not match reviewed topology")
+    if faces != fixture.faces:
+        raise CanvasOracleError(f"{fixture.name} faces did not match reviewed topology")
+
+
+def assert_text_corpus(fixture: TextCorpusFixture, corpus: Mapping[str, tuple[str, ...]]) -> None:
+    """Require every reviewed Unicode input and category to remain exact."""
+
+    actual = dict(corpus)
+    expected = dict(fixture.corpus)
+    if actual != expected:
+        raise CanvasOracleError(f"{fixture.name} text corpus did not match reviewed Unicode inputs")
 
 
 def assert_presented_frames(counters: Mapping[str, object], expected_frames: int) -> None:
@@ -134,14 +186,69 @@ def assert_capability_failure(operation: Callable[[], object], required: str) ->
     )
 
 
+def _resource_counter(counters: Mapping[str, object], name: str) -> int:
+    value = counters.get(name)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise CanvasOracleError(f"resource counter {name!r} must be a non-negative integer")
+    return value
+
+
+def assert_resource_reset_preserves_warm_cache(
+    before_reset: Mapping[str, object],
+    after_reset: Mapping[str, object],
+    fixture: ResourceResetFixture,
+) -> None:
+    """Require a counter reset to retain warm resources while clearing run activity.
+
+    The fixture supplies only reviewed source bytes and public counter names. Both
+    diagnostic mappings must come from an actual completed renderer run; this
+    oracle never supplies absent counters or estimates resident memory.
+    """
+
+    source_bytes = len(fixture.source.pixels)
+    for family in fixture.retained_families:
+        before_resident = _resource_counter(before_reset, family.resident_counter)
+        before_peak = _resource_counter(before_reset, family.peak_counter)
+        after_resident = _resource_counter(after_reset, family.resident_counter)
+        after_peak = _resource_counter(after_reset, family.peak_counter)
+        if before_resident < source_bytes:
+            raise CanvasOracleError(
+                f"{fixture.name} did not retain {family.name} source bytes: "
+                f"expected at least {source_bytes}, got {before_resident}"
+            )
+        if before_peak < before_resident:
+            raise CanvasOracleError(
+                f"{family.name} peak bytes {before_peak} are below resident bytes {before_resident}"
+            )
+        if after_resident != before_resident:
+            raise CanvasOracleError(
+                f"{fixture.name} reset changed {family.name} resident bytes from "
+                f"{before_resident} to {after_resident}"
+            )
+        if after_peak != after_resident:
+            raise CanvasOracleError(
+                f"{fixture.name} reset peak bytes {after_peak} must equal retained resident "
+                f"bytes {after_resident}"
+            )
+    for counter in fixture.reset_activity_counters:
+        if (value := _resource_counter(after_reset, counter)) != 0:
+            raise CanvasOracleError(
+                f"{fixture.name} reset activity counter {counter!r} expected 0, got {value}"
+            )
+
+
 __all__ = [
     "CanvasDimensions",
     "CanvasOracleError",
     "PixelSentinel",
     "assert_capability_failure",
     "assert_hidpi_dimensions",
+    "assert_media_frame_rgba",
+    "assert_obj_fixture_topology",
     "assert_ordered_layers",
     "assert_presented_frames",
+    "assert_resource_reset_preserves_warm_cache",
     "assert_rgba_sentinels",
+    "assert_text_corpus",
     "rgba_at",
 ]

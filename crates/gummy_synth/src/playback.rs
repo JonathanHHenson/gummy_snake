@@ -1,8 +1,8 @@
 use super::*;
 
-/// Render typed events to a stereo WAV payload.
+/// Compile typed events and render them to a stereo WAV payload.
 pub fn render_plan_events(
-    mut parsed_events: Vec<EventPayload>,
+    parsed_events: Vec<EventPayload>,
     duration_seconds: f64,
     sample_rate: u32,
 ) -> SynthResult<Vec<u8>> {
@@ -11,20 +11,27 @@ pub fn render_plan_events(
             "synth plan render duration cannot be negative.",
         ));
     }
-    let total_samples = validate_plan_render(&parsed_events, duration_seconds, sample_rate)?;
-    parsed_events.sort_by(|a, b| a.time_seconds.total_cmp(&b.time_seconds));
+    let program = CompiledSynthProgram::compile(parsed_events, duration_seconds, sample_rate)?;
+    render_compiled_program_wav(&program)
+}
+
+/// Render an immutable Rust-owned program without reparsing or rescheduling it.
+pub fn render_compiled_program_wav(program: &CompiledSynthProgram) -> SynthResult<Vec<u8>> {
+    let events = program.events();
+    let sample_rate = program.sample_rate();
+    let total_samples = program.duration_frames();
     let mut root = FxBusNode::root(total_samples, 0.0);
     let worker_count = effective_worker_count();
     let mut event_index = 0usize;
-    while event_index < parsed_events.len() {
+    while event_index < events.len() {
         let mut region_end = event_index;
         let mut region_scratch_bytes = 0usize;
         while worker_count > 1
-            && region_end < parsed_events.len()
+            && region_end < events.len()
             && region_end - event_index < worker_count
         {
             let Some(event_scratch_bytes) =
-                dry_event_parallel_scratch_bytes(&parsed_events[region_end], sample_rate)?
+                dry_event_parallel_scratch_bytes(&events[region_end], sample_rate)?
             else {
                 break;
             };
@@ -41,7 +48,7 @@ pub fn render_plan_events(
 
         if region_end - event_index >= 2 && region_scratch_bytes >= SYNTH_PARALLEL_MIN_SCRATCH_BYTES
         {
-            let region = &parsed_events[event_index..region_end];
+            let region = &events[event_index..region_end];
             let rendered = render_dry_event_region(region, sample_rate, region_scratch_bytes)
                 .map_err(|error| SynthError::new(format!("ValueError: {error}")))?;
             for (event, (event_left, event_right)) in region.iter().zip(rendered) {
@@ -51,7 +58,7 @@ pub fn render_plan_events(
             continue;
         }
 
-        let event = &parsed_events[event_index];
+        let event = &events[event_index];
         let (event_left, event_right) = render_dry_event(event, sample_rate)
             .map_err(|error| SynthError::new(format!("ValueError: {error}")))?;
         record_serial_event();
@@ -82,9 +89,8 @@ fn mix_rendered_event(
 }
 
 pub fn render_serialized_plan_wav_bytes(payload: &[u8], sample_rate: u32) -> SynthResult<Vec<u8>> {
-    let (events, duration_seconds) = parse_serialized_plan(payload)
-        .map_err(|error| SynthError::new(format!("ValueError: {error}")))?;
-    render_plan_events(events, duration_seconds, sample_rate)
+    let program = CompiledSynthProgram::from_serialized_plan(payload, sample_rate)?;
+    render_compiled_program_wav(&program)
 }
 
 pub fn render_serialized_plan_wav_file(
@@ -203,6 +209,14 @@ impl SynthPlaybackPlan {
             duration_seconds,
             dry_event_cache: Mutex::new(HashMap::new()),
         })
+    }
+
+    pub fn from_compiled_program(program: &CompiledSynthProgram) -> Self {
+        Self {
+            events: program.events().to_vec(),
+            duration_seconds: program.duration_seconds(),
+            dry_event_cache: Mutex::new(HashMap::new()),
+        }
     }
 
     pub fn duration_seconds(&self) -> f64 {

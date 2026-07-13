@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import pytest
 
 from benchmarks.suites.canvas.diagnostics import DiagnosticsError, capture_renderer_diagnostics
+from benchmarks.suites.canvas.fixtures import SPRITE_CACHE_RESET, sprite_image
 from benchmarks.suites.canvas.oracles import (
     CanvasOracleError,
     PixelSentinel,
@@ -12,6 +13,7 @@ from benchmarks.suites.canvas.oracles import (
     assert_hidpi_dimensions,
     assert_ordered_layers,
     assert_presented_frames,
+    assert_resource_reset_preserves_warm_cache,
     assert_rgba_sentinels,
     rgba_at,
 )
@@ -46,6 +48,40 @@ def test_canvas_diagnostics_adapter_uses_only_available_public_counters() -> Non
     assert snapshot.counter("native.cpu_fallbacks") == 0
     with pytest.raises(DiagnosticsError, match="required renderer counter unavailable"):
         capture_renderer_diagnostics(context, required=("gpu_draw_calls",))
+
+
+def test_headless_sprite_cache_reset_preserves_warm_resources_and_fails_closed() -> None:
+    import gummysnake as gs
+
+    fixture = SPRITE_CACHE_RESET
+    image = sprite_image()
+
+    def setup() -> None:
+        gs.create_canvas(16, 12, pixel_density=1.0)
+
+    def draw() -> None:
+        gs.image(image, 0, 0, fixture.source.width, fixture.source.height)
+
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
+    before_reset = capture_renderer_diagnostics(
+        context, required=(*fixture.required_counters, "cpu_fallbacks")
+    )
+    assert before_reset.counter("cpu_fallbacks") == 0
+    assert before_reset.counter("texture_uploads") == 1
+    assert before_reset.counter("texture_upload_bytes") == len(fixture.source.pixels)
+
+    context.reset_renderer_performance_counters()
+    after_reset = capture_renderer_diagnostics(context, required=fixture.required_counters)
+    assert_resource_reset_preserves_warm_cache(before_reset.counters, after_reset.counters, fixture)
+
+    missing_counter = dict(after_reset.counters)
+    del missing_counter["texture_resident_bytes"]
+    with pytest.raises(CanvasOracleError, match="texture_resident_bytes"):
+        assert_resource_reset_preserves_warm_cache(before_reset.counters, missing_counter, fixture)
+    stale_activity = dict(after_reset.counters)
+    stale_activity["texture_uploads"] = 1
+    with pytest.raises(CanvasOracleError, match="texture_uploads"):
+        assert_resource_reset_preserves_warm_cache(before_reset.counters, stale_activity, fixture)
 
 
 def test_canvas_pixel_order_hidpi_and_capability_oracles_are_fail_closed() -> None:

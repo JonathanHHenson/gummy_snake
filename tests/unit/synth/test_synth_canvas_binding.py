@@ -36,7 +36,7 @@ def test_canvas_owned_synth_functions_preserve_names_outputs_and_value_errors() 
 
     assert event_wav.startswith(b"RIFF")
     assert plan_wav.startswith(b"RIFF")
-    assert canvas_abi_version() == 19
+    assert canvas_abi_version() == 20
 
     with pytest.raises(ValueError) as serialized_error:
         runtime.synth_render_serialized_plan_wav(b"", 8_000)
@@ -45,6 +45,23 @@ def test_canvas_owned_synth_functions_preserve_names_outputs_and_value_errors() 
     with pytest.raises(ValueError) as duration_error:
         runtime.synth_render_plan_wav([], -0.01, 8_000)
     assert str(duration_error.value) == "synth plan render duration cannot be negative."
+
+
+def test_canvas_compiled_program_reuses_one_validated_schedule_for_rendering() -> None:
+    runtime = require_canvas_runtime()
+
+    @sy.track(seed=320)
+    def compiled_track() -> None:
+        with sy.synth("_sine"):
+            sy.play(60, sustain=0.01, release=0.01, amp=0.1)
+
+    plan = compiled_track().physical_plan(duration=0.03)
+    program = runtime.CanvasSynthProgram.from_serialized(plan.to_bytes(), 8_000)
+
+    assert program.sample_rate == 8_000
+    assert program.duration_frames == 240
+    assert program.event_count == 1
+    assert program.render_wav() == runtime.synth_render_serialized_plan_wav(plan.to_bytes(), 8_000)
 
 
 def _parallel_events(count: int = 16) -> list[dict[str, object]]:

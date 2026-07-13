@@ -12,6 +12,7 @@ use crate::query::{CachedQuery, QueryFilter};
 use crate::resource::ResourceStore;
 use crate::schema::SchemaRegistry;
 
+mod change_journal;
 mod commands;
 mod entity_archetype;
 mod fields;
@@ -19,6 +20,11 @@ mod plan_cache;
 mod queries;
 mod resources_events;
 mod state_diagnostics;
+
+pub use change_journal::{
+    ChangeEpoch, ChangeJournal, ChangeKind, ChangeRecord, ChangeRevision, ComponentChange,
+    EntityChange, TagChange,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct EntityLocation {
@@ -46,6 +52,7 @@ pub struct World {
     structural_revision: u64,
     field_revision: u64,
     field_revisions: HashMap<(String, String), u64>,
+    change_journal: ChangeJournal,
     spatial_index_cache: HashMap<String, CachedSpatialIndex>,
     diagnostics: Diagnostics,
 }
@@ -71,6 +78,7 @@ impl Clone for World {
             structural_revision: self.structural_revision,
             field_revision: self.field_revision,
             field_revisions: self.field_revisions.clone(),
+            change_journal: self.change_journal.clone(),
             spatial_index_cache: HashMap::new(),
             diagnostics: self.diagnostics.clone(),
         }

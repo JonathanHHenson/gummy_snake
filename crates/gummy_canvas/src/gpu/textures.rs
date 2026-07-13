@@ -9,38 +9,47 @@ impl GpuRenderer {
             return Ok(self.current_clip_id);
         }
         self.write_viewport(self.texture_size.width, self.texture_size.height);
-        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("gummy_canvas GPU clip path texture"),
-            size: self.texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
+        let texture = self
+            .device_context
+            .device()
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("gummy_canvas GPU clip path texture"),
+                size: self.texture_size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                    | wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            });
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let record_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("gummy_canvas GPU clip path records"),
-                contents: bytemuck::cast_slice(records),
-                usage: wgpu::BufferUsages::STORAGE,
-            });
-        let record_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gummy_canvas GPU clip path records bind group"),
-            layout: &self.stroke_path_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: record_buffer.as_entire_binding(),
-            }],
-        });
+        let record_buffer =
+            self.device_context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("gummy_canvas GPU clip path records"),
+                    contents: bytemuck::cast_slice(records),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+        let record_bind_group =
+            self.device_context
+                .device()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("gummy_canvas GPU clip path records bind group"),
+                    layout: &self.stroke_path_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: record_buffer.as_entire_binding(),
+                    }],
+                });
         let parent_clip_id = self.current_clip_id;
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("gummy_canvas GPU clip path encoder"),
-            });
+        let mut encoder =
+            self.device_context
+                .device()
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("gummy_canvas GPU clip path encoder"),
+                });
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("gummy_canvas GPU clip path pass"),
@@ -80,7 +89,7 @@ impl GpuRenderer {
             pass.set_bind_group(2, &record_bind_group, &[]);
             pass.draw(0..6, 0..1);
         }
-        self.queue.submit([encoder.finish()]);
+        self.device_context.queue().submit([encoder.finish()]);
 
         let clip_uniform = ClipUniform {
             rect: [
@@ -91,32 +100,41 @@ impl GpuRenderer {
             ],
             flags: [1.0, 0.0, 0.0, 0.0],
         };
-        let uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas GPU clip path uniform"),
-            size: std::mem::size_of::<ClipUniform>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        self.queue
-            .write_buffer(&uniform_buffer, 0, bytemuck::bytes_of(&clip_uniform));
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gummy_canvas GPU clip path bind group"),
-            layout: &self.clip_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: uniform_buffer.as_entire_binding(),
-                },
-            ],
-        });
+        let uniform_buffer = self
+            .device_context
+            .device()
+            .create_buffer(&wgpu::BufferDescriptor {
+                label: Some("gummy_canvas GPU clip path uniform"),
+                size: std::mem::size_of::<ClipUniform>() as u64,
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        self.device_context.queue().write_buffer(
+            &uniform_buffer,
+            0,
+            bytemuck::bytes_of(&clip_uniform),
+        );
+        let bind_group =
+            self.device_context
+                .device()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("gummy_canvas GPU clip path bind group"),
+                    layout: &self.clip_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: uniform_buffer.as_entire_binding(),
+                        },
+                    ],
+                });
         self.clip_stack.push(parent_clip_id);
         self.clip_textures.push(ClipTextureAsset {
             _texture: texture,
@@ -159,17 +177,20 @@ impl GpuRenderer {
             height: height.max(1) as u32,
             depth_or_array_layers: 1,
         };
-        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("gummy_canvas image texture"),
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-        self.queue.write_texture(
+        let texture = self
+            .device_context
+            .device()
+            .create_texture(&wgpu::TextureDescriptor {
+                label: Some("gummy_canvas image texture"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            });
+        self.device_context.queue().write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &texture,
                 mip_level: 0,
@@ -185,34 +206,40 @@ impl GpuRenderer {
             size,
         );
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let nearest_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gummy_canvas nearest image texture bind group"),
-            layout: &self.image_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
-                },
-            ],
-        });
-        let linear_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gummy_canvas linear image texture bind group"),
-            layout: &self.image_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.linear_texture_sampler),
-                },
-            ],
-        });
+        let nearest_bind_group =
+            self.device_context
+                .device()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("gummy_canvas nearest image texture bind group"),
+                    layout: &self.image_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
+                        },
+                    ],
+                });
+        let linear_bind_group =
+            self.device_context
+                .device()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("gummy_canvas linear image texture bind group"),
+                    layout: &self.image_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&self.linear_texture_sampler),
+                        },
+                    ],
+                });
         let replaced = self.textures.insert(
             key,
             TextureAsset {
@@ -294,7 +321,7 @@ impl GpuRenderer {
             ));
         }
         self.previous_render_commands.clear();
-        self.queue.write_texture(
+        self.device_context.queue().write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &self.texture,
                 mip_level: 0,
@@ -317,8 +344,11 @@ impl GpuRenderer {
             size: [width.max(1) as f32, height.max(1) as f32],
             _padding: [0.0, 0.0],
         };
-        self.queue
-            .write_buffer(&self.viewport_buffer, 0, bytemuck::bytes_of(&viewport));
+        self.device_context.queue().write_buffer(
+            &self.viewport_buffer,
+            0,
+            bytemuck::bytes_of(&viewport),
+        );
     }
 }
 

@@ -38,25 +38,29 @@ impl GpuRenderer {
             .create_view(&wgpu::TextureViewDescriptor::default());
         let format = self.surface.as_ref().expect("surface exists").config.format;
         let pipeline = self.texture_surface_pipeline(format);
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gummy_canvas offscreen texture bind group"),
-            layout: &self.texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&self.texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
-                },
-            ],
-        });
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("gummy_canvas texture present encoder"),
-            });
+        let bind_group =
+            self.device_context
+                .device()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("gummy_canvas offscreen texture bind group"),
+                    layout: &self.texture_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&self.texture_view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
+                        },
+                    ],
+                });
+        let mut encoder =
+            self.device_context
+                .device()
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("gummy_canvas texture present encoder"),
+                });
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("gummy_canvas texture present pass"),
@@ -76,7 +80,7 @@ impl GpuRenderer {
             pass.set_bind_group(0, &bind_group, &[]);
             pass.draw(0..6, 0..1);
         }
-        self.queue.submit([encoder.finish()]);
+        self.device_context.queue().submit([encoder.finish()]);
         frame.present();
         Ok(())
     }
@@ -106,22 +110,22 @@ impl GpuRenderer {
                          raw-window-handle feature on this platform."
                     )
                 })?;
-            let surface =
-                unsafe { self.instance.create_surface_unsafe(target) }.map_err(|err| {
-                    format!(
-                        "Failed to create GPU window surface from SDL3 raw handles: {err}. \
+            let surface = unsafe { self.device_context.instance().create_surface_unsafe(target) }
+                .map_err(|err| {
+                format!(
+                    "Failed to create GPU window surface from SDL3 raw handles: {err}. \
                      SDL3 presentation is experimental; if this platform/driver does not expose \
                      compatible raw handles, interactive presentation is blocked while headless \
                      rendering remains available."
-                    )
-                })?;
-            let capabilities = surface.get_capabilities(&self.adapter);
+                )
+            })?;
+            let capabilities = surface.get_capabilities(self.device_context.adapter());
             let config =
                 surface_config(&capabilities, width.max(1), height.max(1)).ok_or_else(|| {
                     "The selected GPU adapter does not support the native window surface."
                         .to_string()
                 })?;
-            surface.configure(&self.device, &config);
+            surface.configure(self.device_context.device(), &config);
             self.surface = Some(GpuSurface {
                 window_id: window.id(),
                 surface,
@@ -148,7 +152,9 @@ impl GpuRenderer {
             .ok_or_else(|| "GPU surface was not initialized.".to_string())?;
         surface.config.width = width.max(1);
         surface.config.height = height.max(1);
-        surface.surface.configure(&self.device, &surface.config);
+        surface
+            .surface
+            .configure(self.device_context.device(), &surface.config);
         Ok(())
     }
 
@@ -162,7 +168,11 @@ impl GpuRenderer {
         if needs_pipeline {
             self.texture_surface_pipeline = Some((
                 format,
-                create_texture_pipeline(&self.device, &self.texture_bind_group_layout, format),
+                create_texture_pipeline(
+                    self.device_context.device(),
+                    &self.texture_bind_group_layout,
+                    format,
+                ),
             ));
         }
         self.texture_surface_pipeline

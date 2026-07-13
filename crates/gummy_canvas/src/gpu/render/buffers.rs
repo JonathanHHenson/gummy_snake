@@ -81,20 +81,26 @@ impl GpuRenderer {
             return;
         }
         let capacity = required.next_power_of_two();
-        self.model_uniform_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas model uniforms"),
-            size: (capacity * std::mem::size_of::<ModelUniform>()) as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        self.model_uniform_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gummy_canvas model uniform bind group"),
-            layout: &self.model_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: self.model_uniform_buffer.as_entire_binding(),
-            }],
-        });
+        self.model_uniform_buffer =
+            self.device_context
+                .device()
+                .create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("gummy_canvas model uniforms"),
+                    size: (capacity * std::mem::size_of::<ModelUniform>()) as u64,
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+        self.model_uniform_bind_group =
+            self.device_context
+                .device()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("gummy_canvas model uniform bind group"),
+                    layout: &self.model_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: self.model_uniform_buffer.as_entire_binding(),
+                    }],
+                });
         self.model_uniform_capacity = capacity;
         self.vertex_buffer_allocations += 1;
     }
@@ -104,12 +110,14 @@ impl GpuRenderer {
             return;
         }
         let capacity = required.next_power_of_two();
-        self.primitive_vertex_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas reusable primitive vertices"),
-            size: (capacity * std::mem::size_of::<Vertex>()) as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        }));
+        self.primitive_vertex_buffer = Some(self.device_context.device().create_buffer(
+            &wgpu::BufferDescriptor {
+                label: Some("gummy_canvas reusable primitive vertices"),
+                size: (capacity * std::mem::size_of::<Vertex>()) as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            },
+        ));
         self.primitive_vertex_capacity = capacity;
         self.vertex_buffer_allocations += 1;
     }
@@ -119,13 +127,14 @@ impl GpuRenderer {
             return;
         }
         let capacity = required.next_power_of_two();
-        self.procedural_primitive_buffer =
-            Some(self.device.create_buffer(&wgpu::BufferDescriptor {
+        self.procedural_primitive_buffer = Some(self.device_context.device().create_buffer(
+            &wgpu::BufferDescriptor {
                 label: Some("gummy_canvas reusable procedural primitive instances"),
                 size: (capacity * std::mem::size_of::<PrimitiveInstance>()) as u64,
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
-            }));
+            },
+        ));
         self.procedural_primitive_capacity = capacity;
         self.vertex_buffer_allocations += 1;
     }
@@ -135,12 +144,14 @@ impl GpuRenderer {
             return;
         }
         let capacity = required.next_power_of_two();
-        self.stroke_path_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas reusable stroke path records"),
-            size: (capacity * std::mem::size_of::<StrokePathRecord>()) as u64,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        }));
+        self.stroke_path_buffer = Some(self.device_context.device().create_buffer(
+            &wgpu::BufferDescriptor {
+                label: Some("gummy_canvas reusable stroke path records"),
+                size: (capacity * std::mem::size_of::<StrokePathRecord>()) as u64,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            },
+        ));
         self.stroke_path_record_capacity = capacity;
         self.vertex_buffer_allocations += 1;
     }
@@ -150,12 +161,14 @@ impl GpuRenderer {
             return;
         }
         let capacity = required.next_power_of_two();
-        self.image_vertex_buffer = Some(self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas reusable image vertices"),
-            size: (capacity * std::mem::size_of::<ImageVertex>()) as u64,
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        }));
+        self.image_vertex_buffer = Some(self.device_context.device().create_buffer(
+            &wgpu::BufferDescriptor {
+                label: Some("gummy_canvas reusable image vertices"),
+                size: (capacity * std::mem::size_of::<ImageVertex>()) as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            },
+        ));
         self.image_vertex_capacity = capacity;
         self.vertex_buffer_allocations += 1;
     }

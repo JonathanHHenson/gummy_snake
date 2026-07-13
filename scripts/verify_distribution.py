@@ -902,8 +902,8 @@ _WHEEL_CONSUMER_SCRIPT = (
             raise SystemExit("wheel did not import the mandatory native canvas extension")
         if not _PACKAGED_SAMPLE.is_file():
             raise SystemExit("wheel did not install the required bd_haus sample asset")
-        if EXPECTED_CANVAS_ABI_VERSION != 19 or canvas_abi_version() != 19:
-            raise SystemExit("installed wheel does not expose required canvas ABI 19")
+        if EXPECTED_CANVAS_ABI_VERSION != 20 or canvas_abi_version() != 20:
+                    raise SystemExit("installed wheel does not expose required canvas ABI 20")
         if canvas_health_check() != "rust-canvas":
             raise SystemExit("installed wheel has an unhealthy canvas extension")
         if EXPECTED_ECS_ABI_VERSION != 4 or ecs_abi_version() != 4:

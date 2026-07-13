@@ -24,13 +24,12 @@ def test_track_play_reports_rust_callback_errors(monkeypatch) -> None:
 
     runtime = _FakeSynthRuntime()
 
-    def _play_serialized_plan(payload: bytes, sample_rate: int) -> _FakeCanvasAudioPlayback:
-        runtime.play_serialized_plan_calls.append((bytes(payload), sample_rate))
+    def _play_compiled_program(_program: object) -> _FakeCanvasAudioPlayback:
         playback = _ErrorPlayback(1.0)
         runtime.playbacks.append(playback)
         return playback
 
-    monkeypatch.setattr(runtime, "synth_play_serialized_plan", _play_serialized_plan)
+    monkeypatch.setattr(runtime, "synth_play_compiled_program", _play_compiled_program)
     patch_synth_runtime(monkeypatch, runtime)
 
     playback = _short_realtime_track().play()
@@ -86,13 +85,6 @@ def test_track_play_reuses_saved_wav_without_rendering_again(tmp_path: Path, mon
 def test_bounded_realtime_playback_renders_plan_before_playback_clock(monkeypatch) -> None:
     order: list[str] = []
 
-    class _OrderingRuntime(_FakeSynthRuntime):
-        def synth_render_serialized_plan_wav(self, payload: bytes, sample_rate: int) -> bytes:
-            order.append("render_plan")
-            self.serialized_plan_calls.append((bytes(payload), sample_rate))
-            plan = sy.PhysicalPlan.from_bytes(payload)
-            return _wav_payload(plan.duration_seconds, sample_rate)
-
     class _FakePlayer:
         instances = []
 
@@ -118,7 +110,8 @@ def test_bounded_realtime_playback_renders_plan_before_playback_clock(monkeypatc
         def delete(self) -> None:
             self.delete_calls += 1
 
-    runtime = _OrderingRuntime()
+    runtime = _FakeSynthRuntime()
+    runtime.on_compiled_program_render = lambda: order.append("render_plan")
     patch_synth_runtime(monkeypatch, runtime)
 
     playback = _short_realtime_track().play(

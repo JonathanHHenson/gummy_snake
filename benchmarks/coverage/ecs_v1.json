@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:817e5d2f309e59293588e434cd5fb8596d064cf902f4a018cc6d991108f07950",
+  "catalog_digest": "sha256:e43dd09896e6b04b0d7bb4f1bbd954280573af3911cb6adad7914f1d1ad7921e",
   "entries": [
     {
       "capabilities": [
@@ -8,7 +8,7 @@
       ],
       "case_id": "bounded-longevity-48x32",
       "correctness_label": "bounded-longevity-resources-world-digest",
-      "definition_digest": "sha256:9608dc2104927f254fe99c166af29f7b0da2eff8dd77d7c0471999fc270f6d4a",
+      "definition_digest": "sha256:df666aff80b545eebe85d142ea46814efa4d1aaa8d5a35b8ec3b08395db5e061",
       "metric_identity": {
         "id": "longevity-row-frame-elapsed-ns",
         "version": 1
@@ -25,6 +25,26 @@
         "case_kind": "bounded-longevity",
         "churn_count": 4,
         "entity_count": 48,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:75373c0132d179e36b7d561665ddfcbd0210251095cc8aecbcee6cfd25829c0a",
         "frames": 32,
         "required_counters": [
           "ecs_physical_system_runs",
@@ -37,7 +57,7 @@
       },
       "sampling_profile": "simulated-realtime",
       "workload_id": "diagnostics-failures-longevity",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -46,7 +66,7 @@
       ],
       "case_id": "diagnostics-snapshot-reset",
       "correctness_label": "diagnostics-reset-counter-digest",
-      "definition_digest": "sha256:4b847ae41c28d42fa86cbceb01c83c94b71d5e56c704e1e483a5f6f2eb1a2ce1",
+      "definition_digest": "sha256:9267fe9de5133547f4f9afb3e6740d9b45028fb4625f213676d0408e7c0a2f60",
       "metric_identity": {
         "id": "diagnostic-snapshot-elapsed-ns",
         "version": 1
@@ -60,6 +80,26 @@
       "runtime_parameters": {
         "case_kind": "diagnostics-reset",
         "entity_count": 64,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:b0c98466f04ddb667e4e0b3845bb887f8fb03b019c9731f96a8502ca964e906a",
         "required_counters": [
           "ecs_physical_system_runs",
           "ecs_physical_rows_scanned",
@@ -69,7 +109,7 @@
       },
       "sampling_profile": "micro",
       "workload_id": "diagnostics-failures-longevity",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -78,7 +118,7 @@
       ],
       "case_id": "stale-strict-spatial-failures",
       "correctness_label": "actionable-failure-type-message-digest",
-      "definition_digest": "sha256:043f79ac7368e8b921adde9fb1fadd7c68111c7f7652e21ffd557dc682f7e277",
+      "definition_digest": "sha256:67bdaeb517550bf83e0bf15f074b23f4a1e90a14c77ca879bfb51771be17616e",
       "metric_identity": {
         "id": "failure-check-elapsed-ns",
         "version": 1
@@ -90,6 +130,26 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "failure-contracts",
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:05d8efeabcb840517435ed76f427e9779e93f96f259e5e2d0b6e2d883abcbd92",
         "required_counters": [
           "ecs_strict_mode_errors",
           "ecs_physical_duplicate_writes"
@@ -98,7 +158,7 @@
       },
       "sampling_profile": "micro",
       "workload_id": "diagnostics-failures-longevity",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -109,7 +169,7 @@
       ],
       "case_id": "compact-fill-64x3",
       "correctness_label": "headless-world-frame-command-digest",
-      "definition_digest": "sha256:fcca87c9824c3da7d33c104a7b46165a8442cf14dc7e410b9f302f6725343664",
+      "definition_digest": "sha256:b83ac6786a4a4e05b36c1d59fb5b9c03d18ddeb0c09394c32b5d276a27ceae3f",
       "metric_identity": {
         "id": "headless-draw-record-elapsed-ns",
         "version": 1
@@ -123,6 +183,26 @@
       "runtime_parameters": {
         "case_kind": "compact-fill",
         "entity_count": 64,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:4207477722295b4025c5113ec79f56fbac131400ca31f525220f60ede4c2acb1",
         "frames": 3,
         "height": 96,
         "required_counters": [
@@ -135,7 +215,7 @@
       },
       "sampling_profile": "frame-headless",
       "workload_id": "integrated-headless-frame",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -146,7 +226,7 @@
       ],
       "case_id": "simulation-render-128x4",
       "correctness_label": "headless-simulation-world-frame-digest",
-      "definition_digest": "sha256:1a7d2fdf997fbe57c0dd11ca0688fc6cd32503b9671e1fff7f87007e22433762",
+      "definition_digest": "sha256:5e23f79343c979fe922fcef311914ddf6d6f574b36346f910f3ed5ca85da3a50",
       "metric_identity": {
         "id": "headless-simulation-row-frame-ns",
         "version": 1
@@ -161,6 +241,26 @@
       "runtime_parameters": {
         "case_kind": "simulation-render",
         "entity_count": 128,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:f36afe56d2246d8b12e23790a39b28a9917152994bb904e3998ed903a3b75bfd",
         "frames": 4,
         "height": 120,
         "required_counters": [
@@ -174,7 +274,7 @@
       },
       "sampling_profile": "frame-headless",
       "workload_id": "integrated-headless-frame",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -183,7 +283,7 @@
       ],
       "case_id": "changed-filter-structural-remove-96",
       "correctness_label": "change-filter-deferred-structural-digest",
-      "definition_digest": "sha256:47395d1ccee2205e310d52639ed55f71df0d80d1e95e8cfc9a8c21173f0b829a",
+      "definition_digest": "sha256:12b19af7abbd21661c870d067c49ee3d909933d36e372ce4de4b3cbfc6a61087",
       "metric_identity": {
         "id": "mutation-row-elapsed-ns",
         "version": 1
@@ -197,6 +297,26 @@
       "runtime_parameters": {
         "case_kind": "change-structural",
         "entity_count": 96,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:e31bae020f35916821326aabc3803455f7bc853555c114a2b00442d19e41ad38",
         "required_counters": [
           "ecs_change_detection_refreshes",
           "ecs_structural_commands_applied",
@@ -206,7 +326,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "mutation-boundaries",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -215,7 +335,7 @@
       ],
       "case_id": "explicit-python-system-udf-128",
       "correctness_label": "python-system-udf-boundary-writeback-digest",
-      "definition_digest": "sha256:6b52e5dc4bca8e038e7324edb93325a5dc5e8e8fc15500f10fb02ee0e1667510",
+      "definition_digest": "sha256:cbafb54263272bd57e0212652ae3ed98a96028f29a2ffc22e57c095a1d9ce4b7",
       "metric_identity": {
         "id": "python-boundary-row-elapsed-ns",
         "version": 1
@@ -230,6 +350,26 @@
       "runtime_parameters": {
         "case_kind": "python-system-udf",
         "entity_count": 128,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:46ed0a970df7ec5c4c5c82f56a6472c450a6211aadcb404b503da353d1b377da",
         "required_counters": [
           "ecs_python_system_calls",
           "ecs_python_system_barriers",
@@ -240,7 +380,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "mutation-boundaries",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -249,7 +389,7 @@
       ],
       "case_id": "resource-event-reduction-128",
       "correctness_label": "resource-event-order-retention-digest",
-      "definition_digest": "sha256:e11c0956688acc0a3bafcf7f5396028c6ec31f65b6600a73acc13c96e0a53c31",
+      "definition_digest": "sha256:5f1696aca1e6eea2700a6029c7c04126ad7fd71d8a605171831970889e0d085f",
       "metric_identity": {
         "id": "event-elapsed-ns",
         "version": 1
@@ -263,6 +403,26 @@
       "runtime_parameters": {
         "case_kind": "resources-events",
         "event_count": 128,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:d01837e25e361bf46089955def17a8ebdf3e77ffe792fdebe9bfc655b5b976d8",
         "required_counters": [
           "ecs_events_emitted",
           "ecs_events_read",
@@ -272,7 +432,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "mutation-boundaries",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -281,7 +441,7 @@
       ],
       "case_id": "udf-plan-inline-128",
       "correctness_label": "udf-plan-zero-runtime-python-digest",
-      "definition_digest": "sha256:531a1efd0e39ef31b7ab0c7b5272b4a86377562e03a9012b09f4d52c6cf201e9",
+      "definition_digest": "sha256:dc55181bc6a868335503420e965b25e73947e1ed71f96adc1ea4c4b396da1ded",
       "metric_identity": {
         "id": "udf-plan-row-elapsed-ns",
         "version": 1
@@ -295,6 +455,26 @@
       "runtime_parameters": {
         "case_kind": "udf-plan",
         "entity_count": 128,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:5d141e57710d562ac63dd2cfd807e0c8874df4a840441ae27634c3f1392d321a",
         "required_counters": [
           "ecs_physical_system_runs",
           "ecs_physical_rows_scanned",
@@ -304,7 +484,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "mutation-boundaries",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -313,7 +493,7 @@
       ],
       "case_id": "cache-reuse-release-four-by-four",
       "correctness_label": "plan-cache-reuse-release-digest",
-      "definition_digest": "sha256:02c9db87b140cdcd8cbfe8ea599919a27e3eaf088b49bdb98668cbc62d9907e6",
+      "definition_digest": "sha256:53807df2a9b84a86487eb38ee78c6a8a89b50a8dd26a3da836af9ffddd954d8e",
       "metric_identity": {
         "id": "plan-lifecycle-elapsed-ns",
         "version": 1
@@ -327,6 +507,26 @@
       "runtime_parameters": {
         "case_kind": "plan-cache-release",
         "cycles": 4,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:30de26d3661ccaa52fafe5535ac4c5297149698fae6dc7f575e19f59f3a33fe1",
         "frames": 4,
         "required_counters": [
           "ecs_physical_plan_compiles",
@@ -337,7 +537,7 @@
       },
       "sampling_profile": "micro",
       "workload_id": "plan-compile-cache",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -346,7 +546,7 @@
       ],
       "case_id": "logical-build-compile-eight",
       "correctness_label": "plan-explain-compile-counter-digest",
-      "definition_digest": "sha256:dd646704f27fefd0fe99c36a09e4ff8e9d68ecf9c03f12ede842b03cfdb3eac7",
+      "definition_digest": "sha256:35f3f4244d23e0d20fa537c06a34cf06cf656c7a8c1dc17edd922c42e8c555e4",
       "metric_identity": {
         "id": "plan-node-elapsed-ns",
         "version": 1
@@ -359,6 +559,26 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "plan-build-compile",
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:654a52d7eee7bb0097aaf970809aa5c680b8ae92dd86168679e3b7d20639042b",
         "required_counters": [
           "ecs_physical_plan_compiles",
           "ecs_rust_compiled_plans",
@@ -369,7 +589,7 @@
       },
       "sampling_profile": "micro",
       "workload_id": "plan-compile-cache",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -378,7 +598,7 @@
       ],
       "case_id": "batch-four-field-transport-256",
       "correctness_label": "batch-selected-field-value-digest",
-      "definition_digest": "sha256:0704fde7deb7ff59fd54c5c296b4b7679bcde5b2811acf41e6ebe45bea4c71aa",
+      "definition_digest": "sha256:a68742a3f10bc92f3e58ed163a5ca8df5b4f306847e64c91bfc36ca679c8fdeb",
       "metric_identity": {
         "id": "transport-row-elapsed-ns",
         "version": 1
@@ -391,6 +611,26 @@
       "runtime_parameters": {
         "case_kind": "batch-transport",
         "entity_count": 256,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:3bd863d355694fc75923f8ab495a35c4b86200fb8cd40d10b4ba8d0bf313040b",
         "required_counters": [
           "ecs_entities_alive",
           "ecs_rust_component_schemas_total"
@@ -399,7 +639,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "query-view-transport",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -408,7 +648,7 @@
       ],
       "case_id": "cardinality-zero-one-many",
       "correctness_label": "cardinality-outcome-digest",
-      "definition_digest": "sha256:311eeef1d8b98d02352209fcf95e47817cf3957fd0a948c56ec398ff3f6338d0",
+      "definition_digest": "sha256:693ef0f3737aa0116126850a92132f590aa8a8a190c1a7961b1e399d6e521ba1",
       "metric_identity": {
         "id": "cardinality-check-elapsed-ns",
         "version": 1
@@ -420,6 +660,26 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "cardinality",
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:9ef0055cfd09ac889e760622f93280c8648d0ee5e1d940c42a11cf539ed053c5",
         "required_counters": [
           "ecs_entities_alive",
           "ecs_rust_entities_alive"
@@ -428,7 +688,7 @@
       },
       "sampling_profile": "micro",
       "workload_id": "query-view-transport",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -437,7 +697,7 @@
       ],
       "case_id": "ordered-filtered-views-192",
       "correctness_label": "query-order-view-value-digest",
-      "definition_digest": "sha256:9d91df0053bad21948cc54c5a6871f0f8ed441d1bfbf3682124bdf1d3e0d0fe2",
+      "definition_digest": "sha256:426ad69ba5ca21538304e20fc6497cfbf935d0290276fcf6a908b13df0dbc4fa",
       "metric_identity": {
         "id": "query-row-elapsed-ns",
         "version": 1
@@ -450,6 +710,26 @@
       "runtime_parameters": {
         "case_kind": "query-order",
         "entity_count": 192,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:22c752b045879c4295c6a6a819c4dfd99ce94a0860b30b2620e77ec0060e007e",
         "required_counters": [
           "ecs_entities_alive",
           "ecs_rust_entities_alive"
@@ -458,7 +738,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "query-view-transport",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -467,7 +747,7 @@
       ],
       "case_id": "ordered-groups-eight-frames",
       "correctness_label": "group-order-serial-result-digest",
-      "definition_digest": "sha256:2365b9778f3b59af0ebe53cc0ad8f63435e8cf88d7da2c4c89a216a84ebd07de",
+      "definition_digest": "sha256:70f01ba0cbed582ef12954d163709173b202f45a5b55746d98cee96e31be28de",
       "metric_identity": {
         "id": "scheduled-system-elapsed-ns",
         "version": 1
@@ -480,6 +760,26 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "group-order",
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:2e4ea4f04e92b10a8cb0b9d66240d27bac2ffbdc0b91f07b1857d810882a4cf7",
         "frames": 8,
         "required_counters": [
           "ecs_schedule_rebuilds",
@@ -490,7 +790,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "scheduler-executor",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -499,7 +799,7 @@
       ],
       "case_id": "parallel-snapshot-128x2",
       "correctness_label": "parallel-snapshot-field-digest",
-      "definition_digest": "sha256:bed816f41642d2df8ebbe8aae9113bec45bc186d711f30dda5304ef4b6f30e70",
+      "definition_digest": "sha256:d32faec1612fdc768857bb02fc6b0cd842eecb9bc8e19c08831b8595704fdedd",
       "metric_identity": {
         "id": "parallel-field-elapsed-ns",
         "version": 1
@@ -513,6 +813,26 @@
       "runtime_parameters": {
         "case_kind": "parallel-snapshot",
         "entity_count": 128,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:d9e7e559a000794264b1a0b055b26fa2fa9fee07d8387228de1dd09065f15707",
         "required_counters": [
           "ecs_physical_system_runs",
           "ecs_physical_rows_scanned",
@@ -522,7 +842,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "scheduler-executor",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -531,7 +851,7 @@
       ],
       "case_id": "simulated-four-system-eight-frame",
       "correctness_label": "simulated-multisystem-world-digest",
-      "definition_digest": "sha256:49c971559a2b295c96f078ce04048b09f71b005f6c881ccce473c107fa8c5cb9",
+      "definition_digest": "sha256:fc905b9625b3949e08ecbd2f81c36404f66a4c05d33d034db6708212cbcf3ba5",
       "metric_identity": {
         "id": "simulated-row-system-elapsed-ns",
         "version": 1
@@ -546,6 +866,26 @@
       "runtime_parameters": {
         "case_kind": "simulated-multisystem",
         "entity_count": 64,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:01281fb751ddcb36153a344aa40acd35f898fc4acb5a9924b56ea27da8670c17",
         "frames": 8,
         "required_counters": [
           "ecs_physical_system_runs",
@@ -558,7 +898,7 @@
       },
       "sampling_profile": "simulated-realtime",
       "workload_id": "scheduler-executor",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -568,7 +908,7 @@
       ],
       "case_id": "hash-grid-auto-96x3",
       "correctness_label": "hash-grid-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:3fcd74152d3a1f27c46ab769ae0ab3fb2e86293a2b2e590a223de76889a9ab5d",
+      "definition_digest": "sha256:b02508e645c669491c9bae6e2f9c88b607621a87f6424756c04aeab96ec7b511",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -586,6 +926,26 @@
       "runtime_parameters": {
         "case_kind": "spatial-hash-grid",
         "entity_count": 96,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:6791a1ac2e30d3dbbba2fe10db62f67851f3bea453b3bcfdaac98d73e65327da",
         "frames": 3,
         "radius": "20.0",
         "required_counters": [
@@ -602,7 +962,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "spatial-algorithms",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -612,7 +972,7 @@
       ],
       "case_id": "hilbert-rebuild-use-96x3",
       "correctness_label": "hilbert-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:e0c3be2275cdab44985dea81cc4ad6fc4de04108ebbea05080e250a5961a2735",
+      "definition_digest": "sha256:c678265543a3e21f4bbfbc29e40d1281c2f31eabe261d8b7e7481b0deaf169a8",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -630,6 +990,26 @@
       "runtime_parameters": {
         "case_kind": "spatial-hilbert",
         "entity_count": 96,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:cb8e50b822d9c62133c41a6d0548f4cb9f3b69a32bcd22496b90dd3d49f073e8",
         "frames": 3,
         "radius": "20.0",
         "required_counters": [
@@ -646,7 +1026,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "spatial-algorithms",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -656,7 +1036,7 @@
       ],
       "case_id": "octree-incremental-96x3",
       "correctness_label": "octree-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:aeddf28ffe3812c730df44ab71d80fb219195f5bdef295528ee892ab1df3b88e",
+      "definition_digest": "sha256:fc289a35971d7ef7968edad5f39992e2cae68db5dd681d530db6f697b49b1e3c",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -674,6 +1054,26 @@
       "runtime_parameters": {
         "case_kind": "spatial-octree",
         "entity_count": 96,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:1dd72619edcb369cdc0ba09748031d8bac4fbfa7bc736d9090e1e32f72758337",
         "frames": 3,
         "radius": "20.0",
         "required_counters": [
@@ -690,7 +1090,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "spatial-algorithms",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -700,7 +1100,7 @@
       ],
       "case_id": "quadtree-rebuild-frame-96x3",
       "correctness_label": "quadtree-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:0458785ca747707ef4f632f834025879d577c32090588a2ca90fe5a60c57e852",
+      "definition_digest": "sha256:3a14736129b12f867beffcded6bd6a9682246092cc16c8ff1f11688f89d48868",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -718,6 +1118,26 @@
       "runtime_parameters": {
         "case_kind": "spatial-quadtree",
         "entity_count": 96,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:cd7a7f2136f5ca61a5d8d2d81f916f5ba0031e836713e1b35d0360ea335eb770",
         "frames": 3,
         "radius": "20.0",
         "required_counters": [
@@ -734,7 +1154,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "spatial-algorithms",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -743,7 +1163,7 @@
       ],
       "case_id": "schema-storage-families",
       "correctness_label": "idempotent-schema-storage-mapping-digest",
-      "definition_digest": "sha256:c9b67a71ccb1320ebb057225764f10a219df0b36d1f7ec1b11ada30331cb1146",
+      "definition_digest": "sha256:32bb8234e63f4e618e3d3668a45e8cef33e7fb40666efc24d4da054ac901b30b",
       "metric_identity": {
         "id": "schema-validation-elapsed-ns",
         "version": 1
@@ -755,6 +1175,26 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "schema-storage",
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:5bb98204f8bcebfc64d8dde9cbe1213df7c9192a4c658c63d059e9f19606b4ed",
         "passes": 8,
         "required_counters": [
           "ecs_component_schemas_total",
@@ -764,7 +1204,7 @@
       },
       "sampling_profile": "micro",
       "workload_id": "storage-entity-archetype",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -773,7 +1213,7 @@
       ],
       "case_id": "spawn-mixed-archetypes-128",
       "correctness_label": "spawn-values-tags-order-digest",
-      "definition_digest": "sha256:0c1db9ad0eb6dc6206bce886fd3397a2d9647d506474bbee3dbe961b1697e420",
+      "definition_digest": "sha256:862df7d5682e4bf0843767c43f74b43eed5c66e6c524f221fb12c2aacbadf588",
       "metric_identity": {
         "id": "entity-operation-elapsed-ns",
         "version": 1
@@ -787,6 +1227,26 @@
       "runtime_parameters": {
         "case_kind": "spawn-archetypes",
         "entity_count": 128,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:fcf819cf94d0b8f09b4ddb833d4237b6ed6595c69ff351928f872b921abcb927",
         "required_counters": [
           "ecs_entities_alive",
           "ecs_rust_entities_alive",
@@ -796,7 +1256,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "storage-entity-archetype",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -805,7 +1265,7 @@
       ],
       "case_id": "structural-generation-churn-96x4",
       "correctness_label": "structural-churn-values-generations-digest",
-      "definition_digest": "sha256:7ddba99b10430ff06baa6c5a1d5203831d7afe5be8832500d9099da04fd6027b",
+      "definition_digest": "sha256:84688540e41af1bd2cd11177b99c052d4210f77b1127518841cf486018690fbd",
       "metric_identity": {
         "id": "churn-row-elapsed-ns",
         "version": 1
@@ -820,6 +1280,26 @@
         "case_kind": "structural-churn",
         "churn_count": 24,
         "entity_count": 96,
+        "execution_layer": "H",
+        "execution_layer_capabilities": {
+          "H": {
+            "available": true,
+            "detail": "Bounded headless sketch lifecycle is implemented and required by this case."
+          },
+          "I": {
+            "available": false,
+            "detail": "Native interactive SDL3 presentation route is not implemented in this catalog."
+          },
+          "P": {
+            "available": false,
+            "detail": "Public Python/PyO3 bridge route is not implemented in this catalog."
+          },
+          "R": {
+            "available": false,
+            "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
+          }
+        },
+        "expected_correctness_digest": "sha256:25d5bb7f13f80d1cc37272de7183f16bc761201adb81454e8c7365f06b4d4272",
         "iterations": 4,
         "required_counters": [
           "ecs_entities_alive",
@@ -830,7 +1310,7 @@
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "storage-entity-archetype",
-      "workload_version": 1
+      "workload_version": 2
     }
   ],
   "schema_version": 1

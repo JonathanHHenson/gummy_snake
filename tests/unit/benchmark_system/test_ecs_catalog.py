@@ -9,6 +9,25 @@ from benchmarks.suites.ecs.fixtures import FIXTURE_MANIFEST, fixture_digest
 ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = ROOT / "benchmarks" / "ecs_v1.toml"
 
+EXECUTION_LAYER_CAPABILITIES = {
+    "R": {
+        "available": False,
+        "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog.",
+    },
+    "P": {
+        "available": False,
+        "detail": "Public Python/PyO3 bridge route is not implemented in this catalog.",
+    },
+    "H": {
+        "available": True,
+        "detail": "Bounded headless sketch lifecycle is implemented and required by this case.",
+    },
+    "I": {
+        "available": False,
+        "detail": "Native interactive SDL3 presentation route is not implemented in this catalog.",
+    },
+}
+
 EXPECTED_CASES = {
     ("storage-entity-archetype", "schema-storage-families", "headless", "micro"),
     ("storage-entity-archetype", "spawn-mixed-archetypes-128", "headless", "bulk-headless"),
@@ -123,7 +142,21 @@ def test_ecs_catalog_freezes_exact_cases_routes_profiles_and_work() -> None:
         "simulated-realtime",
     }
     assert {workload.execution_class.value for workload in catalog.workloads} == {"headless"}
+    assert {workload.parameters["execution_layer"] for workload in catalog.workloads} == {"H"}
+    assert {workload.version for workload in catalog.workloads} == {2}
+    assert {
+        layer
+        for layer, capability in EXECUTION_LAYER_CAPABILITIES.items()
+        if capability["available"]
+    } == {"H"}
     for workload in catalog.workloads:
+        assert workload.parameters["execution_layer_capabilities"] == EXECUTION_LAYER_CAPABILITIES
+        execution_layer = workload.parameters["execution_layer"]
+        assert isinstance(execution_layer, str)
+        assert EXECUTION_LAYER_CAPABILITIES[execution_layer]["available"]
+        assert isinstance(workload.parameters["expected_correctness_digest"], str)
+        assert workload.parameters["expected_correctness_digest"].startswith("sha256:")
+        assert len(workload.parameters["expected_correctness_digest"]) == 71
         assert isinstance(workload.parameters["work_units"], int)
         assert workload.parameters["work_units"] > 0
         assert workload.primary_metric.work_unit

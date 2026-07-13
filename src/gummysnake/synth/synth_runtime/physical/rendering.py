@@ -394,18 +394,21 @@ def _beats_to_seconds(beats: float, bpm: float) -> float:
     return beats * 60.0 / bpm
 
 
-def _render_physical_plan(plan: PhysicalPlan, *, sample_rate: int = _SAMPLE_RATE) -> bytes:
+def _compile_physical_plan(plan: PhysicalPlan, *, sample_rate: int) -> Any:
+    """Compile one inspected Python plan into its reusable Rust execution handle."""
+
     runtime = _require_synth_runtime()
-    return bytes(runtime.synth_render_serialized_plan_wav(plan.to_bytes(), int(sample_rate)))
+    return runtime.CanvasSynthProgram.from_serialized(plan.to_bytes(), int(sample_rate))
+
+
+def _render_physical_plan(plan: PhysicalPlan, *, sample_rate: int = _SAMPLE_RATE) -> bytes:
+    return bytes(_compile_physical_plan(plan, sample_rate=sample_rate).render_wav())
 
 
 def _render_physical_plan_to_file(
     plan: PhysicalPlan, path: Path, *, sample_rate: int = _SAMPLE_RATE
 ) -> bytes:
-    runtime = _require_synth_runtime()
-    return bytes(
-        runtime.synth_render_serialized_plan_wav_file(plan.to_bytes(), int(sample_rate), str(path))
-    )
+    return bytes(_compile_physical_plan(plan, sample_rate=sample_rate).render_wav_file(str(path)))
 
 
 def _write_wav_file(payload: bytes, path: Path) -> None:
@@ -417,6 +420,7 @@ def _require_synth_runtime() -> Any:
 
     runtime = require_canvas_runtime()
     required_functions = (
+        "synth_play_compiled_program",
         "synth_render_serialized_plan_wav",
         "synth_render_serialized_plan_wav_file",
         "synth_write_wav_file",
@@ -429,7 +433,9 @@ def _require_synth_runtime() -> Any:
         "synth_diagnostics",
         "synth_reset_diagnostics",
     )
-    if not all(callable(getattr(runtime, name, None)) for name in required_functions):
+    if not isinstance(getattr(runtime, "CanvasSynthProgram", None), type) or not all(
+        callable(getattr(runtime, name, None)) for name in required_functions
+    ):
         raise BackendCapabilityError(
             "Synth rendering requires a current gummysnake.rust._canvas runtime. "
             "Rebuild it with: uvx maturin develop --release --manifest-path "

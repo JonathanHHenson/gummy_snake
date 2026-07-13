@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use crate::gpu::context::GpuDeviceContext;
 use crate::gpu::pipeline::{preferred_surface_format, surface_config};
 use crate::gpu::{GpuColor, GpuRenderer, ModelUniform, ModelVertex};
 use crate::types::BlendMode;
@@ -119,6 +122,46 @@ fn texture_replacement_and_removal_release_gpu_map_ownership() {
     assert_eq!(gpu.upload_texture(7, 1, 1, &second).unwrap(), Some(4));
     assert_eq!(gpu.remove_texture(7), Some(4));
     assert_eq!(gpu.remove_texture(7), None);
+}
+
+#[test]
+fn renderers_share_an_explicit_device_context_but_not_canvas_state() {
+    let context = match GpuDeviceContext::new() {
+        Ok(context) => context,
+        Err(_) => return,
+    };
+    let mut first = GpuRenderer::new_with_device_context(Arc::clone(&context), 2, 2).unwrap();
+    let second = GpuRenderer::new_with_device_context(context, 3, 4).unwrap();
+
+    assert!(Arc::ptr_eq(first.device_context(), second.device_context()));
+    assert_eq!(first.texture_size.width, 2);
+    assert_eq!(first.texture_size.height, 2);
+    assert_eq!(second.texture_size.width, 3);
+    assert_eq!(second.texture_size.height, 4);
+
+    let red = GpuColor {
+        r: 255,
+        g: 0,
+        b: 0,
+        a: 255,
+    };
+    first.begin_frame();
+    first.set_clear_color(red);
+    assert_eq!(first.only_pending_clear(), Some(red));
+    assert_eq!(second.only_pending_clear(), None);
+}
+
+#[test]
+fn normal_renderer_construction_reuses_the_process_device_context() {
+    let first = match GpuRenderer::new(2, 2) {
+        Ok(renderer) => renderer,
+        Err(_) => return,
+    };
+    let second = GpuRenderer::new(3, 4).unwrap();
+
+    assert!(Arc::ptr_eq(first.device_context(), second.device_context()));
+    assert_eq!(first.texture_size.width, 2);
+    assert_eq!(second.texture_size.height, 4);
 }
 
 #[test]

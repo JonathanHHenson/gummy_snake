@@ -1,5 +1,6 @@
 use super::*;
 use crate::plan::CanvasCommandNode;
+use crate::ChangeKind;
 
 #[test]
 fn physical_plan_executes_scalar_set_over_query_rows() {
@@ -47,6 +48,11 @@ fn physical_plan_executes_scalar_set_over_query_rows() {
     );
     assert_eq!(report.fields_written, 1);
     assert_eq!(report.writes.len(), 1);
+    assert!(matches!(
+        &world.change_journal().records().last().unwrap().kind,
+        ChangeKind::FieldChanged { component, field }
+            if component == "Position" && field == "x"
+    ));
 }
 
 #[test]

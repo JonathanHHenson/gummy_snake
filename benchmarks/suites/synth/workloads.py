@@ -361,7 +361,7 @@ def _composition(
             "control_count": len(plan.controls),
             "logical_node_count": len(track.logical_plan.nodes),
             "known_identity_policy": (
-                "process-global ids normalized; stable plan-local ids remain a gap"
+                "stable plan-local event and instance identifiers are seeded by the track"
             ),
         },
     )

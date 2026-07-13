@@ -3,6 +3,7 @@
 //! `renderer_state` owns the non-POD resource graph. `types` owns the POD draw,
 //! uniform, and vertex records consumed by pipelines and encoders.
 
+mod context;
 mod pipeline;
 mod render;
 mod renderer_state;

@@ -17,7 +17,7 @@ GUMMY_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml "
     "--features extension-module"
 )
-EXPECTED_CANVAS_ABI_VERSION = 19
+EXPECTED_CANVAS_ABI_VERSION = 20
 
 
 class _RustCanvasImage(Protocol):
@@ -66,6 +66,20 @@ class _RustCanvasSound(Protocol):
     def to_bytes(self) -> bytes: ...
 
 
+class _RustCanvasSynthProgram(Protocol):
+    sample_rate: int
+    duration: float
+    duration_frames: int
+    event_count: int
+
+    @staticmethod
+    def from_serialized(payload: bytes, sample_rate: int) -> _RustCanvasSynthProgram: ...
+
+    def render_wav(self) -> bytes: ...
+
+    def render_wav_file(self, path: str) -> bytes: ...
+
+
 class _RustCanvasAudioPlayback(Protocol):
     duration: float
 
@@ -83,6 +97,7 @@ class _CanvasModule(Protocol):
     Canvas: type[Any]
     CanvasImage: type[_RustCanvasImage]
     CanvasSound: type[_RustCanvasSound]
+    CanvasSynthProgram: type[_RustCanvasSynthProgram]
     SketchContextState: type[Any]
 
     def health_check(self) -> str: ...
@@ -153,6 +168,10 @@ class _CanvasModule(Protocol):
     def rasterize_faces_rgba(
         self, width: int, height: int, faces: list[dict[str, Any]]
     ) -> bytes: ...
+
+    def synth_play_compiled_program(
+        self, program: _RustCanvasSynthProgram
+    ) -> _RustCanvasAudioPlayback: ...
 
     def synth_render_event_wav(self, event: dict[str, Any], sample_rate: int) -> bytes: ...
 
@@ -315,6 +334,7 @@ def _validate_canvas_runtime(module: _CanvasModule) -> None:
         "CanvasModel3D",
         "CanvasMesh3D",
         "CanvasSound",
+        "CanvasSynthProgram",
         "SketchContextState",
     )
     missing_classes = [

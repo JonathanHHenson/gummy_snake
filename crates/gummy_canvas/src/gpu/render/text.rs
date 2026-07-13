@@ -32,7 +32,7 @@ impl GpuRenderer {
 
     fn prepare_text_areas(&mut self, commands: &[DrawCommand]) -> bool {
         self.text_viewport.update(
-            &self.queue,
+            self.device_context.queue(),
             glyphon::Resolution {
                 width: self.texture_size.width,
                 height: self.texture_size.height,
@@ -96,8 +96,8 @@ impl GpuRenderer {
         }
         self.text_renderer
             .prepare(
-                &self.device,
-                &self.queue,
+                self.device_context.device(),
+                self.device_context.queue(),
                 &mut self.text_font_system,
                 &mut self.text_atlas,
                 &self.text_viewport,

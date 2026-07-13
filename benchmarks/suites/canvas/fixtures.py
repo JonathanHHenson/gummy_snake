@@ -30,6 +30,65 @@ class RgbaFixture:
 
 
 @dataclass(frozen=True, slots=True)
+class MediaFrameFixture:
+    """A decoded grayscale, BGR, or BGRA buffer with its reviewed RGBA result."""
+
+    name: str
+    width: int
+    height: int
+    channels: int
+    pixels: bytes
+    expected_rgba: RgbaFixture
+
+    def __post_init__(self) -> None:
+        if self.channels not in {1, 3, 4}:
+            raise ValueError("media frame fixtures require 1, 3, or 4 channels")
+        if self.width != self.expected_rgba.width or self.height != self.expected_rgba.height:
+            raise ValueError("media frame fixture dimensions must match its RGBA result")
+        if len(self.pixels) != self.width * self.height * self.channels:
+            raise ValueError("media frame byte length does not match its dimensions")
+
+
+@dataclass(frozen=True, slots=True)
+class ObjFixture:
+    """A reviewed local OBJ payload and its exact parsed triangle topology."""
+
+    name: str
+    source: str
+    vertices: tuple[tuple[float, float, float], ...]
+    faces: tuple[tuple[int, ...], ...]
+
+    @property
+    def payload(self) -> bytes:
+        """Return the UTF-8 OBJ bytes tracked by the fixture manifest."""
+
+        return self.source.encode("utf-8")
+
+
+@dataclass(frozen=True, slots=True)
+class TextCorpusFixture:
+    """A reviewed Unicode corpus used for deterministic text-input coverage."""
+
+    name: str
+    corpus: Mapping[str, tuple[str, ...]]
+
+    def __post_init__(self) -> None:
+        if not self.name or not self.corpus:
+            raise ValueError("text corpus fixtures require a name and at least one category")
+        if any(
+            not category or not values or any(not value for value in values)
+            for category, values in self.corpus.items()
+        ):
+            raise ValueError("text corpus fixture categories must contain non-empty strings")
+
+    @property
+    def payload(self) -> bytes:
+        """Return canonical UTF-8 corpus bytes tracked by the fixture manifest."""
+
+        return _text_bytes(self.corpus)
+
+
+@dataclass(frozen=True, slots=True)
 class PathRecord:
     """A deterministic primitive or path input expressed in logical coordinates."""
 
@@ -44,6 +103,50 @@ class FixtureManifestEntry:
     name: str
     byte_length: int
     sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceCounterFamily:
+    """Public resident and peak diagnostic paths for one retained resource family."""
+
+    name: str
+    resident_counter: str
+    peak_counter: str
+
+    def __post_init__(self) -> None:
+        if not self.name or not self.resident_counter or not self.peak_counter:
+            raise ValueError("resource counter family values must be non-empty")
+
+
+@dataclass(frozen=True, slots=True)
+class ResourceResetFixture:
+    """A deterministic warm-cache reset contract based on a reviewed RGBA source."""
+
+    name: str
+    source: RgbaFixture
+    retained_families: tuple[ResourceCounterFamily, ...]
+    reset_activity_counters: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("resource reset fixture name must be non-empty")
+        if not self.retained_families:
+            raise ValueError("resource reset fixture requires retained resource families")
+        if not self.reset_activity_counters or not all(self.reset_activity_counters):
+            raise ValueError("resource reset fixture requires reset activity counters")
+
+    @property
+    def required_counters(self) -> tuple[str, ...]:
+        """Return the exact public counters the reset oracle may inspect."""
+
+        return tuple(
+            dict.fromkeys(
+                counter
+                for family in self.retained_families
+                for counter in (family.resident_counter, family.peak_counter)
+            )
+            | dict.fromkeys(self.reset_activity_counters)
+        )
 
 
 def _rgba(width: int, height: int, pixel: Callable[[int, int], tuple[int, int, int, int]]) -> bytes:
@@ -64,6 +167,22 @@ def _sprite_pixel(x: int, y: int) -> tuple[int, int, int, int]:
     return red, green, blue, alpha
 
 
+def _bgr_pixels(rgba: bytes) -> bytes:
+    return bytes(
+        component
+        for offset in range(0, len(rgba), 4)
+        for component in (rgba[offset + 2], rgba[offset + 1], rgba[offset])
+    )
+
+
+def _bgra_pixels(rgba: bytes) -> bytes:
+    return bytes(
+        component
+        for offset in range(0, len(rgba), 4)
+        for component in (rgba[offset + 2], rgba[offset + 1], rgba[offset], rgba[offset + 3])
+    )
+
+
 CHECKERBOARD = RgbaFixture("checkerboard-8", 8, 8, _rgba(8, 8, _checker_pixel))
 SPRITE_SHEET = RgbaFixture("sprite-sheet-8", 8, 8, _rgba(8, 8, _sprite_pixel))
 PIXEL_BUFFER = RgbaFixture(
@@ -77,6 +196,69 @@ MEDIA_FRAME_RGBA = RgbaFixture(
     6,
     4,
     _rgba(6, 4, lambda x, y: (17 * x + 13 * y, 29 * x, 47 * y, 255)),
+)
+MEDIA_FRAME_BGR = MediaFrameFixture(
+    "media-frame-bgr-6",
+    6,
+    4,
+    3,
+    _bgr_pixels(MEDIA_FRAME_RGBA.pixels),
+    expected_rgba=MEDIA_FRAME_RGBA,
+)
+MEDIA_FRAME_BGRA_RGBA = RgbaFixture(
+    "media-frame-bgra-rgba-6",
+    6,
+    4,
+    _rgba(6, 4, lambda x, y: (17 * x + 13 * y, 29 * x, 47 * y, 64 + (x * 37 + y * 19) % 192)),
+)
+MEDIA_FRAME_BGRA = MediaFrameFixture(
+    "media-frame-bgra-6",
+    6,
+    4,
+    4,
+    _bgra_pixels(MEDIA_FRAME_BGRA_RGBA.pixels),
+    expected_rgba=MEDIA_FRAME_BGRA_RGBA,
+)
+_MEDIA_FRAME_GRAY = bytes(17 * x + 13 * y for y in range(4) for x in range(6))
+MEDIA_FRAME_GRAY_RGBA = RgbaFixture(
+    "media-frame-gray-rgba-6",
+    6,
+    4,
+    bytes(component for value in _MEDIA_FRAME_GRAY for component in (value, value, value, 255)),
+)
+MEDIA_FRAME_GRAY = MediaFrameFixture(
+    "media-frame-gray-6",
+    6,
+    4,
+    1,
+    _MEDIA_FRAME_GRAY,
+    expected_rgba=MEDIA_FRAME_GRAY_RGBA,
+)
+
+SPRITE_CACHE_RESET = ResourceResetFixture(
+    "sprite-cache-reset",
+    source=SPRITE_SHEET,
+    retained_families=(
+        ResourceCounterFamily(
+            "texture",
+            resident_counter="texture_resident_bytes",
+            peak_counter="texture_peak_bytes",
+        ),
+        ResourceCounterFamily(
+            "image-atlas",
+            resident_counter="image_atlas_resident_bytes",
+            peak_counter="image_atlas_peak_bytes",
+        ),
+    ),
+    reset_activity_counters=(
+        "texture_uploads",
+        "texture_upload_bytes",
+        "texture_dirty_uploads",
+        "texture_cache_evictions",
+        "texture_destructions",
+        "image_atlas_evictions",
+        "image_atlas_destructions",
+    ),
 )
 
 PATH_RECORDS = (
@@ -93,9 +275,16 @@ TEXT_CORPUS: Mapping[str, tuple[str, ...]] = {
     "cjk": ("\u30ad\u30e3\u30f3\u30d0\u30b9",),
     "multiline": ("first line\nsecond line",),
 }
+TEXT_CORPUS_FIXTURE = TextCorpusFixture("text-corpus", TEXT_CORPUS)
 
 MINIMAL_OBJ = (
     """# deterministic benchmark triangle\nv 0.0 0.0 0.0\nv 1.0 0.0 0.0\nv 0.0 1.0 0.0\nf 1 2 3\n"""
+)
+MINIMAL_OBJ_FIXTURE = ObjFixture(
+    "minimal-triangle-obj",
+    MINIMAL_OBJ,
+    vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+    faces=((0, 1, 2),),
 )
 
 
@@ -115,14 +304,61 @@ FIXTURE_BYTES: Mapping[str, bytes] = {
     SPRITE_SHEET.name: SPRITE_SHEET.pixels,
     PIXEL_BUFFER.name: PIXEL_BUFFER.pixels,
     MEDIA_FRAME_RGBA.name: MEDIA_FRAME_RGBA.pixels,
+    MEDIA_FRAME_BGR.name: MEDIA_FRAME_BGR.pixels,
+    MEDIA_FRAME_BGRA.name: MEDIA_FRAME_BGRA.pixels,
+    MEDIA_FRAME_BGRA_RGBA.name: MEDIA_FRAME_BGRA_RGBA.pixels,
+    MEDIA_FRAME_GRAY.name: MEDIA_FRAME_GRAY.pixels,
+    MEDIA_FRAME_GRAY_RGBA.name: MEDIA_FRAME_GRAY_RGBA.pixels,
     "path-records": _path_bytes(PATH_RECORDS),
-    "text-corpus": _text_bytes(TEXT_CORPUS),
-    "minimal-triangle-obj": MINIMAL_OBJ.encode("utf-8"),
+    TEXT_CORPUS_FIXTURE.name: TEXT_CORPUS_FIXTURE.payload,
+    MINIMAL_OBJ_FIXTURE.name: MINIMAL_OBJ_FIXTURE.payload,
 }
 
-FIXTURE_MANIFEST = tuple(
-    FixtureManifestEntry(name, len(payload), sha256(payload).hexdigest())
-    for name, payload in sorted(FIXTURE_BYTES.items())
+# These values are intentionally literal review points, not hashes derived from
+# the current payloads. ``validate_manifest`` therefore catches fixture changes.
+FIXTURE_MANIFEST = (
+    FixtureManifestEntry(
+        "checkerboard-8", 256, "a814e5420f755241e10a600f2f923fa59603152d80b244449aa0b607492bdd3a"
+    ),
+    FixtureManifestEntry(
+        "media-frame-6", 96, "003d90b999daa6d6427977c8aec2d2e250da6601239e1196075efccb256c9c8d"
+    ),
+    FixtureManifestEntry(
+        "media-frame-bgr-6", 72, "768ec65187c53f0b581bd0523eb4f53706d9ade9312e57a9a0f1b159989cee11"
+    ),
+    FixtureManifestEntry(
+        "media-frame-bgra-6", 96, "117176d15a581e3182f2fafb7bbc4f6f3560b28ba3274d7683d585e1b57a3aae"
+    ),
+    FixtureManifestEntry(
+        "media-frame-bgra-rgba-6",
+        96,
+        "3f684ad8586634155fa91c71baf819da2fe560a0305c81d29b0084855519ed49",
+    ),
+    FixtureManifestEntry(
+        "media-frame-gray-6", 24, "860c5318721c2242c657866c71161a1e19bade9d5d9c6426e3af38191ba79b1a"
+    ),
+    FixtureManifestEntry(
+        "media-frame-gray-rgba-6",
+        96,
+        "8b8b7b4c92c5f6173cbb037bc27b82800338f59fa4849e060848c8e93bad8ad7",
+    ),
+    FixtureManifestEntry(
+        "minimal-triangle-obj",
+        85,
+        "507c6fbd5d8beea9865e5c79d34de3fe174838a40492bc920785dc3203c2a921",
+    ),
+    FixtureManifestEntry(
+        "path-records", 236, "f9ec696d79e51788ee9e1bbbcb8a41062a6e6d2fae7e4d4347f97d24de711144"
+    ),
+    FixtureManifestEntry(
+        "pixel-buffer-4", 64, "cf91d64b3432565aa81aa1ad3a2cd0bc25ed2f6ad53c874b48b88581a240a042"
+    ),
+    FixtureManifestEntry(
+        "sprite-sheet-8", 256, "285444ab4568c7087a86f565640595bafe24160611d1867ded78ff43e81198d3"
+    ),
+    FixtureManifestEntry(
+        "text-corpus", 180, "549750faa57043f60c867da92f266c3053b58f00509c6de9b0dce4f0ef4de3b9"
+    ),
 )
 
 
@@ -165,13 +401,26 @@ __all__ = [
     "CHECKERBOARD",
     "FIXTURE_BYTES",
     "FIXTURE_MANIFEST",
+    "MEDIA_FRAME_BGR",
+    "MEDIA_FRAME_BGRA",
+    "MEDIA_FRAME_BGRA_RGBA",
+    "MEDIA_FRAME_GRAY",
+    "MEDIA_FRAME_GRAY_RGBA",
     "MEDIA_FRAME_RGBA",
     "MINIMAL_OBJ",
+    "MINIMAL_OBJ_FIXTURE",
+    "MediaFrameFixture",
+    "ObjFixture",
     "PATH_RECORDS",
     "PIXEL_BUFFER",
     "RgbaFixture",
+    "ResourceCounterFamily",
+    "ResourceResetFixture",
+    "SPRITE_CACHE_RESET",
     "SPRITE_SHEET",
     "TEXT_CORPUS",
+    "TEXT_CORPUS_FIXTURE",
+    "TextCorpusFixture",
     "FixtureManifestEntry",
     "PathRecord",
     "fixture_manifest",

@@ -69,7 +69,7 @@ impl GpuRenderer {
         pending_primitive_vertices.clear();
         let mut batcher = RenderPassBatcher {
             pass: &mut pass,
-            queue: self.queue.as_ref(),
+            queue: self.device_context.queue(),
             viewport_bind_group: &self.viewport_bind_group,
             clip_textures: &self.clip_textures,
             primitive_vertex_buffer: self.primitive_vertex_buffer.as_ref(),
@@ -330,18 +330,21 @@ impl GpuRenderer {
             let size_bytes = (records.len() * std::mem::size_of::<StrokePathRecord>()) as u64;
             let size = wgpu::BufferSize::new(size_bytes)
                 .expect("stroke path storage binding must not be empty");
-            let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("gummy_canvas stroke path bind group"),
-                layout: &self.stroke_path_bind_group_layout,
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer,
-                        offset: offset_bytes,
-                        size: Some(size),
-                    }),
-                }],
-            });
+            let bind_group =
+                self.device_context
+                    .device()
+                    .create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: Some("gummy_canvas stroke path bind group"),
+                        layout: &self.stroke_path_bind_group_layout,
+                        entries: &[wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                buffer,
+                                offset: offset_bytes,
+                                size: Some(size),
+                            }),
+                        }],
+                    });
             bindings.push(Some(StrokePathBinding {
                 record_offset,
                 bind_group,

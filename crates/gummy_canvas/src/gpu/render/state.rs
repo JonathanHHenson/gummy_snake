@@ -16,14 +16,15 @@ impl GpuRenderer {
         self.write_viewport(self.texture_size.width, self.texture_size.height);
         let mut commands = std::mem::take(&mut self.commands);
         self.ensure_render_vertex_buffers(&commands);
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("gummy_canvas render encoder"),
-            });
+        let mut encoder =
+            self.device_context
+                .device()
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("gummy_canvas render encoder"),
+                });
         let encode_start = Instant::now();
         self.encode_commands(&mut encoder, &commands);
-        self.queue.submit([encoder.finish()]);
+        self.device_context.queue().submit([encoder.finish()]);
         self.encode_time_ms += encode_start.elapsed().as_secs_f64() * 1000.0;
         // Retain the encoded stream for replay comparison while recycling the
         // previous stream's allocation for the next frame.

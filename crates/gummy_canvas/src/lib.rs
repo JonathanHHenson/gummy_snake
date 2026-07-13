@@ -35,7 +35,7 @@ mod types;
 
 mod bindings;
 /// Canvas extension ABI marker validated by Python before runtime construction.
-pub(crate) const CANVAS_ABI_VERSION: u32 = 19;
+pub(crate) const CANVAS_ABI_VERSION: u32 = 20;
 
 use pyo3::prelude::*;
 

@@ -1,4 +1,4 @@
-use super::World;
+use super::{ChangeEpoch, ChangeKind, World};
 use crate::archetype::ComponentRow;
 use crate::column::EcsValue;
 use crate::entity::Entity;
@@ -74,6 +74,126 @@ fn revisions_track_structural_and_field_mutations() {
     assert_eq!(world.structural_revision(), 2);
     world.add_tag(entity, "mover").unwrap();
     assert_eq!(world.structural_revision(), 3);
+}
+
+#[test]
+fn change_journal_records_structural_field_and_tag_mutations_by_epoch() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    world.set_frame(11);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world
+        .set_field(entity, "Position", "x", EcsValue::F64(12.0))
+        .unwrap();
+    world.add_component_default(entity, "Velocity").unwrap();
+    world.add_tag(entity, "Mover").unwrap();
+    world.remove_tag(entity, "Mover").unwrap();
+    world.remove_component(entity, "Velocity").unwrap();
+    world.despawn(entity).unwrap();
+
+    let epoch = ChangeEpoch::new(11);
+    let journal = world.change_journal();
+    assert_eq!(journal.current_epoch(), epoch);
+    assert_eq!(journal.latest_revision().get(), 9);
+    assert_eq!(journal.records_for_epoch(epoch).count(), 9);
+    assert_eq!(
+        journal
+            .records()
+            .iter()
+            .map(|record| &record.kind)
+            .collect::<Vec<_>>(),
+        vec![
+            &ChangeKind::Spawned,
+            &ChangeKind::ComponentAdded {
+                component: "Position".to_string(),
+            },
+            &ChangeKind::FieldChanged {
+                component: "Position".to_string(),
+                field: "x".to_string(),
+            },
+            &ChangeKind::ComponentAdded {
+                component: "Velocity".to_string(),
+            },
+            &ChangeKind::TagAdded {
+                tag: "Mover".to_string(),
+            },
+            &ChangeKind::TagRemoved {
+                tag: "Mover".to_string(),
+            },
+            &ChangeKind::ComponentRemoved {
+                component: "Velocity".to_string(),
+            },
+            &ChangeKind::ComponentRemoved {
+                component: "Position".to_string(),
+            },
+            &ChangeKind::Despawned,
+        ]
+    );
+    let change = journal.entity_change(epoch, entity).unwrap();
+    assert_eq!(change.spawned.unwrap().get(), 1);
+    assert_eq!(change.despawned.unwrap().get(), 9);
+    assert_eq!(change.components["Position"].added.unwrap().get(), 2);
+    assert_eq!(change.components["Position"].removed.unwrap().get(), 8);
+    assert_eq!(change.components["Position"].changed_fields["x"].get(), 3);
+    assert_eq!(change.components["Velocity"].added.unwrap().get(), 4);
+    assert_eq!(change.components["Velocity"].removed.unwrap().get(), 7);
+    assert_eq!(change.tags["Mover"].added.unwrap().get(), 5);
+    assert_eq!(change.tags["Mover"].removed.unwrap().get(), 6);
+}
+
+#[test]
+fn change_journal_tracks_staged_and_f64_mutations_without_recording_noop_f64_writes() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    world.set_frame(3);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let before_f64_writes = world.change_journal().len();
+
+    assert_eq!(
+        world
+            .set_field_f64_many("Position", "x", &[(entity, 0.0)])
+            .unwrap(),
+        0
+    );
+    assert_eq!(world.change_journal().len(), before_f64_writes);
+    assert_eq!(
+        world
+            .set_field_f64_many("Position", "x", &[(entity, 3.0)])
+            .unwrap(),
+        1
+    );
+    assert!(matches!(
+        world.change_journal().records().last().unwrap().kind,
+        ChangeKind::FieldChanged { ref component, ref field }
+            if component == "Position" && field == "x"
+    ));
+
+    world.stage_add_component(entity, "Velocity");
+    world.stage_remove_component(entity, "Velocity");
+    world.apply_staged().unwrap();
+    let epoch = ChangeEpoch::new(3);
+    let change = world.change_journal().entity_change(epoch, entity).unwrap();
+    assert_eq!(change.components["Velocity"].added.unwrap().get(), 4);
+    assert_eq!(change.components["Velocity"].removed.unwrap().get(), 5);
+
+    world.despawn(entity).unwrap();
+    let reused = world.spawn_empty();
+    assert_eq!(reused.index, entity.index);
+    assert_ne!(reused.generation, entity.generation);
+    assert!(world
+        .change_journal()
+        .entity_change(epoch, reused)
+        .is_some());
+    assert_eq!(
+        world
+            .change_journal()
+            .entity_change(epoch, entity)
+            .unwrap()
+            .despawned
+            .unwrap()
+            .get(),
+        7
+    );
 }
 
 #[test]

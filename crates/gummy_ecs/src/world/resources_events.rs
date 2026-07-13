@@ -39,6 +39,7 @@ impl World {
 
     pub fn set_frame(&mut self, frame: u64) {
         self.current_frame = frame;
+        self.change_journal.set_epoch(frame);
         self.diagnostics.event_records_pruned += self.events.begin_frame(frame);
     }
 

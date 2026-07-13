@@ -21,7 +21,8 @@ pub(crate) use crate::runtime::{
     DEFAULT_POINTER_LOCK_MODE,
 };
 pub(crate) use crate::sound::{
-    synth_play_serialized_plan, synth_play_wav_bytes, CanvasAudioPlayback, CanvasSound,
+    synth_play_compiled_program, synth_play_serialized_plan, synth_play_wav_bytes,
+    CanvasAudioPlayback, CanvasSound,
 };
 pub(crate) use crate::text::{
     default_font_paths, render_text_line, text_ascent as measure_text_ascent,

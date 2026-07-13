@@ -23,17 +23,21 @@ impl GpuRenderer {
             wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize,
         );
         let output_size = padded_bytes_per_row * self.texture_size.height as usize;
-        let output = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("gummy_canvas readback buffer"),
-            size: output_size as u64,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("gummy_canvas readback encoder"),
+        let output = self
+            .device_context
+            .device()
+            .create_buffer(&wgpu::BufferDescriptor {
+                label: Some("gummy_canvas readback buffer"),
+                size: output_size as u64,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
             });
+        let mut encoder =
+            self.device_context
+                .device()
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("gummy_canvas readback encoder"),
+                });
         let commands = if encode_render {
             self.write_viewport(self.texture_size.width, self.texture_size.height);
             let commands = std::mem::take(&mut self.commands);
@@ -62,7 +66,7 @@ impl GpuRenderer {
             },
             self.texture_size,
         );
-        self.queue.submit([encoder.finish()]);
+        self.device_context.queue().submit([encoder.finish()]);
         if let Some(commands) = commands {
             self.commands = commands;
         }
@@ -71,7 +75,7 @@ impl GpuRenderer {
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        let _ = self.device.poll(wgpu::PollType::Wait);
+        let _ = self.device_context.device().poll(wgpu::PollType::Wait);
         receiver
             .recv()
             .map_err(|err| format!("Failed to receive GPU readback status: {err}"))?

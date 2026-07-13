@@ -15,7 +15,7 @@ mod ecs;
 mod health;
 mod image_ops;
 pub(crate) mod models;
-mod synth;
+pub(crate) mod synth;
 
 use ecs::*;
 
@@ -48,6 +48,7 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(project_shade_model_handle, m)?)?;
     m.add_function(wrap_pyfunction!(rasterize_faces_rgba, m)?)?;
     synth::register(m)?;
+    m.add_function(wrap_pyfunction!(synth_play_compiled_program, m)?)?;
     m.add_function(wrap_pyfunction!(synth_play_serialized_plan, m)?)?;
     m.add_function(wrap_pyfunction!(synth_play_wav_bytes, m)?)?;
     m.add("CANVAS_ABI_VERSION", CANVAS_ABI_VERSION)?;

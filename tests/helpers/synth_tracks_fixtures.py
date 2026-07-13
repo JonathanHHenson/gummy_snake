@@ -318,6 +318,7 @@ class _FakeCanvasAudioPlayback:
 class _FakeSynthRuntime:
     def __init__(self) -> None:
         self.serialized_plan_calls: list[tuple[bytes, int]] = []
+        self.compiled_program_calls: list[tuple[bytes, int]] = []
         self.play_serialized_plan_calls: list[tuple[bytes, int]] = []
         self.play_wav_bytes_calls: list[bytes] = []
         self.playbacks: list[_FakeCanvasAudioPlayback] = []
@@ -325,6 +326,38 @@ class _FakeSynthRuntime:
         self.event_calls: list[tuple[dict[str, object], int]] = []
         self.worker_count: int | str = "auto"
         self.diagnostic_counters: dict[str, object] = {}
+        self.CanvasSynthProgram = self._canvas_synth_program_type()
+
+    def _canvas_synth_program_type(self) -> type[object]:
+        runtime = self
+
+        class Program:
+            def __init__(self, payload: bytes, sample_rate: int) -> None:
+                self._payload = payload
+                self.sample_rate = sample_rate
+                self.duration = sy.PhysicalPlan.from_bytes(payload).duration_seconds
+                self.duration_frames = int(round(self.duration * sample_rate))
+                self.event_count = len(sy.PhysicalPlan.from_bytes(payload).events)
+
+            @staticmethod
+            def from_serialized(payload: bytes, sample_rate: int) -> "Program":
+                raw = bytes(payload)
+                runtime.compiled_program_calls.append((raw, sample_rate))
+                return Program(raw, sample_rate)
+
+            def render_wav(self) -> bytes:
+                callback = getattr(runtime, "on_compiled_program_render", None)
+                if callable(callback):
+                    callback()
+                runtime.serialized_plan_calls.append((self._payload, self.sample_rate))
+                return _wav_payload(self.duration, self.sample_rate)
+
+            def render_wav_file(self, path: str) -> bytes:
+                rendered = self.render_wav()
+                Path(path).write_bytes(rendered)
+                return rendered
+
+        return Program
 
     def synth_render_serialized_plan_wav(self, payload: bytes, sample_rate: int) -> bytes:
         self.serialized_plan_calls.append((bytes(payload), sample_rate))
@@ -350,6 +383,14 @@ class _FakeSynthRuntime:
 
     def synth_reset_diagnostics(self) -> None:
         self.diagnostic_counters.clear()
+
+    def synth_play_compiled_program(self, program: object) -> _FakeCanvasAudioPlayback:
+        payload = bytes(program._payload)
+        sample_rate = int(program.sample_rate)
+        self.play_serialized_plan_calls.append((payload, sample_rate))
+        playback = _FakeCanvasAudioPlayback(float(program.duration))
+        self.playbacks.append(playback)
+        return playback
 
     def synth_play_serialized_plan(
         self, payload: bytes, sample_rate: int

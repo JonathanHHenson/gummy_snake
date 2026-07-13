@@ -4,7 +4,7 @@ use crate::column::EcsValue;
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
 
-use super::World;
+use super::{ChangeKind, World};
 
 fn contiguous_location_range(locations: &[(usize, usize)]) -> Option<(usize, usize, usize)> {
     let (first_archetype, first_row) = locations.first().copied()?;
@@ -27,6 +27,13 @@ impl World {
         let value = self.coerce_value_for_component_field(component, field, value)?;
         let location = self.location(entity)?;
         self.archetypes[location.archetype].set_field(location.row, component, field, value)?;
+        self.change_journal.record(
+            entity,
+            ChangeKind::FieldChanged {
+                component: component.to_string(),
+                field: field.to_string(),
+            },
+        );
         self.note_field_revision(component, field);
         Ok(())
     }
@@ -169,6 +176,14 @@ impl World {
             ));
         }
 
+        let changed_entities = self.changed_field_f64_entities(
+            component,
+            field,
+            locations,
+            values,
+            value_offset,
+            value_stride,
+        )?;
         let first_archetype = locations[0].0;
         let mut written = 0usize;
         if locations
@@ -226,7 +241,40 @@ impl World {
             }
         }
         self.note_field_revision_by(component, field, written as u64);
+        for entity in changed_entities {
+            self.change_journal.record(
+                entity,
+                ChangeKind::FieldChanged {
+                    component: component.to_string(),
+                    field: field.to_string(),
+                },
+            );
+        }
         Ok(written)
+    }
+
+    fn changed_field_f64_entities(
+        &self,
+        component: &str,
+        field: &str,
+        locations: &[(usize, usize)],
+        values: &[f64],
+        value_offset: usize,
+        value_stride: usize,
+    ) -> Result<Vec<Entity>> {
+        let mut entities = Vec::new();
+        for (index, (archetype, row)) in locations.iter().enumerate() {
+            let value = values[index * value_stride + value_offset];
+            if self.archetypes[*archetype].get_field_f64(*row, component, field)? != value {
+                let entity = self.archetypes[*archetype]
+                    .entities()
+                    .get(*row)
+                    .copied()
+                    .ok_or(EcsError::RowOutOfBounds)?;
+                entities.push(entity);
+            }
+        }
+        Ok(entities)
     }
 
     pub fn get_field(&self, entity: Entity, component: &str, field: &str) -> Result<EcsValue> {

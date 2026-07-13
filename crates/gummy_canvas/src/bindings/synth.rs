@@ -5,7 +5,8 @@
 //! and `ValueError` surface at the mandatory canvas extension boundary.
 
 use gummy_synth::{
-    ControlPayload, EventPayload, FxPayload, GilReleasedOperation, OptMap, SynthResult, SynthValue,
+    CompiledSynthProgram, ControlPayload, EventPayload, FxPayload, GilReleasedOperation, OptMap,
+    SynthResult, SynthValue,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -14,6 +15,7 @@ use std::fs;
 use std::path::PathBuf;
 
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<CanvasSynthProgram>()?;
     m.add_function(wrap_pyfunction!(synth_render_event_wav, m)?)?;
     m.add_function(wrap_pyfunction!(synth_render_plan_wav, m)?)?;
     m.add_function(wrap_pyfunction!(synth_render_serialized_plan_wav, m)?)?;
@@ -24,6 +26,89 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(synth_diagnostics, m)?)?;
     m.add_function(wrap_pyfunction!(synth_reset_diagnostics, m)?)?;
     Ok(())
+}
+
+/// Rust-owned compiled synth scheduling program.
+///
+/// This internal bridge handle parses and validates the serialized physical plan
+/// once, then serves render and playback routes without repeating that work.
+#[pyclass(name = "CanvasSynthProgram", unsendable)]
+pub(crate) struct CanvasSynthProgram {
+    program: CompiledSynthProgram,
+}
+
+#[pymethods]
+impl CanvasSynthProgram {
+    #[staticmethod]
+    fn from_serialized(
+        py: Python<'_>,
+        payload: &Bound<'_, PyBytes>,
+        sample_rate: u32,
+    ) -> PyResult<Self> {
+        let payload = payload.as_bytes().to_vec();
+        gummy_synth::record_gil_released_call(GilReleasedOperation::Compile);
+        let program = py
+            .allow_threads(move || {
+                CompiledSynthProgram::from_serialized_plan(&payload, sample_rate)
+            })
+            .map_err(synth_error)?;
+        Ok(Self { program })
+    }
+
+    #[getter]
+    fn sample_rate(&self) -> u32 {
+        self.program.sample_rate()
+    }
+
+    #[getter]
+    fn duration(&self) -> f64 {
+        self.program.duration_seconds()
+    }
+
+    #[getter]
+    fn duration_frames(&self) -> usize {
+        self.program.duration_frames()
+    }
+
+    #[getter]
+    fn event_count(&self) -> usize {
+        self.program.event_count()
+    }
+
+    fn render_wav<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let program = self.program.clone();
+        gummy_synth::record_gil_released_call(GilReleasedOperation::Render);
+        let payload = py
+            .allow_threads(move || gummy_synth::render_compiled_program_wav(&program))
+            .map_err(synth_error)?;
+        Ok(PyBytes::new_bound(py, &payload))
+    }
+
+    fn render_wav_file<'py>(&self, py: Python<'py>, path: String) -> PyResult<Bound<'py, PyBytes>> {
+        let program = self.program.clone();
+        let path = PathBuf::from(path);
+        let display_path = path.display().to_string();
+        gummy_synth::record_gil_released_call(GilReleasedOperation::Render);
+        gummy_synth::record_gil_released_call(GilReleasedOperation::WriteWav);
+        let payload = py
+            .allow_threads(move || {
+                let payload = gummy_synth::render_compiled_program_wav(&program)?;
+                fs::write(&path, &payload).map_err(|error| {
+                    gummy_synth::SynthError::new(format!(
+                        "could not write rendered synth WAV {display_path}: {error}"
+                    ))
+                })?;
+                Ok(payload)
+            })
+            .map_err(synth_error)?;
+        Ok(PyBytes::new_bound(py, &payload))
+    }
+}
+
+impl CanvasSynthProgram {
+    pub(crate) fn cloned_program(&self) -> CompiledSynthProgram {
+        self.program.clone()
+    }
 }
 
 #[pyfunction]

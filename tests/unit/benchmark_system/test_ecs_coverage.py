@@ -17,6 +17,8 @@ ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = ROOT / "benchmarks" / "ecs_v1.toml"
 CHECKED_PATH = ROOT / "benchmarks" / "coverage" / "ecs_v1.json"
 
+EXPECTED_LAYER_AVAILABILITY = {"R": False, "P": False, "H": True, "I": False}
+
 
 def test_ecs_checked_coverage_is_the_exact_24_case_catalog_projection() -> None:
     catalog = load_catalog(CATALOG_PATH)
@@ -34,6 +36,16 @@ def test_ecs_checked_coverage_is_the_exact_24_case_catalog_projection() -> None:
         declared = entry.runtime_parameters["required_counters"]
         assert isinstance(declared, list)
         assert entry.required_counters == tuple(declared)
+        assert entry.runtime_parameters["execution_layer"] == "H"
+        layer_capabilities = entry.runtime_parameters["execution_layer_capabilities"]
+        assert isinstance(layer_capabilities, dict)
+        assert {
+            layer: capability["available"] for layer, capability in layer_capabilities.items()
+        } == EXPECTED_LAYER_AVAILABILITY
+        assert layer_capabilities["H"]["available"] is True
+        expected_digest = entry.runtime_parameters["expected_correctness_digest"]
+        assert isinstance(expected_digest, str) and expected_digest.startswith("sha256:")
+        assert len(expected_digest) == 71
         work_units = entry.runtime_parameters["work_units"]
         assert isinstance(work_units, int) and not isinstance(work_units, bool)
         assert work_units > 0

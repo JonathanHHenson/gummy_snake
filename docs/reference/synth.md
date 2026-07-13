@@ -346,6 +346,17 @@ Supported FX keys:
 
 Common Sonic Pi options such as `amp`, `mix`, `pre_amp`, and `pre_mix` are handled by the FX wrapper where documented. Effect-specific options such as filter cutoffs, resonance, panning, modulation phase/waveform, pitch, band EQ gain, vowel/voice selection, flanger depth/feedback, and reverb/echo timing are forwarded to the generic native FX operations.
 
+### Normaliser migration status
+
+The currently shipped full-track FX normaliser uses a legacy whole-buffer peak
+calculation. It is not the target streaming contract and should not be used as
+a reference for partitioned or device output. The planned replacement is a
+versioned, channel-linked causal processor with 5 ms fixed lookahead, 1 ms
+attack, 50 ms release, and explicit finite-stream flush behavior. It will cut
+over only when every render and playback sink uses the same persistent block
+engine. See the contributor [synth causal normaliser migration
+contract](../contribute/synth_normaliser_migration.md) for the exact v1 policy.
+
 ## Current scope
 
 This synth runtime supports deterministic logical planning, `@sy.synth` source-defined synths, `@sy.fx` source-defined FX, binary `.gss`/`.gsfx` physical-plan serialization, Rust-backed WAV rendering from serialized physical plans, primitive synth/sample/FX event execution in Rust, bounded playback via a Rust-rendered full-track buffer, bundled Sonic Pi CC0 samples, external PCM WAV/FLAC samples, common synth waveforms, ADSR-style envelopes, panning, basic controls/slides, compiled bundled synth/FX plan assets, and the Sonic Pi-inspired synth/FX surfaces listed above. A missing or stale `gummysnake.rust._canvas` runtime raises a Gummy Snake capability error with rebuild guidance.

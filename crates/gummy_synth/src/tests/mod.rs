@@ -1,4 +1,7 @@
+mod block_contract;
+mod causal_normaliser;
 mod codec;
+mod compiled_program;
 mod effects;
 mod executor;
 mod plans_and_fx;

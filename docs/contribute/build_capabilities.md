@@ -41,7 +41,7 @@ Gummy Snake publishes a typed package. Every canvas wheel must ship
 `gummysnake/py.typed`, both native stub files (`_canvas.pyi` and
 `_accelerated.pyi`), the mandatory native `_canvas` extension, and the Maturin
 assets. `scripts/verify_distribution.py --wheel <canvas-wheel>` installs only
-the wheel through an isolated `uv` consumer environment, requires canvas ABI 19
+the wheel through an isolated `uv` consumer environment, requires canvas ABI 20
 and ECS ABI 4, validates health checks, exercises an empty Rust ECS world and a
 headless render, and renders a WAV using packaged synth/FX/sample assets. A
 second isolated consumer deliberately blocks the native canvas import and

@@ -18,6 +18,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 pub mod codec;
 
+mod block_contract;
+mod causal_normaliser;
 mod dsp;
 mod executor;
 mod fx_chain;
@@ -27,6 +29,7 @@ mod fx_space;
 mod output;
 mod plans;
 mod playback;
+mod program;
 mod sample_voice;
 mod samples;
 mod synth_rendering;
@@ -44,14 +47,25 @@ pub(crate) use fx_space::*;
 pub(crate) use output::*;
 pub(crate) use plans::*;
 
+pub use block_contract::{
+    BlockRenderConfig, BlockRenderDiagnostics, BlockRenderStep, PcmSink, SinkWrite,
+    DEFAULT_RENDER_BLOCK_FRAMES, MAX_RENDER_BLOCK_FRAMES,
+};
+pub use causal_normaliser::{
+    CausalNormaliser, CausalNormaliserConfig, CAUSAL_NORMALISER_CONTRACT_VERSION,
+    DEFAULT_CAUSAL_NORMALISER_ATTACK_SECONDS, DEFAULT_CAUSAL_NORMALISER_LOOKAHEAD_SECONDS,
+    DEFAULT_CAUSAL_NORMALISER_RELEASE_SECONDS, DEFAULT_CAUSAL_NORMALISER_TARGET,
+};
 pub use executor::{
     diagnostics, effective_worker_count, record_gil_released_call, reset_diagnostics,
     set_worker_count, GilReleasedOperation, SynthDiagnostics, SYNTH_PARALLEL_MIN_SCRATCH_BYTES,
     SYNTH_PARALLEL_SCRATCH_LIMIT_BYTES, SYNTH_WORKER_POOL_CAPACITY,
 };
 pub use playback::{
-    render_plan_events, render_serialized_plan_wav_bytes, render_serialized_plan_wav_file,
+    render_compiled_program_wav, render_plan_events, render_serialized_plan_wav_bytes,
+    render_serialized_plan_wav_file,
 };
+pub use program::CompiledSynthProgram;
 pub(crate) use sample_voice::*;
 pub use samples::sample_duration;
 pub(crate) use samples::*;

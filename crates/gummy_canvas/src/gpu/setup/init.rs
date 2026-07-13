@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use pollster::block_on;
-
+use crate::gpu::context::GpuDeviceContext;
 use crate::gpu::setup::pipelines::create_pipeline_resources;
 use crate::gpu::setup::resources::{
     checked_texture_size, create_default_clip_textures, create_depth_texture,
@@ -14,43 +13,37 @@ use crate::gpu::types::*;
 
 impl GpuRenderer {
     pub fn new(width: usize, height: usize) -> Result<Self, String> {
-        let instance = wgpu::Instance::default();
-        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        }))
-        .map_err(|err| format!("No supported GPU adapter is available for gummy_canvas: {err}"))?;
-        let limits = adapter.limits();
-        let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("gummy_canvas device"),
-            required_features: wgpu::Features::empty(),
-            required_limits: limits.clone(),
-            memory_hints: wgpu::MemoryHints::Performance,
-            trace: wgpu::Trace::Off,
-        }))
-        .map_err(|err| format!("Failed to create GPU device for gummy_canvas: {err}"))?;
-        let device: Arc<wgpu::Device> = Arc::new(device);
-        let queue: Arc<wgpu::Queue> = Arc::new(queue);
+        Self::new_with_device_context(GpuDeviceContext::process_shared()?, width, height)
+    }
+
+    /// Creates a renderer with an existing device context while keeping canvas state isolated.
+    pub(in crate::gpu) fn new_with_device_context(
+        device_context: Arc<GpuDeviceContext>,
+        width: usize,
+        height: usize,
+    ) -> Result<Self, String> {
+        let device = device_context.device();
+        let queue = device_context.queue();
+        let limits = device_context.limits();
         let viewport_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("gummy_canvas viewport uniform"),
             size: std::mem::size_of::<ViewportUniform>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let pipelines = create_pipeline_resources(&device);
-        let texture_sampler = create_nearest_texture_sampler(&device);
-        let linear_texture_sampler = create_linear_texture_sampler(&device);
-        let text_resources = create_text_resources(&device, &queue);
+        let pipelines = create_pipeline_resources(device);
+        let texture_sampler = create_nearest_texture_sampler(device);
+        let linear_texture_sampler = create_linear_texture_sampler(device);
+        let text_resources = create_text_resources(device, queue);
         let viewport_bind_group = create_viewport_bind_group(
-            &device,
+            device,
             &pipelines.viewport_bind_group_layout,
             &viewport_buffer,
         );
         let model_uniform_capacity = 16usize;
-        let model_uniform_buffer = create_model_uniform_buffer(&device, model_uniform_capacity);
+        let model_uniform_buffer = create_model_uniform_buffer(device, model_uniform_capacity);
         let model_uniform_bind_group = create_model_uniform_bind_group(
-            &device,
+            device,
             &pipelines.model_bind_group_layout,
             &model_uniform_buffer,
         );
@@ -61,31 +54,28 @@ impl GpuRenderer {
             mapped_at_creation: false,
         });
         let texture_size = checked_texture_size(width, height, limits.max_texture_dimension_2d)?;
-        let texture = create_offscreen_texture(&device, texture_size);
+        let texture = create_offscreen_texture(device, texture_size);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let depth_texture = create_depth_texture(&device, texture_size);
+        let depth_texture = create_depth_texture(device, texture_size);
         let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let pixel_prefix_texture = create_pixel_prefix_texture(&device, texture_size);
+        let pixel_prefix_texture = create_pixel_prefix_texture(device, texture_size);
         let pixel_prefix_texture_view =
             pixel_prefix_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let pixel_prefix_bind_group = create_pixel_prefix_bind_group(
-            &device,
+            device,
             &pipelines.pixel_prefix_bind_group_layout,
             &pixel_prefix_texture_view,
             &texture_sampler,
             &pixel_prefix_uniform_buffer,
         );
         let clip_textures = create_default_clip_textures(
-            &device,
-            &queue,
+            device,
+            queue,
             &pipelines.clip_bind_group_layout,
             &texture_sampler,
         );
         let mut renderer = Self {
-            instance,
-            adapter,
-            device,
-            queue,
+            device_context,
             texture,
             texture_view,
             depth_texture,
@@ -200,13 +190,11 @@ impl GpuRenderer {
     }
 
     pub fn adapter_info() -> Option<wgpu::AdapterInfo> {
-        let instance = wgpu::Instance::default();
-        block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: None,
-            force_fallback_adapter: false,
-        }))
-        .ok()
-        .map(|adapter| adapter.get_info())
+        GpuDeviceContext::adapter_info()
+    }
+
+    #[cfg(test)]
+    pub(in crate::gpu) fn device_context(&self) -> &Arc<GpuDeviceContext> {
+        &self.device_context
     }
 }

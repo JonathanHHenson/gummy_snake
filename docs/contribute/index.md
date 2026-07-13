@@ -6,6 +6,7 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 - [Backend and renderer boundaries](backend_renderer.md)
 - [Runtime model](runtime.md)
 - [Runtime diagnostics](runtime_diagnostics.md)
+- [Synth causal normaliser migration](synth_normaliser_migration.md)
 - [ECS architecture](ecs_architecture.md)
 - [ECS debugging and performance triage](ecs_debugging.md)
 - [Build capabilities](build_capabilities.md)

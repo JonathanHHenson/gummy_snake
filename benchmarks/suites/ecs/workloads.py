@@ -5,6 +5,7 @@
 # mypy: disable-error-code=type-arg
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
@@ -49,11 +50,18 @@ class ExecutionRouteError(EcsWorkloadError):
     """A workload requested an undeclared execution class or substituted route."""
 
 
+_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+_EXECUTION_LAYERS = frozenset({"R", "P", "H", "I"})
+_IMPLEMENTED_LAYER_ROUTES: Mapping[str, ExecutionClass] = {"H": ExecutionClass.HEADLESS}
+
+
 @dataclass(frozen=True, slots=True)
 class WorkloadPlan:
     workload_id: str
     case_kind: str
     execution_class: ExecutionClass
+    execution_layer: str
+    expected_correctness_digest: str
     work_units: int
     required_counters: tuple[str, ...]
     parameters: Mapping[str, object]
@@ -86,7 +94,16 @@ _CASES: Mapping[str, frozenset[str]] = {
     ),
 }
 
-_COMMON_PARAMETERS = frozenset({"case_kind", "work_units", "required_counters"})
+_COMMON_PARAMETERS = frozenset(
+    {
+        "case_kind",
+        "execution_layer",
+        "execution_layer_capabilities",
+        "expected_correctness_digest",
+        "work_units",
+        "required_counters",
+    }
+)
 _CASE_PARAMETERS: Mapping[str, frozenset[str]] = {
     "schema-storage": frozenset({"passes"}),
     "spawn-archetypes": frozenset({"entity_count"}),
@@ -148,6 +165,31 @@ def _required_counters(parameters: Mapping[str, object]) -> tuple[str, ...]:
     return tuple(raw)
 
 
+def _execution_layer_capabilities(
+    parameters: Mapping[str, object],
+) -> Mapping[str, tuple[bool, str]]:
+    """Validate the exact R/P/H/I declaration without inferring unsupported routes."""
+
+    raw = parameters["execution_layer_capabilities"]
+    if not isinstance(raw, Mapping) or set(raw) != _EXECUTION_LAYERS:
+        raise EcsWorkloadError("execution_layer_capabilities must declare exactly R, P, H, and I")
+    statuses: dict[str, tuple[bool, str]] = {}
+    for layer in sorted(_EXECUTION_LAYERS):
+        declaration = raw[layer]
+        if not isinstance(declaration, Mapping) or set(declaration) != {"available", "detail"}:
+            raise EcsWorkloadError(
+                f"execution_layer_capabilities.{layer} must contain only available and detail"
+            )
+        available = declaration["available"]
+        detail = declaration["detail"]
+        if not isinstance(available, bool) or not isinstance(detail, str) or not detail.strip():
+            raise EcsWorkloadError(
+                f"execution_layer_capabilities.{layer} requires a boolean available and detail"
+            )
+        statuses[layer] = (available, detail.strip())
+    return statuses
+
+
 def build_workload(
     workload_id: str,
     parameters: Mapping[str, object],
@@ -174,16 +216,39 @@ def build_workload(
         route = ExecutionClass(execution_class)
     except ValueError as error:
         raise ExecutionRouteError(f"unknown ECS execution class: {execution_class!r}") from error
-    expected_route = ExecutionClass.HEADLESS
+    layer_capabilities = _execution_layer_capabilities(parameters)
+    execution_layer = parameters["execution_layer"]
+    if not isinstance(execution_layer, str) or execution_layer not in _EXECUTION_LAYERS:
+        raise ExecutionRouteError(
+            f"ECS case {case_kind!r} has an unknown execution_layer={execution_layer!r}; "
+            "declare one of R, P, H, or I"
+        )
+    layer_available, layer_detail = layer_capabilities[execution_layer]
+    if not layer_available:
+        raise ExecutionRouteError(
+            f"ECS execution_layer={execution_layer!r} is declared unavailable: {layer_detail} "
+            "No fallback route is available; implement and qualify that layer before enabling it."
+        )
+    expected_route = _IMPLEMENTED_LAYER_ROUTES.get(execution_layer)
+    if expected_route is None:
+        raise ExecutionRouteError(
+            f"ECS execution_layer={execution_layer!r} is declared available but has no "
+            "implemented route. Add and qualify its route before enabling it; no fallback is used."
+        )
     if route is not expected_route:
         raise ExecutionRouteError(
-            f"ECS case {case_kind!r} requires execution_class={expected_route.value!r}; "
-            f"got {route.value!r}"
+            f"ECS case {case_kind!r} requires execution_class={expected_route.value!r} "
+            f"for execution_layer={execution_layer!r}; got {route.value!r}"
         )
+    expected_digest = parameters["expected_correctness_digest"]
+    if not isinstance(expected_digest, str) or not _DIGEST.fullmatch(expected_digest):
+        raise EcsWorkloadError("expected_correctness_digest must be a lowercase SHA-256 digest")
     return WorkloadPlan(
         workload_id=workload_id,
         case_kind=case_kind,
         execution_class=route,
+        execution_layer=execution_layer,
+        expected_correctness_digest=expected_digest,
         work_units=_positive_int(parameters, "work_units", 100_000_000),
         required_counters=_required_counters(parameters),
         parameters=dict(parameters),
@@ -918,8 +983,15 @@ def dispatch(
         "case_kind": plan.case_kind,
         "execution_route": plan.execution_class.value,
     }
-    if not isinstance(summary.get("correctness_digest"), str):
+    actual_digest = summary.get("correctness_digest")
+    if not isinstance(actual_digest, str):
         raise EcsOracleError("every ECS workload must return a correctness digest")
+    if actual_digest != plan.expected_correctness_digest:
+        raise EcsOracleError(
+            f"ECS case {plan.case_kind!r} correctness digest mismatch: "
+            f"expected {plan.expected_correctness_digest}, got {actual_digest}"
+        )
+    summary["execution_layer"] = plan.execution_layer
     diagnostics: dict[str, object] = {"ecs": dict(outcome.diagnostics)}
     if outcome.extra_diagnostics is not None:
         diagnostics.update(outcome.extra_diagnostics)

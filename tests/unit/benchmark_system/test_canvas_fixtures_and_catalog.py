@@ -4,8 +4,29 @@ from pathlib import Path
 
 import pytest
 
+import gummysnake as gs
 from benchmarks.schema.catalog import load_catalog
-from benchmarks.suites.canvas.fixtures import FIXTURE_BYTES, FIXTURE_MANIFEST, validate_manifest
+from benchmarks.suites.canvas.fixtures import (
+    FIXTURE_BYTES,
+    FIXTURE_MANIFEST,
+    MEDIA_FRAME_BGR,
+    MEDIA_FRAME_BGRA,
+    MEDIA_FRAME_GRAY,
+    MINIMAL_OBJ_FIXTURE,
+    SPRITE_CACHE_RESET,
+    SPRITE_SHEET,
+    TEXT_CORPUS,
+    TEXT_CORPUS_FIXTURE,
+    MediaFrameFixture,
+    validate_manifest,
+)
+from benchmarks.suites.canvas.oracles import (
+    CanvasOracleError,
+    assert_media_frame_rgba,
+    assert_obj_fixture_topology,
+    assert_text_corpus,
+)
+from gummysnake.rust.canvas import require_canvas_runtime
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -18,10 +39,66 @@ def test_canvas_fixtures_have_a_complete_deterministic_manifest() -> None:
 
 def test_canvas_fixture_manifest_rejects_changed_bytes() -> None:
     changed = dict(FIXTURE_BYTES)
-    changed["checkerboard-8"] = b"changed"
+    original = changed["media-frame-bgr-6"]
+    changed["media-frame-bgr-6"] = bytes([original[0] ^ 0xFF, *original[1:]])
 
-    with pytest.raises(ValueError, match="fixture length mismatch"):
+    with pytest.raises(ValueError, match="fixture hash mismatch for media-frame-bgr-6"):
         validate_manifest(payloads=changed)
+
+
+@pytest.mark.parametrize("fixture", (MEDIA_FRAME_BGR, MEDIA_FRAME_BGRA, MEDIA_FRAME_GRAY))
+def test_media_frame_fixtures_match_the_native_canvas_conversion(
+    fixture: MediaFrameFixture,
+) -> None:
+    runtime = require_canvas_runtime()
+
+    actual = runtime.media_frame_to_rgba(
+        fixture.width, fixture.height, fixture.channels, fixture.pixels
+    )
+
+    assert_media_frame_rgba(fixture, actual)
+    with pytest.raises(CanvasOracleError, match="native RGBA conversion"):
+        assert_media_frame_rgba(fixture, bytes(len(fixture.expected_rgba.pixels)))
+
+
+def test_obj_fixture_manifest_and_real_native_load_preserve_reviewed_topology(
+    tmp_path: Path,
+) -> None:
+    obj_path = tmp_path / "minimal-triangle.obj"
+    obj_path.write_bytes(MINIMAL_OBJ_FIXTURE.payload)
+
+    model = gs.load_model(obj_path)
+
+    assert_obj_fixture_topology(model, MINIMAL_OBJ_FIXTURE)
+
+
+def test_text_fixture_manifest_preserves_exact_unicode_inputs() -> None:
+    assert_text_corpus(TEXT_CORPUS_FIXTURE, TEXT_CORPUS)
+
+    changed = dict(TEXT_CORPUS)
+    changed["rtl"] = ("changed",)
+    with pytest.raises(CanvasOracleError, match="text corpus"):
+        assert_text_corpus(TEXT_CORPUS_FIXTURE, changed)
+
+
+def test_sprite_cache_reset_fixture_uses_reviewed_sprite_bytes_and_public_counters() -> None:
+    fixture = SPRITE_CACHE_RESET
+
+    assert fixture.source is SPRITE_SHEET
+    assert len(fixture.source.pixels) == fixture.source.width * fixture.source.height * 4
+    assert fixture.required_counters == (
+        "texture_resident_bytes",
+        "texture_peak_bytes",
+        "image_atlas_resident_bytes",
+        "image_atlas_peak_bytes",
+        "texture_uploads",
+        "texture_upload_bytes",
+        "texture_dirty_uploads",
+        "texture_cache_evictions",
+        "texture_destructions",
+        "image_atlas_evictions",
+        "image_atlas_destructions",
+    )
 
 
 def test_canvas_catalog_is_static_and_hashes_suite_sources() -> None:

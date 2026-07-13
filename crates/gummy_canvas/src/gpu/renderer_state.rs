@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::gpu::context::GpuDeviceContext;
 use crate::gpu::types::{DrawCommand, GpuColor, ImageVertex, Vertex};
 use crate::types::BlendMode;
 
@@ -49,15 +50,12 @@ pub(crate) struct GpuRenderLoopCounters {
     pub(crate) command_segment_allocation_count: u64,
 }
 
-/// Owns the GPU device resources, retained assets, and ordered draw command stream.
+/// Owns per-renderer GPU resources, retained assets, and the ordered draw command stream.
 ///
-/// The `gpu` module re-exports this type to preserve the stable internal renderer
-/// path. Field order is intentionally unchanged from the original declaration.
+/// The immutable WGPU infrastructure is retained through `device_context`; targets,
+/// surfaces, caches, text state, and commands remain isolated to this renderer.
 pub struct GpuRenderer {
-    pub(super) instance: wgpu::Instance,
-    pub(super) adapter: wgpu::Adapter,
-    pub(super) device: Arc<wgpu::Device>,
-    pub(super) queue: Arc<wgpu::Queue>,
+    pub(super) device_context: Arc<GpuDeviceContext>,
     pub(super) texture: wgpu::Texture,
     pub(super) texture_view: wgpu::TextureView,
     pub(super) depth_texture: wgpu::Texture,

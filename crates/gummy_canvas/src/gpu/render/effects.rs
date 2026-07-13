@@ -13,36 +13,42 @@ impl GpuRenderer {
         color: GpuColor,
         mode: BlendMode,
     ) {
-        let uniform_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("gummy_canvas blend ellipse pass uniform"),
-                contents: bytemuck::bytes_of(&BlendEllipseUniform {
-                    center_radius: [cx, cy, rx.max(0.0001), ry.max(0.0001)],
-                    color: color.as_float(),
-                    mode: crate::gpu::textures::blend_mode_id(mode),
-                    _padding: [0; 7],
-                }),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("gummy_canvas blend ellipse pass bind group"),
-            layout: &self.pixel_prefix_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&self.pixel_prefix_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: uniform_buffer.as_entire_binding(),
-                },
-            ],
-        });
+        let uniform_buffer =
+            self.device_context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("gummy_canvas blend ellipse pass uniform"),
+                    contents: bytemuck::bytes_of(&BlendEllipseUniform {
+                        center_radius: [cx, cy, rx.max(0.0001), ry.max(0.0001)],
+                        color: color.as_float(),
+                        mode: crate::gpu::textures::blend_mode_id(mode),
+                        _padding: [0; 7],
+                    }),
+                    usage: wgpu::BufferUsages::UNIFORM,
+                });
+        let bind_group =
+            self.device_context
+                .device()
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("gummy_canvas blend ellipse pass bind group"),
+                    layout: &self.pixel_prefix_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(
+                                &self.pixel_prefix_texture_view,
+                            ),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&self.texture_sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: uniform_buffer.as_entire_binding(),
+                        },
+                    ],
+                });
         let Some((x, y, width, height)) = self.effect_bounds(cx, cy, rx, ry) else {
             return;
         };
@@ -91,7 +97,7 @@ impl GpuRenderer {
         mode: u32,
         value: f32,
     ) {
-        self.queue.write_buffer(
+        self.device_context.queue().write_buffer(
             &self.pixel_prefix_uniform_buffer,
             0,
             bytemuck::bytes_of(&PixelFilterUniform {
@@ -145,7 +151,7 @@ impl GpuRenderer {
         red_delta: i32,
         green_delta: i32,
     ) {
-        self.queue.write_buffer(
+        self.device_context.queue().write_buffer(
             &self.pixel_prefix_uniform_buffer,
             0,
             bytemuck::bytes_of(&PixelPrefixUniform {

@@ -62,8 +62,11 @@ impl GpuRenderer {
                     .expect("image vertex buffer is prepared");
                 let offset_bytes =
                     (render_offsets.image_vertex * std::mem::size_of::<ImageVertex>()) as u64;
-                self.queue
-                    .write_buffer(buffer, offset_bytes, bytemuck::cast_slice(&image_staging));
+                self.device_context.queue().write_buffer(
+                    buffer,
+                    offset_bytes,
+                    bytemuck::cast_slice(&image_staging),
+                );
                 render_offsets.image_vertex += image_staging.len();
             }
         }
@@ -117,7 +120,7 @@ impl GpuRenderer {
                 (model_uniforms.len() * std::mem::size_of::<ModelUniform>()) as u64;
             let offset_bytes = u64::from(render_offsets.model_uniform)
                 * std::mem::size_of::<ModelUniform>() as u64;
-            self.queue.write_buffer(
+            self.device_context.queue().write_buffer(
                 &self.model_uniform_buffer,
                 offset_bytes,
                 bytemuck::cast_slice(&model_uniforms),

@@ -112,30 +112,33 @@ impl GpuRenderer {
         }
         let index_count = u32::try_from(indices.len())
             .map_err(|_| "model index count exceeds GPU draw limits".to_owned())?;
-        let vertex_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("gummy_canvas model vertices"),
-                contents: bytemuck::cast_slice(vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-        let index_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("gummy_canvas model indices"),
-                contents: bytemuck::cast_slice(indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
+        let vertex_buffer =
+            self.device_context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("gummy_canvas model vertices"),
+                    contents: bytemuck::cast_slice(vertices),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+        let index_buffer =
+            self.device_context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("gummy_canvas model indices"),
+                    contents: bytemuck::cast_slice(indices),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
         let wire_indices = model_wire_indices(indices);
         let wire_index_count = u32::try_from(wire_indices.len())
             .map_err(|_| "model wireframe index count exceeds GPU draw limits".to_owned())?;
-        let wire_index_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("gummy_canvas model wireframe indices"),
-                contents: bytemuck::cast_slice(&wire_indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
+        let wire_index_buffer =
+            self.device_context
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("gummy_canvas model wireframe indices"),
+                    contents: bytemuck::cast_slice(&wire_indices),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
         self.model_meshes.insert(
             key,
             GpuModelMesh {

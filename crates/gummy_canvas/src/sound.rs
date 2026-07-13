@@ -5,6 +5,8 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use sdl3::audio::{AudioFormat, AudioSpec, AudioStreamOwner};
+
+use crate::bindings::synth::CanvasSynthProgram;
 use std::fs;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -168,6 +170,16 @@ pub(crate) fn synth_play_wav_bytes(
     gummy_synth::record_gil_released_call(gummy_synth::GilReleasedOperation::Decode);
     let wav = py.allow_threads(move || parse_pcm_s16_wav(&payload))?;
     start_prepared_wav_playback(wav)
+}
+
+#[pyfunction]
+pub(crate) fn synth_play_compiled_program(
+    program: PyRef<'_, CanvasSynthProgram>,
+) -> PyResult<CanvasAudioPlayback> {
+    let compiled = program.cloned_program();
+    let sample_rate = compiled.sample_rate();
+    let plan = gummy_synth::SynthPlaybackPlan::from_compiled_program(&compiled);
+    start_prepared_serialized_plan_playback(plan, sample_rate)
 }
 
 #[pyfunction]

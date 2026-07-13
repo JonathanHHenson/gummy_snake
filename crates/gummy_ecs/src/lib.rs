@@ -55,7 +55,10 @@ pub use spatial::{
     SpatialIndexRegistry, SpatialIndexSlot, SpatialIndexStats, SpatialMemoryStats, SpatialPoint,
     SpatialRecord,
 };
-pub use world::World;
+pub use world::{
+    ChangeEpoch, ChangeJournal, ChangeKind, ChangeRecord, ChangeRevision, ComponentChange,
+    EntityChange, TagChange, World,
+};
 
 pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const ECS_ABI_VERSION: u32 = 5;
