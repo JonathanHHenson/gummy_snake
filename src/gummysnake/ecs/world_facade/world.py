@@ -55,9 +55,6 @@ class EcsWorld:
         _defer_spatial_invalidation: bool
         _spatial_invalidated_deferred: bool
         _ecs_frame: int
-        _added_components: set[tuple[int, int, type[Any]]]
-        _changed_components: set[tuple[int, int, type[Any]]]
-        _removed_components: set[tuple[int, int, type[Any]]]
         _event_types: dict[str, type[Any]]
         _has_change_filtered_systems_cache: bool | None
         _active_python_access_batch: Any | None
@@ -145,18 +142,6 @@ class EcsWorld:
 
     def _begin_change_frame(self) -> None:
         state_runtime.begin_change_frame(self)
-
-    def _finalize_change_frame(self) -> None:
-        state_runtime.finalize_change_frame(self)
-
-    def _mark_component_added(self, entity: Entity, component_type: type[Any]) -> None:
-        state_runtime.mark_component_added(self, entity, component_type)
-
-    def _mark_component_changed(self, entity: Entity, component_type: type[Any]) -> None:
-        state_runtime.mark_component_changed(self, entity, component_type)
-
-    def _mark_component_removed(self, entity: Entity, component_type: type[Any]) -> None:
-        state_runtime.mark_component_removed(self, entity, component_type)
 
     def _set_system_enabled(self, handle: SystemHandle | str, enabled: bool) -> None:
         state_runtime.set_system_enabled(self, handle, enabled)

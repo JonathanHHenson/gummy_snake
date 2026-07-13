@@ -11,6 +11,8 @@ from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
 
 EXPECTED_ECS_ABI_VERSION = 5
 
+_REQUIRED_ECS_WORLD_METHODS = ("query_with_terms",)
+
 
 class _RustEcsWorld(Protocol):
     def allocate_entity(self) -> tuple[int, int]: ...
@@ -76,6 +78,8 @@ class _RustEcsWorld(Protocol):
     def get_field(self, index: int, generation: int, component: str, field: str) -> Any: ...
 
     def query_entities(self, components: list[str]) -> list[tuple[int, int]]: ...
+
+    def query_with_terms(self, terms: list[tuple[str, str]]) -> list[tuple[int, int]]: ...
 
     def query_filtered(
         self,
@@ -251,10 +255,21 @@ def require_ecs_runtime() -> _EcsCanvasModule:
             "The Rust ECS runtime reported an unhealthy runtime state "
             f"({health!r}). Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
         )
-    if not isinstance(getattr(_canvas, "EcsWorld", None), type):
+    world_type = getattr(_canvas, "EcsWorld", None)
+    if not isinstance(world_type, type):
         raise BackendCapabilityError(
             "The Rust ECS runtime is missing EcsWorld. "
             f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
+        )
+    missing_methods = [
+        name
+        for name in _REQUIRED_ECS_WORLD_METHODS
+        if not callable(getattr(world_type, name, None))
+    ]
+    if missing_methods:
+        raise BackendCapabilityError(
+            "The Rust ECS runtime is missing required EcsWorld method(s) "
+            f"{', '.join(missing_methods)}. Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
         )
     return _canvas
 

@@ -188,13 +188,5 @@ pub(in crate::execution) fn query_rows_for_world(
         .ok_or_else(|| {
             EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
         })?;
-    let mut rows = world.query_filter(query.filter.clone())?;
-    if let Some(allowed) = &query.allowed_entities {
-        let allowed = allowed
-            .iter()
-            .map(|entity| entity.raw())
-            .collect::<HashSet<_>>();
-        rows.retain(|entity| allowed.contains(&entity.raw()));
-    }
-    Ok(rows)
+    world.query_filter(query.filter.clone())
 }

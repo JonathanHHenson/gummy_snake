@@ -1,5 +1,7 @@
 use super::*;
-use crate::plan::CanvasCommandNode;
+use crate::plan::{CanvasCommandNode, PhysicalPlan, PhysicalQuery};
+use crate::query::QueryFilter;
+use crate::scheduler::AccessSummary;
 use crate::ChangeKind;
 
 #[test]
@@ -14,7 +16,6 @@ fn physical_plan_executes_scalar_set_over_query_rows() {
                 QueryTerm::WithComponent("Position".to_string()),
                 QueryTerm::WithComponent("Velocity".to_string()),
             ],
-            allowed_entities: None,
         }],
         expressions: vec![
             ExprNode::Field {
@@ -56,6 +57,52 @@ fn physical_plan_executes_scalar_set_over_query_rows() {
 }
 
 #[test]
+fn rust_created_plan_filters_added_rows_from_the_current_journal_epoch() {
+    let (mut world, unchanged) = world_with_motion();
+    world.set_frame(1);
+    let added = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world.add_component_default(added, "Velocity").unwrap();
+
+    let plan = PhysicalPlan {
+        version: BRIDGE_PLAN_VERSION,
+        schema_fingerprint: world.schema_fingerprint(),
+        queries: vec![PhysicalQuery {
+            name: "entity".to_string(),
+            filter: QueryFilter::new([
+                QueryTerm::WithComponent("Position".to_string()),
+                QueryTerm::Added("Velocity".to_string()),
+            ]),
+        }],
+        expressions: vec![
+            ExprNode::Field {
+                query: "entity".to_string(),
+                component: "Position".to_string(),
+                field: "x".to_string(),
+            },
+            ExprNode::LiteralF64(42.0),
+        ],
+        actions: vec![ActionNode::SetField {
+            target: 0,
+            value: 1,
+        }],
+        root_action: 0,
+        access: AccessSummary::default(),
+    };
+
+    let report = world.execute_plan(&plan).unwrap();
+
+    assert_eq!(report.fields_written, 1);
+    assert_eq!(
+        world.get_field(unchanged, "Position", "x").unwrap(),
+        EcsValue::F64(2.0)
+    );
+    assert_eq!(
+        world.get_field(added, "Position", "x").unwrap(),
+        EcsValue::F64(42.0)
+    );
+}
+
+#[test]
 fn physical_parallel_uses_snapshot_reads_and_stable_merge() {
     let (mut world, entity) = world_with_motion();
     let payload = BridgePlanPayload {
@@ -64,7 +111,6 @@ fn physical_parallel_uses_snapshot_reads_and_stable_merge() {
         queries: vec![BridgeQueryPayload {
             name: "entity".to_string(),
             terms: vec![QueryTerm::WithComponent("Position".to_string())],
-            allowed_entities: None,
         }],
         expressions: vec![
             ExprNode::Field {
@@ -129,7 +175,6 @@ fn optimized_f64_executor_reads_resources_and_input_state() {
                 QueryTerm::WithComponent("Position".to_string()),
                 QueryTerm::WithComponent("Velocity".to_string()),
             ],
-            allowed_entities: None,
         }],
         expressions: vec![
             ExprNode::Field {
@@ -205,7 +250,6 @@ fn row_local_canvas_compacts_fill_records_with_stable_order_and_conversions() {
                 QueryTerm::WithComponent("Position".to_string()),
                 QueryTerm::WithComponent("Velocity".to_string()),
             ],
-            allowed_entities: None,
         }],
         expressions: vec![
             ExprNode::LiteralF64(12.4),
@@ -374,7 +418,6 @@ fn physical_integer_arithmetic_is_exact_and_target_overflow_is_checked() {
             QueryTerm::WithComponent("Exact".to_string()),
             QueryTerm::WithComponent("Narrow".to_string()),
         ],
-        allowed_entities: None,
     };
     let exact_payload = BridgePlanPayload {
         version: BRIDGE_PLAN_VERSION,

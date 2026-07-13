@@ -6,6 +6,7 @@ These docs are for contributors who want to understand how Gummy Snake is built.
 - [Backend and renderer boundaries](backend_renderer.md)
 - [Runtime model](runtime.md)
 - [Runtime diagnostics](runtime_diagnostics.md)
+- [Synth benchmark semantics](synth_benchmark_semantics.md)
 - [Synth causal normaliser migration](synth_normaliser_migration.md)
 - [ECS architecture](ecs_architecture.md)
 - [ECS debugging and performance triage](ecs_debugging.md)
@@ -93,6 +94,9 @@ native user shader execution.
 
 Read [Runtime diagnostics](runtime_diagnostics.md) when changing renderer
 counters, fallback boundaries, performance-focused examples, or interactive frame pacing.
+Read [Synth benchmark semantics](synth_benchmark_semantics.md) before changing
+synth composition, Rust DSP, serialisation, output, native audio playback, or
+benchmark correctness/performance claims.
 Read [ECS architecture](ecs_architecture.md) before changing ECS storage,
 logical-plan serialization, physical execution, scheduling, resources/events, or
 spatial indexes. Read [ECS debugging and performance triage](ecs_debugging.md)

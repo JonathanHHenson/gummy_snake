@@ -433,14 +433,26 @@ def redraw_dirty(sprite: ecs.Query[Position, ecs.Changed[Position]]) -> None:
     sprite[Position].x.set_to(sprite[Position].x)
 ```
 
-`Added[T]` also counts as changed for `Changed[T]`. Direct Python mutations made
-before the ECS phase are detected by comparing component snapshots at the start
-of the frame. Mutations performed by earlier systems are visible to later ordered
-systems in the same ECS phase. `Removed[T]` matches still-alive entities when the
-component was removed during the frame and the query has enough remaining terms
-to identify those entities, for example `ecs.Query[Position, ecs.Removed[Velocity]]`.
-Despawned entities do not produce stale `EntityView` objects; use explicit typed
-events when systems need to observe despawns.
+Each world starts in change epoch `0`; setting a different ECS frame starts a new
+current epoch. Mutations are visible immediately to later ordered systems and
+queries in that epoch. The Rust journal retains only the active epoch's ordered
+records and compact per-entity summaries, so changing epochs discards completed
+history and bounds retention.
+
+`Added[T]` and `Removed[T]` use the component's final structural transition in
+the current epoch. Therefore add-then-remove matches `Removed[T]` only, while
+remove-then-add matches `Added[T]` and `Changed[T]` only. `Added[T]` also counts
+as changed for `Changed[T]`; repeated field writes still yield one matching row.
+A field write made before a later removal does not make a currently-removed
+component match `Changed[T]`.
+
+Queries only return currently live archetype rows. `Removed[T]` can match a
+still-alive entity when the component was removed during the frame and the query
+has enough remaining terms to identify it, for example
+`ecs.Query[Position, ecs.Removed[Velocity]]`. Despawned entities never produce
+stale `EntityView` objects, even though their removal records remain available
+within the active epoch; use explicit typed events when systems need to observe
+despawns.
 
 ## Typed events
 

@@ -6,7 +6,6 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.runtime_views import Entity
 from gummysnake.ecs.world_helpers import _current_delta_time, _current_key_down
 from gummysnake.exceptions import SystemExecutionError
 
@@ -255,9 +254,8 @@ def apply_physical_report(world: EcsWorld, report: dict[str, Any]) -> None:
     world._spatial_invalidated_deferred = False
     try:
         for write in report.get("component_writes", ()):
-            component_type = world._component_type_for_schema(str(write["component"]))
-            entity = Entity(int(write["index"]), int(write["generation"]), world._world_id)
-            world._mark_component_changed(entity, component_type)
+            world._component_type_for_schema(str(write["component"]))
+            world._invalidate_spatial_indexes()
 
         for write in report.get("resource_writes", ()):
             world._component_type_for_schema(str(write["resource"]))

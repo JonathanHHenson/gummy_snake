@@ -24,8 +24,8 @@ impl Canvas {
             mode: mode.to_string(),
             window_open: mode == INTERACTIVE_MODE,
             closed: false,
-            pixels: vec![0; physical_width * physical_height * 4],
-            present_pixels: vec![0; physical_width * physical_height],
+            pixels: Vec::new(),
+            present_pixels: Vec::new(),
             erase_color: Rgba {
                 r: 0,
                 g: 0,
@@ -165,8 +165,8 @@ impl Canvas {
         self.pixel_density = pixel_density;
         self.physical_width = physical_width;
         self.physical_height = physical_height;
-        self.pixels = vec![0; physical_width * physical_height * 4];
-        self.present_pixels = vec![0; physical_width * physical_height];
+        self.pixels = Vec::new();
+        self.present_pixels = Vec::new();
         self.reset_render_sync_state();
         if reset_image_text_active {
             self.image_text_active_this_frame = false;

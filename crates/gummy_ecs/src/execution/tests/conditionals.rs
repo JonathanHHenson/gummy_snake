@@ -12,7 +12,6 @@ fn physical_plan_executes_conditionals_and_resources() {
         queries: vec![BridgeQueryPayload {
             name: "entity".to_string(),
             terms: vec![QueryTerm::WithComponent("Position".to_string())],
-            allowed_entities: None,
         }],
         expressions: vec![
             ExprNode::Field {
@@ -113,7 +112,6 @@ fn row_local_conditional_writes_match_report_writes_fallback_in_sequence_order()
                     QueryTerm::WithComponent("Position".to_string()),
                     QueryTerm::WithComponent("Velocity".to_string()),
                 ],
-                allowed_entities: None,
             }],
             expressions: vec![
                 ExprNode::Field {

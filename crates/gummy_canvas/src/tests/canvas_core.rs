@@ -8,11 +8,29 @@ fn health_check_reports_canvas_backend() {
 }
 
 #[test]
-fn canvas_tracks_logical_and_physical_dimensions() {
+fn canvas_tracks_logical_and_physical_dimensions_without_eager_cpu_buffers() {
     let canvas = Canvas::new(10, 8, 2.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
 
     assert_eq!(canvas.dimensions(), (10, 8, 20, 16, 2.0));
-    assert_eq!(canvas.pixels.len(), 20 * 16 * 4);
+    assert!(canvas.pixels.is_empty());
+    assert!(canvas.present_pixels.is_empty());
+}
+
+#[test]
+fn explicit_pixel_paths_allocate_cpu_buffers_lazily() {
+    let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+
+    assert_eq!(canvas.load_pixels(), vec![0; 8]);
+    assert_eq!(canvas.pixels.len(), 8);
+    assert!(canvas.present_pixels.is_empty());
+
+    canvas.set_pixel_rgba(1, 0, (10, 20, 30, 255)).unwrap();
+    assert_eq!(canvas.present_pixels.len(), 2);
+    assert_eq!(canvas.load_pixels(), vec![0, 0, 0, 0, 10, 20, 30, 255]);
+
+    canvas.resize_canvas(3, 1, 1.0, SUPPORTED_RENDERER).unwrap();
+    assert!(canvas.pixels.is_empty());
+    assert!(canvas.present_pixels.is_empty());
 }
 
 #[test]

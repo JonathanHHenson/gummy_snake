@@ -15,6 +15,12 @@ pub struct Diagnostics {
     pub query_cache_invalidations: usize,
     pub query_matched_archetypes: usize,
     pub query_matched_rows: usize,
+    /// Successful mutations recorded by the change journal since diagnostics reset.
+    pub change_journal_updates: usize,
+    /// Records retained for the current change epoch at snapshot time.
+    pub change_journal_retained_records: usize,
+    /// Live rows returned by filters containing Added, Changed, or Removed terms.
+    pub change_filter_matched_rows: usize,
     pub resources_total: usize,
     pub event_queues_total: usize,
     pub event_records_total: usize,

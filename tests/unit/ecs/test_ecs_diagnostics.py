@@ -35,6 +35,24 @@ def test_public_diagnostics_merge_rust_event_counters_and_reset_both_layers() ->
     assert world.read_events(Ping) == (Ping(3),)
 
 
+def test_public_change_journal_diagnostics_are_dynamic_and_resettable() -> None:
+    world = EcsWorld()
+    world.add_entity(Position(1, 2))
+
+    diagnostics = world.diagnostics()
+    updates = diagnostics["ecs_change_journal_updates"]
+    retained_records = diagnostics["ecs_change_journal_retained_records"]
+    assert updates > 0
+    assert retained_records == updates
+    assert diagnostics["ecs_change_filter_matched_rows"] == 0
+
+    world.reset_diagnostics()
+    reset = world.diagnostics()
+    assert reset["ecs_change_journal_updates"] == 0
+    assert reset["ecs_change_journal_retained_records"] == retained_records
+    assert reset["ecs_change_filter_matched_rows"] == 0
+
+
 def test_diagnostic_messages_are_bounded_and_deduplicated_in_rust() -> None:
     world = EcsWorld()
     world.configure(warn_on_ambiguity=False)
@@ -50,7 +68,7 @@ def test_diagnostic_messages_are_bounded_and_deduplicated_in_rust() -> None:
     assert diagnostics["messages"][-1] == "message-69"
 
 
-def test_diagnostics_distinguish_steady_plan_reuse_from_dynamic_change_recompiles() -> None:
+def test_diagnostics_reuse_change_filtered_rust_plans_without_recompiling() -> None:
     steady_world = EcsWorld()
     steady_world.add_entity(Position(0, 0))
 
@@ -76,5 +94,8 @@ def test_diagnostics_distinguish_steady_plan_reuse_from_dynamic_change_recompile
     change_world.run_pre_draw_systems()
     change_world.run_pre_draw_systems()
     change_diagnostics = change_world.diagnostics()
-    assert change_diagnostics["ecs_dynamic_change_plan_recompiles"] == 2
+    assert change_diagnostics["ecs_dynamic_change_plan_recompiles"] == 0
+    assert change_diagnostics["ecs_physical_plan_compiles"] == 1
+    assert change_diagnostics["ecs_steady_physical_plan_reuses"] == 2
+    assert change_diagnostics["ecs_change_filter_matched_rows"] >= 1
     assert change_diagnostics["ecs_python_event_mirror_entries"] == 0

@@ -192,6 +192,7 @@ impl Canvas {
     }
 
     pub(crate) fn sync_present_pixels_from_rgba(&mut self) {
+        self.ensure_present_pixel_buffer();
         for (index, rgba) in self.pixels.chunks_exact(4).enumerate() {
             self.present_pixels[index] = rgba_to_present_pixel(rgba);
         }

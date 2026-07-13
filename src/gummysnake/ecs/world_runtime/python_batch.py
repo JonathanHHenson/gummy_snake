@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, cast
 from gummysnake.ecs.runtime_views import Entity, EntityView, _copy_stored_value
 from gummysnake.ecs.schema_helpers import _schema_name, _tag_name, _validate_storage_value
 from gummysnake.ecs.specs import ChangeTerm, QuerySpec, TagTerm, WithoutTerm
-from gummysnake.ecs.world_helpers import _component_key
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -204,7 +203,6 @@ class PythonEcsAccessBatch:
         row[field_index] = stored
         self._dirty.setdefault((component_type, field_name), {})[entity] = stored
         self._world._diagnostics["ecs_rows_updated"] += 1
-        self._world._changed_components.add(_component_key(entity, component_type))
         self._needs_invalidate = True
 
     def _component_row(

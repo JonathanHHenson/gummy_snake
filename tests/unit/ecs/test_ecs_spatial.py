@@ -83,7 +83,11 @@ def test_system_dependencies_run_conditions_and_groups() -> None:
 
 
 def test_change_detection_added_changed_and_removed_filters() -> None:
+    def start_next_change_epoch(world: EcsWorld) -> None:
+        world._rust.set_frame(world._ecs_frame + 1)
+
     added_world = EcsWorld()
+    start_next_change_epoch(added_world)
     added_world.add_entity(Position(1, 1), Velocity(0, 0))
     added_world.add_entity(Position(10, 0), Velocity(0, 0))
 
@@ -98,6 +102,7 @@ def test_change_detection_added_changed_and_removed_filters() -> None:
     changed_world = EcsWorld()
     changed_entity = changed_world.add_entity(Position(1, 0))
     changed_world.run_pre_draw_systems()
+    start_next_change_epoch(changed_world)
     changed_world.set_component(changed_entity, Position(4, 0))
 
     @ecs.system_plan
@@ -111,6 +116,7 @@ def test_change_detection_added_changed_and_removed_filters() -> None:
     removed_world = EcsWorld()
     survivor = removed_world.add_entity(Position(0, 0), Velocity(1, 0))
     removed_world.run_pre_draw_systems()
+    start_next_change_epoch(removed_world)
     removed_world.remove_component(survivor, Velocity)
 
     @ecs.system_plan

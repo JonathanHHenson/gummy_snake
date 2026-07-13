@@ -8,10 +8,6 @@ pub(super) fn optimize_bridge_payload(mut payload: BridgePlanPayload) -> BridgeP
     for query in &mut payload.queries {
         query.terms.sort();
         query.terms.dedup();
-        if let Some(allowed) = &mut query.allowed_entities {
-            allowed.sort_by_key(|entity| entity.raw());
-            allowed.dedup_by_key(|entity| entity.raw());
-        }
     }
     payload
 }

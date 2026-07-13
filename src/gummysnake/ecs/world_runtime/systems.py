@@ -124,10 +124,7 @@ def run_pre_draw_systems(world: EcsWorld) -> None:
     world._diagnostics["ecs_system_frame_runs"] += 1
     world._begin_change_frame()
     world._invalidate_spatial_indexes(clear_only=True)
-    try:
-        run_sorted_systems(world)
-    finally:
-        world._finalize_change_frame()
+    run_sorted_systems(world)
 
 
 def run_sorted_systems(world: EcsWorld) -> None:

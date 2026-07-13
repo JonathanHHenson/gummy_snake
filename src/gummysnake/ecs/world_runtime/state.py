@@ -12,7 +12,7 @@ from gummysnake.ecs.scheduling_helpers import (
     sorted_system_groups,
     validate_group_name,
 )
-from gummysnake.ecs.world_helpers import _component_key, _handle_matches, _optional_rust_int
+from gummysnake.ecs.world_helpers import _handle_matches, _optional_rust_int
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -84,7 +84,6 @@ def record_ambiguity(world: EcsWorld, message: str) -> None:
 def note_field_update(world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
     """Record a component field update and invalidate dependent caches."""
     world._diagnostics["ecs_rows_updated"] += 1
-    world._changed_components.add(_component_key(entity, component_type))
     invalidate_spatial_indexes(world)
 
 
@@ -184,37 +183,6 @@ def begin_change_frame(world: EcsWorld) -> None:
     world._ecs_frame += 1
     world._rust.set_frame(world._ecs_frame)
     world._diagnostics["ecs_change_detection_refreshes"] += 1
-
-
-def finalize_change_frame(world: EcsWorld) -> None:
-    """Clear frame-local component change markers after systems run."""
-    world._added_components.clear()
-    world._changed_components.clear()
-    world._removed_components.clear()
-
-
-def mark_component_added(world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
-    """Record that a component was added during the current change frame."""
-    key = _component_key(entity, component_type)
-    world._added_components.add(key)
-    world._changed_components.add(key)
-    world._removed_components.discard(key)
-
-
-def mark_component_changed(world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
-    """Record that a component changed during the current change frame."""
-    key = _component_key(entity, component_type)
-    if key not in world._added_components:
-        world._changed_components.add(key)
-    invalidate_spatial_indexes(world)
-
-
-def mark_component_removed(world: EcsWorld, entity: Entity, component_type: type[Any]) -> None:
-    """Record that a component was removed during the current change frame."""
-    key = _component_key(entity, component_type)
-    world._removed_components.add(key)
-    world._added_components.discard(key)
-    world._changed_components.discard(key)
 
 
 def set_system_enabled(world: EcsWorld, handle: SystemHandle | str, enabled: bool) -> None:

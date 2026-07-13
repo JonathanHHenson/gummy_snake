@@ -39,6 +39,15 @@ pub(super) fn diagnostics_to_dict<'py>(
         diagnostics.query_matched_archetypes,
     )?;
     dict.set_item("query_matched_rows", diagnostics.query_matched_rows)?;
+    dict.set_item("change_journal_updates", diagnostics.change_journal_updates)?;
+    dict.set_item(
+        "change_journal_retained_records",
+        diagnostics.change_journal_retained_records,
+    )?;
+    dict.set_item(
+        "change_filter_matched_rows",
+        diagnostics.change_filter_matched_rows,
+    )?;
     dict.set_item("resources_total", diagnostics.resources_total)?;
     dict.set_item("event_queues_total", diagnostics.event_queues_total)?;
     dict.set_item("event_records_total", diagnostics.event_records_total)?;

@@ -112,7 +112,6 @@ fn query_fingerprint(plan: &PhysicalPlan, query_name: &str) -> u64 {
     query_name.hash(&mut hasher);
     if let Some(query) = plan.queries.iter().find(|query| query.name == query_name) {
         query.filter.hash(&mut hasher);
-        query.allowed_entities.hash(&mut hasher);
     }
     hasher.finish()
 }

@@ -152,7 +152,6 @@ impl<'a> PlanExecutor<'a> {
             .find(|query| query.name == query_name)
         {
             query.filter.hash(&mut hasher);
-            query.allowed_entities.hash(&mut hasher);
         }
         hasher.finish()
     }

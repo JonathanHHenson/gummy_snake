@@ -22,8 +22,8 @@ def initialize_world(world: EcsWorld, context: SketchContext | None) -> None:
 
     Component columns, resources, events, entity generations, spatial indexes,
     and compiled physical plans remain in the Rust runtime. The attributes here
-    are Python API metadata, diagnostics, scheduling configuration, and
-    frame-local change bookkeeping only.
+    are Python API metadata, diagnostics, and scheduling configuration only.
+    Change epochs and mutation summaries remain in the Rust world.
     """
 
     world.context = context
@@ -44,10 +44,9 @@ def initialize_world(world: EcsWorld, context: SketchContext | None) -> None:
     world._expression_eval_cache = {}
     world._defer_spatial_invalidation = False
     world._spatial_invalidated_deferred = False
-    world._ecs_frame = 0
-    world._added_components = set()
-    world._changed_components = set()
-    world._removed_components = set()
+    # The Rust world starts in epoch 0. The first scheduled frame consumes
+    # setup-time mutations in that epoch before later frames rotate it.
+    world._ecs_frame = -1
     world._event_types = {}
     world._has_change_filtered_systems_cache = None
     world._active_python_access_batch = None

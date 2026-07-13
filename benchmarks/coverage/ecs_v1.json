@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:e43dd09896e6b04b0d7bb4f1bbd954280573af3911cb6adad7914f1d1ad7921e",
+  "catalog_digest": "sha256:fb5ed239d3b4e3bf644b0155582d88999db8ab53503269208f02664ce517e928",
   "entries": [
     {
       "capabilities": [
@@ -66,7 +66,7 @@
       ],
       "case_id": "diagnostics-snapshot-reset",
       "correctness_label": "diagnostics-reset-counter-digest",
-      "definition_digest": "sha256:9267fe9de5133547f4f9afb3e6740d9b45028fb4625f213676d0408e7c0a2f60",
+      "definition_digest": "sha256:1e07a8c225d2e75603279e7e09bcfbd45a78257df4dbe0996c8675efdbc717c1",
       "metric_identity": {
         "id": "diagnostic-snapshot-elapsed-ns",
         "version": 1
@@ -99,7 +99,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:b0c98466f04ddb667e4e0b3845bb887f8fb03b019c9731f96a8502ca964e906a",
+        "expected_correctness_digest": "sha256:f0b6aae53523bb44a628a95eb7dace6115832b59c720274b7e71c63a485603f2",
         "required_counters": [
           "ecs_physical_system_runs",
           "ecs_physical_rows_scanned",
@@ -493,7 +493,7 @@
       ],
       "case_id": "cache-reuse-release-four-by-four",
       "correctness_label": "plan-cache-reuse-release-digest",
-      "definition_digest": "sha256:53807df2a9b84a86487eb38ee78c6a8a89b50a8dd26a3da836af9ffddd954d8e",
+      "definition_digest": "sha256:5b384773f696a710e3726e0ae403968f1c6056b93e59aec1f38fefe6dd25a3c9",
       "metric_identity": {
         "id": "plan-lifecycle-elapsed-ns",
         "version": 1
@@ -526,7 +526,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:30de26d3661ccaa52fafe5535ac4c5297149698fae6dc7f575e19f59f3a33fe1",
+        "expected_correctness_digest": "sha256:aa6a7a5ae8f726e39e620c18f7e9a50dfcd8867ca98741cbe6787286a00c5219",
         "frames": 4,
         "required_counters": [
           "ecs_physical_plan_compiles",

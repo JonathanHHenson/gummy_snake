@@ -37,6 +37,9 @@ mod types;
 mod validation;
 mod voice_controls;
 mod voice_core;
+// Epic 320 PBI 007 foundation; public render/export paths are not routed here yet.
+#[allow(dead_code)]
+mod wav_sink;
 
 pub(crate) use dsp::*;
 pub(crate) use executor::*;

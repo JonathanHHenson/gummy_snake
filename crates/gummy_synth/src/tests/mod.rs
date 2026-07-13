@@ -9,6 +9,7 @@ mod playback_and_output;
 mod sample_and_dsp;
 mod samples_and_output;
 mod voices;
+mod wav_sink;
 
 fn max_abs_pair(left: &[f64], right: &[f64]) -> f64 {
     left.iter()

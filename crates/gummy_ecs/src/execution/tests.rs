@@ -64,7 +64,6 @@ fn spatial_count_payload(world: &World) -> BridgePlanPayload {
                 QueryTerm::WithComponent("Position".to_string()),
                 QueryTerm::WithComponent("Velocity".to_string()),
             ],
-            allowed_entities: None,
         }],
         expressions: vec![
             ExprNode::Field {

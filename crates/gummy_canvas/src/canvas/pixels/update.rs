@@ -24,7 +24,8 @@ impl Canvas {
                 pixels.len()
             )));
         }
-        if pixels == self.pixels {
+        if pixels == self.pixels || (self.pixels.is_empty() && pixels.iter().all(|&byte| byte == 0))
+        {
             self.performance_counters.pixel_noop_upload_skips += 1;
             return Ok(());
         }
@@ -55,6 +56,7 @@ impl Canvas {
             return Ok(());
         }
         self.sync_pixels_for_explicit_pixel_write();
+        self.ensure_present_pixel_buffer();
         let offset = (y as usize * self.physical_width + x as usize) * 4;
         self.pixels[offset] = rgba.0;
         self.pixels[offset + 1] = rgba.1;
@@ -119,6 +121,7 @@ impl Canvas {
             return Ok(());
         };
         self.sync_pixels_for_explicit_pixel_write();
+        self.ensure_present_pixel_buffer();
         for row in 0..copy_height {
             let source_offset = ((src_y + row) * width + src_x) * 4;
             let destination_offset = ((dst_y + row) * self.physical_width + dst_x) * 4;
@@ -155,6 +158,7 @@ impl Canvas {
         } else if self.pixels_stale {
             self.read_gpu_pixels();
         }
+        self.ensure_cpu_pixel_buffer();
     }
 
     pub(crate) fn adjust_pixel_prefix_impl(

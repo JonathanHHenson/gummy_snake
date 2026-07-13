@@ -19,7 +19,6 @@ fn spatial_aggregate_precomputes_generic_exact_filter() {
                     QueryTerm::WithComponent("Position".to_string()),
                     QueryTerm::WithComponent("Velocity".to_string()),
                 ],
-                allowed_entities: None,
             },
             BridgeQueryPayload {
                 name: "item".to_string(),
@@ -27,7 +26,6 @@ fn spatial_aggregate_precomputes_generic_exact_filter() {
                     QueryTerm::WithComponent("Position".to_string()),
                     QueryTerm::WithComponent("Velocity".to_string()),
                 ],
-                allowed_entities: None,
             },
         ],
         expressions: vec![
@@ -152,7 +150,6 @@ fn spatial_aggregate_precomputes_pairwise_origin_item_expression() {
                     QueryTerm::WithComponent("Position".to_string()),
                     QueryTerm::WithComponent("Velocity".to_string()),
                 ],
-                allowed_entities: None,
             },
             BridgeQueryPayload {
                 name: "item".to_string(),
@@ -160,7 +157,6 @@ fn spatial_aggregate_precomputes_pairwise_origin_item_expression() {
                     QueryTerm::WithComponent("Position".to_string()),
                     QueryTerm::WithComponent("Velocity".to_string()),
                 ],
-                allowed_entities: None,
             },
         ],
         expressions: vec![
@@ -262,7 +258,6 @@ fn spatial_index_cache_distinguishes_same_named_relations_with_different_item_fi
                         QueryTerm::WithComponent("Velocity".to_string()),
                         QueryTerm::WithTag("Marker".to_string()),
                     ],
-                    allowed_entities: None,
                 },
                 BridgeQueryPayload {
                     name: "item".to_string(),
@@ -270,7 +265,6 @@ fn spatial_index_cache_distinguishes_same_named_relations_with_different_item_fi
                         QueryTerm::WithComponent("Position".to_string()),
                         QueryTerm::WithTag(tag.to_string()),
                     ],
-                    allowed_entities: None,
                 },
             ],
             expressions: vec![

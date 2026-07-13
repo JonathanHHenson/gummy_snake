@@ -113,7 +113,9 @@ Rust ECS storage is canonical:
 - resources are singleton schema-backed Rust values,
 - typed events are frame-stamped queues,
 - spatial indexes are owned by the Rust spatial registry/physical executor,
-- compiled plans are cached Rust handles keyed by schema fingerprint and system.
+- compiled plans are cached Rust handles keyed by schema fingerprint and system,
+- change records and their compact per-entity summaries are Rust-owned and retain
+  only the active epoch, with monotonic mutation revisions across epoch changes.
 
 Python keeps only light metadata required for the public API: dataclass type to
 schema mappings, live entity slot metadata for friendly errors, scheduled-system

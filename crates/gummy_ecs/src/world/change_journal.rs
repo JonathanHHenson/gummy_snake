@@ -93,15 +93,16 @@ impl EntityChange {
 
 /// Rust-owned mutation history and per-epoch change index for a [`crate::World`].
 ///
-/// The journal preserves every successful world mutation in revision order and
-/// provides a compact latest-transition summary for each `(epoch, entity)` pair.
-/// It deliberately does not interpret Added/Changed/Removed query semantics yet;
-/// that integration will consume this stable data model in a later migration
-/// slice, without requiring Python-owned allowed-entity transport.
+/// The journal retains only the active epoch. Advancing to a different epoch
+/// discards completed-epoch records and summaries, bounding retained memory by
+/// mutations in the active epoch while revisions remain monotonic. Query
+/// filtering consumes the compact summaries directly for Added/Changed/Removed
+/// component terms, without Python-owned allowed-entity transport.
 #[derive(Debug, Clone, Default)]
 pub struct ChangeJournal {
     current_epoch: ChangeEpoch,
     latest_revision: ChangeRevision,
+    diagnostic_updates: usize,
     records: Vec<ChangeRecord>,
     changes: HashMap<(ChangeEpoch, Entity), EntityChange>,
 }
@@ -113,6 +114,14 @@ impl ChangeJournal {
 
     pub fn latest_revision(&self) -> ChangeRevision {
         self.latest_revision
+    }
+
+    pub(crate) fn diagnostic_updates(&self) -> usize {
+        self.diagnostic_updates
+    }
+
+    pub(crate) fn reset_diagnostic_counters(&mut self) {
+        self.diagnostic_updates = 0;
     }
 
     pub fn len(&self) -> usize {
@@ -138,11 +147,17 @@ impl ChangeJournal {
     }
 
     pub(crate) fn set_epoch(&mut self, epoch: u64) {
-        self.current_epoch = ChangeEpoch::new(epoch);
+        let epoch = ChangeEpoch::new(epoch);
+        if self.current_epoch != epoch {
+            self.current_epoch = epoch;
+            self.records.clear();
+            self.changes.clear();
+        }
     }
 
     pub(crate) fn record(&mut self, entity: Entity, kind: ChangeKind) -> ChangeRevision {
         self.latest_revision = ChangeRevision(self.latest_revision.0.saturating_add(1));
+        self.diagnostic_updates = self.diagnostic_updates.saturating_add(1);
         let revision = self.latest_revision;
         let epoch = self.current_epoch;
         let record = ChangeRecord {
@@ -193,6 +208,30 @@ impl ChangeJournal {
                 change.tags.entry(tag.clone()).or_default().removed = Some(record.revision);
             }
         }
+    }
+}
+
+impl ComponentChange {
+    /// Whether the component's final structural transition in this epoch is an add.
+    pub(crate) fn is_currently_added(&self) -> bool {
+        self.added
+            .is_some_and(|added| self.removed.is_none_or(|removed| added > removed))
+    }
+
+    /// Whether the component's final structural transition in this epoch is a removal.
+    pub(crate) fn is_currently_removed(&self) -> bool {
+        self.removed
+            .is_some_and(|removed| self.added.is_none_or(|added| removed > added))
+    }
+
+    /// Whether the component changed while present at the end of this epoch.
+    /// A final add is itself a change; field writes before a later removal are not.
+    pub(crate) fn is_currently_changed(&self) -> bool {
+        self.is_currently_added()
+            || self
+                .changed_fields
+                .values()
+                .any(|changed| self.removed.is_none_or(|removed| *changed > removed))
     }
 }
 

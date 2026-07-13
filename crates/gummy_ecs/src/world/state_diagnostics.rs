@@ -45,6 +45,8 @@ impl World {
         diagnostics.entity_generation_reuses = self.entities.generation_reuses();
         diagnostics.component_schemas_total = self.schemas.len();
         diagnostics.archetypes_total = self.archetypes.len();
+        diagnostics.change_journal_updates = self.change_journal.diagnostic_updates();
+        diagnostics.change_journal_retained_records = self.change_journal.len();
         diagnostics.resources_total = self.resources.len();
         diagnostics.event_queues_total = self.events.queue_count();
         diagnostics.event_records_total = self.events.record_count();
@@ -57,6 +59,7 @@ impl World {
 
     pub fn reset_diagnostics(&mut self) {
         self.diagnostics = Diagnostics::default();
+        self.change_journal.reset_diagnostic_counters();
     }
 
     pub(super) fn note_structural_revision(&mut self) {

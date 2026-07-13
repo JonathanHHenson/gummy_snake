@@ -76,6 +76,7 @@ impl Canvas {
         } else if self.pixels_stale {
             self.read_gpu_pixels();
         }
+        self.ensure_cpu_pixel_buffer();
     }
 }
 

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::column::EcsValue;
-use crate::entity::Entity;
+
 use crate::error::{EcsError, Result};
 use crate::query::{QueryFilter, QueryTerm};
 use crate::scheduler::AccessSummary;
@@ -13,7 +13,6 @@ pub const BRIDGE_PLAN_VERSION: u32 = 2;
 pub struct PhysicalQuery {
     pub name: String,
     pub filter: QueryFilter,
-    pub allowed_entities: Option<Vec<Entity>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -189,7 +188,6 @@ pub struct PhysicalPlan {
 pub struct BridgeQueryPayload {
     pub name: String,
     pub terms: Vec<QueryTerm>,
-    pub allowed_entities: Option<Vec<Entity>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -254,7 +252,6 @@ pub fn compile_bridge_plan(
         queries.push(PhysicalQuery {
             name: query.name,
             filter: QueryFilter::new(query.terms),
-            allowed_entities: query.allowed_entities,
         });
     }
 
@@ -336,7 +333,6 @@ mod tests {
                     QueryTerm::WithComponent("Position".to_string()),
                     QueryTerm::WithTag("Hero".to_string()),
                 ],
-                allowed_entities: None,
             }],
             expressions: vec![
                 ExprNode::Field {
@@ -370,6 +366,32 @@ mod tests {
             .access
             .writes
             .contains(&AccessKey::Component("Position".to_string())));
+    }
+
+    #[test]
+    fn bridge_plan_compiler_validates_component_change_terms() {
+        let schemas = schemas();
+        for term in [
+            QueryTerm::Added("Unknown".to_string()),
+            QueryTerm::Changed("Unknown".to_string()),
+            QueryTerm::Removed("Unknown".to_string()),
+        ] {
+            let payload = BridgePlanPayload {
+                version: BRIDGE_PLAN_VERSION,
+                schema_fingerprint: Some(schemas.fingerprint()),
+                queries: vec![BridgeQueryPayload {
+                    name: "entity".to_string(),
+                    terms: vec![term],
+                }],
+                expressions: Vec::new(),
+                actions: vec![ActionNode::Noop],
+                root_action: 0,
+            };
+            assert!(matches!(
+                compile_bridge_plan(payload, &schemas),
+                Err(EcsError::UnknownSchema(component)) if component == "Unknown"
+            ));
+        }
     }
 
     #[test]

@@ -7,6 +7,12 @@ pub enum QueryTerm {
     WithoutComponent(String),
     WithTag(String),
     WithoutTag(String),
+    /// Matches rows whose component was added during the current change epoch.
+    Added(String),
+    /// Matches rows whose component had at least one field changed during the current change epoch.
+    Changed(String),
+    /// Matches rows whose component was removed during the current change epoch.
+    Removed(String),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
@@ -35,6 +41,9 @@ impl QueryFilter {
             QueryTerm::WithoutComponent(component) => !key.contains_component(component),
             QueryTerm::WithTag(tag) => key.contains_tag(tag),
             QueryTerm::WithoutTag(tag) => !key.contains_tag(tag),
+            // Change terms are evaluated per row against the world's current
+            // change journal after archetype selection.
+            QueryTerm::Added(_) | QueryTerm::Changed(_) | QueryTerm::Removed(_) => true,
         })
     }
 }

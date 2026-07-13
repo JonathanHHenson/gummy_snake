@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING, Any, cast
 from gummysnake.ecs.actions import Action, UdfArgument, action_write_targets
 from gummysnake.ecs.expressions import Expression, FieldExpression, QueryProxy, expression_queries
 from gummysnake.ecs.helpers import ExpressionInput
-from gummysnake.ecs.runtime_views import EntityView
+from gummysnake.ecs.runtime_views import Entity, EntityView
+from gummysnake.ecs.schema_helpers import _schema_name
 from gummysnake.ecs.specifications import ChangeTerm, Query, QuerySpec, TagTerm, WithoutTerm
-from gummysnake.ecs.world_helpers import _component_key
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -22,55 +22,39 @@ type MaterializedUdfArgument = list[EntityView] | ExpressionInput
 
 
 def match_query(world: EcsWorld, spec: QuerySpec) -> list[EntityView]:
-    """Materialize Python entity views for a query specification."""
-    components: list[type[Any]] = []
-    tags: list[object] = []
-    excluded_components: list[type[Any]] = []
-    excluded_tags: list[object] = []
-    change_terms: list[ChangeTerm] = []
+    """Materialize Rust-filtered entity views for a query specification.
+
+    Rust evaluates all component, tag, exclusion, and change terms against its
+    canonical world and active change epoch. Python constructs views only after
+    that query returns, so UDF/materialized paths do not maintain a second
+    component-change mirror.
+    """
+
+    terms: list[tuple[str, str]] = []
     for term in spec.terms:
         if isinstance(term, TagTerm):
-            tags.append(term.value)
+            terms.append(("with_tag", str(term.value)))
         elif isinstance(term, ChangeTerm):
             world.validate_schema(term.component_type)
-            change_terms.append(term)
-            if term.kind != "removed" and term.component_type not in components:
-                components.append(term.component_type)
+            terms.append((term.kind, _schema_name(term.component_type)))
         elif isinstance(term, WithoutTerm):
             value = term.value
             if isinstance(value, TagTerm):
-                excluded_tags.append(value.value)
+                terms.append(("without_tag", str(value.value)))
             elif isinstance(value, type):
                 world.validate_schema(value)
-                excluded_components.append(value)
+                terms.append(("without_component", _schema_name(value)))
             else:
                 raise SystemPlanError(f"Unsupported ecs.Without query term {value!r}.")
         elif isinstance(term, type):
             world.validate_schema(term)
-            components.append(term)
+            terms.append(("with_component", _schema_name(term)))
         else:
             raise SystemPlanError(f"Unsupported ECS query term {term!r}.")
-    matches = list(world.iter_entities(*components, tags=tags))
-    if excluded_components or excluded_tags:
-        matches = [
-            entity
-            for entity in matches
-            if all(
-                not world._has_component(entity.entity, component)
-                for component in excluded_components
-            )
-            and all(
-                str(tag)
-                not in world._rust.entity_tags(entity.entity.index, entity.entity.generation)
-                for tag in excluded_tags
-            )
-        ]
-    if change_terms:
-        matches = [
-            entity for entity in matches if matches_change_terms(world, entity, change_terms)
-        ]
-        world._diagnostics["ecs_change_filtered_rows"] += len(matches)
-    return matches
+    rows = world._rust.query_with_terms(terms)
+    return [
+        EntityView(world, Entity(index, generation, world._world_id)) for index, generation in rows
+    ]
 
 
 def iter_join_contexts_for(
@@ -148,16 +132,3 @@ def materialize_udf_arg(world: EcsWorld, arg: UdfArgument) -> MaterializedUdfArg
             "ECS UDF arguments require system query proxies, not ecs.Query markers."
         )
     return arg
-
-
-def matches_change_terms(world: EcsWorld, entity: EntityView, terms: Iterable[ChangeTerm]) -> bool:
-    """Return whether an entity satisfies all requested change-detection terms."""
-    for term in terms:
-        key = _component_key(entity.entity, term.component_type)
-        if term.kind == "added" and key not in world._added_components:
-            return False
-        if term.kind == "changed" and key not in world._changed_components:
-            return False
-        if term.kind == "removed" and key not in world._removed_components:
-            return False
-    return True

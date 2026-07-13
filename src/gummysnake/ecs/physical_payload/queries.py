@@ -22,7 +22,6 @@ def query_payload(state: PayloadState, query: QueryProxy) -> BridgeNode:
 
     terms: list[tuple[str, str]] = []
     seen_terms: set[tuple[str, str]] = set()
-    change_terms: list[ChangeTerm] = []
 
     def add_term(kind: str, name: str) -> None:
         term = (kind, name)
@@ -36,24 +35,35 @@ def query_payload(state: PayloadState, query: QueryProxy) -> BridgeNode:
         elif isinstance(term, WithoutTerm):
             _add_without_term(state, add_term, term.value)
         elif isinstance(term, ChangeTerm):
-            state.world.validate_schema(term.component_type)
-            change_terms.append(term)
-            if term.kind != "removed":
-                add_term("with_component", schema_name(term.component_type))
+            _add_change_term(state, add_term, term)
         elif isinstance(term, type):
             state.world.validate_schema(term)
             add_term("with_component", schema_name(term))
         else:
             raise PhysicalPlanUnsupported(f"unsupported query term {term!r}")
 
-    payload: BridgeNode = {"name": query.name, "terms": terms}
-    if change_terms:
-        state.mark_dynamic()
-        matches = state.world.match_query(spec)
-        payload["allowed_entities"] = [
-            (int(entity.entity.index), int(entity.entity.generation)) for entity in matches
-        ]
-    return payload
+    return {"name": query.name, "terms": terms}
+
+
+def _add_change_term(state: PayloadState, add_term: AddTerm, term: ChangeTerm) -> None:
+    """Serialize a journal-backed change filter for the Rust query engine."""
+
+    state.world.validate_schema(term.component_type)
+    component = schema_name(term.component_type)
+    if term.kind == "added":
+        add_term("added", component)
+        add_term("with_component", component)
+    elif term.kind == "changed":
+        add_term("changed", component)
+        add_term("with_component", component)
+    elif term.kind == "removed":
+        # Removed rows no longer carry this component, so requiring it would
+        # exclude the journal entry before Rust can evaluate the change term.
+        add_term("removed", component)
+    else:
+        raise PhysicalPlanUnsupported(
+            f"ECS change query term {term.kind!r} cannot be expressed by the Rust bridge"
+        )
 
 
 def _add_tag_term(add_term: AddTerm, kind: str, value: object) -> None:

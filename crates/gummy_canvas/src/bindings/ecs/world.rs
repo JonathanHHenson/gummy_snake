@@ -411,6 +411,32 @@ impl PyEcsWorld {
             .collect())
     }
 
+    fn query_with_terms(&mut self, terms: Vec<(String, String)>) -> PyResult<Vec<(u32, u32)>> {
+        let terms = terms
+            .into_iter()
+            .map(|(kind, name)| match kind.as_str() {
+                "with_component" => Ok(QueryTerm::WithComponent(name)),
+                "without_component" => Ok(QueryTerm::WithoutComponent(name)),
+                "with_tag" => Ok(QueryTerm::WithTag(name)),
+                "without_tag" => Ok(QueryTerm::WithoutTag(name)),
+                "added" => Ok(QueryTerm::Added(name)),
+                "changed" => Ok(QueryTerm::Changed(name)),
+                "removed" => Ok(QueryTerm::Removed(name)),
+                _ => Err(PyValueError::new_err(format!(
+                    "unknown ECS query term kind {kind:?}"
+                ))),
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let entities = self
+            .world
+            .query_filter(QueryFilter::new(terms))
+            .map_err(py_value_error)?;
+        Ok(entities
+            .into_iter()
+            .map(|entity| (entity.index, entity.generation))
+            .collect())
+    }
+
     fn query_filtered(
         &mut self,
         required_components: Vec<String>,

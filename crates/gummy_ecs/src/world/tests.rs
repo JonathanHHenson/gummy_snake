@@ -264,6 +264,273 @@ fn filtered_queries_support_required_and_excluded_tags() {
 }
 
 #[test]
+fn component_change_terms_filter_current_epoch_rows() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let unchanged = world
+        .spawn_with_defaults(["Position".to_string(), "Velocity".to_string()])
+        .unwrap();
+    let added = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let changed = world
+        .spawn_with_defaults(["Position".to_string(), "Velocity".to_string()])
+        .unwrap();
+    let removed = world
+        .spawn_with_defaults(["Position".to_string(), "Velocity".to_string()])
+        .unwrap();
+
+    world.set_frame(1);
+    world.add_component_default(added, "Velocity").unwrap();
+    world
+        .set_field(changed, "Position", "x", EcsValue::F64(1.0))
+        .unwrap();
+    world.remove_component(removed, "Velocity").unwrap();
+
+    let mut rows_for = |term| {
+        world
+            .query_filter(QueryFilter::new([
+                QueryTerm::WithComponent("Position".to_string()),
+                term,
+            ]))
+            .unwrap()
+    };
+    assert_eq!(
+        rows_for(QueryTerm::Added("Velocity".to_string())),
+        vec![added]
+    );
+    assert_eq!(
+        rows_for(QueryTerm::Changed("Position".to_string())),
+        vec![changed]
+    );
+    assert_eq!(
+        rows_for(QueryTerm::Removed("Velocity".to_string())),
+        vec![removed]
+    );
+    assert!(!rows_for(QueryTerm::Added("Velocity".to_string())).contains(&unchanged));
+    assert_eq!(world.diagnostics().change_filter_matched_rows, 4);
+}
+
+#[test]
+fn change_filters_include_first_epoch_mutations() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world
+        .spawn_with_defaults(["Position".to_string(), "Velocity".to_string()])
+        .unwrap();
+
+    assert_eq!(world.change_journal().current_epoch(), ChangeEpoch::new(0));
+    assert_eq!(
+        world
+            .query_filter(QueryFilter::new([
+                QueryTerm::WithComponent("Position".to_string()),
+                QueryTerm::Added("Velocity".to_string()),
+            ]))
+            .unwrap(),
+        vec![entity]
+    );
+    assert_eq!(
+        world
+            .query_filter(QueryFilter::new([
+                QueryTerm::WithComponent("Position".to_string()),
+                QueryTerm::Changed("Velocity".to_string()),
+            ]))
+            .unwrap(),
+        vec![entity]
+    );
+}
+
+#[test]
+fn change_filters_coalesce_multiple_field_writes_into_one_live_row() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world.set_frame(1);
+    world
+        .set_field(entity, "Position", "x", EcsValue::F64(1.0))
+        .unwrap();
+    world
+        .set_field(entity, "Position", "x", EcsValue::F64(2.0))
+        .unwrap();
+
+    assert_eq!(
+        world
+            .query_filter(QueryFilter::new([
+                QueryTerm::WithComponent("Position".to_string()),
+                QueryTerm::Changed("Position".to_string()),
+            ]))
+            .unwrap(),
+        vec![entity]
+    );
+    assert_eq!(
+        world
+            .change_journal()
+            .records_for_epoch(ChangeEpoch::new(1))
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn change_filters_prefer_a_same_epoch_removal_over_an_earlier_addition() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world.set_frame(1);
+    world.add_component_default(entity, "Velocity").unwrap();
+    world.remove_component(entity, "Velocity").unwrap();
+
+    let rows_for = |world: &mut World, term| {
+        world
+            .query_filter(QueryFilter::new([
+                QueryTerm::WithComponent("Position".to_string()),
+                term,
+            ]))
+            .unwrap()
+    };
+    assert_eq!(
+        rows_for(&mut world, QueryTerm::Added("Velocity".to_string())),
+        vec![]
+    );
+    assert_eq!(
+        rows_for(&mut world, QueryTerm::Changed("Velocity".to_string())),
+        vec![]
+    );
+    assert_eq!(
+        rows_for(&mut world, QueryTerm::Removed("Velocity".to_string())),
+        vec![entity]
+    );
+}
+
+#[test]
+fn change_filters_prefer_a_same_epoch_addition_over_an_earlier_removal() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world
+        .spawn_with_defaults(["Position".to_string(), "Velocity".to_string()])
+        .unwrap();
+    world.set_frame(1);
+    world.remove_component(entity, "Velocity").unwrap();
+    world.add_component_default(entity, "Velocity").unwrap();
+
+    let rows_for = |world: &mut World, term| {
+        world
+            .query_filter(QueryFilter::new([
+                QueryTerm::WithComponent("Position".to_string()),
+                term,
+            ]))
+            .unwrap()
+    };
+    assert_eq!(
+        rows_for(&mut world, QueryTerm::Added("Velocity".to_string())),
+        vec![entity]
+    );
+    assert_eq!(
+        rows_for(&mut world, QueryTerm::Changed("Velocity".to_string())),
+        vec![entity]
+    );
+    assert_eq!(
+        rows_for(&mut world, QueryTerm::Removed("Velocity".to_string())),
+        vec![]
+    );
+}
+
+#[test]
+fn change_filters_never_return_despawned_entities() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world
+        .spawn_with_defaults(["Position".to_string(), "Velocity".to_string()])
+        .unwrap();
+    world.set_frame(1);
+    world.despawn(entity).unwrap();
+
+    assert_eq!(
+        world
+            .query_filter(QueryFilter::new([QueryTerm::Removed(
+                "Position".to_string()
+            )]))
+            .unwrap(),
+        Vec::<Entity>::new()
+    );
+}
+
+#[test]
+fn change_filters_are_isolated_to_the_active_epoch_and_compact_history() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world.set_frame(1);
+    world.add_component_default(entity, "Velocity").unwrap();
+    assert_eq!(
+        world
+            .query_filter(QueryFilter::new([
+                QueryTerm::WithComponent("Position".to_string()),
+                QueryTerm::Added("Velocity".to_string()),
+            ]))
+            .unwrap(),
+        vec![entity]
+    );
+
+    world.set_frame(2);
+    assert!(world.change_journal().is_empty());
+    assert!(world
+        .change_journal()
+        .entity_change(ChangeEpoch::new(1), entity)
+        .is_none());
+    assert_eq!(
+        world
+            .query_filter(QueryFilter::new([
+                QueryTerm::WithComponent("Position".to_string()),
+                QueryTerm::Added("Velocity".to_string()),
+            ]))
+            .unwrap(),
+        Vec::<Entity>::new()
+    );
+}
+
+#[test]
+fn change_journal_diagnostics_track_updates_retention_and_reset() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+
+    let initial = world.diagnostics();
+    assert_eq!(initial.change_journal_updates, 2);
+    assert_eq!(initial.change_journal_retained_records, 2);
+
+    world.set_frame(1);
+    let compacted = world.diagnostics();
+    assert_eq!(compacted.change_journal_updates, 2);
+    assert_eq!(compacted.change_journal_retained_records, 0);
+
+    world.add_component_default(entity, "Velocity").unwrap();
+    let updated = world.diagnostics();
+    assert_eq!(updated.change_journal_updates, 3);
+    assert_eq!(updated.change_journal_retained_records, 1);
+
+    world.reset_diagnostics();
+    let reset = world.diagnostics();
+    assert_eq!(reset.change_journal_updates, 0);
+    assert_eq!(reset.change_journal_retained_records, 1);
+}
+
+#[test]
+fn component_change_terms_reject_unknown_schemas() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+
+    for term in [
+        QueryTerm::Added("Unknown".to_string()),
+        QueryTerm::Changed("Unknown".to_string()),
+        QueryTerm::Removed("Unknown".to_string()),
+    ] {
+        assert!(matches!(
+            world.query_filter(QueryFilter::new([term])),
+            Err(crate::error::EcsError::UnknownSchema(component)) if component == "Unknown"
+        ));
+    }
+}
+
+#[test]
 fn swap_removal_repairs_the_moved_entity_location() {
     let mut world = World::new();
     register_position_velocity(&mut world);

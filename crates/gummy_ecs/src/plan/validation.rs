@@ -125,7 +125,11 @@ pub fn validate_plan_with_schemas(plan: &PhysicalPlan, schemas: &SchemaRegistry)
 pub(super) fn validate_query_terms(terms: &[QueryTerm], schemas: &SchemaRegistry) -> Result<()> {
     for term in terms {
         match term {
-            QueryTerm::WithComponent(component) | QueryTerm::WithoutComponent(component) => {
+            QueryTerm::WithComponent(component)
+            | QueryTerm::WithoutComponent(component)
+            | QueryTerm::Added(component)
+            | QueryTerm::Changed(component)
+            | QueryTerm::Removed(component) => {
                 if !schemas.contains(component) {
                     return Err(EcsError::UnknownSchema(component.clone()));
                 }

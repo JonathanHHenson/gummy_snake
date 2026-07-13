@@ -34,7 +34,6 @@ def add_entity(
     for component_type, component in component_values.items():
         world._rust.add_component_default(index, generation, _schema_name(component_type))
         sync_component_fields_to_rust(world, entity, component_type, component)
-        world._mark_component_added(entity, component_type)
     for tag in tags:
         world._rust.add_tag(index, generation, _tag_name(tag))
     world._invalidate_spatial_indexes()
@@ -42,15 +41,9 @@ def add_entity(
 
 
 def despawn_entity(world: EcsWorld, entity: Entity) -> None:
-    """Remove one entity and mark its components as removed for this frame."""
+    """Remove one entity through the Rust-owned lifecycle and change journal."""
     slot(world, entity)
-    removed_components = [
-        component_type_for_schema(world, schema_name)
-        for schema_name in world._rust.entity_components(entity.index, entity.generation)
-    ]
     world._rust.despawn_entity(entity.index, entity.generation)
-    for component_type in removed_components:
-        world._mark_component_removed(entity, component_type)
     world._invalidate_spatial_indexes()
 
 
@@ -87,7 +80,6 @@ def upsert_component(
     if existed:
         world._note_field_update(entity, component_type)
     else:
-        world._mark_component_added(entity, component_type)
         world._invalidate_spatial_indexes()
 
 
@@ -97,7 +89,6 @@ def remove_component(world: EcsWorld, entity: Entity, component_type: type[Any])
     if not has_component(world, entity, component_type):
         raise MissingComponentError(component_type.__name__)
     world._rust.remove_component(entity.index, entity.generation, _schema_name(component_type))
-    world._mark_component_removed(entity, component_type)
     world._invalidate_spatial_indexes()
 
 

@@ -1,6 +1,18 @@
 use crate::prelude::*;
 
 impl Canvas {
+    pub(crate) fn ensure_cpu_pixel_buffer(&mut self) {
+        if self.pixels.is_empty() {
+            self.pixels = vec![0; self.physical_width * self.physical_height * 4];
+        }
+    }
+
+    pub(crate) fn ensure_present_pixel_buffer(&mut self) {
+        if self.present_pixels.is_empty() {
+            self.present_pixels = vec![0; self.physical_width * self.physical_height];
+        }
+    }
+
     pub(crate) fn load_pixels_impl(&mut self) -> Vec<u8> {
         self.performance_counters.pixel_readbacks += 1;
         if self.offscreen_dirty && self.pixels_stale {
@@ -8,6 +20,7 @@ impl Canvas {
         } else if self.pixels_stale {
             self.read_gpu_pixels();
         }
+        self.ensure_cpu_pixel_buffer();
         self.pixels.clone()
     }
 
@@ -18,6 +31,7 @@ impl Canvas {
         } else if self.pixels_stale {
             self.read_gpu_pixels();
         }
+        self.ensure_cpu_pixel_buffer();
         self.performance_counters.pixel_bytes_created += 1;
         PyBytes::new_bound(py, &self.pixels)
     }
@@ -41,6 +55,7 @@ impl Canvas {
         } else if self.pixels_stale {
             self.read_gpu_pixels();
         }
+        self.ensure_cpu_pixel_buffer();
         let region = crop_rgba_with_padding(
             &self.pixels,
             self.physical_width,

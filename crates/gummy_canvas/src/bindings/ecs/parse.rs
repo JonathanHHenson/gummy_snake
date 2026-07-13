@@ -1,7 +1,6 @@
 use gummy_ecs::{
-    ActionNode, BridgePlanPayload, BridgeQueryPayload, CanvasCommandNode, Entity, ExprNode,
-    QueryTerm, SpatialAlgorithmKind, SpatialAlgorithmNode, SpatialBoundsExprNode,
-    SpatialRelationNode,
+    ActionNode, BridgePlanPayload, BridgeQueryPayload, CanvasCommandNode, ExprNode, QueryTerm,
+    SpatialAlgorithmKind, SpatialAlgorithmNode, SpatialBoundsExprNode, SpatialRelationNode,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -84,41 +83,6 @@ fn parse_f64_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<f64>> {
     parse_list(value, field, |item| item.extract::<f64>())
 }
 
-fn entity_from_parts(index: Bound<'_, PyAny>, generation: Bound<'_, PyAny>) -> PyResult<Entity> {
-    Ok(Entity {
-        index: index.extract::<u32>()?,
-        generation: generation.extract::<u32>()?,
-    })
-}
-
-fn parse_entity_payload(value: Bound<'_, PyAny>) -> PyResult<Entity> {
-    if let Ok(tuple) = value.downcast::<PyTuple>() {
-        if tuple.len() != 2 {
-            return Err(PyValueError::new_err(
-                "ECS entity handle tuples must contain (index, generation)",
-            ));
-        }
-        return entity_from_parts(tuple.get_item(0)?, tuple.get_item(1)?);
-    }
-    if let Ok(list) = value.downcast::<PyList>() {
-        if list.len() != 2 {
-            return Err(PyValueError::new_err(
-                "ECS entity handle lists must contain [index, generation]",
-            ));
-        }
-        return entity_from_parts(list.get_item(0)?, list.get_item(1)?);
-    }
-    let dict = require_dict(&value, "ECS entity handles must be tuples, lists, or dicts")?;
-    Ok(Entity {
-        index: get_required(dict, "index")?.extract::<u32>()?,
-        generation: get_required(dict, "generation")?.extract::<u32>()?,
-    })
-}
-
-fn parse_entity_list(value: &Bound<'_, PyAny>, field: &str) -> PyResult<Vec<Entity>> {
-    parse_list(value, field, parse_entity_payload)
-}
-
 fn parse_spatial_bounds_expr(value: Bound<'_, PyAny>) -> PyResult<SpatialBoundsExprNode> {
     let dict = require_dict(&value, "ECS spatial bounds nodes must be dicts")?;
     Ok(SpatialBoundsExprNode {
@@ -196,6 +160,9 @@ fn parse_query_term(value: Bound<'_, PyAny>) -> PyResult<QueryTerm> {
         "without_component" | "not_component" => Ok(QueryTerm::WithoutComponent(name)),
         "with_tag" | "tag" => Ok(QueryTerm::WithTag(name)),
         "without_tag" | "not_tag" => Ok(QueryTerm::WithoutTag(name)),
+        "added" => Ok(QueryTerm::Added(name)),
+        "changed" => Ok(QueryTerm::Changed(name)),
+        "removed" => Ok(QueryTerm::Removed(name)),
         other => Err(PyValueError::new_err(format!(
             "unknown ECS bridge query term kind '{other}'"
         ))),
@@ -204,16 +171,14 @@ fn parse_query_term(value: Bound<'_, PyAny>) -> PyResult<QueryTerm> {
 
 fn parse_query_payload(value: Bound<'_, PyAny>) -> PyResult<BridgeQueryPayload> {
     let dict = require_dict(&value, "ECS bridge query payloads must be dicts")?;
+    if dict.contains("allowed_entities")? {
+        return Err(PyValueError::new_err(
+            "ECS bridge query field 'allowed_entities' was removed; change filters execute in Rust.",
+        ));
+    }
     let name = get_required(dict, "name")?.extract::<String>()?;
     let terms = parse_list(&get_required(dict, "terms")?, "terms", parse_query_term)?;
-    let allowed_entities = get_optional_parsed(dict, "allowed_entities", |value| {
-        parse_entity_list(&value, "allowed_entities")
-    })?;
-    Ok(BridgeQueryPayload {
-        name,
-        terms,
-        allowed_entities,
-    })
+    Ok(BridgeQueryPayload { name, terms })
 }
 
 fn parse_expr_node(value: Bound<'_, PyAny>) -> PyResult<ExprNode> {
