@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
+    PackedImageBatchState,
+    PackedTextBatchState,
+)
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
     LineBatchState,
     ModelBatchKey,
@@ -33,12 +37,8 @@ class CanvasRendererHost(Protocol):
     _line_batch_state: LineBatchState
     _primitive_batch_state: PrimitiveBatchState
     _model_batch_state: ModelBatchState
-    _text_batch: list[tuple[str, float, float]]
-    _text_batch_style: dict[str, object] | None
-    _text_batch_matrix: MatrixPayload | None
-    _image_batch: list[ImageBatchRecord]
-    _image_batch_style: dict[str, object] | None
-    _image_batch_matrix: MatrixPayload | None
+    _text_batch: PackedTextBatchState
+    _image_batch: PackedImageBatchState
     _skip_canvas_end_frame: bool
     _last_pixel_bytes: bytes | None
     _current_matrix_payload: MatrixPayload

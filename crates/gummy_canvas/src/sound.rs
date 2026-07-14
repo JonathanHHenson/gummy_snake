@@ -62,6 +62,17 @@ impl CanvasSound {
     }
 }
 
+impl CanvasSound {
+    pub(crate) fn from_encoded_bytes(path: String, bytes: Vec<u8>) -> PyResult<Self> {
+        let duration = wav_duration_seconds(&bytes)?;
+        Ok(Self {
+            path,
+            bytes,
+            duration,
+        })
+    }
+}
+
 #[pyclass(name = "CanvasAudioPlayback", unsendable)]
 pub(crate) struct CanvasAudioPlayback {
     _sdl: Option<sdl3::Sdl>,
@@ -176,10 +187,7 @@ pub(crate) fn synth_play_wav_bytes(
 pub(crate) fn synth_play_compiled_program(
     program: PyRef<'_, CanvasSynthProgram>,
 ) -> PyResult<CanvasAudioPlayback> {
-    let compiled = program.cloned_program();
-    let sample_rate = compiled.sample_rate();
-    let plan = gummy_synth::SynthPlaybackPlan::from_compiled_program(&compiled);
-    start_prepared_serialized_plan_playback(plan, sample_rate)
+    start_prepared_program_playback(program.cloned_program())
 }
 
 #[pyfunction]
@@ -195,10 +203,12 @@ pub(crate) fn synth_play_serialized_plan(
     }
     let payload = payload.as_bytes().to_vec();
     gummy_synth::record_gil_released_call(gummy_synth::GilReleasedOperation::Compile);
-    let plan = py
-        .allow_threads(move || gummy_synth::SynthPlaybackPlan::from_serialized_plan(&payload))
+    let program = py
+        .allow_threads(move || {
+            gummy_synth::CompiledSynthProgram::from_serialized_plan(&payload, sample_rate)
+        })
         .map_err(|error| PyValueError::new_err(error.message().to_owned()))?;
-    start_prepared_serialized_plan_playback(plan, sample_rate)
+    start_prepared_program_playback(program)
 }
 
 fn start_prepared_wav_playback(wav: wav::PcmS16Wav) -> PyResult<CanvasAudioPlayback> {
@@ -225,17 +235,16 @@ fn start_prepared_wav_playback(wav: wav::PcmS16Wav) -> PyResult<CanvasAudioPlayb
     })
 }
 
-fn start_prepared_serialized_plan_playback(
-    plan: gummy_synth::SynthPlaybackPlan,
-    sample_rate: u32,
+fn start_prepared_program_playback(
+    program: gummy_synth::CompiledSynthProgram,
 ) -> PyResult<CanvasAudioPlayback> {
-    let duration = plan.duration_seconds();
+    let duration = program.duration_seconds();
     if !duration.is_finite() || duration < 0.0 {
         return Err(PyValueError::new_err(
             "synth live playback duration must be finite and non-negative.",
         ));
     }
-    let worker = LivePlanWorker::start(plan, sample_rate, duration)?;
+    let worker = LivePlanWorker::start(program)?;
     Ok(CanvasAudioPlayback {
         _sdl: None,
         stream: Some(PlaybackStream::LiveWorker(worker)),

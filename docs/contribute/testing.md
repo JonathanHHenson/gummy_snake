@@ -139,20 +139,22 @@ fallback. Both consumers reject source-tree imports.
 
 ## Performance Investigation
 
-The governed replacement benchmark system has self-contained Canvas, ECS, and
-Synth catalogs. Run every bounded headless case with:
+The replacement benchmark system has self-contained Canvas, ECS, and Synth catalogs.
+Automated correctness remains part of catalog/schema/oracle tests and bounded headless
+smoke. Run every bounded headless correctness case with:
 
 ```sh
 make benchmark-smoke
 ```
 
-Use `scripts/benchmark.py worktree <catalog>` for uncommitted changes against the
-exact current-HEAD record and `record-head <catalog>` for a clean HEAD against the
-nearest compatible first-parent record. Authoritative recording builds an isolated
-release wheel from a verified materialized snapshot; smoke timing is functional and
-non-authoritative. The current local policy fails degradation greater than 5.00% on
-an exact fingerprint and leaves tighter controlled-runner qualification for a future
-reviewed policy version.
+Performance timing is not a CI or release gate. A maintainer invokes
+`scripts/benchmark.py worktree <catalog>` or `record-head <catalog>` manually. Comparable
+runs build an isolated release wheel from a verified materialized snapshot, execute
+fixed workloads, check deterministic oracles before timing, retain raw samples and path
+diagnostics, and write ignored local history keyed by fingerprint and commit. The local
+policy fails degradation greater than 5.00% on an exact fingerprint; exactly 5.00%
+passes. Native-interactive and native-audio suites are optional manual information and
+may be unavailable without blocking completion.
 
 For Rust-executed ECS hot paths, confirm `ecs_physical_system_runs` advances while
 `ecs_udf_calls` remains zero. For spatial paths, inspect candidate/exact rows and

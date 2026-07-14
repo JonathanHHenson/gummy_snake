@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from pathlib import Path
 
-from benchmarks.cli import main
-from benchmarks.framework.git_database import DatabaseError
+from benchmarks.cli import _parser, main
+from benchmarks.framework.local_database import LocalDatabaseError
 from benchmarks.framework.modes import GateOutcome, RunReport, record_head, worktree
 from benchmarks.framework.statistics import Decision
 from benchmarks.governance import BenchmarkMode
@@ -51,7 +52,8 @@ class FakeRunner:
 class FakeDatabase:
     known: bool = False
     exact: object | None = None
-    nearest: object | None = None
+    ancestor: object | None = None
+    latest: object | None = None
     writes: int = 0
 
     def head(self) -> str:
@@ -68,21 +70,52 @@ class FakeDatabase:
     ) -> object | None:
         return self.exact
 
-    def nearest_first_parent_record(
+    def nearest_ancestor_record(
         self, subject: str, fingerprint_id: str, suite_id: str, suite_version: int
     ) -> object | None:
-        return self.nearest
+        return self.ancestor
 
-    def stage_candidate(self, record: BenchmarkRecord) -> object:
+    def latest_record(
+        self, fingerprint_id: str, suite_id: str, suite_version: int
+    ) -> object | None:
+        return self.latest
+
+    def record(self, record: BenchmarkRecord) -> object:
         self.writes += 1
-        return type("Candidate", (), {"branch": "benchmark-record/candidate", "commit": "tip"})()
+        return type(
+            "Stored",
+            (),
+            {
+                "path": ".scratch/benchmark/history/record.json",
+                "record_id": record.record_id,
+                "created": True,
+            },
+        )()
 
 
-def test_worktree_never_writes_and_requires_exact_baseline_for_known_machine() -> None:
+def test_worktree_prefers_exact_then_ancestor_then_latest_without_writing() -> None:
     report = RunReport(candidate(), complete=True)
-    database = FakeDatabase(known=True)
-    result = worktree(database, FakeRunner(report), lambda base, current: Decision.PASS)
-    assert result.outcome is GateOutcome.MISSING_EXACT_BASELINE
+    compared: list[object] = []
+
+    def compare(baseline: object, current: BenchmarkRecord) -> Decision:
+        del current
+        compared.append(baseline)
+        return Decision.PASS
+
+    exact = object()
+    ancestor = object()
+    latest = object()
+    database = FakeDatabase(exact=exact, ancestor=ancestor, latest=latest)
+    assert worktree(database, FakeRunner(report), compare).outcome is GateOutcome.PASS
+    assert compared.pop() is exact
+
+    database.exact = None
+    assert worktree(database, FakeRunner(report), compare).outcome is GateOutcome.PASS
+    assert compared.pop() is ancestor
+
+    database.ancestor = None
+    assert worktree(database, FakeRunner(report), compare).outcome is GateOutcome.PASS
+    assert compared.pop() is latest
     assert database.writes == 0
 
 
@@ -95,18 +128,21 @@ def test_unseen_worktree_fingerprint_is_advisory_and_never_writes() -> None:
 
 
 def test_record_head_writes_only_after_pass() -> None:
-    report = RunReport(candidate(), complete=True)
-    database = FakeDatabase(nearest=object())
+    current = candidate()
+    report = RunReport(current, complete=True)
+    database = FakeDatabase(ancestor=object())
     rejected = record_head(database, FakeRunner(report), lambda base, current: Decision.REGRESSION)
     assert rejected.outcome is GateOutcome.REGRESSION
     assert database.writes == 0
     passed = record_head(database, FakeRunner(report), lambda base, current: Decision.PASS)
     assert passed.recorded
-    assert passed.candidate_branch == "benchmark-record/candidate"
+    assert passed.record_path == ".scratch/benchmark/history/record.json"
+    assert passed.record_id == current.record_id
+    assert passed.candidate_branch is None
     assert database.writes == 1
 
 
-def test_cli_worktree_uses_runner_and_record_head_stages_only_after_preconditions(
+def test_cli_worktree_uses_local_store_and_record_head_checks_preconditions(
     monkeypatch, tmp_path, capsys
 ) -> None:
     catalog = tmp_path / "catalog.toml"
@@ -114,8 +150,11 @@ def test_cli_worktree_uses_runner_and_record_head_stages_only_after_precondition
     report = RunReport(candidate(), complete=True)
     created: list[object] = []
 
+    database_arguments: list[tuple[object, object]] = []
+
     class CliDatabase(FakeDatabase):
-        def __init__(self, _repository: object) -> None:
+        def __init__(self, repository: object, history: object) -> None:
+            database_arguments.append((repository, history))
             super().__init__(known=False)
 
     class CliRunner:
@@ -125,7 +164,7 @@ def test_cli_worktree_uses_runner_and_record_head_stages_only_after_precondition
         def run(self, _mode: BenchmarkMode) -> RunReport:
             return report
 
-    monkeypatch.setattr("benchmarks.cli.GitBenchmarkDatabase", CliDatabase)
+    monkeypatch.setattr("benchmarks.cli.LocalBenchmarkDatabase", CliDatabase)
     monkeypatch.setattr("benchmarks.cli.BenchmarkRecorderRunner", CliRunner)
     monkeypatch.setattr(
         "benchmarks.cli.load_catalog", lambda _path: type("Catalog", (), {"digest": "sha256:c"})()
@@ -134,12 +173,21 @@ def test_cli_worktree_uses_runner_and_record_head_stages_only_after_precondition
 
     assert main(["--repo", str(tmp_path), "worktree", str(catalog)]) == 0
     assert created
+    assert database_arguments == [(tmp_path, Path(".scratch/benchmark/history"))]
     assert "pass-new-fingerprint" in capsys.readouterr().out
 
     class DirtyDatabase(CliDatabase):
         def require_clean_head(self) -> str:
-            raise DatabaseError("record-head requires a clean worktree")
+            raise LocalDatabaseError("record-head requires a clean worktree")
 
-    monkeypatch.setattr("benchmarks.cli.GitBenchmarkDatabase", DirtyDatabase)
+    monkeypatch.setattr("benchmarks.cli.LocalBenchmarkDatabase", DirtyDatabase)
     assert main(["--repo", str(tmp_path), "record-head", str(catalog)]) == 2
     assert "clean worktree" in capsys.readouterr().err
+
+
+def test_cli_has_local_history_default_and_no_remote_option() -> None:
+    namespace = _parser().parse_args(["list"])
+
+    assert namespace.history == Path(".scratch/benchmark/history")
+    assert not hasattr(namespace, "remote")
+    assert "--remote" not in _parser().format_help()

@@ -3,8 +3,9 @@ use std::collections::{BTreeSet, HashSet};
 use crate::column::EcsValue;
 use crate::error::Result;
 use crate::plan::{ActionNode, CanvasCommandNode, ExprNode};
+use crate::schema::StorageType;
 
-use super::super::{storage_type_is_numeric, EvalContext, PlanExecutor};
+use super::super::{EvalContext, PlanExecutor};
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn row_local_numeric_action_query(
@@ -12,10 +13,7 @@ impl<'a> PlanExecutor<'a> {
         action_index: usize,
         contexts: &[EvalContext],
     ) -> Option<String> {
-        if contexts.len() != 1
-            || !contexts[0].bindings.is_empty()
-            || !contexts[0].loop_items.is_empty()
-        {
+        if contexts.len() != 1 || contexts[0].has_bindings() || contexts[0].has_loop_items() {
             return None;
         }
         if !self.action_contains_when(action_index) && self.action_set_field_count(action_index) < 2
@@ -35,10 +33,7 @@ impl<'a> PlanExecutor<'a> {
         action_index: usize,
         contexts: &[EvalContext],
     ) -> Option<String> {
-        if contexts.len() != 1
-            || !contexts[0].bindings.is_empty()
-            || !contexts[0].loop_items.is_empty()
-        {
+        if contexts.len() != 1 || contexts[0].has_bindings() || contexts[0].has_loop_items() {
             return None;
         }
         let mut query_name = None;
@@ -246,7 +241,9 @@ impl<'a> PlanExecutor<'a> {
                 if !self
                     .world
                     .storage_type_for_field(component, field)
-                    .is_ok_and(storage_type_is_numeric)
+                    .is_ok_and(|storage_type| {
+                        matches!(storage_type, StorageType::Float32 | StorageType::Float64)
+                    })
                 {
                     return false;
                 }

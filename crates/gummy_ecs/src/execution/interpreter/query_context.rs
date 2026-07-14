@@ -91,11 +91,12 @@ impl<'a> PlanExecutor<'a> {
         base_ctx: &EvalContext,
         query_names: &BTreeSet<String>,
     ) -> Result<Vec<EvalContext>> {
-        let missing = query_names
-            .iter()
-            .filter(|name| !base_ctx.bindings.contains_key(*name))
-            .cloned()
-            .collect::<Vec<_>>();
+        let mut missing = Vec::new();
+        for name in query_names {
+            if !self.query_is_bound(base_ctx, name)? {
+                missing.push(name.clone());
+            }
+        }
         if missing.is_empty() {
             return Ok(vec![base_ctx.clone()]);
         }
@@ -116,11 +117,12 @@ impl<'a> PlanExecutor<'a> {
             return Ok(());
         }
         let query_name = &missing[index];
+        let query_slot = self.query_slot(query_name)?;
         let rows = self.query_rows.get(query_name).ok_or_else(|| {
             EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
         })?;
         for entity in rows {
-            let next = ctx.with_binding(query_name.clone(), *entity);
+            let next = ctx.with_binding(query_slot, *entity);
             self.expand_query_recursive(&next, missing, index + 1, out)?;
         }
         Ok(())

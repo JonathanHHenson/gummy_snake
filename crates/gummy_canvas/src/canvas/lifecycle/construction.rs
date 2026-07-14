@@ -57,6 +57,7 @@ impl Canvas {
             current_matrix: (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
             matrix_stack: Vec::new(),
             performance_counters: PerformanceCounters::default(),
+            frame_command_recorder: Default::default(),
             pending_3d_triangles: Vec::new(),
             primitive_batch_cache_key: None,
             primitive_batch_cache_record_count: 0,

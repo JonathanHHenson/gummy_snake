@@ -27,8 +27,17 @@ pub(in crate::execution) struct QueryAccessSummary {
     pub(in crate::execution) copyback_eligible: bool,
 }
 
-fn add_query_access(map: &mut HashMap<String, Vec<String>>, component: &str, query: &str) {
-    let queries = map.entry(component.to_string()).or_default();
+fn field_access_key(owner: &str, field: Option<&str>) -> String {
+    field.map_or_else(|| owner.to_string(), |field| format!("{owner}\0{field}"))
+}
+
+fn add_query_access(
+    map: &mut HashMap<String, Vec<String>>,
+    component: &str,
+    field: Option<&str>,
+    query: &str,
+) {
+    let queries = map.entry(field_access_key(component, field)).or_default();
     if !queries.iter().any(|candidate| candidate == query) {
         queries.push(query.to_string());
     }
@@ -50,7 +59,7 @@ pub(in crate::execution) fn collect_action_query_access(
                     component,
                     field,
                 } => {
-                    add_query_access(&mut access.component_writes, component, query);
+                    add_query_access(&mut access.component_writes, component, Some(field), query);
                     if matches!(
                         world.storage_type_for_field(component, field)?,
                         StorageType::Float32 | StorageType::Float64
@@ -64,8 +73,10 @@ pub(in crate::execution) fn collect_action_query_access(
                         access.copyback_eligible = false;
                     }
                 }
-                ExprNode::ResourceField { resource, .. } => {
-                    access.resource_writes.insert(resource.clone());
+                ExprNode::ResourceField { resource, field } => {
+                    access
+                        .resource_writes
+                        .insert(field_access_key(resource, Some(field)));
                     access.copyback_eligible = false;
                 }
                 _ => access.copyback_eligible = false,
@@ -104,7 +115,7 @@ pub(in crate::execution) fn collect_action_query_access(
             }
             access
                 .component_writes
-                .entry(component.clone())
+                .entry(field_access_key(component, None))
                 .or_default();
             access.structural = true;
             access.copyback_eligible = false;
@@ -112,7 +123,7 @@ pub(in crate::execution) fn collect_action_query_access(
         ActionNode::RemoveComponent { component, .. } => {
             access
                 .component_writes
-                .entry(component.clone())
+                .entry(field_access_key(component, None))
                 .or_default();
             access.structural = true;
             access.copyback_eligible = false;
@@ -191,10 +202,14 @@ fn collect_expr_query_reads(
 ) -> Result<()> {
     match &plan.expressions[expr_index] {
         ExprNode::Field {
-            query, component, ..
-        } => add_query_access(&mut access.component_reads, component, query),
-        ExprNode::ResourceField { resource, .. } => {
-            access.resource_reads.insert(resource.clone());
+            query,
+            component,
+            field,
+        } => add_query_access(&mut access.component_reads, component, Some(field), query),
+        ExprNode::ResourceField { resource, field } => {
+            access
+                .resource_reads
+                .insert(field_access_key(resource, Some(field)));
         }
         ExprNode::Unary { input, .. } | ExprNode::Attribute { input, .. } => {
             collect_expr_query_reads(plan, *input, access)?;
@@ -254,7 +269,11 @@ fn collect_expr_query_reads(
 }
 
 fn sets_intersect(left: &HashSet<String>, right: &HashSet<String>) -> bool {
-    left.iter().any(|value| right.contains(value))
+    left.iter().any(|value| {
+        right
+            .iter()
+            .any(|other| field_access_names_conflict(value, other))
+    })
 }
 
 fn query_sets_disjoint(
@@ -283,6 +302,13 @@ fn query_sets_disjoint(
     true
 }
 
+fn field_access_names_conflict(left: &str, right: &str) -> bool {
+    let (left_owner, left_field) = left.split_once('\0').unwrap_or((left, "*"));
+    let (right_owner, right_field) = right.split_once('\0').unwrap_or((right, "*"));
+    left_owner == right_owner
+        && (left_field == "*" || right_field == "*" || left_field == right_field)
+}
+
 fn component_query_access_conflicts(
     writer: &HashMap<String, Vec<String>>,
     reader: &HashMap<String, Vec<String>>,
@@ -290,8 +316,11 @@ fn component_query_access_conflicts(
     reader_plan: usize,
     query_sets: &HashMap<(usize, String), HashSet<u64>>,
 ) -> bool {
-    for (component, write_queries) in writer {
-        if let Some(read_queries) = reader.get(component) {
+    for (write_key, write_queries) in writer {
+        for (read_key, read_queries) in reader {
+            if !field_access_names_conflict(write_key, read_key) {
+                continue;
+            }
             if !query_sets_disjoint(
                 writer_plan,
                 write_queries,

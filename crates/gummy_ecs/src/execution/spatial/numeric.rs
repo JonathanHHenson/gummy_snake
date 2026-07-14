@@ -22,7 +22,8 @@ impl<'a> PlanExecutor<'a> {
         cache: &mut [Option<f64>],
     ) -> Result<f64> {
         if cache[expr_index].is_none() {
-            if let Some(origin_entity) = ctx.bindings.get(&relation.origin_query).copied() {
+            let origin_slot = self.query_slot(&relation.origin_query)?;
+            if let Some(origin_entity) = ctx.bindings.get(origin_slot).copied().flatten() {
                 if let Some(value) = self.precomputed_spatial_f64(expr_index, origin_entity) {
                     cache[expr_index] = Some(value);
                     return Ok(value);
@@ -69,11 +70,10 @@ impl<'a> PlanExecutor<'a> {
         let mut sum = 0.0;
         let mut min_value = f64::INFINITY;
         let mut max_value = f64::NEG_INFINITY;
+        let item_slot = self.query_slot(&relation.item_query)?;
         for record in records.iter() {
             let mut joined = ctx.clone();
-            joined
-                .bindings
-                .insert(relation.item_query.clone(), record.entity);
+            joined.bindings[item_slot] = Some(record.entity);
             let mut item_cache = vec![None; self.plan.expressions.len()];
             let value = self.eval_expr_f64(value_expr, &joined, &mut item_cache)?;
             sum += value;
@@ -174,11 +174,9 @@ impl<'a> PlanExecutor<'a> {
             return Ok(());
         }
 
-        let origin_entity = ctx
-            .bindings
-            .get(&relation.origin_query)
-            .copied()
-            .ok_or_else(|| {
+        let origin_entity = self
+            .bound_entity(ctx, &relation.origin_query)
+            .map_err(|_| {
                 EcsError::InvalidPlan(format!(
                     "spatial origin query '{}' is not bound",
                     relation.origin_query
@@ -198,6 +196,7 @@ impl<'a> PlanExecutor<'a> {
         } else {
             None
         };
+        let item_slot = self.query_slot(&relation.item_query)?;
         let mut accumulators = vec![SpatialBatchAccum::default(); specs.len()];
         for record in records.iter() {
             let mut distance_sq = 0.0;
@@ -225,9 +224,7 @@ impl<'a> PlanExecutor<'a> {
                     }
                     SpatialBatchValue::Expression { expr_index } => {
                         let mut joined = ctx.clone();
-                        joined
-                            .bindings
-                            .insert(relation.item_query.clone(), record.entity);
+                        joined.bindings[item_slot] = Some(record.entity);
                         let mut item_cache = vec![None; self.plan.expressions.len()];
                         self.eval_expr_f64(*expr_index, &joined, &mut item_cache)?
                     }

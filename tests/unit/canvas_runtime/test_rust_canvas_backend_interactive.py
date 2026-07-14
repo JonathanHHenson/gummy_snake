@@ -23,6 +23,8 @@ def test_canvas_backend_opens_interactive_window_and_reports_display_density(
 
     assert ("open_window",) in canvas.calls
     assert backend.display_density() == 2.0
+    assert sketch.context is not None
+    assert sketch.context.frame_count == 0
     assert canvas.closed is True
 
 
@@ -97,30 +99,48 @@ def test_canvas_backend_unbounded_interactive_respects_no_loop_from_draw(
     assert polls >= 5
 
 
-def test_canvas_backend_interactive_close_during_draw_aborts_frame(
+def test_canvas_backend_interactive_tick_is_the_only_event_pump(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sketch, backend = make_canvas_context(monkeypatch)
+    canvas = backend.renderer.runtime_canvas()
+    poll_events = canvas.poll_events
+    polls = 0
+
+    def counted_poll_events() -> list[dict[str, object]]:
+        nonlocal polls
+        polls += 1
+        return poll_events()
+
+    canvas.poll_events = counted_poll_events
+
+    backend._run_interactive(sketch, max_frames=1)
+
+    assert polls == 1
+    assert not hasattr(canvas, "pump_native_events")
+
+
+def test_canvas_backend_applies_frame_rate_changes_to_the_next_deadline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     sketch, backend = make_canvas_context(monkeypatch)
     assert sketch.context is not None
     context = sketch.context
-    canvas = backend.renderer.runtime_canvas()
+    sleeps: list[float] = []
 
-    def pump_native_events() -> bool:
-        canvas.closed = True
-        return True
-
-    def draw() -> None:
-        context.rect(1, 2, 3, 4)
+    def draw_frame() -> None:
+        context.state.timing.target_frame_rate = 20.0
         context.state.timing.frame_count += 1
 
-    canvas.pump_native_events = pump_native_events
-    monkeypatch.setattr(sketch, "draw", draw)
+    monkeypatch.setattr(sketch, "_draw_frame", draw_frame)
+    monkeypatch.setattr(backend, "_perf_counter", lambda: 10.0)
+    monkeypatch.setattr(backend, "_sleep", sleeps.append)
+    backend._next_frame_time = 10.0
 
-    backend._run_interactive(sketch)
+    backend._interactive_tick(sketch, context)
 
-    assert sketch._running is False
-    assert context.frame_count == 0
-    assert ("rect", 1.0, 2.0, 3.0, 4.0) not in canvas.calls
+    assert backend._next_frame_time == pytest.approx(10.05)
+    assert sleeps == pytest.approx([0.05])
 
 
 def test_canvas_backend_unbounded_context_run_uses_interactive_runtime(

@@ -66,6 +66,17 @@ pub(crate) struct PerformanceCounters {
     pub(crate) native_primitive_batches: u64,
     pub(crate) packed_primitive_records: u64,
     pub(crate) packed_primitive_bytes: u64,
+    pub(crate) typed_frame_command_batches: u64,
+    pub(crate) typed_frame_command_records: u64,
+    pub(crate) typed_frame_command_bytes: u64,
+    pub(crate) typed_primitive_records: u64,
+    pub(crate) typed_path_records: u64,
+    pub(crate) typed_image_records: u64,
+    pub(crate) typed_text_records: u64,
+    pub(crate) typed_model_records: u64,
+    pub(crate) typed_effect_records: u64,
+    pub(crate) typed_order_barriers: u64,
+    pub(crate) frame_command_storage_growths: u64,
     pub(crate) native_command_ingest_time_ms: f64,
     pub(crate) gpu_encode_time_ms: f64,
     pub(crate) gpu_present_time_ms: f64,
@@ -168,6 +179,26 @@ impl PerformanceCounters {
         dict.set_item("native_primitive_batches", self.native_primitive_batches)?;
         dict.set_item("packed_primitive_records", self.packed_primitive_records)?;
         dict.set_item("packed_primitive_bytes", self.packed_primitive_bytes)?;
+        dict.set_item(
+            "typed_frame_command_batches",
+            self.typed_frame_command_batches,
+        )?;
+        dict.set_item(
+            "typed_frame_command_records",
+            self.typed_frame_command_records,
+        )?;
+        dict.set_item("typed_frame_command_bytes", self.typed_frame_command_bytes)?;
+        dict.set_item("typed_primitive_records", self.typed_primitive_records)?;
+        dict.set_item("typed_path_records", self.typed_path_records)?;
+        dict.set_item("typed_image_records", self.typed_image_records)?;
+        dict.set_item("typed_text_records", self.typed_text_records)?;
+        dict.set_item("typed_model_records", self.typed_model_records)?;
+        dict.set_item("typed_effect_records", self.typed_effect_records)?;
+        dict.set_item("typed_order_barriers", self.typed_order_barriers)?;
+        dict.set_item(
+            "frame_command_storage_growths",
+            self.frame_command_storage_growths,
+        )?;
         dict.set_item(
             "native_command_ingest_time_ms",
             self.native_command_ingest_time_ms,

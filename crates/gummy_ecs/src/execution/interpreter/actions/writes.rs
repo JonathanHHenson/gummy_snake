@@ -19,10 +19,11 @@ impl<'a> PlanExecutor<'a> {
 
         let mut targets_seen = HashSet::new();
         for base_ctx in contexts {
-            if query_names
-                .iter()
-                .all(|query| base_ctx.bindings.contains_key(query))
-            {
+            let mut all_bound = true;
+            for query in &query_names {
+                all_bound &= self.query_is_bound(base_ctx, query)?;
+            }
+            if all_bound {
                 self.report.rows_scanned += 1;
                 let value = self.eval_expr(value_index, base_ctx)?;
                 self.write_target(target_index, value, base_ctx, &mut targets_seen)?;
@@ -67,12 +68,10 @@ impl<'a> PlanExecutor<'a> {
                 component,
                 field,
             } => {
-                let entity = *ctx.bindings.get(query).ok_or_else(|| {
+                let entity = self.bound_entity(ctx, query).map_err(|_| {
                     EcsError::InvalidPlan(format!("query '{query}' is not bound for set target"))
                 })?;
-                let value = self
-                    .world
-                    .coerce_value_for_component_field(component, field, value)?;
+                let value = self.coerce_plan_field_value(component, field, value)?;
                 let key = WriteKey::Component {
                     entity,
                     component: component.clone(),
@@ -95,9 +94,7 @@ impl<'a> PlanExecutor<'a> {
                 Ok(())
             }
             ExprNode::ResourceField { resource, field } => {
-                let value = self
-                    .world
-                    .coerce_value_for_component_field(resource, field, value)?;
+                let value = self.coerce_plan_field_value(resource, field, value)?;
                 let key = WriteKey::Resource {
                     resource: resource.clone(),
                     field: field.clone(),

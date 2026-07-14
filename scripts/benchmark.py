@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entrypoint for the governed replacement benchmark CLI."""
+"""Entrypoint for the local-first benchmark CLI."""
 
 import sys
 from pathlib import Path

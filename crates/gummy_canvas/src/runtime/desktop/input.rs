@@ -1,3 +1,4 @@
+use super::events::push_coalesced_event;
 use super::{
     ClickState, InteractiveRuntime, PointerLockMode, DOUBLE_CLICK_DISTANCE, DOUBLE_CLICK_INTERVAL,
 };
@@ -23,15 +24,18 @@ impl InteractiveRuntime {
         } else {
             "mouse_moved"
         };
-        self.events.push(RuntimeEvent::logical_mouse(
-            event_type,
-            event_x,
-            event_y,
-            xrel as f64,
-            yrel as f64,
-            self.pressed_button.clone(),
-            modifiers_mask(self.modifiers),
-        ));
+        push_coalesced_event(
+            &mut self.events,
+            RuntimeEvent::logical_mouse(
+                event_type,
+                event_x,
+                event_y,
+                xrel as f64,
+                yrel as f64,
+                self.pressed_button.clone(),
+                modifiers_mask(self.modifiers),
+            ),
+        );
     }
 
     pub(super) fn push_mouse_button(
@@ -76,13 +80,16 @@ impl InteractiveRuntime {
             _ => 1.0,
         };
         let (event_x, event_y) = self.mouse_event_position(mouse_x, mouse_y);
-        self.events.push(RuntimeEvent::logical_mouse_wheel(
-            event_x,
-            event_y,
-            x as f64 * multiplier,
-            y as f64 * multiplier,
-            modifiers_mask(self.modifiers),
-        ));
+        push_coalesced_event(
+            &mut self.events,
+            RuntimeEvent::logical_mouse_wheel(
+                event_x,
+                event_y,
+                x as f64 * multiplier,
+                y as f64 * multiplier,
+                modifiers_mask(self.modifiers),
+            ),
+        );
     }
 
     pub(super) fn push_click_events(&mut self, button_name: Option<String>, x: f64, y: f64) {

@@ -96,20 +96,43 @@ def _write_mp3_with_ffmpeg(wav_payload: bytes, output_path: Path) -> None:
         raise BackendCapabilityError(
             "MP3 export requires ffmpeg on PATH. Save WAV or install ffmpeg."
         )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
-        prefix="gummysnake-synth-", suffix=".wav", delete=False
+        dir=output_path.parent,
+        prefix=f".{output_path.name}.gummysnake-",
+        suffix=".mp3",
+        delete=False,
     ) as file:
-        file.write(wav_payload)
-        temp_path = Path(file.name)
+        temporary_output = Path(file.name)
     try:
         subprocess.run(
-            [ffmpeg, "-y", "-loglevel", "error", "-i", str(temp_path), str(output_path)],
+            [
+                ffmpeg,
+                "-y",
+                "-loglevel",
+                "error",
+                "-f",
+                "wav",
+                "-i",
+                "pipe:0",
+                str(temporary_output),
+            ],
+            input=wav_payload,
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
         )
+        temporary_output.replace(output_path)
     except subprocess.CalledProcessError as exc:
-        raise BackendCapabilityError(f"ffmpeg could not export MP3 to {output_path!s}.") from exc
+        detail = exc.stderr.decode("utf-8", errors="replace").strip()
+        message = f"ffmpeg could not export MP3 to {output_path!s}."
+        if detail:
+            message = f"{message} {detail}"
+        raise BackendCapabilityError(message) from exc
+    except OSError as exc:
+        raise BackendCapabilityError(
+            f"MP3 export could not update {output_path!s} atomically: {exc}"
+        ) from exc
     finally:
         with contextlib.suppress(OSError):
-            temp_path.unlink(missing_ok=True)
+            temporary_output.unlink(missing_ok=True)

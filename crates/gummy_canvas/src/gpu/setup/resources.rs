@@ -1,3 +1,4 @@
+use crate::gpu::renderer_state::DepthAttachment;
 use crate::gpu::types::{ClipTextureAsset, ClipUniform, ModelUniform};
 
 pub(super) fn checked_texture_size(
@@ -45,8 +46,11 @@ pub(super) fn create_offscreen_texture(
     })
 }
 
-pub(super) fn create_depth_texture(device: &wgpu::Device, size: wgpu::Extent3d) -> wgpu::Texture {
-    device.create_texture(&wgpu::TextureDescriptor {
+pub(super) fn create_depth_attachment(
+    device: &wgpu::Device,
+    size: wgpu::Extent3d,
+) -> DepthAttachment {
+    let texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("gummy_canvas 3D depth texture"),
         size,
         mip_level_count: 1,
@@ -55,7 +59,12 @@ pub(super) fn create_depth_texture(device: &wgpu::Device, size: wgpu::Extent3d) 
         format: wgpu::TextureFormat::Depth24Plus,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         view_formats: &[],
-    })
+    });
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+    DepthAttachment {
+        _texture: texture,
+        view,
+    }
 }
 
 pub(super) fn create_pixel_prefix_texture(

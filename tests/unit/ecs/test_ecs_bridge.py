@@ -262,6 +262,10 @@ def test_rust_ecs_wrapper_validates_abi_and_spatial_registry(
         def query_with_terms(self, terms: list[tuple[str, str]]) -> list[tuple[int, int]]:
             return []
 
+    for method_name in rust_ecs._REQUIRED_ECS_WORLD_METHODS:
+        if not hasattr(FakeWorld, method_name):
+            setattr(FakeWorld, method_name, lambda self, *args, **kwargs: 0)
+
     class FakeRegistry:
         pass
 

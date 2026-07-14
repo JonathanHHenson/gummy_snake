@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::error::{EcsError, Result};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -9,6 +11,18 @@ pub struct Entity {
 impl Entity {
     pub fn raw(self) -> u64 {
         ((self.generation as u64) << 32) | self.index as u64
+    }
+}
+
+impl PartialOrd for Entity {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Entity {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.raw().cmp(&other.raw())
     }
 }
 

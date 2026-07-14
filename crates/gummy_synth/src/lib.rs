@@ -32,17 +32,16 @@ mod playback;
 mod program;
 mod sample_voice;
 mod samples;
+mod stateful_block_renderer;
 mod synth_rendering;
 mod types;
 mod validation;
 mod voice_controls;
 mod voice_core;
-// Epic 320 PBI 007 foundation; public render/export paths are not routed here yet.
-#[allow(dead_code)]
 mod wav_sink;
 
 pub(crate) use dsp::*;
-pub(crate) use executor::*;
+
 pub(crate) use fx_chain::*;
 pub(crate) use fx_core::*;
 pub(crate) use fx_modulation::*;
@@ -51,7 +50,7 @@ pub(crate) use output::*;
 pub(crate) use plans::*;
 
 pub use block_contract::{
-    BlockRenderConfig, BlockRenderDiagnostics, BlockRenderStep, PcmSink, SinkWrite,
+    BlockRenderConfig, BlockRenderDiagnostics, BlockRenderStep, MemoryPcmSink, PcmSink, SinkWrite,
     DEFAULT_RENDER_BLOCK_FRAMES, MAX_RENDER_BLOCK_FRAMES,
 };
 pub use causal_normaliser::{
@@ -65,13 +64,19 @@ pub use executor::{
     SYNTH_PARALLEL_SCRATCH_LIMIT_BYTES, SYNTH_WORKER_POOL_CAPACITY,
 };
 pub use playback::{
-    render_compiled_program_wav, render_plan_events, render_serialized_plan_wav_bytes,
-    render_serialized_plan_wav_file,
+    render_compiled_program_wav, render_compiled_program_wav_file, render_plan_events,
+    render_serialized_plan_wav_bytes, render_serialized_plan_wav_file,
 };
-pub use program::CompiledSynthProgram;
+pub use program::{
+    CompiledEventId, CompiledEventKind, CompiledSynthProgram, InternedIdentifier, SynthFrame,
+};
 pub(crate) use sample_voice::*;
-pub use samples::sample_duration;
 pub(crate) use samples::*;
+pub use samples::{
+    sample_cache_diagnostics, sample_duration, SampleCacheDiagnostics,
+    SAMPLE_RESAMPLE_CACHE_BUDGET_BYTES, SAMPLE_SOURCE_CACHE_BUDGET_BYTES,
+};
+pub use stateful_block_renderer::StatefulBlockRenderer;
 pub use synth_rendering::render_event_wav;
 pub(crate) use synth_rendering::*;
 pub(crate) use types::*;

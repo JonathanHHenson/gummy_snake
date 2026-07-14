@@ -32,10 +32,7 @@ impl<'a> PlanExecutor<'a> {
         action: usize,
         contexts: &[EvalContext],
     ) -> Result<bool> {
-        if contexts.len() != 1
-            || !contexts[0].bindings.is_empty()
-            || !contexts[0].loop_items.is_empty()
-        {
+        if contexts.len() != 1 || contexts[0].has_bindings() || contexts[0].has_loop_items() {
             return Ok(false);
         }
         let ExprNode::EventStream { event_type } = &self.plan.expressions[source] else {

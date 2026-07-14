@@ -4,6 +4,37 @@ use crate::runtime::event::RuntimeEvent;
 use sdl3::event::{Event, WindowEvent};
 use std::time::Instant;
 
+pub(super) fn push_coalesced_event(events: &mut Vec<RuntimeEvent>, event: RuntimeEvent) {
+    let Some(previous) = events.last_mut() else {
+        events.push(event);
+        return;
+    };
+    let compatible_pointer_state = previous.event_type == event.event_type
+        && previous.button == event.button
+        && previous.modifiers == event.modifiers;
+    match event.event_type {
+        "mouse_moved" | "mouse_dragged" if compatible_pointer_state => {
+            previous.x = event.x;
+            previous.y = event.y;
+            previous.dx = Some(previous.dx.unwrap_or(0.0) + event.dx.unwrap_or(0.0));
+            previous.dy = Some(previous.dy.unwrap_or(0.0) + event.dy.unwrap_or(0.0));
+            previous.inside_window = event.inside_window;
+        }
+        "mouse_wheel"
+            if previous.event_type == event.event_type && previous.modifiers == event.modifiers =>
+        {
+            previous.x = event.x;
+            previous.y = event.y;
+            previous.scroll_x =
+                Some(previous.scroll_x.unwrap_or(0.0) + event.scroll_x.unwrap_or(0.0));
+            previous.scroll_y =
+                Some(previous.scroll_y.unwrap_or(0.0) + event.scroll_y.unwrap_or(0.0));
+            previous.inside_window = event.inside_window;
+        }
+        _ => events.push(event),
+    }
+}
+
 impl InteractiveRuntime {
     pub(crate) fn pump_events(&mut self) -> Result<(), String> {
         let events: Vec<Event> = self.event_pump.poll_iter().collect();
@@ -187,5 +218,74 @@ impl InteractiveRuntime {
         }
         self.events = retained;
         drained
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::push_coalesced_event;
+    use crate::runtime::event::RuntimeEvent;
+
+    #[test]
+    fn adjacent_motion_events_keep_latest_position_and_accumulate_delta() {
+        let mut events = Vec::new();
+        push_coalesced_event(
+            &mut events,
+            RuntimeEvent::logical_mouse("mouse_moved", 2.0, 3.0, 2.0, 3.0, None, 0),
+        );
+        push_coalesced_event(
+            &mut events,
+            RuntimeEvent::logical_mouse("mouse_moved", 7.0, 8.0, 5.0, 5.0, None, 0),
+        );
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].x, Some(7.0));
+        assert_eq!(events[0].y, Some(8.0));
+        assert_eq!(events[0].dx, Some(7.0));
+        assert_eq!(events[0].dy, Some(8.0));
+    }
+
+    #[test]
+    fn discrete_events_are_barriers_for_motion_coalescing() {
+        let mut events = Vec::new();
+        push_coalesced_event(
+            &mut events,
+            RuntimeEvent::logical_mouse("mouse_moved", 2.0, 3.0, 2.0, 3.0, None, 0),
+        );
+        push_coalesced_event(
+            &mut events,
+            RuntimeEvent::key("key_pressed", Some("a".to_string()), None, 0),
+        );
+        push_coalesced_event(
+            &mut events,
+            RuntimeEvent::logical_mouse("mouse_moved", 7.0, 8.0, 5.0, 5.0, None, 0),
+        );
+
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.event_type)
+                .collect::<Vec<_>>(),
+            vec!["mouse_moved", "key_pressed", "mouse_moved"]
+        );
+    }
+
+    #[test]
+    fn adjacent_wheel_events_accumulate_scroll_at_latest_position() {
+        let mut events = Vec::new();
+        push_coalesced_event(
+            &mut events,
+            RuntimeEvent::logical_mouse_wheel(2.0, 3.0, 1.0, -2.0, 0),
+        );
+        push_coalesced_event(
+            &mut events,
+            RuntimeEvent::logical_mouse_wheel(4.0, 5.0, 3.0, 4.0, 0),
+        );
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].x, Some(4.0));
+        assert_eq!(events[0].y, Some(5.0));
+        assert_eq!(events[0].scroll_x, Some(4.0));
+        assert_eq!(events[0].scroll_y, Some(2.0));
     }
 }

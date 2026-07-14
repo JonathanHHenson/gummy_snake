@@ -4,11 +4,21 @@ import pytest
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas_renderer import CanvasRenderer
+from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import ModelBatchKey
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
-from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 from tests.helpers.canvas_runtime.modules import FakeCanvasModule
+
+
+def test_canvas_renderer_rejects_mismatched_frame_command_abi() -> None:
+    class StaleFrameCommandModule(FakeCanvasModule):
+        def frame_command_abi_version(self) -> int:
+            return 0
+
+    with pytest.raises(BackendCapabilityError, match="frame-command ABI 1"):
+        CanvasRenderer(StaleFrameCommandModule())
 
 
 def test_canvas_renderer_allocates_and_mirrors_dimensions() -> None:
@@ -25,41 +35,19 @@ def test_canvas_renderer_allocates_and_mirrors_dimensions() -> None:
     assert renderer.runtime_canvas().gpu_status() == "available"
 
 
-def test_canvas_renderer_pump_native_events_syncs_resized_canvas_dimensions() -> None:
+def test_canvas_renderer_draw_and_present_do_not_expose_an_event_pump() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(10, 10)
     canvas = renderer.runtime_canvas()
 
-    def pump_native_events() -> bool:
-        canvas.resize_canvas(20, 12, 1.5, c.P2D)
-        return False
+    assert not hasattr(canvas, "pump_native_events")
 
-    canvas.pump_native_events = pump_native_events
-    renderer._last_native_event_pump = 0.0
-
+    renderer.begin_frame()
     renderer.background(Color(1, 2, 3, 255))
-
-    assert renderer.width == 20
-    assert renderer.height == 12
-    assert renderer.physical_width == 30
-    assert renderer.physical_height == 18
-    assert renderer.pixel_density == 1.5
-
-
-def test_canvas_renderer_present_pumps_native_events_and_skips_closed_window() -> None:
-    renderer = CanvasRenderer(FakeCanvasModule())
-    renderer.resize(10, 10)
-    canvas = renderer.runtime_canvas()
-
-    def pump_native_events() -> bool:
-        canvas.closed = True
-        return True
-
-    canvas.pump_native_events = pump_native_events
-
+    renderer.end_frame()
     renderer.present()
 
-    assert ("present",) not in canvas.calls
+    assert ("present",) in canvas.calls
 
 
 def test_canvas_renderer_converts_style_color_and_transform_payloads() -> None:
@@ -165,6 +153,47 @@ def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None
     assert transformed_call[2] is changed_call[2]
     assert transformed_call[3] is not changed_call[3]
     assert transformed_call[3] == (1.0, 0.0, 0.0, 1.0, 4, 5)
+
+
+def test_canvas_renderer_model_batch_normalizes_packed_transforms() -> None:
+    renderer = CanvasRenderer(FakeCanvasModule())
+    renderer.resize(8, 8)
+    key = ModelBatchKey(
+        model_handle=object(),
+        camera={},
+        projection={},
+        viewport_width=8.0,
+        viewport_height=8.0,
+        material={},
+        lights=[],
+        normal_material=False,
+        cull_backfaces=True,
+    )
+    flat_transform = tuple(float(index) for index in range(16))
+    affine_transform = (2.0, 0.0, 0.0, 4.0, 5.0, -6.0)
+    nested_transform = (
+        (1.0, 2.0, 3.0, 4.0),
+        (5.0, 6.0, 7.0, 8.0),
+        (9.0, 10.0, 11.0, 12.0),
+        (13.0, 14.0, 15.0, 16.0),
+    )
+
+    assert renderer._queue_model_batch(key, flat_transform)
+    assert renderer._queue_model_batch(key, affine_transform)
+    assert renderer._queue_model_batch(key, nested_transform)
+    renderer.end_frame()
+
+    canvas = renderer._canvas
+    assert canvas is not None
+    call = next(call for call in canvas.calls if call[0] == "draw_model_shaded_batch")
+    assert call[-1] == [
+        flat_transform,
+        (2.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 5.0, 6.0, 0.0, 1.0),
+        (1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0),
+    ]
+    counters = renderer.performance_counters()
+    assert counters["model_batch_records"] == 3
+    assert counters["model_batch_max_records"] == 3
 
 
 def test_canvas_renderer_maps_rust_value_errors() -> None:

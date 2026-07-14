@@ -34,6 +34,14 @@ class _Context:
             )
         return bytes(self.pixels)
 
+    def performance_diagnostics(self) -> dict[str, object]:
+        return {
+            "enabled": True,
+            "counters": {"pixel_readback": 1},
+            "messages": [],
+            "renderer": self.renderer_performance_counters(),
+        }
+
     def renderer_performance_counters(self) -> dict[str, object]:
         return {
             "cpu_fallbacks": 0,
@@ -50,6 +58,16 @@ class _Context:
             "pixel_readback_copied_bytes": 1,
             "pixel_uploads": 1,
             "gpu_region_effect_passes": 1,
+        }
+
+    def frame_pacing_diagnostics(self) -> dict[str, object]:
+        return {
+            "enabled": True,
+            "frames": self.frame_count,
+            "event_polls": 0,
+            "event_poll_duration_ms_total": 0.0,
+            "max_event_poll_duration_ms": 0.0,
+            "mean_event_poll_duration_ms": 0.0,
         }
 
     def set_pixel(self, x: float, y: float, rgba: tuple[int, int, int, int]) -> None:
@@ -87,6 +105,16 @@ class _PublicLifecycleApi:
         self.fill_color = (255, 255, 255, 255)
         self.shape_vertices: list[tuple[float, float]] = []
 
+    def enable_performance_diagnostics(self, enabled: bool, *, reset: bool) -> None:
+        assert enabled is True
+        assert reset is True
+        self.calls.append("enable_performance_diagnostics")
+
+    def enable_frame_pacing_diagnostics(self, enabled: bool, *, reset: bool) -> None:
+        assert enabled is True
+        assert reset is True
+        self.calls.append("enable_frame_pacing_diagnostics")
+
     def create_canvas(self, width: int, height: int, *, pixel_density: float) -> None:
         self.calls.append("create_canvas")
         self.context.width = width
@@ -97,7 +125,15 @@ class _PublicLifecycleApi:
         )
 
     def frame_rate(self, value: float) -> None:
+        del value
         self.calls.append("frame_rate")
+
+    def frame_count(self) -> int:
+        return self.context.frame_count
+
+    def resize_canvas(self, width: int, height: int, *, pixel_density: float) -> None:
+        self.calls.append("resize_canvas")
+        self.create_canvas(width, height, pixel_density=pixel_density)
 
     def background(self, *values: int) -> None:
         self.calls.append("background")
@@ -270,6 +306,7 @@ def test_canvas_workload_builder_preserves_distinct_headless_and_native_routes()
         "draw_count": 4,
         "case_kind": "uniform-primitives",
         "primitive_kind": "rect",
+        "mutation_mode": "static",
         "dispatch_route": "fast",
         "required_counters": ["primitive_batch_records", "frames_presented"],
     }
@@ -291,7 +328,12 @@ def test_canvas_workload_builder_preserves_distinct_headless_and_native_routes()
     [
         ({}, "case_kind"),
         (
-            {"case_kind": "uniform-primitives", "draw_count": 1, "primitive_kind": "line"},
+            {
+                "case_kind": "uniform-primitives",
+                "draw_count": 1,
+                "primitive_kind": "line",
+                "mutation_mode": "static",
+            },
             "primitive_kind",
         ),
         (
@@ -299,6 +341,7 @@ def test_canvas_workload_builder_preserves_distinct_headless_and_native_routes()
                 "case_kind": "mixed-primitives",
                 "draw_count": 1,
                 "style_count": 16,
+                "mutation_mode": "static",
                 "dispatch_route": "fast",
             },
             "fast dispatch",
@@ -338,6 +381,7 @@ def test_native_canvas_workload_requires_presentation_counter() -> None:
                 "case_kind": "uniform-primitives",
                 "draw_count": 1,
                 "primitive_kind": "rect",
+                "mutation_mode": "static",
                 "required_counters": ["primitive_batch_records"],
             },
             "native-interactive",
@@ -347,8 +391,16 @@ def test_native_canvas_workload_requires_presentation_counter() -> None:
 @pytest.mark.parametrize(
     ("case_kind", "parameters", "required_calls"),
     [
-        ("uniform-primitives", {"primitive_kind": "rect"}, {"rect"}),
-        ("mixed-primitives", {"style_count": 16}, {"stroke", "shear_x", "triangle"}),
+        (
+            "uniform-primitives",
+            {"primitive_kind": "rect", "mutation_mode": "static"},
+            {"rect"},
+        ),
+        (
+            "mixed-primitives",
+            {"style_count": 16, "mutation_mode": "static"},
+            {"stroke", "shear_x", "triangle"},
+        ),
         ("paths", {"segments_per_path": 4}, {"begin_shape", "vertex", "end_shape"}),
         ("nested-clips", {"clip_depth": 2, "clip_segments": 4}, {"clip_path", "end_clip"}),
     ],
@@ -524,6 +576,83 @@ def test_feature_builder_rejects_invalid_or_dormant_parameters(
 ) -> None:
     with pytest.raises(CanvasWorkloadError, match=message):
         build_workload("images-text-pixels-effects", parameters, "headless")
+
+
+def test_lifecycle_dynamic_rate_and_resize_sequences_are_exact_runtime_parameters() -> None:
+    rates = build_workload(
+        "lifecycle-hidpi",
+        {
+            "frames": 4,
+            "expected_draw_callbacks": 4,
+            "lifecycle_mode": "dynamic-frame-rate",
+            "frame_rate_sequence": [30, 60, 120, 30],
+        },
+        "headless",
+    )
+    resize = build_workload(
+        "lifecycle-hidpi",
+        {
+            "frames": 2,
+            "expected_draw_callbacks": 2,
+            "lifecycle_mode": "resize-density-churn",
+            "resize_sequence": [
+                {"width": 32, "height": 24, "density": 2.0},
+                {"width": 16, "height": 12, "density": 1.5},
+            ],
+        },
+        "headless",
+    )
+
+    assert rates.expected_draw_callbacks == 4
+    assert (resize.final_width, resize.final_height, resize.final_density) == (16, 12, 1.5)
+
+
+@pytest.mark.parametrize(
+    ("workload_id", "parameters", "expected_records"),
+    [
+        (
+            "primitives-paths-order",
+            {
+                "case_kind": "polyline",
+                "draw_count": 50_000,
+                "segment_count": 50_000,
+                "required_counters": ["direct_shape_finalizations"],
+            },
+            50_000,
+        ),
+        (
+            "images-text-pixels-effects",
+            {
+                "case_kind": "effect-matrix",
+                "draw_count": 8,
+                "effect_family": "blend",
+                "effect_name": "multiply",
+                "operation_count": 8,
+                "required_counters": [],
+            },
+            8,
+        ),
+        (
+            "assets-media-models",
+            {
+                "case_kind": "media-frame-conversion",
+                "conversion_count": 300,
+                "conversion_width": 3840,
+                "conversion_height": 2160,
+                "channels": 4,
+                "required_counters": [],
+            },
+            300,
+        ),
+    ],
+)
+def test_full_scale_case_identities_validate_without_downscaling(
+    workload_id: str, parameters: dict[str, object], expected_records: int
+) -> None:
+    plan = build_workload(workload_id, parameters, "headless")
+
+    assert plan.expected_draw_records == expected_records
+    assert plan.parameters == parameters
 
 
 def test_lifecycle_mode_builder_rejects_ambiguous_work_accounting() -> None:

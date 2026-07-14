@@ -1,4 +1,5 @@
 use crate::canvas::cache::{ImageCache, TextCache, TextureCache};
+use crate::frame_commands::FrameCommandRecorder;
 use crate::gpu;
 use crate::performance::PerformanceCounters;
 use crate::raster::Matrix;
@@ -46,6 +47,7 @@ pub(crate) struct Canvas {
     pub(crate) current_matrix: Matrix,
     pub(crate) matrix_stack: Vec<Matrix>,
     pub(crate) performance_counters: PerformanceCounters,
+    pub(crate) frame_command_recorder: FrameCommandRecorder,
     pub(crate) pending_3d_triangles: Vec<Pending3dTriangle>,
     pub(crate) primitive_batch_cache_key: Option<u64>,
     pub(crate) primitive_batch_cache_record_count: usize,

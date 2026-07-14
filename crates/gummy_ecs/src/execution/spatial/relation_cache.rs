@@ -17,11 +17,9 @@ impl<'a> PlanExecutor<'a> {
         relation: &SpatialRelationNode,
         ctx: &EvalContext,
     ) -> Result<Arc<Vec<SpatialRecord>>> {
-        let origin_entity = ctx
-            .bindings
-            .get(&relation.origin_query)
-            .copied()
-            .ok_or_else(|| {
+        let origin_entity = self
+            .bound_entity(ctx, &relation.origin_query)
+            .map_err(|_| {
                 EcsError::InvalidPlan(format!(
                     "spatial origin query '{}' is not bound",
                     relation.origin_query
@@ -101,6 +99,7 @@ impl<'a> PlanExecutor<'a> {
         self.report.spatial_candidate_rows += candidates.len();
         let filter_start = profile.then(Instant::now);
         let unique_unordered_pairs = self.unique_unordered_pairs(relation);
+        let item_slot = self.query_slot(&relation.item_query)?;
         let mut records = Vec::new();
         for record in candidates {
             if !relation.include_self && record.entity == origin_entity {
@@ -126,9 +125,7 @@ impl<'a> PlanExecutor<'a> {
                 }
             } else if let Some(exact_filter) = relation.exact_filter {
                 let mut joined = ctx.clone();
-                joined
-                    .bindings
-                    .insert(relation.item_query.clone(), record.entity);
+                joined.bindings[item_slot] = Some(record.entity);
                 if !truthy(&self.eval_expr(exact_filter, &joined)?)? {
                     continue;
                 }

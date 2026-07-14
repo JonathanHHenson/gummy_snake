@@ -1,4 +1,5 @@
 use crate::gpu::render::batching::RenderBufferOffsets;
+use crate::gpu::render::plain::{plain_command_requires_depth, plain_commands_require_depth};
 use crate::gpu::types::*;
 
 impl GpuRenderer {
@@ -9,7 +10,13 @@ impl GpuRenderer {
     ) {
         let mut render_offsets = RenderBufferOffsets::default();
         if !commands.iter().any(is_special_command) {
-            self.encode_plain_commands(encoder, commands, &mut render_offsets, true);
+            let mut depth_initialized = false;
+            self.encode_plain_segment(
+                encoder,
+                commands,
+                &mut render_offsets,
+                &mut depth_initialized,
+            );
             return;
         }
 
@@ -115,9 +122,47 @@ impl GpuRenderer {
         if commands.is_empty() {
             return;
         }
-        let clear_depth = plain_segment_clears_depth(commands, *depth_initialized);
+
+        let mut compatible_segment_start = 0;
+        let mut requires_depth = plain_command_requires_depth(&commands[0]);
+        for index in 1..=commands.len() {
+            let next_requires_depth = commands.get(index).map(plain_command_requires_depth);
+            if next_requires_depth == Some(requires_depth) {
+                continue;
+            }
+
+            self.encode_depth_compatible_plain_segment(
+                encoder,
+                &commands[compatible_segment_start..index],
+                render_offsets,
+                depth_initialized,
+            );
+            compatible_segment_start = index;
+            if let Some(next_requires_depth) = next_requires_depth {
+                requires_depth = next_requires_depth;
+            }
+        }
+    }
+
+    fn encode_depth_compatible_plain_segment(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        commands: &[DrawCommand],
+        render_offsets: &mut RenderBufferOffsets,
+        depth_initialized: &mut bool,
+    ) {
+        let requires_depth = plain_commands_require_depth(commands);
+        let clear_depth =
+            requires_depth && plain_segment_clears_depth(commands, *depth_initialized);
         self.encode_plain_commands(encoder, commands, render_offsets, clear_depth);
-        *depth_initialized = true;
+        if requires_depth {
+            *depth_initialized = true;
+        } else if commands
+            .iter()
+            .any(|command| matches!(command, DrawCommand::Clear(_)))
+        {
+            *depth_initialized = false;
+        }
     }
 }
 

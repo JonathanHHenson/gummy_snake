@@ -1,3 +1,6 @@
+use crate::frame_commands::{
+    ensure_record_size, ensure_reserved_zero, read_f64, read_i32, read_u32, IMAGE_RECORD_BYTES,
+};
 use crate::prelude::*;
 use pyo3::types::{PyAny, PyList, PyTuple};
 use std::collections::HashMap;
@@ -85,6 +88,63 @@ impl ImageBatchBuilder {
                 .extract::<Option<(i64, i64, i64, i64)>>()?;
             let matrix = record.get_item(6)?.extract::<Matrix>()?;
             builder.push_canvas_image(&image, dx, dy, dw, dh, source, matrix);
+        }
+        Ok(builder)
+    }
+
+    pub(crate) fn parse_packed_canvas_records(
+        records: &[u8],
+        images: &[PyRef<'_, CanvasImage>],
+    ) -> PyResult<Self> {
+        ensure_record_size(records, "image", IMAGE_RECORD_BYTES)?;
+        let mut builder = Self::with_record_capacity(records.len() / IMAGE_RECORD_BYTES);
+        for record in records.chunks_exact(IMAGE_RECORD_BYTES) {
+            ensure_reserved_zero(record, 5..8, "image")?;
+            let image_index = read_u32(record, 0) as usize;
+            let image = images.get(image_index).ok_or_else(|| {
+                PyValueError::new_err(format!(
+                    "Typed frame-command image index {image_index} is invalid."
+                ))
+            })?;
+            let flags = record[4];
+            if flags & !1 != 0 {
+                return Err(PyValueError::new_err(format!(
+                    "Unknown typed frame-command image flags {flags:#x}."
+                )));
+            }
+            let source_values = (
+                read_i32(record, 40) as i64,
+                read_i32(record, 44) as i64,
+                read_i32(record, 48) as i64,
+                read_i32(record, 52) as i64,
+            );
+            let source = if flags & 1 != 0 {
+                Some(source_values)
+            } else {
+                if source_values != (0, 0, 0, 0) {
+                    return Err(PyValueError::new_err(
+                        "Typed frame-command image source values must be zero when no source rectangle is present.",
+                    ));
+                }
+                None
+            };
+            let matrix = (
+                read_f64(record, 56),
+                read_f64(record, 64),
+                read_f64(record, 72),
+                read_f64(record, 80),
+                read_f64(record, 88),
+                read_f64(record, 96),
+            );
+            builder.push_canvas_image(
+                image,
+                read_f64(record, 8),
+                read_f64(record, 16),
+                read_f64(record, 24),
+                read_f64(record, 32),
+                source,
+                matrix,
+            );
         }
         Ok(builder)
     }

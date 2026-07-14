@@ -4,6 +4,7 @@
 //! This module preserves the established Python values, defaults, function names,
 //! and `ValueError` surface at the mandatory canvas extension boundary.
 
+use crate::sound::CanvasSound;
 use gummy_synth::{
     CompiledSynthProgram, ControlPayload, EventPayload, FxPayload, GilReleasedOperation, OptMap,
     SynthResult, SynthValue,
@@ -84,24 +85,22 @@ impl CanvasSynthProgram {
         Ok(PyBytes::new_bound(py, &payload))
     }
 
-    fn render_wav_file<'py>(&self, py: Python<'py>, path: String) -> PyResult<Bound<'py, PyBytes>> {
+    fn render_sound(&self, py: Python<'_>, path: String) -> PyResult<CanvasSound> {
+        let program = self.program.clone();
+        gummy_synth::record_gil_released_call(GilReleasedOperation::Render);
+        let payload = py
+            .allow_threads(move || gummy_synth::render_compiled_program_wav(&program))
+            .map_err(synth_error)?;
+        CanvasSound::from_encoded_bytes(path, payload)
+    }
+
+    fn render_wav_file(&self, py: Python<'_>, path: String) -> PyResult<()> {
         let program = self.program.clone();
         let path = PathBuf::from(path);
-        let display_path = path.display().to_string();
         gummy_synth::record_gil_released_call(GilReleasedOperation::Render);
         gummy_synth::record_gil_released_call(GilReleasedOperation::WriteWav);
-        let payload = py
-            .allow_threads(move || {
-                let payload = gummy_synth::render_compiled_program_wav(&program)?;
-                fs::write(&path, &payload).map_err(|error| {
-                    gummy_synth::SynthError::new(format!(
-                        "could not write rendered synth WAV {display_path}: {error}"
-                    ))
-                })?;
-                Ok(payload)
-            })
-            .map_err(synth_error)?;
-        Ok(PyBytes::new_bound(py, &payload))
+        py.allow_threads(move || gummy_synth::render_compiled_program_wav_file(&program, &path))
+            .map_err(synth_error)
     }
 }
 
@@ -161,21 +160,19 @@ fn synth_render_serialized_plan_wav<'py>(
 }
 
 #[pyfunction]
-fn synth_render_serialized_plan_wav_file<'py>(
-    py: Python<'py>,
+fn synth_render_serialized_plan_wav_file(
+    py: Python<'_>,
     payload: &Bound<'_, PyBytes>,
     sample_rate: u32,
     path: String,
-) -> PyResult<Bound<'py, PyBytes>> {
+) -> PyResult<()> {
     let payload = payload.as_bytes().to_vec();
     let path = PathBuf::from(path);
     gummy_synth::record_gil_released_call(GilReleasedOperation::CompileRenderAndWriteWav);
-    let payload = py
-        .allow_threads(move || {
-            gummy_synth::render_serialized_plan_wav_file(&payload, sample_rate, &path)
-        })
-        .map_err(synth_error)?;
-    Ok(PyBytes::new_bound(py, &payload))
+    py.allow_threads(move || {
+        gummy_synth::render_serialized_plan_wav_file(&payload, sample_rate, &path)
+    })
+    .map_err(synth_error)
 }
 
 #[pyfunction]
@@ -281,6 +278,62 @@ fn synth_diagnostics<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
     payload.set_item(
         "parallel_min_scratch_bytes",
         diagnostics.parallel_min_scratch_bytes,
+    )?;
+    payload.set_item(
+        "sample_source_cache_hits",
+        diagnostics.sample_cache.source_hits,
+    )?;
+    payload.set_item(
+        "sample_source_cache_misses",
+        diagnostics.sample_cache.source_misses,
+    )?;
+    payload.set_item(
+        "sample_source_cache_evictions",
+        diagnostics.sample_cache.source_evictions,
+    )?;
+    payload.set_item(
+        "sample_source_cache_bytes",
+        diagnostics.sample_cache.source_bytes,
+    )?;
+    payload.set_item(
+        "sample_source_cache_entries",
+        diagnostics.sample_cache.source_entries,
+    )?;
+    payload.set_item(
+        "sample_source_cache_budget_bytes",
+        diagnostics.sample_cache.source_budget_bytes,
+    )?;
+    payload.set_item(
+        "sample_resample_cache_hits",
+        diagnostics.sample_cache.resample_hits,
+    )?;
+    payload.set_item(
+        "sample_resample_cache_misses",
+        diagnostics.sample_cache.resample_misses,
+    )?;
+    payload.set_item(
+        "sample_resample_cache_evictions",
+        diagnostics.sample_cache.resample_evictions,
+    )?;
+    payload.set_item(
+        "sample_resample_cache_bytes",
+        diagnostics.sample_cache.resample_bytes,
+    )?;
+    payload.set_item(
+        "sample_resample_cache_entries",
+        diagnostics.sample_cache.resample_entries,
+    )?;
+    payload.set_item(
+        "sample_resample_cache_budget_bytes",
+        diagnostics.sample_cache.resample_budget_bytes,
+    )?;
+    payload.set_item(
+        "sample_cache_stale_invalidations",
+        diagnostics.sample_cache.stale_invalidations,
+    )?;
+    payload.set_item(
+        "sample_cache_lock_contentions",
+        diagnostics.sample_cache.lock_contentions,
     )?;
     Ok(payload)
 }

@@ -1,4 +1,4 @@
-"""Frozen authority rules for the replacement benchmark system."""
+"""Local benchmark policy with explicit legacy authority compatibility."""
 
 from .policy import (
     AUTHORITATIVE_DATA_REF,
@@ -6,6 +6,7 @@ from .policy import (
     EXECUTION_CLASS_POLICIES,
     GOVERNANCE_VERSION,
     LEGACY_BENCHMARK_DATA_AUTHORITY,
+    LOCAL_HISTORY_DIRECTORY,
     MODE_POLICIES,
     PERCENT_REGRESSION_LIMIT,
     PRODUCTION_DOMAIN_INVENTORY,
@@ -34,6 +35,7 @@ __all__ = [
     "EXECUTION_CLASS_POLICIES",
     "GOVERNANCE_VERSION",
     "LEGACY_BENCHMARK_DATA_AUTHORITY",
+    "LOCAL_HISTORY_DIRECTORY",
     "MODE_POLICIES",
     "PERCENT_REGRESSION_LIMIT",
     "PRODUCTION_DOMAIN_INVENTORY",

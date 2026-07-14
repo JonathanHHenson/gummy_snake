@@ -5,8 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from gummysnake.assets._audio_codec import MemorySoundSource
-from gummysnake.assets.sound import Sound
+from gummysnake.assets.sound import CanvasSound, Sound
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     BindNode,
@@ -22,6 +21,7 @@ from gummysnake.synth.synth_runtime.composition.logical_nodes import (
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
 from gummysnake.synth.synth_runtime.physical.rendering import (
     _beats_to_seconds,
+    _compile_physical_plan,
     _expand_physical_plan,
     _render_physical_plan,
     _render_physical_plan_to_file,
@@ -81,7 +81,7 @@ class Track:
 
         duration_seconds = _duration_seconds_or_default(duration, self)
         cache_key = (duration_seconds, int(sample_rate))
-        if cached := self._render_cache.get(cache_key):
+        if (cached := self._render_cache.get(cache_key)) and cached.payload is not None:
             return cached.payload
         plan = _expand_physical_plan(self.logical_plan, duration_seconds)
         payload = _render_physical_plan(plan, sample_rate=sample_rate)
@@ -129,13 +129,16 @@ class Track:
         cache_key = (duration_seconds, int(sample_rate))
         if resolved_format == Format.WAV:
             if cached := self._render_cache.get(cache_key):
-                _write_wav_file(cached.payload, output_path)
-                cached.path = output_path
-                return output_path
+                if cached.payload is not None:
+                    _write_wav_file(cached.payload, output_path)
+                    cached.path = output_path
+                    return output_path
+                if cached.path == output_path and output_path.exists():
+                    return output_path
             plan = _expand_physical_plan(self.logical_plan, duration_seconds)
-            wav_payload = _render_physical_plan_to_file(plan, output_path, sample_rate=sample_rate)
+            _render_physical_plan_to_file(plan, output_path, sample_rate=sample_rate)
             self._render_cache[cache_key] = _RenderedTrackCacheEntry(
-                wav_payload, _wav_duration_seconds(wav_payload), output_path
+                None, duration_seconds, output_path
             )
             return output_path
         wav_payload = self.render(duration_seconds, sample_rate=sample_rate)
@@ -151,9 +154,14 @@ class Track:
     ) -> Sound:
         """Render the track into an in-memory :class:`gummysnake.Sound`."""
 
-        payload = self.render(duration, sample_rate=sample_rate)
-        seconds = _wav_duration_seconds(payload)
-        return Sound(MemorySoundSource(payload, duration=seconds), path=Path(path))
+        output_path = Path(path)
+        duration_seconds = _duration_seconds_or_default(duration, self)
+        plan = _expand_physical_plan(self.logical_plan, duration_seconds)
+        rust_asset = _compile_physical_plan(plan, sample_rate=sample_rate).render_sound(
+            str(output_path)
+        )
+        rust_sound = CanvasSound.from_rust(rust_asset)
+        return Sound(rust_sound, path=output_path, rust_sound=rust_sound)
 
     def play(
         self,

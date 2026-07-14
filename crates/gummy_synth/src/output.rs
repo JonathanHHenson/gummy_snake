@@ -1,20 +1,12 @@
 use super::*;
 
+#[cfg(test)]
 pub(crate) fn output_limit_pair(
     left: &[f64],
     right: &[f64],
     sample_rate: u32,
 ) -> (Vec<f64>, Vec<f64>) {
     output_limit_window(left, right, 0, left.len().max(right.len()), sample_rate)
-}
-
-pub(crate) fn output_limit_prefix(
-    left: &[f64],
-    right: &[f64],
-    len: usize,
-    sample_rate: u32,
-) -> (Vec<f64>, Vec<f64>) {
-    output_limit_window(left, right, 0, len, sample_rate)
 }
 
 pub(crate) fn output_limit_window(
@@ -109,6 +101,7 @@ pub(crate) fn samples_to_interleaved_i16(left: &[f64], right: &[f64], frames: us
     output
 }
 
+#[cfg(test)]
 pub(crate) fn stereo_wav_bytes(left: &[f64], right: &[f64], sample_rate: u32) -> Vec<u8> {
     let mut payload = Vec::with_capacity(44 + left.len().min(right.len()) * 4);
     let frames = left.len().min(right.len()) as u32;

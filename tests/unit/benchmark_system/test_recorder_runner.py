@@ -205,14 +205,14 @@ def test_runtime_preflight_verifies_wheel_artifact_abi_features_and_source(
 @pytest.mark.parametrize(
     ("case_id", "draw_count"),
     [
-        ("headless-uniform-primitives-1k", 1_000),
-        ("headless-mixed-primitives-5k", 5_000),
-        ("headless-paths-1k-by-32", 1_000),
-        ("headless-nested-clips-depth-4-by-32", 1_000),
-        ("headless-sprite-uniqueness-mutation", 17),
-        ("headless-text-reuse-script", 36),
-        ("headless-pixel-read-write-locality", 64),
-        ("headless-ordered-effects", 1),
+        ("headless-rect-1k-static-global", 1_000),
+        ("headless-mixed-5k-low-mutation-32-styles", 5_000),
+        ("headless-captured-paths-128-by-32", 128),
+        ("headless-clips-depth-4-by-32", 1_000),
+        ("headless-sprites-8-unique-1k-256px-one-pixel", 1_000),
+        ("headless-text-1k-unique-size-48-transformed", 1_000),
+        ("headless-readback-region-64x64", 4_096),
+        ("headless-filter-invert", 1),
     ],
 )
 def test_recorder_uses_each_declared_draw_record_count(
@@ -259,7 +259,7 @@ def test_recorder_requires_every_catalog_workload_and_invalidates_on_worker_fail
     assert len(fake.requests) == expected
     diagnostics = record.run_conditions["worker_diagnostics"]
     assert isinstance(diagnostics, Mapping)
-    first = diagnostics["lifecycle-hidpi:headless-continuous-clear-loop"]
+    first = diagnostics["lifecycle-hidpi:headless-empty-startup-first-frame"]
     assert isinstance(first, Sequence)
     assert first[0]["renderer"]["gpu_encode_time_ms"] == Decimal("1.5")
 

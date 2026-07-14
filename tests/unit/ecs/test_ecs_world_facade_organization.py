@@ -35,6 +35,15 @@ class _FakeRustWorld:
     def compiled_plan_count(self) -> int:
         return 0
 
+    def spatial_index_cache_len(self) -> int:
+        return 0
+
+    def structural_revision(self) -> int:
+        return 0
+
+    def field_revision(self) -> int:
+        return 0
+
     def diagnostics(self) -> dict[str, int | list[str]]:
         return {
             "entities_alive": 0,

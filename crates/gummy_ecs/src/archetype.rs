@@ -1,94 +1,64 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 
 use crate::column::{Column, EcsValue};
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
-use crate::schema::ComponentSchema;
+use crate::schema::{ComponentId, ComponentSchema, SchemaRegistry};
 
 pub type ComponentRow = HashMap<String, EcsValue>;
 pub type EntityRowData = HashMap<String, ComponentRow>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ComponentSetKey(Vec<String>);
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ComponentSetKey(Vec<ComponentId>);
 
 impl ComponentSetKey {
-    pub const TAG_PREFIX: &'static str = "#tag:";
-
-    pub fn new(components: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        let names: BTreeSet<String> = components.into_iter().map(Into::into).collect();
-        Self(names.into_iter().collect())
+    pub fn new(components: impl IntoIterator<Item = ComponentId>) -> Self {
+        let mut ids = components.into_iter().collect::<Vec<_>>();
+        ids.sort_unstable();
+        ids.dedup();
+        Self(ids)
     }
 
     pub fn empty() -> Self {
-        Self(Vec::new())
+        Self::default()
     }
 
-    pub fn tag_key(tag: &str) -> String {
-        if tag.starts_with(Self::TAG_PREFIX) {
-            tag.to_string()
-        } else {
-            format!("{}{tag}", Self::TAG_PREFIX)
+    pub fn contains(&self, component: ComponentId) -> bool {
+        self.0.binary_search(&component).is_ok()
+    }
+
+    pub fn is_superset_of(&self, required: &Self) -> bool {
+        required.0.iter().all(|component| self.contains(*component))
+    }
+
+    pub fn is_disjoint_from(&self, excluded: &Self) -> bool {
+        excluded
+            .0
+            .iter()
+            .all(|component| !self.contains(*component))
+    }
+
+    pub fn with(&self, component: ComponentId) -> Self {
+        let mut ids = self.0.clone();
+        match ids.binary_search(&component) {
+            Ok(_) => Self(ids),
+            Err(index) => {
+                ids.insert(index, component);
+                Self(ids)
+            }
         }
     }
 
-    pub fn is_tag_name(name: &str) -> bool {
-        name.starts_with(Self::TAG_PREFIX)
+    pub fn without(&self, component: ComponentId) -> Self {
+        let mut ids = self.0.clone();
+        if let Ok(index) = ids.binary_search(&component) {
+            ids.remove(index);
+        }
+        Self(ids)
     }
 
-    pub fn contains(&self, component: &str) -> bool {
-        self.0
-            .binary_search_by(|name| name.as_str().cmp(component))
-            .is_ok()
-    }
-
-    pub fn contains_component(&self, component: &str) -> bool {
-        !Self::is_tag_name(component) && self.contains(component)
-    }
-
-    pub fn contains_tag(&self, tag: &str) -> bool {
-        self.contains(&Self::tag_key(tag))
-    }
-
-    pub fn is_superset_of(&self, required: &ComponentSetKey) -> bool {
-        required.0.iter().all(|component| self.contains(component))
-    }
-
-    pub fn with(&self, component: impl Into<String>) -> Self {
-        let mut names = self.0.clone();
-        names.push(component.into());
-        Self::new(names)
-    }
-
-    pub fn with_tag(&self, tag: &str) -> Self {
-        self.with(Self::tag_key(tag))
-    }
-
-    pub fn without(&self, component: &str) -> Self {
-        Self::new(
-            self.0
-                .iter()
-                .filter(|name| name.as_str() != component)
-                .cloned(),
-        )
-    }
-
-    pub fn without_tag(&self, tag: &str) -> Self {
-        let key = Self::tag_key(tag);
-        self.without(&key)
-    }
-
-    pub fn components(&self) -> &[String] {
+    pub fn components(&self) -> &[ComponentId] {
         &self.0
-    }
-
-    pub fn component_names(&self) -> impl Iterator<Item = &String> {
-        self.0.iter().filter(|name| !Self::is_tag_name(name))
-    }
-
-    pub fn tag_names(&self) -> impl Iterator<Item = &str> {
-        self.0
-            .iter()
-            .filter_map(|name| name.strip_prefix(Self::TAG_PREFIX))
     }
 }
 
@@ -127,12 +97,38 @@ impl ComponentTable {
         Ok(())
     }
 
-    pub fn extract_row_swap_remove(&mut self, row: usize) -> Result<ComponentRow> {
-        let mut values = ComponentRow::new();
-        for (field_name, column) in &mut self.columns {
-            values.insert(field_name.clone(), column.swap_remove(row)?);
+    fn validate_move_to(&self, target: &Self) -> Result<()> {
+        if self.columns.len() != target.columns.len() {
+            return Err(EcsError::MissingComponent(self.schema_name.clone()));
         }
-        Ok(values)
+        for (field, source) in &self.columns {
+            let target = target
+                .columns
+                .get(field)
+                .ok_or_else(|| EcsError::UnknownField {
+                    component: self.schema_name.clone(),
+                    field: field.clone(),
+                })?;
+            if source.storage_type() != target.storage_type() {
+                return Err(EcsError::ColumnTypeMismatch {
+                    expected: target.family_name(),
+                    got: source.family_name(),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn move_row_to(&mut self, target: &mut Self, row: usize) -> Result<()> {
+        self.validate_move_to(target)?;
+        for (field, source) in &mut self.columns {
+            let target = target
+                .columns
+                .get_mut(field)
+                .expect("component table move was prevalidated");
+            source.move_swap_removed_to(target, row)?;
+        }
+        Ok(())
     }
 
     pub fn set_field(&mut self, row: usize, field_name: &str, value: EcsValue) -> Result<()> {
@@ -220,10 +216,9 @@ impl ComponentTable {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RemovedRow {
     pub entity: Entity,
-    pub data: EntityRowData,
     pub swapped_entity: Option<Entity>,
 }
 
@@ -231,22 +226,30 @@ pub struct RemovedRow {
 pub struct Archetype {
     key: ComponentSetKey,
     entities: Vec<Entity>,
-    components: HashMap<String, ComponentTable>,
+    components: HashMap<ComponentId, ComponentTable>,
+    component_names: HashMap<String, ComponentId>,
+    add_edges: HashMap<ComponentId, usize>,
+    remove_edges: HashMap<ComponentId, usize>,
 }
 
 impl Archetype {
-    pub fn new(key: ComponentSetKey, schemas: &HashMap<String, ComponentSchema>) -> Result<Self> {
+    pub fn new(key: ComponentSetKey, schemas: &SchemaRegistry) -> Result<Self> {
         let mut components = HashMap::new();
-        for component_name in key.component_names() {
-            let schema = schemas
-                .get(component_name)
-                .ok_or_else(|| EcsError::UnknownSchema(component_name.clone()))?;
-            components.insert(component_name.clone(), ComponentTable::from_schema(schema));
+        let mut component_names = HashMap::new();
+        for component_id in key.components() {
+            let schema = schemas.get_by_id(*component_id).ok_or_else(|| {
+                EcsError::UnknownSchema(format!("component id {}", component_id.raw()))
+            })?;
+            components.insert(*component_id, ComponentTable::from_schema(schema));
+            component_names.insert(schema.name.clone(), *component_id);
         }
         Ok(Self {
             key,
             entities: Vec::new(),
             components,
+            component_names,
+            add_edges: HashMap::new(),
+            remove_edges: HashMap::new(),
         })
     }
 
@@ -266,46 +269,114 @@ impl Archetype {
         &self.entities
     }
 
+    pub fn transition_add(&self, component: ComponentId) -> Option<usize> {
+        self.add_edges.get(&component).copied()
+    }
+
+    pub fn transition_remove(&self, component: ComponentId) -> Option<usize> {
+        self.remove_edges.get(&component).copied()
+    }
+
+    pub fn cache_add_transition(&mut self, component: ComponentId, target: usize) {
+        self.add_edges.insert(component, target);
+    }
+
+    pub fn cache_remove_transition(&mut self, component: ComponentId, target: usize) {
+        self.remove_edges.insert(component, target);
+    }
+
     pub fn push_row(&mut self, entity: Entity, data: Option<&EntityRowData>) -> Result<usize> {
         let row = self.entities.len();
-        self.entities.push(entity);
-        for component_name in self.key.component_names() {
-            let table = self
-                .components
-                .get_mut(component_name)
-                .ok_or_else(|| EcsError::MissingComponent(component_name.clone()))?;
+        for (component_id, table) in &mut self.components {
+            let component_name = self
+                .component_names
+                .iter()
+                .find_map(|(name, id)| (id == component_id).then_some(name.as_str()))
+                .expect("archetype component id has a name");
             table.push_row(data.and_then(|row_data| row_data.get(component_name)))?;
         }
+        self.entities.push(entity);
         Ok(row)
     }
 
     pub fn push_default_row(&mut self, entity: Entity) -> Result<usize> {
-        self.push_row(entity, None)
+        let row = self.entities.len();
+        for table in self.components.values_mut() {
+            table.push_default_row();
+        }
+        self.entities.push(entity);
+        Ok(row)
     }
 
     pub fn remove_row_swap_remove(&mut self, row: usize) -> Result<RemovedRow> {
         if row >= self.entities.len() {
             return Err(EcsError::RowOutOfBounds);
         }
-        let entity = self.entities.swap_remove(row);
-        let swapped_entity = if row < self.entities.len() {
-            Some(self.entities[row])
-        } else {
-            None
-        };
-        let mut data = EntityRowData::new();
-        for component_name in self.key.component_names() {
-            let table = self
-                .components
-                .get_mut(component_name)
-                .ok_or_else(|| EcsError::MissingComponent(component_name.clone()))?;
-            data.insert(component_name.clone(), table.extract_row_swap_remove(row)?);
+        for table in self.components.values_mut() {
+            table.remove_row(row)?;
         }
+        let entity = self.entities.swap_remove(row);
+        let swapped_entity = self.entities.get(row).copied();
         Ok(RemovedRow {
             entity,
-            data,
             swapped_entity,
         })
+    }
+
+    pub fn move_row_to(
+        &mut self,
+        row: usize,
+        target: &mut Self,
+        entity: Entity,
+    ) -> Result<RemovedRow> {
+        if self.entities.get(row).copied() != Some(entity) {
+            return Err(EcsError::RowOutOfBounds);
+        }
+        for component_id in target.key.components() {
+            if let Some(source) = self.components.get(component_id) {
+                let target_table = target
+                    .components
+                    .get(component_id)
+                    .expect("target archetype key and tables agree");
+                source.validate_move_to(target_table)?;
+            }
+        }
+
+        for component_id in target.key.components() {
+            let target_table = target
+                .components
+                .get_mut(component_id)
+                .expect("target archetype key and tables agree");
+            if let Some(source) = self.components.get_mut(component_id) {
+                source.move_row_to(target_table, row)?;
+            } else {
+                target_table.push_default_row();
+            }
+        }
+        for component_id in self.key.components() {
+            if !target.key.contains(*component_id) {
+                self.components
+                    .get_mut(component_id)
+                    .expect("source archetype key and tables agree")
+                    .remove_row(row)?;
+            }
+        }
+
+        let removed_entity = self.entities.swap_remove(row);
+        debug_assert_eq!(removed_entity, entity);
+        let swapped_entity = self.entities.get(row).copied();
+        target.entities.push(entity);
+        Ok(RemovedRow {
+            entity,
+            swapped_entity,
+        })
+    }
+
+    fn component_id(&self, component_name: &str) -> Result<ComponentId> {
+        self.component_names
+            .get(component_name)
+            .copied()
+            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))
     }
 
     pub fn set_field(
@@ -315,11 +386,11 @@ impl Archetype {
         field_name: &str,
         value: EcsValue,
     ) -> Result<()> {
-        let table = self
-            .components
-            .get_mut(component_name)
-            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
-        table.set_field(row, field_name, value)
+        let component_id = self.component_id(component_name)?;
+        self.components
+            .get_mut(&component_id)
+            .expect("component name map and tables agree")
+            .set_field(row, field_name, value)
     }
 
     pub fn set_field_f64(
@@ -329,11 +400,11 @@ impl Archetype {
         field_name: &str,
         value: f64,
     ) -> Result<()> {
-        let table = self
-            .components
-            .get_mut(component_name)
-            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
-        table.set_field_f64(row, field_name, value)
+        let component_id = self.component_id(component_name)?;
+        self.components
+            .get_mut(&component_id)
+            .expect("component name map and tables agree")
+            .set_field_f64(row, field_name, value)
     }
 
     pub fn set_field_f64_rows(
@@ -342,11 +413,11 @@ impl Archetype {
         field_name: &str,
         rows: &[(usize, f64)],
     ) -> Result<usize> {
-        let table = self
-            .components
-            .get_mut(component_name)
-            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
-        table.set_field_f64_rows(field_name, rows)
+        let component_id = self.component_id(component_name)?;
+        self.components
+            .get_mut(&component_id)
+            .expect("component name map and tables agree")
+            .set_field_f64_rows(field_name, rows)
     }
 
     pub fn get_field(
@@ -355,19 +426,19 @@ impl Archetype {
         component_name: &str,
         field_name: &str,
     ) -> Result<EcsValue> {
-        let table = self
-            .components
-            .get(component_name)
-            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
-        table.get_field(row, field_name)
+        let component_id = self.component_id(component_name)?;
+        self.components
+            .get(&component_id)
+            .expect("component name map and tables agree")
+            .get_field(row, field_name)
     }
 
     pub fn get_field_f64(&self, row: usize, component_name: &str, field_name: &str) -> Result<f64> {
-        let table = self
-            .components
-            .get(component_name)
-            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
-        table.get_field_f64(row, field_name)
+        let component_id = self.component_id(component_name)?;
+        self.components
+            .get(&component_id)
+            .expect("component name map and tables agree")
+            .get_field_f64(row, field_name)
     }
 
     pub fn get_field_f64_slice(
@@ -375,11 +446,11 @@ impl Archetype {
         component_name: &str,
         field_name: &str,
     ) -> Result<Option<&[f64]>> {
-        let table = self
-            .components
-            .get(component_name)
-            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
-        table.get_field_f64_slice(field_name)
+        let component_id = self.component_id(component_name)?;
+        self.components
+            .get(&component_id)
+            .expect("component name map and tables agree")
+            .get_field_f64_slice(field_name)
     }
 
     pub fn get_field_f64_slice_mut(
@@ -387,15 +458,15 @@ impl Archetype {
         component_name: &str,
         field_name: &str,
     ) -> Result<Option<&mut [f64]>> {
-        let table = self
-            .components
-            .get_mut(component_name)
-            .ok_or_else(|| EcsError::MissingComponent(component_name.to_string()))?;
-        table.get_field_f64_slice_mut(field_name)
+        let component_id = self.component_id(component_name)?;
+        self.components
+            .get_mut(&component_id)
+            .expect("component name map and tables agree")
+            .get_field_f64_slice_mut(field_name)
     }
 
-    pub fn has_component(&self, component_name: &str) -> bool {
-        self.key.contains_component(component_name)
+    pub fn has_component(&self, component_id: ComponentId) -> bool {
+        self.key.contains(component_id)
     }
 }
 
@@ -404,27 +475,41 @@ mod tests {
     use super::*;
     use crate::schema::{FieldSchema, StorageType};
 
-    #[test]
-    fn component_set_key_is_sorted_and_deduped() {
-        let key = ComponentSetKey::new(["Velocity", "Position", "Position"]);
-        assert_eq!(
-            key.components(),
-            &["Position".to_string(), "Velocity".to_string()]
-        );
-        assert!(key.is_superset_of(&ComponentSetKey::new(["Position"])));
+    fn registry() -> SchemaRegistry {
+        let mut schemas = SchemaRegistry::new();
+        schemas
+            .register(ComponentSchema::new(
+                "Position",
+                vec![FieldSchema::new("x", StorageType::Int64)],
+            ))
+            .unwrap();
+        schemas
+            .register(ComponentSchema::new(
+                "Velocity",
+                vec![FieldSchema::new("dx", StorageType::Int64)],
+            ))
+            .unwrap();
+        schemas
     }
 
     #[test]
-    fn archetype_moves_rows_with_swap_remove() {
-        let mut schemas = HashMap::new();
-        schemas.insert(
-            "Position".to_string(),
-            ComponentSchema::new(
-                "Position",
-                vec![FieldSchema::new("x", StorageType::Float64)],
-            ),
-        );
-        let mut archetype = Archetype::new(ComponentSetKey::new(["Position"]), &schemas).unwrap();
+    fn component_set_key_is_sorted_and_deduped() {
+        let schemas = registry();
+        let position = schemas.component_id("Position").unwrap();
+        let velocity = schemas.component_id("Velocity").unwrap();
+        let key = ComponentSetKey::new([velocity, position, position]);
+        assert_eq!(key.components(), &[position, velocity]);
+        assert!(key.is_superset_of(&ComponentSetKey::new([position])));
+    }
+
+    #[test]
+    fn archetype_moves_typed_rows_directly_with_swap_remove() {
+        let schemas = registry();
+        let position = schemas.component_id("Position").unwrap();
+        let velocity = schemas.component_id("Velocity").unwrap();
+        let mut source = Archetype::new(ComponentSetKey::new([position]), &schemas).unwrap();
+        let mut target =
+            Archetype::new(ComponentSetKey::new([position, velocity]), &schemas).unwrap();
         let first = Entity {
             index: 0,
             generation: 0,
@@ -433,14 +518,21 @@ mod tests {
             index: 1,
             generation: 0,
         };
-        archetype.push_default_row(first).unwrap();
-        archetype.push_default_row(second).unwrap();
-        archetype
-            .set_field(0, "Position", "x", EcsValue::F64(42.0))
+        source.push_default_row(first).unwrap();
+        source.push_default_row(second).unwrap();
+        source
+            .set_field(0, "Position", "x", EcsValue::I64(9_007_199_254_740_993))
             .unwrap();
-        let removed = archetype.remove_row_swap_remove(0).unwrap();
-        assert_eq!(removed.entity, first);
+
+        let removed = source.move_row_to(0, &mut target, first).unwrap();
         assert_eq!(removed.swapped_entity, Some(second));
-        assert_eq!(removed.data["Position"]["x"], EcsValue::F64(42.0));
+        assert_eq!(
+            target.get_field(0, "Position", "x").unwrap(),
+            EcsValue::I64(9_007_199_254_740_993)
+        );
+        assert_eq!(
+            target.get_field(0, "Velocity", "dx").unwrap(),
+            EcsValue::I64(0)
+        );
     }
 }

@@ -1,5 +1,8 @@
 use crate::archetype::ComponentSetKey;
 use crate::entity::Entity;
+use crate::error::{EcsError, Result};
+use crate::schema::SchemaRegistry;
+use crate::tag::{TagId, TagRegistry};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum QueryTerm {
@@ -27,23 +30,71 @@ impl QueryFilter {
         terms.dedup();
         Self { terms }
     }
+}
 
-    pub fn required_components(&self) -> ComponentSetKey {
-        ComponentSetKey::new(self.terms.iter().filter_map(|term| match term {
-            QueryTerm::WithComponent(component) => Some(component.clone()),
-            _ => None,
-        }))
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub(crate) struct ArchetypeFilterKey {
+    pub required: ComponentSetKey,
+    pub excluded: ComponentSetKey,
+}
+
+impl ArchetypeFilterKey {
+    pub fn matches(&self, key: &ComponentSetKey) -> bool {
+        key.is_superset_of(&self.required) && key.is_disjoint_from(&self.excluded)
     }
+}
 
-    pub fn matches_key(&self, key: &ComponentSetKey) -> bool {
-        self.terms.iter().all(|term| match term {
-            QueryTerm::WithComponent(component) => key.contains_component(component),
-            QueryTerm::WithoutComponent(component) => !key.contains_component(component),
-            QueryTerm::WithTag(tag) => key.contains_tag(tag),
-            QueryTerm::WithoutTag(tag) => !key.contains_tag(tag),
-            // Change terms are evaluated per row against the world's current
-            // change journal after archetype selection.
-            QueryTerm::Added(_) | QueryTerm::Changed(_) | QueryTerm::Removed(_) => true,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CompiledQueryFilter {
+    pub archetypes: ArchetypeFilterKey,
+    pub required_tags: Vec<TagId>,
+    pub excluded_tags: Vec<TagId>,
+}
+
+impl CompiledQueryFilter {
+    pub fn compile(
+        filter: &QueryFilter,
+        schemas: &SchemaRegistry,
+        tags: &mut TagRegistry,
+    ) -> Result<Self> {
+        let mut required = Vec::new();
+        let mut excluded = Vec::new();
+        let mut required_tags = Vec::new();
+        let mut excluded_tags = Vec::new();
+        for term in &filter.terms {
+            match term {
+                QueryTerm::WithComponent(component) => required.push(
+                    schemas
+                        .component_id(component)
+                        .ok_or_else(|| EcsError::UnknownSchema(component.clone()))?,
+                ),
+                QueryTerm::WithoutComponent(component) => excluded.push(
+                    schemas
+                        .component_id(component)
+                        .ok_or_else(|| EcsError::UnknownSchema(component.clone()))?,
+                ),
+                QueryTerm::WithTag(tag) => required_tags.push(tags.intern(tag)),
+                QueryTerm::WithoutTag(tag) => excluded_tags.push(tags.intern(tag)),
+                QueryTerm::Added(component)
+                | QueryTerm::Changed(component)
+                | QueryTerm::Removed(component) => {
+                    if !schemas.contains(component) {
+                        return Err(EcsError::UnknownSchema(component.clone()));
+                    }
+                }
+            }
+        }
+        required_tags.sort_unstable();
+        required_tags.dedup();
+        excluded_tags.sort_unstable();
+        excluded_tags.dedup();
+        Ok(Self {
+            archetypes: ArchetypeFilterKey {
+                required: ComponentSetKey::new(required),
+                excluded: ComponentSetKey::new(excluded),
+            },
+            required_tags,
+            excluded_tags,
         })
     }
 }
@@ -63,6 +114,20 @@ impl CachedQuery {
             matched_archetypes,
         }
     }
+
+    pub(crate) fn consider_archetype(&mut self, generation: u64, index: usize, matches: bool) {
+        self.generation_seen = generation;
+        if matches && self.matched_archetypes.last().copied() != Some(index) {
+            self.matched_archetypes.push(index);
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QueryCardinality {
+    Zero,
+    One(Entity),
+    Multiple,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,6 +139,13 @@ impl QuerySnapshot {
     pub fn new(mut entities: Vec<Entity>) -> Self {
         entities.sort_by_key(|entity| entity.raw());
         entities.dedup_by_key(|entity| entity.raw());
+        Self { entities }
+    }
+
+    pub(crate) fn from_ordered(entities: Vec<Entity>) -> Self {
+        debug_assert!(entities
+            .windows(2)
+            .all(|pair| pair[0].raw() < pair[1].raw()));
         Self { entities }
     }
 
@@ -91,20 +163,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn query_filter_matches_components_and_tags() {
-        let key = ComponentSetKey::new(["Position", "#tag:Hero"]);
-        let filter = QueryFilter::new([
-            QueryTerm::WithComponent("Position".to_string()),
-            QueryTerm::WithTag("Hero".to_string()),
-            QueryTerm::WithoutComponent("Velocity".to_string()),
-            QueryTerm::WithoutTag("Enemy".to_string()),
-        ]);
-        assert!(filter.matches_key(&key));
-        assert!(!QueryFilter::new([QueryTerm::WithoutTag("Hero".to_string())]).matches_key(&key));
-    }
-
-    #[test]
-    fn query_snapshot_sorts_and_deduplicates_entities() {
+    fn query_snapshot_sorts_and_deduplicates_external_entities() {
         let snapshot = QuerySnapshot::new(vec![
             Entity {
                 index: 2,

@@ -25,6 +25,12 @@ class CanvasSound:
         self._rust_sound = rust_sound
 
     @classmethod
+    def from_rust(cls, rust_sound: _RustCanvasSound) -> CanvasSound:
+        """Wrap an existing Rust-owned rendered audio asset without copying bytes."""
+
+        return cls(rust_sound)
+
+    @classmethod
     def from_file(cls, path: str | Path) -> CanvasSound:
         """Load sound bytes and metadata through the Rust canvas runtime.
 

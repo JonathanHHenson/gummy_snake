@@ -36,27 +36,24 @@ values have been validated and copied into Rust-owned data. This lets unrelated
 Python threads and sketch callbacks continue while a synchronous synth operation
 runs; active canvas objects and `SketchContext` state are not sent to synth workers.
 
-Offline dry-event rendering uses one process-wide, lazily initialized Rust worker
-pool. Configure the maximum active tasks for a prepared region with:
+The canonical renderer compiles events, automation cursors, oscillator lanes, and
+FX nodes once, then preserves envelope/filter/FX/normaliser/limiter state while it
+produces fixed-size PCM blocks. Static note increments, pan gains, and filter
+coefficients are precomputed; automated values advance through sorted typed cursors.
+The same stateful block session feeds byte-returning render, streaming WAV, rendered
+`Sound`, and finite SDL queue sinks.
 
-```python
-sy.configure_workers("auto")  # or 1, 2, 4, 8
-```
+`sy.configure_workers("auto")` (or `1`, `2`, `4`, `8`) remains the stable worker
+configuration API. The current stateful renderer preserves identical output across
+worker settings but executes serially while dependency-safe stateful parallel regions
+are still being qualified; configuration therefore must not be interpreted as a
+claim that parallel regions ran.
 
-The setting changes performance only. Each event produces an indexed private
-buffer, and the existing event/FX-bus mix consumes those buffers in the same stable
-order used by worker count `1`, so WAV bytes remain identical across worker counts.
-Only dependency-safe synth-event regions above the runtime threshold are parallel;
-sample events, small regions, ordered FX reduction, and realtime/device windows
-remain serial. Conservatively estimated parallel dry-event scratch is capped at
-64 MiB per region, and the
-pool itself is never recreated by a render call.
-
-Use `sy.synth_diagnostics()` and `sy.reset_synth_diagnostics()` for benchmark and
-responsiveness checks. The report includes resolved/configured worker count, pool
-capacity/initializations, GIL-released compile/render/decode/WAV-write calls,
-parallel regions/tasks/events, serial events, and scratch peak/limit/threshold.
-Resetting counters does not destroy the persistent pool or change its configuration.
+Use `sy.synth_diagnostics()` and `sy.reset_synth_diagnostics()` for responsiveness
+and resource checks. In addition to worker/GIL/block counters, diagnostics report
+source/resample cache hits, misses, evictions, bytes, entries, budgets, stale-file
+invalidations, and lock contention. Resetting counters preserves worker
+configuration and cached assets.
 
 ## Track lifecycle
 
@@ -71,12 +68,12 @@ Resetting counters does not destroy the persistent pool or change its configurat
 - `track.explain()` returns a logical-plan summary.
 - `track.physical_plan(duration=...)` expands loops, random expressions, and controls into scheduled events.
 - `track.render(duration=...)` sends the physical plan to Rust and returns stereo 16-bit PCM WAV bytes.
-- `track.save(path, duration=..., format=sy.Format.WAV)` writes a WAV file.
+- `track.save(path, duration=..., format=sy.Format.WAV)` streams PCM blocks into a same-directory temporary destination, finalizes the RIFF header, synchronizes it, and atomically replaces the requested file. It does not retain or read back a complete WAV payload.
 - `track.save("name.gss", duration=...)` writes a binary serialized synth physical plan instead of audio.
 - `track.save("name.gsfx", duration=...)` writes a binary serialized FX physical plan.
-- `track.save(path, format=sy.Format.MP3, duration=...)` writes MP3 through `ffmpeg` when available.
-- `track.to_sound(path, duration=...)` performs a full Rust-backed offline render and returns a `gs.Sound` backed by in-memory WAV bytes.
-- `track.play(duration=...)` serializes the bounded physical plan and hands it directly to the Rust audio bridge, which renders/mixes and queues playback on the native audio device without Python event scheduling, temporary WAV files, or platform-player subprocesses. Exact cached renders from `track.render(...)` or `track.save(...wav...)` are queued as in-memory WAV bytes without rendering again. It returns a `TrackPlayback` handle with `stop()`, `wait_until_stop()`, `join()`, and `is_playing()`.
+- `track.save(path, format=sy.Format.MP3, duration=...)` sends WAV input to `ffmpeg` over stdin, captures encoder errors, and atomically replaces the MP3 destination. FFmpeg is an explicit export capability, never a playback fallback.
+- `track.to_sound(path, duration=...)` performs a full Rust-backed offline render and returns a `gs.Sound` whose encoded audio remains owned by a Rust `CanvasSound`; Python bytes are allocated only if `to_bytes()` is called.
+- `track.play(duration=...)` compiles the bounded physical plan once and hands it to the Rust SDL bridge. A dedicated worker advances the same stateful block renderer into a bounded low/high-water SDL queue without Python event scheduling, context-window rerendering, temporary WAV files, or platform-player subprocesses. It returns a `TrackPlayback` handle with `stop()`, `wait_until_stop()`, `join()`, and `is_playing()`. Open/rolling logical tracks still require the remaining native open-program migration and are not cross-platform-qualified by this finite path.
 - `track.play(duration=..., realtime=False)` keeps the offline behavior: render the full track to a `Sound`, start it, and return that `Sound`.
 
 ## Logical actions
@@ -348,14 +345,13 @@ Common Sonic Pi options such as `amp`, `mix`, `pre_amp`, and `pre_mix` are handl
 
 ### Normaliser migration status
 
-The currently shipped full-track FX normaliser uses a legacy whole-buffer peak
-calculation. It is not the target streaming contract and should not be used as
-a reference for partitioned or device output. The planned replacement is a
-versioned, channel-linked causal processor with 5 ms fixed lookahead, 1 ms
-attack, 50 ms release, and explicit finite-stream flush behavior. It will cut
-over only when every render and playback sink uses the same persistent block
-engine. See the contributor [synth causal normaliser migration
-contract](../contribute/synth_normaliser_migration.md) for the exact v1 policy.
+Canonical stateful render sinks use the versioned, channel-linked causal
+normaliser with fixed lookahead, attack, release, target, and explicit finite-stream
+flush behavior. Its state is preserved across arbitrary block partitions. Legacy
+whole-buffer/window render helpers still exist for compatibility tests and rolling
+migration work, so final legacy deletion and device qualification remain open. See
+the contributor [synth causal normaliser migration
+contract](../contribute/synth_normaliser_migration.md) for the v1 policy.
 
 ## Current scope
 

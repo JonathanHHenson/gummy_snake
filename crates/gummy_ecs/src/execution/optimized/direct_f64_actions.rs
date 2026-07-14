@@ -9,9 +9,7 @@ use crate::error::{EcsError, Result};
 use crate::plan::ExprNode;
 use crate::schema::StorageType;
 
-use super::super::{
-    storage_type_is_numeric, DirectF64SetSpec, EvalContext, PlanExecutor, SpatialPrecomputeLayout,
-};
+use super::super::{DirectF64SetSpec, EvalContext, PlanExecutor, SpatialPrecomputeLayout};
 use super::f64_program::{
     compile_f64_readonly_program, compiled_f64_eval_order, eval_compiled_f64_linear_order,
     eval_compiled_f64_readonly,
@@ -41,10 +39,7 @@ impl<'a> PlanExecutor<'a> {
                 .next()
                 .expect("single query name")
                 .clone();
-            if contexts.len() == 1
-                && contexts[0].bindings.is_empty()
-                && contexts[0].loop_items.is_empty()
-            {
+            if contexts.len() == 1 && !contexts[0].has_bindings() && !contexts[0].has_loop_items() {
                 let precompute_start = self.profile.then(Instant::now);
                 self.precompute_direct_spatial_aggregates_for_query(
                     &query_name,
@@ -72,7 +67,7 @@ impl<'a> PlanExecutor<'a> {
                     EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
                 })?;
                 let plan = self.plan;
-                let typed_plan = &self.typed_plan;
+                let typed_plan = self.typed_plan;
                 let numeric_field_cache = &self.numeric_field_cache;
                 let numeric_field_cache_rows = &self.numeric_field_cache_rows;
                 let spatial_precomputed_f64 = &self.spatial_precomputed_f64;
@@ -182,7 +177,7 @@ impl<'a> PlanExecutor<'a> {
                 }
                 collect_start = self.profile.then(Instant::now);
                 for base_ctx in contexts {
-                    if base_ctx.bindings.contains_key(&query_name) {
+                    if self.query_is_bound(base_ctx, &query_name)? {
                         cache.fill(None);
                         self.report.rows_scanned += 1;
                         self.collect_direct_f64_row_writes(
@@ -199,8 +194,9 @@ impl<'a> PlanExecutor<'a> {
                         ))
                     })?;
                     let mut ctx = base_ctx.clone();
+                    let query_slot = self.query_slot(&query_name)?;
                     for entity in rows {
-                        ctx.bindings.insert(query_name.clone(), entity);
+                        ctx.bindings[query_slot] = Some(entity);
                         cache.fill(None);
                         self.report.rows_scanned += 1;
                         self.collect_direct_f64_row_writes(
@@ -305,7 +301,7 @@ impl<'a> PlanExecutor<'a> {
         child_writes: &mut [Vec<(Entity, f64)>],
     ) -> Result<()> {
         for (child_index, spec) in direct_specs.iter().enumerate() {
-            let entity = ctx.bindings.get(&spec.query).copied().ok_or_else(|| {
+            let entity = self.bound_entity(ctx, &spec.query).map_err(|_| {
                 EcsError::InvalidPlan(format!(
                     "query '{}' is not bound for set target",
                     spec.query
@@ -365,7 +361,9 @@ impl<'a> PlanExecutor<'a> {
             } => self
                 .world
                 .storage_type_for_field(component, field)
-                .is_ok_and(storage_type_is_numeric),
+                .is_ok_and(|storage_type| {
+                    matches!(storage_type, StorageType::Float32 | StorageType::Float64)
+                }),
             _ => false,
         }
     }
@@ -393,7 +391,9 @@ impl<'a> PlanExecutor<'a> {
             } => self
                 .world
                 .storage_type_for_field(component, field)
-                .is_ok_and(storage_type_is_numeric),
+                .is_ok_and(|storage_type| {
+                    matches!(storage_type, StorageType::Float32 | StorageType::Float64)
+                }),
             ExprNode::InputState { .. } => true,
             ExprNode::Unary { input, .. } | ExprNode::Attribute { input, .. } => {
                 self.expr_supports_f64(*input, seen)

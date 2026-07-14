@@ -31,10 +31,8 @@ impl<'a> PlanExecutor<'a> {
                 component,
                 field,
             } => {
-                let entity = ctx.bindings.get(query).ok_or_else(|| {
-                    EcsError::InvalidPlan(format!("query '{query}' is not bound"))
-                })?;
-                self.entity_field_f64(*entity, component, field)?
+                let entity = self.bound_entity(ctx, query)?;
+                self.entity_field_f64(entity, component, field)?
             }
             ExprNode::ResourceField { resource, field } => {
                 numeric_f64(&self.world.resource_field(resource, field)?)?
@@ -161,10 +159,8 @@ impl<'a> PlanExecutor<'a> {
                 component,
                 field,
             } => {
-                let entity = ctx.bindings.get(query).ok_or_else(|| {
-                    EcsError::InvalidPlan(format!("query '{query}' is not bound"))
-                })?;
-                self.world.get_field(*entity, component, field)
+                let entity = self.bound_entity(ctx, query)?;
+                self.world.get_field(entity, component, field)
             }
             ExprNode::ResourceField { resource, field } => {
                 self.world.resource_field(resource, field)
@@ -185,16 +181,16 @@ impl<'a> PlanExecutor<'a> {
                     ))),
                 }
             }
-            ExprNode::EventStream { event_type } => Ok(EcsValue::List(
-                self.world
-                    .read_events(event_type)?
-                    .into_iter()
-                    .map(|event| event.payload)
-                    .collect(),
-            )),
-            ExprNode::ForEachItem { slot } => ctx.loop_items.get(slot).cloned().ok_or_else(|| {
-                EcsError::InvalidPlan(format!("for_each item slot {slot} is not bound"))
-            }),
+            ExprNode::EventStream { event_type } => {
+                Ok(EcsValue::List(self.world.read_event_payloads(event_type)?))
+            }
+            ExprNode::ForEachItem { slot } => ctx
+                .loop_items
+                .get(*slot)
+                .and_then(|value| value.clone())
+                .ok_or_else(|| {
+                    EcsError::InvalidPlan(format!("for_each item slot {slot} is not bound"))
+                }),
             ExprNode::Unary { op, input } => {
                 let TypedExpr::Unary(typed_op) = self.typed_expr(expr_index) else {
                     unreachable!("typed executor expression must match bridge expression")
@@ -294,7 +290,7 @@ impl<'a> PlanExecutor<'a> {
     }
 
     fn should_use_local_expr_cache(&self, ctx: &EvalContext) -> bool {
-        ctx.loop_items.is_empty()
+        !ctx.has_loop_items()
             && self
                 .local_expr_bindings
                 .as_ref()
@@ -346,33 +342,23 @@ impl<'a> PlanExecutor<'a> {
     }
 
     fn expr_cache_key(&self, expr_index: usize, ctx: &EvalContext) -> Option<ExprCacheKey> {
-        if !ctx.loop_items.is_empty() {
+        if ctx.has_loop_items() {
             return None;
         }
-        match ctx.bindings.len() {
-            0 => Some(ExprCacheKey::Empty(expr_index)),
-            1 => ctx.bindings.iter().next().map(|(query, entity)| {
-                ExprCacheKey::One(
-                    expr_index,
-                    *self.query_indices.get(query).unwrap_or(&usize::MAX),
-                    entity.raw(),
-                )
-            }),
-            _ => {
-                let mut bindings = ctx
-                    .bindings
-                    .iter()
-                    .map(|(query, entity)| {
-                        (
-                            *self.query_indices.get(query).unwrap_or(&usize::MAX),
-                            entity.raw(),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                bindings.sort_by_key(|(query_index, _)| *query_index);
-                Some(ExprCacheKey::Many(expr_index, bindings))
-            }
-        }
+        let mut bindings = ctx
+            .bindings
+            .iter()
+            .enumerate()
+            .filter_map(|(query_slot, entity)| entity.map(|entity| (query_slot, entity.raw())));
+        let Some(first) = bindings.next() else {
+            return Some(ExprCacheKey::Empty(expr_index));
+        };
+        let Some(second) = bindings.next() else {
+            return Some(ExprCacheKey::One(expr_index, first.0, first.1));
+        };
+        let mut all = vec![first, second];
+        all.extend(bindings);
+        Some(ExprCacheKey::Many(expr_index, all))
     }
 
     fn eval_exists(
@@ -409,7 +395,8 @@ impl<'a> PlanExecutor<'a> {
                 "aggregate expressions need a group query".to_string(),
             ));
         };
-        let Some(target_entity) = ctx.bindings.get(group_query).copied() else {
+        let group_slot = self.query_slot(group_query)?;
+        let Some(target_entity) = ctx.bindings.get(group_slot).copied().flatten() else {
             return aggregate_empty(kind, source_name, default, self, ctx);
         };
         let mut query_names = BTreeSet::new();
@@ -420,7 +407,7 @@ impl<'a> PlanExecutor<'a> {
         let mut values = Vec::new();
         let mut count = 0usize;
         for joined in self.expand_context_for_queries(ctx, &query_names)? {
-            if joined.bindings.get(group_query).copied() != Some(target_entity) {
+            if self.bound_entity(&joined, group_query)? != target_entity {
                 continue;
             }
             self.report.rows_scanned += 1;

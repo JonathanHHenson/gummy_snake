@@ -17,6 +17,22 @@ fn block_render_config_rejects_zero_and_unbounded_capacities() {
 }
 
 #[test]
+fn memory_pcm_sink_is_explicitly_stereo_and_finalized() {
+    let mut sink = MemoryPcmSink::default();
+    assert_eq!(
+        sink.write_interleaved_i16(&[1, -2]).unwrap(),
+        SinkWrite::Accepted
+    );
+    assert_eq!(sink.samples(), &[1, -2]);
+    sink.finish().unwrap();
+    assert!(sink.is_finished());
+    assert!(sink.write_interleaved_i16(&[3, 4]).is_err());
+
+    let mut invalid = MemoryPcmSink::default();
+    assert!(invalid.write_interleaved_i16(&[1]).is_err());
+}
+
+#[test]
 fn block_diagnostics_track_high_water_without_duration_storage() {
     let mut diagnostics = BlockRenderDiagnostics::default();
 

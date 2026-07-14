@@ -57,7 +57,7 @@ def test_track_renders_to_wav_sound_and_file(tmp_path: Path, monkeypatch) -> Non
     assert isinstance(sound, gs.Sound)
     assert sound.duration == 1.0
     assert sound.to_bytes().startswith(b"RIFF")
-    assert len(runtime.serialized_plan_calls) == 1
+    assert len(runtime.serialized_plan_calls) == 2
     assert sy.PhysicalPlan.from_bytes(runtime.serialized_plan_calls[0][0]).duration_seconds == 1.0
     assert runtime.plan_calls == []
     assert runtime.event_calls == []

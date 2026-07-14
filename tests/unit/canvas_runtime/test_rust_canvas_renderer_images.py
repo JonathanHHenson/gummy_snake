@@ -43,7 +43,17 @@ def test_canvas_renderer_bridges_images_and_blend_regions() -> None:
     canvas = renderer._canvas
     assert canvas is not None
     assert canvas.calls[-3][0] == "batch_canvas_images"
-    assert canvas.calls[-3][1] == [(image.rust_image._rust_image, 1, 0, 2, 1, (0, 0, 1, 1))]
+    assert canvas.calls[-3][1] == [
+        (
+            image.rust_image._rust_image,
+            1,
+            0,
+            2,
+            1,
+            (0, 0, 1, 1),
+            (1.0, 0.0, 0.0, 1.0, 0.0, 0.0),
+        )
+    ]
     assert canvas.calls[-2] == (
         "blend_region",
         image.to_rgba_bytes(),
@@ -78,7 +88,7 @@ def test_canvas_renderer_passes_image_tint_in_style_payload() -> None:
     assert canvas is not None
     call = canvas.calls[-2]
     assert call[0] == "batch_canvas_images"
-    assert call[-2]["image_tint"] == (128, 64, 255, 127)
+    assert call[-1]["image_tint"] == (128, 64, 255, 127)
 
 
 def test_canvas_renderer_bridges_complex_polygon_and_clip_stack() -> None:
@@ -101,7 +111,7 @@ def test_canvas_renderer_bridges_complex_polygon_and_clip_stack() -> None:
     assert canvas is not None
     assert [call[0] for call in canvas.calls[-3:]] == [
         "complex_polygon",
-        "begin_clip",
+        "begin_clip_current",
         "end_clip",
     ]
 

@@ -26,12 +26,39 @@ impl AccessSummary {
     pub fn conflicts_with(&self, other: &Self) -> bool {
         self.structural
             || other.structural
-            || self
-                .writes
-                .iter()
-                .any(|key| other.writes.contains(key) || other.reads.contains(key))
-            || other.writes.iter().any(|key| self.reads.contains(key))
+            || self.writes.iter().any(|key| {
+                other
+                    .writes
+                    .iter()
+                    .any(|other| access_keys_conflict(key, other))
+                    || other
+                        .reads
+                        .iter()
+                        .any(|other| access_keys_conflict(key, other))
+            })
+            || other.writes.iter().any(|key| {
+                self.reads
+                    .iter()
+                    .any(|other| access_keys_conflict(key, other))
+            })
     }
+}
+
+fn access_keys_conflict(left: &AccessKey, right: &AccessKey) -> bool {
+    match (left, right) {
+        (AccessKey::Component(left), AccessKey::Component(right))
+        | (AccessKey::Resource(left), AccessKey::Resource(right)) => {
+            field_access_names_conflict(left, right)
+        }
+        _ => left == right,
+    }
+}
+
+fn field_access_names_conflict(left: &str, right: &str) -> bool {
+    let (left_owner, left_field) = left.split_once('\0').unwrap_or((left, "*"));
+    let (right_owner, right_field) = right.split_once('\0').unwrap_or((right, "*"));
+    left_owner == right_owner
+        && (left_field == "*" || right_field == "*" || left_field == right_field)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -344,6 +371,38 @@ mod tests {
         .unwrap();
         assert_eq!(plan.waves[0].systems, vec![1, 2]);
         assert_eq!(plan.waves[1].systems, vec![3]);
+    }
+
+    #[test]
+    fn scheduler_allows_disjoint_fields_and_preserves_wildcard_barriers() {
+        let mut write_x = AccessSummary::default();
+        write_x
+            .writes
+            .insert(AccessKey::Component("Position\0x".to_string()));
+        let mut write_y = AccessSummary::default();
+        write_y
+            .writes
+            .insert(AccessKey::Component("Position\0y".to_string()));
+        let mut read_x = AccessSummary::default();
+        read_x
+            .reads
+            .insert(AccessKey::Component("Position\0x".to_string()));
+        let disjoint = build_deterministic_waves(&[
+            system(1, 0, write_x.clone()),
+            system(2, 0, write_y),
+            system(3, 0, read_x),
+        ])
+        .unwrap();
+        assert_eq!(disjoint.waves[0].systems, vec![1, 2]);
+        assert_eq!(disjoint.waves[1].systems, vec![3]);
+
+        let mut wildcard = AccessSummary::default();
+        wildcard
+            .writes
+            .insert(AccessKey::Component("Position".to_string()));
+        let blocked =
+            build_deterministic_waves(&[system(1, 0, write_x), system(2, 0, wildcard)]).unwrap();
+        assert_eq!(blocked.waves.len(), 2);
     }
 
     #[test]

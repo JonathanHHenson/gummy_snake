@@ -1,12 +1,9 @@
-use std::collections::hash_map::DefaultHasher;
-use std::collections::HashSet;
-use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use crate::error::Result;
 use crate::execution::CachedSpatialIndex;
 use crate::plan::{
-    compile_bridge_plan, BridgePlanPayload, ExprNode, PhysicalPlan, PhysicalPlanHandle,
-    SpatialRelationNode,
+    compile_bridge_plan, BridgePlanPayload, PhysicalPlan, PhysicalPlanHandle, PreparedPlan,
 };
 
 use super::World;
@@ -17,8 +14,20 @@ impl World {
     }
 
     pub fn store_compiled_plan(&mut self, plan: PhysicalPlan) -> Result<PhysicalPlanHandle> {
-        let spatial_cache_keys = compiled_plan_spatial_cache_keys(&plan);
-        let handle = self.compiled_plans.insert(plan)?;
+        let handle = self
+            .compiled_plans
+            .insert_with_schemas(plan, &self.schemas)?;
+        let prepared = self
+            .compiled_plans
+            .get(handle)
+            .expect("newly inserted prepared plan handle must resolve");
+        let spatial_cache_keys = prepared.spatial_cache_keys().to_vec();
+        for cache_key in &spatial_cache_keys {
+            *self
+                .spatial_cache_ref_counts
+                .entry(cache_key.clone())
+                .or_default() += 1;
+        }
         self.compiled_plan_spatial_cache_keys
             .insert(handle, spatial_cache_keys);
         Ok(handle)
@@ -32,10 +41,10 @@ impl World {
         self.store_compiled_plan(plan)
     }
 
-    pub(crate) fn compiled_plan(
+    pub(crate) fn compiled_prepared_plan(
         &self,
         handle: PhysicalPlanHandle,
-    ) -> Option<std::sync::Arc<PhysicalPlan>> {
+    ) -> Option<Arc<PreparedPlan>> {
         self.compiled_plans.get(handle)
     }
 
@@ -43,15 +52,20 @@ impl World {
         if self.compiled_plans.remove(handle).is_none() {
             return false;
         }
-        let Some(cache_keys) = self.compiled_plan_spatial_cache_keys.remove(&handle) else {
-            return true;
-        };
-        for cache_key in cache_keys {
-            let still_owned = self
-                .compiled_plan_spatial_cache_keys
-                .values()
-                .any(|owner_keys| owner_keys.contains(&cache_key));
-            if !still_owned {
+        for cache_key in self
+            .compiled_plan_spatial_cache_keys
+            .remove(&handle)
+            .unwrap_or_default()
+        {
+            let remove = if let Some(ref_count) = self.spatial_cache_ref_counts.get_mut(&cache_key)
+            {
+                *ref_count = ref_count.saturating_sub(1);
+                *ref_count == 0
+            } else {
+                false
+            };
+            if remove {
+                self.spatial_cache_ref_counts.remove(&cache_key);
                 self.spatial_index_cache.remove(&cache_key);
             }
         }
@@ -60,6 +74,10 @@ impl World {
 
     pub fn compiled_plan_count(&self) -> usize {
         self.compiled_plans.len()
+    }
+
+    pub fn unique_prepared_plan_count(&self) -> usize {
+        self.compiled_plans.unique_prepared_len()
     }
 
     pub(crate) fn take_spatial_index_cache(
@@ -80,38 +98,4 @@ impl World {
     pub fn spatial_index_cache_len(&self) -> usize {
         self.spatial_index_cache.len()
     }
-}
-
-fn compiled_plan_spatial_cache_keys(plan: &PhysicalPlan) -> HashSet<String> {
-    plan.expressions
-        .iter()
-        .filter_map(|expression| match expression {
-            ExprNode::SpatialMetadata { relation, .. }
-            | ExprNode::SpatialAggregate { relation, .. } => {
-                Some(spatial_index_cache_key(plan, relation))
-            }
-            _ => None,
-        })
-        .collect()
-}
-
-fn spatial_index_cache_key(plan: &PhysicalPlan, relation: &SpatialRelationNode) -> String {
-    format!(
-        "{}|item={};target_pos={:?};target_bounds={:?};algorithm={:?};item_query_fingerprint={}",
-        relation.index_id,
-        relation.item_query,
-        relation.target_position,
-        relation.target_bounds,
-        relation.algorithm,
-        query_fingerprint(plan, &relation.item_query),
-    )
-}
-
-fn query_fingerprint(plan: &PhysicalPlan, query_name: &str) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    query_name.hash(&mut hasher);
-    if let Some(query) = plan.queries.iter().find(|query| query.name == query_name) {
-        query.filter.hash(&mut hasher);
-    }
-    hasher.finish()
 }

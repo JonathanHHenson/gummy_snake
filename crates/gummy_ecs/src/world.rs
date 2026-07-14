@@ -1,36 +1,34 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 
 use crate::archetype::{Archetype, ComponentSetKey};
 use crate::column::EcsValue;
 use crate::command::CommandBuffer;
 use crate::diagnostics::Diagnostics;
-use crate::entity::EntityAllocator;
+use crate::entity::{Entity, EntityAllocator};
 use crate::event::EventStore;
 use crate::execution::CachedSpatialIndex;
 use crate::plan::PlanCache;
-use crate::query::{CachedQuery, QueryFilter};
+use crate::query::{ArchetypeFilterKey, CachedQuery, CompiledQueryFilter, QueryFilter};
 use crate::resource::ResourceStore;
 use crate::schema::SchemaRegistry;
+use crate::tag::{EntityTags, TagRegistry};
 
 mod change_journal;
 mod commands;
 mod entity_archetype;
 mod fields;
+mod location;
 mod plan_cache;
 mod queries;
 mod resources_events;
 mod state_diagnostics;
 
+use location::{DenseEntityLocations, EntityLocation};
+
 pub use change_journal::{
     ChangeEpoch, ChangeJournal, ChangeKind, ChangeRecord, ChangeRevision, ComponentChange,
     EntityChange, TagChange,
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct EntityLocation {
-    archetype: usize,
-    row: usize,
-}
 
 #[derive(Debug, Default)]
 pub struct World {
@@ -39,14 +37,19 @@ pub struct World {
     archetypes: Vec<Archetype>,
     archetype_by_key: HashMap<ComponentSetKey, usize>,
     archetype_generation: u64,
-    locations: HashMap<u64, EntityLocation>,
+    locations: DenseEntityLocations,
+    entity_order: BTreeSet<Entity>,
+    tag_registry: TagRegistry,
+    entity_tags: EntityTags,
     staged: CommandBuffer,
     query_cache: HashMap<ComponentSetKey, CachedQuery>,
-    filtered_query_cache: HashMap<QueryFilter, CachedQuery>,
+    filtered_query_cache: HashMap<ArchetypeFilterKey, CachedQuery>,
+    compiled_query_cache: HashMap<QueryFilter, CompiledQueryFilter>,
     resources: ResourceStore,
     events: EventStore,
     compiled_plans: PlanCache,
-    compiled_plan_spatial_cache_keys: HashMap<u64, HashSet<String>>,
+    compiled_plan_spatial_cache_keys: HashMap<u64, Vec<String>>,
+    spatial_cache_ref_counts: HashMap<String, usize>,
     input_states: HashMap<(String, Option<i64>), EcsValue>,
     current_frame: u64,
     structural_revision: u64,
@@ -66,13 +69,18 @@ impl Clone for World {
             archetype_by_key: self.archetype_by_key.clone(),
             archetype_generation: self.archetype_generation,
             locations: self.locations.clone(),
+            entity_order: self.entity_order.clone(),
+            tag_registry: self.tag_registry.clone(),
+            entity_tags: self.entity_tags.clone(),
             staged: self.staged.clone(),
-            query_cache: HashMap::new(),
-            filtered_query_cache: HashMap::new(),
+            query_cache: self.query_cache.clone(),
+            filtered_query_cache: self.filtered_query_cache.clone(),
+            compiled_query_cache: self.compiled_query_cache.clone(),
             resources: self.resources.clone(),
             events: self.events.clone(),
             compiled_plans: self.compiled_plans.clone(),
             compiled_plan_spatial_cache_keys: self.compiled_plan_spatial_cache_keys.clone(),
+            spatial_cache_ref_counts: self.spatial_cache_ref_counts.clone(),
             input_states: self.input_states.clone(),
             current_frame: self.current_frame,
             structural_revision: self.structural_revision,
@@ -88,6 +96,18 @@ impl Clone for World {
 impl World {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub(crate) fn schema_registry(&self) -> &SchemaRegistry {
+        &self.schemas
+    }
+
+    pub(crate) fn schema_version(&self) -> u64 {
+        self.schemas.version()
+    }
+
+    pub(crate) fn note_plan_schema_invalidation(&mut self) {
+        self.compiled_plans.note_schema_invalidation();
     }
 }
 

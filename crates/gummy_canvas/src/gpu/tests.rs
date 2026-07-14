@@ -33,6 +33,26 @@ fn image_rect_vertices(
     ]
 }
 
+fn model_triangle_vertices() -> [ModelVertex; 3] {
+    [
+        ModelVertex {
+            position: [-1.0, -1.0, 0.0],
+            normal: [0.0, 0.0, 1.0],
+            uv: [0.0, 0.0],
+        },
+        ModelVertex {
+            position: [1.0, -1.0, 0.0],
+            normal: [0.0, 0.0, 1.0],
+            uv: [1.0, 0.0],
+        },
+        ModelVertex {
+            position: [0.0, 1.0, 0.0],
+            normal: [0.0, 0.0, 1.0],
+            uv: [0.5, 1.0],
+        },
+    ]
+}
+
 fn flat_model_uniform(color: GpuColor, z: f32) -> ModelUniform {
     let identity = [
         [1.0, 0.0, 0.0, 0.0],
@@ -138,6 +158,8 @@ fn renderers_share_an_explicit_device_context_but_not_canvas_state() {
     assert_eq!(first.texture_size.height, 2);
     assert_eq!(second.texture_size.width, 3);
     assert_eq!(second.texture_size.height, 4);
+    assert!(!first.has_depth_attachment());
+    assert!(!second.has_depth_attachment());
 
     let red = GpuColor {
         r: 255,
@@ -149,6 +171,14 @@ fn renderers_share_an_explicit_device_context_but_not_canvas_state() {
     first.set_clear_color(red);
     assert_eq!(first.only_pending_clear(), Some(red));
     assert_eq!(second.only_pending_clear(), None);
+
+    let index_count = first
+        .ensure_model_mesh(1, &model_triangle_vertices(), &[0, 1, 2])
+        .unwrap();
+    first.draw_model(1, index_count, flat_model_uniform(red, 0.0));
+    first.render();
+    assert!(first.has_depth_attachment());
+    assert!(!second.has_depth_attachment());
 }
 
 #[test]
@@ -162,6 +192,91 @@ fn normal_renderer_construction_reuses_the_process_device_context() {
     assert!(Arc::ptr_eq(first.device_context(), second.device_context()));
     assert_eq!(first.texture_size.width, 2);
     assert_eq!(second.texture_size.height, 4);
+}
+
+#[test]
+fn depth_attachment_stays_absent_for_2d_rendering_and_resize() {
+    let mut gpu = match GpuRenderer::new(8, 8) {
+        Ok(gpu) => gpu,
+        Err(_) => return,
+    };
+    let red = GpuColor {
+        r: 255,
+        g: 0,
+        b: 0,
+        a: 255,
+    };
+
+    assert!(!gpu.has_depth_attachment());
+    assert_eq!(gpu.depth_attachment_allocation_count(), 0);
+    gpu.resize(12, 10).unwrap();
+    assert!(!gpu.has_depth_attachment());
+
+    gpu.begin_frame();
+    gpu.clear_transparent();
+    gpu.draw_triangles(rect_vertices(0.0, 0.0, 4.0, 4.0, red), BlendMode::Blend);
+    gpu.render();
+
+    assert!(!gpu.has_depth_attachment());
+    assert_eq!(gpu.depth_attachment_allocation_count(), 0);
+}
+
+#[test]
+fn depth_attachment_allocates_on_first_model_and_is_recreated_lazily_after_resize() {
+    let mut gpu = match GpuRenderer::new(8, 8) {
+        Ok(gpu) => gpu,
+        Err(_) => return,
+    };
+    let red = GpuColor {
+        r: 255,
+        g: 0,
+        b: 0,
+        a: 255,
+    };
+    let index_count = gpu
+        .ensure_model_mesh(1, &model_triangle_vertices(), &[0, 1, 2])
+        .unwrap();
+
+    gpu.begin_frame();
+    gpu.clear_transparent();
+    gpu.draw_model(1, index_count, flat_model_uniform(red, 0.0));
+    gpu.render();
+    assert!(gpu.has_depth_attachment());
+    assert_eq!(gpu.depth_attachment_allocation_count(), 1);
+
+    gpu.resize(16, 12).unwrap();
+    assert!(!gpu.has_depth_attachment());
+    assert_eq!(gpu.depth_attachment_allocation_count(), 1);
+
+    gpu.begin_frame();
+    gpu.clear_transparent();
+    gpu.draw_model(1, index_count, flat_model_uniform(red, 0.0));
+    gpu.render();
+    assert!(gpu.has_depth_attachment());
+    assert_eq!(gpu.depth_attachment_allocation_count(), 2);
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[test]
+fn readback_buffer_is_reused_and_only_grows_with_demand() {
+    let mut gpu = match GpuRenderer::new(2, 2) {
+        Ok(gpu) => gpu,
+        Err(_) => return,
+    };
+
+    assert_eq!(gpu.readback_buffer_allocation_count(), 0);
+    gpu.read_pixels().unwrap();
+    assert_eq!(gpu.readback_buffer_allocation_count(), 1);
+    gpu.read_pixels().unwrap();
+    assert_eq!(gpu.readback_buffer_allocation_count(), 1);
+
+    gpu.resize(2, 1).unwrap();
+    gpu.read_pixels().unwrap();
+    assert_eq!(gpu.readback_buffer_allocation_count(), 1);
+
+    gpu.resize(2, 8).unwrap();
+    gpu.read_pixels().unwrap();
+    assert_eq!(gpu.readback_buffer_allocation_count(), 2);
 }
 
 #[test]
@@ -273,7 +388,7 @@ fn retained_replay_recycles_command_streams_without_cloning() {
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[test]
-fn model_depth_and_uniform_offsets_survive_text_boundaries() {
+fn mixed_2d_model_text_order_and_model_depth_survive_pass_boundaries() {
     let mut gpu = match GpuRenderer::new(8, 8) {
         Ok(gpu) => gpu,
         Err(_) => return,
@@ -292,6 +407,18 @@ fn model_depth_and_uniform_offsets_survive_text_boundaries() {
     };
     let green = GpuColor {
         r: 0,
+        g: 255,
+        b: 0,
+        a: 255,
+    };
+    let blue = GpuColor {
+        r: 0,
+        g: 0,
+        b: 255,
+        a: 255,
+    };
+    let yellow = GpuColor {
+        r: 255,
         g: 255,
         b: 0,
         a: 255,
@@ -330,7 +457,9 @@ fn model_depth_and_uniform_offsets_survive_text_boundaries() {
 
     gpu.begin_frame();
     gpu.set_clear_color(black);
+    gpu.draw_triangles(rect_vertices(0.0, 0.0, 8.0, 8.0, blue), BlendMode::Blend);
     gpu.draw_model(99, index_count, flat_model_uniform(red, 0.2));
+    gpu.draw_triangles(rect_vertices(0.0, 0.0, 2.0, 2.0, yellow), BlendMode::Blend);
     gpu.draw_text(
         "depth".to_string(),
         0.0,
@@ -342,9 +471,12 @@ fn model_depth_and_uniform_offsets_survive_text_boundaries() {
         transparent,
     );
     gpu.draw_model(99, index_count, flat_model_uniform(green, 0.8));
+    gpu.draw_triangles(rect_vertices(6.0, 0.0, 8.0, 2.0, blue), BlendMode::Blend);
 
     let pixels = gpu.render_and_read_pixels().unwrap();
     assert_eq!(pixel_at(&pixels, 8, 4, 4), [255, 0, 0, 255]);
+    assert_eq!(pixel_at(&pixels, 8, 1, 1), [255, 255, 0, 255]);
+    assert_eq!(pixel_at(&pixels, 8, 7, 1), [0, 0, 255, 255]);
     let counters = gpu.render_loop_counters();
     assert_eq!(counters.command_clone_count, 0);
     assert_eq!(counters.command_clone_bytes, 0);

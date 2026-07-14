@@ -5,7 +5,18 @@ from struct import pack
 import pytest
 
 from gummysnake import Image
+from gummysnake import constants as c
 from gummysnake.backend.canvas_renderer import CanvasRenderer
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
+    EFFECT_RECORD,
+    FRAME_COMMAND_ABI_VERSION,
+    IMAGE_RECORD,
+    TEXT_RECORD,
+    pack_filter_effect,
+    pack_matrix,
+    pack_path,
+    pack_primitive_style,
+)
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import BackendCapabilityError
@@ -66,6 +77,9 @@ def test_canvas_health_check_reports_required_runtime() -> None:
     assert canvas_gpu_status()
     assert is_canvas_runtime_available() is True
     assert canvas_import_error() is None
+    runtime = require_canvas_runtime()
+    assert runtime.frame_command_abi_version() == FRAME_COMMAND_ABI_VERSION
+    assert runtime.FRAME_COMMAND_ABI_VERSION == FRAME_COMMAND_ABI_VERSION
 
 
 def test_renderer_exposes_zero_copy_gpu_command_stream_counters() -> None:
@@ -137,20 +151,104 @@ def test_canvas_packed_primitive_protocol_reports_records_and_bytes() -> None:
     matrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
     primitive = pack("<B7x6d", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0)
     mixed = pack("<B7x6dII", 3, 8.0, 8.0, 2.0, 2.0, 0.0, 0.0, 0, 0)
+    packed_style = pack_primitive_style(style)
+    packed_matrix = pack_matrix(matrix)
     fill = pack("<B7x6d4B", 2, 1.0, 1.0, 4.0, 1.0, 1.0, 4.0, 0, 255, 0, 255)
     line = pack("<4d", 0.0, 0.0, 15.0, 15.0)
     canvas.set_current_style(style)
 
     canvas.batch_primitives_packed(primitive, style, matrix)
     canvas.batch_primitives_current_packed(primitive)
-    canvas.batch_primitives_mixed_packed(mixed, [style], [matrix])
+    canvas.batch_primitives_mixed_packed(mixed, packed_style, packed_matrix)
     canvas.batch_fill_primitives_packed(fill, matrix)
     canvas.batch_lines_packed(line, style, matrix)
     canvas.batch_lines_current_packed(line)
 
     counters = canvas.performance_counters()
     assert counters["packed_primitive_records"] == 6
-    assert counters["packed_primitive_bytes"] == 300
+    assert counters["packed_primitive_bytes"] == 372
+    assert counters["typed_primitive_records"] == 6
+    diagnostics = canvas.frame_command_diagnostics()
+    assert diagnostics["abi_version"] == FRAME_COMMAND_ABI_VERSION
+    assert diagnostics["records"] == 6
+    assert diagnostics["families"] == ["primitive"] * 6
+
+
+def test_canvas_typed_frame_commands_cover_ordered_path_image_text_and_effect_families() -> None:
+    if not canvas_gpu_available():
+        pytest.skip("GPU renderer is unavailable")
+    runtime = require_canvas_runtime()
+    canvas = runtime.Canvas(16, 16, 1.0, "headless", "p2d")
+    style = _packed_test_style(fill=(255, 255, 255, 255))
+    matrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+    points, contours = pack_path([(0.0, 0.0), (4.0, 0.0), (0.0, 4.0)])
+    image = runtime.CanvasImage.from_rgba_bytes(1, 1, bytes([255, 0, 0, 255]))
+    image_record = IMAGE_RECORD.pack(
+        0,
+        0,
+        2.0,
+        2.0,
+        1.0,
+        1.0,
+        0,
+        0,
+        0,
+        0,
+        *matrix,
+    )
+    text_payload = b"typed"
+    text_record = TEXT_RECORD.pack(0, len(text_payload), 1.0, 12.0)
+
+    canvas.begin_frame()
+    canvas.polygon_packed(points, contours, style, matrix, True)
+    canvas.batch_canvas_images_packed(image_record, [image], style)
+    canvas.text_batch_packed(text_record, text_payload, style, matrix)
+    canvas.apply_effects_packed(pack_filter_effect(c.INVERT, None))
+
+    counters = canvas.performance_counters()
+    assert counters["typed_path_records"] == 3
+    assert counters["typed_image_records"] == 1
+    assert counters["typed_text_records"] == 1
+    assert counters["typed_effect_records"] == 1
+    assert counters["typed_order_barriers"] == 1
+    diagnostics = canvas.frame_command_diagnostics()
+    assert diagnostics["families"] == ["path", "image", "text", "effect", "barrier"]
+    assert diagnostics["storage_bytes"] == diagnostics["segment_bytes"]
+
+
+def test_canvas_typed_frame_commands_reject_malformed_family_records_transactionally() -> None:
+    runtime = require_canvas_runtime()
+    canvas = runtime.Canvas(16, 16, 1.0, "headless", "p2d")
+    style = _packed_test_style()
+    matrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+    image = runtime.CanvasImage.from_rgba_bytes(1, 1, bytes([255, 0, 0, 255]))
+    model = runtime.create_box_model_handle(1.0, None, None)
+    malformed_calls = (
+        lambda: canvas.polygon_packed(b"bad", pack("<I", 0), style, matrix, True),
+        lambda: canvas.batch_canvas_images_packed(b"bad", [image], style),
+        lambda: canvas.text_batch_packed(TEXT_RECORD.pack(2, 4, 0.0, 0.0), b"x", style, matrix),
+        lambda: canvas.apply_effects_packed(EFFECT_RECORD.pack(99, 0, 0, 0, 0, 0, 0.0)),
+        lambda: canvas._draw_model_shaded_batch_packed(
+            model,
+            {},
+            {},
+            16.0,
+            16.0,
+            {},
+            [],
+            False,
+            True,
+            b"bad",
+        ),
+    )
+
+    for malformed_call in malformed_calls:
+        with pytest.raises(ValueError):
+            malformed_call()
+
+    counters = canvas.performance_counters()
+    assert counters["typed_frame_command_records"] == 0
+    assert canvas.frame_command_diagnostics()["segments"] == 0
 
 
 def test_canvas_packed_protocol_rejects_malformed_batches_transactionally() -> None:
@@ -165,6 +263,8 @@ def test_canvas_packed_protocol_rejects_malformed_batches_transactionally() -> N
     )
     invalid_fill_reserved[7] = 1
     invalid_mixed_reserved = bytearray(pack("<B7x6dII", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0, 0))
+    packed_style = pack_primitive_style(style)
+    packed_matrix = pack_matrix(matrix)
     invalid_mixed_reserved[3] = 1
 
     invalid_calls = (
@@ -176,19 +276,19 @@ def test_canvas_packed_protocol_rejects_malformed_batches_transactionally() -> N
         ),
         lambda: canvas.batch_fill_primitives_packed(b"invalid", matrix),
         lambda: canvas.batch_fill_primitives_packed(bytes(invalid_fill_reserved), matrix),
-        lambda: canvas.batch_primitives_mixed_packed(b"invalid", [style], [matrix]),
+        lambda: canvas.batch_primitives_mixed_packed(b"invalid", packed_style, packed_matrix),
         lambda: canvas.batch_primitives_mixed_packed(
-            bytes(invalid_mixed_reserved), [style], [matrix]
+            bytes(invalid_mixed_reserved), packed_style, packed_matrix
         ),
         lambda: canvas.batch_primitives_mixed_packed(
             pack("<B7x6dII", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 1, 0),
-            [style],
-            [matrix],
+            packed_style,
+            packed_matrix,
         ),
         lambda: canvas.batch_primitives_mixed_packed(
             pack("<B7x6dII", 1, 1.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0, 1),
-            [style],
-            [matrix],
+            packed_style,
+            packed_matrix,
         ),
     )
     for invalid_call in invalid_calls:

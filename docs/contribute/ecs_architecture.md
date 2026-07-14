@@ -110,10 +110,12 @@ Rust ECS storage is canonical:
 - component schemas are registered from dataclass field annotations,
 - component columns live in Rust archetype/table storage,
 - tags are zero-sized Rust-side labels,
-- resources are singleton schema-backed Rust values,
-- typed events are frame-stamped queues,
+- resources are singleton rows indexed by stable Rust component/field IDs,
+- typed events are frame-stamped bounded Rust rings with sequence cursors,
 - spatial indexes are owned by the Rust spatial registry/physical executor,
-- compiled plans are cached Rust handles keyed by schema fingerprint and system,
+- compiled handles reference canonical immutable `PreparedPlan` values; equivalent
+  optimized plans share typed operation metadata, fixed query slots, resolved field
+  IDs, dependency/invariant metadata, and prepared spatial ownership,
 - change records and their compact per-entity summaries are Rust-owned and retain
   only the active epoch, with monotonic mutation revisions across epoch changes.
 
@@ -210,8 +212,14 @@ A decorated system plan is a build function, not a per-frame Python loop:
 3. The function records mutations/blocks into the active build session and returns `None`.
 4. The root build block produces a `SystemPlan` for explain output and serialization.
 5. `build_physical_payload()` serializes supported non-UDF expressions/actions.
-6. Rust validates/optimizes/compiles the bridge payload into a physical plan.
-7. Each ECS phase executes the cached Rust physical plan against Rust storage.
+6. Rust validates/optimizes the bridge payload and prepares typed operations once
+   for the current incremental schema version/fingerprint.
+7. Canonically equivalent handles share the immutable prepared state while retaining
+   independent public lifetimes; final release frees prepared bytes and decrements
+   owned spatial keys directly.
+8. Each ECS phase executes the cached prepared plan against Rust storage. Dynamic
+   frame input is supplied at execution and does not recompile the typed operation
+   table.
 
 Systems run every drawn frame after timing/input state is updated. The public
 draw callback is registered as an explicit Python ECS system in the built-in
@@ -246,12 +254,21 @@ with equivalent group constraints run in registration order.
 
 `do_in_order(*actions)` is serial and later actions observe writes from earlier
 actions. `do_in_parallel(*actions)` represents independent snapshot-style work.
+Prepared query bindings use fixed slots rather than per-row string maps. Batched
+compiled plans derive field-level read/write conflicts, so same-component disjoint
+fields can share a deterministic wave. Those non-overlapping waves execute against
+the canonical world in stable order and do not clone the world; row-level parallel
+work remains inside the typed executor. Generic nested parallel action shapes that
+have not yet moved to write/command buffers are still counted by
+`ecs_scheduler_world_clones` and keep Epic 300 PBI 007 in progress.
+
 Canvas actions recorded through `gummysnake.ecs.canvas` are serialized into Rust
-plans and replayed against the canvas runtime after physical execution reports
-are applied. Replay processes commands in report order: style/state commands,
-primitives, text, transforms, images, shapes, and direct replay barriers retain
-the same renderer batch boundaries and logical-coordinate/HiDPI semantics as
-normal sketch calls. The `ecs.canvas` helpers are plan-building APIs only;
+plans. Eligible compact fill records can be passed directly to the Rust canvas
+bridge. Command families that still require execution-report materialization are
+counted by `ecs_canvas_python_replays` and
+`ecs_canvas_python_materialized_commands`; completing those families without
+Python replay remains Epic 300 PBI 010 work. Replay preserves report order and
+logical-coordinate/HiDPI semantics. The `ecs.canvas` helpers are plan-building APIs only;
 explicit Python ECS systems/UDFs that draw at runtime should call the normal
 `gummysnake` drawing APIs. Rust plan systems are grouped into compatible physical
 batches only when no input-state refresh, runtime Python UDF, or direct canvas
@@ -330,11 +347,14 @@ def apply_damage(reader: ecs.EventReader[Damage], health: ecs.ResMut[Health]) ->
         health[Health].value.decrease_by(event.amount)
 ```
 
-Event queues are Rust-owned, frame-stamped, and retained long enough for the next
-ECS phase to consume callback-emitted events. Public reads decode the Rust queue
-directly; Python does not retain a second event list or receive emitted-event payloads
-in physical execution reports. Avoid using events as an unbounded data log; clear or
-aggregate them when appropriate.
+Event queues are Rust-owned, frame-stamped bounded rings retained long enough for
+the next ECS phase to consume callback-emitted events. Each record has a stable
+sequence and Rust readers can advance a cursor without cloning the complete queue.
+Public reads are explicit materialization boundaries; plan-side event streams clone
+only requested payload values, not `EventRecord` queues. Python does not retain a
+second canonical event list or receive emitted-event payloads in normal physical
+execution reports. The default per-type ring capacity is 65,536 records and dropped
+records are observable through diagnostics.
 
 ## Spatial relations
 
@@ -385,13 +405,23 @@ spatial counters. Important performance counters include:
 
 - `ecs_physical_plan_compiles`, `ecs_physical_system_runs`,
 - `ecs_steady_physical_plan_reuses`, `ecs_dynamic_change_plan_recompiles`,
+- `ecs_prepared_plan_preparations`, `ecs_prepared_plan_cache_hits`,
+  `ecs_prepared_plan_cache_misses`, `ecs_prepared_plan_canonical_reuses`,
+  `ecs_prepared_plan_bytes_current`, `ecs_prepared_plan_bytes_peak`,
+- `ecs_executor_fixed_slot_runs`, `ecs_executor_generic_slow_paths`,
+- `ecs_scheduler_waves`, `ecs_scheduler_systems`,
+  `ecs_scheduler_world_clones`, `ecs_scheduler_snapshot_bytes`,
 - `ecs_physical_rows_scanned`, `ecs_physical_fields_written`,
 - `ecs_rust_compiled_plans`,
 - `ecs_udf_calls`,
 - `ecs_ambiguity_warnings`, `ecs_strict_mode_errors`,
 - `ecs_event_records_total`, `ecs_events_emitted`, `ecs_events_read`,
+  `ecs_event_records_dropped`, `ecs_event_queue_bytes`,
 - `ecs_python_event_mirror_entries`, `ecs_python_event_payload_materializations`,
+- `ecs_resource_row_bytes`,
 - `ecs_spatial_candidate_rows`, `ecs_spatial_exact_rows`,
+  `ecs_spatial_index_owners`, `ecs_spatial_index_cache_entries`,
+- `ecs_canvas_python_replays`, `ecs_canvas_python_materialized_commands`,
 - `ecs_spatial_algorithm_hash_grid`, `ecs_spatial_algorithm_quadtree`,
   `ecs_spatial_algorithm_octree`, `ecs_spatial_algorithm_hilbert_curve`.
 

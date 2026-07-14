@@ -8,6 +8,7 @@ mod plans_and_fx;
 mod playback_and_output;
 mod sample_and_dsp;
 mod samples_and_output;
+mod stateful_block_renderer;
 mod voices;
 mod wav_sink;
 

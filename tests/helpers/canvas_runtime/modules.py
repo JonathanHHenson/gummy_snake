@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import FRAME_COMMAND_ABI_VERSION
 from gummysnake.rust.canvas import EXPECTED_CANVAS_ABI_VERSION
 from tests.helpers.canvas_runtime.assets import (
     FakeRustImage,
@@ -12,18 +13,27 @@ from tests.helpers.canvas_runtime.fakes import FakeCanvas
 from tests.helpers.canvas_runtime.state import FakeSketchContextState
 
 
+class FakeCanvasSynthProgram:
+    pass
+
+
 class FakeCanvasModule:
     CANVAS_ABI_VERSION = EXPECTED_CANVAS_ABI_VERSION
+    FRAME_COMMAND_ABI_VERSION = FRAME_COMMAND_ABI_VERSION
     Matrix2D = FakeRustMatrix2D
     Canvas = FakeCanvas
     CanvasImage = FakeRustImage
     CanvasModel3D = FakeRustModel3D
     CanvasMesh3D = FakeRustMesh3D
     CanvasSound = FakeRustSound
+    CanvasSynthProgram = FakeCanvasSynthProgram
     SketchContextState = FakeSketchContextState
 
     def canvas_abi_version(self) -> int:
         return EXPECTED_CANVAS_ABI_VERSION
+
+    def frame_command_abi_version(self) -> int:
+        return FRAME_COMMAND_ABI_VERSION
 
     def health_check(self) -> str:
         return "fake-canvas"

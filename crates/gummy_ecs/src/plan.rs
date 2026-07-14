@@ -205,12 +205,16 @@ pub type PhysicalPlanHandle = u64;
 mod access;
 mod cache;
 mod optimizer;
+mod prepared;
 pub(crate) mod typed_ir;
 mod validation;
 
 pub use access::infer_access_summary;
-pub use cache::PlanCache;
+pub use cache::{PlanCache, PlanCacheDiagnostics};
 use optimizer::{optimize_bridge_payload, optimize_physical_plan};
+pub use prepared::{
+    ExecutorEligibility, PreparedFieldRef, PreparedPlan, PreparedPlanStats, QuerySlot,
+};
 use validation::validate_query_terms;
 pub use validation::{validate_plan, validate_plan_with_schemas};
 
@@ -319,6 +323,35 @@ mod tests {
         assert_eq!(handle, 1);
         assert_eq!(cache.len(), 1);
         assert!(cache.get(handle).is_some());
+    }
+
+    #[test]
+    fn equivalent_handles_share_one_prepared_plan_and_release_exactly() {
+        let plan = PhysicalPlan {
+            version: BRIDGE_PLAN_VERSION,
+            schema_fingerprint: 0,
+            queries: Vec::new(),
+            expressions: vec![ExprNode::LiteralF64(1.0)],
+            actions: vec![ActionNode::Noop],
+            root_action: 0,
+            access: AccessSummary::default(),
+        };
+        let mut cache = PlanCache::new();
+        let first = cache.insert(plan.clone()).unwrap();
+        let second = cache.insert(plan).unwrap();
+        let first_prepared = cache.get(first).unwrap();
+        let second_prepared = cache.get(second).unwrap();
+        assert!(std::sync::Arc::ptr_eq(&first_prepared, &second_prepared));
+        assert_eq!(cache.unique_prepared_len(), 1);
+        assert_eq!(cache.diagnostics().preparation_count, 1);
+        assert_eq!(cache.diagnostics().preparation_cache_hits, 1);
+        assert_eq!(cache.diagnostics().canonical_reuses, 1);
+        let prepared_bytes = cache.diagnostics().prepared_bytes_current;
+        assert!(prepared_bytes > 0);
+        cache.remove(first).unwrap();
+        assert_eq!(cache.diagnostics().prepared_bytes_current, prepared_bytes);
+        cache.remove(second).unwrap();
+        assert_eq!(cache.diagnostics().prepared_bytes_current, 0);
     }
 
     #[test]

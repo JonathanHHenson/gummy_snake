@@ -9,11 +9,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
+    ModelTransformPayload,
+    pack_model_transform,
+)
+
 MatrixPayload = tuple[float, float, float, float, float, float]
 LineBatchRecord = tuple[float, float, float, float]
 PrimitiveBatchRecord = tuple[object, ...]
 PrimitiveBatchMode = Literal["fill", "mixed", "style"]
-ModelTransformPayload = tuple[float, ...]
+
 ModelBatchSourceSignature = tuple[int, int, int, int, int, int, bool]
 
 
@@ -195,26 +200,35 @@ class ModelBatchKey:
 @dataclass(frozen=True, slots=True)
 class ModelBatchSnapshot:
     key: ModelBatchKey | None
-    transforms: list[ModelTransformPayload]
+    transforms: bytes
+    record_count: int
 
 
 @dataclass(slots=True)
 class ModelBatchState:
     key: ModelBatchKey | None = None
-    transforms: list[ModelTransformPayload] = field(default_factory=list)
+    transforms: bytearray = field(default_factory=bytearray)
+    record_count: int = 0
 
     def has_records(self) -> bool:
         """Return whether the model batch has pending model instances."""
-        return bool(self.transforms)
+        return self.record_count > 0
 
     def append(self, key: ModelBatchKey, transform: ModelTransformPayload) -> None:
-        """Append one model transform, starting or extending the current compatible run."""
+        """Append one packed model transform to the current compatible run."""
+        packed_transform = pack_model_transform(transform)
         self.key = key
-        self.transforms.append(transform)
+        self.transforms.extend(packed_transform)
+        self.record_count += 1
 
     def drain(self) -> ModelBatchSnapshot:
-        """Drain pending model transforms."""
-        snapshot = ModelBatchSnapshot(key=self.key, transforms=self.transforms)
+        """Drain pending model transforms while retaining byte-buffer capacity."""
+        snapshot = ModelBatchSnapshot(
+            key=self.key,
+            transforms=bytes(self.transforms),
+            record_count=self.record_count,
+        )
         self.key = None
-        self.transforms = []
+        self.transforms.clear()
+        self.record_count = 0
         return snapshot

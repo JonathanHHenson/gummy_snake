@@ -21,6 +21,12 @@ def test_public_diagnostics_merge_rust_event_counters_and_reset_both_layers() ->
     assert diagnostics["ecs_event_records_total"] == 1
     assert diagnostics["ecs_python_event_mirror_entries"] == 0
     assert diagnostics["ecs_python_event_payload_materializations"] == 0
+    assert diagnostics["ecs_scheduler_world_clones"] == 0
+    assert diagnostics["ecs_canvas_python_replays"] == 0
+    assert diagnostics["ecs_canvas_python_materialized_commands"] == 0
+    assert "ecs_prepared_plan_bytes_current" in diagnostics
+    assert "ecs_event_queue_bytes" in diagnostics
+    assert "ecs_resource_row_bytes" in diagnostics
     assert diagnostics["messages"] == ["diagnostic boundary"]
 
     world.reset_diagnostics()

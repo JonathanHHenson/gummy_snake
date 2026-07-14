@@ -6,6 +6,8 @@ from collections.abc import Mapping, Sequence
 
 from benchmarks.governance import ExecutionClass
 
+from .adapters import DeviceQualification
+
 
 class SynthPathError(ValueError):
     """A workload requested an execution route outside its cataloged Synth identity."""
@@ -29,6 +31,14 @@ def path_diagnostics(
         "physical_audio_requested": execution_class is ExecutionClass.NATIVE_AUDIO,
         "physical_audio_qualified": False,
         "audibility_claimed": False,
+        "device_qualification": DeviceQualification.unavailable(
+            requested=execution_class is ExecutionClass.NATIVE_AUDIO,
+            reason=(
+                "physical route must provide complete device evidence"
+                if execution_class is ExecutionClass.NATIVE_AUDIO
+                else "workload does not open a physical audio device"
+            ),
+        ).as_dict(),
     }
     if details:
         result.update(details)
@@ -46,4 +56,19 @@ def require_route(execution_class: ExecutionClass, *, simulated: bool = False) -
         )
 
 
-__all__ = ["SynthPathError", "path_diagnostics", "require_route"]
+def require_physical_route(execution_class: ExecutionClass) -> None:
+    """Require the selected native-audio route without opening or substituting a sink."""
+
+    if execution_class is not ExecutionClass.NATIVE_AUDIO:
+        raise SynthPathError(
+            "physical SDL Synth workload requires execution_class='native-audio'; "
+            "no offline or simulated audio route is permitted"
+        )
+
+
+__all__ = [
+    "SynthPathError",
+    "path_diagnostics",
+    "require_physical_route",
+    "require_route",
+]

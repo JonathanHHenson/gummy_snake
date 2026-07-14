@@ -1,5 +1,5 @@
-"""Benchmark execution, Git storage, source snapshots, statistics, and operating modes.
+"""Benchmark execution, local history, source snapshots, statistics, and modes.
 
-Import concrete owners from their modules; this package intentionally has no barrel
-re-export surface.
+The normal workflow uses :mod:`benchmarks.framework.local_database`. The legacy Git
+storage package remains available to explicit compatibility callers.
 """

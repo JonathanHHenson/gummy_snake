@@ -22,6 +22,7 @@ pub mod scheduler;
 pub mod schema;
 pub mod spatial;
 pub mod spatial_registry;
+pub mod tag;
 pub mod tree_spatial;
 pub mod world;
 
@@ -31,30 +32,36 @@ pub use command::{Command, CommandBuffer};
 pub use diagnostics::Diagnostics;
 pub use entity::{Entity, EntityAllocator};
 pub use error::{EcsError, Result};
-pub use event::{EventRecord, EventStore};
+pub use event::{EventReaderCursor, EventRecord, EventStore};
 pub use execution::{
     ExecutionCanvasCommand, ExecutionCanvasFillBatch, ExecutionCanvasFillRecord, ExecutionReport,
     ExecutionWrite,
 };
 pub use plan::{
     compile_bridge_plan, validate_plan, ActionNode, BridgePlanPayload, BridgeQueryPayload,
-    CanvasCommandNode, ExprNode, PhysicalPlan, PhysicalPlanHandle, PhysicalQuery, PlanCache,
-    SpatialAlgorithmNode, SpatialBoundsExprNode, SpatialRelationNode, BRIDGE_PLAN_VERSION,
+    CanvasCommandNode, ExecutorEligibility, ExprNode, PhysicalPlan, PhysicalPlanHandle,
+    PhysicalQuery, PlanCache, PlanCacheDiagnostics, PreparedFieldRef, PreparedPlan,
+    PreparedPlanStats, QuerySlot, SpatialAlgorithmNode, SpatialBoundsExprNode, SpatialRelationNode,
+    BRIDGE_PLAN_VERSION,
 };
-pub use query::{CachedQuery, QueryFilter, QuerySnapshot, QueryTerm};
+pub use query::{CachedQuery, QueryCardinality, QueryFilter, QuerySnapshot, QueryTerm};
 pub use resource::ResourceStore;
 pub use scheduler::{
     build_deterministic_waves, deterministic_chunks, ecs_worker_count, execute_deterministic_waves,
     merge_command_batches_stably, AccessKey, AccessSummary, CommandBatch, SchedulePlan,
     ScheduleWave, ScheduledSystem, SchedulerDiagnostics, SchedulerOptions,
 };
-pub use schema::{ComponentSchema, FieldSchema, ListElementType, SchemaRegistry, StorageType};
+pub use schema::{
+    ComponentId, ComponentSchema, FieldId, FieldSchema, ListElementType, SchemaRegistry,
+    StorageType,
+};
 pub use spatial::{
     Dimensions, HashGridIndex, HilbertIndex, OctreeIndex, QuadtreeIndex, SpatialAabb,
     SpatialAlgorithmKind, SpatialCapabilities, SpatialIndexBackend, SpatialIndexDescriptor,
     SpatialIndexRegistry, SpatialIndexSlot, SpatialIndexStats, SpatialMemoryStats, SpatialPoint,
     SpatialRecord,
 };
+pub use tag::{TagId, TagRegistry};
 pub use world::{
     ChangeEpoch, ChangeJournal, ChangeKind, ChangeRecord, ChangeRevision, ComponentChange,
     EntityChange, TagChange, World,

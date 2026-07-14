@@ -1,6 +1,7 @@
 pub(crate) mod cache;
 mod curves;
 mod dirty;
+mod frame_commands;
 mod gpu;
 mod images;
 mod lifecycle;

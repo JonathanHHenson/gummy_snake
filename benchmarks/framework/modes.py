@@ -1,4 +1,4 @@
-"""Frozen Mode 1 and Mode 2 orchestration around injected runners and Git stores."""
+"""Local-first worktree comparison and explicit clean-HEAD recording modes."""
 
 from __future__ import annotations
 
@@ -41,6 +41,8 @@ class ModeResult:
     reason: str
     recorded: bool = False
     baseline_found: bool = False
+    record_path: str | None = None
+    record_id: str | None = None
     candidate_branch: str | None = None
     candidate_commit: str | None = None
 
@@ -60,11 +62,15 @@ class ModeDatabase(Protocol):
         self, subject: str, fingerprint_id: str, suite_id: str, suite_version: int
     ) -> object | None: ...
 
-    def nearest_first_parent_record(
+    def nearest_ancestor_record(
         self, subject: str, fingerprint_id: str, suite_id: str, suite_version: int
     ) -> object | None: ...
 
-    def stage_candidate(self, record: BenchmarkRecord) -> object: ...
+    def latest_record(
+        self, fingerprint_id: str, suite_id: str, suite_version: int
+    ) -> object | None: ...
+
+    def record(self, record: BenchmarkRecord) -> object: ...
 
 
 Comparison = Callable[[object, BenchmarkRecord], Decision]
@@ -90,8 +96,31 @@ def _comparison_outcome(decision: Decision) -> GateOutcome:
     return GateOutcome.INCONCLUSIVE
 
 
+def _compatible_baseline(
+    database: ModeDatabase,
+    subject: str,
+    fingerprint: str,
+    suite: str,
+    version: int,
+) -> object | None:
+    exact = database.exact_record(subject, fingerprint, suite, version)
+    if exact is not None:
+        return exact
+    ancestor_lookup = getattr(database, "nearest_ancestor_record", None)
+    if not callable(ancestor_lookup):
+        ancestor_lookup = getattr(database, "nearest_first_parent_record", None)
+    if callable(ancestor_lookup):
+        ancestor = ancestor_lookup(subject, fingerprint, suite, version)
+        if ancestor is not None:
+            return ancestor
+    latest_lookup = getattr(database, "latest_record", None)
+    if callable(latest_lookup):
+        return latest_lookup(fingerprint, suite, version)
+    return None
+
+
 def worktree(database: ModeDatabase, runner: BenchmarkRunner, compare: Comparison) -> ModeResult:
-    """Mode 1: exact current-HEAD lookup and strictly no database writes."""
+    """Compare a worktree without writing, preferring exact and ancestor baselines."""
 
     report = runner.run(BenchmarkMode.WORKTREE)
     blocked = _ready(report)
@@ -103,19 +132,12 @@ def worktree(database: ModeDatabase, runner: BenchmarkRunner, compare: Compariso
     head = database.head()
     if subject != head:
         raise ModeError("worktree runner provenance subject must equal current HEAD")
-    known = database.fingerprint_known(fingerprint)
-    baseline = database.exact_record(head, fingerprint, suite, version)
+    baseline = _compatible_baseline(database, head, fingerprint, suite, version)
     if baseline is None:
-        if not known:
-            return ModeResult(
-                BenchmarkMode.WORKTREE,
-                GateOutcome.PASS_NEW_FINGERPRINT,
-                "successful unseen fingerprint is advisory-only and remains unrecorded",
-            )
         return ModeResult(
             BenchmarkMode.WORKTREE,
-            GateOutcome.MISSING_EXACT_BASELINE,
-            "known fingerprint has no exact current-HEAD baseline",
+            GateOutcome.PASS_NEW_FINGERPRINT,
+            "successful run has no compatible local baseline and remains unrecorded",
         )
     decision = compare(baseline, record)
     outcome = _comparison_outcome(decision)
@@ -123,7 +145,7 @@ def worktree(database: ModeDatabase, runner: BenchmarkRunner, compare: Compariso
 
 
 def record_head(database: ModeDatabase, runner: BenchmarkRunner, compare: Comparison) -> ModeResult:
-    """Mode 2: clean HEAD, nearest first-parent baseline, record only after every gate."""
+    """Benchmark clean HEAD and append a local record only after every gate passes."""
 
     head = database.require_clean_head()
     report = runner.run(BenchmarkMode.RECORD_HEAD)
@@ -135,20 +157,42 @@ def record_head(database: ModeDatabase, runner: BenchmarkRunner, compare: Compar
     subject, fingerprint, suite, version = _identity(record)
     if subject != head:
         raise ModeError("record-head runner provenance subject must equal clean HEAD")
-    baseline = database.nearest_first_parent_record(head, fingerprint, suite, version)
+    baseline = _compatible_baseline(database, head, fingerprint, suite, version)
     if baseline is None:
         outcome = GateOutcome.PASS_NEW_FINGERPRINT
-        reason = "successful run has no compatible earlier first-parent baseline"
+        reason = "successful run has no compatible local baseline"
     else:
         decision = compare(baseline, record)
         outcome = _comparison_outcome(decision)
         reason = decision.value
         if outcome is not GateOutcome.PASS:
             return ModeResult(BenchmarkMode.RECORD_HEAD, outcome, reason, baseline_found=True)
-    # Recheck clean HEAD immediately before the immutable transaction.
+    # Recheck clean HEAD immediately before the immutable local write.
     if database.require_clean_head() != head:
         raise ModeError("HEAD changed while benchmarking; refusing to record")
-    staged = database.stage_candidate(record)
+    writer = getattr(database, "record", None)
+    if callable(writer):
+        stored = writer(record)
+        path = getattr(stored, "path", None)
+        record_id = getattr(stored, "record_id", None)
+        created = getattr(stored, "created", True)
+        if path is None or not isinstance(record_id, str) or not isinstance(created, bool):
+            raise ModeError("database returned an invalid local record result")
+        return ModeResult(
+            BenchmarkMode.RECORD_HEAD,
+            outcome,
+            reason,
+            recorded=created,
+            baseline_found=baseline is not None,
+            record_path=str(path),
+            record_id=record_id,
+        )
+
+    # Compatibility for callers that explicitly inject the legacy Git database.
+    stage = getattr(database, "stage_candidate", None)
+    if not callable(stage):
+        raise ModeError("database does not support local recording")
+    staged = stage(record)
     branch = getattr(staged, "branch", None)
     commit = getattr(staged, "commit", None)
     if not isinstance(branch, str) or not isinstance(commit, str):

@@ -61,7 +61,7 @@ impl<'a> PlanExecutor<'a> {
         mut apply: impl FnMut(&mut Self, Entity, &EvalContext) -> Result<()>,
     ) -> Result<()> {
         for ctx in self.structural_contexts(query, contexts)? {
-            let entity = *ctx.bindings.get(query).ok_or_else(|| {
+            let entity = self.bound_entity(&ctx, query).map_err(|_| {
                 EcsError::InvalidPlan(format!("query '{query}' is not bound for {operation}"))
             })?;
             apply(self, entity, &ctx)?;

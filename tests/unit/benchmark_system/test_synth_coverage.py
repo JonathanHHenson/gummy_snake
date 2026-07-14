@@ -17,7 +17,7 @@ def test_synth_checked_manifest_is_exact_catalog_projection() -> None:
 
     assert_checked_manifest(catalog, checked)
     assert generated.to_dict() == checked.to_dict()
-    assert len(checked.entries) == len(catalog.workloads) == 15
+    assert len(checked.entries) == len(catalog.workloads) == 31
     counter_cases = {entry.case_id: entry for entry in checked.entries if entry.required_counters}
     assert set(counter_cases) == {
         "direct-serialized-pyo3-parity-64",

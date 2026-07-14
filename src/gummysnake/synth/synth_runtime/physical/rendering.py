@@ -407,8 +407,8 @@ def _render_physical_plan(plan: PhysicalPlan, *, sample_rate: int = _SAMPLE_RATE
 
 def _render_physical_plan_to_file(
     plan: PhysicalPlan, path: Path, *, sample_rate: int = _SAMPLE_RATE
-) -> bytes:
-    return bytes(_compile_physical_plan(plan, sample_rate=sample_rate).render_wav_file(str(path)))
+) -> None:
+    _compile_physical_plan(plan, sample_rate=sample_rate).render_wav_file(str(path))
 
 
 def _write_wav_file(payload: bytes, path: Path) -> None:

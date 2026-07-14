@@ -19,6 +19,7 @@ const PCM_BLOCK_ALIGN: u16 = 4;
 
 /// The greatest number of stereo 16-bit PCM frames representable by a RIFF WAV
 /// header with this fixed 44-byte layout.
+#[cfg(test)]
 pub(crate) const MAX_RIFF_PCM_FRAMES: u64 =
     (u32::MAX as u64 - RIFF_HEADER_BYTES_BEFORE_DATA) / PCM_FRAME_BYTES;
 
@@ -39,6 +40,7 @@ pub(crate) enum StereoWavSinkError {
     StreamPositionOverflow,
     Finished,
     Failed,
+    NotFinished,
 }
 
 impl fmt::Display for StereoWavSinkError {
@@ -69,6 +71,7 @@ impl fmt::Display for StereoWavSinkError {
                 formatter,
                 "WAV sink cannot continue after an earlier stream I/O failure"
             ),
+            Self::NotFinished => write!(formatter, "WAV sink has not been finished"),
         }
     }
 }
@@ -114,7 +117,6 @@ pub(crate) struct StereoPcmWavSink<W> {
     writer: W,
     header_start: u64,
     data_end: u64,
-    sample_rate: u32,
     frames: u64,
     state: SinkState,
 }
@@ -139,12 +141,12 @@ impl<W: Write + Seek> StereoPcmWavSink<W> {
             writer,
             header_start,
             data_end,
-            sample_rate,
             frames: 0,
             state: SinkState::Open,
         })
     }
 
+    #[cfg(test)]
     pub(crate) fn frame_count(&self) -> u64 {
         self.frames
     }
@@ -199,9 +201,19 @@ impl<W: Write + Seek> StereoPcmWavSink<W> {
     }
 
     /// Patch the placeholder RIFF and `data` sizes, flush, and return the writer.
+    #[cfg(test)]
     pub(crate) fn finish(mut self) -> Result<W, StereoWavSinkError> {
         self.patch_header()?;
         Ok(self.writer)
+    }
+
+    /// Return a writer already finalized through the `PcmSink` contract.
+    pub(crate) fn into_finished_writer(self) -> Result<W, StereoWavSinkError> {
+        match self.state {
+            SinkState::Finished => Ok(self.writer),
+            SinkState::Open => Err(StereoWavSinkError::NotFinished),
+            SinkState::Failed => Err(StereoWavSinkError::Failed),
+        }
     }
 
     fn require_open(&self) -> Result<(), StereoWavSinkError> {

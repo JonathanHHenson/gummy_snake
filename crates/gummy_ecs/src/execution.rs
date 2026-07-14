@@ -23,7 +23,7 @@ use crate::world::World;
 
 mod access_analysis;
 mod executor;
-mod interpreter;
+pub(crate) mod interpreter;
 mod optimized;
 mod report;
 mod row_local;
@@ -52,9 +52,8 @@ pub(in crate::execution) use self::spatial::support as spatial_support;
 pub(crate) use self::spatial::support::{BuiltSpatialIndex, CachedSpatialIndex};
 #[allow(unused_imports)]
 use self::spatial::support::{SpatialBatchSpec, SpatialF64RowArray, SpatialPrecomputeLayout};
-pub(in crate::execution) use self::typed_ir::{
-    TypedAction, TypedExecutorPlan, TypedExpr, TypedSpatialRelation,
-};
+pub(crate) use self::typed_ir::TypedExecutorPlan;
+pub(in crate::execution) use self::typed_ir::{TypedAction, TypedExpr, TypedSpatialRelation};
 
 #[cfg(test)]
 mod tests;

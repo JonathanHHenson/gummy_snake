@@ -81,15 +81,16 @@ def execute_compiled_plans_to_canvas(
     """Execute compiled Rust ECS plans with ordered native canvas replay when possible."""
 
     direct_args = _direct_canvas_execution_args(world)
-    execute_to_canvas = getattr(world._rust, "execute_compiled_plans_to_canvas", None)
-    if direct_args is None or not callable(execute_to_canvas):
+    if direct_args is None:
         return cast(
             list[dict[str, Any]], world._rust.execute_compiled_plans(handles, include_writes)
         )
     _, canvas, matrix_payload, direct_fill_allowed = direct_args
     return cast(
         list[dict[str, Any]],
-        execute_to_canvas(handles, canvas, matrix_payload, direct_fill_allowed, include_writes),
+        world._rust.execute_compiled_plans_to_canvas(
+            handles, canvas, matrix_payload, direct_fill_allowed, include_writes
+        ),
     )
 
 
@@ -103,17 +104,14 @@ def execute_compiled_plan(
         return cast(dict[str, Any], world._rust.execute_compiled_plan(handle, include_writes))
 
     direct_args = _direct_canvas_execution_args(world)
-    execute_to_canvas = getattr(world._rust, "execute_compiled_plan_to_canvas", None)
-    if (
-        direct_args is None
-        or not callable(execute_to_canvas)
-        or _contains_direct_canvas_barrier_action(scheduled.built.plan.action)
-    ):
+    if direct_args is None or _contains_direct_canvas_barrier_action(scheduled.built.plan.action):
         return cast(dict[str, Any], world._rust.execute_compiled_plan(handle, include_writes))
     _, canvas, matrix_payload, direct_fill_allowed = direct_args
     return cast(
         dict[str, Any],
-        execute_to_canvas(handle, canvas, matrix_payload, direct_fill_allowed, include_writes),
+        world._rust.execute_compiled_plan_to_canvas(
+            handle, canvas, matrix_payload, direct_fill_allowed, include_writes
+        ),
     )
 
 
@@ -151,6 +149,13 @@ def record_physical_report(
     if warm_report is not None and should_record_spatial_warm_report(warm_report, report):
         record_spatial_warm_report(world, warm_report)
     apply_physical_report(world, report)
+    canvas_commands = report.get("canvas_commands", ())
+    canvas_fill_batches = report.get("canvas_fill_batches", ())
+    if canvas_commands or canvas_fill_batches:
+        world._diagnostics["ecs_canvas_python_replays"] += 1
+        world._diagnostics["ecs_canvas_python_materialized_commands"] += len(canvas_commands) + sum(
+            len(batch) for batch in canvas_fill_batches
+        )
     dispatch_canvas_commands(world, report)
     dispatch_canvas_fill_batches(world, report)
     world._diagnostics["ecs_physical_system_runs"] += 1

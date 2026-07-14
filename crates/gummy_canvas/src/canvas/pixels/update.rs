@@ -46,12 +46,6 @@ impl Canvas {
         y: i64,
         rgba: (u8, u8, u8, u8),
     ) -> PyResult<()> {
-        if let Some(runtime) = self.runtime.as_mut() {
-            let _ = runtime.pump_events();
-            if runtime.should_close() {
-                self.closed = true;
-            }
-        }
         if x < 0 || y < 0 || x >= self.physical_width as i64 || y >= self.physical_height as i64 {
             return Ok(());
         }

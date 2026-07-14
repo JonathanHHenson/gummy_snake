@@ -123,12 +123,14 @@ single frame as requested. These Python properties are facades over
 a non-looping sketch that does not request redraw will not advance scheduled ECS
 systems until another draw is requested.
 
-Interactive runs schedule frames according to the target frame rate and poll
-SDL3 native events between frames. The Rust runtime also pumps native events
-around presentation and selected long-running canvas operations so close, resize,
-and input events can still be observed while Python drawing work is active.
-Headless bounded runs draw a fixed number of frames as quickly and
-deterministically as possible.
+Interactive runs read the current target frame rate on every tick and poll SDL3
+native events exactly once at the start of that tick, before deciding whether to
+draw or sleep. Drawing calls, pixel operations, frame begin/end, and presentation
+do not opportunistically poll the native queue. Adjacent mouse-motion or wheel
+events are coalesced in Rust while preserving the latest logical position,
+accumulated deltas, and every intervening discrete key/button/text/focus/touch
+event as an ordering barrier. Headless bounded runs draw a fixed number of frames
+as quickly and deterministically as possible.
 
 ## ECS Pre-draw Execution
 
@@ -183,8 +185,9 @@ flowchart TD
 ## Input Dispatch
 
 When native input is available, the SDL3-backed Rust runtime emits window/input
-events. `CanvasBackend` polls those events, normalizes them into Python event
-dataclasses, updates Rust `SketchContextState` through the
+events. `CanvasBackend` owns the single poll at the start of each interactive
+tick, normalizes the resulting events into Python event dataclasses, updates Rust
+`SketchContextState` through the
 `SketchContext.state.input` facade, and then dispatches optional user
 callbacks. SDL3 pointer, wheel, and touch coordinates are logical/window
 coordinates; Rust payloads must mark them with `coordinates = "logical"` so the

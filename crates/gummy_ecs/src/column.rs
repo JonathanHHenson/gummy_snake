@@ -48,17 +48,6 @@ fn integer_value(value: EcsValue, expected: &'static str) -> Result<i128> {
     match value {
         EcsValue::I64(value) => Ok(i128::from(value)),
         EcsValue::U64(value) => Ok(i128::from(value)),
-        EcsValue::F64(value) if value.is_finite() && value.fract() == 0.0 => {
-            let integer = value as i128;
-            if integer as f64 == value {
-                Ok(integer)
-            } else {
-                Err(EcsError::ValueOutOfRange {
-                    storage_type: expected,
-                    value: value.to_string(),
-                })
-            }
-        }
         other => Err(type_mismatch(expected, other)),
     }
 }
@@ -143,10 +132,11 @@ fn f32_vector<const N: usize>(values: [f64; N], storage_type: StorageType) -> Re
 
 /// Apply the canonical ECS write policy for a declared storage type.
 ///
-/// Integer conversions are exact and checked; overflow is an error. Float32 values
-/// are rounded once with Rust/IEEE-754 narrowing and then widened only for the public
-/// `EcsValue` transport. Non-finite floats are rejected. Lists recursively apply the
-/// same policy to every declared element.
+/// Integer conversions accept only integer transport variants and are checked; overflow
+/// is an error. Float values are never silently accepted by integer storage, even when
+/// mathematically integral. Float32 values are rounded once with Rust/IEEE-754 narrowing
+/// and then widened only for the public `EcsValue` transport. Non-finite floats are
+/// rejected. Lists recursively apply the same policy to every declared element.
 pub fn coerce_value_for_storage(storage_type: StorageType, value: EcsValue) -> Result<EcsValue> {
     match storage_type {
         StorageType::Bool => match value {
@@ -738,6 +728,51 @@ impl TypedListColumn {
         Ok(value)
     }
 
+    fn move_swap_removed_to(&mut self, target: &mut Self, row: usize) -> Result<()> {
+        if self.element_type() != target.element_type() || row >= self.len() {
+            return if row >= self.len() {
+                Err(EcsError::RowOutOfBounds)
+            } else {
+                Err(EcsError::ColumnTypeMismatch {
+                    expected: target.element_type().storage_type().name(),
+                    got: self.element_type().storage_type().name(),
+                })
+            };
+        }
+        macro_rules! move_row {
+            ($source:expr, $target:expr) => {{
+                let values = $source.swap_remove(row)?;
+                $target.push(values);
+                Ok(())
+            }};
+        }
+        match (self, target) {
+            (Self::Bool(source), Self::Bool(target)) => move_row!(source, target),
+            (Self::Int8(source), Self::Int8(target)) => move_row!(source, target),
+            (Self::UInt8(source), Self::UInt8(target)) => move_row!(source, target),
+            (Self::Int16(source), Self::Int16(target)) => move_row!(source, target),
+            (Self::UInt16(source), Self::UInt16(target)) => move_row!(source, target),
+            (Self::Int32(source), Self::Int32(target)) => move_row!(source, target),
+            (Self::UInt32(source), Self::UInt32(target)) => move_row!(source, target),
+            (Self::Int64(source), Self::Int64(target)) => move_row!(source, target),
+            (Self::UInt64(source), Self::UInt64(target)) => move_row!(source, target),
+            (Self::Float32(source), Self::Float32(target)) => move_row!(source, target),
+            (Self::Float64(source), Self::Float64(target)) => move_row!(source, target),
+            (Self::String(source), Self::String(target)) => move_row!(source, target),
+            (Self::CategoricalString(source), Self::CategoricalString(target)) => {
+                let values = source.get(row)?;
+                target.push(values)?;
+                drop(source.swap_remove(row)?);
+                Ok(())
+            }
+            (Self::Vec2F32(source), Self::Vec2F32(target)) => move_row!(source, target),
+            (Self::Vec2F64(source), Self::Vec2F64(target)) => move_row!(source, target),
+            (Self::Vec3F32(source), Self::Vec3F32(target)) => move_row!(source, target),
+            (Self::Vec3F64(source), Self::Vec3F64(target)) => move_row!(source, target),
+            _ => unreachable!("list element types were validated before transfer"),
+        }
+    }
+
     fn allocated_bytes(&self) -> usize {
         match self {
             Self::Bool(values) => values.allocated_bytes(),
@@ -1097,6 +1132,50 @@ impl Column {
         Ok(())
     }
 
+    pub fn move_swap_removed_to(&mut self, target: &mut Self, row: usize) -> Result<()> {
+        if self.storage_type() != target.storage_type() {
+            return Err(EcsError::ColumnTypeMismatch {
+                expected: target.family_name(),
+                got: self.family_name(),
+            });
+        }
+        if row >= self.len() {
+            return Err(EcsError::RowOutOfBounds);
+        }
+        macro_rules! move_row {
+            ($source:expr, $target:expr) => {{
+                $target.push($source.swap_remove(row));
+                Ok(())
+            }};
+        }
+        match (self, target) {
+            (Self::Bool(source), Self::Bool(target)) => move_row!(source, target),
+            (Self::Int8(source), Self::Int8(target)) => move_row!(source, target),
+            (Self::UInt8(source), Self::UInt8(target)) => move_row!(source, target),
+            (Self::Int16(source), Self::Int16(target)) => move_row!(source, target),
+            (Self::UInt16(source), Self::UInt16(target)) => move_row!(source, target),
+            (Self::Int32(source), Self::Int32(target)) => move_row!(source, target),
+            (Self::UInt32(source), Self::UInt32(target)) => move_row!(source, target),
+            (Self::Int64(source), Self::Int64(target)) => move_row!(source, target),
+            (Self::UInt64(source), Self::UInt64(target)) => move_row!(source, target),
+            (Self::Float32(source), Self::Float32(target)) => move_row!(source, target),
+            (Self::Float64(source), Self::Float64(target)) => move_row!(source, target),
+            (Self::String(source), Self::String(target)) => move_row!(source, target),
+            (Self::CategoricalString(source), Self::CategoricalString(target)) => {
+                let value = source.get(row)?;
+                target.push(value)?;
+                drop(source.swap_remove(row)?);
+                Ok(())
+            }
+            (Self::Vec2F32(source), Self::Vec2F32(target)) => move_row!(source, target),
+            (Self::Vec2F64(source), Self::Vec2F64(target)) => move_row!(source, target),
+            (Self::Vec3F32(source), Self::Vec3F32(target)) => move_row!(source, target),
+            (Self::Vec3F64(source), Self::Vec3F64(target)) => move_row!(source, target),
+            (Self::List(source), Self::List(target)) => source.move_swap_removed_to(target, row),
+            _ => unreachable!("column storage types were validated before transfer"),
+        }
+    }
+
     pub fn swap_remove(&mut self, row: usize) -> Result<EcsValue> {
         if row >= self.len() {
             return Err(EcsError::RowOutOfBounds);
@@ -1146,6 +1225,27 @@ mod tests {
     }
 
     #[test]
+    fn integer_storage_rejects_float_transport_even_when_integral() {
+        let mut scalar = Column::empty(StorageType::Int16);
+        assert!(matches!(
+            scalar.push_value(EcsValue::F64(12.0)),
+            Err(EcsError::ColumnTypeMismatch {
+                expected: "Int16",
+                got: "F64"
+            })
+        ));
+
+        let mut list = Column::empty(StorageType::List(ListElementType::UInt8));
+        assert!(matches!(
+            list.push_value(EcsValue::List(vec![EcsValue::F64(12.0)])),
+            Err(EcsError::ColumnTypeMismatch {
+                expected: "UInt8",
+                got: "F64"
+            })
+        ));
+    }
+
+    #[test]
     fn float32_rounds_at_every_write_boundary() {
         let mut column = Column::empty(StorageType::Float32);
         column.push_value(EcsValue::F64(1.0 / 3.0)).unwrap();
@@ -1175,6 +1275,40 @@ mod tests {
             EcsValue::String("red".to_string())
         );
         assert_eq!(column.len(), 1);
+    }
+
+    #[test]
+    fn direct_column_moves_preserve_categorical_and_packed_list_values() {
+        let mut categorical = Column::empty(StorageType::CategoricalString);
+        categorical
+            .push_value(EcsValue::String("red".to_string()))
+            .unwrap();
+        categorical
+            .push_value(EcsValue::String("blue".to_string()))
+            .unwrap();
+        let mut categorical_target = Column::empty(StorageType::CategoricalString);
+        categorical
+            .move_swap_removed_to(&mut categorical_target, 0)
+            .unwrap();
+        assert_eq!(
+            categorical_target.get(0).unwrap(),
+            EcsValue::String("red".to_string())
+        );
+        assert_eq!(
+            categorical.get(0).unwrap(),
+            EcsValue::String("blue".to_string())
+        );
+
+        let storage = StorageType::List(ListElementType::Int64);
+        let mut list = Column::empty(storage);
+        list.push_value(EcsValue::List(vec![EcsValue::I64(9_007_199_254_740_993)]))
+            .unwrap();
+        let mut list_target = Column::empty(storage);
+        list.move_swap_removed_to(&mut list_target, 0).unwrap();
+        assert_eq!(
+            list_target.get(0).unwrap(),
+            EcsValue::List(vec![EcsValue::I64(9_007_199_254_740_993)])
+        );
     }
 
     #[test]

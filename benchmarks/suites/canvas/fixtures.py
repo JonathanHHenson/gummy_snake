@@ -95,6 +95,37 @@ class PathRecord:
     kind: str
     points: tuple[tuple[int, int], ...]
 
+    def __post_init__(self) -> None:
+        if not self.kind or not self.points:
+            raise ValueError("path records require a kind and at least one point")
+
+
+@dataclass(frozen=True, slots=True)
+class PrimitivePathFixture:
+    """Reviewed ordered primitive/path records in logical coordinates."""
+
+    name: str
+    records: tuple[PathRecord, ...]
+
+    @property
+    def payload(self) -> bytes:
+        """Return canonical JSON bytes tracked by the fixture manifest."""
+
+        return _path_bytes(self.records)
+
+
+@dataclass(frozen=True, slots=True)
+class FixtureQualification:
+    """Explicit marker for reviewed binary fixture families not bundled here."""
+
+    family: str
+    status: str
+    reason: str
+
+    def __post_init__(self) -> None:
+        if not self.family or not self.status or not self.reason:
+            raise ValueError("fixture qualification values must be non-empty")
+
 
 @dataclass(frozen=True, slots=True)
 class FixtureManifestEntry:
@@ -153,6 +184,72 @@ def _rgba(width: int, height: int, pixel: Callable[[int, int], tuple[int, int, i
     return bytes(
         component for y in range(height) for x in range(width) for component in pixel(x, y)
     )
+
+
+def generated_rgba_fixture(width: int, height: int, *, seed: int = 0) -> RgbaFixture:
+    """Generate exact, non-uniform RGBA input at a declared workload size."""
+
+    if not 1 <= width <= 4_096 or not 1 <= height <= 4_096:
+        raise ValueError("generated RGBA fixture dimensions must be in [1, 4096]")
+    if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= 255:
+        raise ValueError("generated RGBA fixture seed must be an integer in [0, 255]")
+    pixels = _rgba(
+        width,
+        height,
+        lambda x, y: (
+            (17 * x + 13 * y + seed) % 256,
+            (29 * x + 7 * y + seed * 3) % 256,
+            (11 * x + 47 * y + seed * 5) % 256,
+            64 + (x * 37 + y * 19 + seed) % 192,
+        ),
+    )
+    return RgbaFixture(f"generated-rgba-{width}x{height}-s{seed}", width, height, pixels)
+
+
+def generated_media_frame(
+    width: int, height: int, channels: int, *, seed: int = 0
+) -> MediaFrameFixture:
+    """Generate a deterministic grayscale/BGR/BGRA frame and exact RGBA result."""
+
+    rgba = generated_rgba_fixture(width, height, seed=seed)
+    if channels == 1:
+        gray = bytes((17 * x + 13 * y + seed) % 256 for y in range(height) for x in range(width))
+        expected = RgbaFixture(
+            f"generated-gray-rgba-{width}x{height}-s{seed}",
+            width,
+            height,
+            bytes(component for value in gray for component in (value, value, value, 255)),
+        )
+        return MediaFrameFixture(
+            f"generated-gray-{width}x{height}-s{seed}", width, height, 1, gray, expected
+        )
+    if channels == 3:
+        opaque_pixels = bytearray(rgba.pixels)
+        opaque_pixels[3::4] = b"\xff" * (width * height)
+        opaque = RgbaFixture(
+            f"generated-bgr-rgba-{width}x{height}-s{seed}",
+            width,
+            height,
+            bytes(opaque_pixels),
+        )
+        return MediaFrameFixture(
+            f"generated-bgr-{width}x{height}-s{seed}",
+            width,
+            height,
+            3,
+            _bgr_pixels(opaque.pixels),
+            opaque,
+        )
+    if channels == 4:
+        return MediaFrameFixture(
+            f"generated-bgra-{width}x{height}-s{seed}",
+            width,
+            height,
+            4,
+            _bgra_pixels(rgba.pixels),
+            rgba,
+        )
+    raise ValueError("generated media frame channels must be 1, 3, or 4")
 
 
 def _checker_pixel(x: int, y: int) -> tuple[int, int, int, int]:
@@ -251,6 +348,7 @@ SPRITE_CACHE_RESET = ResourceResetFixture(
         ),
     ),
     reset_activity_counters=(
+        "image_cache_evictions",
         "texture_uploads",
         "texture_upload_bytes",
         "texture_dirty_uploads",
@@ -267,6 +365,7 @@ PATH_RECORDS = (
     PathRecord("polyline", ((2, 18), (8, 13), (14, 21), (20, 15), (30, 22))),
     PathRecord("clip", ((4, 26), (28, 26), (28, 38), (4, 38))),
 )
+PRIMITIVE_PATH_FIXTURE = PrimitivePathFixture("path-records", PATH_RECORDS)
 
 TEXT_CORPUS: Mapping[str, tuple[str, ...]] = {
     "ascii": ("Gummy Snake", "frame 001", "cache cache cache"),
@@ -285,6 +384,23 @@ MINIMAL_OBJ_FIXTURE = ObjFixture(
     MINIMAL_OBJ,
     vertices=((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
     faces=((0, 1, 2),),
+)
+
+# No font or encoded-media fixture exists under the repository's reviewed test
+# fixtures. Keep that limitation machine-readable rather than importing examples
+# or treating a host font/codec as deterministic benchmark evidence.
+BINARY_FIXTURE_QUALIFICATIONS = (
+    FixtureQualification(
+        "font",
+        "not-bundled-no-reviewed-repository-fixture",
+        "Text corpora are deterministic, but host font rasterization is not "
+        "cross-platform qualified.",
+    ),
+    FixtureQualification(
+        "codec",
+        "not-bundled-no-reviewed-repository-fixture",
+        "Generated decoded media buffers are covered; encoded codec fixtures are not qualified.",
+    ),
 )
 
 
@@ -309,13 +425,32 @@ FIXTURE_BYTES: Mapping[str, bytes] = {
     MEDIA_FRAME_BGRA_RGBA.name: MEDIA_FRAME_BGRA_RGBA.pixels,
     MEDIA_FRAME_GRAY.name: MEDIA_FRAME_GRAY.pixels,
     MEDIA_FRAME_GRAY_RGBA.name: MEDIA_FRAME_GRAY_RGBA.pixels,
-    "path-records": _path_bytes(PATH_RECORDS),
+    PRIMITIVE_PATH_FIXTURE.name: PRIMITIVE_PATH_FIXTURE.payload,
     TEXT_CORPUS_FIXTURE.name: TEXT_CORPUS_FIXTURE.payload,
     MINIMAL_OBJ_FIXTURE.name: MINIMAL_OBJ_FIXTURE.payload,
 }
 
 # These values are intentionally literal review points, not hashes derived from
 # the current payloads. ``validate_manifest`` therefore catches fixture changes.
+FIXTURE_FAMILIES: Mapping[str, tuple[str, ...]] = {
+    "rgba": (
+        CHECKERBOARD.name,
+        SPRITE_SHEET.name,
+        PIXEL_BUFFER.name,
+    ),
+    "media": (
+        MEDIA_FRAME_RGBA.name,
+        MEDIA_FRAME_BGR.name,
+        MEDIA_FRAME_BGRA.name,
+        MEDIA_FRAME_BGRA_RGBA.name,
+        MEDIA_FRAME_GRAY.name,
+        MEDIA_FRAME_GRAY_RGBA.name,
+    ),
+    "obj": (MINIMAL_OBJ_FIXTURE.name,),
+    "primitive-path": (PRIMITIVE_PATH_FIXTURE.name,),
+    "text": (TEXT_CORPUS_FIXTURE.name,),
+}
+
 FIXTURE_MANIFEST = (
     FixtureManifestEntry(
         "checkerboard-8", 256, "a814e5420f755241e10a600f2f923fa59603152d80b244449aa0b607492bdd3a"
@@ -377,6 +512,9 @@ def validate_manifest(
     expected_names = {entry.name for entry in manifest}
     if expected_names != set(payloads):
         raise ValueError("fixture manifest names do not match generated fixture names")
+    family_names = tuple(name for names in FIXTURE_FAMILIES.values() for name in names)
+    if len(family_names) != len(set(family_names)) or set(family_names) != expected_names:
+        raise ValueError("fixture families must cover every manifest entry exactly once")
     for entry in manifest:
         payload = payloads[entry.name]
         if len(payload) != entry.byte_length:
@@ -398,8 +536,10 @@ def sprite_image() -> object:
 
 
 __all__ = [
+    "BINARY_FIXTURE_QUALIFICATIONS",
     "CHECKERBOARD",
     "FIXTURE_BYTES",
+    "FIXTURE_FAMILIES",
     "FIXTURE_MANIFEST",
     "MEDIA_FRAME_BGR",
     "MEDIA_FRAME_BGRA",
@@ -412,7 +552,9 @@ __all__ = [
     "MediaFrameFixture",
     "ObjFixture",
     "PATH_RECORDS",
+    "PRIMITIVE_PATH_FIXTURE",
     "PIXEL_BUFFER",
+    "PrimitivePathFixture",
     "RgbaFixture",
     "ResourceCounterFamily",
     "ResourceResetFixture",
@@ -422,6 +564,9 @@ __all__ = [
     "TEXT_CORPUS_FIXTURE",
     "TextCorpusFixture",
     "FixtureManifestEntry",
+    "generated_media_frame",
+    "generated_rgba_fixture",
+    "FixtureQualification",
     "PathRecord",
     "fixture_manifest",
     "sprite_image",

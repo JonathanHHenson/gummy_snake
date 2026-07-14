@@ -1,5 +1,5 @@
 use crate::runtime::native_window_available as runtime_native_window_available;
-use crate::{gpu, CANVAS_ABI_VERSION};
+use crate::{frame_commands::FRAME_COMMAND_ABI_VERSION, gpu, CANVAS_ABI_VERSION};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
@@ -11,6 +11,11 @@ pub(crate) fn health_check() -> &'static str {
 #[pyfunction]
 pub(crate) fn canvas_abi_version() -> u32 {
     CANVAS_ABI_VERSION
+}
+
+#[pyfunction]
+pub(crate) fn frame_command_abi_version() -> u32 {
+    FRAME_COMMAND_ABI_VERSION
 }
 
 #[pyfunction]

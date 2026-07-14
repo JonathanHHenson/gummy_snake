@@ -82,11 +82,10 @@ impl<'a> PlanExecutor<'a> {
         let mut values = Vec::new();
         if let Some(value_expr) = value {
             values.reserve(records.len());
+            let item_slot = self.query_slot(&relation.item_query)?;
             for record in records.iter() {
                 let mut joined = ctx.clone();
-                joined
-                    .bindings
-                    .insert(relation.item_query.clone(), record.entity);
+                joined.bindings[item_slot] = Some(record.entity);
                 values.push(self.eval_expr(value_expr, &joined)?);
             }
         }
@@ -107,11 +106,9 @@ impl<'a> PlanExecutor<'a> {
         if relation.exact_filter.is_some() && distance_filter.is_none() {
             return Ok(None);
         }
-        let origin_entity = ctx
-            .bindings
-            .get(&relation.origin_query)
-            .copied()
-            .ok_or_else(|| {
+        let origin_entity = self
+            .bound_entity(ctx, &relation.origin_query)
+            .map_err(|_| {
                 EcsError::InvalidPlan(format!(
                     "spatial origin query '{}' is not bound",
                     relation.origin_query

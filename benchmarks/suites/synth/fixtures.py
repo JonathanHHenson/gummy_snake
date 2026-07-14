@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import math
+import shutil
 import tempfile
 import wave
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
@@ -57,6 +58,68 @@ class GeneratedSampleFiles:
 
     root: Path
     paths: Mapping[str, Path]
+
+
+@dataclass(frozen=True, slots=True)
+class PcmVariantCase:
+    """One generated PCM decoder case with an explicit rate/channel/width identity."""
+
+    name: str
+    signal_kind: str
+    sample_rate: int
+    duration_seconds: float
+    sample_width: int
+    force_mono: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PcmVariantManifestEntry:
+    """Stable metadata for one generated PCM WAV variant."""
+
+    name: str
+    frames: int
+    channels: int
+    sample_rate: int
+    sample_width: int
+    duration_seconds: float
+    byte_length: int
+    sha256: str
+    peak: float
+    rms: float
+    dc: float
+    spectral_bands: Mapping[str, float]
+
+
+@dataclass(frozen=True, slots=True)
+class PackagedSampleCase:
+    """Pinned package-owned FLAC used for realistic decoder/cache scales."""
+
+    name: str
+    relative_path: str
+    role: str
+    byte_length: int
+    sha256: str
+    expected_duration_seconds: float
+    license: str
+
+
+@dataclass(frozen=True, slots=True)
+class CodecCapability:
+    """Availability of an external codec route without an encoder substitute."""
+
+    codec: str
+    available: bool
+    executable: str | None
+    reason: str | None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "codec": self.codec,
+            "available": self.available,
+            "executable": self.executable,
+            "reason": self.reason,
+            "substitute_used": False,
+        }
 
 
 def _noise_values(count: int, seed: int) -> tuple[float, ...]:
@@ -208,6 +271,49 @@ _FIXTURE_KINDS = (
     "envelope-control",
 )
 
+_REVIEWED_SIGNAL_DIGESTS = {
+    "impulse-mono": "471926153586190d9152180f3825a5c4c546bd64bef296c261d5ef45446772a1",
+    "impulse-stereo": "6b21980fc507d7315f5ca5af75b3a46e613fe391917be3baf8e21c446dfceb8d",
+    "silence": "1fac9c5a2a5f63cb0bed663b416a8d32ce32d0c7736ff3f097eed7ee60711ee4",
+    "sine": "5fe10283bd5cdb1cf73a4f740af9ea10a128a75974cf26bb2392f9c1c42a3ed7",
+    "dual-tone": "6b48976c90c2b09358f831b62dac0ac824fb2b1be9daeb8843d1e21602bdf3eb",
+    "chirp": "21bd3746e273e6247121c0865bd908080633b5ad0bf42273249f3fadd0d9b731",
+    "noise": "65d840c79dbd5bb0f4de5b0c3e93ffbdc4f8194a385429be0deb1642f5993a98",
+    "asymmetric-stereo": "0f6581e93c4a4b7e1e5ad138dba8e03af7cacd9eeaf86c49f2c4f0c9ed4c8225",
+    "transients": "a0ab0b7179048e21d58f9d87d082aa2e510d288f147bf6c3d7cc00b7793c4478",
+    "envelope-control": "ad8dff09142f8dd120008dd84c04fd26dec0cda01014daf650107972cd6d1937",
+}
+
+_PACKAGED_SAMPLE_CASES = (
+    PackagedSampleCase(
+        "reviewed-minimal-flac",
+        "assets/samples/sonic_pi/bd_pure.flac",
+        "minimal-real-flac-decoder-fixture",
+        18_056,
+        "cd70fc3260302262f65c8f66f012faf7531853598a6d2a01a8af73bd3816c6b3",
+        0.43324263038548755,
+        "CC0-1.0",
+    ),
+    PackagedSampleCase(
+        "packaged-transient-flac",
+        "assets/samples/sonic_pi/drum_cymbal_closed.flac",
+        "short-transient-decoder-and-cache-scale",
+        20_943,
+        "f3b9d6bb14f75ba06ef633baf58b1f75f0e2ea5e07edd491f0a22aedb2480d62",
+        0.2069387755102041,
+        "CC0-1.0",
+    ),
+    PackagedSampleCase(
+        "packaged-loop-flac",
+        "assets/samples/sonic_pi/loop_amen.flac",
+        "long-loop-decoder-resampler-and-cache-scale",
+        210_769,
+        "96d3c6ea1fdadce5db26290275d4b34add11e8503a18fb6f405b8897d06ba50d",
+        1.753310657596372,
+        "CC0-1.0",
+    ),
+)
+
 
 def fixture_manifest() -> tuple[FixtureManifestEntry, ...]:
     """Return stable hashes and signal metadata for the complete generated corpus."""
@@ -247,6 +353,139 @@ def validate_manifest(manifest: tuple[FixtureManifestEntry, ...] | None = None) 
         raise ValueError("generated Synth fixture manifest is incomplete")
     if any(entry.frames <= 0 or entry.byte_length <= 44 for entry in expected):
         raise ValueError("generated Synth fixture manifest contains an empty signal")
+    actual_digests = {entry.name: entry.sha256 for entry in expected}
+    if actual_digests != _REVIEWED_SIGNAL_DIGESTS:
+        raise ValueError("generated Synth fixture bytes differ from reviewed signal hashes")
+
+
+def pcm_variant_catalog() -> tuple[PcmVariantCase, ...]:
+    """Return all reviewed mono/stereo, width, and sample-rate PCM combinations."""
+
+    cases: list[PcmVariantCase] = []
+    for sample_rate in (8_000, 16_000, 44_100, 48_000):
+        for sample_width in (1, 2, 4):
+            cases.extend(
+                (
+                    PcmVariantCase(
+                        f"mono-{sample_rate}hz-{sample_width * 8}bit",
+                        "dual-tone",
+                        sample_rate,
+                        0.032,
+                        sample_width,
+                        True,
+                    ),
+                    PcmVariantCase(
+                        f"stereo-{sample_rate}hz-{sample_width * 8}bit",
+                        "asymmetric-stereo",
+                        sample_rate,
+                        0.032,
+                        sample_width,
+                        False,
+                    ),
+                )
+            )
+    return tuple(cases)
+
+
+def pcm_variant_manifest() -> tuple[PcmVariantManifestEntry, ...]:
+    """Generate exact hashes and signal statistics for the full PCM variant matrix."""
+
+    entries: list[PcmVariantManifestEntry] = []
+    for case in pcm_variant_catalog():
+        fixture = generate_signal(
+            case.signal_kind,
+            sample_rate=case.sample_rate,
+            duration_seconds=case.duration_seconds,
+        )
+        payload = pcm_wav_bytes(fixture, sample_width=case.sample_width, force_mono=case.force_mono)
+        peak, rms, dc, bands = _signal_stats(fixture)
+        entries.append(
+            PcmVariantManifestEntry(
+                case.name,
+                fixture.frames,
+                1 if case.force_mono else fixture.channels,
+                case.sample_rate,
+                case.sample_width,
+                fixture.duration_seconds,
+                len(payload),
+                sha256(payload).hexdigest(),
+                peak,
+                rms,
+                dc,
+                bands,
+            )
+        )
+    return tuple(entries)
+
+
+def validate_pcm_variant_manifest(
+    manifest: tuple[PcmVariantManifestEntry, ...] | None = None,
+) -> None:
+    """Reject malformed, incomplete, or stale generated PCM variant metadata."""
+
+    expected = pcm_variant_manifest()
+    if manifest is not None and manifest != expected:
+        raise ValueError("generated PCM variant manifest does not match fixture bytes")
+    expected_names = {case.name for case in pcm_variant_catalog()}
+    if {entry.name for entry in expected} != expected_names or len(expected) != 24:
+        raise ValueError("generated PCM variant manifest is incomplete")
+    if {entry.sample_width for entry in expected} != {1, 2, 4}:
+        raise ValueError("generated PCM variant manifest does not cover supported widths")
+    if {entry.channels for entry in expected} != {1, 2}:
+        raise ValueError("generated PCM variant manifest does not cover mono and stereo")
+
+
+def packaged_sample_catalog() -> tuple[PackagedSampleCase, ...]:
+    """Return the explicitly reviewed package-owned FLAC decoder cases."""
+
+    return _PACKAGED_SAMPLE_CASES
+
+
+def _packaged_sample_path(case: PackagedSampleCase) -> Path:
+    relative = Path(case.relative_path)
+    for ancestor in Path(__file__).resolve().parents:
+        candidate = ancestor / relative
+        if candidate.is_file():
+            return candidate
+    raise ValueError(f"packaged Synth sample fixture is missing: {case.relative_path}")
+
+
+def validate_packaged_sample_catalog(
+    duration_probe: Callable[[str], float] | None = None,
+) -> Mapping[str, Path]:
+    """Verify pinned FLAC bytes and optionally validate native decoder durations."""
+
+    paths: dict[str, Path] = {}
+    for case in packaged_sample_catalog():
+        path = _packaged_sample_path(case)
+        payload = path.read_bytes()
+        if not payload.startswith(b"fLaC"):
+            raise ValueError(f"packaged Synth sample is not FLAC: {case.relative_path}")
+        if len(payload) != case.byte_length or sha256(payload).hexdigest() != case.sha256:
+            raise ValueError(f"packaged Synth sample fixture is stale: {case.relative_path}")
+        if duration_probe is not None:
+            duration = float(duration_probe(str(path)))
+            if abs(duration - case.expected_duration_seconds) > 1e-12:
+                raise ValueError(
+                    f"packaged Synth sample duration changed for {case.name}: {duration}"
+                )
+        paths[case.name] = path
+    return paths
+
+
+def ffmpeg_mp3_capability() -> CodecCapability:
+    """Report the optional FFmpeg MP3 route without selecting another encoder."""
+
+    executable = shutil.which("ffmpeg")
+    if executable is None:
+        return CodecCapability(
+            "mp3-ffmpeg",
+            False,
+            None,
+            "FFmpeg is not available on PATH; MP3 coverage is unavailable and no substitute "
+            "encoder is permitted",
+        )
+    return CodecCapability("mp3-ffmpeg", True, executable, None)
 
 
 @contextmanager
@@ -277,12 +516,22 @@ def generated_sample_files(*, sample_rate: int = 16_000) -> Iterator[GeneratedSa
 
 
 __all__ = [
+    "CodecCapability",
     "FixtureManifestEntry",
     "GeneratedSampleFiles",
+    "PackagedSampleCase",
+    "PcmVariantCase",
+    "PcmVariantManifestEntry",
     "SignalFixture",
+    "ffmpeg_mp3_capability",
     "fixture_manifest",
     "generate_signal",
     "generated_sample_files",
+    "packaged_sample_catalog",
+    "pcm_variant_catalog",
+    "pcm_variant_manifest",
     "pcm_wav_bytes",
     "validate_manifest",
+    "validate_packaged_sample_catalog",
+    "validate_pcm_variant_manifest",
 ]

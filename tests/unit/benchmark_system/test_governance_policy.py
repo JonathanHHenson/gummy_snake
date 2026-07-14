@@ -9,6 +9,7 @@ from benchmarks.governance import (
     DATABASE_GOVERNANCE,
     EXECUTION_CLASS_POLICIES,
     LEGACY_BENCHMARK_DATA_AUTHORITY,
+    LOCAL_HISTORY_DIRECTORY,
     MODE_POLICIES,
     PERCENT_REGRESSION_LIMIT,
     PRODUCTION_DOMAINS,
@@ -78,7 +79,11 @@ def test_execution_mode_and_database_authority_are_structured_and_fail_closed() 
 
     assert not MODE_POLICIES[BenchmarkMode.WORKTREE].database_writes
     assert MODE_POLICIES[BenchmarkMode.RECORD_HEAD].database_writes
-    assert "exact current-HEAD" in MODE_POLICIES[BenchmarkMode.WORKTREE].baseline
+    assert "exact HEAD" in MODE_POLICIES[BenchmarkMode.WORKTREE].baseline
+    assert "ancestor" in MODE_POLICIES[BenchmarkMode.WORKTREE].baseline
+    assert DATABASE_GOVERNANCE.default_backend == "local-filesystem"
+    assert DATABASE_GOVERNANCE.history_directory == LOCAL_HISTORY_DIRECTORY
+    assert DATABASE_GOVERNANCE.remote_required is False
+    assert DATABASE_GOVERNANCE.configurable_value == "local-history-directory-only"
     assert DATABASE_GOVERNANCE.data_ref == AUTHORITATIVE_DATA_REF
-    assert DATABASE_GOVERNANCE.configurable_value == "remote-location-only"
     assert LEGACY_BENCHMARK_DATA_AUTHORITY == "historical-non-authoritative-not-imported"

@@ -1,4 +1,3 @@
-use super::LIVE_RESIZE_PRESENT_COOLDOWN;
 use crate::prelude::*;
 use crate::runtime::style::*;
 
@@ -27,42 +26,6 @@ impl Canvas {
                 .as_ref()
                 .map(|runtime| runtime.should_close())
                 .unwrap_or(false)
-    }
-
-    pub(crate) fn pump_native_events_impl(&mut self) -> PyResult<bool> {
-        let Some(runtime) = self.runtime.as_mut() else {
-            return Ok(self.closed);
-        };
-        runtime.pump_events().map_err(|err| {
-            PyValueError::new_err(format!("Failed to pump native canvas events: {err}"))
-        })?;
-
-        let should_close = runtime.should_close();
-        let (logical_width, logical_height) = runtime.logical_size();
-        let pixel_density = runtime.display_density();
-
-        if should_close {
-            self.closed = true;
-            return Ok(true);
-        }
-
-        if runtime.resize_recently(LIVE_RESIZE_PRESENT_COOLDOWN) {
-            return Ok(self.closed);
-        }
-
-        if logical_width != self.width
-            || logical_height != self.height
-            || (pixel_density - self.pixel_density).abs() > f64::EPSILON
-        {
-            self.resize_canvas_impl(
-                logical_width,
-                logical_height,
-                pixel_density,
-                SUPPORTED_RENDERER,
-            )?;
-        }
-
-        Ok(self.closed)
     }
 
     pub(crate) fn request_pointer_lock_impl(&mut self) -> PyResult<bool> {

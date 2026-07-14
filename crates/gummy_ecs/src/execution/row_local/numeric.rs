@@ -65,7 +65,7 @@ impl<'a> PlanExecutor<'a> {
         let locations = self.query_locations(query_name)?;
         let program = compile_f64_readonly_program(
             self.plan,
-            &self.typed_plan,
+            self.typed_plan,
             self.world,
             query_name,
             &self.numeric_field_cache,

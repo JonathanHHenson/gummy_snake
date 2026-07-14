@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from gummysnake.exceptions import BackendCapabilityError
+
 _PERFORMANCE_COUNTER_KEYS = (
     "gpu_draws",
     "gpu_blend_commands",
@@ -61,6 +63,17 @@ _PERFORMANCE_COUNTER_KEYS = (
     "model_batch_fallbacks",
     "packed_primitive_records",
     "packed_primitive_bytes",
+    "typed_frame_command_batches",
+    "typed_frame_command_records",
+    "typed_frame_command_bytes",
+    "typed_primitive_records",
+    "typed_path_records",
+    "typed_image_records",
+    "typed_text_records",
+    "typed_model_records",
+    "typed_effect_records",
+    "typed_order_barriers",
+    "frame_command_storage_growths",
 )
 NativePerformanceCounterValue = int | float
 PerformanceCounterValue = int | float | dict[str, NativePerformanceCounterValue]
@@ -90,6 +103,17 @@ class CanvasRendererCounterMixin:
                 promoted_native_keys = (
                     "packed_primitive_records",
                     "packed_primitive_bytes",
+                    "typed_frame_command_batches",
+                    "typed_frame_command_records",
+                    "typed_frame_command_bytes",
+                    "typed_primitive_records",
+                    "typed_path_records",
+                    "typed_image_records",
+                    "typed_text_records",
+                    "typed_model_records",
+                    "typed_effect_records",
+                    "typed_order_barriers",
+                    "frame_command_storage_growths",
                     "pixel_readback_requested_bytes",
                     "pixel_readback_copied_bytes",
                     "image_cache_hits",
@@ -118,6 +142,21 @@ class CanvasRendererCounterMixin:
                     if isinstance(value, int | float):
                         counters[key] = value
         return counters
+
+    def frame_command_diagnostics(self) -> dict[str, int]:
+        """Return generation, capacity, and ordered-segment diagnostics from Rust."""
+        canvas = self._canvas
+        callback = (
+            getattr(canvas, "frame_command_diagnostics", None) if canvas is not None else None
+        )
+        if not callable(callback):
+            raise BackendCapabilityError(
+                "The installed gummysnake.rust._canvas runtime does not expose "
+                "frame_command_diagnostics(). Rebuild gummy_canvas before inspecting typed "
+                "frame-command diagnostics."
+            )
+        payload = callback()
+        return {str(key): int(value) for key, value in payload.items() if isinstance(value, int)}
 
     def reset_performance_counters(self) -> None:
         self._init_performance_counters()

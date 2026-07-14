@@ -1,15 +1,116 @@
 {
-  "catalog_digest": "sha256:cab88a19b320793af85f068fa19ee74628320fa0263c76ddb0af6a777c41b1a6",
+  "catalog_digest": "sha256:133cdf150ae0e7f608d274a852dc28f9532eac3ea8f2890fa4a5d67d1e68646e",
   "entries": [
     {
       "capabilities": [
         "canvas-runtime",
         "offscreen-rendering",
+        "pixel-readback",
+        "framebuffer"
+      ],
+      "case_id": "headless-framebuffer-16-small",
+      "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:afeab82162ac3d5f77af97557a6ff4b657f9ef42ab9431c8c9b838284a25fe61",
+      "metric_identity": {
+        "id": "resource-lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "offscreen-resource-churn",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "framebuffer": true,
+        "frames": 1,
+        "height": 128,
+        "required_counters": [],
+        "surface_count": 16,
+        "surface_height": 64,
+        "surface_width": 64,
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "images"
+      ],
+      "case_id": "headless-image-operations-1k",
+      "correctness_label": "image-asset-operations-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:f830b919ae9d0e1192f73ca90f15e0015b6b62864c274f51de7e0cc252cef00f",
+      "metric_identity": {
+        "id": "asset-operation-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "asset_height": 1024,
+        "asset_width": 1024,
+        "case_kind": "image-asset-operations",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 128,
+        "operation_count": 1,
+        "required_counters": [],
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "images"
+      ],
+      "case_id": "headless-image-operations-64px",
+      "correctness_label": "image-asset-operations-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:49b7f95c2cbad6d95b7e59e00a8239679d156c15a1fd164a9c2219ceb7994077",
+      "metric_identity": {
+        "id": "asset-operation-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "asset_height": 64,
+        "asset_width": 64,
+        "case_kind": "image-asset-operations",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 128,
+        "operation_count": 7,
+        "required_counters": [],
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
         "media-frame-conversion"
       ],
-      "case_id": "headless-generated-media-frame-conversion",
-      "correctness_label": "generated-gray-bgr-bgra-conversion-exact-rgba",
-      "definition_digest": "sha256:1d2e0f930ebd2b43ef00265ba2d8d762ea16e68b08cfd60b60bac05adbfee52b",
+      "case_id": "headless-media-bgr-1080p-30",
+      "correctness_label": "media-frame-conversion-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:ae6bb7cfdc88711bba9a37f93f25c23c50ec06f7943fd9d76fc7509c14db444b",
       "metric_identity": {
         "id": "media-frame-conversion-elapsed-ns",
         "version": 1
@@ -18,29 +119,784 @@
       "route": "headless",
       "runtime_parameters": {
         "case_kind": "media-frame-conversion",
+        "channels": 3,
         "conversion_count": 30,
+        "conversion_height": 1080,
+        "conversion_width": 1920,
         "density": "1.0",
         "dispatch_route": "global",
         "frame_rate": 60,
         "frames": 1,
-        "height": 12,
+        "height": 128,
         "required_counters": [],
-        "width": 16
+        "width": 128
       },
       "sampling_profile": "canvas-bounded-v1",
       "workload_id": "assets-media-models",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
         "canvas-runtime",
         "offscreen-rendering",
-        "effects",
+        "pixel-readback",
+        "media-frame-conversion"
+      ],
+      "case_id": "headless-media-gray-720p-30",
+      "correctness_label": "media-frame-conversion-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:61567f938c53b5e020808d0a05f4df817cc6fce6676c8e0494c7415bd42f2e73",
+      "metric_identity": {
+        "id": "media-frame-conversion-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "media-frame-conversion",
+        "channels": 1,
+        "conversion_count": 30,
+        "conversion_height": 720,
+        "conversion_width": 1280,
+        "density": "1.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 128,
+        "required_counters": [],
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "webgl",
+        "models",
+        "filesystem"
+      ],
+      "case_id": "headless-model-10k-triangles-export",
+      "correctness_label": "model-import-export-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:f5a500968b3fec46fb8f53afacf30cc32f46e1bd7c502624cb1461cbd5895b21",
+      "metric_identity": {
+        "id": "model-operation-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_model_draws",
+        "python_face_payloads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "model-import-export",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 128,
+        "instance_count": 1,
+        "required_counters": [
+          "direct_model_draws",
+          "python_face_payloads"
+        ],
+        "triangle_count": 10000,
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
         "pixel-readback"
       ],
-      "case_id": "headless-ordered-effects",
-      "correctness_label": "ordered-invert-effect-and-overlay-exact-pixels",
-      "definition_digest": "sha256:db187ace2109347297af6950f2698828ec4b5eee39051cbb2e1bab7102d72e1a",
+      "case_id": "headless-offscreen-1-small",
+      "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:23140f8ffd0256ae6002260dbbed2bcaeda12aefa7fa6ef3280a36a926b7e736",
+      "metric_identity": {
+        "id": "resource-lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "offscreen-resource-churn",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "framebuffer": false,
+        "frames": 1,
+        "height": 128,
+        "required_counters": [],
+        "surface_count": 1,
+        "surface_height": 64,
+        "surface_width": 64,
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-offscreen-16-small",
+      "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:4b4b67fd31e0c24b3ec48cb88dea36b6674a64da46d0cdbcd206afb086e1ef87",
+      "metric_identity": {
+        "id": "resource-lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "offscreen-resource-churn",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "framebuffer": false,
+        "frames": 1,
+        "height": 128,
+        "required_counters": [],
+        "surface_count": 16,
+        "surface_height": 64,
+        "surface_width": 64,
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-offscreen-64-small",
+      "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:0b4d9228444ac3536ee5187f8c91299c41c1afc4a21c1ea05b596a13554efda0",
+      "metric_identity": {
+        "id": "resource-lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "offscreen-resource-churn",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "framebuffer": false,
+        "frames": 1,
+        "height": 128,
+        "required_counters": [],
+        "surface_count": 64,
+        "surface_height": 64,
+        "surface_width": 64,
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "images",
+        "filesystem",
+        "png-codec"
+      ],
+      "case_id": "headless-png-roundtrip-1k",
+      "correctness_label": "png-export-roundtrip-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:8af306280524ba48a64c5cd98435838e5d7a66d29e96694eb44c18be27904ce6",
+      "metric_identity": {
+        "id": "export-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "asset_height": 1024,
+        "asset_width": 1024,
+        "case_kind": "png-export-roundtrip",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "export_count": 1,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 128,
+        "required_counters": [],
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "images",
+        "filesystem",
+        "png-codec"
+      ],
+      "case_id": "headless-png-roundtrip-64px",
+      "correctness_label": "png-export-roundtrip-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:498b4d458f9939db028975450553336c4c98797e71105b14a538e19387b0d40f",
+      "metric_identity": {
+        "id": "export-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "asset_height": 64,
+        "asset_width": 64,
+        "case_kind": "png-export-roundtrip",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "export_count": 2,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 128,
+        "required_counters": [],
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "deterministic-cpu-compute"
+      ],
+      "case_id": "headless-storage-compute-64x64",
+      "correctness_label": "storage-compute-lifecycle-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:56e8fa93d3dd9c1eeebcc13c1a72fe7c0290f5f7dd1d169ef78ebea715485fab",
+      "metric_identity": {
+        "id": "compute-dispatch-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "buffer_size": 4096,
+        "case_kind": "storage-compute-lifecycle",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "dispatch_x": 64,
+        "dispatch_y": 64,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 128,
+        "required_counters": [],
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "media-frame-conversion"
+      ],
+      "case_id": "native-media-bgra-4k-300",
+      "correctness_label": "media-frame-conversion-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:908ae352bdf1e1ef0de2851946a2e9363c7d341b22101dded14b4b4613832e26",
+      "metric_identity": {
+        "id": "media-frame-conversion-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "media-frame-conversion",
+        "channels": 4,
+        "conversion_count": 300,
+        "conversion_height": 2160,
+        "conversion_width": 3840,
+        "density": "2.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 720,
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "webgl",
+        "models",
+        "filesystem"
+      ],
+      "case_id": "native-model-1-triangle-1k-instances",
+      "correctness_label": "model-import-export-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:178440de96055b1d0041f84bf6e34c442965ac31597ece18230287bed544559a",
+      "metric_identity": {
+        "id": "model-operation-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_model_draws",
+        "python_face_payloads",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "model-import-export",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 720,
+        "instance_count": 1000,
+        "required_counters": [
+          "direct_model_draws",
+          "python_face_payloads",
+          "frames_presented"
+        ],
+        "triangle_count": 1,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "offscreen-rendering"
+      ],
+      "case_id": "native-offscreen-1080p",
+      "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:1af6c1a70901b2b3bc058a6357f931594037931d0cd629c951d574cc1bef7a4f",
+      "metric_identity": {
+        "id": "resource-lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "offscreen-resource-churn",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "frame_rate": 60,
+        "framebuffer": false,
+        "frames": 1,
+        "height": 720,
+        "required_counters": [
+          "frames_presented"
+        ],
+        "surface_count": 1,
+        "surface_height": 1080,
+        "surface_width": 1920,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "effects"
+      ],
+      "case_id": "headless-blend-add",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:91eac9ba5b4eb262dec05355248fcbeabbe77c99be096075e1db7c7067d3c95a",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "effect_family": "blend",
+        "effect_name": "add",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 8,
+        "required_counters": [],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "effects"
+      ],
+      "case_id": "headless-blend-blend",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:8299ccacaa60c3a88532679be10707f2eb29db8e8bdb98322cbf9a959ca52660",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "effect_family": "blend",
+        "effect_name": "blend",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 8,
+        "required_counters": [],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "effects"
+      ],
+      "case_id": "headless-blend-darkest",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:56fb44c928596ac8af40198ad56bbc4f8ecf763f4a78067fc3fab9912cb53384",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "effect_family": "blend",
+        "effect_name": "darkest",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 8,
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "effects"
+      ],
+      "case_id": "headless-blend-difference",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:0c4428bdaaf406fd3e1d82c18e4193cd96c275ee97ae80fc8a155d6d642457dc",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "effect_family": "blend",
+        "effect_name": "difference",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 8,
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "effects"
+      ],
+      "case_id": "headless-blend-exclusion",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:84271b5ffb7574b0f723cb48162bf46449278300ead3bb20792e1d08c9b74e56",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "effect_family": "blend",
+        "effect_name": "exclusion",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 8,
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "effects"
+      ],
+      "case_id": "headless-blend-lightest",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:93bbff0685d7ba5b92da4a7f08cc1e8889c55669c953d250c29f52250924c78c",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "effect_family": "blend",
+        "effect_name": "lightest",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 8,
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "effects"
+      ],
+      "case_id": "headless-blend-multiply",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:b203749685f06a9c8120eb0d7f52d67e545ea73e9d61f565f115cffc5508bae7",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "effect_family": "blend",
+        "effect_name": "multiply",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 8,
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "effects"
+      ],
+      "case_id": "headless-blend-replace",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:9679ecedea70462d68bf8b5c46fc165f709a8f6b63bc1f68a332424594aa01a4",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "effect_family": "blend",
+        "effect_name": "replace",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 8,
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "effects"
+      ],
+      "case_id": "headless-blend-screen",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:ca1c3af4d55f85352c1cf414d9caf1fc7df7127b37c000653c1473e0c7c112e9",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "effect_family": "blend",
+        "effect_name": "screen",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 8,
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "effects"
+      ],
+      "case_id": "headless-erase-64-operations",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:aed4e6d0cd2bcc80bcb21865c4b7a184d50beeae0c7b12936be55280376c6074",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 64,
+        "effect_family": "erase",
+        "effect_name": "erase",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 64,
+        "required_counters": [],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "effects"
+      ],
+      "case_id": "headless-filter-blur",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:a45269585e26dc70c72253a977f776ff8290dbaf64520b95dc071c0c7cf91eb9",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -50,33 +906,263 @@
       ],
       "route": "headless",
       "runtime_parameters": {
-        "case_kind": "ordered-effects",
+        "case_kind": "effect-matrix",
         "density": "1.0",
         "dispatch_route": "global",
         "draw_count": 1,
-        "effect": "invert",
+        "effect_family": "filter",
+        "effect_name": "blur",
         "frame_rate": 60,
         "frames": 1,
-        "height": 48,
+        "height": 180,
+        "operation_count": 1,
         "required_counters": [
           "gpu_region_effect_passes"
         ],
-        "width": 64
+        "width": 320
       },
       "sampling_profile": "canvas-bounded-v1",
       "workload_id": "images-text-pixels-effects",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
         "canvas-runtime",
         "offscreen-rendering",
-        "pixels",
-        "pixel-readback"
+        "pixel-readback",
+        "effects"
       ],
-      "case_id": "headless-pixel-read-write-locality",
-      "correctness_label": "localized-fixture-pixel-read-write-exact-rectangle",
-      "definition_digest": "sha256:cf6e0cb9eb735aeab24a84892c60f24ef7f4fba6c6c5f4c7306e24d5dbe34261",
+      "case_id": "headless-filter-dilate",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:ecc50e97c3b25db6ef8227fd8219b82bf7e5a805e9134d7fc3b97694a964a4c7",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "effect_family": "filter",
+        "effect_name": "dilate",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 1,
+        "required_counters": [
+          "gpu_region_effect_passes"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "effects"
+      ],
+      "case_id": "headless-filter-erode",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:e0325770843a146f9916761396b46ca29ddf846adee18b0f1856f37a240eebc4",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "effect_family": "filter",
+        "effect_name": "erode",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 1,
+        "required_counters": [
+          "gpu_region_effect_passes"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "effects"
+      ],
+      "case_id": "headless-filter-gray",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:fa9e0be2428540318cb13c3c8d5ea60dcf2a3937e794518530b12d32e4b20045",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "effect_family": "filter",
+        "effect_name": "gray",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 1,
+        "required_counters": [
+          "gpu_region_effect_passes"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "effects"
+      ],
+      "case_id": "headless-filter-invert",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:c5511626f4a102317d204b11fbdcc284785581ad85f18feaaa2d4fb17ceaa8db",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "effect_family": "filter",
+        "effect_name": "invert",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 1,
+        "required_counters": [
+          "gpu_region_effect_passes"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "effects"
+      ],
+      "case_id": "headless-filter-posterize",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:deb22f833de3eb9f281de7c4173df12fbc698921c6e6d80e62e57efd160df548",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "effect_family": "filter",
+        "effect_name": "posterize",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 1,
+        "required_counters": [
+          "gpu_region_effect_passes"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "effects"
+      ],
+      "case_id": "headless-filter-threshold",
+      "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:0c945381c9daacbcbf687599e456ccc6d79cf6bc0dc79d75862823590415ee45",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "effect-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "effect_family": "filter",
+        "effect_name": "threshold",
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "operation_count": 1,
+        "required_counters": [
+          "gpu_region_effect_passes"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-readback-bytes-1080p",
+      "correctness_label": "pixel-readback-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:4891cdc3b978ff16ee5b436b51b2516c175ac4de07091eee3ccd3700f555fd45",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -84,83 +1170,343 @@
       "required_counters": [
         "pixel_readbacks",
         "pixel_readback_requested_bytes",
-        "pixel_readback_copied_bytes",
-        "pixel_uploads"
+        "pixel_readback_copied_bytes"
       ],
       "route": "headless",
       "runtime_parameters": {
-        "case_kind": "pixel-read-write-locality",
+        "case_kind": "pixel-readback-matrix",
         "density": "1.0",
         "dispatch_route": "global",
-        "draw_count": 64,
+        "draw_count": 2073600,
         "frame_rate": 60,
         "frames": 1,
-        "height": 48,
-        "locality_height": 8,
-        "locality_width": 8,
+        "height": 1080,
+        "read_kind": "pixel-bytes",
+        "region_height": 1080,
+        "region_width": 1920,
         "required_counters": [
           "pixel_readbacks",
           "pixel_readback_requested_bytes",
-          "pixel_readback_copied_bytes",
-          "pixel_uploads"
+          "pixel_readback_copied_bytes"
         ],
-        "width": 64
+        "width": 1920
       },
       "sampling_profile": "canvas-bounded-v1",
       "workload_id": "images-text-pixels-effects",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
         "canvas-runtime",
         "offscreen-rendering",
-        "images",
-        "pixel-readback"
+        "pixel-readback",
+        "pixels"
       ],
-      "case_id": "headless-sprite-uniqueness-mutation",
-      "correctness_label": "unique-sprite-cache-and-mutated-sprite-final-pixel",
-      "definition_digest": "sha256:cbe1311ddf4afd4a9327811c4161c11d657b27aa8f4c151681d7fc6b64db8cf1",
+      "case_id": "headless-readback-full-720p",
+      "correctness_label": "pixel-readback-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:1bd600f2b968093e0ea83e756a764cf34147415bd23a4a16b824b2607efc963b",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_readbacks",
+        "pixel_readback_requested_bytes",
+        "pixel_readback_copied_bytes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-readback-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 921600,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 720,
+        "read_kind": "full",
+        "region_height": 720,
+        "region_width": 1280,
+        "required_counters": [
+          "pixel_readbacks",
+          "pixel_readback_requested_bytes",
+          "pixel_readback_copied_bytes"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-readback-pixel-1px",
+      "correctness_label": "pixel-readback-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:e37fb1fba995848335110002aaf85c4904a1ba22cfe455a5d5571f5cd4e340ab",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_readbacks",
+        "pixel_readback_requested_bytes",
+        "pixel_readback_copied_bytes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-readback-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "read_kind": "pixel",
+        "region_height": 1,
+        "region_width": 1,
+        "required_counters": [
+          "pixel_readbacks",
+          "pixel_readback_requested_bytes",
+          "pixel_readback_copied_bytes"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-readback-region-64x64",
+      "correctness_label": "pixel-readback-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:9b5e8d37177471864ce8e4404f8c4743e04ee334262b8744dcc00e368444f84a",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_readbacks",
+        "pixel_readback_requested_bytes",
+        "pixel_readback_copied_bytes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-readback-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 4096,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "read_kind": "region",
+        "region_height": 64,
+        "region_width": 64,
+        "required_counters": [
+          "pixel_readbacks",
+          "pixel_readback_requested_bytes",
+          "pixel_readback_copied_bytes"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "images"
+      ],
+      "case_id": "headless-sprites-1-unique-1k-32px-unchanged",
+      "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:3c315cfc1b4e8acd422c6aa5b3a0c90b5e122cc362d5c8b49c287ec21b3f7438",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
       },
       "required_counters": [
         "image_cache_misses",
-        "image_cache_hits",
         "texture_uploads"
       ],
       "route": "headless",
       "runtime_parameters": {
-        "case_kind": "sprite-uniqueness-mutation",
+        "case_kind": "sprite-matrix",
         "density": "1.0",
         "dispatch_route": "global",
-        "draw_count": 17,
+        "draw_count": 1000,
         "frame_rate": 60,
         "frames": 1,
-        "height": 48,
-        "mutation_count": 8,
+        "height": 180,
+        "mutation_mode": "unchanged",
         "required_counters": [
           "image_cache_misses",
-          "image_cache_hits",
           "texture_uploads"
         ],
-        "sprite_count": 16,
-        "width": 64
+        "sampling": "linear",
+        "source_height": 32,
+        "source_width": 32,
+        "tinted": false,
+        "transformed": false,
+        "unique_images": 1,
+        "width": 320
       },
       "sampling_profile": "canvas-bounded-v1",
       "workload_id": "images-text-pixels-effects",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
         "canvas-runtime",
         "offscreen-rendering",
-        "text",
-        "pixel-readback"
+        "pixel-readback",
+        "images"
       ],
-      "case_id": "headless-text-reuse-script",
-      "correctness_label": "reused-and-multiscript-text-final-order-pixel",
-      "definition_digest": "sha256:029a457440a445dbf75cc96ddfc51014fc5485165d18315d1850b5b4a0189fd8",
+      "case_id": "headless-sprites-1080p-source-full-replacement",
+      "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:ad2d699b9fe57c7a10e150005761ae175756d1fbd5b0e1144d94f5bb8cffda20",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "image_cache_misses",
+        "texture_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "sprite-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "mutation_mode": "full",
+        "required_counters": [
+          "image_cache_misses",
+          "texture_uploads"
+        ],
+        "sampling": "nearest",
+        "source_height": 1080,
+        "source_width": 1920,
+        "tinted": true,
+        "transformed": false,
+        "unique_images": 1,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "images"
+      ],
+      "case_id": "headless-sprites-128-unique-1k-32px-one-percent",
+      "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:b5d2dd1841a10b82bb437d4314ae8fdb437224930fc4142f3043f8a87e164da2",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "image_cache_misses",
+        "texture_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "sprite-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "mutation_mode": "one-percent",
+        "required_counters": [
+          "image_cache_misses",
+          "texture_uploads"
+        ],
+        "sampling": "linear",
+        "source_height": 32,
+        "source_width": 32,
+        "tinted": false,
+        "transformed": true,
+        "unique_images": 128,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "images"
+      ],
+      "case_id": "headless-sprites-8-unique-1k-256px-one-pixel",
+      "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:10146efc41308a53fc90c5aa10954ea977a6498c0f04e768112c0e6e045035ff",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "image_cache_misses",
+        "texture_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "sprite-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "mutation_mode": "one-pixel",
+        "required_counters": [
+          "image_cache_misses",
+          "texture_uploads"
+        ],
+        "sampling": "nearest",
+        "source_height": 256,
+        "source_width": 256,
+        "tinted": true,
+        "transformed": true,
+        "unique_images": 8,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "text"
+      ],
+      "case_id": "headless-text-1k-repeated-size-12",
+      "correctness_label": "text-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:1845849cf9710dd9eae88c144ba051a85f83c2b1b74ad5492cca8efa7727dcf8",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -171,23 +1517,333 @@
       ],
       "route": "headless",
       "runtime_parameters": {
-        "case_kind": "text-reuse-script",
+        "case_kind": "text-matrix",
+        "clipped": false,
         "density": "1.0",
         "dispatch_route": "global",
-        "draw_count": 36,
+        "draw_count": 1000,
         "frame_rate": 60,
         "frames": 1,
-        "height": 48,
+        "height": 180,
+        "label_count": 1000,
         "required_counters": [
           "text_cache_misses",
           "text_cache_hits"
         ],
-        "text_reuse_count": 32,
-        "width": 64
+        "text_mode": "repeated",
+        "text_size": 12,
+        "transformed": false,
+        "width": 320
       },
       "sampling_profile": "canvas-bounded-v1",
       "workload_id": "images-text-pixels-effects",
-      "workload_version": 1
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "text"
+      ],
+      "case_id": "headless-text-1k-unique-size-48-transformed",
+      "correctness_label": "text-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:f854870965963fe48ccc716db62ea2003203a0b45fb70ed980b87cd2219a1e34",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "text_cache_misses"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "text-matrix",
+        "clipped": false,
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "label_count": 1000,
+        "required_counters": [
+          "text_cache_misses"
+        ],
+        "text_mode": "unique",
+        "text_size": 48,
+        "transformed": true,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-write-block-64x64",
+      "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:3a36d9125200133c9365c150715c20dec24d189f821aba303c4298da2060ea4e",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-write-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 4096,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "region_height": 64,
+        "region_width": 64,
+        "required_counters": [
+          "pixel_uploads"
+        ],
+        "width": 320,
+        "write_kind": "block"
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-write-composite-64x64",
+      "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:8dce61dd73df53b57e7d2feaf5b2928877695740d0a6a10a20be1a75cce58718",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-write-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 4096,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "region_height": 64,
+        "region_width": 64,
+        "required_counters": [
+          "pixel_uploads"
+        ],
+        "width": 320,
+        "write_kind": "composite"
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-write-full-320x180",
+      "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:339a4091035346212f9b3d88b5095f9a6127e1857824331719a2cd3bcc0642bb",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-write-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 57600,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "region_height": 180,
+        "region_width": 320,
+        "required_counters": [
+          "pixel_uploads"
+        ],
+        "width": 320,
+        "write_kind": "full"
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-write-one-byte-1x1",
+      "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:5684fa78c49f2a1a9f4c28cc875b43cbb35584a1032c32ced7653a353ba3d9a0",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-write-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "region_height": 1,
+        "region_width": 1,
+        "required_counters": [
+          "pixel_uploads"
+        ],
+        "width": 320,
+        "write_kind": "one-byte"
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-write-one-pixel-1x1",
+      "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:46f004f69a72d17ed3cc442f33e3fc28a15c0890a428c363f666829b00fb3416",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-write-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "region_height": 1,
+        "region_width": 1,
+        "required_counters": [
+          "pixel_uploads"
+        ],
+        "width": 320,
+        "write_kind": "one-pixel"
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-write-overwrite-64x64",
+      "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:8a8f8f198fd0229eb07044c4f0ffd3207591cf00d6e4c7f7b41fc7ca9c53e599",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-write-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 4096,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "region_height": 64,
+        "region_width": 64,
+        "required_counters": [
+          "pixel_uploads"
+        ],
+        "width": 320,
+        "write_kind": "overwrite"
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "pixels"
+      ],
+      "case_id": "headless-write-row-320x1",
+      "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:831efc771a2b78e69badcd689e6973245e0cee2ebf9d5f6a2abc6d286d3d7a8e",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "pixel_uploads"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "pixel-write-matrix",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 320,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "region_height": 1,
+        "region_width": 320,
+        "required_counters": [
+          "pixel_uploads"
+        ],
+        "width": 320,
+        "write_kind": "row"
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "images-text-pixels-effects",
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -195,9 +1851,9 @@
         "native-window",
         "effects"
       ],
-      "case_id": "native-interactive-ordered-effects",
-      "correctness_label": "native-ordered-invert-effect-and-overlay-exact-pixels",
-      "definition_digest": "sha256:03ec24c02ee1551be08a0dfafbbc3450095c126bda4849f9455156550167b2a4",
+      "case_id": "native-ordered-filter-overlay",
+      "correctness_label": "ordered-effects-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:878576f897d137c61669b9d91cd59e471c2d664c8cff8e1f463b0f020ca27099",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -224,51 +1880,7 @@
       },
       "sampling_profile": "canvas-native-bounded-v1",
       "workload_id": "images-text-pixels-effects",
-      "workload_version": 1
-    },
-    {
-      "capabilities": [
-        "canvas-runtime",
-        "native-window",
-        "pixels"
-      ],
-      "case_id": "native-interactive-pixel-read-write-locality",
-      "correctness_label": "native-localized-fixture-pixel-read-write-exact-rectangle",
-      "definition_digest": "sha256:7999e9ef6914396f3e98444216de806611f8153097f0b4b5e93bcb31e0f603f9",
-      "metric_identity": {
-        "id": "draw-elapsed-ns",
-        "version": 1
-      },
-      "required_counters": [
-        "pixel_readbacks",
-        "pixel_readback_requested_bytes",
-        "pixel_readback_copied_bytes",
-        "pixel_uploads",
-        "frames_presented"
-      ],
-      "route": "native-interactive",
-      "runtime_parameters": {
-        "case_kind": "pixel-read-write-locality",
-        "density": "2.0",
-        "dispatch_route": "global",
-        "draw_count": 64,
-        "frame_rate": 60,
-        "frames": 30,
-        "height": 720,
-        "locality_height": 8,
-        "locality_width": 8,
-        "required_counters": [
-          "pixel_readbacks",
-          "pixel_readback_requested_bytes",
-          "pixel_readback_copied_bytes",
-          "pixel_uploads",
-          "frames_presented"
-        ],
-        "width": 1280
-      },
-      "sampling_profile": "canvas-native-bounded-v1",
-      "workload_id": "images-text-pixels-effects",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -276,41 +1888,44 @@
         "native-window",
         "images"
       ],
-      "case_id": "native-interactive-sprite-uniqueness-mutation",
-      "correctness_label": "native-unique-sprite-cache-and-mutated-sprite-final-pixel",
-      "definition_digest": "sha256:3dc5502134e5c83e35a33027e45035ddf81a72135c201344b3466a216acf9a05",
+      "case_id": "native-sprites-10k-alternating",
+      "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:4549352cccafd521a74f92a68191ad8c943686c73251d96ebd88ca3935f96a16",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
       },
       "required_counters": [
         "image_cache_misses",
-        "image_cache_hits",
         "texture_uploads",
         "frames_presented"
       ],
       "route": "native-interactive",
       "runtime_parameters": {
-        "case_kind": "sprite-uniqueness-mutation",
+        "case_kind": "sprite-matrix",
         "density": "2.0",
         "dispatch_route": "global",
-        "draw_count": 17,
+        "draw_count": 10000,
         "frame_rate": 60,
         "frames": 30,
         "height": 720,
-        "mutation_count": 8,
+        "mutation_mode": "unchanged",
         "required_counters": [
           "image_cache_misses",
-          "image_cache_hits",
           "texture_uploads",
           "frames_presented"
         ],
-        "sprite_count": 16,
+        "sampling": "linear",
+        "source_height": 256,
+        "source_width": 256,
+        "tinted": true,
+        "transformed": true,
+        "unique_images": 8,
         "width": 1280
       },
       "sampling_profile": "canvas-native-bounded-v1",
       "workload_id": "images-text-pixels-effects",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -318,38 +1933,40 @@
         "native-window",
         "text"
       ],
-      "case_id": "native-interactive-text-reuse-script",
-      "correctness_label": "native-reused-and-multiscript-text-final-order-pixel",
-      "definition_digest": "sha256:cabf0fac59e3a0079be96cfa5776d93d20149ed5944437934053333b192b3d3f",
+      "case_id": "native-text-1k-multiscript-size-128-clipped",
+      "correctness_label": "text-matrix-exact-locality-order-and-declared-work",
+      "definition_digest": "sha256:2b778cd1cb53fe525983238980ab2923af9cf07b6de43948749b52220467efe3",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
       },
       "required_counters": [
         "text_cache_misses",
-        "text_cache_hits",
         "frames_presented"
       ],
       "route": "native-interactive",
       "runtime_parameters": {
-        "case_kind": "text-reuse-script",
+        "case_kind": "text-matrix",
+        "clipped": true,
         "density": "2.0",
         "dispatch_route": "global",
-        "draw_count": 36,
+        "draw_count": 1000,
         "frame_rate": 60,
         "frames": 30,
         "height": 720,
+        "label_count": 1000,
         "required_counters": [
           "text_cache_misses",
-          "text_cache_hits",
           "frames_presented"
         ],
-        "text_reuse_count": 32,
+        "text_mode": "multiscript",
+        "text_size": 128,
+        "transformed": true,
         "width": 1280
       },
       "sampling_profile": "canvas-native-bounded-v1",
       "workload_id": "images-text-pixels-effects",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -357,9 +1974,9 @@
         "offscreen-rendering",
         "pixel-readback"
       ],
-      "case_id": "headless-continuous-clear-loop",
-      "correctness_label": "continuous-clear-loop-exact-callback-and-frame-count",
-      "definition_digest": "sha256:658808f46d8587dca59591992fd9139cb2ddede89b5ebb3bf5cebc3d7d8ea6b9",
+      "case_id": "headless-clear-loop-120fps",
+      "correctness_label": "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:fc5027aa7a5bbc9c5997e5561d0bba0ad83d15ed1ccc83255620f92e3628fe12",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -370,15 +1987,142 @@
         "density": "1.0",
         "dispatch_route": "global",
         "expected_draw_callbacks": 120,
-        "frame_rate": 60,
+        "frame_rate": 120,
         "frames": 120,
-        "height": 48,
+        "height": 180,
         "lifecycle_mode": "continuous-clear-loop",
+        "required_counters": [],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-clear-loop-30fps",
+      "correctness_label": "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:fb076a33bbf9a58e51f28f0a1e76130076e069d180081d943c726817100214e6",
+      "metric_identity": {
+        "id": "frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "1.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 30,
+        "frame_rate": 30,
+        "frames": 30,
+        "height": 180,
+        "lifecycle_mode": "continuous-clear-loop",
+        "required_counters": [],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-clear-loop-60fps",
+      "correctness_label": "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:9cbc06795eefae27e2a6b08f8f35bbc0bcc982faffceb7ea5947fb58fc106969",
+      "metric_identity": {
+        "id": "frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "1.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 60,
+        "frame_rate": 60,
+        "frames": 60,
+        "height": 180,
+        "lifecycle_mode": "continuous-clear-loop",
+        "required_counters": [],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-dynamic-frame-rate-30-60-120",
+      "correctness_label": "dynamic-frame-rate-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:6bf6549a563bf000c1b7e4f284371bdaa8dc7e1f8e5546cc8464c890f76abf13",
+      "metric_identity": {
+        "id": "frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "1.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 4,
+        "frame_rate": 30,
+        "frame_rate_sequence": [
+          30,
+          60,
+          120,
+          30
+        ],
+        "frames": 4,
+        "height": 180,
+        "lifecycle_mode": "dynamic-frame-rate",
+        "required_counters": [],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-empty-startup-first-frame",
+      "correctness_label": "empty-loop-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:3a1d084ea09690598b30f156f5c65884ff7bdb7413d8af27d0a038cf0451574e",
+      "metric_identity": {
+        "id": "lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "1.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 1,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 48,
+        "lifecycle_mode": "empty-loop",
+        "required_counters": [],
         "width": 64
       },
       "sampling_profile": "canvas-bounded-v1",
       "workload_id": "lifecycle-hidpi",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -387,8 +2131,8 @@
         "pixel-readback"
       ],
       "case_id": "headless-explicit-redraw",
-      "correctness_label": "explicit-redraw-exact-callback-and-frame-count",
-      "definition_digest": "sha256:732c86cf2e5c6545425de5c850c67e7207d96dff30f475da05c8de58ce43f248",
+      "correctness_label": "explicit-redraw-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:63f4f5cb31dea243ad3b4890040c4b2df54879837cf5b13b14db3357d9f0fd1a",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -403,11 +2147,72 @@
         "frames": 2,
         "height": 48,
         "lifecycle_mode": "explicit-redraw",
+        "required_counters": [],
         "width": 64
       },
       "sampling_profile": "canvas-bounded-v1",
       "workload_id": "lifecycle-hidpi",
-      "workload_version": 1
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-hidpi-1080p-density-2",
+      "correctness_label": "empty-loop-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:862cca59f6918c14f9d53a91f5d618418cb0432b3fc60ad66f5d5d2f82bf68e4",
+      "metric_identity": {
+        "id": "lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "2.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 1,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 1080,
+        "lifecycle_mode": "empty-loop",
+        "required_counters": [],
+        "width": 1920
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-hidpi-640x480-density-1-5",
+      "correctness_label": "empty-loop-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:bdfe6b123a6895a03be9f8811b0c7c5c6e23f040397581e6eef6de9512c3ba3a",
+      "metric_identity": {
+        "id": "lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "1.5",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 1,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 480,
+        "lifecycle_mode": "empty-loop",
+        "required_counters": [],
+        "width": 640
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -416,8 +2221,8 @@
         "pixel-readback"
       ],
       "case_id": "headless-no-loop-idle",
-      "correctness_label": "no-loop-idle-exact-callback-and-frame-count",
-      "definition_digest": "sha256:876cd1f33750cc64608b9857d9bd5f335211cb185f718fd39b0c6e75abe87f94",
+      "correctness_label": "no-loop-idle-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:4e448dd3bd8cf9bd368b289f5834764db5b5e3406b382323b4254dbe80cee605",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -432,20 +2237,106 @@
         "frames": 2,
         "height": 48,
         "lifecycle_mode": "no-loop-idle",
+        "required_counters": [],
         "width": 64
       },
       "sampling_profile": "canvas-bounded-v1",
       "workload_id": "lifecycle-hidpi",
-      "workload_version": 1
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback"
+      ],
+      "case_id": "headless-resize-density-churn",
+      "correctness_label": "resize-density-churn-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:354a5d35782041cdd9e548365937b18a861fc8889f75c584196aca5cf2d257b6",
+      "metric_identity": {
+        "id": "frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "density": "1.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 4,
+        "frame_rate": 60,
+        "frames": 4,
+        "height": 180,
+        "lifecycle_mode": "resize-density-churn",
+        "required_counters": [],
+        "resize_sequence": [
+          {
+            "density": "1.0",
+            "height": 480,
+            "width": 640
+          },
+          {
+            "density": "1.5",
+            "height": 540,
+            "width": 960
+          },
+          {
+            "density": "2.0",
+            "height": 720,
+            "width": 1280
+          },
+          {
+            "density": "1.0",
+            "height": 180,
+            "width": 320
+          }
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
     },
     {
       "capabilities": [
         "canvas-runtime",
         "native-window"
       ],
-      "case_id": "native-interactive-continuous-clear-loop",
-      "correctness_label": "native-continuous-clear-loop-exact-callback-and-frame-count",
-      "definition_digest": "sha256:49df500838cb603d03dc2e3894e4dfbb0c9f205d553f98bb2f2df68336611c70",
+      "case_id": "native-4k-density-1",
+      "correctness_label": "empty-loop-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:613e50201e11b8de1c93785a4877ceebdae525fe2dd4e63ae88ddfb572fc6f6f",
+      "metric_identity": {
+        "id": "lifecycle-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "density": "1.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 1,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 2160,
+        "lifecycle_mode": "empty-loop",
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 3840
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window"
+      ],
+      "case_id": "native-clear-loop-120-presented-frames",
+      "correctness_label": "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:c05988d24413485033f4115bfeb6bc8672f726456fca8f4e700a25321cfaf57a",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -469,7 +2360,48 @@
       },
       "sampling_profile": "canvas-native-bounded-v1",
       "workload_id": "lifecycle-hidpi",
-      "workload_version": 1
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window"
+      ],
+      "case_id": "native-dynamic-frame-rate-30-60-120",
+      "correctness_label": "dynamic-frame-rate-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:6d694855ed1c780b9c78c68961a108947962aa080b8fb7a882b8b3f68de228d1",
+      "metric_identity": {
+        "id": "frame-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "density": "2.0",
+        "dispatch_route": "global",
+        "expected_draw_callbacks": 6,
+        "frame_rate": 30,
+        "frame_rate_sequence": [
+          30,
+          60,
+          120,
+          120,
+          60,
+          30
+        ],
+        "frames": 6,
+        "height": 720,
+        "lifecycle_mode": "dynamic-frame-rate",
+        "required_counters": [
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -477,8 +2409,8 @@
         "native-window"
       ],
       "case_id": "native-interactive-explicit-redraw",
-      "correctness_label": "native-explicit-redraw-exact-callback-and-frame-count",
-      "definition_digest": "sha256:f361f54b02c1cfa5afbc902bd7789bb6b042cf574b06d3fefa4208274ff25be7",
+      "correctness_label": "explicit-redraw-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:c6704a33f01ffff52b06657ce23bef5d5230024100336d51d214b07f628e3248",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -502,7 +2434,7 @@
       },
       "sampling_profile": "canvas-native-bounded-v1",
       "workload_id": "lifecycle-hidpi",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -510,8 +2442,8 @@
         "native-window"
       ],
       "case_id": "native-interactive-no-loop-idle",
-      "correctness_label": "native-no-loop-idle-exact-callback-and-frame-count",
-      "definition_digest": "sha256:37edae29af6879c5033d74568261fab65b1c9f5ab5e3ff844a1eed5e5bc7338c",
+      "correctness_label": "no-loop-idle-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:2188c66b95615e3559772daf9cb5976cf2bc8ee0b1b6fe043a765f7b26e56643",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -535,251 +2467,710 @@
       },
       "sampling_profile": "canvas-native-bounded-v1",
       "workload_id": "lifecycle-hidpi",
-      "workload_version": 1
+      "workload_version": 2
     },
     {
       "capabilities": [
         "canvas-runtime",
-        "offscreen-rendering",
-        "primitives",
-        "pixel-readback"
+        "native-window"
       ],
-      "case_id": "headless-mixed-primitives-5k",
-      "correctness_label": "mixed-primitive-final-order-sentinel-and-declared-records",
-      "definition_digest": "sha256:4dcfc30eed43549e4ad20a14ba1aa690854ac888e5572d30ec7e2a4d0936518e",
+      "case_id": "native-interactive-resize-density-churn",
+      "correctness_label": "resize-density-churn-exact-callback-frame-logical-physical-dimensions",
+      "definition_digest": "sha256:f7a83283a13f03b365717542ad863ed11aabfdfa66b8c9c67f06fdf19dcaaa83",
       "metric_identity": {
-        "id": "draw-elapsed-ns",
+        "id": "frame-elapsed-ns",
         "version": 1
       },
       "required_counters": [
-        "primitive_batch_records",
-        "packed_primitive_records",
-        "packed_primitive_bytes"
-      ],
-      "route": "headless",
-      "runtime_parameters": {
-        "case_kind": "mixed-primitives",
-        "density": "1.0",
-        "dispatch_route": "global",
-        "draw_count": 5000,
-        "frame_rate": 60,
-        "frames": 1,
-        "height": 180,
-        "required_counters": [
-          "primitive_batch_records",
-          "packed_primitive_records",
-          "packed_primitive_bytes"
-        ],
-        "style_count": 16,
-        "width": 320
-      },
-      "sampling_profile": "canvas-bounded-v1",
-      "workload_id": "primitives-paths-order",
-      "workload_version": 1
-    },
-    {
-      "capabilities": [
-        "canvas-runtime",
-        "offscreen-rendering",
-        "paths",
-        "clips",
-        "pixel-readback"
-      ],
-      "case_id": "headless-nested-clips-depth-4-by-32",
-      "correctness_label": "nested-clip-intersection-restoration-order-and-declared-records",
-      "definition_digest": "sha256:18a1d6c699a44fd12e70a2d696db17597c8d45b0d6affa18d7172118666b3553",
-      "metric_identity": {
-        "id": "draw-elapsed-ns",
-        "version": 1
-      },
-      "required_counters": [
-        "direct_shape_finalizations"
-      ],
-      "route": "headless",
-      "runtime_parameters": {
-        "case_kind": "nested-clips",
-        "clip_depth": 4,
-        "clip_segments": 32,
-        "density": "1.0",
-        "dispatch_route": "global",
-        "draw_count": 1000,
-        "frame_rate": 60,
-        "frames": 1,
-        "height": 180,
-        "required_counters": [
-          "direct_shape_finalizations"
-        ],
-        "width": 320
-      },
-      "sampling_profile": "canvas-bounded-v1",
-      "workload_id": "primitives-paths-order",
-      "workload_version": 1
-    },
-    {
-      "capabilities": [
-        "canvas-runtime",
-        "offscreen-rendering",
-        "paths",
-        "pixel-readback"
-      ],
-      "case_id": "headless-paths-1k-by-32",
-      "correctness_label": "path-final-order-sentinel-and-declared-records",
-      "definition_digest": "sha256:981737d28575bf84713590db649022c88b9f58a39701673349c85440e03591a4",
-      "metric_identity": {
-        "id": "draw-elapsed-ns",
-        "version": 1
-      },
-      "required_counters": [
-        "direct_shape_finalizations"
-      ],
-      "route": "headless",
-      "runtime_parameters": {
-        "case_kind": "paths",
-        "density": "1.0",
-        "dispatch_route": "global",
-        "draw_count": 1000,
-        "frame_rate": 60,
-        "frames": 1,
-        "height": 180,
-        "required_counters": [
-          "direct_shape_finalizations"
-        ],
-        "segments_per_path": 32,
-        "width": 320
-      },
-      "sampling_profile": "canvas-bounded-v1",
-      "workload_id": "primitives-paths-order",
-      "workload_version": 1
-    },
-    {
-      "capabilities": [
-        "canvas-runtime",
-        "offscreen-rendering",
-        "primitives",
-        "pixel-readback"
-      ],
-      "case_id": "headless-uniform-primitives-1k",
-      "correctness_label": "uniform-primitive-final-order-sentinel-and-declared-records",
-      "definition_digest": "sha256:38e578076c49aa22c30f83c9572e12078500109ce211f85b1db28340cc4839b9",
-      "metric_identity": {
-        "id": "draw-elapsed-ns",
-        "version": 1
-      },
-      "required_counters": [
-        "primitive_batch_records",
-        "packed_primitive_records",
-        "packed_primitive_bytes"
-      ],
-      "route": "headless",
-      "runtime_parameters": {
-        "case_kind": "uniform-primitives",
-        "density": "1.0",
-        "dispatch_route": "global",
-        "draw_count": 1000,
-        "frame_rate": 60,
-        "frames": 1,
-        "height": 180,
-        "primitive_kind": "rect",
-        "required_counters": [
-          "primitive_batch_records",
-          "packed_primitive_records",
-          "packed_primitive_bytes"
-        ],
-        "width": 320
-      },
-      "sampling_profile": "canvas-bounded-v1",
-      "workload_id": "primitives-paths-order",
-      "workload_version": 1
-    },
-    {
-      "capabilities": [
-        "canvas-runtime",
-        "native-window",
-        "primitives"
-      ],
-      "case_id": "native-interactive-mixed-primitives-5k",
-      "correctness_label": "native-mixed-primitive-final-order-sentinel-and-declared-records",
-      "definition_digest": "sha256:ad4316823c6042e0a728c2750305c4eaeebde38960b4519b2b8eae66175e5b1d",
-      "metric_identity": {
-        "id": "draw-elapsed-ns",
-        "version": 1
-      },
-      "required_counters": [
-        "primitive_batch_records",
-        "packed_primitive_records",
-        "packed_primitive_bytes",
         "frames_presented"
       ],
       "route": "native-interactive",
       "runtime_parameters": {
-        "case_kind": "mixed-primitives",
-        "density": "2.0",
+        "density": "1.0",
         "dispatch_route": "global",
-        "draw_count": 5000,
+        "expected_draw_callbacks": 4,
         "frame_rate": 60,
-        "frames": 30,
-        "height": 720,
+        "frames": 4,
+        "height": 180,
+        "lifecycle_mode": "resize-density-churn",
         "required_counters": [
-          "primitive_batch_records",
-          "packed_primitive_records",
-          "packed_primitive_bytes",
           "frames_presented"
         ],
-        "style_count": 16,
-        "width": 1280
+        "resize_sequence": [
+          {
+            "density": "1.0",
+            "height": 480,
+            "width": 640
+          },
+          {
+            "density": "1.5",
+            "height": 540,
+            "width": 960
+          },
+          {
+            "density": "2.0",
+            "height": 720,
+            "width": 1280
+          },
+          {
+            "density": "1.0",
+            "height": 180,
+            "width": 320
+          }
+        ],
+        "width": 320
       },
       "sampling_profile": "canvas-native-bounded-v1",
-      "workload_id": "primitives-paths-order",
-      "workload_version": 1
+      "workload_id": "lifecycle-hidpi",
+      "workload_version": 2
     },
     {
       "capabilities": [
         "canvas-runtime",
-        "native-window",
-        "paths",
-        "clips"
-      ],
-      "case_id": "native-interactive-nested-clips-depth-4-by-32",
-      "correctness_label": "native-nested-clip-intersection-restoration-order-and-declared-records",
-      "definition_digest": "sha256:6ba8ad4d6d7d3e649c2cea07a6a9f6456d0846e57f7849155bd8c350ffe29565",
-      "metric_identity": {
-        "id": "draw-elapsed-ns",
-        "version": 1
-      },
-      "required_counters": [
-        "direct_shape_finalizations",
-        "frames_presented"
-      ],
-      "route": "native-interactive",
-      "runtime_parameters": {
-        "case_kind": "nested-clips",
-        "clip_depth": 4,
-        "clip_segments": 32,
-        "density": "2.0",
-        "dispatch_route": "global",
-        "draw_count": 1000,
-        "frame_rate": 60,
-        "frames": 30,
-        "height": 720,
-        "required_counters": [
-          "direct_shape_finalizations",
-          "frames_presented"
-        ],
-        "width": 1280
-      },
-      "sampling_profile": "canvas-native-bounded-v1",
-      "workload_id": "primitives-paths-order",
-      "workload_version": 1
-    },
-    {
-      "capabilities": [
-        "canvas-runtime",
-        "native-window",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
         "paths"
       ],
-      "case_id": "native-interactive-paths-1k-by-32",
-      "correctness_label": "native-path-final-order-sentinel-and-declared-records",
-      "definition_digest": "sha256:24285325c10b049ee608a0edec77ee240076d5a42070baadc0d1efe440545145",
+      "case_id": "headless-arc-curves-256",
+      "correctness_label": "curves-contours-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:412d8922ae30888418a88af5f27fdc14a87a58c5508efab737af52f42fa303cf",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "curves-contours",
+        "curve_kind": "arc",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 256,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "segment_count": 256,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-captured-paths-128-by-32",
+      "correctness_label": "paths-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:e4c74e66e54e8963f8af15fda315ec53d67d828008bc7bff85d083aca672f725",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "paths",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 128,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "segments_per_path": 32,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-captured-paths-8-by-4096",
+      "correctness_label": "paths-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:2907fc081c8062fb1424f3d0b3c547634ad7d83428a79b64f51662d44eae2695",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "paths",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 8,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "segments_per_path": 4096,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives"
+      ],
+      "case_id": "headless-circle-10k-low-mutation",
+      "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:8bb79d11b9f056a965d1ae5ffe5669ea61ece5123dd2b90174d3f62feeaab279",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "uniform-primitives",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 10000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "mutation_mode": "low-mutation",
+        "primitive_kind": "circle",
+        "required_counters": [
+          "primitive_batch_records"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-clips-depth-1-simple",
+      "correctness_label": "nested-clips-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:bc4ee10677d9f9e7e4bcde74d02349df4232086131cddc1114d226cc9d96eb4c",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "nested-clips",
+        "clip_depth": 1,
+        "clip_segments": 4,
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-clips-depth-4-by-32",
+      "correctness_label": "nested-clips-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:2d6f6c5a4739f38b60ae1455d0e5d0d02f02dd4dea5f98f4ddc5b84afdc24d4f",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "nested-clips",
+        "clip_depth": 4,
+        "clip_segments": 32,
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-contour-hole-curves-256",
+      "correctness_label": "curves-contours-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:e921c633562727bdfbcdee195243cc8d45fc02a73a61295d4f2cc755054b6766",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "curves-contours",
+        "curve_kind": "contour-hole",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 256,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "segment_count": 256,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-cubic-curves-256",
+      "correctness_label": "curves-contours-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:2090cd3fea42eaea888fa89005b7d21dafd99b0dce5e7bf428baf23fd715f854",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "curves-contours",
+        "curve_kind": "cubic",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 256,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "segment_count": 256,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-independent-lines-1k",
+      "correctness_label": "independent-lines-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:5f8b5486d9aa0f6073a6af383558c0984f99443733fec3c33d7eeb97dcbb8ba8",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "independent-lines",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "primitive_batch_records"
+        ],
+        "segment_count": 1000,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-mixed-1k-static-16-styles",
+      "correctness_label": "mixed-primitives-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:86ab3d30498095815d9b4203103e9ef5f2d7f4c9a94fcebed0610674ae685c60",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "mixed-primitives",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "mutation_mode": "static",
+        "required_counters": [
+          "primitive_batch_records"
+        ],
+        "style_count": 16,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-mixed-5k-low-mutation-32-styles",
+      "correctness_label": "mixed-primitives-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:af1ffd8998dd0b58ca671013fad4ff4736e09bff289c48b1ed14057f002c03df",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "mixed-primitives",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 5000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "mutation_mode": "low-mutation",
+        "required_counters": [
+          "primitive_batch_records"
+        ],
+        "style_count": 32,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-ordered-family-stream-8-switches",
+      "correctness_label": "ordered-family-stream-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:e3cef0bcd081d0fab5207f26f0845fed2c1d41fe6448440a46580cee01ecd612",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "ordered-family-stream",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 32,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "gpu_region_effect_passes"
+        ],
+        "switch_count": 8,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-polyline-10k",
+      "correctness_label": "polyline-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:e25f0477dab00bbc5badba83bd8284bc014eb6f09bd65e7d38744f36e7186409",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "polyline",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 10000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "segment_count": 10000,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "headless-quadratic-curves-256",
+      "correctness_label": "curves-contours-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:5f21bd90ce06bd9e9d70448aca8c162dd2163bb8057e8aa4e6d69b06d1cc610b",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "curves-contours",
+        "curve_kind": "quadratic",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 256,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "required_counters": [
+          "direct_shape_finalizations"
+        ],
+        "segment_count": 256,
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives"
+      ],
+      "case_id": "headless-rect-1k-static-fast",
+      "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:c76736ca656ff887af17de81b37c7471f927dd44e5e82b59ff83de676997d532",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "uniform-primitives",
+        "density": "1.0",
+        "dispatch_route": "fast",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "mutation_mode": "static",
+        "primitive_kind": "rect",
+        "required_counters": [
+          "primitive_batch_records"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives"
+      ],
+      "case_id": "headless-rect-1k-static-global",
+      "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:2c4b47f52de3ad9e4d47fe14a8bf3efddd1d1eedd59c83e3967adf2ad4fd4075",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "uniform-primitives",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "mutation_mode": "static",
+        "primitive_kind": "rect",
+        "required_counters": [
+          "primitive_batch_records"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
+        "primitives"
+      ],
+      "case_id": "headless-rect-1k-static-object",
+      "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:92bf0c2f45a957cc494d2272f3b424bd78da30bb84da5ff97b541ec1ad46f19a",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records"
+      ],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "uniform-primitives",
+        "density": "1.0",
+        "dispatch_route": "object",
+        "draw_count": 1000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 180,
+        "mutation_mode": "static",
+        "primitive_kind": "rect",
+        "required_counters": [
+          "primitive_batch_records"
+        ],
+        "width": 320
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "native-clips-depth-16-by-2048",
+      "correctness_label": "nested-clips-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:a1ab4c85c8083a020e250069ed1e8ea9e701755d770697f331253f2bbca6c9d2",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -790,7 +3181,9 @@
       ],
       "route": "native-interactive",
       "runtime_parameters": {
-        "case_kind": "paths",
+        "case_kind": "nested-clips",
+        "clip_depth": 16,
+        "clip_segments": 2048,
         "density": "2.0",
         "dispatch_route": "global",
         "draw_count": 1000,
@@ -801,12 +3194,164 @@
           "direct_shape_finalizations",
           "frames_presented"
         ],
-        "segments_per_path": 32,
         "width": 1280
       },
       "sampling_profile": "canvas-native-bounded-v1",
       "workload_id": "primitives-paths-order",
-      "workload_version": 1
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "native-independent-lines-50k",
+      "correctness_label": "independent-lines-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:9806404919f2ad48e411688f10dfd4de0e92d3c8a0699081e88267f7724feac1",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "independent-lines",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 50000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 720,
+        "required_counters": [
+          "primitive_batch_records",
+          "frames_presented"
+        ],
+        "segment_count": 50000,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "native-mixed-20k-dynamic-64-styles",
+      "correctness_label": "mixed-primitives-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:375355a0257ba7988024f5266a759e6e2c2809b56f312d29c40c94ae331a79d5",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "mixed-primitives",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 20000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 720,
+        "mutation_mode": "dynamic",
+        "required_counters": [
+          "primitive_batch_records",
+          "frames_presented"
+        ],
+        "style_count": 64,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "native-ordered-family-stream-32-switches",
+      "correctness_label": "ordered-family-stream-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:07e5e858ac2847cd1dc5dc6d5bd9d0b4c6d1c007689a173c851f3e08b96d3e57",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "gpu_region_effect_passes",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "ordered-family-stream",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 128,
+        "frame_rate": 60,
+        "frames": 30,
+        "height": 720,
+        "required_counters": [
+          "gpu_region_effect_passes",
+          "frames_presented"
+        ],
+        "switch_count": 32,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "primitives",
+        "paths"
+      ],
+      "case_id": "native-polyline-50k",
+      "correctness_label": "polyline-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:412f0568eddc6649dc4900249dde323c6d0adc5d8ff1bd437bf5f66e26748fd6",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "direct_shape_finalizations",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "polyline",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 50000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 720,
+        "required_counters": [
+          "direct_shape_finalizations",
+          "frames_presented"
+        ],
+        "segment_count": 50000,
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
     },
     {
       "capabilities": [
@@ -814,17 +3359,15 @@
         "native-window",
         "primitives"
       ],
-      "case_id": "native-interactive-uniform-primitives-1k",
-      "correctness_label": "native-uniform-primitive-final-order-sentinel-and-declared-records",
-      "definition_digest": "sha256:df9b42de2c9c5b961df05decaf58de4a87154dbd25998fdfdf361e326b6e37dc",
+      "case_id": "native-rect-1k-static-global",
+      "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:c16a0d788badcbb1cc7feef500248e3d7cb06b1f05cb2339406ba5f9663350cb",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
       },
       "required_counters": [
         "primitive_batch_records",
-        "packed_primitive_records",
-        "packed_primitive_bytes",
         "frames_presented"
       ],
       "route": "native-interactive",
@@ -836,18 +3379,55 @@
         "frame_rate": 60,
         "frames": 30,
         "height": 720,
+        "mutation_mode": "static",
         "primitive_kind": "rect",
         "required_counters": [
           "primitive_batch_records",
-          "packed_primitive_records",
-          "packed_primitive_bytes",
           "frames_presented"
         ],
         "width": 1280
       },
       "sampling_profile": "canvas-native-bounded-v1",
       "workload_id": "primitives-paths-order",
-      "workload_version": 1
+      "workload_version": 2
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "native-window",
+        "primitives"
+      ],
+      "case_id": "native-triangle-100k-dynamic",
+      "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
+      "definition_digest": "sha256:de1ca11cc7abfbedf195bf8e77739c1452ea4c18f601f23a82ee0567f08de94c",
+      "metric_identity": {
+        "id": "draw-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [
+        "primitive_batch_records",
+        "frames_presented"
+      ],
+      "route": "native-interactive",
+      "runtime_parameters": {
+        "case_kind": "uniform-primitives",
+        "density": "2.0",
+        "dispatch_route": "global",
+        "draw_count": 100000,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 720,
+        "mutation_mode": "dynamic",
+        "primitive_kind": "triangle",
+        "required_counters": [
+          "primitive_batch_records",
+          "frames_presented"
+        ],
+        "width": 1280
+      },
+      "sampling_profile": "canvas-native-bounded-v1",
+      "workload_id": "primitives-paths-order",
+      "workload_version": 2
     }
   ],
   "schema_version": 1

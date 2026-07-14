@@ -1,8 +1,8 @@
-"""Frozen, code-facing governance for authoritative benchmark comparisons.
+"""Code-facing governance for deterministic local benchmark comparisons.
 
-These rules intentionally live apart from CLI parsing. A caller may select the remote
-location of the data ref, but cannot select another ref, weaken a gate, or convert a
-trial or missing-capability route into authoritative data.
+The normal workflow uses ignored local history, release-built runners, correctness-first
+records, raw samples, and the fixed regression gate. Legacy Git authority constants remain
+available for explicit compatibility users but are not part of the default CLI path.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from enum import StrEnum
 from types import MappingProxyType
 
 AUTHORITATIVE_DATA_REF = "refs/heads/benchmark-data-v1"
+LOCAL_HISTORY_DIRECTORY = ".scratch/benchmark/history"
 GOVERNANCE_VERSION = 1
 # Both representations are public so callers cannot confuse 5.00 percent with 0.05
 # percentage points. The historical name remains an alias for compatibility.
@@ -220,19 +221,19 @@ MODE_POLICIES: Mapping[BenchmarkMode, ModePolicy] = MappingProxyType(
     {
         BenchmarkMode.WORKTREE: ModePolicy(
             BenchmarkMode.WORKTREE,
-            "dirty worktree compared as exact current HEAD",
-            "exact current-HEAD record for the exact comparison fingerprint",
+            "dirty worktree measured with current HEAD provenance",
+            "latest compatible local record: exact HEAD, then recorded ancestor, then latest",
             False,
             "dirty is permitted",
-            "pass without recording; known fingerprint missing exact HEAD fails",
+            "pass without recording when no compatible local baseline exists",
         ),
         BenchmarkMode.RECORD_HEAD: ModePolicy(
             BenchmarkMode.RECORD_HEAD,
             "clean exact HEAD",
-            "nearest earlier compatible first-parent record",
+            "latest compatible local record with exact-HEAD and ancestor preference",
             True,
             "must be clean",
-            "pass and stage an immutable HEAD candidate after every gate passes",
+            "explicit maintainer command appends an immutable local HEAD record after all gates",
         ),
     }
 )
@@ -240,15 +241,17 @@ MODE_POLICIES: Mapping[BenchmarkMode, ModePolicy] = MappingProxyType(
 
 @dataclass(frozen=True, slots=True)
 class DatabaseGovernance:
+    default_backend: str = "local-filesystem"
+    history_directory: str = LOCAL_HISTORY_DIRECTORY
+    remote_required: bool = False
+    recorder: str = "explicit-maintainer-release-recorder"
+    append_policy: str = "immutable-primary-key-first-writer-wins"
+    audit: str = "canonical-index-and-record-validation"
+    schema_migration: str = "versioned-migration-required"
+    benchmark_versioning: str = "meaning-change-requires-version-bump"
     data_ref: str = AUTHORITATIVE_DATA_REF
-    configurable_value: str = "remote-location-only"
-    recorder: str = "trusted-local-release-recorder"
-    branch_protection: str = "reviewed-append-only-no-force-update"
-    review: str = "candidate-branch-review-before-protected-ref-advance"
-    revocation: str = "append-only-reviewed-revocation-record"
-    schema_migration: str = "reviewed-versioned-migration-required"
-    benchmark_versioning: str = "meaning-change-requires-reviewed-version-bump"
-    retirement: str = "legacy-scenarios-and-values-are-historical-non-authoritative"
+    configurable_value: str = "local-history-directory-only"
+    retirement: str = "legacy-git-database-remains-explicitly-importable"
 
 
 DATABASE_GOVERNANCE = DatabaseGovernance()
@@ -305,7 +308,7 @@ def degradation_exceeds_limit(change_fraction: Decimal) -> bool:
 
 
 def reject_authority_overrides(arguments: Iterable[str]) -> None:
-    """Reject known bypass flags before any runner or database work starts."""
+    """Retain legacy authority-CLI validation for explicit compatibility callers."""
 
     forbidden = (
         "--threshold",

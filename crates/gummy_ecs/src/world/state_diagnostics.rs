@@ -48,8 +48,23 @@ impl World {
         diagnostics.change_journal_updates = self.change_journal.diagnostic_updates();
         diagnostics.change_journal_retained_records = self.change_journal.len();
         diagnostics.resources_total = self.resources.len();
+        diagnostics.resource_row_bytes = self.resources.estimated_bytes();
         diagnostics.event_queues_total = self.events.queue_count();
         diagnostics.event_records_total = self.events.record_count();
+        diagnostics.event_records_dropped = self.events.dropped_records();
+        diagnostics.event_queue_bytes = self.events.estimated_bytes();
+        diagnostics.spatial_index_owners = self.spatial_cache_ref_counts.len();
+        diagnostics.spatial_index_cache_entries = self.spatial_index_cache.len();
+        let prepared = self.compiled_plans.diagnostics();
+        diagnostics.prepared_plan_preparations = prepared.preparation_count;
+        diagnostics.prepared_plan_cache_hits = prepared.preparation_cache_hits;
+        diagnostics.prepared_plan_cache_misses = prepared.preparation_cache_misses;
+        diagnostics.prepared_plan_canonical_reuses = prepared.canonical_reuses;
+        diagnostics.prepared_plan_preparation_nanos = prepared.preparation_nanos;
+        diagnostics.prepared_plan_bytes_current = prepared.prepared_bytes_current;
+        diagnostics.prepared_plan_bytes_peak = prepared.prepared_bytes_peak;
+        diagnostics.prepared_plan_schema_invalidations = prepared.schema_invalidations;
+        diagnostics.prepared_plans_unique = self.compiled_plans.unique_prepared_len();
         diagnostics
     }
 
@@ -60,11 +75,26 @@ impl World {
     pub fn reset_diagnostics(&mut self) {
         self.diagnostics = Diagnostics::default();
         self.change_journal.reset_diagnostic_counters();
+        self.events.reset_diagnostic_counters();
+        self.compiled_plans.reset_diagnostics();
+    }
+
+    pub(crate) fn note_fixed_slot_execution(&mut self) {
+        self.diagnostics.executor_fixed_slot_runs += 1;
+    }
+
+    pub(crate) fn note_schedule_waves(&mut self, waves: usize, systems: usize) {
+        self.diagnostics.scheduler_wave_builds += 1;
+        self.diagnostics.scheduler_waves += waves;
+        self.diagnostics.scheduler_systems += systems;
+    }
+
+    pub(crate) fn note_world_clone(&mut self) {
+        self.diagnostics.scheduler_world_clones += 1;
     }
 
     pub(super) fn note_structural_revision(&mut self) {
         self.structural_revision = self.structural_revision.saturating_add(1);
-        self.invalidate_query_cache();
     }
 
     pub(super) fn note_field_revision(&mut self, component: &str, field: &str) {

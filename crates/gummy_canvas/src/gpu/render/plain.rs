@@ -17,6 +17,13 @@ impl GpuRenderer {
         render_offsets: &mut RenderBufferOffsets,
         clear_depth: bool,
     ) {
+        let requires_depth = plain_commands_require_depth(commands);
+        debug_assert!(commands
+            .iter()
+            .all(|command| plain_command_requires_depth(command) == requires_depth));
+        if requires_depth {
+            self.ensure_depth_attachment();
+        }
         let clear = commands.iter().rev().find_map(|command| {
             if let DrawCommand::Clear(color) = command {
                 Some(*color)
@@ -33,6 +40,24 @@ impl GpuRenderer {
             self.stage_model_uniforms(commands, last_clear_index, render_offsets);
         let (stroke_path_bindings, next_stroke_path_record) =
             self.prepare_stroke_path_bindings(commands, render_offsets.stroke_path_record);
+        let depth_stencil_attachment = if requires_depth {
+            self.depth_attachment.as_ref().map(|attachment| {
+                wgpu::RenderPassDepthStencilAttachment {
+                    view: &attachment.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: if clear_depth {
+                            wgpu::LoadOp::Clear(1.0)
+                        } else {
+                            wgpu::LoadOp::Load
+                        },
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }
+            })
+        } else {
+            None
+        };
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("gummy_canvas primitive render pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -46,24 +71,15 @@ impl GpuRenderer {
                     store: wgpu::StoreOp::Store,
                 },
             })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &self.depth_texture_view,
-                depth_ops: Some(wgpu::Operations {
-                    load: if clear_depth {
-                        wgpu::LoadOp::Clear(1.0)
-                    } else {
-                        wgpu::LoadOp::Load
-                    },
-                    store: wgpu::StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
+            depth_stencil_attachment,
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        pass.set_pipeline(&self.pipeline);
-        pass.set_bind_group(0, &self.viewport_bind_group, &[]);
-        pass.set_bind_group(1, &self.clip_textures[0].bind_group, &[]);
+        if !requires_depth {
+            pass.set_pipeline(&self.pipeline);
+            pass.set_bind_group(0, &self.viewport_bind_group, &[]);
+            pass.set_bind_group(1, &self.clip_textures[0].bind_group, &[]);
+        }
 
         let mut pending_primitive_vertices = std::mem::take(&mut self.primitive_staging);
         pending_primitive_vertices.clear();
@@ -353,4 +369,18 @@ impl GpuRenderer {
         }
         (bindings, record_offset)
     }
+}
+
+pub(super) fn plain_command_requires_depth(command: &DrawCommand) -> bool {
+    matches!(
+        command,
+        DrawCommand::Model { .. }
+            | DrawCommand::ModelWireframe { .. }
+            | DrawCommand::ModelInstances { .. }
+            | DrawCommand::TexturedModel { .. }
+    )
+}
+
+pub(super) fn plain_commands_require_depth(commands: &[DrawCommand]) -> bool {
+    commands.iter().any(plain_command_requires_depth)
 }

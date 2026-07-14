@@ -7,6 +7,11 @@ from typing import Any, cast
 from gummysnake import constants as c
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
 from gummysnake.backend.canvas_runtime.renderer.bridge import CanvasRendererBridgeMixin
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
+    FRAME_COMMAND_ABI_VERSION,
+    PackedImageBatchState,
+    PackedTextBatchState,
+)
 from gummysnake.backend.canvas_runtime.renderer.lifecycle import CanvasRendererLifecycleMixin
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
     LineBatchState,
@@ -28,6 +33,7 @@ from gummysnake.backend.canvas_runtime.renderer.renderer_state.payloads import (
 )
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
+from gummysnake.exceptions import BackendCapabilityError
 
 PrimitiveBatchRecord = tuple[object, ...]
 ImageBatchRecord = tuple[
@@ -65,6 +71,7 @@ class CanvasRendererCore(
     def __init__(self, canvas_module: object | None = None) -> None:
         """Create the core Rust canvas renderer bridge state."""
         self._canvas_module = canvas_module
+        self._validate_frame_command_abi(canvas_module)
         self._canvas: Any | None = None
         self.width = 0
         self.height = 0
@@ -82,18 +89,25 @@ class CanvasRendererCore(
         self._line_batch_state = LineBatchState()
         self._primitive_batch_state = PrimitiveBatchState()
         self._model_batch_state = ModelBatchState()
-        self._text_batch: list[tuple[str, float, float]] = []
-        self._text_batch_style: dict[str, object] | None = None
-        self._text_batch_matrix: MatrixPayload | None = None
-        self._image_batch: list[ImageBatchRecord] = []
-        self._image_batch_style: dict[str, object] | None = None
-        self._image_batch_matrix: MatrixPayload | None = None
+        self._text_batch = PackedTextBatchState()
+        self._image_batch = PackedImageBatchState()
         self._skip_canvas_end_frame = False
         self._last_pixel_bytes: bytes | None = None
         self._clip_depth = 0
         self._init_performance_counters()
-        self._last_native_event_pump = 0.0
-        self._abort_frame_on_native_close = False
+
+    @staticmethod
+    def _validate_frame_command_abi(canvas_module: object | None) -> None:
+        if canvas_module is None:
+            return
+        callback = getattr(canvas_module, "frame_command_abi_version", None)
+        version = callback() if callable(callback) else None
+        if version != FRAME_COMMAND_ABI_VERSION:
+            raise BackendCapabilityError(
+                "The installed gummysnake.rust._canvas runtime does not expose the required "
+                f"frame-command ABI {FRAME_COMMAND_ABI_VERSION} (found {version!r}). Rebuild "
+                "gummy_canvas before constructing CanvasRenderer."
+            )
 
     def set_current_style(self, style: StyleState) -> None:
         """Record the active drawing style and sync it to Rust when needed.

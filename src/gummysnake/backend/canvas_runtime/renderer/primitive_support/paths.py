@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from typing import Protocol, cast
 
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import pack_path
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import ArgumentValidationError
@@ -36,18 +37,25 @@ def polygon(
 ) -> None:
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
-    current = (
-        getattr(_renderer(self)._require_canvas(), "polygon_current", None)
-        if _renderer(self)._can_use_current_state(style, transform)
-        else None
-    )
-    if callable(current):
-        _renderer(self)._call("polygon drawing", current, points, close)
+    point_records, contour_records = pack_path(points)
+    if _renderer(self)._can_use_current_state(style, transform):
+        current = _renderer(self)._require_canvas_method(
+            "polygon_current_packed",
+            "typed current-state path drawing",
+        )
+        _renderer(self)._call(
+            "typed polygon drawing",
+            current,
+            point_records,
+            contour_records,
+            close,
+        )
         return
     _renderer(self)._call(
-        "polygon drawing",
-        _renderer(self)._require_canvas().polygon,
-        points,
+        "typed polygon drawing",
+        _renderer(self)._require_canvas_method("polygon_packed", "typed path drawing"),
+        point_records,
+        contour_records,
         _renderer(self)._style_payload(style),
         _renderer(self)._matrix_payload(transform),
         close,
@@ -65,19 +73,25 @@ def complex_polygon(
 ) -> None:
     _renderer(self)._flush_line_batch()
     _renderer(self)._count("gpu_draws")
-    current = (
-        getattr(_renderer(self)._require_canvas(), "complex_polygon_current", None)
-        if _renderer(self)._can_use_current_state(style, transform)
-        else None
-    )
-    if callable(current):
-        _renderer(self)._call("complex polygon drawing", current, outer, contours, close)
+    point_records, contour_records = pack_path(outer, contours)
+    if _renderer(self)._can_use_current_state(style, transform):
+        current = _renderer(self)._require_canvas_method(
+            "polygon_current_packed",
+            "typed current-state contour drawing",
+        )
+        _renderer(self)._call(
+            "typed complex polygon drawing",
+            current,
+            point_records,
+            contour_records,
+            close,
+        )
         return
     _renderer(self)._call(
-        "complex polygon drawing",
-        _renderer(self)._require_canvas_method("complex_polygon", "contour drawing"),
-        outer,
-        contours,
+        "typed complex polygon drawing",
+        _renderer(self)._require_canvas_method("polygon_packed", "typed contour drawing"),
+        point_records,
+        contour_records,
         _renderer(self)._style_payload(style),
         _renderer(self)._matrix_payload(transform),
         close,
@@ -138,21 +152,27 @@ def begin_clip(
     transform: Matrix2D,
 ) -> None:
     _renderer(self)._flush_line_batch()
-    current = (
-        getattr(_renderer(self)._require_canvas(), "begin_clip_current", None)
-        if getattr(_renderer(self), "_rust_transform_synced", True)
-        and (_renderer(self)._current_matrix_payload == _renderer(self)._matrix_payload(transform))
-        else None
-    )
-    if callable(current):
-        _renderer(self)._call("clip creation", current, outer, contours)
+    point_records, contour_records = pack_path(outer, contours)
+    if getattr(_renderer(self), "_rust_transform_synced", True) and (
+        _renderer(self)._current_matrix_payload == _renderer(self)._matrix_payload(transform)
+    ):
+        current = _renderer(self)._require_canvas_method(
+            "begin_clip_current_packed",
+            "typed current-state path clipping",
+        )
+        _renderer(self)._call(
+            "typed clip creation",
+            current,
+            point_records,
+            contour_records,
+        )
         _renderer(self)._clip_depth += 1
         return
     _renderer(self)._call(
-        "clip creation",
-        _renderer(self)._require_canvas_method("begin_clip", "path clipping"),
-        outer,
-        contours,
+        "typed clip creation",
+        _renderer(self)._require_canvas_method("begin_clip_packed", "typed path clipping"),
+        point_records,
+        contour_records,
         _renderer(self)._matrix_payload(transform),
     )
     _renderer(self)._clip_depth += 1

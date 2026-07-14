@@ -84,10 +84,11 @@ blocked. It runs outside the source checkout and rejects non-native imports.
 ## Release-candidate validation
 
 Run `make release-candidate` to build a **release** canvas extension, execute the
-release smoke tier, and include the opt-in resource stress checks. This target no
-longer invokes the retired pytest benchmark suite; governed replacement benchmark
-recording uses `scripts/benchmark.py` and its fixed data-ref policy. Use public
-renderer and ECS diagnostics for local performance investigation, comparing only
-equivalent native machines and release builds. An unavailable native capability
-must fail with rebuild guidance rather than use a Python renderer or another
-fallback.
+release smoke tier, and include the opt-in resource stress checks. This target does
+not execute performance benchmarks. A maintainer invokes `scripts/benchmark.py`
+manually; comparable results use release builds and ignored local history keyed by
+fingerprint and commit, with a strict >5% local regression threshold. Automated
+validation continues to cover schemas, deterministic correctness oracles, fixed
+workloads, path diagnostics, and smoke. Optional native-interactive or native-audio
+suites may be unavailable without blocking release completion and must never be
+replaced by a fallback route.

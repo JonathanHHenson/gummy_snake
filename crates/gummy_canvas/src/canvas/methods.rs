@@ -63,9 +63,6 @@ impl Canvas {
     pub(crate) fn poll_events(&mut self) -> PyResult<Vec<Py<PyAny>>> {
         self.poll_events_impl()
     }
-    pub(crate) fn pump_native_events(&mut self) -> PyResult<bool> {
-        self.pump_native_events_impl()
-    }
     pub(crate) fn request_pointer_lock(&mut self) -> PyResult<bool> {
         self.request_pointer_lock_impl()
     }
@@ -219,10 +216,14 @@ impl Canvas {
     pub(crate) fn batch_primitives_mixed_packed(
         &mut self,
         records: &Bound<'_, PyBytes>,
-        styles: &Bound<'_, PyList>,
-        matrices: &Bound<'_, PyList>,
+        styles: &Bound<'_, PyBytes>,
+        matrices: &Bound<'_, PyBytes>,
     ) -> PyResult<()> {
-        self.ingest_packed_mixed_primitives(records.as_bytes(), styles, matrices)
+        self.ingest_packed_mixed_primitives(
+            records.as_bytes(),
+            styles.as_bytes(),
+            matrices.as_bytes(),
+        )
     }
 
     pub(crate) fn batch_fill_primitives_packed(
@@ -255,6 +256,32 @@ impl Canvas {
         let _ = py;
         self.polygon_current_impl(points, close)
     }
+    #[pyo3(signature = (points, contour_ends, style, matrix, close=true))]
+    pub(crate) fn polygon_packed(
+        &mut self,
+        points: &Bound<'_, PyBytes>,
+        contour_ends: &Bound<'_, PyBytes>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+        close: bool,
+    ) -> PyResult<()> {
+        self.polygon_packed_impl(
+            points.as_bytes(),
+            contour_ends.as_bytes(),
+            style,
+            matrix,
+            close,
+        )
+    }
+    #[pyo3(signature = (points, contour_ends, close=true))]
+    pub(crate) fn polygon_current_packed(
+        &mut self,
+        points: &Bound<'_, PyBytes>,
+        contour_ends: &Bound<'_, PyBytes>,
+        close: bool,
+    ) -> PyResult<()> {
+        self.polygon_current_packed_impl(points.as_bytes(), contour_ends.as_bytes(), close)
+    }
     #[pyo3(signature = (outer, contours, style, matrix, close=true))]
     pub(crate) fn complex_polygon(
         &mut self,
@@ -276,6 +303,25 @@ impl Canvas {
     ) -> PyResult<()> {
         let _ = py;
         self.complex_polygon_current_impl(outer, contours, close)
+    }
+    pub(crate) fn begin_clip_packed(
+        &mut self,
+        points: &Bound<'_, PyBytes>,
+        contour_ends: &Bound<'_, PyBytes>,
+        matrix: Matrix,
+    ) -> PyResult<()> {
+        self.begin_clip_packed_impl(points.as_bytes(), contour_ends.as_bytes(), matrix)
+    }
+    pub(crate) fn begin_clip_current_packed(
+        &mut self,
+        points: &Bound<'_, PyBytes>,
+        contour_ends: &Bound<'_, PyBytes>,
+    ) -> PyResult<()> {
+        self.begin_clip_packed_impl(
+            points.as_bytes(),
+            contour_ends.as_bytes(),
+            self.current_matrix,
+        )
     }
     pub(crate) fn begin_clip(
         &mut self,
@@ -324,7 +370,13 @@ impl Canvas {
         self.begin_clip_captured_impl(&mut state, matrix)
     }
     pub(crate) fn end_clip(&mut self) -> PyResult<()> {
-        self.end_clip_impl()
+        self.end_clip_impl()?;
+        self.record_frame_command_ingress(
+            crate::frame_commands::FrameCommandFamily::Barrier,
+            &[],
+            1,
+        );
+        Ok(())
     }
     pub(crate) fn rect(
         &mut self,
@@ -482,6 +534,34 @@ impl Canvas {
             normal_material,
             cull_backfaces,
             transforms,
+        )
+    }
+
+    #[pyo3(signature = (model, camera, projection, viewport_width, viewport_height, material, lights, normal_material, cull_backfaces, transforms))]
+    pub(crate) fn _draw_model_shaded_batch_packed(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        lights: &Bound<'_, PyAny>,
+        normal_material: bool,
+        cull_backfaces: bool,
+        transforms: &Bound<'_, PyBytes>,
+    ) -> PyResult<()> {
+        self.draw_model_shaded_batch_packed_impl(
+            model,
+            camera,
+            projection,
+            viewport_width,
+            viewport_height,
+            material,
+            lights,
+            normal_material,
+            cull_backfaces,
+            transforms.as_bytes(),
         )
     }
 
@@ -714,6 +794,14 @@ impl Canvas {
         let _ = py;
         self.draw_canvas_image_current_impl(image, dx, dy, dw, dh, source)
     }
+    pub(crate) fn batch_canvas_images_packed(
+        &mut self,
+        records: &Bound<'_, PyBytes>,
+        images: Vec<PyRef<'_, CanvasImage>>,
+        style: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        self.batch_canvas_images_packed_impl(records.as_bytes(), images, style)
+    }
     pub(crate) fn batch_canvas_images(
         &mut self,
         records: &Bound<'_, PyAny>,
@@ -758,6 +846,24 @@ impl Canvas {
     ) -> PyResult<()> {
         let _ = py;
         self.text_current_impl(value, x, y)
+    }
+    pub(crate) fn text_batch_packed(
+        &mut self,
+        records: &Bound<'_, PyBytes>,
+        utf8: &Bound<'_, PyBytes>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<bool> {
+        self.text_batch_packed_impl(records.as_bytes(), utf8.as_bytes(), style, matrix, false)
+    }
+    pub(crate) fn text_batch_frame_packed(
+        &mut self,
+        records: &Bound<'_, PyBytes>,
+        utf8: &Bound<'_, PyBytes>,
+        style: &Bound<'_, PyAny>,
+        matrix: Matrix,
+    ) -> PyResult<bool> {
+        self.text_batch_packed_impl(records.as_bytes(), utf8.as_bytes(), style, matrix, true)
     }
     pub(crate) fn text_batch(
         &mut self,
@@ -888,6 +994,15 @@ impl Canvas {
         alpha_composite: bool,
     ) -> PyResult<()> {
         self.update_pixel_region_buffer_impl(py, pixels, width, height, x, y, alpha_composite)
+    }
+    pub(crate) fn apply_effects_packed(&mut self, records: &Bound<'_, PyBytes>) -> PyResult<()> {
+        self.apply_effects_packed_impl(records.as_bytes())
+    }
+    pub(crate) fn frame_command_diagnostics<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        self.frame_command_diagnostics_impl(py)
     }
     pub(crate) fn adjust_pixel_prefix(
         &mut self,

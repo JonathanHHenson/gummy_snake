@@ -64,6 +64,53 @@ pub trait PcmSink {
     }
 }
 
+/// Explicit in-memory sink for callers that intentionally request complete PCM.
+///
+/// Its duration-sized output storage is caller-visible by design. Renderer
+/// workspace diagnostics exclude this sink buffer, so streaming sinks can prove
+/// bounded internal memory independently of a bytes-returning API.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct MemoryPcmSink {
+    samples: Vec<i16>,
+    finished: bool,
+}
+
+impl MemoryPcmSink {
+    pub fn samples(&self) -> &[i16] {
+        &self.samples
+    }
+
+    pub fn into_samples(self) -> Vec<i16> {
+        self.samples
+    }
+
+    pub fn is_finished(&self) -> bool {
+        self.finished
+    }
+}
+
+impl PcmSink for MemoryPcmSink {
+    fn write_interleaved_i16(&mut self, samples: &[i16]) -> SynthResult<SinkWrite> {
+        if self.finished {
+            return Err(SynthError::new(
+                "cannot write PCM after the memory sink is finished.",
+            ));
+        }
+        if !samples.len().is_multiple_of(2) {
+            return Err(SynthError::new(
+                "memory PCM sink requires complete stereo interleaved frames.",
+            ));
+        }
+        self.samples.extend_from_slice(samples);
+        Ok(SinkWrite::Accepted)
+    }
+
+    fn finish(&mut self) -> SynthResult<()> {
+        self.finished = true;
+        Ok(())
+    }
+}
+
 /// Public diagnostics shape for the future one-engine renderer.
 ///
 /// Counters are cumulative for a session. Capacity values describe owned

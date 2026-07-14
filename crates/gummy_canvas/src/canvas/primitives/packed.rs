@@ -1,3 +1,4 @@
+use crate::frame_commands::FrameCommandFamily;
 use crate::prelude::*;
 
 pub(super) const LINE_RECORD_BYTES: usize = 32;
@@ -110,7 +111,7 @@ impl Canvas {
         let records = decode_lines(bytes)?;
         let record_count = records.len() as u64;
         self.batch_lines_impl(records, style, matrix)?;
-        self.record_packed_primitive_ingress(record_count, bytes.len());
+        self.record_packed_primitive_ingress(record_count, &[bytes]);
         Ok(())
     }
 
@@ -118,7 +119,7 @@ impl Canvas {
         let records = decode_lines(bytes)?;
         let record_count = records.len() as u64;
         self.batch_lines_current_impl(records)?;
-        self.record_packed_primitive_ingress(record_count, bytes.len());
+        self.record_packed_primitive_ingress(record_count, &[bytes]);
         Ok(())
     }
 
@@ -131,7 +132,7 @@ impl Canvas {
         let records = decode_primitives(bytes)?;
         let record_count = records.len() as u64;
         self.batch_primitives_impl(records, style, matrix)?;
-        self.record_packed_primitive_ingress(record_count, bytes.len());
+        self.record_packed_primitive_ingress(record_count, &[bytes]);
         Ok(())
     }
 
@@ -139,21 +140,21 @@ impl Canvas {
         let records = decode_primitives(bytes)?;
         let record_count = records.len() as u64;
         self.batch_primitives_current_impl(records)?;
-        self.record_packed_primitive_ingress(record_count, bytes.len());
+        self.record_packed_primitive_ingress(record_count, &[bytes]);
         Ok(())
     }
 
     pub(crate) fn ingest_packed_mixed_primitives(
         &mut self,
         bytes: &[u8],
-        styles: &Bound<'_, PyList>,
-        matrices: &Bound<'_, PyList>,
+        styles: &[u8],
+        matrices: &[u8],
     ) -> PyResult<()> {
         ensure_record_size(bytes, "mixed primitive", MIXED_PRIMITIVE_RECORD_BYTES)?;
         self.batch_primitives_mixed_packed_impl(bytes, styles, matrices)?;
         self.record_packed_primitive_ingress(
             (bytes.len() / MIXED_PRIMITIVE_RECORD_BYTES) as u64,
-            bytes.len(),
+            &[bytes, styles, matrices],
         );
         Ok(())
     }
@@ -166,13 +167,19 @@ impl Canvas {
         let records = decode_fill_primitives(bytes)?;
         let record_count = records.len() as u64;
         self.batch_fill_primitives_impl(records, matrix)?;
-        self.record_packed_primitive_ingress(record_count, bytes.len());
+        self.record_packed_primitive_ingress(record_count, &[bytes]);
         Ok(())
     }
 
-    fn record_packed_primitive_ingress(&mut self, records: u64, bytes: usize) {
+    fn record_packed_primitive_ingress(&mut self, records: u64, payloads: &[&[u8]]) {
+        let bytes = payloads.iter().map(|payload| payload.len()).sum::<usize>();
         self.performance_counters.packed_primitive_records += records;
         self.performance_counters.packed_primitive_bytes += bytes as u64;
+        self.record_frame_command_ingress(
+            FrameCommandFamily::Primitive,
+            payloads,
+            records as usize,
+        );
     }
 }
 

@@ -13,20 +13,20 @@ impl World {
     }
 
     pub fn remove_resource(&mut self, name: &str) -> Result<ComponentRow> {
-        self.resources.remove(name)
+        self.resources.remove(&self.schemas, name)
     }
 
     pub fn resource_field(&self, name: &str, field: &str) -> Result<EcsValue> {
-        self.resources.get_field(name, field)
+        self.resources.get_field(&self.schemas, name, field)
     }
 
     pub fn set_resource_field(&mut self, name: &str, field: &str, value: EcsValue) -> Result<()> {
         let value = self.coerce_value_for_component_field(name, field, value)?;
-        self.resources.set_field(name, field, value)
+        self.resources.set_field(&self.schemas, name, field, value)
     }
 
     pub fn has_resource(&self, name: &str) -> bool {
-        self.resources.contains(name)
+        self.resources.contains(&self.schemas, name)
     }
 
     pub fn resource_count(&self) -> usize {
@@ -34,7 +34,7 @@ impl World {
     }
 
     pub fn resource_revision(&self, name: &str) -> u64 {
-        self.resources.revision(name)
+        self.resources.revision(&self.schemas, name)
     }
 
     pub fn set_frame(&mut self, frame: u64) {
@@ -61,7 +61,12 @@ impl World {
     pub fn emit_event(&mut self, event_type: &str, payload: EcsValue) -> Result<()> {
         self.events.validate_type(event_type)?;
         let payload = self.coerce_event_payload(event_type, payload)?;
-        self.events.emit(event_type, self.current_frame, payload);
+        self.events.emit(
+            event_type,
+            self.schemas.component_id(event_type),
+            self.current_frame,
+            payload,
+        );
         self.diagnostics.events_emitted += 1;
         Ok(())
     }
@@ -72,6 +77,18 @@ impl World {
         self.diagnostics.event_read_calls += 1;
         self.diagnostics.event_records_read += events.len();
         Ok(events)
+    }
+
+    pub(crate) fn read_event_payloads(&mut self, event_type: &str) -> Result<Vec<EcsValue>> {
+        self.events.validate_type(event_type)?;
+        let payloads = self
+            .events
+            .payloads(event_type)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.diagnostics.event_read_calls += 1;
+        self.diagnostics.event_records_read += payloads.len();
+        Ok(payloads)
     }
 
     pub fn sum_event_numeric_payload_field(

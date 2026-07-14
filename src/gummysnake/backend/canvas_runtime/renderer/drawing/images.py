@@ -71,7 +71,7 @@ class CanvasRendererImagesMixin:
         """Append a stable Rust handle without materializing its RGBA payload in Python."""
         renderer = _renderer(self)
         if renderer._image_batch and not _same_image_batch_style(
-            renderer._image_batch_style, style
+            renderer._image_batch.style, style
         ):
             renderer._flush_image_batch()
         if not renderer._image_batch:
@@ -79,9 +79,8 @@ class CanvasRendererImagesMixin:
             renderer._flush_primitive_batch_only()
             renderer._flush_model_batch()
             renderer._flush_text_batch()
-        renderer._image_batch.append((rust_image, dx, dy, dw, dh, None, matrix))
-        renderer._image_batch_style = style
-        renderer._image_batch_matrix = matrix
+        renderer._image_batch.append(rust_image, dx, dy, dw, dh, None, matrix)
+        renderer._image_batch.style = style
 
     def _draw_rust_image(
         self,
@@ -95,104 +94,49 @@ class CanvasRendererImagesMixin:
         source: tuple[int, int, int, int] | None,
     ) -> None:
         renderer = _renderer(self)
-        canvas = renderer._require_canvas()
-        batch = getattr(canvas, "batch_canvas_images", None)
-        transformed_batch = getattr(canvas, "batch_canvas_images_transformed", None)
-        if callable(batch) or callable(transformed_batch):
-            renderer._flush_line_batch_only()
-            renderer._flush_primitive_batch_only()
-            renderer._flush_model_batch()
-            style_payload = renderer._style_payload(style)
-            matrix_payload = renderer._matrix_payload(transform)
-            if renderer._image_batch and not _same_image_batch_style(
-                renderer._image_batch_style,
-                style_payload,
-            ):
-                renderer._flush_image_batch()
-            # Keep ordered records handle-only; Rust owns payload sharing and revision uploads.
-            renderer._image_batch.append((rust_image, dx, dy, dw, dh, source, matrix_payload))
-            renderer._image_batch_style = style_payload
-            renderer._image_batch_matrix = matrix_payload
-            return
-
-        renderer._count("gpu_draws")
-        current = (
-            getattr(canvas, "draw_canvas_image_current", None)
-            if renderer._can_use_current_state(style, transform)
-            else None
+        renderer._require_canvas_method(
+            "batch_canvas_images_packed",
+            "typed image command recording",
         )
-        if callable(current):
-            renderer._call(
-                "image drawing",
-                current,
-                rust_image,
-                dx,
-                dy,
-                dw,
-                dh,
-                source,
-            )
-            return
-        renderer._call(
-            "image drawing",
-            canvas.draw_canvas_image,
+        renderer._flush_line_batch_only()
+        renderer._flush_primitive_batch_only()
+        renderer._flush_model_batch()
+        style_payload = renderer._style_payload(style)
+        matrix_payload = renderer._matrix_payload(transform)
+        if renderer._image_batch and not _same_image_batch_style(
+            renderer._image_batch.style,
+            style_payload,
+        ):
+            renderer._flush_image_batch()
+        renderer._image_batch.append(
             rust_image,
             dx,
             dy,
             dw,
             dh,
-            renderer._style_payload(style),
-            renderer._matrix_payload(transform),
             source,
+            matrix_payload,
         )
+        renderer._image_batch.style = style_payload
 
     def _flush_image_batch(self) -> None:
         renderer = _renderer(self)
         if not renderer._image_batch:
             return
-        records = renderer._image_batch
-        style = renderer._image_batch_style
-        renderer._image_batch = []
-        renderer._image_batch_style = None
-        renderer._image_batch_matrix = None
-        if style is None:
+        records, images, style, record_count = renderer._image_batch.drain()
+        if style is None or record_count == 0:
             return
-        canvas = renderer._require_canvas()
-        transformed_batch = getattr(canvas, "batch_canvas_images_transformed", None)
-        if callable(transformed_batch):
-            renderer._count("gpu_draws", len(records))
-            renderer._count("image_batch_records", len(records))
-            renderer._count("image_batch_flushes")
-            renderer._max_count("image_batch_max_records", len(records))
-            renderer._call("transformed batched image drawing", transformed_batch, records, style)
-            return
-        batch = getattr(canvas, "batch_canvas_images", None)
-        if callable(batch):
-            grouped: dict[
-                MatrixPayload,
-                list[tuple[object, float, float, float, float, tuple[int, int, int, int] | None]],
-            ] = {}
-            for rust_image, dx, dy, dw, dh, source, matrix in records:
-                grouped.setdefault(matrix, []).append((rust_image, dx, dy, dw, dh, source))
-            for matrix, matrix_records in grouped.items():
-                renderer._count("gpu_draws", len(matrix_records))
-                renderer._count("image_batch_records", len(matrix_records))
-                renderer._count("image_batch_flushes")
-                renderer._max_count("image_batch_max_records", len(matrix_records))
-                renderer._call("batched image drawing", batch, matrix_records, style, matrix)
-            return
-        renderer._count("image_batch_fallbacks", len(records))
-        for rust_image, dx, dy, dw, dh, source, matrix in records:
-            renderer._count("gpu_draws")
-            renderer._call(
-                "image drawing",
-                canvas.draw_canvas_image,
-                rust_image,
-                dx,
-                dy,
-                dw,
-                dh,
-                style,
-                matrix,
-                source,
-            )
+        renderer._count("gpu_draws", record_count)
+        renderer._count("image_batch_records", record_count)
+        renderer._count("image_batch_flushes")
+        renderer._max_count("image_batch_max_records", record_count)
+        renderer._call(
+            "typed batched image drawing",
+            renderer._require_canvas_method(
+                "batch_canvas_images_packed",
+                "typed image command recording",
+            ),
+            records,
+            images,
+            style,
+        )

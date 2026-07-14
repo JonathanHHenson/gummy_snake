@@ -23,15 +23,7 @@ impl GpuRenderer {
             wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize,
         );
         let output_size = padded_bytes_per_row * self.texture_size.height as usize;
-        let output = self
-            .device_context
-            .device()
-            .create_buffer(&wgpu::BufferDescriptor {
-                label: Some("gummy_canvas readback buffer"),
-                size: output_size as u64,
-                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-                mapped_at_creation: false,
-            });
+        self.ensure_readback_buffer(output_size);
         let mut encoder =
             self.device_context
                 .device()
@@ -49,6 +41,10 @@ impl GpuRenderer {
         } else {
             None
         };
+        let output = self
+            .readback_buffer
+            .as_ref()
+            .expect("readback buffer is allocated before encoding the copy");
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
                 texture: &self.texture,
@@ -70,7 +66,7 @@ impl GpuRenderer {
         if let Some(commands) = commands {
             self.commands = commands;
         }
-        let slice = output.slice(..);
+        let slice = output.slice(..output_size as u64);
         let (sender, receiver) = std::sync::mpsc::channel();
         slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
@@ -91,5 +87,25 @@ impl GpuRenderer {
         drop(mapped);
         output.unmap();
         Ok(pixels)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    fn ensure_readback_buffer(&mut self, required_size: usize) {
+        if self.readback_buffer_capacity >= required_size {
+            return;
+        }
+        let capacity = required_size
+            .checked_next_power_of_two()
+            .unwrap_or(required_size);
+        self.readback_buffer = Some(self.device_context.device().create_buffer(
+            &wgpu::BufferDescriptor {
+                label: Some("gummy_canvas reusable readback buffer"),
+                size: capacity as u64,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            },
+        ));
+        self.readback_buffer_capacity = capacity;
+        self.readback_buffer_allocations += 1;
     }
 }

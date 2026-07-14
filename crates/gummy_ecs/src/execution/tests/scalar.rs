@@ -57,6 +57,71 @@ fn physical_plan_executes_scalar_set_over_query_rows() {
 }
 
 #[test]
+fn prepared_handles_are_reused_and_disjoint_field_waves_avoid_world_clones() {
+    let (mut world, entity) = world_with_motion();
+    let schema_fingerprint = world.schema_fingerprint();
+    let plan_for = |field: &str, value: f64| BridgePlanPayload {
+        version: BRIDGE_PLAN_VERSION,
+        schema_fingerprint: Some(schema_fingerprint),
+        queries: vec![BridgeQueryPayload {
+            name: "entity".to_string(),
+            terms: vec![QueryTerm::WithComponent("Position".to_string())],
+        }],
+        expressions: vec![
+            ExprNode::Field {
+                query: "entity".to_string(),
+                component: "Position".to_string(),
+                field: field.to_string(),
+            },
+            ExprNode::LiteralF64(value),
+        ],
+        actions: vec![ActionNode::SetField {
+            target: 0,
+            value: 1,
+        }],
+        root_action: 0,
+    };
+    let x_payload = plan_for("x", 10.0);
+    let first_x = world.compile_bridge_plan_handle(x_payload.clone()).unwrap();
+    let second_x = world.compile_bridge_plan_handle(x_payload).unwrap();
+    let y = world
+        .compile_bridge_plan_handle(plan_for("y", 20.0))
+        .unwrap();
+
+    let prepared = world.diagnostics();
+    assert_eq!(world.compiled_plan_count(), 3);
+    assert_eq!(world.unique_prepared_plan_count(), 2);
+    assert_eq!(prepared.prepared_plan_preparations, 2);
+    assert_eq!(prepared.prepared_plan_cache_hits, 1);
+    assert_eq!(prepared.prepared_plan_canonical_reuses, 1);
+    assert!(prepared.prepared_plan_bytes_current > 0);
+
+    world
+        .execute_compiled_plans_with_options(&[first_x, y], false)
+        .unwrap();
+    let executed = world.diagnostics();
+    assert_eq!(executed.executor_fixed_slot_runs, 2);
+    assert_eq!(executed.scheduler_wave_builds, 1);
+    assert_eq!(executed.scheduler_waves, 1);
+    assert_eq!(executed.scheduler_world_clones, 0);
+    assert_eq!(
+        world.get_field(entity, "Position", "x").unwrap(),
+        EcsValue::F64(10.0)
+    );
+    assert_eq!(
+        world.get_field(entity, "Position", "y").unwrap(),
+        EcsValue::F64(20.0)
+    );
+
+    assert!(world.release_compiled_plan(first_x));
+    assert_eq!(world.unique_prepared_plan_count(), 2);
+    assert!(world.release_compiled_plan(second_x));
+    assert_eq!(world.unique_prepared_plan_count(), 1);
+    assert!(world.release_compiled_plan(y));
+    assert_eq!(world.diagnostics().prepared_plan_bytes_current, 0);
+}
+
+#[test]
 fn rust_created_plan_filters_added_rows_from_the_current_journal_epoch() {
     let (mut world, unchanged) = world_with_motion();
     world.set_frame(1);

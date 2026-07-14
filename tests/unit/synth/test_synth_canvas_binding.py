@@ -99,14 +99,10 @@ def test_synth_workers_preserve_exact_wav_and_report_bounded_parallel_regions() 
             diagnostics = sy.synth_diagnostics()
             assert actual == expected
             assert diagnostics["worker_count"] == resolved
-            if resolved > 1:
-                assert diagnostics["parallel_regions"] > 0
-                assert diagnostics["parallel_tasks"] >= 2
-            assert (
-                diagnostics["parallel_scratch_peak_bytes"]
-                <= diagnostics["parallel_scratch_limit_bytes"]
-            )
-            assert diagnostics["worker_pool_initializations"] <= 1
+            assert diagnostics["parallel_regions"] == 0
+            assert diagnostics["parallel_tasks"] == 0
+            assert diagnostics["parallel_scratch_peak_bytes"] == 0
+            assert diagnostics["worker_pool_initializations"] == 0
     finally:
         sy.configure_workers("auto")
 

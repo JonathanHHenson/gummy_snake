@@ -6,7 +6,8 @@
 
 use crate::prelude::*;
 pub(crate) use health::{
-    benchmark_provenance, canvas_abi_version, gpu_available, health_check, native_window_available,
+    benchmark_provenance, canvas_abi_version, frame_command_abi_version, gpu_available,
+    health_check, native_window_available,
 };
 use image_ops::*;
 use models::*;
@@ -22,6 +23,7 @@ use ecs::*;
 pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(health_check, m)?)?;
     m.add_function(wrap_pyfunction!(canvas_abi_version, m)?)?;
+    m.add_function(wrap_pyfunction!(frame_command_abi_version, m)?)?;
     m.add_function(wrap_pyfunction!(benchmark_provenance, m)?)?;
     m.add_function(wrap_pyfunction!(native_window_available, m)?)?;
     m.add_function(wrap_pyfunction!(gpu_available, m)?)?;
@@ -52,6 +54,10 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(synth_play_serialized_plan, m)?)?;
     m.add_function(wrap_pyfunction!(synth_play_wav_bytes, m)?)?;
     m.add("CANVAS_ABI_VERSION", CANVAS_ABI_VERSION)?;
+    m.add(
+        "FRAME_COMMAND_ABI_VERSION",
+        crate::frame_commands::FRAME_COMMAND_ABI_VERSION,
+    )?;
     m.add_class::<Matrix2D>()?;
     m.add_class::<Canvas>()?;
     m.add_class::<CanvasImage>()?;

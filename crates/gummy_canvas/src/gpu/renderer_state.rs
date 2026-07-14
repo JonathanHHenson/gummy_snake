@@ -34,6 +34,11 @@ pub(super) struct GpuModelMesh {
     pub(super) wire_index_count: u32,
 }
 
+pub(super) struct DepthAttachment {
+    pub(super) _texture: wgpu::Texture,
+    pub(super) view: wgpu::TextureView,
+}
+
 pub(crate) struct GpuRenderLoopCounters {
     pub(crate) vertex_buffer_allocations: u64,
     pub(crate) vertex_uploads: u64,
@@ -58,8 +63,8 @@ pub struct GpuRenderer {
     pub(super) device_context: Arc<GpuDeviceContext>,
     pub(super) texture: wgpu::Texture,
     pub(super) texture_view: wgpu::TextureView,
-    pub(super) depth_texture: wgpu::Texture,
-    pub(super) depth_texture_view: wgpu::TextureView,
+    pub(super) depth_attachment: Option<DepthAttachment>,
+    pub(super) depth_attachment_allocations: u64,
     pub(super) texture_size: wgpu::Extent3d,
     pub(super) pipeline: wgpu::RenderPipeline,
     pub(super) primitive_pipelines: HashMap<BlendMode, wgpu::RenderPipeline>,
@@ -121,6 +126,9 @@ pub struct GpuRenderer {
     pub(super) stroke_path_record_capacity: usize,
     pub(super) image_vertex_buffer: Option<wgpu::Buffer>,
     pub(super) image_vertex_capacity: usize,
+    pub(super) readback_buffer: Option<wgpu::Buffer>,
+    pub(super) readback_buffer_capacity: usize,
+    pub(super) readback_buffer_allocations: u64,
     pub(super) vertex_buffer_allocations: u64,
     pub(super) vertex_uploads: u64,
     pub(super) uploaded_vertex_bytes: u64,

@@ -1,6 +1,4 @@
 use super::*;
-use rayon::prelude::*;
-use rayon::{ThreadPool, ThreadPoolBuilder};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
 pub const SYNTH_WORKER_POOL_CAPACITY: usize = 8;
@@ -8,7 +6,7 @@ pub const SYNTH_PARALLEL_SCRATCH_LIMIT_BYTES: usize = 64 * 1024 * 1024;
 pub const SYNTH_PARALLEL_MIN_SCRATCH_BYTES: usize = 256 * 1024;
 
 static WORKER_COUNT: AtomicUsize = AtomicUsize::new(0);
-static WORKER_POOL: OnceLock<Result<ThreadPool, String>> = OnceLock::new();
+
 static POOL_INITIALIZATIONS: AtomicU64 = AtomicU64::new(0);
 static GIL_RELEASED_CALLS: AtomicU64 = AtomicU64::new(0);
 static GIL_RELEASED_RENDER_CALLS: AtomicU64 = AtomicU64::new(0);
@@ -34,6 +32,7 @@ pub enum GilReleasedOperation {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SynthDiagnostics {
     pub configured_worker_count: Option<usize>,
+    pub sample_cache: SampleCacheDiagnostics,
     pub worker_count: usize,
     pub worker_pool_capacity: usize,
     pub worker_pool_initializations: u64,
@@ -78,6 +77,7 @@ pub fn diagnostics() -> SynthDiagnostics {
     let configured = WORKER_COUNT.load(Ordering::Relaxed);
     SynthDiagnostics {
         configured_worker_count: (configured > 0).then_some(configured),
+        sample_cache: sample_cache_diagnostics(),
         worker_count: effective_worker_count(),
         worker_pool_capacity: SYNTH_WORKER_POOL_CAPACITY,
         worker_pool_initializations: POOL_INITIALIZATIONS.load(Ordering::Relaxed),
@@ -111,6 +111,7 @@ pub fn reset_diagnostics() {
         counter.store(0, Ordering::Relaxed);
     }
     PARALLEL_SCRATCH_PEAK_BYTES.store(0, Ordering::Relaxed);
+    reset_sample_cache_diagnostics();
 }
 
 pub fn record_gil_released_call(operation: GilReleasedOperation) {
@@ -138,40 +139,4 @@ pub fn record_gil_released_call(operation: GilReleasedOperation) {
             GIL_RELEASED_WAV_WRITE_CALLS.fetch_add(1, Ordering::Relaxed);
         }
     }
-}
-
-pub(crate) fn record_serial_event() {
-    SERIAL_EVENTS.fetch_add(1, Ordering::Relaxed);
-}
-
-pub(crate) fn render_dry_event_region(
-    events: &[EventPayload],
-    sample_rate: u32,
-    scratch_bytes: usize,
-) -> SynthResult<Vec<(Vec<f64>, Vec<f64>)>> {
-    let pool = worker_pool()?;
-    let results = pool.install(|| {
-        events
-            .par_iter()
-            .map(|event| render_dry_event(event, sample_rate))
-            .collect::<Vec<_>>()
-    });
-    PARALLEL_REGIONS.fetch_add(1, Ordering::Relaxed);
-    PARALLEL_TASKS.fetch_add(events.len() as u64, Ordering::Relaxed);
-    PARALLEL_EVENTS.fetch_add(events.len() as u64, Ordering::Relaxed);
-    PARALLEL_SCRATCH_PEAK_BYTES.fetch_max(scratch_bytes, Ordering::Relaxed);
-    results.into_iter().collect()
-}
-
-fn worker_pool() -> SynthResult<&'static ThreadPool> {
-    let pool = WORKER_POOL.get_or_init(|| {
-        POOL_INITIALIZATIONS.fetch_add(1, Ordering::Relaxed);
-        ThreadPoolBuilder::new()
-            .num_threads(SYNTH_WORKER_POOL_CAPACITY)
-            .thread_name(|index| format!("gummy-synth-{index}"))
-            .build()
-            .map_err(|error| format!("could not create synth worker pool: {error}"))
-    });
-    pool.as_ref()
-        .map_err(|error| SynthError::new(error.clone()))
 }

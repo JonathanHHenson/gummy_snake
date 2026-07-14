@@ -45,13 +45,14 @@ class CanvasRendererTextMixin:
         style_payload = dict(_renderer(self)._style_payload(style))
         matrix_payload = _renderer(self)._matrix_payload(transform)
         if _renderer(self)._text_batch and (
-            _renderer(self)._text_batch_style != style_payload
-            or _renderer(self)._text_batch_matrix != matrix_payload
+            _renderer(self)._text_batch.style != style_payload
+            or _renderer(self)._text_batch.matrix != matrix_payload
         ):
             _renderer(self)._flush_text_batch()
-        _renderer(self)._text_batch.extend(items)
-        _renderer(self)._text_batch_style = style_payload
-        _renderer(self)._text_batch_matrix = matrix_payload
+        for value, x, y in items:
+            _renderer(self)._text_batch.append(value, x, y)
+        _renderer(self)._text_batch.style = style_payload
+        _renderer(self)._text_batch.matrix = matrix_payload
 
     def text_width(self, value: str, style: StyleState) -> float:
         _renderer(self)._flush_line_batch_only()
@@ -133,21 +134,22 @@ class CanvasRendererTextMixin:
     def _flush_text_batch(self, *, final: bool = False) -> None:
         if not _renderer(self)._text_batch:
             return
-        items = _renderer(self)._text_batch
-        style = _renderer(self)._text_batch_style
-        matrix = _renderer(self)._text_batch_matrix
-        _renderer(self)._text_batch = []
-        _renderer(self)._text_batch_style = None
-        _renderer(self)._text_batch_matrix = None
-        canvas = _renderer(self)._require_canvas()
-        _renderer(self)._count("gpu_draws", len(items))
-        if style is None or matrix is None:
+        records, utf8, style, matrix, record_count = _renderer(self)._text_batch.drain()
+        if style is None or matrix is None or record_count == 0:
             return
-        batch = getattr(canvas, "text_batch_frame" if final else "text_batch", None)
-        if callable(batch):
-            reused = _renderer(self)._call("batched text drawing", batch, items, style, matrix)
-            if final and reused is True:
-                _renderer(self)._skip_canvas_end_frame = True
-            return
-        for value, x, y in items:
-            _renderer(self)._call("text drawing", canvas.text, value, x, y, style, matrix)
+        _renderer(self)._count("gpu_draws", record_count)
+        method_name = "text_batch_frame_packed" if final else "text_batch_packed"
+        batch = _renderer(self)._require_canvas_method(
+            method_name,
+            "typed batched text drawing",
+        )
+        reused = _renderer(self)._call(
+            "typed batched text drawing",
+            batch,
+            records,
+            utf8,
+            style,
+            matrix,
+        )
+        if final and reused is True:
+            _renderer(self)._skip_canvas_end_frame = True

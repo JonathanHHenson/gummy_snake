@@ -9,6 +9,10 @@ from typing import cast
 from gummysnake import constants as c
 from gummysnake.assets.image import Image
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
+    pack_adjust_prefix_effect,
+    pack_filter_effect,
+)
 from gummysnake.backend.canvas_runtime.renderer.pixel_support.uploads import (
     blend_image as _blend_image_impl,
 )
@@ -151,19 +155,24 @@ class CanvasRendererPixelsMixin:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_region_effect_passes")
         _renderer(self)._call(
-            "pixel prefix adjustment",
-            _renderer(self)._require_canvas().adjust_pixel_prefix,
-            int(byte_limit),
-            int(stride),
-            int(red_delta),
-            int(green_delta),
+            "typed pixel prefix adjustment",
+            _renderer(self)._require_canvas_method(
+                "apply_effects_packed",
+                "typed pixel effect recording",
+            ),
+            pack_adjust_prefix_effect(byte_limit, stride, red_delta, green_delta),
         )
 
     def filter_pixels(self, mode: c.ImageFilter, value: float | None = None) -> None:
         _renderer(self)._flush_line_batch()
         _renderer(self)._count("gpu_region_effect_passes")
         _renderer(self)._call(
-            "pixel filter", _renderer(self)._require_canvas().filter_pixels, mode.value, value
+            "typed pixel filter",
+            _renderer(self)._require_canvas_method(
+                "apply_effects_packed",
+                "typed pixel effect recording",
+            ),
+            pack_filter_effect(mode, value),
         )
 
     def blend_region(

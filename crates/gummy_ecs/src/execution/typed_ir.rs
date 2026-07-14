@@ -11,13 +11,13 @@ use crate::plan::typed_ir::{
 use crate::plan::{ActionNode, ExprNode, PhysicalPlan, SpatialRelationNode};
 
 #[derive(Debug, Clone, Copy)]
-pub(in crate::execution) struct TypedSpatialRelation {
+pub(crate) struct TypedSpatialRelation {
     pub(in crate::execution) algorithm: SpatialAlgorithmKind,
     pub(in crate::execution) pair_policy: PairPolicy,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(in crate::execution) enum TypedExpr {
+pub(crate) enum TypedExpr {
     Other,
     Unary(UnaryOp),
     Binary(BinaryOp),
@@ -27,19 +27,19 @@ pub(in crate::execution) enum TypedExpr {
 }
 
 #[derive(Debug, Clone)]
-pub(in crate::execution) enum TypedAction {
+pub(crate) enum TypedAction {
     Other,
     CanvasCommand(CanvasCommandKind),
 }
 
 #[derive(Debug, Clone)]
-pub(in crate::execution) struct TypedExecutorPlan {
+pub(crate) struct TypedExecutorPlan {
     expressions: Vec<TypedExpr>,
     actions: Vec<TypedAction>,
 }
 
 impl TypedExecutorPlan {
-    pub(in crate::execution) fn compile(plan: &PhysicalPlan) -> Self {
+    pub(crate) fn compile(plan: &PhysicalPlan) -> Self {
         Self {
             expressions: plan.expressions.iter().map(TypedExpr::compile).collect(),
             actions: plan.actions.iter().map(TypedAction::compile).collect(),

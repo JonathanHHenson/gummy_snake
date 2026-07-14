@@ -1,3 +1,6 @@
+use crate::frame_commands::{
+    ensure_record_size, read_f64, FrameCommandFamily, MODEL_TRANSFORM_RECORD_BYTES,
+};
 use crate::prelude::*;
 
 impl Canvas {
@@ -137,6 +140,46 @@ impl Canvas {
         Err(PyValueError::new_err(
             "CPU 3D model batch projection fallback is disabled; model drawing requires the retained GPU model path.",
         ))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn draw_model_shaded_batch_packed_impl(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        lights: &Bound<'_, PyAny>,
+        normal_material: bool,
+        cull_backfaces: bool,
+        transforms: &[u8],
+    ) -> PyResult<()> {
+        ensure_record_size(transforms, "model transform", MODEL_TRANSFORM_RECORD_BYTES)?;
+        let parsed = transforms
+            .chunks_exact(MODEL_TRANSFORM_RECORD_BYTES)
+            .map(|record| {
+                (0..16)
+                    .map(|index| read_f64(record, index * 8))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let record_count = parsed.len();
+        self.draw_model_shaded_batch_impl(
+            model,
+            camera,
+            projection,
+            viewport_width,
+            viewport_height,
+            material,
+            lights,
+            normal_material,
+            cull_backfaces,
+            parsed,
+        )?;
+        self.record_frame_command_ingress(FrameCommandFamily::Model, &[transforms], record_count);
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]

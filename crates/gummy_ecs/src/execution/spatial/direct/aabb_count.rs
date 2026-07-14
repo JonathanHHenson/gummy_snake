@@ -99,11 +99,15 @@ impl<'a> PlanExecutor<'a> {
         if origin_rows.is_empty() {
             return Ok(true);
         }
+        let empty_context = EvalContext::new(
+            self.prepared.query_slot_count(),
+            self.prepared.loop_slot_count(),
+        );
         let small_target_records = self
             .query_rows
             .get(&relation.item_query)
             .is_some_and(|rows| rows.len() <= 128)
-            .then(|| self.build_spatial_records(relation, &EvalContext::default()))
+            .then(|| self.build_spatial_records(relation, &empty_context))
             .transpose()?;
         let direct_origin = if small_target_records.is_some() {
             self.compile_direct_row_spatial_input(relation, &origin_rows)?
@@ -356,10 +360,13 @@ impl<'a> PlanExecutor<'a> {
         direct_origin: Option<&DirectRowSpatialInput>,
         distance_filter: Option<SpatialDistanceFilter>,
     ) -> Result<usize> {
+        let origin_slot = self.query_slot(&relation.origin_query)?;
         let Some(target_records) = small_target_records else {
-            let mut ctx = EvalContext::default();
-            ctx.bindings
-                .insert(relation.origin_query.clone(), origin_entity);
+            let mut ctx = EvalContext::new(
+                self.prepared.query_slot_count(),
+                self.prepared.loop_slot_count(),
+            );
+            ctx.bindings[origin_slot] = Some(origin_entity);
             return self
                 .try_count_spatial_relation(relation, &ctx)?
                 .ok_or_else(|| {
@@ -369,9 +376,11 @@ impl<'a> PlanExecutor<'a> {
         let (origin_point, origin_bounds) = if let Some(direct_origin) = direct_origin {
             self.direct_origin_point_and_bounds(direct_origin, row_index)?
         } else {
-            let mut ctx = EvalContext::default();
-            ctx.bindings
-                .insert(relation.origin_query.clone(), origin_entity);
+            let mut ctx = EvalContext::new(
+                self.prepared.query_slot_count(),
+                self.prepared.loop_slot_count(),
+            );
+            ctx.bindings[origin_slot] = Some(origin_entity);
             let origin_point = self.eval_spatial_point(&relation.origin_position, &ctx)?;
             let origin_bounds = relation
                 .origin_bounds

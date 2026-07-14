@@ -2,7 +2,7 @@ use super::{ChangeEpoch, ChangeKind, World};
 use crate::archetype::ComponentRow;
 use crate::column::EcsValue;
 use crate::entity::Entity;
-use crate::query::{QueryFilter, QueryTerm};
+use crate::query::{QueryCardinality, QueryFilter, QueryTerm};
 use crate::schema::{ComponentSchema, FieldSchema, StorageType};
 
 fn register_position_velocity(world: &mut World) {
@@ -212,7 +212,7 @@ fn command_buffer_applies_in_submission_order() {
 }
 
 #[test]
-fn cached_queries_are_invalidated_by_structural_changes() {
+fn cached_queries_are_updated_incrementally_when_archetypes_appear() {
     let mut world = World::new();
     register_position_velocity(&mut world);
     let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
@@ -227,8 +227,9 @@ fn cached_queries_are_invalidated_by_structural_changes() {
     world.add_component_default(entity, "Velocity").unwrap();
     assert_eq!(world.query(["Velocity".to_string()]).unwrap(), vec![entity]);
     let diagnostics = world.diagnostics();
-    assert!(diagnostics.query_cache_hits >= 1);
-    assert!(diagnostics.query_cache_invalidations >= 1);
+    assert!(diagnostics.query_cache_hits >= 2);
+    assert_eq!(diagnostics.query_cache_invalidations, 0);
+    assert!(diagnostics.query_cache_refreshes >= 1);
     assert!(diagnostics.query_matched_archetypes >= 1);
     assert!(diagnostics.query_matched_rows >= 1);
 }
@@ -261,6 +262,153 @@ fn filtered_queries_support_required_and_excluded_tags() {
             .len(),
         2
     );
+}
+
+#[test]
+fn tags_do_not_create_component_archetypes_and_cached_filters_track_membership() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let archetypes_before_tags = world.archetype_count();
+    let heroes = QueryFilter::new([QueryTerm::WithTag("Hero".to_string())]);
+    assert!(world.query_filter(heroes.clone()).unwrap().is_empty());
+
+    for index in 0..128 {
+        world.add_tag(entity, &format!("tag-{index}")).unwrap();
+    }
+    world.add_tag(entity, "Hero").unwrap();
+    assert_eq!(world.archetype_count(), archetypes_before_tags);
+    assert_eq!(world.query_filter(heroes.clone()).unwrap(), vec![entity]);
+    world.remove_tag(entity, "Hero").unwrap();
+    assert!(world.query_filter(heroes).unwrap().is_empty());
+}
+
+#[test]
+fn stale_world_handles_are_rejected_after_dense_slot_reuse() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let stale = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world.despawn(stale).unwrap();
+    let current = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    assert_eq!(stale.index, current.index);
+    assert_ne!(stale.generation, current.generation);
+
+    assert!(world.get_field(stale, "Position", "x").is_err());
+    assert!(world.add_component_default(stale, "Velocity").is_err());
+    assert!(world.add_tag(stale, "stale").is_err());
+    assert_eq!(
+        world.query(["Position".to_string()]).unwrap(),
+        vec![current]
+    );
+}
+
+#[test]
+fn structural_moves_and_generation_reuse_preserve_raw_entity_order() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let first = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let reused_slot = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let third = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world.add_component_default(third, "Velocity").unwrap();
+    world.add_component_default(first, "Velocity").unwrap();
+    assert_eq!(
+        world.query(["Position".to_string()]).unwrap(),
+        vec![first, reused_slot, third]
+    );
+
+    world.despawn(reused_slot).unwrap();
+    let reused = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    assert_eq!(reused.index, reused_slot.index);
+    assert_eq!(
+        world.query(["Position".to_string()]).unwrap(),
+        vec![first, third, reused]
+    );
+}
+
+#[test]
+fn failed_structural_validation_leaves_the_world_unchanged() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let alive_before = world.alive_count();
+    let archetypes_before = world.archetype_count();
+    let components_before = world.entity_components(entity).unwrap();
+
+    assert!(world
+        .spawn_with_defaults(["Position".to_string(), "Missing".to_string()])
+        .is_err());
+    assert!(world.add_component_default(entity, "Missing").is_err());
+    assert_eq!(world.alive_count(), alive_before);
+    assert_eq!(world.archetype_count(), archetypes_before);
+    assert_eq!(world.entity_components(entity).unwrap(), components_before);
+}
+
+#[test]
+fn transition_edges_reuse_a_bounded_archetype_pair_under_churn() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    for _ in 0..64 {
+        world.add_component_default(entity, "Velocity").unwrap();
+        world.remove_component(entity, "Velocity").unwrap();
+    }
+    assert_eq!(world.archetype_count(), 2);
+    assert_eq!(
+        world.entity_components(entity).unwrap(),
+        vec!["Position".to_string()]
+    );
+}
+
+#[test]
+fn component_moves_preserve_exact_wide_integer_values() {
+    let mut world = World::new();
+    world
+        .register_schema(ComponentSchema::new(
+            "Counter",
+            vec![FieldSchema::new("value", StorageType::Int64)],
+        ))
+        .unwrap();
+    world
+        .register_schema(ComponentSchema::new(
+            "Marker",
+            vec![FieldSchema::new("value", StorageType::Bool)],
+        ))
+        .unwrap();
+    let entity = world.spawn_with_defaults(["Counter".to_string()]).unwrap();
+    let exact = 9_007_199_254_740_993_i64;
+    world
+        .set_field(entity, "Counter", "value", EcsValue::I64(exact))
+        .unwrap();
+    world.add_component_default(entity, "Marker").unwrap();
+    world.remove_component(entity, "Marker").unwrap();
+    assert_eq!(
+        world.get_field(entity, "Counter", "value").unwrap(),
+        EcsValue::I64(exact)
+    );
+}
+
+#[test]
+fn limit_aware_cardinality_stops_after_distinguishing_multiple_rows() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let filter = QueryFilter::new([QueryTerm::WithComponent("Position".to_string())]);
+    assert_eq!(
+        world.query_cardinality(filter.clone()).unwrap(),
+        QueryCardinality::Zero
+    );
+    let only = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    assert_eq!(
+        world.query_cardinality(filter.clone()).unwrap(),
+        QueryCardinality::One(only)
+    );
+    world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let before = world.diagnostics().query_matched_rows;
+    assert_eq!(
+        world.query_cardinality(filter).unwrap(),
+        QueryCardinality::Multiple
+    );
+    assert_eq!(world.diagnostics().query_matched_rows - before, 2);
 }
 
 #[test]
@@ -557,7 +705,7 @@ fn swap_removal_repairs_the_moved_entity_location() {
 }
 
 #[test]
-fn clone_resets_derived_query_caches() {
+fn clone_preserves_exact_incremental_query_caches() {
     let mut world = World::new();
     register_position_velocity(&mut world);
     world.spawn_with_defaults(["Position".to_string()]).unwrap();
@@ -571,11 +719,11 @@ fn clone_resets_derived_query_caches() {
     let clone_diagnostics = cloned.diagnostics();
     assert_eq!(
         clone_diagnostics.query_cache_misses,
-        before_clone.query_cache_misses + 1
+        before_clone.query_cache_misses
     );
     assert_eq!(
         clone_diagnostics.query_cache_hits,
-        before_clone.query_cache_hits
+        before_clone.query_cache_hits + 1
     );
 }
 

@@ -4,6 +4,7 @@ use crate::prelude::*;
 impl Canvas {
     pub(crate) fn begin_frame_impl(&mut self) {
         self.performance_counters.bridge_calls += 1;
+        self.begin_frame_command_generation();
         self.cpu_compositing_active = false;
         self.image_text_active_this_frame = false;
         self.pending_reusable_text_frame_signature = None;
@@ -32,11 +33,6 @@ impl Canvas {
             self.render_dirty = false;
         }
         if let Some(runtime) = self.runtime.as_mut() {
-            runtime.pump_events().map_err(|err| {
-                PyValueError::new_err(format!(
-                    "Failed to pump native canvas events before present: {err}"
-                ))
-            })?;
             if runtime.should_close() {
                 self.closed = true;
                 return Ok(());

@@ -4,10 +4,10 @@ use std::sync::Arc;
 use crate::gpu::context::GpuDeviceContext;
 use crate::gpu::setup::pipelines::create_pipeline_resources;
 use crate::gpu::setup::resources::{
-    checked_texture_size, create_default_clip_textures, create_depth_texture,
-    create_linear_texture_sampler, create_model_uniform_bind_group, create_model_uniform_buffer,
-    create_nearest_texture_sampler, create_offscreen_texture, create_pixel_prefix_bind_group,
-    create_pixel_prefix_texture, create_text_resources, create_viewport_bind_group,
+    checked_texture_size, create_default_clip_textures, create_linear_texture_sampler,
+    create_model_uniform_bind_group, create_model_uniform_buffer, create_nearest_texture_sampler,
+    create_offscreen_texture, create_pixel_prefix_bind_group, create_pixel_prefix_texture,
+    create_text_resources, create_viewport_bind_group,
 };
 use crate::gpu::types::*;
 
@@ -56,8 +56,6 @@ impl GpuRenderer {
         let texture_size = checked_texture_size(width, height, limits.max_texture_dimension_2d)?;
         let texture = create_offscreen_texture(device, texture_size);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let depth_texture = create_depth_texture(device, texture_size);
-        let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let pixel_prefix_texture = create_pixel_prefix_texture(device, texture_size);
         let pixel_prefix_texture_view =
             pixel_prefix_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -78,8 +76,8 @@ impl GpuRenderer {
             device_context,
             texture,
             texture_view,
-            depth_texture,
-            depth_texture_view,
+            depth_attachment: None,
+            depth_attachment_allocations: 0,
             texture_size,
             pipeline: pipelines.pipeline,
             primitive_pipelines: pipelines.primitive_pipelines,
@@ -146,6 +144,9 @@ impl GpuRenderer {
             stroke_path_record_capacity: 0,
             image_vertex_buffer: None,
             image_vertex_capacity: 0,
+            readback_buffer: None,
+            readback_buffer_capacity: 0,
+            readback_buffer_allocations: 0,
             vertex_buffer_allocations: 0,
             vertex_uploads: 0,
             uploaded_vertex_bytes: 0,
@@ -162,7 +163,7 @@ impl GpuRenderer {
             #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
             surface: None,
         };
-        renderer.resize(width, height)?;
+        renderer.write_viewport(texture_size.width, texture_size.height);
         renderer.draw_text(
             ".".to_string(),
             0.0,
@@ -196,5 +197,20 @@ impl GpuRenderer {
     #[cfg(test)]
     pub(in crate::gpu) fn device_context(&self) -> &Arc<GpuDeviceContext> {
         &self.device_context
+    }
+
+    #[cfg(test)]
+    pub(in crate::gpu) fn has_depth_attachment(&self) -> bool {
+        self.depth_attachment.is_some()
+    }
+
+    #[cfg(test)]
+    pub(in crate::gpu) fn depth_attachment_allocation_count(&self) -> u64 {
+        self.depth_attachment_allocations
+    }
+
+    #[cfg(test)]
+    pub(in crate::gpu) fn readback_buffer_allocation_count(&self) -> u64 {
+        self.readback_buffer_allocations
     }
 }

@@ -190,6 +190,43 @@ impl StorageType {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ComponentId(u32);
+
+impl ComponentId {
+    pub const fn new(raw: u32) -> Self {
+        Self(raw)
+    }
+
+    pub const fn index(self) -> usize {
+        self.0 as usize
+    }
+
+    pub const fn raw(self) -> u32 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct FieldId {
+    component: ComponentId,
+    field: u16,
+}
+
+impl FieldId {
+    pub const fn new(component: ComponentId, field: u16) -> Self {
+        Self { component, field }
+    }
+
+    pub const fn component(self) -> ComponentId {
+        self.component
+    }
+
+    pub const fn index(self) -> usize {
+        self.field as usize
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldSchema {
     pub name: String,
@@ -235,8 +272,10 @@ impl ComponentSchema {
 #[derive(Debug, Default, Clone)]
 pub struct SchemaRegistry {
     schemas: HashMap<String, ComponentSchema>,
-    component_ids: HashMap<String, u32>,
-    next_component_id: u32,
+    component_ids: HashMap<String, ComponentId>,
+    schemas_by_id: Vec<ComponentSchema>,
+    version: u64,
+    fingerprint: u64,
 }
 
 impl SchemaRegistry {
@@ -253,9 +292,13 @@ impl SchemaRegistry {
             return Err(EcsError::DuplicateSchema(schema.name));
         }
         let name = schema.name.clone();
-        self.schemas.insert(name.clone(), schema);
-        self.component_ids.insert(name, self.next_component_id);
-        self.next_component_id = self.next_component_id.wrapping_add(1);
+        let id = ComponentId::new(self.schemas_by_id.len() as u32);
+        let schema_hash = hash_schema(&schema);
+        self.schemas.insert(name.clone(), schema.clone());
+        self.component_ids.insert(name, id);
+        self.schemas_by_id.push(schema);
+        self.version = self.version.saturating_add(1);
+        self.fingerprint ^= schema_hash.rotate_left((schema_hash & 63) as u32);
         Ok(())
     }
 
@@ -267,8 +310,32 @@ impl SchemaRegistry {
         self.schemas.contains_key(name)
     }
 
-    pub fn component_id(&self, name: &str) -> Option<u32> {
+    pub fn component_id(&self, name: &str) -> Option<ComponentId> {
         self.component_ids.get(name).copied()
+    }
+
+    pub fn get_by_id(&self, id: ComponentId) -> Option<&ComponentSchema> {
+        self.schemas_by_id.get(id.index())
+    }
+
+    pub fn field_id(&self, component: &str, field: &str) -> Option<FieldId> {
+        let component_id = self.component_id(component)?;
+        let schema = self.get_by_id(component_id)?;
+        let field_index = schema
+            .fields
+            .iter()
+            .position(|candidate| candidate.name == field)?;
+        u16::try_from(field_index)
+            .ok()
+            .map(|field| FieldId::new(component_id, field))
+    }
+
+    pub fn field_schema(&self, id: FieldId) -> Option<&FieldSchema> {
+        self.get_by_id(id.component())?.fields.get(id.index())
+    }
+
+    pub fn component_name(&self, id: ComponentId) -> Option<&str> {
+        self.get_by_id(id).map(|schema| schema.name.as_str())
     }
 
     pub fn all(&self) -> &HashMap<String, ComponentSchema> {
@@ -283,21 +350,23 @@ impl SchemaRegistry {
         self.schemas.is_empty()
     }
 
-    pub fn fingerprint(&self) -> u64 {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        let mut names = self.schemas.keys().collect::<Vec<_>>();
-        names.sort();
-        for name in names {
-            name.hash(&mut hasher);
-            if let Some(schema) = self.schemas.get(name) {
-                for field in &schema.fields {
-                    field.name.hash(&mut hasher);
-                    field.storage_type.hash(&mut hasher);
-                }
-            }
-        }
-        hasher.finish()
+    pub const fn version(&self) -> u64 {
+        self.version
     }
+
+    pub const fn fingerprint(&self) -> u64 {
+        self.fingerprint
+    }
+}
+
+fn hash_schema(schema: &ComponentSchema) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    schema.name.hash(&mut hasher);
+    for field in &schema.fields {
+        field.name.hash(&mut hasher);
+        field.storage_type.hash(&mut hasher);
+    }
+    hasher.finish()
 }
 
 #[cfg(test)]
@@ -311,9 +380,37 @@ mod tests {
             ComponentSchema::new("Health", vec![FieldSchema::new("hp", StorageType::Int32)]);
         registry.register(schema.clone()).unwrap();
         let first_id = registry.component_id("Health").unwrap();
+        let first_field = registry.field_id("Health", "hp").unwrap();
+        let first_version = registry.version();
+        let first_fingerprint = registry.fingerprint();
         registry.register(schema).unwrap();
         assert_eq!(registry.component_id("Health"), Some(first_id));
+        assert_eq!(registry.field_id("Health", "hp"), Some(first_field));
+        assert_eq!(registry.version(), first_version);
+        assert_eq!(registry.fingerprint(), first_fingerprint);
         assert_eq!(registry.len(), 1);
+    }
+
+    #[test]
+    fn schema_fingerprint_is_incremental_and_registration_order_independent() {
+        let health =
+            ComponentSchema::new("Health", vec![FieldSchema::new("hp", StorageType::Int32)]);
+        let position = ComponentSchema::new(
+            "Position",
+            vec![FieldSchema::new("x", StorageType::Float64)],
+        );
+        let mut first = SchemaRegistry::new();
+        first.register(health.clone()).unwrap();
+        first.register(position.clone()).unwrap();
+        let mut second = SchemaRegistry::new();
+        second.register(position).unwrap();
+        second.register(health).unwrap();
+        assert_eq!(first.version(), 2);
+        assert_eq!(first.fingerprint(), second.fingerprint());
+        assert_eq!(
+            first.field_schema(first.field_id("Position", "x").unwrap()),
+            Some(&FieldSchema::new("x", StorageType::Float64))
+        );
     }
 
     #[test]

@@ -536,10 +536,13 @@ gs.configure_ecs(warn_on_ambiguity=False)
 Strict mode raises on ambiguous duplicate writes or overlapping
 `do_in_parallel()` writes. With strict mode off, execution stays deterministic and
 warnings can be suppressed while diagnostics still count the ambiguity. Diagnostics
-also count schedule rebuilds, run-condition skips, Rust compiled physical plan
-handles, Rust physical plan compiles and runs, UDF calls, spatial index builds,
-candidate rows, exact rows, false positives, deduplicated spatial pairs, and
-per-algorithm spatial index builds.
+also count schedule rebuilds and waves, fixed-slot executor runs, Rust compiled
+handles, prepared-plan cache hits/misses/reuse and bytes, physical plan runs, world
+clones, UDF calls, bounded event-ring records/drops/bytes, typed resource-row bytes,
+spatial index owners/cache entries/builds/candidate and exact rows, and ECS canvas
+Python replay/materialization. A normal Rust-only system should keep UDF calls and
+Python canvas materialization at zero; nonzero values identify an explicit boundary
+or an ECS canvas family that has not yet moved to direct Rust replay.
 
 Inspect counters with:
 

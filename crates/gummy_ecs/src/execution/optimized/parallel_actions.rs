@@ -24,6 +24,7 @@ impl<'a> PlanExecutor<'a> {
             return self.execute_parallel_set_fields(children, contexts);
         }
 
+        self.world.note_world_clone();
         let snapshot = self.world.clone();
         let mut targets_seen = HashSet::new();
         let mut shared_spatial_indexes = HashMap::new();
@@ -38,7 +39,7 @@ impl<'a> PlanExecutor<'a> {
             let mut child_world = snapshot.clone();
             let mut child_executor = PlanExecutor::new(
                 &mut child_world,
-                self.plan,
+                self.prepared,
                 self.query_rows.clone(),
                 self.query_indices.clone(),
                 true,
@@ -101,7 +102,7 @@ impl<'a> PlanExecutor<'a> {
             let parallel_start = profile.then(Instant::now);
             let mut collector = PlanExecutor::new(
                 &mut *self.world,
-                self.plan,
+                self.prepared,
                 query_rows,
                 query_indices,
                 self.report_writes,
@@ -415,12 +416,10 @@ impl<'a> PlanExecutor<'a> {
                 component,
                 field,
             } => {
-                let entity = *ctx.bindings.get(query).ok_or_else(|| {
+                let entity = self.bound_entity(ctx, query).map_err(|_| {
                     EcsError::InvalidPlan(format!("query '{query}' is not bound for set target"))
                 })?;
-                let value = self
-                    .world
-                    .coerce_value_for_component_field(component, field, value)?;
+                let value = self.coerce_plan_field_value(component, field, value)?;
                 let key = WriteKey::Component {
                     entity,
                     component: component.clone(),
@@ -437,9 +436,7 @@ impl<'a> PlanExecutor<'a> {
                 })
             }
             ExprNode::ResourceField { resource, field } => {
-                let value = self
-                    .world
-                    .coerce_value_for_component_field(resource, field, value)?;
+                let value = self.coerce_plan_field_value(resource, field, value)?;
                 let key = WriteKey::Resource {
                     resource: resource.clone(),
                     field: field.clone(),

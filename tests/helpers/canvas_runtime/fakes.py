@@ -79,6 +79,17 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
     def display_density(self) -> float:
         return 1.0 if not self.window_open else max(1.0, self.pixel_density)
 
+    def frame_command_diagnostics(self) -> dict[str, int]:
+        return {
+            "abi_version": 1,
+            "generation": 1,
+            "storage_bytes": 0,
+            "storage_capacity_bytes": 0,
+            "segments": 0,
+            "records": 0,
+            "segment_bytes": 0,
+        }
+
     def gpu_available(self) -> bool:
         return True
 
@@ -101,9 +112,6 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
         events = self.events
         self.events = []
         return events
-
-    def pump_native_events(self) -> bool:
-        return self.closed
 
     def request_pointer_lock(self) -> bool:
         if not self.window_open:
@@ -256,11 +264,59 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
         self.calls.append(("replay_fill_primitive_batch",))
         return True
 
+    def polygon_packed(
+        self,
+        points: bytes,
+        contour_ends: bytes,
+        style: dict[str, object],
+        matrix: tuple[float, float, float, float, float, float],
+        close: bool,
+    ) -> None:
+        groups = self._decode_path(points, contour_ends)
+        name = "polygon" if len(groups) == 1 else "complex_polygon"
+        args: tuple[object, ...] = (groups[0],) if len(groups) == 1 else (groups[0], groups[1:])
+        self.calls.append((name, *args, style, matrix, close))
+
+    def polygon_current_packed(self, points: bytes, contour_ends: bytes, close: bool) -> None:
+        groups = self._decode_path(points, contour_ends)
+        name = "polygon_current" if len(groups) == 1 else "complex_polygon_current"
+        args: tuple[object, ...] = (groups[0],) if len(groups) == 1 else (groups[0], groups[1:])
+        self.calls.append((name, *args, close))
+
+    @staticmethod
+    def _decode_path(points: bytes, contour_ends: bytes) -> list[list[tuple[float, float]]]:
+        point_format = Struct("<2d")
+        all_points = [
+            point_format.unpack_from(points, offset)
+            for offset in range(0, len(points), point_format.size)
+        ]
+        end_format = Struct("<I")
+        groups: list[list[tuple[float, float]]] = []
+        start = 0
+        for offset in range(0, len(contour_ends), end_format.size):
+            (end,) = end_format.unpack_from(contour_ends, offset)
+            groups.append(all_points[start:end])
+            start = end
+        return groups
+
     def polygon(self, *args: object) -> None:
         self.calls.append(("polygon", *args))
 
     def complex_polygon(self, *args: object) -> None:
         self.calls.append(("complex_polygon", *args))
+
+    def begin_clip_packed(
+        self,
+        points: bytes,
+        contour_ends: bytes,
+        matrix: tuple[float, float, float, float, float, float],
+    ) -> None:
+        groups = self._decode_path(points, contour_ends)
+        self.calls.append(("begin_clip", groups[0], groups[1:], matrix))
+
+    def begin_clip_current_packed(self, points: bytes, contour_ends: bytes) -> None:
+        groups = self._decode_path(points, contour_ends)
+        self.calls.append(("begin_clip_current", groups[0], groups[1:]))
 
     def begin_clip(self, *args: object) -> None:
         self.calls.append(("begin_clip", *args))
@@ -292,11 +348,52 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
     def draw_canvas_image(self, *args: object) -> None:
         self.calls.append(("draw_canvas_image", *args))
 
+    def batch_canvas_images_packed(
+        self,
+        payload: bytes,
+        images: list[object],
+        style: dict[str, object],
+    ) -> None:
+        record_format = Struct("<IB3x4d4i6d")
+        records = []
+        for offset in range(0, len(payload), record_format.size):
+            record = record_format.unpack_from(payload, offset)
+            image_index, flags, dx, dy, dw, dh, sx, sy, sw, sh, *matrix = record
+            source = (sx, sy, sw, sh) if flags & 1 else None
+            records.append((images[image_index], dx, dy, dw, dh, source, tuple(matrix)))
+        self.calls.append(("batch_canvas_images", records, style))
+
     def batch_canvas_images(self, *args: object) -> None:
         self.calls.append(("batch_canvas_images", *args))
 
+    def _draw_model_shaded_batch_packed(self, *args: object) -> None:
+        transforms = cast(bytes, args[-1])
+        record_format = Struct("<16d")
+        decoded = [
+            record_format.unpack_from(transforms, offset)
+            for offset in range(0, len(transforms), record_format.size)
+        ]
+        self.calls.append(("draw_model_shaded_batch", *args[:-1], decoded))
+
     def text(self, *args: object) -> None:
         self.calls.append(("text", *args))
+
+    @staticmethod
+    def _decode_text_batch(records: bytes, utf8: bytes) -> list[tuple[str, float, float]]:
+        record_format = Struct("<II2d")
+        items = []
+        for offset in range(0, len(records), record_format.size):
+            text_offset, length, x, y = record_format.unpack_from(records, offset)
+            items.append((utf8[text_offset : text_offset + length].decode(), x, y))
+        return items
+
+    def text_batch_packed(self, records: bytes, utf8: bytes, *args: object) -> bool:
+        self.calls.append(("text_batch", self._decode_text_batch(records, utf8), *args))
+        return False
+
+    def text_batch_frame_packed(self, records: bytes, utf8: bytes, *args: object) -> bool:
+        self.calls.append(("text_batch_frame", self._decode_text_batch(records, utf8), *args))
+        return False
 
     def text_batch(self, *args: object) -> None:
         self.calls.append(("text_batch", *args))
@@ -330,6 +427,28 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
     def text_descent_current(self) -> float:
         self.calls.append(("text_descent_current",))
         return 2.4
+
+    def apply_effects_packed(self, payload: bytes) -> None:
+        record_format = Struct("<BB6xQQiid")
+        for offset in range(0, len(payload), record_format.size):
+            kind, mode, first, second, third, fourth, value = record_format.unpack_from(
+                payload, offset
+            )
+            if kind == 1:
+                self.calls.append(("adjust_pixel_prefix", first, second, third, fourth))
+            elif kind == 2:
+                names = {
+                    1: "gray",
+                    2: "invert",
+                    3: "threshold",
+                    4: "blur",
+                    5: "posterize",
+                    6: "erode",
+                    7: "dilate",
+                }
+                self.calls.append(
+                    ("filter_pixels", names[mode & 0x7F], value if mode & 0x80 else None)
+                )
 
     def load_pixels(self) -> bytes:
         return self.pixels

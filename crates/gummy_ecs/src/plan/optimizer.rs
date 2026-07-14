@@ -1,5 +1,6 @@
 use crate::column::EcsValue;
 use crate::error::{EcsError, Result};
+use crate::execution::interpreter::value_ops::{eval_binary, eval_unary};
 
 use super::typed_ir::{BinaryOp, UnaryOp};
 use super::{ActionNode, BridgePlanPayload, ExprNode, PhysicalPlan};
@@ -73,22 +74,16 @@ fn fold_unary_literal(op: &str, value: EcsValue) -> Result<EcsValue> {
             "cannot constant-fold unsupported unary op {op}"
         )));
     }
-    match UnaryOp::parse(op) {
-        UnaryOp::Not => Ok(EcsValue::Bool(!truthy_literal(&value)?)),
-        UnaryOp::Neg => Ok(EcsValue::F64(-numeric_literal_f64(&value)?)),
-        UnaryOp::Abs => Ok(EcsValue::F64(numeric_literal_f64(&value)?.abs())),
-        UnaryOp::Sqrt => Ok(EcsValue::F64(numeric_literal_f64(&value)?.sqrt())),
-        UnaryOp::Sin => Ok(EcsValue::F64(numeric_literal_f64(&value)?.sin())),
-        UnaryOp::Cos => Ok(EcsValue::F64(numeric_literal_f64(&value)?.cos())),
-        UnaryOp::Floor => Ok(EcsValue::F64(numeric_literal_f64(&value)?.floor())),
-        UnaryOp::Ceil => Ok(EcsValue::F64(numeric_literal_f64(&value)?.ceil())),
-        // `pos` was historically accepted only by constant folding. Retain
-        // that wire behaviour without treating it as an executable unary op.
-        _ if matches!(op, "pos" | "+") => Ok(EcsValue::F64(numeric_literal_f64(&value)?)),
-        UnaryOp::Unknown => Err(EcsError::InvalidPlan(format!(
-            "cannot constant-fold unsupported unary op {op}"
-        ))),
+    if matches!(op, "pos" | "+") {
+        return match value {
+            EcsValue::I64(_) | EcsValue::U64(_) | EcsValue::F64(_) => Ok(value),
+            other => Err(EcsError::InvalidPlan(format!(
+                "cannot constant-fold unary pos for literal {}",
+                other.kind_name()
+            ))),
+        };
     }
+    eval_unary(UnaryOp::parse(op), op, value)
 }
 
 fn fold_binary_literal(op: &str, left: EcsValue, right: EcsValue) -> Result<EcsValue> {
@@ -99,58 +94,7 @@ fn fold_binary_literal(op: &str, left: EcsValue, right: EcsValue) -> Result<EcsV
             "cannot constant-fold unsupported binary op {op}"
         )));
     }
-    match BinaryOp::parse(op) {
-        BinaryOp::And => Ok(EcsValue::Bool(
-            truthy_literal(&left)? && truthy_literal(&right)?,
-        )),
-        BinaryOp::Or => Ok(EcsValue::Bool(
-            truthy_literal(&left)? || truthy_literal(&right)?,
-        )),
-        BinaryOp::Add => Ok(EcsValue::F64(
-            numeric_literal_f64(&left)? + numeric_literal_f64(&right)?,
-        )),
-        BinaryOp::Sub => Ok(EcsValue::F64(
-            numeric_literal_f64(&left)? - numeric_literal_f64(&right)?,
-        )),
-        BinaryOp::Mul => Ok(EcsValue::F64(
-            numeric_literal_f64(&left)? * numeric_literal_f64(&right)?,
-        )),
-        BinaryOp::TrueDiv => Ok(EcsValue::F64(
-            numeric_literal_f64(&left)? / numeric_literal_f64(&right)?,
-        )),
-        BinaryOp::FloorDiv => Ok(EcsValue::F64(
-            (numeric_literal_f64(&left)? / numeric_literal_f64(&right)?).floor(),
-        )),
-        BinaryOp::Mod => Ok(EcsValue::F64(
-            numeric_literal_f64(&left)? % numeric_literal_f64(&right)?,
-        )),
-        BinaryOp::Pow => Ok(EcsValue::F64(
-            numeric_literal_f64(&left)?.powf(numeric_literal_f64(&right)?),
-        )),
-        BinaryOp::Lt => Ok(EcsValue::Bool(
-            numeric_literal_f64(&left)? < numeric_literal_f64(&right)?,
-        )),
-        BinaryOp::Le => Ok(EcsValue::Bool(
-            numeric_literal_f64(&left)? <= numeric_literal_f64(&right)?,
-        )),
-        BinaryOp::Gt => Ok(EcsValue::Bool(
-            numeric_literal_f64(&left)? > numeric_literal_f64(&right)?,
-        )),
-        BinaryOp::Ge => Ok(EcsValue::Bool(
-            numeric_literal_f64(&left)? >= numeric_literal_f64(&right)?,
-        )),
-        BinaryOp::Eq => Ok(EcsValue::Bool(left == right)),
-        BinaryOp::Ne => Ok(EcsValue::Bool(left != right)),
-        BinaryOp::Min => Ok(EcsValue::F64(
-            numeric_literal_f64(&left)?.min(numeric_literal_f64(&right)?),
-        )),
-        BinaryOp::Max => Ok(EcsValue::F64(
-            numeric_literal_f64(&left)?.max(numeric_literal_f64(&right)?),
-        )),
-        BinaryOp::Unknown => Err(EcsError::InvalidPlan(format!(
-            "cannot constant-fold unsupported binary op {op}"
-        ))),
-    }
+    eval_binary(BinaryOp::parse(op), op, left, right)
 }
 
 fn fold_attribute_literal(value: EcsValue, attribute: &str) -> Option<EcsValue> {
@@ -162,32 +106,6 @@ fn fold_attribute_literal(value: EcsValue, attribute: &str) -> Option<EcsValue> 
         (EcsValue::Vec3F64(value), "y") => Some(EcsValue::F64(value[1])),
         (EcsValue::Vec3F64(value), "z") => Some(EcsValue::F64(value[2])),
         _ => None,
-    }
-}
-
-fn numeric_literal_f64(value: &EcsValue) -> Result<f64> {
-    match value {
-        EcsValue::F64(value) => Ok(*value),
-        EcsValue::I64(value) => Ok(*value as f64),
-        EcsValue::U64(value) => Ok(*value as f64),
-        EcsValue::Bool(value) => Ok(if *value { 1.0 } else { 0.0 }),
-        other => Err(EcsError::InvalidPlan(format!(
-            "cannot constant-fold non-numeric literal {}",
-            other.kind_name()
-        ))),
-    }
-}
-
-fn truthy_literal(value: &EcsValue) -> Result<bool> {
-    match value {
-        EcsValue::Bool(value) => Ok(*value),
-        EcsValue::I64(value) => Ok(*value != 0),
-        EcsValue::U64(value) => Ok(*value != 0),
-        EcsValue::F64(value) => Ok(*value != 0.0),
-        other => Err(EcsError::InvalidPlan(format!(
-            "cannot constant-fold boolean op for literal {}",
-            other.kind_name()
-        ))),
     }
 }
 
@@ -233,4 +151,36 @@ fn simplify_actions(actions: &mut [ActionNode], root_action: usize) -> Result<()
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn constant_folding_preserves_exact_integer_values_and_overflow_errors() {
+        let value = 9_007_199_254_740_993_i64;
+        let mut expressions = vec![
+            ExprNode::LiteralI64(value),
+            ExprNode::LiteralI64(2),
+            ExprNode::Binary {
+                op: "add".to_string(),
+                left: 0,
+                right: 1,
+            },
+        ];
+        fold_constant_expressions(&mut expressions).unwrap();
+        assert_eq!(expressions[2], ExprNode::LiteralI64(value + 2));
+
+        let mut overflowing = vec![
+            ExprNode::LiteralI64(i64::MAX),
+            ExprNode::LiteralI64(1),
+            ExprNode::Binary {
+                op: "add".to_string(),
+                left: 0,
+                right: 1,
+            },
+        ];
+        assert!(fold_constant_expressions(&mut overflowing).is_err());
+    }
 }

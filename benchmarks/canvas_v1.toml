@@ -3,27 +3,56 @@ schema_version = 1
 
 [suite]
 id = "canvas"
-# Version 2 materializes new lifecycle, primitive/path, and feature case identities.
-version = 3
+version = 5
 
 [[workloads]]
 id = "lifecycle-hidpi"
-version = 1
-case_id = "headless-continuous-clear-loop"
+version = 2
+case_id = "headless-empty-startup-first-frame"
 execution_class = "headless"
 capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
-correctness = "continuous-clear-loop-exact-callback-and-frame-count"
+correctness = "empty-loop-exact-callback-frame-logical-physical-dimensions"
 sampling_profile = "canvas-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
-frames = 120
-expected_draw_callbacks = 120
-lifecycle_mode = "continuous-clear-loop"
+frames = 1
+expected_draw_callbacks = 1
+lifecycle_mode = "empty-loop"
 width = 64
 height = 48
 density = "1.0"
 frame_rate = 60
 dispatch_route = "global"
+required_counters = []
+[workloads.primary_metric]
+id = "lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "lifecycle-run"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
+case_id = "headless-clear-loop-30fps"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 30
+expected_draw_callbacks = 30
+lifecycle_mode = "continuous-clear-loop"
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 30
+dispatch_route = "global"
+required_counters = []
 [workloads.primary_metric]
 id = "frame-elapsed-ns"
 version = 1
@@ -36,11 +65,69 @@ precision = 3
 
 [[workloads]]
 id = "lifecycle-hidpi"
+version = 2
+case_id = "headless-clear-loop-60fps"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 60
+expected_draw_callbacks = 60
+lifecycle_mode = "continuous-clear-loop"
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+dispatch_route = "global"
+required_counters = []
+[workloads.primary_metric]
+id = "frame-elapsed-ns"
 version = 1
-case_id = "native-interactive-continuous-clear-loop"
+unit = "ns"
+work_unit = "frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
+case_id = "headless-clear-loop-120fps"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 120
+expected_draw_callbacks = 120
+lifecycle_mode = "continuous-clear-loop"
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 120
+dispatch_route = "global"
+required_counters = []
+[workloads.primary_metric]
+id = "frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
+case_id = "native-clear-loop-120-presented-frames"
 execution_class = "native-interactive"
 capabilities = ["canvas-runtime", "native-window"]
-correctness = "native-continuous-clear-loop-exact-callback-and-frame-count"
+correctness = "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions"
 sampling_profile = "canvas-native-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -65,11 +152,11 @@ precision = 3
 
 [[workloads]]
 id = "lifecycle-hidpi"
-version = 1
+version = 2
 case_id = "headless-explicit-redraw"
 execution_class = "headless"
 capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
-correctness = "explicit-redraw-exact-callback-and-frame-count"
+correctness = "explicit-redraw-exact-callback-frame-logical-physical-dimensions"
 sampling_profile = "canvas-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -81,6 +168,7 @@ height = 48
 density = "1.0"
 frame_rate = 60
 dispatch_route = "global"
+required_counters = []
 [workloads.primary_metric]
 id = "lifecycle-elapsed-ns"
 version = 1
@@ -93,40 +181,11 @@ precision = 3
 
 [[workloads]]
 id = "lifecycle-hidpi"
-version = 1
-case_id = "native-interactive-explicit-redraw"
-execution_class = "native-interactive"
-capabilities = ["canvas-runtime", "native-window"]
-correctness = "native-explicit-redraw-exact-callback-and-frame-count"
-sampling_profile = "canvas-native-bounded-v1"
-source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
-[workloads.parameters]
-frames = 2
-expected_draw_callbacks = 1
-lifecycle_mode = "explicit-redraw"
-width = 1280
-height = 720
-density = "2.0"
-frame_rate = 60
-dispatch_route = "global"
-required_counters = ["frames_presented"]
-[workloads.primary_metric]
-id = "lifecycle-elapsed-ns"
-version = 1
-unit = "ns"
-work_unit = "lifecycle-run"
-direction = "lower-is-better"
-transform = "ratio"
-zero_policy = "positive-baseline"
-precision = 3
-
-[[workloads]]
-id = "lifecycle-hidpi"
-version = 1
+version = 2
 case_id = "headless-no-loop-idle"
 execution_class = "headless"
 capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
-correctness = "no-loop-idle-exact-callback-and-frame-count"
+correctness = "no-loop-idle-exact-callback-frame-logical-physical-dimensions"
 sampling_profile = "canvas-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -138,6 +197,7 @@ height = 48
 density = "1.0"
 frame_rate = 60
 dispatch_route = "global"
+required_counters = []
 [workloads.primary_metric]
 id = "lifecycle-elapsed-ns"
 version = 1
@@ -150,11 +210,40 @@ precision = 3
 
 [[workloads]]
 id = "lifecycle-hidpi"
+version = 2
+case_id = "native-interactive-explicit-redraw"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window"]
+correctness = "explicit-redraw-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 2
+expected_draw_callbacks = 1
+lifecycle_mode = "explicit-redraw"
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+[workloads.primary_metric]
+id = "lifecycle-elapsed-ns"
 version = 1
+unit = "ns"
+work_unit = "lifecycle-run"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
 case_id = "native-interactive-no-loop-idle"
 execution_class = "native-interactive"
 capabilities = ["canvas-runtime", "native-window"]
-correctness = "native-no-loop-idle-exact-callback-and-frame-count"
+correctness = "no-loop-idle-exact-callback-frame-logical-physical-dimensions"
 sampling_profile = "canvas-native-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -178,12 +267,219 @@ zero_policy = "positive-baseline"
 precision = 3
 
 [[workloads]]
-id = "primitives-paths-order"
-version = 1
-case_id = "headless-uniform-primitives-1k"
+id = "lifecycle-hidpi"
+version = 2
+case_id = "headless-dynamic-frame-rate-30-60-120"
 execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "primitives", "pixel-readback"]
-correctness = "uniform-primitive-final-order-sentinel-and-declared-records"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "dynamic-frame-rate-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 4
+expected_draw_callbacks = 4
+lifecycle_mode = "dynamic-frame-rate"
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 30
+dispatch_route = "global"
+frame_rate_sequence = [30, 60, 120, 30]
+required_counters = []
+[workloads.primary_metric]
+id = "frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
+case_id = "native-dynamic-frame-rate-30-60-120"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window"]
+correctness = "dynamic-frame-rate-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 6
+expected_draw_callbacks = 6
+lifecycle_mode = "dynamic-frame-rate"
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 30
+dispatch_route = "global"
+frame_rate_sequence = [30, 60, 120, 120, 60, 30]
+required_counters = ["frames_presented"]
+[workloads.primary_metric]
+id = "frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
+case_id = "headless-hidpi-640x480-density-1-5"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "empty-loop-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+expected_draw_callbacks = 1
+lifecycle_mode = "empty-loop"
+width = 640
+height = 480
+density = "1.5"
+frame_rate = 60
+dispatch_route = "global"
+required_counters = []
+[workloads.primary_metric]
+id = "lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "lifecycle-run"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
+case_id = "headless-hidpi-1080p-density-2"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "empty-loop-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+expected_draw_callbacks = 1
+lifecycle_mode = "empty-loop"
+width = 1920
+height = 1080
+density = "2.0"
+frame_rate = 60
+dispatch_route = "global"
+required_counters = []
+[workloads.primary_metric]
+id = "lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "lifecycle-run"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
+case_id = "native-4k-density-1"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window"]
+correctness = "empty-loop-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+expected_draw_callbacks = 1
+lifecycle_mode = "empty-loop"
+width = 3840
+height = 2160
+density = "1.0"
+frame_rate = 60
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+[workloads.primary_metric]
+id = "lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "lifecycle-run"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
+case_id = "headless-resize-density-churn"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "resize-density-churn-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 4
+expected_draw_callbacks = 4
+lifecycle_mode = "resize-density-churn"
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+dispatch_route = "global"
+resize_sequence = [{ width = 640, height = 480, density = "1.0" }, { width = 960, height = 540, density = "1.5" }, { width = 1280, height = 720, density = "2.0" }, { width = 320, height = 180, density = "1.0" }]
+required_counters = []
+[workloads.primary_metric]
+id = "frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "lifecycle-hidpi"
+version = 2
+case_id = "native-interactive-resize-density-churn"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window"]
+correctness = "resize-density-churn-exact-callback-frame-logical-physical-dimensions"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 4
+expected_draw_callbacks = 4
+lifecycle_mode = "resize-density-churn"
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+dispatch_route = "global"
+resize_sequence = [{ width = 640, height = 480, density = "1.0" }, { width = 960, height = 540, density = "1.5" }, { width = 1280, height = 720, density = "2.0" }, { width = 320, height = 180, density = "1.0" }]
+required_counters = ["frames_presented"]
+[workloads.primary_metric]
+id = "frame-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-rect-1k-static-global"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives"]
+correctness = "uniform-primitives-declared-work-and-exact-order-sentinels"
 sampling_profile = "canvas-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -194,9 +490,10 @@ density = "1.0"
 frame_rate = 60
 draw_count = 1000
 case_kind = "uniform-primitives"
-primitive_kind = "rect"
 dispatch_route = "global"
-required_counters = ["primitive_batch_records", "packed_primitive_records", "packed_primitive_bytes"]
+primitive_kind = "rect"
+mutation_mode = "static"
+required_counters = ["primitive_batch_records"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
 version = 1
@@ -209,11 +506,135 @@ precision = 3
 
 [[workloads]]
 id = "primitives-paths-order"
+version = 2
+case_id = "headless-circle-10k-low-mutation"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives"]
+correctness = "uniform-primitives-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 10000
+case_kind = "uniform-primitives"
+dispatch_route = "global"
+primitive_kind = "circle"
+mutation_mode = "low-mutation"
+required_counters = ["primitive_batch_records"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
 version = 1
-case_id = "native-interactive-uniform-primitives-1k"
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "native-triangle-100k-dynamic"
 execution_class = "native-interactive"
 capabilities = ["canvas-runtime", "native-window", "primitives"]
-correctness = "native-uniform-primitive-final-order-sentinel-and-declared-records"
+correctness = "uniform-primitives-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+draw_count = 100000
+case_kind = "uniform-primitives"
+dispatch_route = "global"
+primitive_kind = "triangle"
+mutation_mode = "dynamic"
+required_counters = ["primitive_batch_records", "frames_presented"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-rect-1k-static-object"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives"]
+correctness = "uniform-primitives-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "uniform-primitives"
+dispatch_route = "object"
+primitive_kind = "rect"
+mutation_mode = "static"
+required_counters = ["primitive_batch_records"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-rect-1k-static-fast"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives"]
+correctness = "uniform-primitives-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "uniform-primitives"
+dispatch_route = "fast"
+primitive_kind = "rect"
+mutation_mode = "static"
+required_counters = ["primitive_batch_records"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "native-rect-1k-static-global"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "primitives"]
+correctness = "uniform-primitives-declared-work-and-exact-order-sentinels"
 sampling_profile = "canvas-native-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -224,9 +645,10 @@ density = "2.0"
 frame_rate = 60
 draw_count = 1000
 case_kind = "uniform-primitives"
+dispatch_route = "global"
 primitive_kind = "rect"
-dispatch_route = "global"
-required_counters = ["primitive_batch_records", "packed_primitive_records", "packed_primitive_bytes", "frames_presented"]
+mutation_mode = "static"
+required_counters = ["primitive_batch_records", "frames_presented"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
 version = 1
@@ -239,71 +661,11 @@ precision = 3
 
 [[workloads]]
 id = "primitives-paths-order"
-version = 1
-case_id = "headless-mixed-primitives-5k"
+version = 2
+case_id = "headless-mixed-1k-static-16-styles"
 execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "primitives", "pixel-readback"]
-correctness = "mixed-primitive-final-order-sentinel-and-declared-records"
-sampling_profile = "canvas-bounded-v1"
-source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
-[workloads.parameters]
-frames = 1
-width = 320
-height = 180
-density = "1.0"
-frame_rate = 60
-draw_count = 5000
-case_kind = "mixed-primitives"
-style_count = 16
-dispatch_route = "global"
-required_counters = ["primitive_batch_records", "packed_primitive_records", "packed_primitive_bytes"]
-[workloads.primary_metric]
-id = "draw-elapsed-ns"
-version = 1
-unit = "ns"
-work_unit = "draw-record"
-direction = "lower-is-better"
-transform = "ratio"
-zero_policy = "positive-baseline"
-precision = 3
-
-[[workloads]]
-id = "primitives-paths-order"
-version = 1
-case_id = "native-interactive-mixed-primitives-5k"
-execution_class = "native-interactive"
-capabilities = ["canvas-runtime", "native-window", "primitives"]
-correctness = "native-mixed-primitive-final-order-sentinel-and-declared-records"
-sampling_profile = "canvas-native-bounded-v1"
-source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
-[workloads.parameters]
-frames = 30
-width = 1280
-height = 720
-density = "2.0"
-frame_rate = 60
-draw_count = 5000
-case_kind = "mixed-primitives"
-style_count = 16
-dispatch_route = "global"
-required_counters = ["primitive_batch_records", "packed_primitive_records", "packed_primitive_bytes", "frames_presented"]
-[workloads.primary_metric]
-id = "draw-elapsed-ns"
-version = 1
-unit = "ns"
-work_unit = "draw-record"
-direction = "lower-is-better"
-transform = "ratio"
-zero_policy = "positive-baseline"
-precision = 3
-
-[[workloads]]
-id = "primitives-paths-order"
-version = 1
-case_id = "headless-paths-1k-by-32"
-execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "paths", "pixel-readback"]
-correctness = "path-final-order-sentinel-and-declared-records"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "mixed-primitives-declared-work-and-exact-order-sentinels"
 sampling_profile = "canvas-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -313,9 +675,132 @@ height = 180
 density = "1.0"
 frame_rate = 60
 draw_count = 1000
-case_kind = "paths"
-segments_per_path = 32
+case_kind = "mixed-primitives"
 dispatch_route = "global"
+style_count = 16
+mutation_mode = "static"
+required_counters = ["primitive_batch_records"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-mixed-5k-low-mutation-32-styles"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "mixed-primitives-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 5000
+case_kind = "mixed-primitives"
+dispatch_route = "global"
+style_count = 32
+mutation_mode = "low-mutation"
+required_counters = ["primitive_batch_records"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "native-mixed-20k-dynamic-64-styles"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "primitives", "paths"]
+correctness = "mixed-primitives-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+draw_count = 20000
+case_kind = "mixed-primitives"
+dispatch_route = "global"
+style_count = 64
+mutation_mode = "dynamic"
+required_counters = ["primitive_batch_records", "frames_presented"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-independent-lines-1k"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "independent-lines-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "independent-lines"
+dispatch_route = "global"
+segment_count = 1000
+required_counters = ["primitive_batch_records"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-polyline-10k"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "polyline-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 10000
+case_kind = "polyline"
+dispatch_route = "global"
+segment_count = 10000
 required_counters = ["direct_shape_finalizations"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
@@ -329,23 +814,53 @@ precision = 3
 
 [[workloads]]
 id = "primitives-paths-order"
-version = 1
-case_id = "native-interactive-paths-1k-by-32"
+version = 2
+case_id = "native-independent-lines-50k"
 execution_class = "native-interactive"
-capabilities = ["canvas-runtime", "native-window", "paths"]
-correctness = "native-path-final-order-sentinel-and-declared-records"
+capabilities = ["canvas-runtime", "native-window", "primitives", "paths"]
+correctness = "independent-lines-declared-work-and-exact-order-sentinels"
 sampling_profile = "canvas-native-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
-frames = 30
+frames = 1
 width = 1280
 height = 720
 density = "2.0"
 frame_rate = 60
-draw_count = 1000
-case_kind = "paths"
-segments_per_path = 32
+draw_count = 50000
+case_kind = "independent-lines"
 dispatch_route = "global"
+segment_count = 50000
+required_counters = ["primitive_batch_records", "frames_presented"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "native-polyline-50k"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "primitives", "paths"]
+correctness = "polyline-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+draw_count = 50000
+case_kind = "polyline"
+dispatch_route = "global"
+segment_count = 50000
 required_counters = ["direct_shape_finalizations", "frames_presented"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
@@ -359,11 +874,11 @@ precision = 3
 
 [[workloads]]
 id = "primitives-paths-order"
-version = 1
-case_id = "headless-nested-clips-depth-4-by-32"
+version = 2
+case_id = "headless-captured-paths-128-by-32"
 execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "paths", "clips", "pixel-readback"]
-correctness = "nested-clip-intersection-restoration-order-and-declared-records"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "paths-declared-work-and-exact-order-sentinels"
 sampling_profile = "canvas-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -372,11 +887,10 @@ width = 320
 height = 180
 density = "1.0"
 frame_rate = 60
-draw_count = 1000
-case_kind = "nested-clips"
-clip_depth = 4
-clip_segments = 32
+draw_count = 128
+case_kind = "paths"
 dispatch_route = "global"
+segments_per_path = 32
 required_counters = ["direct_shape_finalizations"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
@@ -390,11 +904,227 @@ precision = 3
 
 [[workloads]]
 id = "primitives-paths-order"
+version = 2
+case_id = "headless-captured-paths-8-by-4096"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "paths-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "paths"
+dispatch_route = "global"
+segments_per_path = 4096
+required_counters = ["direct_shape_finalizations"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
 version = 1
-case_id = "native-interactive-nested-clips-depth-4-by-32"
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-quadratic-curves-256"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "curves-contours-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 256
+case_kind = "curves-contours"
+dispatch_route = "global"
+curve_kind = "quadratic"
+segment_count = 256
+required_counters = ["direct_shape_finalizations"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-cubic-curves-256"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "curves-contours-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 256
+case_kind = "curves-contours"
+dispatch_route = "global"
+curve_kind = "cubic"
+segment_count = 256
+required_counters = ["direct_shape_finalizations"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-arc-curves-256"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "curves-contours-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 256
+case_kind = "curves-contours"
+dispatch_route = "global"
+curve_kind = "arc"
+segment_count = 256
+required_counters = ["direct_shape_finalizations"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-contour-hole-curves-256"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "curves-contours-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 256
+case_kind = "curves-contours"
+dispatch_route = "global"
+curve_kind = "contour-hole"
+segment_count = 256
+required_counters = ["direct_shape_finalizations"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-clips-depth-1-simple"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "nested-clips-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "nested-clips"
+dispatch_route = "global"
+clip_depth = 1
+clip_segments = 4
+required_counters = ["direct_shape_finalizations"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-clips-depth-4-by-32"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "nested-clips-declared-work-and-exact-order-sentinels"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "nested-clips"
+dispatch_route = "global"
+clip_depth = 4
+clip_segments = 32
+required_counters = ["direct_shape_finalizations"]
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "primitives-paths-order"
+version = 2
+case_id = "native-clips-depth-16-by-2048"
 execution_class = "native-interactive"
-capabilities = ["canvas-runtime", "native-window", "paths", "clips"]
-correctness = "native-nested-clip-intersection-restoration-order-and-declared-records"
+capabilities = ["canvas-runtime", "native-window", "primitives", "paths"]
+correctness = "nested-clips-declared-work-and-exact-order-sentinels"
 sampling_profile = "canvas-native-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -405,9 +1135,9 @@ density = "2.0"
 frame_rate = 60
 draw_count = 1000
 case_kind = "nested-clips"
-clip_depth = 4
-clip_segments = 32
 dispatch_route = "global"
+clip_depth = 16
+clip_segments = 2048
 required_counters = ["direct_shape_finalizations", "frames_presented"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
@@ -420,208 +1150,24 @@ zero_policy = "positive-baseline"
 precision = 3
 
 [[workloads]]
-id = "images-text-pixels-effects"
-version = 1
-case_id = "headless-sprite-uniqueness-mutation"
+id = "primitives-paths-order"
+version = 2
+case_id = "headless-ordered-family-stream-8-switches"
 execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "images", "pixel-readback"]
-correctness = "unique-sprite-cache-and-mutated-sprite-final-pixel"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "primitives", "paths"]
+correctness = "ordered-family-stream-declared-work-and-exact-order-sentinels"
 sampling_profile = "canvas-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
 frames = 1
-width = 64
-height = 48
+width = 320
+height = 180
 density = "1.0"
 frame_rate = 60
-draw_count = 17
-case_kind = "sprite-uniqueness-mutation"
-sprite_count = 16
-mutation_count = 8
+draw_count = 32
+case_kind = "ordered-family-stream"
 dispatch_route = "global"
-required_counters = ["image_cache_misses", "image_cache_hits", "texture_uploads"]
-[workloads.primary_metric]
-id = "draw-elapsed-ns"
-version = 1
-unit = "ns"
-work_unit = "draw-record"
-direction = "lower-is-better"
-transform = "ratio"
-zero_policy = "positive-baseline"
-precision = 3
-
-[[workloads]]
-id = "images-text-pixels-effects"
-version = 1
-case_id = "native-interactive-sprite-uniqueness-mutation"
-execution_class = "native-interactive"
-capabilities = ["canvas-runtime", "native-window", "images"]
-correctness = "native-unique-sprite-cache-and-mutated-sprite-final-pixel"
-sampling_profile = "canvas-native-bounded-v1"
-source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
-[workloads.parameters]
-frames = 30
-width = 1280
-height = 720
-density = "2.0"
-frame_rate = 60
-draw_count = 17
-case_kind = "sprite-uniqueness-mutation"
-sprite_count = 16
-mutation_count = 8
-dispatch_route = "global"
-required_counters = ["image_cache_misses", "image_cache_hits", "texture_uploads", "frames_presented"]
-[workloads.primary_metric]
-id = "draw-elapsed-ns"
-version = 1
-unit = "ns"
-work_unit = "draw-record"
-direction = "lower-is-better"
-transform = "ratio"
-zero_policy = "positive-baseline"
-precision = 3
-
-[[workloads]]
-id = "images-text-pixels-effects"
-version = 1
-case_id = "headless-text-reuse-script"
-execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "text", "pixel-readback"]
-correctness = "reused-and-multiscript-text-final-order-pixel"
-sampling_profile = "canvas-bounded-v1"
-source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
-[workloads.parameters]
-frames = 1
-width = 64
-height = 48
-density = "1.0"
-frame_rate = 60
-draw_count = 36
-case_kind = "text-reuse-script"
-text_reuse_count = 32
-dispatch_route = "global"
-required_counters = ["text_cache_misses", "text_cache_hits"]
-[workloads.primary_metric]
-id = "draw-elapsed-ns"
-version = 1
-unit = "ns"
-work_unit = "draw-record"
-direction = "lower-is-better"
-transform = "ratio"
-zero_policy = "positive-baseline"
-precision = 3
-
-[[workloads]]
-id = "images-text-pixels-effects"
-version = 1
-case_id = "native-interactive-text-reuse-script"
-execution_class = "native-interactive"
-capabilities = ["canvas-runtime", "native-window", "text"]
-correctness = "native-reused-and-multiscript-text-final-order-pixel"
-sampling_profile = "canvas-native-bounded-v1"
-source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
-[workloads.parameters]
-frames = 30
-width = 1280
-height = 720
-density = "2.0"
-frame_rate = 60
-draw_count = 36
-case_kind = "text-reuse-script"
-text_reuse_count = 32
-dispatch_route = "global"
-required_counters = ["text_cache_misses", "text_cache_hits", "frames_presented"]
-[workloads.primary_metric]
-id = "draw-elapsed-ns"
-version = 1
-unit = "ns"
-work_unit = "draw-record"
-direction = "lower-is-better"
-transform = "ratio"
-zero_policy = "positive-baseline"
-precision = 3
-
-[[workloads]]
-id = "images-text-pixels-effects"
-version = 1
-case_id = "headless-pixel-read-write-locality"
-execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "pixels", "pixel-readback"]
-correctness = "localized-fixture-pixel-read-write-exact-rectangle"
-sampling_profile = "canvas-bounded-v1"
-source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
-[workloads.parameters]
-frames = 1
-width = 64
-height = 48
-density = "1.0"
-frame_rate = 60
-draw_count = 64
-case_kind = "pixel-read-write-locality"
-locality_width = 8
-locality_height = 8
-dispatch_route = "global"
-required_counters = ["pixel_readbacks", "pixel_readback_requested_bytes", "pixel_readback_copied_bytes", "pixel_uploads"]
-[workloads.primary_metric]
-id = "draw-elapsed-ns"
-version = 1
-unit = "ns"
-work_unit = "draw-record"
-direction = "lower-is-better"
-transform = "ratio"
-zero_policy = "positive-baseline"
-precision = 3
-
-[[workloads]]
-id = "images-text-pixels-effects"
-version = 1
-case_id = "native-interactive-pixel-read-write-locality"
-execution_class = "native-interactive"
-capabilities = ["canvas-runtime", "native-window", "pixels"]
-correctness = "native-localized-fixture-pixel-read-write-exact-rectangle"
-sampling_profile = "canvas-native-bounded-v1"
-source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
-[workloads.parameters]
-frames = 30
-width = 1280
-height = 720
-density = "2.0"
-frame_rate = 60
-draw_count = 64
-case_kind = "pixel-read-write-locality"
-locality_width = 8
-locality_height = 8
-dispatch_route = "global"
-required_counters = ["pixel_readbacks", "pixel_readback_requested_bytes", "pixel_readback_copied_bytes", "pixel_uploads", "frames_presented"]
-[workloads.primary_metric]
-id = "draw-elapsed-ns"
-version = 1
-unit = "ns"
-work_unit = "draw-record"
-direction = "lower-is-better"
-transform = "ratio"
-zero_policy = "positive-baseline"
-precision = 3
-
-[[workloads]]
-id = "images-text-pixels-effects"
-version = 1
-case_id = "headless-ordered-effects"
-execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "effects", "pixel-readback"]
-correctness = "ordered-invert-effect-and-overlay-exact-pixels"
-sampling_profile = "canvas-bounded-v1"
-source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
-[workloads.parameters]
-frames = 1
-width = 64
-height = 48
-density = "1.0"
-frame_rate = 60
-draw_count = 1
-case_kind = "ordered-effects"
-effect = "invert"
-dispatch_route = "global"
+switch_count = 8
 required_counters = ["gpu_region_effect_passes"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
@@ -634,12 +1180,12 @@ zero_policy = "positive-baseline"
 precision = 3
 
 [[workloads]]
-id = "images-text-pixels-effects"
-version = 1
-case_id = "native-interactive-ordered-effects"
+id = "primitives-paths-order"
+version = 2
+case_id = "native-ordered-family-stream-32-switches"
 execution_class = "native-interactive"
-capabilities = ["canvas-runtime", "native-window", "effects"]
-correctness = "native-ordered-invert-effect-and-overlay-exact-pixels"
+capabilities = ["canvas-runtime", "native-window", "primitives", "paths"]
+correctness = "ordered-family-stream-declared-work-and-exact-order-sentinels"
 sampling_profile = "canvas-native-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
@@ -648,10 +1194,10 @@ width = 1280
 height = 720
 density = "2.0"
 frame_rate = 60
-draw_count = 1
-case_kind = "ordered-effects"
-effect = "invert"
+draw_count = 128
+case_kind = "ordered-family-stream"
 dispatch_route = "global"
+switch_count = 32
 required_counters = ["gpu_region_effect_passes", "frames_presented"]
 [workloads.primary_metric]
 id = "draw-elapsed-ns"
@@ -664,29 +1210,1679 @@ zero_policy = "positive-baseline"
 precision = 3
 
 [[workloads]]
-id = "assets-media-models"
-version = 1
-case_id = "headless-generated-media-frame-conversion"
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-sprites-1-unique-1k-32px-unchanged"
 execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "media-frame-conversion"]
-correctness = "generated-gray-bgr-bgra-conversion-exact-rgba"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "images"]
+correctness = "sprite-matrix-exact-locality-order-and-declared-work"
 sampling_profile = "canvas-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
 [workloads.parameters]
 frames = 1
-width = 16
-height = 12
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "sprite-matrix"
+dispatch_route = "global"
+required_counters = ["image_cache_misses", "texture_uploads"]
+unique_images = 1
+source_width = 32
+source_height = 32
+mutation_mode = "unchanged"
+sampling = "linear"
+transformed = false
+tinted = false
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-sprites-8-unique-1k-256px-one-pixel"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "images"]
+correctness = "sprite-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "sprite-matrix"
+dispatch_route = "global"
+required_counters = ["image_cache_misses", "texture_uploads"]
+unique_images = 8
+source_width = 256
+source_height = 256
+mutation_mode = "one-pixel"
+sampling = "nearest"
+transformed = true
+tinted = true
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-sprites-128-unique-1k-32px-one-percent"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "images"]
+correctness = "sprite-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "sprite-matrix"
+dispatch_route = "global"
+required_counters = ["image_cache_misses", "texture_uploads"]
+unique_images = 128
+source_width = 32
+source_height = 32
+mutation_mode = "one-percent"
+sampling = "linear"
+transformed = true
+tinted = false
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-sprites-1080p-source-full-replacement"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "images"]
+correctness = "sprite-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "sprite-matrix"
+dispatch_route = "global"
+required_counters = ["image_cache_misses", "texture_uploads"]
+unique_images = 1
+source_width = 1920
+source_height = 1080
+mutation_mode = "full"
+sampling = "nearest"
+transformed = false
+tinted = true
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "native-sprites-10k-alternating"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "images"]
+correctness = "sprite-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 30
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+draw_count = 10000
+case_kind = "sprite-matrix"
+dispatch_route = "global"
+required_counters = ["image_cache_misses", "texture_uploads", "frames_presented"]
+unique_images = 8
+source_width = 256
+source_height = 256
+mutation_mode = "unchanged"
+sampling = "linear"
+transformed = true
+tinted = true
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-text-1k-repeated-size-12"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "text"]
+correctness = "text-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "text-matrix"
+dispatch_route = "global"
+required_counters = ["text_cache_misses", "text_cache_hits"]
+label_count = 1000
+text_mode = "repeated"
+text_size = 12
+transformed = false
+clipped = false
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-text-1k-unique-size-48-transformed"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "text"]
+correctness = "text-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "text-matrix"
+dispatch_route = "global"
+required_counters = ["text_cache_misses"]
+label_count = 1000
+text_mode = "unique"
+text_size = 48
+transformed = true
+clipped = false
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "native-text-1k-multiscript-size-128-clipped"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "text"]
+correctness = "text-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 30
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+draw_count = 1000
+case_kind = "text-matrix"
+dispatch_route = "global"
+required_counters = ["text_cache_misses", "frames_presented"]
+label_count = 1000
+text_mode = "multiscript"
+text_size = 128
+transformed = true
+clipped = true
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-readback-pixel-1px"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-readback-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "pixel-readback-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_readbacks", "pixel_readback_requested_bytes", "pixel_readback_copied_bytes"]
+read_kind = "pixel"
+region_width = 1
+region_height = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-readback-region-64x64"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-readback-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 4096
+case_kind = "pixel-readback-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_readbacks", "pixel_readback_requested_bytes", "pixel_readback_copied_bytes"]
+read_kind = "region"
+region_width = 64
+region_height = 64
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-readback-full-720p"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-readback-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 1280
+height = 720
+density = "1.0"
+frame_rate = 60
+draw_count = 921600
+case_kind = "pixel-readback-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_readbacks", "pixel_readback_requested_bytes", "pixel_readback_copied_bytes"]
+read_kind = "full"
+region_width = 1280
+region_height = 720
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-readback-bytes-1080p"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-readback-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 1920
+height = 1080
+density = "1.0"
+frame_rate = 60
+draw_count = 2073600
+case_kind = "pixel-readback-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_readbacks", "pixel_readback_requested_bytes", "pixel_readback_copied_bytes"]
+read_kind = "pixel-bytes"
+region_width = 1920
+region_height = 1080
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-write-one-byte-1x1"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-write-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "pixel-write-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_uploads"]
+write_kind = "one-byte"
+region_width = 1
+region_height = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-write-one-pixel-1x1"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-write-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "pixel-write-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_uploads"]
+write_kind = "one-pixel"
+region_width = 1
+region_height = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-write-row-320x1"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-write-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 320
+case_kind = "pixel-write-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_uploads"]
+write_kind = "row"
+region_width = 320
+region_height = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-write-block-64x64"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-write-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 4096
+case_kind = "pixel-write-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_uploads"]
+write_kind = "block"
+region_width = 64
+region_height = 64
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-write-full-320x180"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-write-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 57600
+case_kind = "pixel-write-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_uploads"]
+write_kind = "full"
+region_width = 320
+region_height = 180
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-write-overwrite-64x64"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-write-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 4096
+case_kind = "pixel-write-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_uploads"]
+write_kind = "overwrite"
+region_width = 64
+region_height = 64
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-write-composite-64x64"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "pixels"]
+correctness = "pixel-write-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 4096
+case_kind = "pixel-write-matrix"
+dispatch_route = "global"
+required_counters = ["pixel_uploads"]
+write_kind = "composite"
+region_width = 64
+region_height = 64
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-filter-threshold"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["gpu_region_effect_passes"]
+effect_family = "filter"
+effect_name = "threshold"
+operation_count = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-filter-gray"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["gpu_region_effect_passes"]
+effect_family = "filter"
+effect_name = "gray"
+operation_count = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-filter-invert"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["gpu_region_effect_passes"]
+effect_family = "filter"
+effect_name = "invert"
+operation_count = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-filter-blur"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["gpu_region_effect_passes"]
+effect_family = "filter"
+effect_name = "blur"
+operation_count = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-filter-posterize"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["gpu_region_effect_passes"]
+effect_family = "filter"
+effect_name = "posterize"
+operation_count = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-filter-erode"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["gpu_region_effect_passes"]
+effect_family = "filter"
+effect_name = "erode"
+operation_count = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-filter-dilate"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["gpu_region_effect_passes"]
+effect_family = "filter"
+effect_name = "dilate"
+operation_count = 1
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-blend-blend"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = []
+effect_family = "blend"
+effect_name = "blend"
+operation_count = 8
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-blend-add"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = []
+effect_family = "blend"
+effect_name = "add"
+operation_count = 8
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-blend-darkest"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+effect_family = "blend"
+effect_name = "darkest"
+operation_count = 8
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-blend-lightest"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+effect_family = "blend"
+effect_name = "lightest"
+operation_count = 8
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-blend-difference"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+effect_family = "blend"
+effect_name = "difference"
+operation_count = 8
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-blend-exclusion"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+effect_family = "blend"
+effect_name = "exclusion"
+operation_count = 8
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-blend-multiply"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+effect_family = "blend"
+effect_name = "multiply"
+operation_count = 8
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-blend-screen"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+effect_family = "blend"
+effect_name = "screen"
+operation_count = 8
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-blend-replace"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 8
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+effect_family = "blend"
+effect_name = "replace"
+operation_count = 8
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "headless-erase-64-operations"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "effects"]
+correctness = "effect-matrix-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 320
+height = 180
+density = "1.0"
+frame_rate = 60
+draw_count = 64
+case_kind = "effect-matrix"
+dispatch_route = "global"
+required_counters = []
+effect_family = "erase"
+effect_name = "erase"
+operation_count = 64
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "images-text-pixels-effects"
+version = 2
+case_id = "native-ordered-filter-overlay"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "effects"]
+correctness = "ordered-effects-exact-locality-order-and-declared-work"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 30
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+draw_count = 1
+case_kind = "ordered-effects"
+dispatch_route = "global"
+required_counters = ["gpu_region_effect_passes", "frames_presented"]
+effect = "invert"
+[workloads.primary_metric]
+id = "draw-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "draw-record"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-image-operations-64px"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "images"]
+correctness = "image-asset-operations-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "image-asset-operations"
+dispatch_route = "global"
+required_counters = []
+asset_width = 64
+asset_height = 64
+operation_count = 7
+[workloads.primary_metric]
+id = "asset-operation-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "asset-operation"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-image-operations-1k"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "images"]
+correctness = "image-asset-operations-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "image-asset-operations"
+dispatch_route = "global"
+required_counters = []
+asset_width = 1024
+asset_height = 1024
+operation_count = 1
+[workloads.primary_metric]
+id = "asset-operation-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "asset-operation"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-png-roundtrip-64px"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "images", "filesystem", "png-codec"]
+correctness = "png-export-roundtrip-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "png-export-roundtrip"
+dispatch_route = "global"
+required_counters = []
+asset_width = 64
+asset_height = 64
+export_count = 2
+[workloads.primary_metric]
+id = "export-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "export"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-png-roundtrip-1k"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "images", "filesystem", "png-codec"]
+correctness = "png-export-roundtrip-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "png-export-roundtrip"
+dispatch_route = "global"
+required_counters = []
+asset_width = 1024
+asset_height = 1024
+export_count = 1
+[workloads.primary_metric]
+id = "export-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "export"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-media-gray-720p-30"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "media-frame-conversion"]
+correctness = "media-frame-conversion-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
 density = "1.0"
 frame_rate = 60
 case_kind = "media-frame-conversion"
-conversion_count = 30
 dispatch_route = "global"
 required_counters = []
+conversion_count = 30
+conversion_width = 1280
+conversion_height = 720
+channels = 1
 [workloads.primary_metric]
 id = "media-frame-conversion-elapsed-ns"
 version = 1
 unit = "ns"
 work_unit = "media-frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-media-bgr-1080p-30"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "media-frame-conversion"]
+correctness = "media-frame-conversion-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "media-frame-conversion"
+dispatch_route = "global"
+required_counters = []
+conversion_count = 30
+conversion_width = 1920
+conversion_height = 1080
+channels = 3
+[workloads.primary_metric]
+id = "media-frame-conversion-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "media-frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "native-media-bgra-4k-300"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "media-frame-conversion"]
+correctness = "media-frame-conversion-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+case_kind = "media-frame-conversion"
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+conversion_count = 300
+conversion_width = 3840
+conversion_height = 2160
+channels = 4
+[workloads.primary_metric]
+id = "media-frame-conversion-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "media-frame"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-offscreen-1-small"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "offscreen-resource-churn-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "offscreen-resource-churn"
+dispatch_route = "global"
+required_counters = []
+surface_count = 1
+surface_width = 64
+surface_height = 64
+framebuffer = false
+[workloads.primary_metric]
+id = "resource-lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "resource"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-offscreen-16-small"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "offscreen-resource-churn-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "offscreen-resource-churn"
+dispatch_route = "global"
+required_counters = []
+surface_count = 16
+surface_width = 64
+surface_height = 64
+framebuffer = false
+[workloads.primary_metric]
+id = "resource-lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "resource"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-offscreen-64-small"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback"]
+correctness = "offscreen-resource-churn-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "offscreen-resource-churn"
+dispatch_route = "global"
+required_counters = []
+surface_count = 64
+surface_width = 64
+surface_height = 64
+framebuffer = false
+[workloads.primary_metric]
+id = "resource-lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "resource"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-framebuffer-16-small"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "framebuffer"]
+correctness = "offscreen-resource-churn-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "offscreen-resource-churn"
+dispatch_route = "global"
+required_counters = []
+surface_count = 16
+surface_width = 64
+surface_height = 64
+framebuffer = true
+[workloads.primary_metric]
+id = "resource-lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "resource"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "native-offscreen-1080p"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "offscreen-rendering"]
+correctness = "offscreen-resource-churn-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+case_kind = "offscreen-resource-churn"
+dispatch_route = "global"
+required_counters = ["frames_presented"]
+surface_count = 1
+surface_width = 1920
+surface_height = 1080
+framebuffer = false
+[workloads.primary_metric]
+id = "resource-lifecycle-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "resource"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-storage-compute-64x64"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "deterministic-cpu-compute"]
+correctness = "storage-compute-lifecycle-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "storage-compute-lifecycle"
+dispatch_route = "global"
+required_counters = []
+buffer_size = 4096
+dispatch_x = 64
+dispatch_y = 64
+[workloads.primary_metric]
+id = "compute-dispatch-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "compute-invocation"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "headless-model-10k-triangles-export"
+execution_class = "headless"
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "webgl", "models", "filesystem"]
+correctness = "model-import-export-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 128
+height = 128
+density = "1.0"
+frame_rate = 60
+case_kind = "model-import-export"
+dispatch_route = "global"
+required_counters = ["direct_model_draws", "python_face_payloads"]
+triangle_count = 10000
+instance_count = 1
+[workloads.primary_metric]
+id = "model-operation-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "triangle-instance"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "assets-media-models"
+version = 2
+case_id = "native-model-1-triangle-1k-instances"
+execution_class = "native-interactive"
+capabilities = ["canvas-runtime", "native-window", "webgl", "models", "filesystem"]
+correctness = "model-import-export-exact-output-lifecycle-and-cleanup"
+sampling_profile = "canvas-native-bounded-v1"
+source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]
+[workloads.parameters]
+frames = 1
+width = 1280
+height = 720
+density = "2.0"
+frame_rate = 60
+case_kind = "model-import-export"
+dispatch_route = "global"
+required_counters = ["direct_model_draws", "python_face_payloads", "frames_presented"]
+triangle_count = 1
+instance_count = 1000
+[workloads.primary_metric]
+id = "model-operation-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "triangle-instance"
 direction = "lower-is-better"
 transform = "ratio"
 zero_policy = "positive-baseline"

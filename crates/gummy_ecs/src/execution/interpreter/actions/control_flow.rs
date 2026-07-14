@@ -28,8 +28,11 @@ impl<'a> PlanExecutor<'a> {
                 }
             };
             let mut loop_ctx = ctx.clone();
+            if loop_ctx.loop_items.len() <= item_slot {
+                loop_ctx.loop_items.resize(item_slot + 1, None);
+            }
             for item in items {
-                loop_ctx.loop_items.insert(item_slot, item);
+                loop_ctx.loop_items[item_slot] = Some(item);
                 self.execute_action(action, std::slice::from_ref(&loop_ctx))?;
             }
         }
@@ -47,10 +50,11 @@ impl<'a> PlanExecutor<'a> {
         let mut matched = Vec::new();
         let mut remaining = Vec::new();
         for base_ctx in contexts {
-            if condition_queries
-                .iter()
-                .all(|query| base_ctx.bindings.contains_key(query))
-            {
+            let mut all_bound = true;
+            for query in &condition_queries {
+                all_bound &= self.query_is_bound(base_ctx, query)?;
+            }
+            if all_bound {
                 self.report.rows_scanned += 1;
                 if truthy(&self.eval_expr(condition_index, base_ctx)?)? {
                     self.execute_action(then_action, std::slice::from_ref(base_ctx))?;

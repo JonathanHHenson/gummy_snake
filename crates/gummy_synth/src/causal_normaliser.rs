@@ -38,7 +38,7 @@ impl Default for CausalNormaliserConfig {
 /// Every input frame is delayed by `latency_frames()` so its gain can use the
 /// fixed lookahead window. `flush()` must be called by finite sinks to emit the
 /// delayed final frames. Open sinks do not flush until they close.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CausalNormaliser {
     sample_rate: u32,
     config: CausalNormaliserConfig,
@@ -133,11 +133,29 @@ impl CausalNormaliser {
 
     /// Drain a finite stream into reusable caller-owned planar buffers.
     pub fn flush_into(&mut self, out_left: &mut Vec<f64>, out_right: &mut Vec<f64>) {
+        self.flush_up_to_into(usize::MAX, out_left, out_right);
+    }
+
+    /// Drain at most `max_frames` from a finite stream.
+    ///
+    /// Block sinks use this to keep the final latency flush bounded by their
+    /// configured block size instead of emitting the entire lookahead queue in
+    /// one oversized terminal write.
+    pub fn flush_up_to_into(
+        &mut self,
+        max_frames: usize,
+        out_left: &mut Vec<f64>,
+        out_right: &mut Vec<f64>,
+    ) {
         out_left.clear();
         out_right.clear();
-        out_left.reserve(self.delayed_frames.len());
-        out_right.reserve(self.delayed_frames.len());
-        while let Some((normalised_left, normalised_right)) = self.emit_oldest() {
+        let frame_count = self.delayed_frames.len().min(max_frames);
+        out_left.reserve(frame_count);
+        out_right.reserve(frame_count);
+        for _ in 0..frame_count {
+            let Some((normalised_left, normalised_right)) = self.emit_oldest() else {
+                break;
+            };
             out_left.push(normalised_left);
             out_right.push(normalised_right);
         }

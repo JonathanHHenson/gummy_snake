@@ -35,11 +35,7 @@ pub(in crate::execution) fn storage_type_is_numeric(storage_type: StorageType) -
     )
 }
 
-pub(in crate::execution) fn eval_unary(
-    op: UnaryOp,
-    source_name: &str,
-    input: EcsValue,
-) -> Result<EcsValue> {
+pub(crate) fn eval_unary(op: UnaryOp, source_name: &str, input: EcsValue) -> Result<EcsValue> {
     match op {
         UnaryOp::Neg => match input {
             EcsValue::I64(value) => value
@@ -52,7 +48,7 @@ pub(in crate::execution) fn eval_unary(
                     .ok_or_else(|| integer_overflow("neg"))?;
                 integer_result(value, false)
             }
-            EcsValue::F64(value) => Ok(EcsValue::F64(-value)),
+            EcsValue::F64(value) => finite_float_result("neg", -value),
             other => Err(EcsError::InvalidPlan(format!(
                 "unary neg expects a numeric value, got {}",
                 other.kind_name()
@@ -65,17 +61,17 @@ pub(in crate::execution) fn eval_unary(
                 .map(EcsValue::I64)
                 .ok_or_else(|| integer_overflow("abs")),
             EcsValue::U64(value) => Ok(EcsValue::U64(value)),
-            EcsValue::F64(value) => Ok(EcsValue::F64(value.abs())),
+            EcsValue::F64(value) => finite_float_result("abs", value.abs()),
             other => Err(EcsError::InvalidPlan(format!(
                 "abs expects a numeric value, got {}",
                 other.kind_name()
             ))),
         },
-        UnaryOp::Sqrt => Ok(EcsValue::F64(numeric_f64(&input)?.sqrt())),
-        UnaryOp::Sin => Ok(EcsValue::F64(numeric_f64(&input)?.sin())),
-        UnaryOp::Cos => Ok(EcsValue::F64(numeric_f64(&input)?.cos())),
-        UnaryOp::Floor => Ok(EcsValue::F64(numeric_f64(&input)?.floor())),
-        UnaryOp::Ceil => Ok(EcsValue::F64(numeric_f64(&input)?.ceil())),
+        UnaryOp::Sqrt => finite_float_result("sqrt", numeric_f64(&input)?.sqrt()),
+        UnaryOp::Sin => finite_float_result("sin", numeric_f64(&input)?.sin()),
+        UnaryOp::Cos => finite_float_result("cos", numeric_f64(&input)?.cos()),
+        UnaryOp::Floor => finite_float_result("floor", numeric_f64(&input)?.floor()),
+        UnaryOp::Ceil => finite_float_result("ceil", numeric_f64(&input)?.ceil()),
         UnaryOp::Unknown => Err(EcsError::InvalidPlan(format!(
             "unsupported physical unary op '{source_name}'"
         ))),
@@ -90,7 +86,7 @@ pub(in crate::execution) fn default_input_state_value(name: &str) -> EcsValue {
     }
 }
 
-pub(in crate::execution) fn eval_binary(
+pub(crate) fn eval_binary(
     op: BinaryOp,
     source_name: &str,
     left: EcsValue,
@@ -100,12 +96,10 @@ pub(in crate::execution) fn eval_binary(
         BinaryOp::Add => numeric_arithmetic(left, right, "add", i128::checked_add, |a, b| a + b),
         BinaryOp::Sub => numeric_arithmetic(left, right, "sub", i128::checked_sub, |a, b| a - b),
         BinaryOp::Mul => numeric_arithmetic(left, right, "mul", i128::checked_mul, |a, b| a * b),
-        BinaryOp::TrueDiv => Ok(EcsValue::F64(numeric_f64(&left)? / numeric_f64(&right)?)),
+        BinaryOp::TrueDiv => float_division(left, right, false),
         BinaryOp::FloorDiv => integer_or_float_division(left, right, true),
         BinaryOp::Mod => integer_or_float_modulo(left, right),
-        BinaryOp::Pow => Ok(EcsValue::F64(
-            numeric_f64(&left)?.powf(numeric_f64(&right)?),
-        )),
+        BinaryOp::Pow => integer_or_float_power(left, right),
         BinaryOp::Lt => Ok(EcsValue::Bool(compare_values(&left, &right)?.is_lt())),
         BinaryOp::Le => Ok(EcsValue::Bool(!compare_values(&left, &right)?.is_gt())),
         BinaryOp::Gt => Ok(EcsValue::Bool(compare_values(&left, &right)?.is_gt())),
@@ -132,6 +126,30 @@ fn integer_overflow(operation: &str) -> EcsError {
     EcsError::InvalidPlan(format!(
         "checked ECS integer {operation} overflowed its 64-bit transport domain"
     ))
+}
+
+fn float_error(operation: &str, detail: &str) -> EcsError {
+    EcsError::InvalidPlan(format!("ECS float {operation} {detail}"))
+}
+
+fn finite_float(operation: &str, value: f64) -> Result<f64> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(float_error(operation, "produced a non-finite result"))
+    }
+}
+
+fn finite_float_result(operation: &str, value: f64) -> Result<EcsValue> {
+    finite_float(operation, value).map(EcsValue::F64)
+}
+
+fn nonzero_float_divisor(operation: &str, value: f64) -> Result<f64> {
+    if value == 0.0 {
+        Err(float_error(operation, "by zero"))
+    } else {
+        Ok(value)
+    }
 }
 
 fn integer_parts(value: &EcsValue) -> Option<(i128, bool)> {
@@ -167,10 +185,18 @@ fn numeric_arithmetic(
             integer_op(left_value, right_value).ok_or_else(|| integer_overflow(operation))?;
         return integer_result(value, left_unsigned || right_unsigned);
     }
-    Ok(EcsValue::F64(float_op(
-        numeric_f64(&left)?,
-        numeric_f64(&right)?,
-    )))
+    finite_float_result(
+        operation,
+        float_op(numeric_f64(&left)?, numeric_f64(&right)?),
+    )
+}
+
+fn float_division(left: EcsValue, right: EcsValue, floor: bool) -> Result<EcsValue> {
+    let operation = if floor { "floor division" } else { "division" };
+    let left = numeric_f64(&left)?;
+    let right = nonzero_float_divisor(operation, numeric_f64(&right)?)?;
+    let quotient = left / right;
+    finite_float_result(operation, if floor { quotient.floor() } else { quotient })
 }
 
 fn integer_or_float_division(left: EcsValue, right: EcsValue, floor: bool) -> Result<EcsValue> {
@@ -191,9 +217,7 @@ fn integer_or_float_division(left: EcsValue, right: EcsValue, floor: bool) -> Re
         };
         return integer_result(quotient, left_unsigned && right_unsigned);
     }
-    Ok(EcsValue::F64(
-        (numeric_f64(&left)? / numeric_f64(&right)?).floor(),
-    ))
+    float_division(left, right, floor)
 }
 
 fn integer_or_float_modulo(left: EcsValue, right: EcsValue) -> Result<EcsValue> {
@@ -213,7 +237,37 @@ fn integer_or_float_modulo(left: EcsValue, right: EcsValue) -> Result<EcsValue> 
         };
         return integer_result(remainder, left_unsigned && right_unsigned);
     }
-    Ok(EcsValue::F64(numeric_f64(&left)? % numeric_f64(&right)?))
+    let left = numeric_f64(&left)?;
+    let right = nonzero_float_divisor("modulo", numeric_f64(&right)?)?;
+    let remainder = left % right;
+    let remainder = if remainder != 0.0 && remainder.is_sign_negative() != right.is_sign_negative()
+    {
+        remainder + right
+    } else {
+        remainder
+    };
+    finite_float_result("modulo", remainder)
+}
+
+fn integer_or_float_power(left: EcsValue, right: EcsValue) -> Result<EcsValue> {
+    if let (Some((base, left_unsigned)), Some((exponent, _))) =
+        (integer_parts(&left), integer_parts(&right))
+    {
+        if exponent >= 0 {
+            let exponent = u32::try_from(exponent).map_err(|_| integer_overflow("power"))?;
+            let value = base
+                .checked_pow(exponent)
+                .ok_or_else(|| integer_overflow("power"))?;
+            return integer_result(value, left_unsigned);
+        }
+        if base == 0 {
+            return Err(float_error(
+                "power",
+                "cannot raise zero to a negative exponent",
+            ));
+        }
+    }
+    finite_float_result("power", numeric_f64(&left)?.powf(numeric_f64(&right)?))
 }
 
 pub(in crate::execution) fn literal_expr_numeric(expr: &ExprNode) -> Option<f64> {
@@ -231,7 +285,7 @@ pub(in crate::execution) fn numeric_f64(value: &EcsValue) -> Result<f64> {
         EcsValue::Bool(value) => Ok(if *value { 1.0 } else { 0.0 }),
         EcsValue::I64(value) => Ok(*value as f64),
         EcsValue::U64(value) => Ok(*value as f64),
-        EcsValue::F64(value) => Ok(*value),
+        EcsValue::F64(value) => finite_float("conversion", *value),
         other => Err(EcsError::InvalidPlan(format!(
             "expected numeric ECS value, got {}",
             other.kind_name()
@@ -292,6 +346,33 @@ mod tests {
             eval_binary(BinaryOp::Mod, "mod", EcsValue::I64(-5), EcsValue::I64(3),).unwrap(),
             EcsValue::I64(1)
         );
+    }
+
+    #[test]
+    fn integer_power_is_exact_and_checked() {
+        assert_eq!(
+            eval_binary(BinaryOp::Pow, "pow", EcsValue::I64(3), EcsValue::I64(20),).unwrap(),
+            EcsValue::I64(3_486_784_401)
+        );
+        assert!(eval_binary(
+            BinaryOp::Pow,
+            "pow",
+            EcsValue::I64(i64::MAX),
+            EcsValue::I64(2),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn zero_division_and_non_finite_float_results_are_errors() {
+        assert!(eval_binary(
+            BinaryOp::TrueDiv,
+            "truediv",
+            EcsValue::F64(1.0),
+            EcsValue::F64(0.0),
+        )
+        .is_err());
+        assert!(eval_unary(UnaryOp::Sqrt, "sqrt", EcsValue::F64(-1.0)).is_err());
     }
 
     #[test]

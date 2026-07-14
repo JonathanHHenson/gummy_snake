@@ -9,6 +9,7 @@ import wave
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
+from pathlib import Path
 
 
 class SynthOracleError(AssertionError):
@@ -303,14 +304,141 @@ def pcm_data(payload: bytes) -> bytes:
         return reader.readframes(reader.getnframes())
 
 
+def assert_file_output(payload: bytes, path: Path, *, sample_rate: int) -> SignalSummary:
+    """Require byte-exact memory/file sink parity and valid signal output."""
+
+    if not path.is_file():
+        raise SynthOracleError(f"expected Synth output file is missing: {path.name}")
+    file_payload = path.read_bytes()
+    if file_payload != payload:
+        raise SynthOracleError("Synth file output differs from returned in-memory WAV bytes")
+    return assert_wav_contract(payload, sample_rate=sample_rate)
+
+
+def assert_generated_signal(
+    payload: bytes,
+    *,
+    expected_left: Sequence[float],
+    expected_right: Sequence[float],
+    tolerance: float,
+) -> PcmSignal:
+    """Compare generated PCM against the source signal within quantization tolerance."""
+
+    if tolerance < 0.0:
+        raise SynthOracleError("signal comparison tolerance cannot be negative")
+    pcm = decode_pcm_wav(payload)
+    if pcm.frames != len(expected_left) or pcm.frames != len(expected_right):
+        raise SynthOracleError("generated PCM frame count differs from its source signal")
+    for channel_name, actual, expected in (
+        ("left", pcm.left, expected_left),
+        ("right", pcm.right, expected_right),
+    ):
+        maximum_error = max(
+            (
+                abs(observed - reference)
+                for observed, reference in zip(actual, expected, strict=True)
+            ),
+            default=0.0,
+        )
+        if maximum_error > tolerance:
+            raise SynthOracleError(
+                f"generated PCM {channel_name} error {maximum_error} exceeds {tolerance}"
+            )
+    return pcm
+
+
+def assert_lifecycle_contract(
+    payload: Mapping[str, object], *, expected_route: str | None = None
+) -> None:
+    """Validate adapter phase, metric-availability, provenance, and device schemas."""
+
+    if payload.get("schema_version") != 2:
+        raise SynthOracleError("Synth adapter lifecycle schema_version must be 2")
+    identity = payload.get("identity")
+    lifecycle = payload.get("lifecycle")
+    instrumentation = payload.get("instrumentation")
+    qualification = payload.get("device_qualification")
+    if not isinstance(identity, Mapping) or not isinstance(lifecycle, Mapping):
+        raise SynthOracleError("Synth adapter lifecycle omitted identity or phase timings")
+    if expected_route is not None and identity.get("route") != expected_route:
+        raise SynthOracleError("Synth adapter lifecycle reported the wrong production route")
+    expected_phases = {
+        "prepare_ns",
+        "warm_ns",
+        "timed_ns",
+        "synchronize_ns",
+        "validate_ns",
+        "teardown_ns",
+    }
+    if set(lifecycle) != expected_phases or any(
+        isinstance(value, bool) or not isinstance(value, int) or value < 0
+        for value in lifecycle.values()
+    ):
+        raise SynthOracleError("Synth adapter lifecycle phase timings are malformed")
+    if not isinstance(instrumentation, Mapping):
+        raise SynthOracleError("Synth adapter lifecycle omitted instrumentation")
+    for metric_name in (
+        "process_allocated_blocks_delta",
+        "timed_allocated_blocks_delta",
+        "process_peak_rss_delta_bytes",
+        "timed_peak_rss_delta_bytes",
+        "output_bytes",
+    ):
+        metric = instrumentation.get(metric_name)
+        if not isinstance(metric, Mapping) or not isinstance(metric.get("available"), bool):
+            raise SynthOracleError(f"Synth adapter metric availability is malformed: {metric_name}")
+    if not isinstance(qualification, Mapping) or qualification.get("schema_version") != 1:
+        raise SynthOracleError("Synth adapter device qualification schema is malformed")
+    if qualification.get("qualified") is True and qualification.get("available") is not True:
+        raise SynthOracleError("Synth adapter cannot qualify an unavailable physical device")
+
+
+def assert_simulated_sink_contract(
+    original_pcm: bytes,
+    blocks: Sequence[bytes],
+    *,
+    block_frames: Sequence[int],
+    maximum_block_frames: int,
+    underruns: int,
+    deadline_misses: int,
+) -> str:
+    """Require exact PCM concatenation and bounded deterministic virtual blocks."""
+
+    if b"".join(blocks) != original_pcm:
+        raise SynthOracleError("simulated realtime blocks changed PCM bytes")
+    if len(blocks) != len(block_frames) or any(
+        frames <= 0 or frames > maximum_block_frames for frames in block_frames
+    ):
+        raise SynthOracleError("simulated realtime block distribution is malformed")
+    if underruns != 0 or deadline_misses != 0:
+        raise SynthOracleError("simulated realtime sink reported underruns or deadline misses")
+    return "sha256:" + sha256(original_pcm).hexdigest()
+
+
+def assert_unqualified_device(payload: Mapping[str, object]) -> None:
+    """Reject accidental physical qualification from false/unavailable evidence."""
+
+    if payload.get("schema_version") != 1:
+        raise SynthOracleError("physical audio qualification schema_version must be 1")
+    if payload.get("qualified") is not False:
+        raise SynthOracleError("unavailable physical audio must not be marked qualified")
+    if payload.get("audibility_claimed") is True:
+        raise SynthOracleError("benchmark device evidence must not claim subjective audibility")
+
+
 __all__ = [
     "PcmSignal",
     "SignalSummary",
     "SynthOracleError",
     "assert_envelope_shape",
     "assert_expected_failure",
+    "assert_file_output",
     "assert_frequency",
+    "assert_generated_signal",
+    "assert_lifecycle_contract",
     "assert_repeatable",
+    "assert_simulated_sink_contract",
+    "assert_unqualified_device",
     "assert_wav_contract",
     "decode_pcm_wav",
     "pcm_data",

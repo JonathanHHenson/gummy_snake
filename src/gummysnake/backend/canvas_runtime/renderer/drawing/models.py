@@ -19,10 +19,10 @@ class CanvasRendererModelsMixin:
     def _queue_model_batch(self, key: ModelBatchKey, transform: ModelTransformPayload) -> bool:
         """Queue one 3D model transform for a compatible native batch."""
         renderer = _renderer(self)
-        canvas = renderer._require_canvas()
-        batch = getattr(canvas, "_draw_model_shaded_batch", None)
-        if not callable(batch):
-            return False
+        renderer._require_canvas_method(
+            "_draw_model_shaded_batch_packed",
+            "typed batched 3D model drawing",
+        )
 
         state = renderer._model_batch_state
         if not state.has_records():
@@ -49,16 +49,20 @@ class CanvasRendererModelsMixin:
         snapshot = renderer._model_batch_state.drain()
         key = snapshot.key
         transforms = snapshot.transforms
-        if key is None or not transforms:
+        record_count = snapshot.record_count
+        if key is None or not transforms or record_count == 0:
             return
 
-        renderer._count("direct_model_draws", len(transforms))
-        renderer._count("model_batch_records", len(transforms))
+        renderer._count("direct_model_draws", record_count)
+        renderer._count("model_batch_records", record_count)
         renderer._count("model_batch_flushes")
-        renderer._max_count("model_batch_max_records", len(transforms))
+        renderer._max_count("model_batch_max_records", record_count)
         renderer._call(
-            "batched 3D model drawing",
-            renderer._require_canvas()._draw_model_shaded_batch,
+            "typed batched 3D model drawing",
+            renderer._require_canvas_method(
+                "_draw_model_shaded_batch_packed",
+                "typed batched 3D model drawing",
+            ),
             key.model_handle,
             key.camera,
             key.projection,

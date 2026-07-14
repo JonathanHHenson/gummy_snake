@@ -12,7 +12,7 @@ from gummysnake.ecs.scheduling_helpers import (
     sorted_system_groups,
     validate_group_name,
 )
-from gummysnake.ecs.world_helpers import _handle_matches, _optional_rust_int
+from gummysnake.ecs.world_helpers import _handle_matches
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -45,11 +45,9 @@ def diagnostics(world: EcsWorld) -> dict[str, Any]:
             "ecs_systems_enabled": enabled,
             "ecs_rust_core": "available",
             "ecs_rust_compiled_plans": world._rust.compiled_plan_count(),
-            "ecs_spatial_index_cache_len": _optional_rust_int(
-                world._rust, "spatial_index_cache_len"
-            ),
-            "ecs_rust_structural_revision": _optional_rust_int(world._rust, "structural_revision"),
-            "ecs_rust_field_revision": _optional_rust_int(world._rust, "field_revision"),
+            "ecs_spatial_index_cache_len": int(world._rust.spatial_index_cache_len()),
+            "ecs_rust_structural_revision": int(world._rust.structural_revision()),
+            "ecs_rust_field_revision": int(world._rust.field_revision()),
             "ecs_strict": world.strict,
             "ecs_warn_on_ambiguity": world.warn_on_ambiguity,
             "messages": messages,
@@ -59,6 +57,33 @@ def diagnostics(world: EcsWorld) -> dict[str, Any]:
     data.setdefault("ecs_python_event_payload_materializations", 0)
     data.setdefault("ecs_dynamic_change_plan_recompiles", 0)
     data.setdefault("ecs_steady_physical_plan_reuses", 0)
+    for counter in (
+        "prepared_plan_preparations",
+        "prepared_plan_cache_hits",
+        "prepared_plan_cache_misses",
+        "prepared_plan_canonical_reuses",
+        "prepared_plan_preparation_nanos",
+        "prepared_plan_bytes_current",
+        "prepared_plan_bytes_peak",
+        "prepared_plan_schema_invalidations",
+        "prepared_plans_unique",
+        "executor_fixed_slot_runs",
+        "executor_generic_slow_paths",
+        "scheduler_wave_builds",
+        "scheduler_waves",
+        "scheduler_systems",
+        "scheduler_world_clones",
+        "scheduler_snapshot_bytes",
+        "event_records_dropped",
+        "event_queue_bytes",
+        "resource_row_bytes",
+        "spatial_index_owners",
+        "spatial_index_cache_entries",
+    ):
+        data.setdefault(f"ecs_{counter}", 0)
+        data.setdefault(f"ecs_rust_{counter}", data[f"ecs_{counter}"])
+    data.setdefault("ecs_canvas_python_replays", 0)
+    data.setdefault("ecs_canvas_python_materialized_commands", 0)
     return data
 
 

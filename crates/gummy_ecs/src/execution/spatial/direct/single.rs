@@ -133,6 +133,10 @@ impl<'a> PlanExecutor<'a> {
                     | SpatialBatchValue::Expression { .. }
             )
         });
+        let origin_slot = self.query_slot(&relation.origin_query)?;
+        let item_slot = self.query_slot(&relation.item_query)?;
+        let query_slot_count = self.prepared.query_slot_count();
+        let loop_slot_count = self.prepared.loop_slot_count();
         let mut candidates = Vec::new();
         let mut accumulators = vec![SpatialBatchAccum::default(); specs.len()];
         for origin_entity in origin_rows {
@@ -166,13 +170,9 @@ impl<'a> PlanExecutor<'a> {
                     }
                 }
                 if let Some(filter_expr) = generic_exact_filter {
-                    let mut filter_ctx = EvalContext::default();
-                    filter_ctx
-                        .bindings
-                        .insert(relation.origin_query.clone(), origin_entity);
-                    filter_ctx
-                        .bindings
-                        .insert(relation.item_query.clone(), record.entity);
+                    let mut filter_ctx = EvalContext::new(query_slot_count, loop_slot_count);
+                    filter_ctx.bindings[origin_slot] = Some(origin_entity);
+                    filter_ctx.bindings[item_slot] = Some(record.entity);
                     let mut filter_cache = vec![None; executor.plan.expressions.len()];
                     if !truthy_f64(executor.eval_expr_f64(
                         filter_expr,
@@ -202,13 +202,10 @@ impl<'a> PlanExecutor<'a> {
                         }
                         SpatialBatchValue::Expression { expr_index } => {
                             let joined = joined.get_or_insert_with(|| {
-                                let mut joined = EvalContext::default();
-                                joined
-                                    .bindings
-                                    .insert(relation.origin_query.clone(), origin_entity);
-                                joined
-                                    .bindings
-                                    .insert(relation.item_query.clone(), record.entity);
+                                let mut joined =
+                                    EvalContext::new(query_slot_count, loop_slot_count);
+                                joined.bindings[origin_slot] = Some(origin_entity);
+                                joined.bindings[item_slot] = Some(record.entity);
                                 joined
                             });
                             let item_cache = item_cache

@@ -33,7 +33,7 @@ from gummysnake.synth.synth_runtime.values.foundation import _SAMPLE_RATE, Synth
 
 @dataclass(slots=True)
 class _RenderedTrackCacheEntry:
-    payload: bytes
+    payload: bytes | None
     duration_seconds: float
     path: Path | None = None
 
@@ -177,6 +177,10 @@ class TrackPlayback:
                 player_factory=self._player_factory,
             )
         else:
+            if payload is None:
+                raise SynthPlanError(
+                    "Saved synth playback cache lost its WAV path and has no in-memory payload."
+                )
             sound = Sound(
                 MemorySoundSource(payload, duration=seconds),
                 path=Path(f"{self._name}.wav"),

@@ -21,6 +21,7 @@ mod assets;
 mod canvas;
 mod canvas_state;
 mod config;
+mod frame_commands;
 mod gpu;
 mod images;
 mod performance;

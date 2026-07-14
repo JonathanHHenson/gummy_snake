@@ -28,7 +28,7 @@ fn parallel_event(node_id: u64, order: u64, time_seconds: f64) -> EventPayload {
 }
 
 #[test]
-fn offline_render_is_bitwise_identical_across_worker_counts() {
+fn stateful_offline_render_is_bitwise_identical_across_worker_settings() {
     let _guard = executor_test_lock().lock().expect("executor test lock");
     let sample_rate = 48_000;
     let events = (0..16)
@@ -50,12 +50,10 @@ fn offline_render_is_bitwise_identical_across_worker_counts() {
         );
         let diagnostics = diagnostics();
         assert_eq!(diagnostics.worker_count, worker_count);
-        assert!(diagnostics.parallel_regions > 0);
-        assert!(diagnostics.parallel_tasks >= 2);
-        assert!(
-            diagnostics.parallel_scratch_peak_bytes <= diagnostics.parallel_scratch_limit_bytes
-        );
-        assert!(diagnostics.worker_pool_initializations <= 1);
+        assert_eq!(diagnostics.parallel_regions, 0);
+        assert_eq!(diagnostics.parallel_tasks, 0);
+        assert_eq!(diagnostics.parallel_scratch_peak_bytes, 0);
+        assert_eq!(diagnostics.worker_pool_initializations, 0);
     }
 
     reset_diagnostics();
@@ -66,7 +64,7 @@ fn offline_render_is_bitwise_identical_across_worker_counts() {
 }
 
 #[test]
-fn worker_pool_is_persistent_and_configuration_is_bounded() {
+fn worker_configuration_remains_bounded_after_stateful_cutover() {
     let _guard = executor_test_lock().lock().expect("executor test lock");
     assert!(set_worker_count(Some(3)).is_err());
     assert!(set_worker_count(Some(16)).is_err());
@@ -74,13 +72,11 @@ fn worker_pool_is_persistent_and_configuration_is_bounded() {
     let events = vec![parallel_event(1, 0, 0.0), parallel_event(2, 1, 0.01)];
     set_worker_count(Some(2)).expect("two workers are supported");
     render_plan_events(events.clone(), 0.3, 48_000).expect("first render succeeds");
-    let first_initializations = diagnostics().worker_pool_initializations;
     render_plan_events(events, 0.3, 48_000).expect("second render succeeds");
     assert_eq!(
         diagnostics().worker_pool_initializations,
-        first_initializations,
-        "a render call must not create another worker pool"
+        0,
+        "the bounded stateful renderer must not create the removed event scratch pool"
     );
-    assert!(first_initializations <= 1);
     set_worker_count(None).expect("automatic worker configuration is restored");
 }

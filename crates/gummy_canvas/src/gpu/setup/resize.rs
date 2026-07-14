@@ -1,5 +1,5 @@
 use crate::gpu::setup::resources::{
-    checked_texture_size, create_depth_texture, create_offscreen_texture,
+    checked_texture_size, create_depth_attachment, create_offscreen_texture,
     create_pixel_prefix_bind_group, create_pixel_prefix_texture,
 };
 use crate::gpu::types::*;
@@ -12,10 +12,7 @@ impl GpuRenderer {
         self.texture_view = self
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        self.depth_texture = create_depth_texture(self.device_context.device(), self.texture_size);
-        self.depth_texture_view = self
-            .depth_texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
+        self.depth_attachment = None;
         self.pixel_prefix_texture =
             create_pixel_prefix_texture(self.device_context.device(), self.texture_size);
         self.pixel_prefix_texture_view = self
@@ -43,5 +40,15 @@ impl GpuRenderer {
             bytemuck::bytes_of(&viewport),
         );
         Ok(())
+    }
+
+    pub(in crate::gpu) fn ensure_depth_attachment(&mut self) {
+        if self.depth_attachment.is_none() {
+            self.depth_attachment = Some(create_depth_attachment(
+                self.device_context.device(),
+                self.texture_size,
+            ));
+            self.depth_attachment_allocations += 1;
+        }
     }
 }

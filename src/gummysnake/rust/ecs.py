@@ -11,7 +11,19 @@ from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
 
 EXPECTED_ECS_ABI_VERSION = 5
 
-_REQUIRED_ECS_WORLD_METHODS = ("query_with_terms",)
+_REQUIRED_ECS_WORLD_METHODS = (
+    "query_with_terms",
+    "compiled_plan_count",
+    "spatial_index_cache_len",
+    "structural_revision",
+    "field_revision",
+    "diagnostics",
+    "reset_diagnostics",
+    "execute_compiled_plan",
+    "execute_compiled_plans",
+    "execute_compiled_plan_to_canvas",
+    "execute_compiled_plans_to_canvas",
+)
 
 
 class _RustEcsWorld(Protocol):
@@ -39,6 +51,24 @@ class _RustEcsWorld(Protocol):
         self, handles: list[int], include_writes: bool = True
     ) -> list[dict[str, Any]]: ...
 
+    def execute_compiled_plan_to_canvas(
+        self,
+        handle: int,
+        canvas: Any,
+        matrix: Any,
+        direct_fill_allowed: bool,
+        include_writes: bool = True,
+    ) -> dict[str, Any]: ...
+
+    def execute_compiled_plans_to_canvas(
+        self,
+        handles: list[int],
+        canvas: Any,
+        matrix: Any,
+        direct_fill_allowed: bool,
+        include_writes: bool = True,
+    ) -> list[dict[str, Any]]: ...
+
     def execute_compiled_plans_sequential(
         self, handles: list[int], include_writes: bool = True
     ) -> list[dict[str, Any]]: ...
@@ -48,6 +78,12 @@ class _RustEcsWorld(Protocol):
     def release_compiled_plan(self, handle: int) -> bool: ...
 
     def compiled_plan_count(self) -> int: ...
+
+    def spatial_index_cache_len(self) -> int: ...
+
+    def structural_revision(self) -> int: ...
+
+    def field_revision(self) -> int: ...
 
     def set_input_state(self, name: str, value: Any, code: int | None = None) -> None: ...
 

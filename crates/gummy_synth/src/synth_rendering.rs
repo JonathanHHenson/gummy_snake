@@ -14,46 +14,7 @@ pub(crate) fn render_dry_event(
     }
 }
 
-pub(crate) fn dry_event_parallel_scratch_bytes(
-    event: &EventPayload,
-    sample_rate: u32,
-) -> SynthResult<Option<usize>> {
-    if event.kind != "play" {
-        return Ok(None);
-    }
-    let kind = synth_kind(&event.synth_name);
-    if matches!(kind, SynthKind::Unknown | SynthKind::Silence) {
-        return Ok(None);
-    }
-    let mut opts = event.synth_opts.clone();
-    opts.extend(event.opts.clone());
-    let note_source = opts.get("note").unwrap_or(&event.value);
-    if note_values(note_source)?.is_empty() {
-        return Ok(None);
-    }
-    let (default_attack, default_decay, default_sustain, default_release) =
-        default_synth_envelope(kind);
-    let total_seconds = (float_opt(&opts, "attack", default_attack).max(0.0)
-        + float_opt(&opts, "decay", default_decay).max(0.0)
-        + float_opt(&opts, "sustain", default_sustain).max(0.0)
-        + float_opt(&opts, "release", default_release).max(0.0))
-    .max(natural_synth_tail(kind, &opts))
-    .max(0.01);
-    let frames = checked_frame_count(
-        total_seconds,
-        sample_rate,
-        "parallel synth event envelope duration",
-        1,
-    )?;
-    // Conservatively account for the mono, envelope, post-processing, and
-    // stereo output buffers that may coexist while one dry event is rendered.
-    let bytes = frames
-        .checked_mul(8)
-        .and_then(|value| value.checked_mul(std::mem::size_of::<f64>()))
-        .ok_or_else(|| SynthError::new("parallel synth event scratch size overflowed."))?;
-    Ok(Some(bytes))
-}
-
+#[cfg(test)]
 pub(crate) fn render_event(
     event: &EventPayload,
     sample_rate: u32,
@@ -74,12 +35,11 @@ pub(crate) fn render_event(
     Ok((left, right))
 }
 
-/// Render one typed event to a stereo WAV payload.
+/// Render one typed event to a stereo WAV payload through the canonical bounded
+/// stateful engine. Unsupported block routes fail explicitly.
 pub fn render_event_wav(event: &EventPayload, sample_rate: u32) -> SynthResult<Vec<u8>> {
-    validate_event(event, sample_rate)?;
-    let (left, right) = render_event(event, sample_rate)?;
-    let (left, right) = output_limit_pair(&left, &right, sample_rate);
-    Ok(stereo_wav_bytes(&left, &right, sample_rate))
+    let program = CompiledSynthProgram::compile_standalone_event(event, sample_rate)?;
+    render_compiled_program_wav(&program)
 }
 
 pub(crate) fn render_synth_event(

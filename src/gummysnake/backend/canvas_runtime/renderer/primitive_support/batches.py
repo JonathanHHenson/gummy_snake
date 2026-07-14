@@ -8,6 +8,10 @@ from typing import cast
 
 from gummysnake import constants as c
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
+    pack_matrix,
+    pack_primitive_style,
+)
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
     PrimitiveBatchSnapshot,
 )
@@ -68,21 +72,32 @@ def _pack_fill_primitive_records(records: list[_FillPrimitiveRecord]) -> bytes:
 
 def _pack_mixed_primitive_records(
     records: list[tuple[object, ...]],
-) -> tuple[bytes, list[dict[str, object]], list[tuple[float, float, float, float, float, float]]]:
+) -> tuple[bytes, bytes, bytes]:
     payload = bytearray(_PACKED_MIXED_PRIMITIVE_RECORD.size * len(records))
-    styles: list[dict[str, object]] = []
-    style_indexes: dict[int, int] = {}
-    matrices: list[tuple[float, float, float, float, float, float]] = []
+    styles = bytearray()
+    style_indexes: dict[tuple[object, ...], int] = {}
+    matrices = bytearray()
     matrix_indexes: dict[tuple[float, float, float, float, float, float], int] = {}
     for index, (kind, a, b, c1, d, e, f, style, matrix) in enumerate(records):
         typed_style = cast(dict[str, object], style)
         typed_matrix = cast(tuple[float, float, float, float, float, float], matrix)
-        style_index = style_indexes.setdefault(id(typed_style), len(styles))
-        if style_index == len(styles):
-            styles.append(typed_style)
-        matrix_index = matrix_indexes.setdefault(typed_matrix, len(matrices))
-        if matrix_index == len(matrices):
-            matrices.append(typed_matrix)
+        style_key = (
+            typed_style.get("fill"),
+            typed_style.get("stroke"),
+            typed_style.get("stroke_weight"),
+            typed_style.get("blend_mode"),
+            typed_style.get("erasing"),
+        )
+        style_index = style_indexes.get(style_key)
+        if style_index is None:
+            style_index = len(style_indexes)
+            style_indexes[style_key] = style_index
+            styles.extend(pack_primitive_style(typed_style))
+        matrix_index = matrix_indexes.get(typed_matrix)
+        if matrix_index is None:
+            matrix_index = len(matrix_indexes)
+            matrix_indexes[typed_matrix] = matrix_index
+            matrices.extend(pack_matrix(typed_matrix))
         _PACKED_MIXED_PRIMITIVE_RECORD.pack_into(
             payload,
             index * _PACKED_MIXED_PRIMITIVE_RECORD.size,
@@ -91,7 +106,7 @@ def _pack_mixed_primitive_records(
             style_index,
             matrix_index,
         )
-    return bytes(payload), styles, matrices
+    return bytes(payload), bytes(styles), bytes(matrices)
 
 
 def _pack_line_records(records: list[tuple[float, float, float, float]]) -> bytes:

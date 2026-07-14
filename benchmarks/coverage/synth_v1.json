@@ -1,6 +1,38 @@
 {
-  "catalog_digest": "sha256:fd94010a7f8afc17afafdff263fb4cd24c84608fd0ee82fd48ecec5a6841cd8f",
+  "catalog_digest": "sha256:1dd16b0e91349e4625cfecbaf7ed2e0cd490a3d12aec6e9a2a5c56734e038459",
   "entries": [
+    {
+      "capabilities": [
+        "synth-runtime",
+        "python-composition",
+        "scale-sweep",
+        "allocation-diagnostics"
+      ],
+      "case_id": "flat-event-scale-1-to-65k",
+      "correctness_label": "exact-declared-and-expanded-counts-normalized-digests-and-no-audio-render-at-1-through-65536-events",
+      "definition_digest": "sha256:670bc05fa816f3e5e4e88d76fa542bbc0507372df3b91a0d20d1b6bb8c2970b6",
+      "metric_identity": {
+        "id": "composition-scale-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "flat-scale-sweep",
+        "event_counts": [
+          1,
+          64,
+          1024,
+          16384,
+          65536
+        ],
+        "required_counters": [],
+        "work_units": 83009
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "composition",
+      "workload_version": 1
+    },
     {
       "capabilities": [
         "synth-runtime",
@@ -8,7 +40,7 @@
       ],
       "case_id": "flat-events-1k",
       "correctness_label": "normalized-plan-digest-and-exact-event-order-without-audio-render",
-      "definition_digest": "sha256:25a3f31fd1abc6c2f2cb8577c7f5be59957f5000c1c85d8aada324e777766435",
+      "definition_digest": "sha256:24b08c4435fdd61de8251409c6697a994a0912c9fb5a44eaafdce09412193460",
       "metric_identity": {
         "id": "composition-elapsed-ns",
         "version": 1
@@ -30,11 +62,104 @@
       "capabilities": [
         "synth-runtime",
         "python-composition",
+        "fresh-process",
+        "hostile-depth"
+      ],
+      "case_id": "fresh-process-seed-history-and-limits",
+      "correctness_label": "same-seed-normalized-identity-is-stable-across-fresh-processes-and-unrelated-build-history-while-changed-seed-differs-and-excess-depth-fails",
+      "definition_digest": "sha256:b3b17c843ed533604db63e5b18f8c1931cd749a287934b579565d492a9c9cb48",
+      "metric_identity": {
+        "id": "fresh-process-determinism-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "fresh-process-determinism",
+        "required_counters": [],
+        "work_units": 4
+      },
+      "sampling_profile": "micro",
+      "workload_id": "composition",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "python-composition",
+        "lazy-values",
+        "sample-duration"
+      ],
+      "case_id": "lazy-expression-families-geometric",
+      "correctness_label": "all-lazy-expression-families-repeat-normalized-digests-for-seed-across-geometric-graph-sizes",
+      "definition_digest": "sha256:b7e99d2d8ee11ad93ff8baea69fddf368237928df9cb9a991b15444d7d6abac2",
+      "metric_identity": {
+        "id": "lazy-expression-expansion-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "lazy-expression-sweep",
+        "graph_sizes": [
+          1,
+          8,
+          64,
+          512,
+          4096
+        ],
+        "required_counters": [],
+        "work_units": 4681
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "composition",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "python-composition",
+        "nested-loops",
+        "threads",
+        "track-calls"
+      ],
+      "case_id": "nested-direct-depths-1-to-8",
+      "correctness_label": "nested-and-direct-expanded-schedules-have-exact-events-times-values-options-and-order-at-depths-1-through-8",
+      "definition_digest": "sha256:ecfc73d8d96ed69f2daecf95f5a016a106cd28278577e1e8b4f5e31310de1565",
+      "metric_identity": {
+        "id": "nested-direct-expansion-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "nested-depth-sweep",
+        "depths": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "required_counters": [],
+        "work_units": 2040
+      },
+      "sampling_profile": "micro",
+      "workload_id": "composition",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "python-composition",
         "lazy-values"
       ],
       "case_id": "nested-lazy-depth-5",
       "correctness_label": "normalized-nested-expansion-digest-events-times-and-condition-order",
-      "definition_digest": "sha256:862d4c9af16426103c120aaa7b8852b0b6ca00a72c0bde0d4d67e8a05d9fa87c",
+      "definition_digest": "sha256:dd3eda3e7dc9619d5ba71a548ef9ba3d01b0b6a2ef868e754ae5aa2aa668451d",
       "metric_identity": {
         "id": "expansion-elapsed-ns",
         "version": 1
@@ -56,12 +181,48 @@
       "capabilities": [
         "synth-runtime",
         "python-composition",
+        "controls",
+        "open-loops",
+        "finite-loops"
+      ],
+      "case_id": "schedule-controls-dense-sparse-open-finite",
+      "correctness_label": "dense-sparse-simultaneous-open-finite-schedules-and-0-64-16384-controls-preserve-counts-times-order-targets-and-bounds",
+      "definition_digest": "sha256:82071578b8d5f126450476b6c3e586b81fc67dd11ecfd4bef65c21d4bf023713",
+      "metric_identity": {
+        "id": "schedule-control-expansion-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "schedule-control-sweep",
+        "control_counts": [
+          0,
+          64,
+          16384
+        ],
+        "event_counts": [
+          1,
+          64,
+          1024
+        ],
+        "required_counters": [],
+        "work_units": 20807
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "composition",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "python-composition",
         "synth-templates",
         "fx-templates"
       ],
       "case_id": "source-synth-fx-templates-64",
       "correctness_label": "source-template-override-expansion-and-normalized-plan-digest",
-      "definition_digest": "sha256:269468da416289967bcd995ef3cb884e65b92450fb2964a342784da7914a56a2",
+      "definition_digest": "sha256:c28babe60350eb1dd62d17f68040833ffe8301441c80b6a220bde0ad5c87431b",
       "metric_identity": {
         "id": "template-expansion-elapsed-ns",
         "version": 1
@@ -82,6 +243,33 @@
     {
       "capabilities": [
         "synth-runtime",
+        "python-composition",
+        "synth-templates",
+        "fx-templates",
+        "compiled-assets"
+      ],
+      "case_id": "template-first-load-warm-reuse-256",
+      "correctness_label": "source-and-compiled-template-first-load-and-immediate-reuse-preserve-digests-overrides-multiple-outputs-and-active-fx-controls",
+      "definition_digest": "sha256:8247bf08be6dcb38838115df2a0c8334cd4644be8bcebc1dcb609da3972145a8",
+      "metric_identity": {
+        "id": "template-cold-warm-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "template-cold-warm",
+        "event_count": 256,
+        "required_counters": [],
+        "work_units": 264
+      },
+      "sampling_profile": "micro",
+      "workload_id": "composition",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
         "rust-dsp",
         "fx",
         "wav-output",
@@ -89,7 +277,7 @@
       ],
       "case_id": "bounded-compile-render-longevity",
       "correctness_label": "stable-plan-and-pcm-digests-across-bounded-clean-worker-cycles",
-      "definition_digest": "sha256:79f33a4ff8220ff7fd34ad651f6b2aa1287ca4e27de302f0ab963a392655f409",
+      "definition_digest": "sha256:0eb8576532c8a48dae44e944a790de0746176ba4c14a8a317e4d9c4e7a04b716",
       "metric_identity": {
         "id": "longevity-cycle-elapsed-ns",
         "version": 1
@@ -114,8 +302,8 @@
         "no-fallback"
       ],
       "case_id": "fail-closed-validation",
-      "correctness_label": "actionable-bounded-errors-without-parser-decoder-or-player-substitution",
-      "definition_digest": "sha256:68101651e1f9d1832f6e9d654cb8ced8d1b825c65813aaa451ae770542c574cf",
+      "correctness_label": "twenty-one-actionable-bounded-errors-without-parser-decoder-or-player-substitution",
+      "definition_digest": "sha256:95fabacc68064345f48698c04b68db1603486d401b7a3a6e73e55e31787e8641",
       "metric_identity": {
         "id": "failure-validation-elapsed-ns",
         "version": 1
@@ -127,7 +315,7 @@
         "cycles": 1,
         "required_counters": [],
         "sample_rate": 48000,
-        "work_units": 16
+        "work_units": 21
       },
       "sampling_profile": "micro",
       "workload_id": "failures-longevity",
@@ -142,7 +330,7 @@
       ],
       "case_id": "all-practical-rust-fx-families",
       "correctness_label": "every-practical-fx-is-finite-audibly-non-noop-and-signal-summarized",
-      "definition_digest": "sha256:e41869bf28c3d3db18d266ec853cf1b386eaa3a20ace2f6741275f3014f34359",
+      "definition_digest": "sha256:44843382d403e7b6b2c1664097a0ca0ce2e9fdb7f3d0426d1aded196a25c053d",
       "metric_identity": {
         "id": "fx-render-elapsed-ns",
         "version": 1
@@ -163,6 +351,45 @@
       "capabilities": [
         "synth-runtime",
         "rust-dsp",
+        "fx",
+        "fx-buses",
+        "scale-sweep"
+      ],
+      "case_id": "fx-chain-and-bus-scaling-matrix",
+      "correctness_label": "exact-repeat-pcm-for-chain-depths-1-2-4-8-and-independent-bus-counts-1-4-16-32",
+      "definition_digest": "sha256:1f5b4a8366a867d9086af7587304cbee0813a030aea959f1d5e0ce83821984e7",
+      "metric_identity": {
+        "id": "fx-chain-bus-scaling-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "bus_counts": [
+          1,
+          4,
+          16,
+          32
+        ],
+        "case_kind": "chain-bus-scaling-matrix",
+        "chain_depths": [
+          1,
+          2,
+          4,
+          8
+        ],
+        "required_counters": [],
+        "sample_rate": 48000,
+        "work_units": 68
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "fx-mix-output",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "rust-dsp",
         "fx-buses",
         "normalization",
         "limiter",
@@ -170,7 +397,7 @@
       ],
       "case_id": "shared-buses-limiter-normaliser-output",
       "correctness_label": "shared-bus-difference-limiter-ceiling-and-byte-file-output-parity",
-      "definition_digest": "sha256:efdacf42c5430e259f4dd5a739f4f9d2ed494e4a3576e49640f5797cb00dab9b",
+      "definition_digest": "sha256:fdd206dc59c930551853be0b7a51c47e81f87061c315b97a003215d824749863",
       "metric_identity": {
         "id": "mix-output-elapsed-ns",
         "version": 1
@@ -190,6 +417,39 @@
     {
       "capabilities": [
         "synth-runtime",
+        "rust-dsp",
+        "stateful-block-renderer",
+        "wav-memory-sink",
+        "wav-file-sink",
+        "filesystem"
+      ],
+      "case_id": "stateful-memory-file-output-1-10-60-seconds",
+      "correctness_label": "exact-memory-versus-incremental-file-wav-parity-at-honest-1-10-60-second-scales",
+      "definition_digest": "sha256:6e272c8ed496258e05b3d6153fd98501530d7269aa0dc2e9cef2c6c8d340b996",
+      "metric_identity": {
+        "id": "stateful-output-scales-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "stateful-memory-file-output-scales",
+        "duration_seconds": [
+          1,
+          10,
+          60
+        ],
+        "required_counters": [],
+        "sample_rate": 48000,
+        "work_units": 142
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "fx-mix-output",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
         "sample-decoder",
         "resampler",
         "sample-cache",
@@ -197,7 +457,7 @@
       ],
       "case_id": "generated-pcm-decode-resample-cache",
       "correctness_label": "generated-wav-duration-channel-resample-repeat-digest-and-cleanup",
-      "definition_digest": "sha256:013bedb441b166087593412dacd548009f7ec9afe42dc7db3d1418da556c0e47",
+      "definition_digest": "sha256:df8080a1b927c114a23c64d58a7bdb5e5a2e486a00eb4cb80a0229bb872d2d54",
       "metric_identity": {
         "id": "sample-path-elapsed-ns",
         "version": 1
@@ -219,13 +479,83 @@
     {
       "capabilities": [
         "synth-runtime",
+        "sample-decoder",
+        "pcm-wav",
+        "flac",
+        "filesystem",
+        "decode-diagnostics"
+      ],
+      "case_id": "pcm-flac-decode-metadata-matrix",
+      "correctness_label": "exact-cold-warm-duration-and-fixture-identity-for-24-pcm-width-channel-rate-cells-and-three-pinned-flac-assets",
+      "definition_digest": "sha256:fdccc0f003a3095491d9e0a381ae2a680349b371cf042ba4d3a30aa55c0f36fe",
+      "metric_identity": {
+        "id": "sample-decode-metadata-matrix-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "decode-metadata-matrix",
+        "required_counters": [],
+        "work_units": 54
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "sample-engine",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "sample-decoder",
+        "resampler",
+        "slices",
+        "reverse-playback",
+        "scale-sweep"
+      ],
+      "case_id": "sample-resample-slice-playback-rate-matrix",
+      "correctness_label": "exact-repeat-pcm-no-source-mutation-and-finite-signal-for-source-target-playback-rate-and-slice-cells",
+      "definition_digest": "sha256:3c8bbb40d0d600ecf956aa4dcfcd3dbf11904e3302c05fc96cc908fcb6c3fcd1",
+      "metric_identity": {
+        "id": "sample-resample-rate-matrix-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "resample-slice-playback-rate-matrix",
+        "playback_rates": [
+          "-1",
+          "0.125",
+          "0.5",
+          "1",
+          "8"
+        ],
+        "required_counters": [],
+        "source_rates": [
+          44100,
+          48000
+        ],
+        "target_rates": [
+          44100,
+          48000,
+          96000
+        ],
+        "work_units": 30
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "sample-engine",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
         "pyo3-bridge",
         "rust-dsp",
         "wav-output"
       ],
       "case_id": "direct-serialized-pyo3-parity-64",
       "correctness_label": "direct-and-serialized-bridge-exact-pcm-parity-and-semantic-digest",
-      "definition_digest": "sha256:0d61cdc511e8b2f0e87fe1a2d08bad08bc9a930748baebf6c7fdc88f15e5c73d",
+      "definition_digest": "sha256:2bae870cb33e9fcfdd4d4489cadb944b12869ba95cdfbbe0abe8348e1b19ecd0",
       "metric_identity": {
         "id": "bridge-render-elapsed-ns",
         "version": 1
@@ -266,11 +596,99 @@
       "capabilities": [
         "synth-runtime",
         "plan-serialization",
+        "zlib",
+        "pyo3-bridge",
+        "validation",
+        "no-fallback"
+      ],
+      "case_id": "hostile-container-types-values-and-runtime-validation",
+      "correctness_label": "twenty-four-corrupt-nonfinite-unsupported-excessive-riff-and-resource-hostile-inputs-fail-deterministically-without-parser-or-renderer-substitution",
+      "definition_digest": "sha256:2266dab5908894fe224c624731b4985c8311eb28fc15599d693b68f609c3fbe8",
+      "metric_identity": {
+        "id": "hostile-validation-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "hostile-inputs",
+        "required_counters": [],
+        "sample_rate": 48000,
+        "work_units": 24
+      },
+      "sampling_profile": "micro",
+      "workload_id": "serialization-bridge",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "plan-serialization",
+        "zlib",
+        "pyo3-bridge",
+        "gil-release",
+        "allocation-diagnostics"
+      ],
+      "case_id": "phase-shape-size-depth-layer-fx-sample-sweeps",
+      "correctness_label": "every-shape-profile-preserves-exact-semantic-roundtrip-digest-and-aggregate-rust-compile-reports-gil-release-without-audio-render",
+      "definition_digest": "sha256:fa81fd29b3448d204b35944080f8d4a3a7f00a6b087e7fd171c047ce048d262c",
+      "metric_identity": {
+        "id": "serialization-shape-sweep-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "phase-shape-sweep",
+        "control_counts": [
+          0,
+          64,
+          16384
+        ],
+        "event_counts": [
+          1,
+          64,
+          1024,
+          16384
+        ],
+        "fx_depths": [
+          0,
+          4,
+          16,
+          64
+        ],
+        "layer_counts": [
+          1,
+          4,
+          16
+        ],
+        "required_counters": [],
+        "sample_path_counts": [
+          1,
+          8,
+          64
+        ],
+        "sample_rate": 48000,
+        "value_depths": [
+          1,
+          8,
+          32
+        ],
+        "work_units": 34140
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "serialization-bridge",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "plan-serialization",
         "zlib"
       ],
       "case_id": "plan-roundtrip-256",
       "correctness_label": "exact-normalized-semantic-roundtrip-digest-and-bounded-container",
-      "definition_digest": "sha256:8f60e311d365335f6c5c851fbf45d873cacd6ffecd4b0127bf8d15622fb326d5",
+      "definition_digest": "sha256:07571241c7e4ba7d288e7db8d96f438cd1b8dcb4da89b7d8683c66cdb445fce1",
       "metric_identity": {
         "id": "serialization-elapsed-ns",
         "version": 1
@@ -298,7 +716,7 @@
       ],
       "case_id": "serialized-render-python-heartbeat-128",
       "correctness_label": "python-heartbeat-progresses-during-synchronous-serialized-render-and-reports-maximum-pause",
-      "definition_digest": "sha256:c1ce6a14258b2127a809ec928cec43962b0fc676e6a62ad2d1e5917cd037c795",
+      "definition_digest": "sha256:80c6844796ad0850fa6ad5d316bbe5341ba1a955a8ccc70938fa52832f45723f",
       "metric_identity": {
         "id": "serialized-heartbeat-render-elapsed-ns",
         "version": 1
@@ -340,7 +758,7 @@
       ],
       "case_id": "public-sound-headless-state",
       "correctness_label": "exact-generated-sound-bytes-metadata-and-safe-headless-control-state",
-      "definition_digest": "sha256:a92150e7b554aaadab40126e35bad22e9a7e2484afd2013ef9f1ab9b0bf21ac7",
+      "definition_digest": "sha256:6102168efde048ea7fdbb58a916b8e9180623652a4906d5b73e7dd70eda3b14d",
       "metric_identity": {
         "id": "sound-state-elapsed-ns",
         "version": 1
@@ -368,7 +786,7 @@
       ],
       "case_id": "simulated-realtime-pcm-block-sink",
       "correctness_label": "exact-pcm-concatenation-bounded-queue-and-zero-simulated-underruns",
-      "definition_digest": "sha256:c7724de771170e72701d3c527c6409cc28b6f3977bc68eac79e9da9dd09b81f5",
+      "definition_digest": "sha256:e70b7b9489c3382bf5a4c4acb33db2066a8ec52ac7817660d850194683dedcba",
       "metric_identity": {
         "id": "simulated-block-elapsed-ns",
         "version": 1
@@ -390,13 +808,70 @@
     {
       "capabilities": [
         "synth-runtime",
+        "stateful-block-renderer",
+        "wav-memory-sink",
+        "wav-file-sink",
+        "filesystem"
+      ],
+      "case_id": "stateful-block-memory-file-parity",
+      "correctness_label": "exact-public-track-memory-and-incremental-file-output-from-the-canonical-stateful-block-renderer",
+      "definition_digest": "sha256:f39cb294e5c51a251ad36324cce808398aef990a6730fec833f310dcb5fe15fc",
+      "metric_identity": {
+        "id": "stateful-block-sink-parity-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "block_frames": 1024,
+        "case_kind": "stateful-block-memory-file-parity",
+        "duration_ms": 3000,
+        "required_counters": [],
+        "sample_rate": 48000,
+        "work_units": 2
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "streaming-sound",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "stateful-block-renderer",
+        "validation",
+        "no-fallback"
+      ],
+      "case_id": "stateful-partition-rolling-native-route-guards",
+      "correctness_label": "unexposed-partition-diagnostics-headless-rolling-and-unqualified-native-device-routes-remain-explicitly-unavailable-before-device-open",
+      "definition_digest": "sha256:7b1cb994486c2c8f3940dcb1e9c2706799e8b8e91ac7f82bf2c88af839cff79b",
+      "metric_identity": {
+        "id": "stateful-route-guard-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "block_frames": 1024,
+        "case_kind": "stateful-route-guards",
+        "duration_ms": 80,
+        "required_counters": [],
+        "sample_rate": 48000,
+        "work_units": 3
+      },
+      "sampling_profile": "micro",
+      "workload_id": "streaming-sound",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
         "rust-dsp",
         "oscillators",
         "noise-voices"
       ],
       "case_id": "all-primitive-oscillators-polyphony-4",
       "correctness_label": "finite-bounded-repeatable-pcm-per-primitive-with-sine-frequency-oracle",
-      "definition_digest": "sha256:cefafffa3a84733754feda0d3251e5ea9d4192c1e9bd3f8f054c14b7be50e3c3",
+      "definition_digest": "sha256:81906c26fae4ebb36e0b02f5a0aa52b20fb9ac476508ac5de150c05ec9ffc1b7",
       "metric_identity": {
         "id": "voice-render-elapsed-ns",
         "version": 1
@@ -426,7 +901,7 @@
       ],
       "case_id": "layers-envelope-filter-automation",
       "correctness_label": "repeatable-layered-pcm-envelope-shape-controls-and-filtered-signal",
-      "definition_digest": "sha256:cf5e0372cb1df2ad6b86f5c8b3d5fd9d2c7a9a00b750b4f7be1fc175de6e12db",
+      "definition_digest": "sha256:75a8fbe9b3d28ace002f6608c3e5c12afed9074d0311738a99c38d902ef93356",
       "metric_identity": {
         "id": "layer-voice-render-elapsed-ns",
         "version": 1
@@ -440,6 +915,99 @@
         "required_counters": [],
         "sample_rate": 48000,
         "work_units": 28
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "voices-filters-automation",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "rust-dsp",
+        "layered-voices",
+        "envelopes",
+        "filters",
+        "automation",
+        "scale-sweep"
+      ],
+      "case_id": "layers-envelopes-filters-automation-matrix",
+      "correctness_label": "exact-repeat-pcm-for-2-4-7-16-layers-six-envelope-curves-six-filter-paths-and-0-1-8-64-controls-at-three-rates",
+      "definition_digest": "sha256:3f7e645cde4940bca4fcf73b06ec75268c43cc07781ff15b0f6f499e2c2a4c42",
+      "metric_identity": {
+        "id": "layer-envelope-filter-automation-matrix-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "automation_counts": [
+          0,
+          1,
+          8,
+          64
+        ],
+        "case_kind": "layer-envelope-filter-automation-matrix",
+        "envelope_curves": [
+          -4,
+          -1,
+          1,
+          3,
+          4,
+          7
+        ],
+        "layer_counts": [
+          2,
+          4,
+          7,
+          16
+        ],
+        "polyphonies": [
+          1,
+          4
+        ],
+        "required_counters": [],
+        "sample_rates": [
+          44100,
+          48000,
+          96000
+        ],
+        "work_units": 90
+      },
+      "sampling_profile": "bulk-headless",
+      "workload_id": "voices-filters-automation",
+      "workload_version": 1
+    },
+    {
+      "capabilities": [
+        "synth-runtime",
+        "rust-dsp",
+        "oscillators",
+        "noise-voices",
+        "scale-sweep"
+      ],
+      "case_id": "voice-families-rates-polyphony-matrix",
+      "correctness_label": "ten-voice-families-at-44100-48000-96000-hz-and-1-4-12-note-polyphony-with-exact-repeat-pcm",
+      "definition_digest": "sha256:f5658c7feeb2323506ae42eb700398c547b191a2179e317060b8fb7cfb24e1d3",
+      "metric_identity": {
+        "id": "voice-rate-polyphony-matrix-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "case_kind": "voice-rate-polyphony-matrix",
+        "polyphonies": [
+          1,
+          4,
+          12
+        ],
+        "required_counters": [],
+        "sample_rates": [
+          44100,
+          48000,
+          96000
+        ],
+        "work_units": 90
       },
       "sampling_profile": "bulk-headless",
       "workload_id": "voices-filters-automation",

@@ -2,6 +2,7 @@ use crate::prelude::*;
 mod fill;
 mod helpers;
 
+use crate::frame_commands::{decode_matrices, decode_primitive_styles};
 use crate::runtime::style::*;
 use helpers::{
     unknown_primitive_batch_kind_message, PrimitiveBatchKind, PrimitiveBatchRecord,
@@ -90,8 +91,8 @@ impl Canvas {
     pub(crate) fn batch_primitives_mixed_packed_impl(
         &mut self,
         bytes: &[u8],
-        styles: &Bound<'_, PyList>,
-        matrices: &Bound<'_, PyList>,
+        styles: &[u8],
+        matrices: &[u8],
     ) -> PyResult<()> {
         const RECORD_BYTES: usize = 64;
         if bytes.len() % RECORD_BYTES != 0 {
@@ -103,17 +104,8 @@ impl Canvas {
         if bytes.is_empty() {
             return Ok(());
         }
-        let parsed_styles = styles
-            .iter()
-            .map(|style| self.cached_style(&style))
-            .collect::<PyResult<Vec<_>>>()?;
-        for style in &parsed_styles {
-            ensure_supported_style(style)?;
-        }
-        let parsed_matrices = matrices
-            .iter()
-            .map(|matrix| matrix.extract::<Matrix>())
-            .collect::<PyResult<Vec<_>>>()?;
+        let parsed_styles = decode_primitive_styles(styles)?;
+        let parsed_matrices = decode_matrices(matrices)?;
         let parsed_records = bytes
             .chunks_exact(RECORD_BYTES)
             .map(|record| {

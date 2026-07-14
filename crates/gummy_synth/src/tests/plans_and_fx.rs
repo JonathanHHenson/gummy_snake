@@ -62,7 +62,7 @@ fn primitive_synth_keys_are_recognized_and_render() {
 }
 
 #[test]
-fn plan_renderer_groups_matching_fx_handles_into_shared_bus() {
+fn offline_block_renderer_preserves_shared_fx_bus_topology() {
     let mut synth_opts = OptMap::new();
     synth_opts.insert("release".to_owned(), SynthValue::Float(0.04));
     synth_opts.insert("amp".to_owned(), SynthValue::Float(1.0));
@@ -93,10 +93,12 @@ fn plan_renderer_groups_matching_fx_handles_into_shared_bus() {
     separate_bus_second.fx_chain[0].id = 10;
 
     let shared_bus = render_plan_events(vec![event.clone(), same_bus_second], 0.08, 8_000)
-        .expect("shared FX bus renders");
+        .expect("shared supported FX route renders");
     let separate_buses = render_plan_events(vec![event, separate_bus_second], 0.08, 8_000)
-        .expect("separate FX buses render");
+        .expect("independent supported FX routes render");
 
+    assert!(shared_bus.starts_with(b"RIFF"));
+    assert!(separate_buses.starts_with(b"RIFF"));
     assert_ne!(shared_bus, separate_buses);
 }
 

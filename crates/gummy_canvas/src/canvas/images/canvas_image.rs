@@ -1,4 +1,5 @@
 use super::ImageBatchBuilder;
+use crate::frame_commands::{FrameCommandFamily, IMAGE_RECORD_BYTES};
 use crate::prelude::*;
 
 impl Canvas {
@@ -126,6 +127,34 @@ impl Canvas {
         self.performance_counters.native_command_ingest_time_ms +=
             ingest_start.elapsed().as_secs_f64() * 1000.0;
         result
+    }
+
+    pub(crate) fn batch_canvas_images_packed_impl(
+        &mut self,
+        records: &[u8],
+        images: Vec<PyRef<'_, CanvasImage>>,
+        style: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let ingest_start = std::time::Instant::now();
+        let style = self.cached_style(style)?;
+        let batch = ImageBatchBuilder::parse_packed_canvas_records(records, &images)?;
+        self.record_shared_batch_payloads(&batch);
+        let record_count = records.len() / IMAGE_RECORD_BYTES;
+        let result = if self.try_draw_gpu_image_atlas_batch(
+            batch.unique_images(),
+            batch.records(),
+            &style,
+        )? {
+            Ok(())
+        } else {
+            let (unique_images, parsed_records) = batch.into_parts();
+            self.draw_image_batch_records(&unique_images, &parsed_records, &style, true)
+        };
+        result?;
+        self.record_frame_command_ingress(FrameCommandFamily::Image, &[records], record_count);
+        self.performance_counters.native_command_ingest_time_ms +=
+            ingest_start.elapsed().as_secs_f64() * 1000.0;
+        Ok(())
     }
 
     pub(crate) fn batch_canvas_image_motion_terms_impl(

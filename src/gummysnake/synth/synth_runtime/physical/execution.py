@@ -29,6 +29,20 @@ class SynthRuntimeDiagnostics(TypedDict):
     parallel_scratch_peak_bytes: int
     parallel_scratch_limit_bytes: int
     parallel_min_scratch_bytes: int
+    sample_source_cache_hits: int
+    sample_source_cache_misses: int
+    sample_source_cache_evictions: int
+    sample_source_cache_bytes: int
+    sample_source_cache_entries: int
+    sample_source_cache_budget_bytes: int
+    sample_resample_cache_hits: int
+    sample_resample_cache_misses: int
+    sample_resample_cache_evictions: int
+    sample_resample_cache_bytes: int
+    sample_resample_cache_entries: int
+    sample_resample_cache_budget_bytes: int
+    sample_cache_stale_invalidations: int
+    sample_cache_lock_contentions: int
 
 
 def configure_workers(worker_count: WorkerCount = "auto") -> int:

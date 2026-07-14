@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from gummysnake.ecs.actions import Action, DefaultAction, ForEachAction, WhenAction
 from gummysnake.ecs.runtime_views import Entity, SystemHandle
@@ -116,13 +116,6 @@ def _payload_has_input_state(payload: dict[str, Any]) -> bool:
         isinstance(expr, dict) and expr.get("kind") == "input_state"
         for expr in payload.get("expressions", ())
     )
-
-
-def _optional_rust_int(rust_world: object, method_name: str) -> int:
-    method = getattr(rust_world, method_name, None)
-    if not callable(method):
-        return 0
-    return int(cast(Any, method()))
 
 
 def _current_delta_time(world: EcsWorld) -> float:

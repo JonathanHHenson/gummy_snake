@@ -40,7 +40,7 @@ The stable top-level counters are:
 | `bridge_calls` | Python-to-canvas bridge calls made by the adapter. |
 | `frames_presented` | Frames presented by the renderer/backend. |
 | `gpu_frames_rendered` | Offscreen GPU frame resolves. |
-| `event_polls` | Native input/event polling calls. |
+| `event_polls` | Native input/event polling calls. Interactive execution performs one poll at the start of each tick; drawing and presentation do not add opportunistic polls. |
 | `direct_model_draws` | Rust-owned model-handle draws that avoid Python face dictionaries; GPU builds use retained model buffers and built-in model pipelines. |
 | `python_face_payloads` | Legacy/fallback shaded-face payloads materialized as Python dictionaries. |
 | `direct_shape_finalizations` | Rust-owned `begin_shape()` buffers finalized directly into draw or clip operations. |

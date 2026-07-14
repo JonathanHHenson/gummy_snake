@@ -118,31 +118,6 @@ pub(crate) fn validate_event(event: &EventPayload, sample_rate: u32) -> SynthRes
     Ok(())
 }
 
-pub(crate) fn validate_plan_render(
-    events: &[EventPayload],
-    duration_seconds: f64,
-    sample_rate: u32,
-) -> SynthResult<usize> {
-    let total_frames =
-        checked_frame_count(duration_seconds, sample_rate, "synth plan duration", 1)?;
-    if events.len() > MAX_PLAN_EVENTS {
-        return Err(SynthError::new(format!(
-            "synth plan event count {} exceeds the limit of {MAX_PLAN_EVENTS}.",
-            events.len()
-        )));
-    }
-    for event in events {
-        validate_event(event, sample_rate)?;
-        if event.time_seconds > duration_seconds {
-            return Err(SynthError::new(format!(
-                "synth event time {} exceeds plan duration {duration_seconds}.",
-                event.time_seconds
-            )));
-        }
-    }
-    Ok(total_frames)
-}
-
 pub(crate) fn validate_fx_name(name: &str) -> SynthResult<()> {
     let key = name.trim_start_matches(':').to_ascii_lowercase();
     let primitive_key = key.strip_prefix('_').unwrap_or(key.as_str());

@@ -81,6 +81,204 @@ zero_policy = "positive-baseline"
 precision = 3
 
 [[workloads]]
+id = "composition"
+version = 1
+case_id = "flat-event-scale-1-to-65k"
+execution_class = "headless"
+capabilities = ["synth-runtime", "python-composition", "scale-sweep", "allocation-diagnostics"]
+correctness = "exact-declared-and-expanded-counts-normalized-digests-and-no-audio-render-at-1-through-65536-events"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "flat-scale-sweep"
+event_counts = [1, 64, 1024, 16384, 65536]
+work_units = 83009
+required_counters = []
+[workloads.primary_metric]
+id = "composition-scale-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "declared-event"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "composition"
+version = 1
+case_id = "nested-direct-depths-1-to-8"
+execution_class = "headless"
+capabilities = ["synth-runtime", "python-composition", "nested-loops", "threads", "track-calls"]
+correctness = "nested-and-direct-expanded-schedules-have-exact-events-times-values-options-and-order-at-depths-1-through-8"
+sampling_profile = "micro"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "nested-depth-sweep"
+depths = [1, 2, 3, 4, 5, 6, 7, 8]
+work_units = 2040
+required_counters = []
+[workloads.primary_metric]
+id = "nested-direct-expansion-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "variant-expanded-event"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "composition"
+version = 1
+case_id = "lazy-expression-families-geometric"
+execution_class = "headless"
+capabilities = ["synth-runtime", "python-composition", "lazy-values", "sample-duration"]
+correctness = "all-lazy-expression-families-repeat-normalized-digests-for-seed-across-geometric-graph-sizes"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "lazy-expression-sweep"
+graph_sizes = [1, 8, 64, 512, 4096]
+work_units = 4681
+required_counters = []
+[workloads.primary_metric]
+id = "lazy-expression-expansion-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "expression-graph-unit"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "composition"
+version = 1
+case_id = "template-first-load-warm-reuse-256"
+execution_class = "headless"
+capabilities = ["synth-runtime", "python-composition", "synth-templates", "fx-templates", "compiled-assets"]
+correctness = "source-and-compiled-template-first-load-and-immediate-reuse-preserve-digests-overrides-multiple-outputs-and-active-fx-controls"
+sampling_profile = "micro"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "template-cold-warm"
+event_count = 256
+work_units = 264
+required_counters = []
+[workloads.primary_metric]
+id = "template-cold-warm-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "template-event-or-load"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "composition"
+version = 1
+case_id = "schedule-controls-dense-sparse-open-finite"
+execution_class = "headless"
+capabilities = ["synth-runtime", "python-composition", "controls", "open-loops", "finite-loops"]
+correctness = "dense-sparse-simultaneous-open-finite-schedules-and-0-64-16384-controls-preserve-counts-times-order-targets-and-bounds"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "schedule-control-sweep"
+event_counts = [1, 64, 1024]
+control_counts = [0, 64, 16384]
+work_units = 20807
+required_counters = []
+[workloads.primary_metric]
+id = "schedule-control-expansion-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "event-or-control-declaration"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "composition"
+version = 1
+case_id = "fresh-process-seed-history-and-limits"
+execution_class = "headless"
+capabilities = ["synth-runtime", "python-composition", "fresh-process", "hostile-depth"]
+correctness = "same-seed-normalized-identity-is-stable-across-fresh-processes-and-unrelated-build-history-while-changed-seed-differs-and-excess-depth-fails"
+sampling_profile = "micro"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "fresh-process-determinism"
+work_units = 4
+required_counters = []
+[workloads.primary_metric]
+id = "fresh-process-determinism-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "fresh-process-plan-build"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "serialization-bridge"
+version = 1
+case_id = "phase-shape-size-depth-layer-fx-sample-sweeps"
+execution_class = "headless"
+capabilities = ["synth-runtime", "plan-serialization", "zlib", "pyo3-bridge", "gil-release", "allocation-diagnostics"]
+correctness = "every-shape-profile-preserves-exact-semantic-roundtrip-digest-and-aggregate-rust-compile-reports-gil-release-without-audio-render"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "phase-shape-sweep"
+event_counts = [1, 64, 1024, 16384]
+control_counts = [0, 64, 16384]
+value_depths = [1, 8, 32]
+layer_counts = [1, 4, 16]
+fx_depths = [0, 4, 16, 64]
+sample_path_counts = [1, 8, 64]
+sample_rate = 48000
+work_units = 34140
+required_counters = []
+[workloads.primary_metric]
+id = "serialization-shape-sweep-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "serialized-shape-item"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "serialization-bridge"
+version = 1
+case_id = "hostile-container-types-values-and-runtime-validation"
+execution_class = "headless"
+capabilities = ["synth-runtime", "plan-serialization", "zlib", "pyo3-bridge", "validation", "no-fallback"]
+correctness = "twenty-four-corrupt-nonfinite-unsupported-excessive-riff-and-resource-hostile-inputs-fail-deterministically-without-parser-or-renderer-substitution"
+sampling_profile = "micro"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "hostile-inputs"
+sample_rate = 48000
+work_units = 24
+required_counters = []
+[workloads.primary_metric]
+id = "hostile-validation-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "expected-failure"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
 id = "serialization-bridge"
 version = 1
 case_id = "plan-roundtrip-256"
@@ -341,14 +539,14 @@ version = 1
 case_id = "fail-closed-validation"
 execution_class = "headless"
 capabilities = ["synth-runtime", "validation", "no-fallback"]
-correctness = "actionable-bounded-errors-without-parser-decoder-or-player-substitution"
+correctness = "twenty-one-actionable-bounded-errors-without-parser-decoder-or-player-substitution"
 sampling_profile = "micro"
 source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
 [workloads.parameters]
 case_kind = "fail-closed-validation"
 sample_rate = 48000
 cycles = 1
-work_units = 16
+work_units = 21
 required_counters = []
 [workloads.primary_metric]
 id = "failure-validation-elapsed-ns"
@@ -380,6 +578,211 @@ id = "longevity-cycle-elapsed-ns"
 version = 1
 unit = "ns"
 work_unit = "compile-render-cycle"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "voices-filters-automation"
+version = 1
+case_id = "voice-families-rates-polyphony-matrix"
+execution_class = "headless"
+capabilities = ["synth-runtime", "rust-dsp", "oscillators", "noise-voices", "scale-sweep"]
+correctness = "ten-voice-families-at-44100-48000-96000-hz-and-1-4-12-note-polyphony-with-exact-repeat-pcm"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "voice-rate-polyphony-matrix"
+sample_rates = [44100, 48000, 96000]
+polyphonies = [1, 4, 12]
+work_units = 90
+required_counters = []
+[workloads.primary_metric]
+id = "voice-rate-polyphony-matrix-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "voice-family-rate-polyphony-cell"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "voices-filters-automation"
+version = 1
+case_id = "layers-envelopes-filters-automation-matrix"
+execution_class = "headless"
+capabilities = ["synth-runtime", "rust-dsp", "layered-voices", "envelopes", "filters", "automation", "scale-sweep"]
+correctness = "exact-repeat-pcm-for-2-4-7-16-layers-six-envelope-curves-six-filter-paths-and-0-1-8-64-controls-at-three-rates"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "layer-envelope-filter-automation-matrix"
+sample_rates = [44100, 48000, 96000]
+polyphonies = [1, 4]
+layer_counts = [2, 4, 7, 16]
+envelope_curves = [-4, -1, 1, 3, 4, 7]
+automation_counts = [0, 1, 8, 64]
+work_units = 90
+required_counters = []
+[workloads.primary_metric]
+id = "layer-envelope-filter-automation-matrix-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "dsp-matrix-render"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "sample-engine"
+version = 1
+case_id = "pcm-flac-decode-metadata-matrix"
+execution_class = "headless"
+capabilities = ["synth-runtime", "sample-decoder", "pcm-wav", "flac", "filesystem", "decode-diagnostics"]
+correctness = "exact-cold-warm-duration-and-fixture-identity-for-24-pcm-width-channel-rate-cells-and-three-pinned-flac-assets"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "decode-metadata-matrix"
+work_units = 54
+required_counters = []
+[workloads.primary_metric]
+id = "sample-decode-metadata-matrix-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "metadata-decode-call"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "sample-engine"
+version = 1
+case_id = "sample-resample-slice-playback-rate-matrix"
+execution_class = "headless"
+capabilities = ["synth-runtime", "sample-decoder", "resampler", "slices", "reverse-playback", "scale-sweep"]
+correctness = "exact-repeat-pcm-no-source-mutation-and-finite-signal-for-source-target-playback-rate-and-slice-cells"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "resample-slice-playback-rate-matrix"
+source_rates = [44100, 48000]
+target_rates = [44100, 48000, 96000]
+playback_rates = ["-1", "0.125", "0.5", "1", "8"]
+work_units = 30
+required_counters = []
+[workloads.primary_metric]
+id = "sample-resample-rate-matrix-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "resample-render-cell"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "fx-mix-output"
+version = 1
+case_id = "fx-chain-and-bus-scaling-matrix"
+execution_class = "headless"
+capabilities = ["synth-runtime", "rust-dsp", "fx", "fx-buses", "scale-sweep"]
+correctness = "exact-repeat-pcm-for-chain-depths-1-2-4-8-and-independent-bus-counts-1-4-16-32"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "chain-bus-scaling-matrix"
+sample_rate = 48000
+chain_depths = [1, 2, 4, 8]
+bus_counts = [1, 4, 16, 32]
+work_units = 68
+required_counters = []
+[workloads.primary_metric]
+id = "fx-chain-bus-scaling-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "fx-processor-instance"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "fx-mix-output"
+version = 1
+case_id = "stateful-memory-file-output-1-10-60-seconds"
+execution_class = "headless"
+capabilities = ["synth-runtime", "rust-dsp", "stateful-block-renderer", "wav-memory-sink", "wav-file-sink", "filesystem"]
+correctness = "exact-memory-versus-incremental-file-wav-parity-at-honest-1-10-60-second-scales"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "stateful-memory-file-output-scales"
+sample_rate = 48000
+duration_seconds = [1, 10, 60]
+work_units = 142
+required_counters = []
+[workloads.primary_metric]
+id = "stateful-output-scales-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "rendered-audio-second"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "streaming-sound"
+version = 1
+case_id = "stateful-block-memory-file-parity"
+execution_class = "headless"
+capabilities = ["synth-runtime", "stateful-block-renderer", "wav-memory-sink", "wav-file-sink", "filesystem"]
+correctness = "exact-public-track-memory-and-incremental-file-output-from-the-canonical-stateful-block-renderer"
+sampling_profile = "bulk-headless"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "stateful-block-memory-file-parity"
+sample_rate = 48000
+duration_ms = 3000
+block_frames = 1024
+work_units = 2
+required_counters = []
+[workloads.primary_metric]
+id = "stateful-block-sink-parity-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "stateful-output-sink"
+direction = "lower-is-better"
+transform = "ratio"
+zero_policy = "positive-baseline"
+precision = 3
+
+[[workloads]]
+id = "streaming-sound"
+version = 1
+case_id = "stateful-partition-rolling-native-route-guards"
+execution_class = "headless"
+capabilities = ["synth-runtime", "stateful-block-renderer", "validation", "no-fallback"]
+correctness = "unexposed-partition-diagnostics-headless-rolling-and-unqualified-native-device-routes-remain-explicitly-unavailable-before-device-open"
+sampling_profile = "micro"
+source_files = ["suites/synth/__init__.py", "suites/synth/diagnostics.py", "suites/synth/fixtures.py", "suites/synth/oracles.py", "suites/synth/workloads.py"]
+[workloads.parameters]
+case_kind = "stateful-route-guards"
+sample_rate = 48000
+duration_ms = 80
+block_frames = 1024
+work_units = 3
+required_counters = []
+[workloads.primary_metric]
+id = "stateful-route-guard-elapsed-ns"
+version = 1
+unit = "ns"
+work_unit = "guarded-route"
 direction = "lower-is-better"
 transform = "ratio"
 zero_policy = "positive-baseline"

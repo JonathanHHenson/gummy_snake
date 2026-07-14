@@ -53,9 +53,9 @@ _EXPECTED_FINGERPRINTS = {
         "surface": "80ba8a26d6371e0759e96a883cc73f82abd74ee2e97756f503a3be8d0c2fd6ae",
     },
     "gummysnake.synth": {
-        "count": 60,
-        "exports": "8c8ba2dfaf19f83721f9d8ab85d3608c267567f3b3bc86bb8d24732e7212b2cb",
-        "surface": "c6b8a0c1755bac8aeb581d6a4b8cd4597c03d4b6ee393281e4bf0fe1ec953934",
+        "count": 65,
+        "exports": "4cfabc23aef0c4aa8df96bf51022f891ee6af9eca51e8f3f53ccb0e776c132b0",
+        "surface": "380bc165f240199bcc6b46d7d3ad8d65f3cef9ceb35fbbd2eae3b89d5b2cab6d",
     },
 }
 _COMPATIBILITY_MODULES = (

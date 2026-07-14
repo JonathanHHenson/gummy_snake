@@ -352,10 +352,23 @@ class _FakeSynthRuntime:
                 runtime.serialized_plan_calls.append((self._payload, self.sample_rate))
                 return _wav_payload(self.duration, self.sample_rate)
 
-            def render_wav_file(self, path: str) -> bytes:
+            def render_wav_file(self, path: str) -> None:
+                Path(path).write_bytes(self.render_wav())
+
+            def render_sound(self, path: str) -> object:
                 rendered = self.render_wav()
-                Path(path).write_bytes(rendered)
-                return rendered
+
+                class RenderedSound:
+                    duration = self.duration
+                    byte_len = len(rendered)
+
+                    def __init__(self) -> None:
+                        self.path = path
+
+                    def to_bytes(self) -> bytes:
+                        return rendered
+
+                return RenderedSound()
 
         return Program
 

@@ -27,20 +27,26 @@ def _canvas(
     parameters: Mapping[str, object],
     execution_class: ExecutionClass,
 ) -> SuiteExecution:
+    if workload_id == "native-input-window":
+        from .canvas.interactive import dispatch as dispatch_interactive
+
+        interactive_run = dispatch_interactive(parameters, execution_class)
+        return SuiteExecution(interactive_run.diagnostics, interactive_run.summary)
+
     from .canvas.workloads import dispatch
 
-    run = dispatch(workload_id, parameters, execution_class)
-    expected = run.plan.expected_draw_callbacks
-    if run.frame_count != expected:
+    canvas_run = dispatch(workload_id, parameters, execution_class)
+    expected = canvas_run.plan.expected_draw_callbacks
+    if canvas_run.frame_count != expected:
         raise SuiteDispatchError(
-            f"Canvas frame count mismatch: expected {expected}, got {run.frame_count}"
+            f"Canvas frame count mismatch: expected {expected}, got {canvas_run.frame_count}"
         )
     return SuiteExecution(
         diagnostics={
-            "renderer": run.diagnostics.as_record(),
-            "physical_desktop_requested": run.physical_desktop_requested,
+            "renderer": canvas_run.diagnostics.as_record(),
+            "physical_desktop_requested": canvas_run.physical_desktop_requested,
         },
-        summary={"frames": run.frame_count, "pixel_bytes": len(run.pixels)},
+        summary={"frames": canvas_run.frame_count, "pixel_bytes": len(canvas_run.pixels)},
     )
 
 
