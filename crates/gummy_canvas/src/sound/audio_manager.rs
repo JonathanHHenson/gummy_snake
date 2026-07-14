@@ -1,4 +1,5 @@
-use std::collections::BTreeMap;
+use std::cell::RefCell;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
@@ -9,7 +10,7 @@ use gummy_synth::{
     CompiledSynthProgram, PcmSink, SinkWrite, StatefulBlockRenderer, SynthError, SynthResult,
     DEFAULT_RENDER_BLOCK_FRAMES,
 };
-use sdl3::audio::{AudioFormat, AudioSpec, AudioStreamOwner};
+use sdl3::audio::{AudioCallback, AudioFormat, AudioSpec, AudioStream, AudioStreamWithCallback};
 
 pub(super) const DEVICE_SAMPLE_RATE: u32 = 48_000;
 const DEVICE_CHANNELS: u16 = 2;
@@ -166,6 +167,7 @@ impl Drop for PlaybackHandle {
     }
 }
 
+#[derive(Clone)]
 pub(super) enum PlaybackSource {
     Asset {
         asset: Arc<AudioAsset>,
@@ -196,6 +198,7 @@ pub(super) enum VoiceUpdate {
 enum ManagerCommand {
     Add {
         source: PlaybackSource,
+        sender: Sender<ManagerCommand>,
         response: Sender<Result<PlaybackHandle, String>>,
     },
     Update {
@@ -207,72 +210,97 @@ enum ManagerCommand {
 
 struct AudioManager {
     sender: Sender<ManagerCommand>,
+    _sdl: sdl3::Sdl,
+    _stream: AudioStreamWithCallback<QueueCallback>,
 }
 
 impl AudioManager {
     fn start() -> Result<Self, String> {
         let (sender, receiver) = mpsc::channel();
-        let (startup_sender, startup_receiver) = mpsc::channel();
+        let (sdl, stream, output) = open_audio_stream()?;
         thread::Builder::new()
             .name("gummysnake-sdl-audio".to_owned())
-            .spawn(move || run_manager(receiver, startup_sender))
+            .spawn(move || run_manager(receiver, output))
             .map_err(|error| {
                 format!("Could not start the Gummy Snake SDL audio manager: {error}")
             })?;
-        startup_receiver.recv().map_err(|_| {
-            "The Gummy Snake SDL audio manager stopped during startup.".to_owned()
-        })??;
-        Ok(Self { sender })
+        stream.resume().map_err(|error| {
+            format!("Failed to start the Gummy Snake SDL audio stream: {error}")
+        })?;
+        if let Ok(mut diagnostics) = diagnostics_state().lock() {
+            diagnostics.manager_initializations += 1;
+            diagnostics.device_open_count += 1;
+        }
+        Ok(Self {
+            sender,
+            _sdl: sdl,
+            _stream: stream,
+        })
     }
 }
 
-fn manager() -> Result<&'static AudioManager, String> {
-    static MANAGER: OnceLock<Result<AudioManager, String>> = OnceLock::new();
-    MANAGER
-        .get_or_init(AudioManager::start)
-        .as_ref()
-        .map_err(Clone::clone)
+thread_local! {
+    static MANAGER: RefCell<Option<AudioManager>> = const { RefCell::new(None) };
+}
+
+fn manager_sender() -> Result<Sender<ManagerCommand>, String> {
+    MANAGER.with(|slot| {
+        let mut manager = slot.try_borrow_mut().map_err(|_| {
+            "The Gummy Snake SDL audio manager is already being accessed.".to_owned()
+        })?;
+        if manager.is_none() {
+            *manager = Some(AudioManager::start()?);
+        }
+        Ok(manager
+            .as_ref()
+            .expect("audio manager initialized before sender access")
+            .sender
+            .clone())
+    })
+}
+
+fn invalidate_manager() {
+    MANAGER.with(|slot| {
+        if let Ok(mut manager) = slot.try_borrow_mut() {
+            *manager = None;
+        }
+    });
 }
 
 pub(super) fn start_playback(source: PlaybackSource) -> Result<PlaybackHandle, String> {
-    let manager = manager()?;
-    let (response, result) = mpsc::channel();
-    manager
-        .sender
-        .send(ManagerCommand::Add { source, response })
-        .map_err(|_| "The Gummy Snake SDL audio manager is not running.".to_owned())?;
-    result.recv().map_err(|_| {
-        "The Gummy Snake SDL audio manager stopped before starting playback.".to_owned()
-    })?
+    for attempt in 0..2 {
+        let sender = manager_sender()?;
+        let (response, result) = mpsc::channel();
+        if sender
+            .send(ManagerCommand::Add {
+                source: source.clone(),
+                sender: sender.clone(),
+                response,
+            })
+            .is_err()
+        {
+            invalidate_manager();
+            if attempt == 0 {
+                continue;
+            }
+            return Err("The Gummy Snake SDL audio manager is not running.".to_owned());
+        }
+        match result.recv() {
+            Ok(result) => return result,
+            Err(_) if attempt == 0 => invalidate_manager(),
+            Err(_) => {
+                invalidate_manager();
+                return Err(
+                    "The Gummy Snake SDL audio manager stopped before starting playback."
+                        .to_owned(),
+                );
+            }
+        }
+    }
+    unreachable!("audio manager startup loop always returns")
 }
 
-fn run_manager(receiver: Receiver<ManagerCommand>, startup: Sender<Result<(), String>>) {
-    let result = open_audio_stream();
-    let (sdl, stream) = match result {
-        Ok(value) => value,
-        Err(error) => {
-            if let Ok(mut diagnostics) = diagnostics_state().lock() {
-                diagnostics.device_error_count += 1;
-            }
-            let _ = startup.send(Err(error));
-            return;
-        }
-    };
-    if let Ok(mut diagnostics) = diagnostics_state().lock() {
-        diagnostics.manager_initializations += 1;
-        diagnostics.device_open_count += 1;
-    }
-    let _sdl = sdl;
-    if let Err(error) = stream.resume() {
-        let message = format!("Failed to start the Gummy Snake SDL audio stream: {error}");
-        if let Ok(mut diagnostics) = diagnostics_state().lock() {
-            diagnostics.device_error_count += 1;
-        }
-        let _ = startup.send(Err(message));
-        return;
-    }
-    let _ = startup.send(Ok(()));
-
+fn run_manager(receiver: Receiver<ManagerCommand>, output: SharedAudioOutput) {
     let mut voices = BTreeMap::<u64, Voice>::new();
     let mut next_id = 1_u64;
     loop {
@@ -289,7 +317,7 @@ fn run_manager(receiver: Receiver<ManagerCommand>, startup: Sender<Result<(), St
             continue;
         }
 
-        let queued_frames = match queued_stereo_frames(&stream) {
+        let queued_frames = match queued_stereo_frames(&output) {
             Ok(value) => value,
             Err(error) => {
                 fail_all_voices(&mut voices, error);
@@ -299,16 +327,16 @@ fn run_manager(receiver: Receiver<ManagerCommand>, startup: Sender<Result<(), St
                 break;
             }
         };
-        observe_queue(queued_frames, !voices.is_empty());
+        observe_queue(queued_frames);
         if queued_frames <= LOW_WATER_FRAMES {
-            while queued_stereo_frames(&stream).unwrap_or(HIGH_WATER_FRAMES) < HIGH_WATER_FRAMES
+            while queued_stereo_frames(&output).unwrap_or(HIGH_WATER_FRAMES) < HIGH_WATER_FRAMES
                 && !voices.is_empty()
             {
                 let block = mix_block(&mut voices, DEFAULT_RENDER_BLOCK_FRAMES);
                 if block.is_empty() {
                     break;
                 }
-                if let Err(error) = stream.put_data_i16(&block) {
+                if let Err(error) = queue_audio(&output, block) {
                     fail_all_voices(
                         &mut voices,
                         format!("Failed to queue mixed SDL3 audio: {error}"),
@@ -323,11 +351,61 @@ fn run_manager(receiver: Receiver<ManagerCommand>, startup: Sender<Result<(), St
             thread::sleep(Duration::from_millis(2));
         }
     }
-    let _ = stream.pause();
-    let _ = stream.clear();
 }
 
-fn open_audio_stream() -> Result<(sdl3::Sdl, AudioStreamOwner), String> {
+type SharedAudioOutput = Arc<Mutex<AudioOutput>>;
+
+#[derive(Default)]
+struct AudioOutput {
+    samples: VecDeque<i16>,
+    error: Option<String>,
+}
+
+struct QueueCallback {
+    output: SharedAudioOutput,
+    buffer: Vec<i16>,
+}
+
+impl AudioCallback<i16> for QueueCallback {
+    fn callback(&mut self, stream: &mut AudioStream, requested: i32) {
+        let (requested, available) = drain_audio(&self.output, requested, &mut self.buffer);
+        if available < requested {
+            observe_queue_underrun();
+        }
+        if !self.buffer.is_empty() {
+            if let Err(error) = stream.put_data_i16(&self.buffer) {
+                if let Ok(mut output) = self.output.lock() {
+                    output.error = Some(format!("Failed to queue mixed SDL3 audio: {error}"));
+                }
+            }
+        }
+    }
+}
+
+fn drain_audio(
+    output: &SharedAudioOutput,
+    requested: i32,
+    buffer: &mut Vec<i16>,
+) -> (usize, usize) {
+    buffer.clear();
+    let requested = requested.max(0) as usize;
+    let requested = requested - requested % usize::from(DEVICE_CHANNELS);
+    if let Ok(mut output) = output.lock() {
+        let available = requested.min(output.samples.len());
+        buffer.extend(output.samples.drain(..available));
+        return (requested, available);
+    }
+    (requested, 0)
+}
+
+fn open_audio_stream() -> Result<
+    (
+        sdl3::Sdl,
+        AudioStreamWithCallback<QueueCallback>,
+        SharedAudioOutput,
+    ),
+    String,
+> {
     let sdl = sdl3::init().map_err(|error| {
         format!(
             "Native audio is unavailable because SDL3 could not initialize: {error}. Rebuild the Gummy Snake canvas runtime with SDL3 audio support."
@@ -346,10 +424,21 @@ fn open_audio_stream() -> Result<(sdl3::Sdl, AudioStreamOwner), String> {
             "Native audio is unavailable because SDL3 could not open a playback device at {DEVICE_SAMPLE_RATE} Hz stereo 16-bit PCM: {error}."
         )
     })?;
-    let stream = device.open_device_stream(Some(&spec)).map_err(|error| {
-        format!("Native audio is unavailable because SDL3 could not open the shared playback stream: {error}.")
-    })?;
-    Ok((sdl, stream))
+    let output = Arc::new(Mutex::new(AudioOutput::default()));
+    let stream = device
+        .open_playback_stream_with_callback(
+            &spec,
+            QueueCallback {
+                output: Arc::clone(&output),
+                buffer: Vec::new(),
+            },
+        )
+        .map_err(|error| {
+            format!(
+                "Native audio is unavailable because SDL3 could not open the shared playback stream: {error}."
+            )
+        })?;
+    Ok((sdl, stream, output))
 }
 
 fn apply_command(command: ManagerCommand, voices: &mut BTreeMap<u64, Voice>, next_id: &mut u64) {
@@ -357,7 +446,11 @@ fn apply_command(command: ManagerCommand, voices: &mut BTreeMap<u64, Voice>, nex
         diagnostics.command_count += 1;
     }
     match command {
-        ManagerCommand::Add { source, response } => {
+        ManagerCommand::Add {
+            source,
+            sender,
+            response,
+        } => {
             if voices.len() >= MAX_VOICES {
                 let _ = response.send(Err(format!(
                     "Native audio voice limit {MAX_VOICES} was reached; stop or close an existing Sound before starting another."
@@ -368,9 +461,6 @@ fn apply_command(command: ManagerCommand, voices: &mut BTreeMap<u64, Voice>, nex
             *next_id = next_id.wrapping_add(1).max(1);
             match Voice::new(source) {
                 Ok((voice, handle_state)) => {
-                    let sender = manager()
-                        .map(|manager| manager.sender.clone())
-                        .expect("audio manager exists while its worker applies commands");
                     let handle = PlaybackHandle {
                         id,
                         sender,
@@ -447,12 +537,17 @@ fn observe_voice_removed(voice: &Voice) {
     }
 }
 
-fn observe_queue(frames: u64, active: bool) {
+fn observe_queue(frames: u64) {
     if let Ok(mut diagnostics) = diagnostics_state().lock() {
         diagnostics.queue_frames = frames;
         diagnostics.queue_min_frames = diagnostics.queue_min_frames.min(frames);
         diagnostics.queue_peak_frames = diagnostics.queue_peak_frames.max(frames);
-        if active && frames == 0 && diagnostics.mixed_blocks > 0 {
+    }
+}
+
+fn observe_queue_underrun() {
+    if let Ok(mut diagnostics) = diagnostics_state().lock() {
+        if diagnostics.active_voices > 0 {
             diagnostics.queue_underruns += 1;
         }
     }
@@ -493,13 +588,25 @@ fn float_to_i16(value: f64) -> i16 {
     (value.clamp(-1.0, 1.0) * i16::MAX as f64).round() as i16
 }
 
-fn queued_stereo_frames(stream: &AudioStreamOwner) -> Result<u64, String> {
-    let queued_bytes = stream
-        .queued_bytes()
-        .map_err(|error| format!("Failed to query the shared SDL3 audio queue: {error}"))?;
-    let queued_bytes = u64::try_from(queued_bytes.max(0))
-        .map_err(|_| "SDL3 returned an invalid shared audio queue size.".to_owned())?;
-    Ok(queued_bytes / (std::mem::size_of::<i16>() as u64 * u64::from(DEVICE_CHANNELS)))
+fn queued_stereo_frames(output: &SharedAudioOutput) -> Result<u64, String> {
+    let output = output
+        .lock()
+        .map_err(|_| "The native audio output queue lock was poisoned.".to_owned())?;
+    if let Some(error) = &output.error {
+        return Err(error.clone());
+    }
+    Ok(output.samples.len() as u64 / u64::from(DEVICE_CHANNELS))
+}
+
+fn queue_audio(output: &SharedAudioOutput, block: Vec<i16>) -> Result<(), String> {
+    let mut output = output
+        .lock()
+        .map_err(|_| "The native audio output queue lock was poisoned.".to_owned())?;
+    if let Some(error) = &output.error {
+        return Err(error.clone());
+    }
+    output.samples.extend(block);
+    Ok(())
 }
 
 fn fail_all_voices(voices: &mut BTreeMap<u64, Voice>, error: String) {
@@ -1042,6 +1149,21 @@ mod tests {
             );
             assert_eq!(result.recv().unwrap(), Ok(()));
         }
+    }
+
+    #[test]
+    fn callback_queue_preserves_complete_stereo_frames() {
+        let output = Arc::new(Mutex::new(AudioOutput {
+            samples: VecDeque::from([1, 2, 3, 4, 5, 6]),
+            error: None,
+        }));
+        let mut buffer = Vec::new();
+
+        let drained = drain_audio(&output, 3, &mut buffer);
+
+        assert_eq!(drained, (2, 2));
+        assert_eq!(buffer, [1, 2]);
+        assert_eq!(queued_stereo_frames(&output), Ok(2));
     }
 
     #[test]

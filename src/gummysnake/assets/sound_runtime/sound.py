@@ -126,9 +126,12 @@ class Sound:
         except BackendCapabilityError:
             raise
         except Exception as exc:
+            detail = str(exc).strip()
+            reported = f" SDL3 reported: {detail}" if detail else ""
             raise BackendCapabilityError(
                 "Native audio playback is unavailable. The installed Gummy Snake canvas runtime "
                 "must include SDL3 audio support and an accessible playback device."
+                f"{reported}"
             ) from exc
 
     def loop(self) -> None:

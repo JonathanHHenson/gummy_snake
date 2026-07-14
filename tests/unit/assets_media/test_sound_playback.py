@@ -222,7 +222,7 @@ def test_sound_native_errors_are_actionable_capability_errors() -> None:
     clip, rust = _sound()
     rust.play_error = RuntimeError("no SDL device")
 
-    with pytest.raises(BackendCapabilityError, match="SDL3 audio support"):
+    with pytest.raises(BackendCapabilityError, match="SDL3.*no SDL device"):
         clip.play()
 
     rust.play_error = None
