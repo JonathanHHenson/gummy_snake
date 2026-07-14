@@ -198,34 +198,67 @@ impl<'a> PlanExecutor<'a> {
         }
 
         let apply_start = self.profile.then(Instant::now);
-        for (target_index, target) in targets.iter().enumerate() {
-            let all_dirty = (0..rows.len()).all(|row| dirty[row * target_count + target_index]);
-            if all_dirty {
-                self.report.fields_written += self.world.set_field_f64_resolved_strided(
-                    &target.component,
-                    &target.field,
-                    &locations,
-                    &flat_values,
-                    target_index,
-                    target_count,
-                )?;
-                continue;
-            }
-            let mut writes = Vec::new();
-            for (row_index, entity) in rows.iter().enumerate() {
-                if dirty[row_index * target_count + target_index] {
-                    writes.push((
-                        *entity,
-                        flat_values[row_index * target_count + target_index],
-                    ));
-                }
-            }
-            if !writes.is_empty() {
-                self.report.fields_written +=
-                    self.world
-                        .set_field_f64_many(&target.component, &target.field, &writes)?;
-            }
+        let dense_targets = (0..target_count)
+            .map(|target_index| (0..rows.len()).all(|row| dirty[row * target_count + target_index]))
+            .collect::<Vec<_>>();
+        if self.profile {
+            let dense_target_count = dense_targets.iter().filter(|dense| **dense).count();
+            let dirty_writes = dirty.iter().filter(|value| **value).count();
+            eprintln!(
+                "ecs_profile row_local_f64_targets targets={} dense_targets={} dirty_writes={}",
+                target_count, dense_target_count, dirty_writes
+            );
         }
+        self.world.begin_change_summary_batch();
+        let apply_result = (|| -> Result<()> {
+            let mut target_index = 0;
+            while target_index < target_count {
+                if dense_targets[target_index] {
+                    let run_start = target_index;
+                    while target_index < target_count && dense_targets[target_index] {
+                        target_index += 1;
+                    }
+                    let dense_run = targets[run_start..target_index]
+                        .iter()
+                        .enumerate()
+                        .map(|(offset, target)| {
+                            (
+                                target.component.as_str(),
+                                target.field.as_str(),
+                                run_start + offset,
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    self.report.fields_written += self.world.set_fields_f64_resolved_interleaved(
+                        &locations,
+                        &flat_values,
+                        target_count,
+                        &dense_run,
+                    )?;
+                    continue;
+                }
+
+                let target = &targets[target_index];
+                let mut writes = Vec::new();
+                for (row_index, entity) in rows.iter().enumerate() {
+                    if dirty[row_index * target_count + target_index] {
+                        writes.push((
+                            *entity,
+                            flat_values[row_index * target_count + target_index],
+                        ));
+                    }
+                }
+                if !writes.is_empty() {
+                    self.report.fields_written +=
+                        self.world
+                            .set_field_f64_many(&target.component, &target.field, &writes)?;
+                }
+                target_index += 1;
+            }
+            Ok(())
+        })();
+        self.world.end_change_summary_batch();
+        apply_result?;
         if let Some(start) = apply_start {
             eprintln!(
                 "ecs_profile row_local_f64_apply elapsed_ms={:.3}",

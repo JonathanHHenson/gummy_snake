@@ -5,6 +5,8 @@ from __future__ import annotations
 from types import TracebackType
 from typing import TYPE_CHECKING, Protocol
 
+from gummysnake.drawing.software3d.payloads import _IDENTITY4
+
 if TYPE_CHECKING:
     from gummysnake.fast_draw_runtime.scope import FastDrawScope
 
@@ -20,7 +22,11 @@ class _FastPushedScope:
         self._scope = scope
 
     def __enter__(self) -> None:
-        self._scope.push()
+        scope = self._scope
+        if scope._transform3d_active:
+            scope.push()
+        else:
+            scope._transform3d_stack.append(None)
         return None
 
     def __exit__(
@@ -29,5 +35,14 @@ class _FastPushedScope:
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        self._scope.pop()
+        scope = self._scope
+        transform = scope._transform3d_stack.pop()
+        if transform is None:
+            scope._transform3d = _IDENTITY4
+            scope._transform3d_active = False
+            scope._transform3d_compact = 0
+        else:
+            scope._transform3d = transform
+            scope._transform3d_active = True
+            scope._transform3d_compact = 0
         return None

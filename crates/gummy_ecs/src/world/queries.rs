@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::archetype::ComponentSetKey;
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
@@ -6,7 +8,7 @@ use crate::query::{
     QuerySnapshot, QueryTerm,
 };
 
-use super::{ComponentChange, World};
+use super::{CachedExecutionQuery, ComponentChange, World};
 
 impl World {
     pub fn query(
@@ -79,6 +81,40 @@ impl World {
         Ok(entities)
     }
 
+    pub(crate) fn execution_query(
+        &mut self,
+        filter: &QueryFilter,
+    ) -> Result<(Arc<Vec<Entity>>, Arc<Vec<(usize, usize)>>)> {
+        let cacheable = !filter.terms.iter().any(|term| {
+            matches!(
+                term,
+                QueryTerm::Added(_) | QueryTerm::Changed(_) | QueryTerm::Removed(_)
+            )
+        });
+        if cacheable {
+            if let Some(cached) = self.execution_query_cache.get(filter) {
+                if cached.structural_revision == self.structural_revision {
+                    self.diagnostics.query_matched_rows += cached.rows.len();
+                    return Ok((Arc::clone(&cached.rows), Arc::clone(&cached.locations)));
+                }
+            }
+        }
+
+        let rows = Arc::new(self.query_filter(filter.clone())?);
+        let locations = Arc::new(self.locations_for_entities(rows.iter().copied())?);
+        if cacheable {
+            self.execution_query_cache.insert(
+                filter.clone(),
+                CachedExecutionQuery {
+                    structural_revision: self.structural_revision,
+                    rows: Arc::clone(&rows),
+                    locations: Arc::clone(&locations),
+                },
+            );
+        }
+        Ok((rows, locations))
+    }
+
     pub fn query_cardinality(&mut self, filter: QueryFilter) -> Result<QueryCardinality> {
         let rows = self.query_filter_limit(filter, Some(2))?;
         Ok(match rows.as_slice() {
@@ -107,13 +143,13 @@ impl World {
         let change = self.change_journal.entity_change(epoch, entity);
         filter.terms.iter().all(|term| match term {
             QueryTerm::Added(component) => change
-                .and_then(|change| change.components.get(component))
+                .and_then(|change| change.components.get(component.as_str()))
                 .is_some_and(ComponentChange::is_currently_added),
             QueryTerm::Changed(component) => change
-                .and_then(|change| change.components.get(component))
+                .and_then(|change| change.components.get(component.as_str()))
                 .is_some_and(ComponentChange::is_currently_changed),
             QueryTerm::Removed(component) => change
-                .and_then(|change| change.components.get(component))
+                .and_then(|change| change.components.get(component.as_str()))
                 .is_some_and(ComponentChange::is_currently_removed),
             _ => true,
         })

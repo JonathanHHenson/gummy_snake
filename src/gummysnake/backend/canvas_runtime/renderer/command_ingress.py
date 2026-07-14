@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from struct import Struct
+from struct import error as StructError
 from typing import Protocol, cast
 
 from gummysnake import constants as c
@@ -18,6 +19,9 @@ PATH_CONTOUR_RECORD = Struct("<I")
 IMAGE_RECORD = Struct("<IB3x4d4i6d")
 TEXT_RECORD = Struct("<II2d")
 MODEL_TRANSFORM_RECORD = Struct("<16d")
+MODEL_TRANSLATION_QUATERNION_RECORD = Struct("<7d")
+_EMPTY_MODEL_TRANSFORM_RECORD = bytes(MODEL_TRANSFORM_RECORD.size)
+_EMPTY_MODEL_TRANSLATION_QUATERNION_RECORD = bytes(MODEL_TRANSLATION_QUATERNION_RECORD.size)
 EFFECT_RECORD = Struct("<BB6xQQiid")
 
 _BLEND_CODES = {
@@ -56,6 +60,12 @@ def pack_matrix(matrix: MatrixPayload) -> bytes:
 
 def pack_model_transform(transform: ModelTransformPayload) -> bytes:
     """Normalize one supported model transform into the fixed-width frame-command ABI."""
+    if len(transform) == 16:
+        try:
+            return MODEL_TRANSFORM_RECORD.pack(*transform)
+        except (StructError, TypeError):
+            pass
+
     values: tuple[float, ...]
     if len(transform) == 4 and all(
         isinstance(row, Sequence) and len(row) == 4 for row in transform
@@ -91,6 +101,60 @@ def pack_model_transform(transform: ModelTransformPayload) -> bytes:
             "or nested 4x4 rows."
         )
     return MODEL_TRANSFORM_RECORD.pack(*values)
+
+
+def append_model_transform(
+    payload: bytearray,
+    transform: ModelTransformPayload,
+    *,
+    offset: int | None = None,
+) -> int:
+    """Write one model transform, reusing retained payload storage when available."""
+    write_offset = len(payload) if offset is None else offset
+    if len(transform) == 16:
+        if write_offset + MODEL_TRANSFORM_RECORD.size > len(payload):
+            payload.extend(_EMPTY_MODEL_TRANSFORM_RECORD)
+        try:
+            MODEL_TRANSFORM_RECORD.pack_into(payload, write_offset, *transform)
+        except (StructError, TypeError):
+            pass
+        else:
+            return write_offset + MODEL_TRANSFORM_RECORD.size
+
+    packed = pack_model_transform(transform)
+    write_end = write_offset + len(packed)
+    payload[write_offset:write_end] = packed
+    return write_end
+
+
+def append_model_translation_quaternion(
+    payload: bytearray,
+    tx: float,
+    ty: float,
+    tz: float,
+    w: float,
+    x: float,
+    y: float,
+    z: float,
+    *,
+    offset: int | None = None,
+) -> int:
+    """Write a compact transform directly into retained payload storage."""
+    write_offset = len(payload) if offset is None else offset
+    if write_offset + MODEL_TRANSLATION_QUATERNION_RECORD.size > len(payload):
+        payload.extend(_EMPTY_MODEL_TRANSLATION_QUATERNION_RECORD)
+    MODEL_TRANSLATION_QUATERNION_RECORD.pack_into(
+        payload,
+        write_offset,
+        tx,
+        ty,
+        tz,
+        w,
+        x,
+        y,
+        z,
+    )
+    return write_offset + MODEL_TRANSLATION_QUATERNION_RECORD.size
 
 
 def pack_primitive_style(style: dict[str, object]) -> bytes:

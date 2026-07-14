@@ -1,4 +1,5 @@
 use std::collections::{BTreeSet, HashMap};
+use std::sync::Arc;
 
 use crate::archetype::{Archetype, ComponentSetKey};
 use crate::column::EcsValue;
@@ -30,6 +31,13 @@ pub use change_journal::{
     EntityChange, TagChange,
 };
 
+#[derive(Debug, Clone)]
+pub(crate) struct CachedExecutionQuery {
+    pub(crate) structural_revision: u64,
+    pub(crate) rows: Arc<Vec<Entity>>,
+    pub(crate) locations: Arc<Vec<(usize, usize)>>,
+}
+
 #[derive(Debug, Default)]
 pub struct World {
     entities: EntityAllocator,
@@ -45,6 +53,7 @@ pub struct World {
     query_cache: HashMap<ComponentSetKey, CachedQuery>,
     filtered_query_cache: HashMap<ArchetypeFilterKey, CachedQuery>,
     compiled_query_cache: HashMap<QueryFilter, CompiledQueryFilter>,
+    execution_query_cache: HashMap<QueryFilter, CachedExecutionQuery>,
     resources: ResourceStore,
     events: EventStore,
     compiled_plans: PlanCache,
@@ -76,6 +85,7 @@ impl Clone for World {
             query_cache: self.query_cache.clone(),
             filtered_query_cache: self.filtered_query_cache.clone(),
             compiled_query_cache: self.compiled_query_cache.clone(),
+            execution_query_cache: self.execution_query_cache.clone(),
             resources: self.resources.clone(),
             events: self.events.clone(),
             compiled_plans: self.compiled_plans.clone(),

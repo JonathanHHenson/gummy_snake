@@ -82,6 +82,55 @@ def test_webgl_obj_model_renders_from_example_asset():
     assert any(value > 0 for value in pixels)
 
 
+def test_fast_model_instances_uses_one_retained_batch_and_rejects_invalid_matrices_atomically():
+    teapot = gs.load_model(Path("examples/assets/teapot.obj"), normalize=True)
+    identity = (
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    )
+    translated = (*identity[:12], 20.0, 0.0, 0.0, 1.0)
+    errors: list[str] = []
+
+    def setup():
+        gs.create_canvas(96, 96, gs.WEBGL)
+        gs.no_stroke()
+        gs.camera(0, 0, 4, 0, 0, 0, 0, 1, 0)
+        gs.perspective(math.pi / 3, 1.0, 0.1, 100)
+        gs.specular_material(220, 170, 255)
+
+    def draw():
+        draw3d = gs.fast()
+        draw3d.model_instances(teapot, (identity, translated))
+        draw3d.specular_material(80, 220, 170)
+        draw3d.model_instances(teapot, (identity,))
+        try:
+            draw3d.model_instances(teapot, (identity, (1.0, 2.0, 3.0)))
+        except gs.ArgumentValidationError as exc:
+            errors.append(str(exc))
+
+    context = gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
+
+    assert errors and "transform at index 1 is invalid" in errors[0]
+    counters = context.renderer_performance_counters()
+    assert counters["model_batch_records"] == 3
+    assert counters["model_batch_flushes"] == 2
+    assert counters["model_batch_max_records"] == 2
+
+
 def test_webgl_obj_model_transform_is_applied_before_projection():
     teapot = gs.load_model(Path("examples/assets/teapot.obj"), normalize=True)
 

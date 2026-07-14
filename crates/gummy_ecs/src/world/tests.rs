@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::{ChangeEpoch, ChangeKind, World};
 use crate::archetype::{ComponentRow, EntityRowData, SpawnEntity};
 use crate::column::EcsValue;
@@ -122,6 +124,88 @@ fn numeric_spatial_cache_is_proportional_to_live_rows_not_historical_entity_ids(
 }
 
 #[test]
+fn execution_queries_reuse_stable_rows_and_invalidate_on_structural_changes() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let positions = QueryFilter::new([QueryTerm::WithComponent("Position".to_string())]);
+
+    let (first_rows, first_locations) = world.execution_query(&positions).unwrap();
+    world
+        .set_field(entity, "Position", "x", EcsValue::F64(10.0))
+        .unwrap();
+    let (field_write_rows, field_write_locations) = world.execution_query(&positions).unwrap();
+    assert!(Arc::ptr_eq(&first_rows, &field_write_rows));
+    assert!(Arc::ptr_eq(&first_locations, &field_write_locations));
+
+    world.add_tag(entity, "mover").unwrap();
+    let (structural_rows, structural_locations) = world.execution_query(&positions).unwrap();
+    assert_eq!(structural_rows.as_slice(), &[entity]);
+    assert!(!Arc::ptr_eq(&first_rows, &structural_rows));
+    assert!(!Arc::ptr_eq(&first_locations, &structural_locations));
+
+    let movers = QueryFilter::new([QueryTerm::WithTag("mover".to_string())]);
+    assert_eq!(
+        world.execution_query(&movers).unwrap().0.as_slice(),
+        &[entity]
+    );
+    world.remove_tag(entity, "mover").unwrap();
+    assert!(world.execution_query(&movers).unwrap().0.is_empty());
+}
+
+#[test]
+fn execution_queries_do_not_cache_change_filtered_rows() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let changed = QueryFilter::new([QueryTerm::Changed("Position".to_string())]);
+    world
+        .set_field(entity, "Position", "x", EcsValue::F64(10.0))
+        .unwrap();
+
+    let first = world.execution_query(&changed).unwrap().0;
+    let second = world.execution_query(&changed).unwrap().0;
+    assert_eq!(first.as_slice(), &[entity]);
+    assert_eq!(second.as_slice(), &[entity]);
+    assert!(!Arc::ptr_eq(&first, &second));
+}
+
+#[test]
+fn interleaved_f64_writes_preserve_field_revisions_and_noop_detection() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let first = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let second = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let locations = world.locations_for_entities([first, second]).unwrap();
+    let values = [1.0, 2.0, 3.0, 4.0];
+    let targets = [("Position", "x", 0), ("Position", "y", 1)];
+
+    assert_eq!(
+        world
+            .set_fields_f64_resolved_interleaved(&locations, &values, 2, &targets)
+            .unwrap(),
+        4
+    );
+    assert_eq!(world.get_field_f64(first, "Position", "x").unwrap(), 1.0);
+    assert_eq!(world.get_field_f64(first, "Position", "y").unwrap(), 2.0);
+    assert_eq!(world.get_field_f64(second, "Position", "x").unwrap(), 3.0);
+    assert_eq!(world.get_field_f64(second, "Position", "y").unwrap(), 4.0);
+    assert_eq!(world.component_field_revision("Position", "x"), 2);
+    assert_eq!(world.component_field_revision("Position", "y"), 2);
+    let journal_len = world.change_journal().len();
+
+    assert_eq!(
+        world
+            .set_fields_f64_resolved_interleaved(&locations, &values, 2, &targets)
+            .unwrap(),
+        0
+    );
+    assert_eq!(world.component_field_revision("Position", "x"), 2);
+    assert_eq!(world.component_field_revision("Position", "y"), 2);
+    assert_eq!(world.change_journal().len(), journal_len);
+}
+
+#[test]
 fn revisions_track_structural_and_field_mutations() {
     let mut world = World::new();
     register_position_velocity(&mut world);
@@ -172,26 +256,26 @@ fn change_journal_records_structural_field_and_tag_mutations_by_epoch() {
         vec![
             &ChangeKind::Spawned,
             &ChangeKind::ComponentAdded {
-                component: "Position".to_string(),
+                component: "Position".into(),
             },
             &ChangeKind::FieldChanged {
-                component: "Position".to_string(),
-                field: "x".to_string(),
+                component: "Position".into(),
+                field: "x".into(),
             },
             &ChangeKind::ComponentAdded {
-                component: "Velocity".to_string(),
+                component: "Velocity".into(),
             },
             &ChangeKind::TagAdded {
-                tag: "Mover".to_string(),
+                tag: "Mover".into(),
             },
             &ChangeKind::TagRemoved {
-                tag: "Mover".to_string(),
+                tag: "Mover".into(),
             },
             &ChangeKind::ComponentRemoved {
-                component: "Velocity".to_string(),
+                component: "Velocity".into(),
             },
             &ChangeKind::ComponentRemoved {
-                component: "Position".to_string(),
+                component: "Position".into(),
             },
             &ChangeKind::Despawned,
         ]
@@ -232,7 +316,7 @@ fn change_journal_tracks_staged_and_f64_mutations_without_recording_noop_f64_wri
     assert!(matches!(
         world.change_journal().records().last().unwrap().kind,
         ChangeKind::FieldChanged { ref component, ref field }
-            if component == "Position" && field == "x"
+            if component.as_ref() == "Position" && field.as_ref() == "x"
     ));
 
     world.stage_add_component(entity, "Velocity");

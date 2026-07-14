@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::entity::Entity;
 use crate::error::Result;
 use crate::spatial::{
@@ -126,7 +124,8 @@ pub(in crate::execution) struct FastSpatialBatchSpec {
 pub(in crate::execution) struct FastFieldArray {
     pub(in crate::execution) component: String,
     pub(in crate::execution) field: String,
-    pub(in crate::execution) values: HashMap<Entity, f64>,
+    pub(in crate::execution) entities: Vec<Entity>,
+    pub(in crate::execution) values: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Copy)]

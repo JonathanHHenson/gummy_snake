@@ -52,7 +52,7 @@ fn physical_plan_executes_scalar_set_over_query_rows() {
     assert!(matches!(
         &world.change_journal().records().last().unwrap().kind,
         ChangeKind::FieldChanged { component, field }
-            if component == "Position" && field == "x"
+            if component.as_ref() == "Position" && field.as_ref() == "x"
     ));
 }
 

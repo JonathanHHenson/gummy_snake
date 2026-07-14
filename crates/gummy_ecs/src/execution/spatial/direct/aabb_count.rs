@@ -146,7 +146,7 @@ impl<'a> PlanExecutor<'a> {
                 }
             }
             SpatialPrecomputeLayout::SparseEntity => {
-                for (row_index, origin_entity) in origin_rows.into_iter().enumerate() {
+                for (row_index, origin_entity) in origin_rows.iter().copied().enumerate() {
                     let count = self.precompute_aabb_count_for_origin(
                         relation,
                         origin_entity,

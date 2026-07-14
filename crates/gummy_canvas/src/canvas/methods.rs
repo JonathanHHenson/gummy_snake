@@ -565,6 +565,34 @@ impl Canvas {
         )
     }
 
+    #[pyo3(signature = (model, camera, projection, viewport_width, viewport_height, material, lights, normal_material, cull_backfaces, transforms))]
+    pub(crate) fn _draw_model_shaded_batch_translation_quaternion_packed(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        lights: &Bound<'_, PyAny>,
+        normal_material: bool,
+        cull_backfaces: bool,
+        transforms: &Bound<'_, PyBytes>,
+    ) -> PyResult<()> {
+        self.draw_model_shaded_batch_translation_quaternion_packed_impl(
+            model,
+            camera,
+            projection,
+            viewport_width,
+            viewport_height,
+            material,
+            lights,
+            normal_material,
+            cull_backfaces,
+            transforms.as_bytes(),
+        )
+    }
+
     #[pyo3(signature = (model, image, camera, projection, viewport_width, viewport_height, material, lights, normal_material, cull_backfaces, transform=None))]
     pub(crate) fn draw_model_textured(
         &mut self,

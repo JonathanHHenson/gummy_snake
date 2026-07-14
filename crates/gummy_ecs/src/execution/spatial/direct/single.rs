@@ -139,7 +139,7 @@ impl<'a> PlanExecutor<'a> {
         let loop_slot_count = self.prepared.loop_slot_count();
         let mut candidates = Vec::new();
         let mut accumulators = vec![SpatialBatchAccum::default(); specs.len()];
-        for origin_entity in origin_rows {
+        for origin_entity in origin_rows.iter().copied() {
             let origin_point =
                 self.direct_spatial_point_for_entity(origin_entity, &origin_coords)?;
 

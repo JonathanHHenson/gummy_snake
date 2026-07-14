@@ -276,7 +276,7 @@ impl<'a> PlanExecutor<'a> {
             })?;
         let mut records = Vec::with_capacity(rows.len());
         let item_slot = self.query_slot(&relation.item_query)?;
-        for entity in rows {
+        for entity in rows.iter().copied() {
             let mut item_ctx = ctx.clone();
             item_ctx.bindings[item_slot] = Some(entity);
             let point = self.eval_spatial_point(&relation.target_position, &item_ctx)?;

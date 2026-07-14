@@ -11,6 +11,7 @@ import pytest
 import gummysnake as gs
 from gummysnake import constants as c
 from gummysnake._fast_draw import FastDrawScope as CompatibilityFastDrawScope
+from gummysnake._fast_draw_math import _mat4_translation
 from gummysnake.fast_draw_runtime.scope import FastDrawScope
 
 _EXPECTED_SLOTS = (
@@ -20,12 +21,22 @@ _EXPECTED_SLOTS = (
     "_image_style_payload",
     "_image_style_revision",
     "_draw_model_fast",
+    "_draw_model_instances_fast",
     "_model_batch_cache",
     "_model_batch_signature_cache",
+    "_model_batch_state",
     "_pushed_scope",
     "_transform3d",
     "_transform3d_active",
+    "_transform3d_compact",
     "_transform3d_stack",
+    "_transform3d_tx",
+    "_transform3d_ty",
+    "_transform3d_tz",
+    "_transform3d_qw",
+    "_transform3d_qx",
+    "_transform3d_qy",
+    "_transform3d_qz",
 )
 _PUBLIC_METHODS = (
     "point",
@@ -74,6 +85,7 @@ _PUBLIC_METHODS = (
     "cone",
     "torus",
     "model",
+    "model_instances",
 )
 
 
@@ -115,12 +127,34 @@ class _BatchState:
     def __init__(self) -> None:
         self.key: object | None = None
         self.records: list[tuple[object, object]] = []
+        self.compact_translation_quaternion = False
 
     def has_records(self) -> bool:
         return self.key is not None
 
     def append(self, key: object, transform: object) -> None:
+        if self.key is None:
+            self.key = key
+        self.compact_translation_quaternion = False
         self.records.append((key, transform))
+
+    def append_translation_quaternion(
+        self,
+        key: object,
+        tx: float,
+        ty: float,
+        tz: float,
+        w: float,
+        x: float,
+        y: float,
+        z: float,
+    ) -> None:
+        from gummysnake._fast_draw_math import _mat4_translation_quaternion
+
+        if self.key is None:
+            self.key = key
+        self.compact_translation_quaternion = True
+        self.records.append((key, _mat4_translation_quaternion(tx, ty, tz, w, x, y, z)))
 
 
 class _FastContext:
@@ -149,6 +183,7 @@ class _FastContext:
         self._normal_material3d = False
         self._shader3d = None
         self.fast_model_calls: list[tuple[object, object | None]] = []
+        self.fast_model_instance_calls: list[tuple[object, list[object]]] = []
 
     def _angle(self, value: float) -> float:
         return value
@@ -161,7 +196,18 @@ class _FastContext:
 
     def _draw_model_fast(self, shape: object, *, model_transform: object | None) -> None:
         self.fast_model_calls.append((shape, model_transform))
-        self.renderer._model_batch_state.key = object()
+        key = object()
+        if isinstance(model_transform, tuple) and len(model_transform) == 7:
+            self.renderer._model_batch_state.append_translation_quaternion(key, *model_transform)
+        else:
+            self.renderer._model_batch_state.append(key, model_transform)
+
+    def _draw_model_instances_fast(self, shape: object, transforms: object) -> None:
+        values = list(cast(Any, transforms))
+        self.fast_model_instance_calls.append((shape, values))
+        key = object()
+        for transform in values:
+            self.renderer._model_batch_state.append(key, transform)
 
     def __getattr__(self, name: str) -> Any:
         def forward(*args: object, **kwargs: object) -> str:
@@ -200,6 +246,11 @@ def test_fast_draw_scope_public_compatibility_slots_signatures_and_docs() -> Non
         "z",
         "axis",
         "quaternion",
+    )
+    assert tuple(inspect.signature(FastDrawScope.model_instances).parameters) == (
+        "self",
+        "shape",
+        "transforms",
     )
     assert inspect.signature(FastDrawScope.cylinder).parameters["bottom_cap"].kind is (
         inspect.Parameter.KEYWORD_ONLY
@@ -248,6 +299,39 @@ def test_fast_two_d_media_paths_forward_current_style_and_matrix() -> None:
         "_draw_image_fast",
         "_draw_image_fast",
     ]
+
+
+def test_fast_translation_quaternion_matches_general_matrix_composition() -> None:
+    compact_scope, _context = _scope()
+    compact_scope.translate(10, -20, 30)
+    compact_scope.rotate_quaternion(2, 0.5, -1, 0.25)
+
+    assert compact_scope._transform3d_compact == 2
+    compact_matrix = compact_scope._model_transform3d_payload()
+
+    general_scope, _context = _scope()
+    general_scope.apply_matrix_3d(_mat4_translation(10, -20, 30))
+    general_scope.rotate_quaternion(2, 0.5, -1, 0.25)
+
+    assert compact_matrix == pytest.approx(general_scope._model_transform3d_payload())
+
+
+def test_fast_nested_transform_stack_restores_compact_and_general_matrices() -> None:
+    scope, _context = _scope()
+    assert scope._transform3d_stack == []
+
+    with scope.pushed():
+        scope.translate(3, 4, 5)
+        scope.rotate_quaternion(1, 0, 1, 0)
+        outer = scope._model_transform3d_payload()
+        with scope.pushed():
+            scope.translate(7, 8, 9)
+            scope.scale(2, 3, 4)
+            assert scope._model_transform3d_payload() != outer
+        assert scope._model_transform3d_payload() == outer
+
+    assert scope._model_transform3d_payload() is None
+    assert scope._transform3d_stack == []
 
 
 def test_fast_transform_stack_and_rotation_errors_are_frame_local() -> None:
@@ -312,7 +396,7 @@ def test_fast_three_d_controls_invalidate_batches_and_forward_directly(
     kwargs: dict[str, object],
 ) -> None:
     scope, context = _scope()
-    scope._model_batch_cache = ((object(),), object())
+    scope._model_batch_cache = cast(Any, ((object(),), object()))
     scope._model_batch_signature_cache = (object(), (object(),))
 
     result = getattr(scope, method)(*args, **kwargs)
@@ -326,6 +410,30 @@ def test_fast_three_d_controls_invalidate_batches_and_forward_directly(
         assert scope._model_batch_signature_cache is None
 
 
+def test_fast_model_cached_translation_quaternion_appends_equivalent_matrix_directly() -> None:
+    scope, context = _scope()
+    shape = cast(Any, _OpaqueModel())
+
+    with scope.pushed():
+        scope.translate(4, 5, 6)
+        scope.rotate_quaternion(2, 0.5, -1, 0.25)
+        first_payload = scope._model_transform3d_batch_payload()
+        assert isinstance(first_payload, tuple) and len(first_payload) == 7
+        scope.model(shape)
+    with scope.pushed():
+        scope.translate(4, 5, 6)
+        scope.rotate_quaternion(2, 0.5, -1, 0.25)
+        assert scope._transform3d_compact == 2
+        scope.model(shape)
+
+    from gummysnake._fast_draw_math import _mat4_translation_quaternion
+
+    first_matrix = _mat4_translation_quaternion(*first_payload)
+    assert context.fast_model_calls == [(shape, first_payload)]
+    assert context.renderer._model_batch_state.records[0][1] == pytest.approx(first_matrix)
+    assert context.renderer._model_batch_state.records[1][1] == pytest.approx(first_matrix)
+
+
 def test_fast_model_reuses_retained_batch_without_materializing_model_data() -> None:
     scope, context = _scope()
     shape = cast(Any, _OpaqueModel())
@@ -336,11 +444,45 @@ def test_fast_model_reuses_retained_batch_without_materializing_model_data() -> 
     scope.model(shape)
 
     assert context.fast_model_calls == [(shape, first_transform)]
-    assert len(context.renderer._model_batch_state.records) == 1
+    assert len(context.renderer._model_batch_state.records) == 2
     scope.ambient_light(10)
     assert scope._model_batch_cache is None
     scope.model(shape)
     assert len(context.fast_model_calls) == 2
+
+
+def test_fast_model_instances_forwards_once_without_mutating_the_transform_stack() -> None:
+    scope, context = _scope()
+    shape = cast(Any, _OpaqueModel())
+    transforms = [
+        tuple(float(index) for index in range(16)),
+        (
+            (1.0, 0.0, 0.0, 4.0),
+            (0.0, 1.0, 0.0, 5.0),
+            (0.0, 0.0, 1.0, 6.0),
+            (0.0, 0.0, 0.0, 1.0),
+        ),
+    ]
+    scope.translate(10, 20, 30)
+    scope.push()
+    stack_before = list(scope._transform3d_stack)
+    transform_before = scope._model_transform3d_payload()
+
+    scope.model_instances(shape, (transform for transform in transforms))
+
+    assert context.fast_model_instance_calls == [(shape, transforms)]
+    assert [record[1] for record in context.renderer._model_batch_state.records] == transforms
+    assert scope._model_transform3d_payload() == transform_before
+    assert scope._transform3d_stack == stack_before
+
+
+def test_fast_model_instances_fails_clearly_when_bulk_support_is_unavailable() -> None:
+    scope, context = _scope()
+    cast(Any, context)._draw_model_instances_fast = None
+    scope = FastDrawScope(cast(Any, context))
+
+    with pytest.raises(gs.BackendCapabilityError, match="bulk retained-model drawing support"):
+        scope.model_instances(cast(Any, _OpaqueModel()), ())
 
 
 def test_fast_model_preserves_the_legacy_direct_context_forward_when_no_batcher_exists() -> None:

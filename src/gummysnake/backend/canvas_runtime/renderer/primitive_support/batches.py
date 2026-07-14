@@ -115,7 +115,9 @@ def _record_submission(renderer: CanvasRendererHost, record_count: int) -> None:
 
 
 def flush_line_batch(self: CanvasRendererHost) -> None:
-    """Compatibility no-op; all command families submit directly to Rust."""
+    """Flush the pending model run before an ordered non-batched command."""
+    if self._model_batch_state.record_count:
+        self._flush_model_batch()
 
 
 def queue_fill_primitive_fast_path(
@@ -125,6 +127,8 @@ def queue_fill_primitive_fast_path(
     style: StyleState,
     transform: Matrix2D,
 ) -> bool:
+    if self._model_batch_state.record_count:
+        self._flush_model_batch()
     fill_color = style.fill_rgba
     canvas = self._require_canvas()
     batch_fill = getattr(canvas, "batch_fill_primitives_packed", None)
@@ -157,6 +161,8 @@ def record_fill_primitive_batch(
 
     if not records:
         return
+    if self._model_batch_state.record_count:
+        self._flush_model_batch()
     batch_fill = self._require_canvas_method(
         "batch_fill_primitives_packed",
         "packed fill primitive batch recording",
@@ -219,7 +225,9 @@ def queue_primitive_batch(
 
 
 def flush_batches_before_primitive_batch(self: CanvasRendererHost) -> None:
-    """Compatibility no-op; Rust records family order as calls arrive."""
+    """Flush the pending model run before direct primitive recording."""
+    if self._model_batch_state.record_count:
+        self._flush_model_batch()
 
 
 def flush_line_batch_only(self: CanvasRendererHost) -> None:

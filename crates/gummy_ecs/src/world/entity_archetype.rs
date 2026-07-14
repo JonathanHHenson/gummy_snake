@@ -66,12 +66,16 @@ impl World {
             }
             self.change_journal.record(entity, ChangeKind::Spawned);
             for component in row.component_names {
-                self.change_journal
-                    .record(entity, ChangeKind::ComponentAdded { component });
+                self.change_journal.record(
+                    entity,
+                    ChangeKind::ComponentAdded {
+                        component: component.into(),
+                    },
+                );
             }
             for tag in row.tags {
                 self.change_journal
-                    .record(entity, ChangeKind::TagAdded { tag });
+                    .record(entity, ChangeKind::TagAdded { tag: tag.into() });
             }
             self.diagnostics.structural_commands_applied += 1;
             self.note_structural_revision();
@@ -176,12 +180,16 @@ impl World {
         }
         self.change_journal.record(entity, ChangeKind::Spawned);
         for component in component_names {
-            self.change_journal
-                .record(entity, ChangeKind::ComponentAdded { component });
+            self.change_journal.record(
+                entity,
+                ChangeKind::ComponentAdded {
+                    component: component.into(),
+                },
+            );
         }
         for tag in tag_names {
             self.change_journal
-                .record(entity, ChangeKind::TagAdded { tag });
+                .record(entity, ChangeKind::TagAdded { tag: tag.into() });
         }
         self.note_structural_revision();
         Ok(entity)
@@ -204,12 +212,16 @@ impl World {
                 .component_name(component_id)
                 .expect("archetype component id is registered")
                 .to_string();
-            self.change_journal
-                .record(entity, ChangeKind::ComponentRemoved { component });
+            self.change_journal.record(
+                entity,
+                ChangeKind::ComponentRemoved {
+                    component: component.into(),
+                },
+            );
         }
         for tag in tags {
             self.change_journal
-                .record(entity, ChangeKind::TagRemoved { tag });
+                .record(entity, ChangeKind::TagRemoved { tag: tag.into() });
         }
         self.change_journal.record(entity, ChangeKind::Despawned);
         self.diagnostics.structural_commands_applied += 1;
@@ -297,8 +309,12 @@ impl World {
         }
         let new_archetype = self.add_transition(location.archetype, component_id)?;
         self.move_entity_to_archetype(entity, new_archetype)?;
-        self.change_journal
-            .record(entity, ChangeKind::ComponentAdded { component });
+        self.change_journal.record(
+            entity,
+            ChangeKind::ComponentAdded {
+                component: component.into(),
+            },
+        );
         self.diagnostics.structural_commands_applied += 1;
         self.note_structural_revision();
         Ok(())
@@ -321,7 +337,7 @@ impl World {
         self.change_journal.record(
             entity,
             ChangeKind::ComponentRemoved {
-                component: component.to_string(),
+                component: component.into(),
             },
         );
         self.diagnostics.structural_commands_applied += 1;
@@ -340,12 +356,8 @@ impl World {
         if !self.entity_tags.add(entity.index, tag_id) {
             return Ok(());
         }
-        self.change_journal.record(
-            entity,
-            ChangeKind::TagAdded {
-                tag: tag.to_string(),
-            },
-        );
+        self.change_journal
+            .record(entity, ChangeKind::TagAdded { tag: tag.into() });
         self.diagnostics.structural_commands_applied += 1;
         self.note_structural_revision();
         Ok(())
@@ -359,12 +371,8 @@ impl World {
         if !self.entity_tags.remove(entity.index, tag_id) {
             return Ok(());
         }
-        self.change_journal.record(
-            entity,
-            ChangeKind::TagRemoved {
-                tag: tag.to_string(),
-            },
-        );
+        self.change_journal
+            .record(entity, ChangeKind::TagRemoved { tag: tag.into() });
         self.diagnostics.structural_commands_applied += 1;
         self.note_structural_revision();
         Ok(())

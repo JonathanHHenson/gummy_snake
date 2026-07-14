@@ -18,10 +18,19 @@ pub(in crate::execution) fn fast_field_array_value(
     array: &FastFieldArray,
     entity: Entity,
 ) -> Result<f64> {
-    array.values.get(&entity).copied().ok_or_else(|| {
+    let index = array
+        .entities
+        .binary_search_by_key(&entity.raw(), |candidate| candidate.raw())
+        .map_err(|_| {
+            EcsError::InvalidPlan(format!(
+                "missing cached f64 value for entity {}:{} field {}.{}",
+                entity.index, entity.generation, array.component, array.field
+            ))
+        })?;
+    array.values.get(index).copied().ok_or_else(|| {
         EcsError::InvalidPlan(format!(
-            "missing cached f64 value for entity {}:{} field {}.{}",
-            entity.index, entity.generation, array.component, array.field
+            "cached f64 values are not aligned for field {}.{}",
+            array.component, array.field
         ))
     })
 }
@@ -30,6 +39,14 @@ pub(in crate::execution) fn fast_field_array_record_values(
     array: &FastFieldArray,
     records: &[DirectPointRecord],
 ) -> Result<Vec<f64>> {
+    if records.len() == array.entities.len()
+        && records
+            .iter()
+            .zip(array.entities.iter())
+            .all(|(record, entity)| record.entity == *entity)
+    {
+        return Ok(array.values.clone());
+    }
     records
         .iter()
         .map(|record| fast_field_array_value(array, record.entity))
@@ -424,6 +441,50 @@ fn bounds_from_values(dimensions: u8, values: &[f64]) -> Result<SpatialAabb> {
         other => Err(EcsError::InvalidPlan(format!(
             "spatial dimensions must be 2 or 3, got {other}"
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::execution::spatial::point_hash_grid::DirectPointRecord;
+
+    #[test]
+    fn fast_field_arrays_follow_spatial_record_order_without_hash_lookup() {
+        let first = Entity {
+            index: 1,
+            generation: 2,
+        };
+        let second = Entity {
+            index: 3,
+            generation: 4,
+        };
+        let array = FastFieldArray {
+            component: "Trail".to_string(),
+            field: "strength".to_string(),
+            entities: vec![first, second],
+            values: vec![10.0, 20.0],
+        };
+        let aligned = vec![
+            DirectPointRecord {
+                entity: first,
+                point: SpatialPoint::point2(0.0, 0.0).unwrap(),
+            },
+            DirectPointRecord {
+                entity: second,
+                point: SpatialPoint::point2(1.0, 1.0).unwrap(),
+            },
+        ];
+        assert_eq!(
+            fast_field_array_record_values(&array, &aligned).unwrap(),
+            vec![10.0, 20.0]
+        );
+
+        let reordered = vec![aligned[1].clone(), aligned[0].clone()];
+        assert_eq!(
+            fast_field_array_record_values(&array, &reordered).unwrap(),
+            vec![20.0, 10.0]
+        );
     }
 }
 

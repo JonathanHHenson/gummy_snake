@@ -5,6 +5,7 @@ from pathlib import Path
 from struct import Struct
 from typing import cast
 
+from gummysnake._fast_draw_math import _mat4_translation_quaternion
 from tests.helpers.canvas_runtime.image_kernels import FakeCanvasImageKernelsMixin
 
 
@@ -394,6 +395,15 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
         record_format = Struct("<16d")
         decoded = [
             record_format.unpack_from(transforms, offset)
+            for offset in range(0, len(transforms), record_format.size)
+        ]
+        self.calls.append(("draw_model_shaded_batch", *args[:-1], decoded))
+
+    def _draw_model_shaded_batch_translation_quaternion_packed(self, *args: object) -> None:
+        transforms = cast(bytes, args[-1])
+        record_format = Struct("<7d")
+        decoded = [
+            _mat4_translation_quaternion(*record_format.unpack_from(transforms, offset))
             for offset in range(0, len(transforms), record_format.size)
         ]
         self.calls.append(("draw_model_shaded_batch", *args[:-1], decoded))

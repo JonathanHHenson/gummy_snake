@@ -23,6 +23,18 @@ impl World {
         &self.change_journal
     }
 
+    pub fn set_detailed_change_journal(&mut self, enabled: bool) {
+        self.change_journal.set_detailed_records(enabled);
+    }
+
+    pub(crate) fn begin_change_summary_batch(&mut self) {
+        self.change_journal.begin_summary_batch();
+    }
+
+    pub(crate) fn end_change_summary_batch(&mut self) {
+        self.change_journal.end_summary_batch();
+    }
+
     pub fn set_input_state(&mut self, name: impl Into<String>, code: Option<i64>, value: EcsValue) {
         self.input_states.insert((name.into(), code), value);
     }

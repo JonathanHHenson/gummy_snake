@@ -240,6 +240,18 @@ def test_canvas_typed_frame_commands_reject_malformed_family_records_transaction
             True,
             b"bad",
         ),
+        lambda: canvas._draw_model_shaded_batch_translation_quaternion_packed(
+            model,
+            {},
+            {},
+            16.0,
+            16.0,
+            {},
+            [],
+            False,
+            True,
+            b"bad",
+        ),
     )
 
     for malformed_call in malformed_calls:

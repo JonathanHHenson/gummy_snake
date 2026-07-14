@@ -39,9 +39,9 @@ pub(crate) struct PyEcsWorld {
 impl PyEcsWorld {
     #[new]
     fn new() -> Self {
-        Self {
-            world: World::new(),
-        }
+        let mut world = World::new();
+        world.set_detailed_change_journal(false);
+        Self { world }
     }
 
     fn spawn_batch(&mut self, rows: &Bound<'_, PyList>) -> PyResult<Vec<(u32, u32)>> {
@@ -477,6 +477,23 @@ impl PyEcsWorld {
             .world
             .query_filter(QueryFilter::new(terms))
             .map_err(py_value_error)?;
+        if let Some(columns) = self
+            .world
+            .field_f64_columns_for_entities(&component, &fields, &entities)
+            .map_err(py_value_error)?
+        {
+            let mut rows = Vec::with_capacity(entities.len());
+            for row_index in 0..entities.len() {
+                rows.push(
+                    PyTuple::new_bound(
+                        py,
+                        columns.iter().map(|column| column[row_index].into_py(py)),
+                    )
+                    .into_py(py),
+                );
+            }
+            return Ok(rows);
+        }
         let mut rows = Vec::with_capacity(entities.len());
         for entity in entities {
             let mut values = Vec::with_capacity(fields.len());

@@ -16,7 +16,9 @@ use pyo3::types::{PyAny, PyBytes, PyDict, PyList};
 use crate::software3d;
 
 pub(crate) use payload::model_to_payload_dict;
-pub(crate) use uniforms::{model_gpu_uniform, model_gpu_uniforms};
+pub(crate) use uniforms::{
+    model_gpu_translation_quaternion_uniforms, model_gpu_uniform, model_gpu_uniforms,
+};
 
 #[pyfunction]
 pub(crate) fn parse_obj_model<'py>(

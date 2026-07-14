@@ -1,4 +1,5 @@
 use std::collections::{BTreeSet, HashSet};
+use std::sync::Arc;
 use std::time::Instant;
 
 use rayon::prelude::*;
@@ -15,7 +16,7 @@ use super::f64_program::{
     eval_compiled_f64_readonly,
 };
 
-type DenseF64Apply = (Vec<Entity>, Vec<(usize, usize)>, Vec<f64>, usize);
+type DenseF64Apply = (Arc<Vec<Entity>>, Arc<Vec<(usize, usize)>>, Vec<f64>, usize);
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn execute_fused_parallel_set_collect_f64_direct(
@@ -195,7 +196,7 @@ impl<'a> PlanExecutor<'a> {
                     })?;
                     let mut ctx = base_ctx.clone();
                     let query_slot = self.query_slot(&query_name)?;
-                    for entity in rows {
+                    for entity in rows.iter().copied() {
                         ctx.bindings[query_slot] = Some(entity);
                         cache.fill(None);
                         self.report.rows_scanned += 1;

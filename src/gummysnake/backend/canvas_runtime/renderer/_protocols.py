@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any, Protocol
 
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
     ModelBatchKey,
+    ModelBatchState,
     ModelTransformPayload,
 )
 from gummysnake.core.state import StyleState
@@ -30,6 +31,7 @@ class CanvasRendererHost(Protocol):
     _skip_canvas_end_frame: bool
     _last_pixel_bytes: bytes | None
     _current_matrix_payload: MatrixPayload
+    _model_batch_state: ModelBatchState
     _clip_depth: int
     physical_width: int
     physical_height: int
@@ -50,6 +52,22 @@ class CanvasRendererHost(Protocol):
         matrix: MatrixPayload,
     ) -> None: ...
     def _queue_model_batch(self, key: ModelBatchKey, transform: ModelTransformPayload) -> bool: ...
+    def _queue_model_batch_translation_quaternion(
+        self,
+        key: ModelBatchKey,
+        tx: float,
+        ty: float,
+        tz: float,
+        w: float,
+        x: float,
+        y: float,
+        z: float,
+    ) -> bool: ...
+    def _queue_model_batch_many(
+        self,
+        key: ModelBatchKey,
+        transforms: Iterable[ModelTransformPayload],
+    ) -> int: ...
     def _record_fill_primitive_batch(
         self,
         records: list[tuple[object, ...]],

@@ -171,32 +171,42 @@ def _mat4_post_rotate_z(matrix: Matrix4Payload, angle: float) -> Matrix4Payload:
     )
 
 
-def _mat4_is_translation(matrix: Matrix4Payload) -> bool:
-    return (
-        matrix[:12] == (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
-        and matrix[15] == 1.0
-    )
-
-
-def _mat4_translation_then_rotation(
-    translation: Matrix4Payload, rotation: Matrix4Payload
+def _mat4_translation_quaternion(
+    tx: float,
+    ty: float,
+    tz: float,
+    w: float,
+    x: float,
+    y: float,
+    z: float,
 ) -> Matrix4Payload:
+    """Build a translation-plus-normalized-quaternion matrix in column-major order."""
+
+    xx = x * x
+    yy = y * y
+    zz = z * z
+    xy = x * y
+    xz = x * z
+    yz = y * z
+    wx = w * x
+    wy = w * y
+    wz = w * z
     return (
-        rotation[0],
-        rotation[1],
-        rotation[2],
+        1.0 - 2.0 * (yy + zz),
+        2.0 * (xy + wz),
+        2.0 * (xz - wy),
         0.0,
-        rotation[4],
-        rotation[5],
-        rotation[6],
+        2.0 * (xy - wz),
+        1.0 - 2.0 * (xx + zz),
+        2.0 * (yz + wx),
         0.0,
-        rotation[8],
-        rotation[9],
-        rotation[10],
+        2.0 * (xz + wy),
+        2.0 * (yz - wx),
+        1.0 - 2.0 * (xx + yy),
         0.0,
-        translation[12],
-        translation[13],
-        translation[14],
+        tx,
+        ty,
+        tz,
         1.0,
     )
 
@@ -277,36 +287,15 @@ def _mat4_quaternion(w: float, x: float, y: float, z: float) -> Matrix4Payload:
     length = math.sqrt(w * w + x * x + y * y + z * z)
     if length <= 1.0e-12:
         raise ValueError("rotate_quaternion() requires a non-zero quaternion.")
-    w /= length
-    x /= length
-    y /= length
-    z /= length
-    xx = x * x
-    yy = y * y
-    zz = z * z
-    xy = x * y
-    xz = x * z
-    yz = y * z
-    wx = w * x
-    wy = w * y
-    wz = w * z
-    return (
-        1.0 - 2.0 * (yy + zz),
-        2.0 * (xy + wz),
-        2.0 * (xz - wy),
-        0.0,
-        2.0 * (xy - wz),
-        1.0 - 2.0 * (xx + zz),
-        2.0 * (yz + wx),
-        0.0,
-        2.0 * (xz + wy),
-        2.0 * (yz - wx),
-        1.0 - 2.0 * (xx + yy),
+    inverse_length = 1.0 / length
+    return _mat4_translation_quaternion(
         0.0,
         0.0,
         0.0,
-        0.0,
-        1.0,
+        w * inverse_length,
+        x * inverse_length,
+        y * inverse_length,
+        z * inverse_length,
     )
 
 

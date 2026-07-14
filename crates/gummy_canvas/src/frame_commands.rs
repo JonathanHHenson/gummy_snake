@@ -8,6 +8,7 @@ pub(crate) const PATH_CONTOUR_RECORD_BYTES: usize = 4;
 pub(crate) const IMAGE_RECORD_BYTES: usize = 104;
 pub(crate) const TEXT_RECORD_BYTES: usize = 24;
 pub(crate) const MODEL_TRANSFORM_RECORD_BYTES: usize = 128;
+pub(crate) const MODEL_TRANSLATION_QUATERNION_RECORD_BYTES: usize = 56;
 pub(crate) const EFFECT_RECORD_BYTES: usize = 40;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

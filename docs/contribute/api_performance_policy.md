@@ -55,14 +55,25 @@ frame-local: it continues to read the current public `style()` and 2D
 `transform()` state, while its own `push()`/`pushed()` stack manages the model
 transform used by supported 3D draws. Camera, light, and material changes
 invalidate only incompatible retained model batches; they do not materialize
-model geometry in Python.
+model geometry in Python. The common
+`pushed()`/`translate()`/`rotate_quaternion()`/`model()` sequence stays lazy and
+packs normalized translation/quaternion records for Rust bulk matrix expansion;
+other composition orders and arbitrary matrices materialize the canonical 4x4
+matrix and preserve the same ordered batch semantics. For repeated instances of
+one retained model, prefer `draw_fast.model_instances(shape, transforms)` over a per-instance
+`pushed()`/`translate()`/`rotate_quaternion()`/`model()` loop. The bulk API captures
+the current model, camera, projection, material, and lights once, then appends
+complete column-major 4x4 transforms directly to the ordered specialized model
+batch without changing the fast transform stack. Nested row-major 4x4 and legacy
+six-value affine transforms remain accepted compatibility forms.
 
 Current optimized hot paths include compact line batches, mixed primitive
 batches with per-record style/transform data, transformed sprite/image atlas
 batches, batched cached-text atlas fallback for ordered overlays, procedural GPU
 instances for supported fill-only primitives, retained replay for static
 unchanged command streams, direct Rust shape/clip finalization, and retained GPU
-model buffers for supported WEBGL draws. Rust `CanvasImage` batches retain stable
+model buffers and packed retained-model instance batches for supported WEBGL draws.
+Rust `CanvasImage` batches retain stable
 shared immutable payloads instead of cloning full RGBA sources, while image and
 texture caches are bounded by both entry count and bytes and use image generation
 changes to decide when uploads are dirty. Preserve the public API shape while

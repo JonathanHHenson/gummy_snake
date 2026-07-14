@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any, cast
 
-from gummysnake.backend.canvas_runtime.renderer.batch_state import ModelBatchKey
+from gummysnake._fast_draw_math import _mat4_translation_quaternion
+from gummysnake.backend.canvas_runtime.renderer.batch_state import (
+    ModelBatchKey,
+    ModelTransformPayload,
+)
 from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
 from gummysnake.drawing.renderer3d import (
     Camera3D,
@@ -30,12 +34,18 @@ from gummysnake.drawing.software3d.payloads import (
     projection_payload,
 )
 from gummysnake.drawing.software3d.shading import texture_image
-from gummysnake.exceptions import ArgumentValidationError, UnsupportedFeatureError
+from gummysnake.exceptions import (
+    ArgumentValidationError,
+    BackendCapabilityError,
+    UnsupportedFeatureError,
+)
 
 
 def _three_d(self: Any) -> ThreeDContextHost:
     return cast(ThreeDContextHost, self)
 
+
+CompactModelTransform = tuple[float, float, float, float, float, float, float]
 
 _IDENTITY_MODEL_TRANSFORM: tuple[float, ...] = (
     1.0,
@@ -55,6 +65,12 @@ _IDENTITY_MODEL_TRANSFORM: tuple[float, ...] = (
     0.0,
     1.0,
 )
+
+
+def _materialize_compact_model_transform(model_transform: Any) -> Any:
+    if isinstance(model_transform, tuple) and len(model_transform) == 7:
+        return _mat4_translation_quaternion(*model_transform)
+    return model_transform
 
 
 class ThreeDModelMixin:
@@ -178,11 +194,17 @@ class ThreeDModelMixin:
                 self.state.transform.matrix if model_transform is None else model_transform
             )
             if texture is not None and self._draw_model_textured_direct(
-                model, texture, material, effective_transform
+                model,
+                texture,
+                material,
+                _materialize_compact_model_transform(effective_transform),
             ):
                 return
             if texture is None and handle is not None:
-                if isinstance(effective_transform, tuple) and len(effective_transform) == 16:
+                transform_payload: tuple[float, ...] | None
+                if isinstance(effective_transform, tuple) and len(effective_transform) == 7:
+                    transform_payload = effective_transform
+                elif isinstance(effective_transform, tuple) and len(effective_transform) == 16:
                     transform_payload = (
                         None
                         if effective_transform == _IDENTITY_MODEL_TRANSFORM
@@ -192,28 +214,85 @@ class ThreeDModelMixin:
                     transform_payload = model_transform_payload(effective_transform)
                 if self._queue_model_shaded_direct(handle, material, transform_payload):
                     return
-                if self._draw_model_shaded_direct(model, material, effective_transform):
+                if self._draw_model_shaded_direct(
+                    model,
+                    material,
+                    _materialize_compact_model_transform(effective_transform),
+                ):
                     return
 
         self.model(model)
 
-    def _queue_model_shaded_direct(
+    def _draw_model_instances_fast(
         self,
-        handle: Any,
-        material: Material3D,
-        transform_payload: tuple[float, ...] | None,
-    ) -> bool:
-        queue = getattr(self.renderer, "_queue_model_batch", None)
-        if not callable(queue):
-            return False
-        transform = transform_payload or _IDENTITY_MODEL_TRANSFORM
+        shape: Mesh3D | Model3D,
+        transforms: Iterable[ModelTransformPayload],
+    ) -> None:
+        """Queue bulk retained-model instances under one captured 3D draw state."""
+        key = self._resolve_model_batch_key(shape, api_name="model_instances")
+        queue_many = getattr(self.renderer, "_queue_model_batch_many", None)
+        if not callable(queue_many):
+            raise BackendCapabilityError(
+                "model_instances() requires bulk retained-model batching from gummy_canvas; "
+                "rebuild or reinstall Gummy Snake with the current canvas runtime."
+            )
+        try:
+            queue_many(key, transforms)
+        except ValueError as exc:
+            raise ArgumentValidationError(str(exc)) from exc
+
+    def _resolve_model_batch_key(
+        self,
+        shape: Mesh3D | Model3D,
+        *,
+        api_name: str,
+    ) -> ModelBatchKey:
+        """Resolve one retained-model key from the current camera and shading state."""
+        _three_d(self)._require_webgl_mode(api_name)
+        if isinstance(shape, Mesh3D):
+            model = Model3D(meshes=(shape,))
+        elif isinstance(shape, Model3D):
+            model = shape
+        else:
+            raise ArgumentValidationError(f"{api_name}() requires a Mesh3D or Model3D value.")
+        if self._geometry_build_models is not None:
+            raise UnsupportedFeatureError(
+                f"{api_name}() cannot be used while captured geometry is being built."
+            )
+
+        material = _three_d(self)._effective_3d_material()
+        draw_fill = (
+            self._normal_material3d
+            or self._material3d is not None
+            or self.state.style.fill_color is not None
+        )
+        if not draw_fill:
+            raise UnsupportedFeatureError(f"{api_name}() requires an active fill or 3D material.")
+        if self.state.style.stroke_color is not None:
+            raise UnsupportedFeatureError(
+                f"{api_name}() requires no_stroke() because bulk wireframe instances "
+                "are not supported."
+            )
+        if not self._normal_material3d and texture_image(material) is not None:
+            raise UnsupportedFeatureError(
+                f"{api_name}() does not support textured model instances."
+            )
+
+        handle = _ensure_model_rust_handle(model)
+        if handle is None:
+            raise UnsupportedFeatureError(
+                f"{api_name}() requires a retained Rust model handle from gummy_canvas."
+            )
+        return self._model_batch_key(handle, material)
+
+    def _model_batch_key(self, handle: Any, material: Material3D) -> ModelBatchKey:
+        """Reuse or capture a retained-model key for the current 3D draw state."""
         source_signature = (
-            id(handle),
-            id(self._camera3d),
-            id(self._projection3d),
-            id(material),
-            id(self._lights3d),
-            len(self._lights3d),
+            handle,
+            self._camera3d,
+            self._projection3d,
+            material,
+            tuple(self._lights3d),
             self._normal_material3d,
         )
         batch_state = getattr(self.renderer, "_model_batch_state", None)
@@ -222,8 +301,8 @@ class ThreeDModelMixin:
             existing_key is not None
             and getattr(existing_key, "source_signature", None) == source_signature
         ):
-            return bool(queue(existing_key, transform))
-        key = ModelBatchKey(
+            return cast(ModelBatchKey, existing_key)
+        return ModelBatchKey(
             model_handle=handle,
             camera=camera_payload(self._camera3d),
             projection=projection_payload(self._projection3d),
@@ -235,7 +314,30 @@ class ThreeDModelMixin:
             cull_backfaces=True,
             source_signature=source_signature,
         )
-        return bool(queue(key, transform))
+
+    def _queue_model_shaded_direct(
+        self,
+        handle: Any,
+        material: Material3D,
+        transform_payload: tuple[float, ...] | None,
+    ) -> bool:
+        if transform_payload is not None and len(transform_payload) == 7:
+            queue_compact = getattr(
+                self.renderer, "_queue_model_batch_translation_quaternion", None
+            )
+            if not callable(queue_compact):
+                return False
+            return bool(
+                queue_compact(
+                    self._model_batch_key(handle, material),
+                    *cast(CompactModelTransform, transform_payload),
+                )
+            )
+        queue = getattr(self.renderer, "_queue_model_batch", None)
+        if not callable(queue):
+            return False
+        transform = transform_payload or _IDENTITY_MODEL_TRANSFORM
+        return bool(queue(self._model_batch_key(handle, material), transform))
 
     def _rust_model_draw_resources(
         self, model: Model3D, method_name: str

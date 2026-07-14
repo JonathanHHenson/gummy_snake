@@ -1,5 +1,6 @@
 use crate::frame_commands::{
     ensure_record_size, read_f64, FrameCommandFamily, MODEL_TRANSFORM_RECORD_BYTES,
+    MODEL_TRANSLATION_QUATERNION_RECORD_BYTES,
 };
 use crate::prelude::*;
 
@@ -113,6 +114,7 @@ impl Canvas {
         if transforms.is_empty() {
             return Ok(());
         }
+        let instance_count = transforms.len();
         if self.gpu.is_some() && !self.cpu_compositing_active && cull_backfaces {
             let (key, vertices, indices) = crate::software3d::model_gpu_buffers(model);
             if !vertices.is_empty() && !indices.is_empty() {
@@ -124,7 +126,7 @@ impl Canvas {
                     material,
                     lights,
                     normal_material,
-                    transforms.clone(),
+                    transforms,
                 )?;
                 self.upload_stale_texture(false)?;
                 if let Some(gpu) = self.gpu.as_mut() {
@@ -132,7 +134,7 @@ impl Canvas {
                         .ensure_model_mesh(key, vertices, indices)
                         .map_err(PyValueError::new_err)?;
                     gpu.draw_model_instances(key, index_count, uniforms);
-                    self.record_native_model_batch_draw(transforms.len());
+                    self.record_native_model_batch_draw(instance_count);
                     return Ok(());
                 }
             }
@@ -180,6 +182,67 @@ impl Canvas {
         )?;
         self.record_frame_command_ingress(FrameCommandFamily::Model, &[transforms], record_count);
         Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn draw_model_shaded_batch_translation_quaternion_packed_impl(
+        &mut self,
+        model: &crate::software3d::CanvasModel3D,
+        camera: &Bound<'_, PyAny>,
+        projection: &Bound<'_, PyAny>,
+        viewport_width: f64,
+        viewport_height: f64,
+        material: &Bound<'_, PyAny>,
+        lights: &Bound<'_, PyAny>,
+        normal_material: bool,
+        cull_backfaces: bool,
+        transforms: &[u8],
+    ) -> PyResult<()> {
+        ensure_record_size(
+            transforms,
+            "model translation/quaternion transform",
+            MODEL_TRANSLATION_QUATERNION_RECORD_BYTES,
+        )?;
+        let parsed = transforms
+            .chunks_exact(MODEL_TRANSLATION_QUATERNION_RECORD_BYTES)
+            .map(|record| std::array::from_fn(|index| read_f64(record, index * 8)))
+            .collect::<Vec<[f64; 7]>>();
+        let record_count = parsed.len();
+        if record_count == 0 {
+            return Ok(());
+        }
+        if self.gpu.is_some() && !self.cpu_compositing_active && cull_backfaces {
+            let (key, vertices, indices) = crate::software3d::model_gpu_buffers(model);
+            if !vertices.is_empty() && !indices.is_empty() {
+                let uniforms = crate::software3d::model_gpu_translation_quaternion_uniforms(
+                    camera,
+                    projection,
+                    viewport_width,
+                    viewport_height,
+                    material,
+                    lights,
+                    normal_material,
+                    parsed,
+                )?;
+                self.upload_stale_texture(false)?;
+                if let Some(gpu) = self.gpu.as_mut() {
+                    let index_count = gpu
+                        .ensure_model_mesh(key, vertices, indices)
+                        .map_err(PyValueError::new_err)?;
+                    gpu.draw_model_instances(key, index_count, uniforms);
+                    self.record_native_model_batch_draw(record_count);
+                    self.record_frame_command_ingress(
+                        FrameCommandFamily::Model,
+                        &[transforms],
+                        record_count,
+                    );
+                    return Ok(());
+                }
+            }
+        }
+        Err(PyValueError::new_err(
+            "CPU 3D model batch projection fallback is disabled; model drawing requires the retained GPU model path.",
+        ))
     }
 
     #[allow(clippy::too_many_arguments)]

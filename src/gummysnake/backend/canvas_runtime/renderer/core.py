@@ -9,6 +9,7 @@ from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRenderer
 from gummysnake.backend.canvas_runtime.renderer.bridge import CanvasRendererBridgeMixin
 from gummysnake.backend.canvas_runtime.renderer.command_ingress import FRAME_COMMAND_ABI_VERSION
 from gummysnake.backend.canvas_runtime.renderer.lifecycle import CanvasRendererLifecycleMixin
+from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import ModelBatchState
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.counters import (
     CanvasRendererCounterMixin,
     PerformanceCounters,
@@ -80,6 +81,7 @@ class CanvasRendererCore(
         self._skip_canvas_end_frame = False
         self._last_pixel_bytes: bytes | None = None
         self._clip_depth = 0
+        self._model_batch_state = ModelBatchState()
         self._init_performance_counters()
 
     @staticmethod

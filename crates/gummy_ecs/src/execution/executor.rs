@@ -82,9 +82,9 @@ pub(in crate::execution) struct DirectF64SetSpec {
     pub(in crate::execution) value_expr: usize,
 }
 
-pub(in crate::execution) type QueryRows = HashMap<String, Vec<Entity>>;
+pub(in crate::execution) type QueryRows = HashMap<String, Arc<Vec<Entity>>>;
 pub(in crate::execution) type QueryIndices = HashMap<String, usize>;
-type QueryLocationCache = HashMap<String, Vec<(usize, usize)>>;
+pub(in crate::execution) type QueryLocationCache = HashMap<String, Arc<Vec<(usize, usize)>>>;
 type SpatialIndexMetadata = HashMap<String, (String, u64, u64)>;
 type SpatialRelationCacheKey = (String, Option<usize>, Option<usize>, bool, String, u64);
 type SpatialRelationCache = HashMap<SpatialRelationCacheKey, Arc<Vec<SpatialRecord>>>;
@@ -143,6 +143,7 @@ impl<'a> PlanExecutor<'a> {
         prepared: &'a PreparedPlan,
         query_rows: QueryRows,
         query_indices: QueryIndices,
+        query_location_cache: QueryLocationCache,
         report_writes: bool,
         profile: bool,
     ) -> Self {
@@ -153,7 +154,7 @@ impl<'a> PlanExecutor<'a> {
             typed_plan: prepared.typed_executor(),
             query_rows,
             query_indices,
-            query_location_cache: QueryLocationCache::new(),
+            query_location_cache,
             report: ExecutionReport::default(),
             report_writes,
             spatial_indexes: HashMap::new(),
@@ -333,7 +334,7 @@ impl World {
                 let rows = query_rows_for_world(self, plan, &query.name)?;
                 query_sets.insert(
                     (plan_index, query.name.clone()),
-                    rows.into_iter().map(|entity| entity.raw()).collect(),
+                    rows.iter().map(|entity| entity.raw()).collect(),
                 );
             }
         }
@@ -474,10 +475,16 @@ impl World {
         &mut self,
         prepared: &PreparedPlan,
     ) -> Result<ExecutionReport> {
-        let plan = prepared.plan();
-        let (query_rows, query_indices) = query_rows_for_plan(self, plan)?;
-        let mut executor =
-            PlanExecutor::new(self, prepared, query_rows, query_indices, false, false);
+        let (query_rows, query_indices, query_locations) = query_rows_for_plan(self, prepared)?;
+        let mut executor = PlanExecutor::new(
+            self,
+            prepared,
+            query_rows,
+            query_indices,
+            query_locations,
+            false,
+            false,
+        );
         let query_names = executor.query_rows.keys().cloned().collect::<Vec<_>>();
         for query_name in query_names {
             executor.precompute_direct_spatial_aggregates_for_query(
@@ -499,7 +506,7 @@ impl World {
         let profile = std::env::var_os("GUMMY_ECS_PROFILE").is_some();
         let total_start = profile.then(Instant::now);
         let query_start = profile.then(Instant::now);
-        let (query_rows, query_indices) = query_rows_for_plan(self, plan)?;
+        let (query_rows, query_indices, query_locations) = query_rows_for_plan(self, prepared)?;
         if let Some(start) = query_start {
             eprintln!(
                 "ecs_profile execute_query_prep elapsed_ms={:.3}",
@@ -511,6 +518,7 @@ impl World {
             prepared,
             query_rows,
             query_indices,
+            query_locations,
             include_writes,
             profile,
         );

@@ -42,10 +42,10 @@ impl<'a> PlanExecutor<'a> {
                 self.prepared,
                 self.query_rows.clone(),
                 self.query_indices.clone(),
+                self.query_location_cache.clone(),
                 true,
                 self.profile,
             );
-            child_executor.query_location_cache = self.query_location_cache.clone();
             child_executor.spatial_indexes = shared_spatial_indexes;
             child_executor.spatial_index_metadata = shared_spatial_index_metadata;
             child_executor.spatial_relation_cache = shared_spatial_relation_cache;
@@ -94,6 +94,7 @@ impl<'a> PlanExecutor<'a> {
 
         let query_rows = self.query_rows.clone();
         let query_indices = self.query_indices.clone();
+        let query_locations = self.query_location_cache.clone();
         let collector_report;
         let collector_spatial_indexes;
         let collector_spatial_index_metadata;
@@ -105,6 +106,7 @@ impl<'a> PlanExecutor<'a> {
                 self.prepared,
                 query_rows,
                 query_indices,
+                query_locations,
                 self.report_writes,
                 profile,
             );

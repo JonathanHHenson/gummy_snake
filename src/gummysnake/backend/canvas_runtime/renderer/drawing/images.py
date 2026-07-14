@@ -59,6 +59,8 @@ class CanvasRendererImagesMixin:
     ) -> None:
         """Append a stable Rust handle without materializing its RGBA payload in Python."""
         renderer = _renderer(self)
+        if renderer._model_batch_state.record_count:
+            renderer._flush_model_batch()
         records, images = pack_image_commands([(rust_image, dx, dy, dw, dh, None, matrix)])
         renderer._count("gpu_draws")
         renderer._count("image_batch_records")
@@ -87,6 +89,8 @@ class CanvasRendererImagesMixin:
         source: tuple[int, int, int, int] | None,
     ) -> None:
         renderer = _renderer(self)
+        if renderer._model_batch_state.record_count:
+            renderer._flush_model_batch()
         renderer._require_canvas_method(
             "batch_canvas_images_packed",
             "typed image command recording",

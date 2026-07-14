@@ -37,7 +37,8 @@ mod f64_program;
 mod value_ops;
 
 pub(in crate::execution) use self::executor::{
-    DirectF64SetSpec, EvalContext, ExprCacheKey, PlanExecutor, QueryIndices, QueryRows, WriteKey,
+    DirectF64SetSpec, EvalContext, ExprCacheKey, PlanExecutor, QueryIndices, QueryLocationCache,
+    QueryRows, WriteKey,
 };
 pub(in crate::execution) use self::interpreter::value_ops::{
     bool_f64, default_input_state_value, numeric_f64, storage_type_is_numeric, truthy, truthy_f64,

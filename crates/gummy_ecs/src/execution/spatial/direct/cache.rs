@@ -193,10 +193,11 @@ impl<'a> PlanExecutor<'a> {
     ) -> Result<FastFieldArray> {
         let values = self
             .world
-            .field_f64_cache_for_resolved_entities(component, field, entities, locations)?;
+            .field_f64_rows_for_resolved_entities(component, field, locations)?;
         Ok(FastFieldArray {
             component: component.to_string(),
             field: field.to_string(),
+            entities: entities.to_vec(),
             values,
         })
     }

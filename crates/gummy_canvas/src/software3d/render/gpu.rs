@@ -74,7 +74,7 @@ pub(crate) fn model_gpu_uniform_from_payloads(
     normal_material: bool,
     transform: Option<Transform3D>,
 ) -> PyResult<crate::gpu::ModelUniform> {
-    let model = transform_to_model_matrix(transform);
+    let model = model_matrix_from_transform(transform);
     let view = view_matrix(camera)?;
     let projection = projection_matrix(projection, viewport_width, viewport_height);
     let view_projection = multiply_mat4(projection, view);
@@ -151,7 +151,7 @@ fn color_tuple_to_vec4(color: (f64, f64, f64, f64)) -> [f32; 4] {
     ]
 }
 
-fn transform_to_model_matrix(transform: Option<Transform3D>) -> [[f32; 4]; 4] {
+pub(crate) fn model_matrix_from_transform(transform: Option<Transform3D>) -> [[f32; 4]; 4] {
     transform
         .unwrap_or([
             [1.0, 0.0, 0.0, 0.0],
@@ -160,6 +160,41 @@ fn transform_to_model_matrix(transform: Option<Transform3D>) -> [[f32; 4]; 4] {
             [0.0, 0.0, 0.0, 1.0],
         ])
         .map(|column| column.map(|value| value as f32))
+}
+
+pub(crate) fn model_matrix_from_translation_quaternion(
+    [tx, ty, tz, w, x, y, z]: [f64; 7],
+) -> [[f32; 4]; 4] {
+    let xx = x * x;
+    let yy = y * y;
+    let zz = z * z;
+    let xy = x * y;
+    let xz = x * z;
+    let yz = y * z;
+    let wx = w * x;
+    let wy = w * y;
+    let wz = w * z;
+    [
+        [
+            (1.0 - 2.0 * (yy + zz)) as f32,
+            (2.0 * (xy + wz)) as f32,
+            (2.0 * (xz - wy)) as f32,
+            0.0,
+        ],
+        [
+            (2.0 * (xy - wz)) as f32,
+            (1.0 - 2.0 * (xx + zz)) as f32,
+            (2.0 * (yz + wx)) as f32,
+            0.0,
+        ],
+        [
+            (2.0 * (xz + wy)) as f32,
+            (2.0 * (yz - wx)) as f32,
+            (1.0 - 2.0 * (xx + yy)) as f32,
+            0.0,
+        ],
+        [tx as f32, ty as f32, tz as f32, 1.0],
+    ]
 }
 
 fn view_matrix(camera: &CameraPayload) -> PyResult<[[f32; 4]; 4]> {
@@ -226,4 +261,22 @@ fn multiply_mat4(left: [[f32; 4]; 4], right: [[f32; 4]; 4]) -> [[f32; 4]; 4] {
         }
     }
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::model_matrix_from_translation_quaternion;
+
+    #[test]
+    fn translation_quaternion_matrix_matches_column_major_transform_semantics() {
+        assert_eq!(
+            model_matrix_from_translation_quaternion([3.0, 4.0, 5.0, 0.5, 0.5, 0.5, 0.5]),
+            [
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+                [3.0, 4.0, 5.0, 1.0],
+            ]
+        );
+    }
 }

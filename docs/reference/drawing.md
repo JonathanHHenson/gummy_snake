@@ -163,3 +163,22 @@ transform/projection/depth testing/shading. Backend capabilities still
 distinguish `software_three_d`, built-in GPU acceleration, and future
 `native_shaders`; the canvas backend does not expose user-programmable native
 shader execution yet.
+
+For dense retained-model scenes, `FastDrawScope.model_instances(shape, transforms)`
+queues one model under the current camera, projection, material, and lights while
+streaming all instance transforms into one ordered model batch:
+
+```python
+
+def draw():
+    draw3d = gs.fast()
+    draw3d.specular_material(95, 185, 255)
+    draw3d.model_instances(model, instance_matrices)
+```
+
+Each transform may be a flat column-major 16-value matrix, a nested row-major 4x4
+matrix, or an existing six-value affine model transform. These are complete
+per-instance model matrices: `model_instances()` neither reads nor mutates the
+fast scope's `push()`/`pushed()` transform stack. The bulk retained path currently
+requires an untextured model with an active fill or 3D material and `no_stroke()`;
+unsupported model state and invalid transforms raise explicit Gummy Snake errors.

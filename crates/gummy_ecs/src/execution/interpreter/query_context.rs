@@ -1,4 +1,5 @@
 use std::collections::{BTreeSet, HashSet};
+use std::sync::Arc;
 
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
@@ -6,24 +7,24 @@ use crate::plan::{ExprNode, PhysicalPlan};
 use crate::world::World;
 
 use super::super::{
-    storage_type_is_numeric, EvalContext, PlanExecutor, QueryIndices, QueryRows,
-    SpatialPrecomputeLayout,
+    storage_type_is_numeric, EvalContext, PlanExecutor, QueryIndices, QueryLocationCache,
+    QueryRows, SpatialPrecomputeLayout,
 };
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn query_locations(
         &mut self,
         query_name: &str,
-    ) -> Result<Vec<(usize, usize)>> {
+    ) -> Result<Arc<Vec<(usize, usize)>>> {
         if let Some(locations) = self.query_location_cache.get(query_name) {
             return Ok(locations.clone());
         }
         let rows = self.query_rows.get(query_name).ok_or_else(|| {
             EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
         })?;
-        let locations = self.world.locations_for_entities(rows.iter().copied())?;
+        let locations = Arc::new(self.world.locations_for_entities(rows.iter().copied())?);
         self.query_location_cache
-            .insert(query_name.to_string(), locations.clone());
+            .insert(query_name.to_string(), Arc::clone(&locations));
         Ok(locations)
     }
 
@@ -121,7 +122,7 @@ impl<'a> PlanExecutor<'a> {
         let rows = self.query_rows.get(query_name).ok_or_else(|| {
             EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
         })?;
-        for entity in rows {
+        for entity in rows.iter() {
             let next = ctx.with_binding(query_slot, *entity);
             self.expand_query_recursive(&next, missing, index + 1, out)?;
         }
@@ -159,25 +160,28 @@ impl<'a> PlanExecutor<'a> {
 
 pub(in crate::execution) fn query_rows_for_plan(
     world: &mut World,
-    plan: &PhysicalPlan,
-) -> Result<(QueryRows, QueryIndices)> {
+    prepared: &crate::plan::PreparedPlan,
+) -> Result<(QueryRows, QueryIndices, QueryLocationCache)> {
+    let plan = prepared.plan();
     let mut query_rows = QueryRows::new();
     let mut query_indices = QueryIndices::new();
+    let mut query_locations = QueryLocationCache::new();
     for (query_index, query) in plan.queries.iter().enumerate() {
         query_indices.insert(query.name.clone(), query_index);
-        query_rows.insert(
-            query.name.clone(),
-            query_rows_for_world(world, plan, &query.name)?,
-        );
+        let (rows, locations) = world.execution_query(&query.filter)?;
+        query_rows.insert(query.name.clone(), rows);
+        if !plan.access.structural {
+            query_locations.insert(query.name.clone(), locations);
+        }
     }
-    Ok((query_rows, query_indices))
+    Ok((query_rows, query_indices, query_locations))
 }
 
 pub(in crate::execution) fn query_rows_for_world(
     world: &mut World,
     plan: &PhysicalPlan,
     query_name: &str,
-) -> Result<Vec<Entity>> {
+) -> Result<Arc<Vec<Entity>>> {
     let query = plan
         .queries
         .iter()
@@ -185,5 +189,5 @@ pub(in crate::execution) fn query_rows_for_world(
         .ok_or_else(|| {
             EcsError::InvalidPlan(format!("query '{query_name}' is not part of the plan"))
         })?;
-    world.query_filter(query.filter.clone())
+    world.execution_query(&query.filter).map(|(rows, _)| rows)
 }

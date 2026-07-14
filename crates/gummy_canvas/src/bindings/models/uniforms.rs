@@ -46,21 +46,57 @@ pub(crate) fn model_gpu_uniforms(
     transforms: Vec<Vec<f64>>,
 ) -> PyResult<Vec<crate::gpu::ModelUniform>> {
     let inputs = parse_model_uniform_inputs(camera, projection, material, lights)?;
+    let base = software3d::model_gpu_uniform_from_payloads(
+        &inputs.camera,
+        &inputs.projection,
+        viewport_width,
+        viewport_height,
+        &inputs.material,
+        &inputs.lights,
+        normal_material,
+        None,
+    )?;
     transforms
         .into_iter()
         .map(|transform| {
-            software3d::model_gpu_uniform_from_payloads(
-                &inputs.camera,
-                &inputs.projection,
-                viewport_width,
-                viewport_height,
-                &inputs.material,
-                &inputs.lights,
-                normal_material,
-                parse_transform_payload(Some(transform))?,
-            )
+            let mut uniform = base;
+            uniform.model =
+                software3d::model_matrix_from_transform(parse_transform_payload(Some(transform))?);
+            Ok(uniform)
         })
         .collect()
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn model_gpu_translation_quaternion_uniforms(
+    camera: &Bound<'_, PyAny>,
+    projection: &Bound<'_, PyAny>,
+    viewport_width: f64,
+    viewport_height: f64,
+    material: &Bound<'_, PyAny>,
+    lights: &Bound<'_, PyAny>,
+    normal_material: bool,
+    transforms: Vec<[f64; 7]>,
+) -> PyResult<Vec<crate::gpu::ModelUniform>> {
+    let inputs = parse_model_uniform_inputs(camera, projection, material, lights)?;
+    let base = software3d::model_gpu_uniform_from_payloads(
+        &inputs.camera,
+        &inputs.projection,
+        viewport_width,
+        viewport_height,
+        &inputs.material,
+        &inputs.lights,
+        normal_material,
+        None,
+    )?;
+    Ok(transforms
+        .into_iter()
+        .map(|transform| {
+            let mut uniform = base;
+            uniform.model = software3d::model_matrix_from_translation_quaternion(transform);
+            uniform
+        })
+        .collect())
 }
 
 struct ModelUniformInputs {

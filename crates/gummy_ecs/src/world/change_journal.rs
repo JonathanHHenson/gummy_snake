@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::sync::Arc;
 
 use crate::entity::Entity;
 
@@ -35,11 +36,22 @@ impl ChangeRevision {
 pub enum ChangeKind {
     Spawned,
     Despawned,
-    ComponentAdded { component: String },
-    ComponentRemoved { component: String },
-    FieldChanged { component: String, field: String },
-    TagAdded { tag: String },
-    TagRemoved { tag: String },
+    ComponentAdded {
+        component: Arc<str>,
+    },
+    ComponentRemoved {
+        component: Arc<str>,
+    },
+    FieldChanged {
+        component: Arc<str>,
+        field: Arc<str>,
+    },
+    TagAdded {
+        tag: Arc<str>,
+    },
+    TagRemoved {
+        tag: Arc<str>,
+    },
 }
 
 /// An ordered mutation record. `entity` includes its generation, so a reused
@@ -57,7 +69,8 @@ pub struct ChangeRecord {
 pub struct ComponentChange {
     pub added: Option<ChangeRevision>,
     pub removed: Option<ChangeRevision>,
-    pub changed_fields: BTreeMap<String, ChangeRevision>,
+    pub changed: Option<ChangeRevision>,
+    pub changed_fields: BTreeMap<Arc<str>, ChangeRevision>,
 }
 
 /// The latest tag transitions for one entity within one epoch.
@@ -74,8 +87,8 @@ pub struct EntityChange {
     pub entity: Entity,
     pub spawned: Option<ChangeRevision>,
     pub despawned: Option<ChangeRevision>,
-    pub components: BTreeMap<String, ComponentChange>,
-    pub tags: BTreeMap<String, TagChange>,
+    pub components: BTreeMap<Arc<str>, ComponentChange>,
+    pub tags: BTreeMap<Arc<str>, TagChange>,
 }
 
 impl EntityChange {
@@ -95,16 +108,34 @@ impl EntityChange {
 ///
 /// The journal retains only the active epoch. Advancing to a different epoch
 /// discards completed-epoch records and summaries, bounding retained memory by
-/// mutations in the active epoch while revisions remain monotonic. Query
-/// filtering consumes the compact summaries directly for Added/Changed/Removed
-/// component terms, without Python-owned allowed-entity transport.
-#[derive(Debug, Clone, Default)]
+/// mutations in the active epoch while revisions remain monotonic. Query filtering
+/// consumes the compact summaries directly for Added/Changed/Removed component terms,
+/// without Python-owned allowed-entity transport.
+#[derive(Debug, Clone)]
 pub struct ChangeJournal {
     current_epoch: ChangeEpoch,
     latest_revision: ChangeRevision,
     diagnostic_updates: usize,
+    retained_records: usize,
+    detailed_records: bool,
+    summary_batch: Option<HashMap<Arc<str>, Vec<Option<u32>>>>,
     records: Vec<ChangeRecord>,
     changes: HashMap<(ChangeEpoch, Entity), EntityChange>,
+}
+
+impl Default for ChangeJournal {
+    fn default() -> Self {
+        Self {
+            current_epoch: ChangeEpoch::default(),
+            latest_revision: ChangeRevision::default(),
+            diagnostic_updates: 0,
+            retained_records: 0,
+            detailed_records: true,
+            summary_batch: None,
+            records: Vec::new(),
+            changes: HashMap::new(),
+        }
+    }
 }
 
 impl ChangeJournal {
@@ -124,12 +155,52 @@ impl ChangeJournal {
         self.diagnostic_updates = 0;
     }
 
+    pub(crate) fn set_detailed_records(&mut self, enabled: bool) {
+        self.detailed_records = enabled;
+        self.summary_batch = None;
+        if !enabled {
+            self.records.clear();
+        }
+    }
+
+    pub(crate) fn begin_summary_batch(&mut self) {
+        if !self.detailed_records {
+            self.summary_batch = Some(HashMap::new());
+        }
+    }
+
+    pub(crate) fn end_summary_batch(&mut self) {
+        let Some(batch) = self.summary_batch.take() else {
+            return;
+        };
+        let revision = self.latest_revision;
+        let epoch = self.current_epoch;
+        for (component, generations) in batch {
+            for (index, generation) in generations.into_iter().enumerate() {
+                let Some(generation) = generation else {
+                    continue;
+                };
+                let entity = Entity {
+                    index: index as u32,
+                    generation,
+                };
+                self.changes
+                    .entry((epoch, entity))
+                    .or_insert_with(|| EntityChange::new(epoch, entity))
+                    .components
+                    .entry(component.clone())
+                    .or_default()
+                    .changed = Some(revision);
+            }
+        }
+    }
+
     pub fn len(&self) -> usize {
-        self.records.len()
+        self.retained_records
     }
 
     pub fn is_empty(&self) -> bool {
-        self.records.is_empty()
+        self.retained_records == 0
     }
 
     pub fn records(&self) -> &[ChangeRecord] {
@@ -150,15 +221,85 @@ impl ChangeJournal {
         let epoch = ChangeEpoch::new(epoch);
         if self.current_epoch != epoch {
             self.current_epoch = epoch;
+            self.retained_records = 0;
+            self.summary_batch = None;
             self.records.clear();
             self.changes.clear();
+        }
+    }
+
+    pub(crate) fn record_field_changes(
+        &mut self,
+        component: Arc<str>,
+        field: Arc<str>,
+        entities: &[Entity],
+    ) {
+        if entities.is_empty() {
+            return;
+        }
+        if self.detailed_records || self.summary_batch.is_none() {
+            for entity in entities.iter().copied() {
+                self.record(
+                    entity,
+                    ChangeKind::FieldChanged {
+                        component: component.clone(),
+                        field: field.clone(),
+                    },
+                );
+            }
+            return;
+        }
+
+        let count = entities.len() as u64;
+        self.latest_revision = ChangeRevision(self.latest_revision.0.saturating_add(count));
+        self.diagnostic_updates = self.diagnostic_updates.saturating_add(entities.len());
+        self.retained_records = self.retained_records.saturating_add(entities.len());
+        let batch = self
+            .summary_batch
+            .as_mut()
+            .expect("summary batch checked above");
+        let generations = if let Some(generations) = batch.get_mut(component.as_ref()) {
+            generations
+        } else {
+            batch.insert(component.clone(), Vec::new());
+            batch
+                .get_mut(component.as_ref())
+                .expect("inserted summary component")
+        };
+        for entity in entities.iter().copied() {
+            let index = entity.index as usize;
+            if generations.len() <= index {
+                generations.resize(index + 1, None);
+            }
+            generations[index] = Some(entity.generation);
         }
     }
 
     pub(crate) fn record(&mut self, entity: Entity, kind: ChangeKind) -> ChangeRevision {
         self.latest_revision = ChangeRevision(self.latest_revision.0.saturating_add(1));
         self.diagnostic_updates = self.diagnostic_updates.saturating_add(1);
+        self.retained_records = self.retained_records.saturating_add(1);
         let revision = self.latest_revision;
+        if !self.detailed_records {
+            if let ChangeKind::FieldChanged { component, .. } = &kind {
+                if let Some(batch) = self.summary_batch.as_mut() {
+                    let generations = if let Some(generations) = batch.get_mut(component.as_ref()) {
+                        generations
+                    } else {
+                        batch.insert(component.clone(), Vec::new());
+                        batch
+                            .get_mut(component.as_ref())
+                            .expect("inserted summary component")
+                    };
+                    let index = entity.index as usize;
+                    if generations.len() <= index {
+                        generations.resize(index + 1, None);
+                    }
+                    generations[index] = Some(entity.generation);
+                    return revision;
+                }
+            }
+        }
         let epoch = self.current_epoch;
         let record = ChangeRecord {
             epoch,
@@ -167,7 +308,9 @@ impl ChangeJournal {
             kind,
         };
         self.update_change_summary(&record);
-        self.records.push(record);
+        if self.detailed_records {
+            self.records.push(record);
+        }
         revision
     }
 
@@ -194,12 +337,13 @@ impl ChangeJournal {
                     .removed = Some(record.revision);
             }
             ChangeKind::FieldChanged { component, field } => {
-                change
-                    .components
-                    .entry(component.clone())
-                    .or_default()
-                    .changed_fields
-                    .insert(field.clone(), record.revision);
+                let component_change = change.components.entry(component.clone()).or_default();
+                component_change.changed = Some(record.revision);
+                if self.detailed_records {
+                    component_change
+                        .changed_fields
+                        .insert(field.clone(), record.revision);
+                }
             }
             ChangeKind::TagAdded { tag } => {
                 change.tags.entry(tag.clone()).or_default().added = Some(record.revision);
@@ -229,9 +373,8 @@ impl ComponentChange {
     pub(crate) fn is_currently_changed(&self) -> bool {
         self.is_currently_added()
             || self
-                .changed_fields
-                .values()
-                .any(|changed| self.removed.is_none_or(|removed| *changed > removed))
+                .changed
+                .is_some_and(|changed| self.removed.is_none_or(|removed| changed > removed))
     }
 }
 
@@ -251,14 +394,14 @@ mod tests {
         journal.record(
             entity,
             ChangeKind::ComponentAdded {
-                component: "Position".to_string(),
+                component: Arc::from("Position"),
             },
         );
         journal.record(
             entity,
             ChangeKind::FieldChanged {
-                component: "Position".to_string(),
-                field: "x".to_string(),
+                component: Arc::from("Position"),
+                field: Arc::from("x"),
             },
         );
 
@@ -269,6 +412,37 @@ mod tests {
             .expect("entity change summary");
         assert_eq!(change.spawned.unwrap().get(), 1);
         assert_eq!(change.components["Position"].changed_fields["x"].get(), 3);
+    }
+
+    #[test]
+    fn summary_only_journal_preserves_change_filters_without_detailed_records() {
+        let entity = Entity {
+            index: 8,
+            generation: 3,
+        };
+        let mut journal = ChangeJournal::default();
+        journal.set_detailed_records(false);
+        journal.set_epoch(4);
+        journal.begin_summary_batch();
+        for field in ["x", "y"] {
+            journal.record_field_changes(Arc::from("Position"), Arc::from(field), &[entity]);
+        }
+        assert!(journal.entity_change(ChangeEpoch::new(4), entity).is_none());
+        journal.end_summary_batch();
+
+        assert_eq!(journal.len(), 2);
+        assert!(journal.records().is_empty());
+        let change = journal
+            .entity_change(ChangeEpoch::new(4), entity)
+            .expect("summary-only entity change");
+        let component = &change.components["Position"];
+        assert_eq!(component.changed.expect("component change").get(), 2);
+        assert!(component.changed_fields.is_empty());
+        assert!(component.is_currently_changed());
+
+        journal.set_epoch(5);
+        assert!(journal.is_empty());
+        assert!(journal.entity_change(ChangeEpoch::new(4), entity).is_none());
     }
 
     #[test]
