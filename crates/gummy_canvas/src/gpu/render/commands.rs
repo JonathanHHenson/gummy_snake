@@ -54,13 +54,12 @@ impl GpuRenderer {
         instances: Vec<PrimitiveInstance>,
         blend_mode: BlendMode,
     ) {
-        if !instances.is_empty() {
-            self.commands.push(DrawCommand::PrimitiveInstances {
-                instances,
-                blend_mode,
-                clip_id: self.current_clip_id,
-            });
-        }
+        record_primitive_instances(
+            &mut self.commands,
+            instances,
+            blend_mode,
+            self.current_clip_id,
+        );
     }
 
     pub fn draw_retained_primitive_instances(
@@ -374,6 +373,33 @@ impl GpuRenderer {
     }
 }
 
+fn record_primitive_instances(
+    commands: &mut Vec<DrawCommand>,
+    mut instances: Vec<PrimitiveInstance>,
+    blend_mode: BlendMode,
+    current_clip_id: usize,
+) {
+    if instances.is_empty() {
+        return;
+    }
+    if let Some(DrawCommand::PrimitiveInstances {
+        instances: pending,
+        blend_mode: pending_blend,
+        clip_id,
+    }) = commands.last_mut()
+    {
+        if *pending_blend == blend_mode && *clip_id == current_clip_id {
+            pending.append(&mut instances);
+            return;
+        }
+    }
+    commands.push(DrawCommand::PrimitiveInstances {
+        instances,
+        blend_mode,
+        clip_id: current_clip_id,
+    });
+}
+
 fn model_wire_indices(indices: &[u32]) -> Vec<u32> {
     let mut wire_indices = Vec::with_capacity(indices.len() * 2);
     for triangle in indices.chunks_exact(3) {
@@ -387,4 +413,50 @@ fn model_wire_indices(indices: &[u32]) -> Vec<u32> {
         ]);
     }
     wire_indices
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn instance(x: f32) -> PrimitiveInstance {
+        PrimitiveInstance {
+            p0: [x, 0.0],
+            p1: [0.0; 2],
+            p2: [0.0; 2],
+            bounds: [0.0; 4],
+            color: [1.0; 4],
+            params: [0.0; 4],
+        }
+    }
+
+    #[test]
+    fn adjacent_compatible_primitive_instances_share_one_command() {
+        let mut commands = Vec::new();
+        record_primitive_instances(&mut commands, vec![instance(1.0)], BlendMode::Blend, 0);
+        record_primitive_instances(&mut commands, vec![instance(2.0)], BlendMode::Blend, 0);
+
+        assert_eq!(commands.len(), 1);
+        let DrawCommand::PrimitiveInstances { instances, .. } = &commands[0] else {
+            panic!("expected a primitive instance command");
+        };
+        assert_eq!(instances.len(), 2);
+        assert_eq!(instances[1].p0[0], 2.0);
+    }
+
+    #[test]
+    fn primitive_instance_coalescing_preserves_order_and_clip_boundaries() {
+        let mut commands = Vec::new();
+        record_primitive_instances(&mut commands, vec![instance(1.0)], BlendMode::Blend, 0);
+        commands.push(DrawCommand::Clear(GpuColor {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0,
+        }));
+        record_primitive_instances(&mut commands, vec![instance(2.0)], BlendMode::Blend, 0);
+        record_primitive_instances(&mut commands, vec![instance(3.0)], BlendMode::Blend, 1);
+
+        assert_eq!(commands.len(), 4);
+    }
 }
