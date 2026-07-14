@@ -413,8 +413,10 @@ and `B-A`.
 algorithm requests. Hash-grid, quadtree, octree, and 2D Hilbert-curve relations
 serialize into the Rust physical executor behind a shared spatial trait, so
 systems can switch algorithms without changing public query results. The legacy
-`allow_fallback` keyword is accepted for source compatibility but scheduled ECS
-systems do not use Python spatial fallback execution.
+`allow_fallback` keyword is accepted for source compatibility, but it only describes
+Python-side relation materialization for code already inside an explicit Python
+boundary. Passing `allow_fallback=True` never redirects a scheduled `@ecs.system_plan`
+out of the Rust physical executor; unsupported scheduled nodes still fail closed.
 
 ## Change detection
 
@@ -484,10 +486,12 @@ so systems registered after a callback can consume callback-emitted events.
 ## Explicit Python systems
 
 Use `@ecs.system` when a scheduled system must execute Python at runtime. Python
-systems are scheduler barriers by default, materialize query rows as Rust-backed
-`EntityView` objects, run with the GIL held, and are diagnosed separately from
-Rust physical systems. They are never an implicit fallback for an invalid Rust
-logical system.
+systems are scheduler barriers by default, materialize only their declared query
+rows as Rust-backed `EntityView` compatibility adapters, run with the GIL held,
+and are diagnosed separately from Rust physical systems. Those views read and write
+the canonical Rust world; they are not a Python component store or alternate
+executor. Python systems are never an implicit fallback for an invalid Rust logical
+system.
 
 ```python
 @ecs.system(
@@ -504,13 +508,15 @@ parameters so readers can see the intentional write/structural boundary.
 
 ## UDFs
 
-`@ecs.udf_plan` declares a typed Rust-backed UDF plan: value parameters and
-returns use `ecs.Expression[T]`, and execution requires a matching Rust registry
-entry. Use `@ecs.udf` for explicit runtime Python escape hatches, side effects,
+`@ecs.udf_plan` declares a typed Rust-backed UDF plan: its Python declaration runs
+while the logical plan is built, value parameters and returns use
+`ecs.Expression[T]`, and frame execution remains in Rust with zero runtime UDF
+calls. Use `@ecs.udf` for explicit runtime Python escape hatches, side effects,
 external APIs, or operations that are not yet expressible in the lazy ECS DSL.
 Python UDF annotations are mandatory and may use `ecs.Vector[T]`, `ecs.Entity[T]`,
 or iterable return types. They are flexible but have a performance cost and are
-counted separately in diagnostics.
+counted separately in diagnostics. A Python UDF can be selected only because the
+author declared it; it is not chosen when Rust plan compilation fails.
 
 ```python
 @ecs.udf(mutations={"items": {ecs.EntityMutation[Velocity](update=True)}})
@@ -541,8 +547,11 @@ handles, prepared-plan cache hits/misses/reuse and bytes, physical plan runs, wo
 clones, UDF calls, bounded event-ring records/drops/bytes, typed resource-row bytes,
 spatial index owners/cache entries/builds/candidate and exact rows, and ECS canvas
 Python replay/materialization. A normal Rust-only system should keep UDF calls and
-Python canvas materialization at zero; nonzero values identify an explicit boundary
-or an ECS canvas family that has not yet moved to direct Rust replay.
+Python canvas materialization at zero. Runtime UDF/system counters are nonzero only
+for author-declared Python boundaries. `ecs_scheduler_world_clones` and the canvas
+Python replay/materialization counters are different: nonzero values identify
+remaining Rust parallel-clone or scheduled canvas compatibility paths, not an
+approved UDF fallback, and keep the corresponding migration work open.
 
 Inspect counters with:
 

@@ -570,8 +570,7 @@ def build_workload(
         raise EcsWorkloadError(f"unknown ECS oracle_profile: {oracle_profile!r}")
     if parameters["release_provenance_profile"] != _RELEASE_PROVENANCE_PROFILE:
         raise EcsWorkloadError(
-            "authoritative ECS cases require release_provenance_profile="
-            f"{_RELEASE_PROVENANCE_PROFILE!r}"
+            f"ECS cases require release_provenance_profile={_RELEASE_PROVENANCE_PROFILE!r}"
         )
     return WorkloadPlan(
         workload_id=workload_id,
@@ -2711,8 +2710,6 @@ def dispatch(
         "metric_profile": plan.metric_profile,
         "oracle_profile": plan.oracle_profile,
         "release_provenance_profile": _RELEASE_PROVENANCE_PROFILE,
-        "authoritative_recording": False,
-        "physical_qualification_claimed": False,
         "measured_parameters": {
             name: value for name, value in plan.parameters.items() if name not in _COMMON_PARAMETERS
         },

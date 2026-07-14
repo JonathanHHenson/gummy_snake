@@ -7,17 +7,8 @@ from typing import Any, cast
 from gummysnake import constants as c
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
 from gummysnake.backend.canvas_runtime.renderer.bridge import CanvasRendererBridgeMixin
-from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
-    FRAME_COMMAND_ABI_VERSION,
-    PackedImageBatchState,
-    PackedTextBatchState,
-)
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import FRAME_COMMAND_ABI_VERSION
 from gummysnake.backend.canvas_runtime.renderer.lifecycle import CanvasRendererLifecycleMixin
-from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
-    LineBatchState,
-    ModelBatchState,
-    PrimitiveBatchState,
-)
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.counters import (
     CanvasRendererCounterMixin,
     PerformanceCounters,
@@ -86,11 +77,6 @@ class CanvasRendererCore(
         self._rust_style_synced = True
         self._current_matrix_payload: MatrixPayload = matrix_payload(Matrix2D.identity())
         self._rust_transform_synced = True
-        self._line_batch_state = LineBatchState()
-        self._primitive_batch_state = PrimitiveBatchState()
-        self._model_batch_state = ModelBatchState()
-        self._text_batch = PackedTextBatchState()
-        self._image_batch = PackedImageBatchState()
         self._skip_canvas_end_frame = False
         self._last_pixel_bytes: bytes | None = None
         self._clip_depth = 0

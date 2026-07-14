@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = ROOT / "benchmarks" / "ecs_v1.toml"
 _CARDINALITY_DIGEST = "sha256:32464902926e6826a572e97f2753334c20fa44d9c2cb3703edad48cbd0188bce"
 _SIMULATED_MULTISYSTEM_DIGEST = (
-    "sha256:b2f7e916f5d03cd537430f7adb078016c6275d42f551881c6973c4412b043c83"
+    "sha256:dea818018bd0613eadec4f22929e6257d45e5ca3a19e9899c300f869d66292fc"
 )
 _CATALOG_CONTRACT = {
     "fixture_seed": 290_001,
@@ -130,8 +130,7 @@ def test_every_ecs_catalog_case_dispatches_through_the_static_registry() -> None
             for name, value in workload.parameters.items()
             if name not in _COMMON_PARAMETER_NAMES
         }
-        assert result.summary["authoritative_recording"] is False
-        assert result.summary["physical_qualification_claimed"] is False
+
         digest = result.summary["correctness_digest"]
         assert digest == workload.parameters["expected_correctness_digest"]
         diagnostics = result.diagnostics["ecs"]
@@ -268,7 +267,7 @@ def test_ecs_builder_rejects_unknown_routes_cases_and_parameters() -> None:
     with pytest.raises(ExecutionRouteError, match="requires execution_class='headless'"):
         build_workload("query-view-transport", base, ExecutionClass.SIMULATED_REALTIME)
     with pytest.raises(ExecutionRouteError, match="declared unavailable") as error:
-        build_workload("query-view-transport", {**base, "execution_layer": "R"}, "trial")
+        build_workload("query-view-transport", {**base, "execution_layer": "R"}, "headless")
     assert "Direct release gummy_ecs Rust harness" in str(error.value)
     assert "No fallback route is available" in str(error.value)
     with pytest.raises(EcsWorkloadError, match="expected_correctness_digest"):
@@ -298,7 +297,7 @@ def test_ecs_builder_rejects_unknown_routes_cases_and_parameters() -> None:
 @pytest.mark.parametrize(
     ("layer", "route", "detail"),
     (
-        ("R", ExecutionClass.TRIAL, "Direct release gummy_ecs Rust harness"),
+        ("R", ExecutionClass.HEADLESS, "Direct release gummy_ecs Rust harness"),
         ("I", ExecutionClass.NATIVE_INTERACTIVE, "Native interactive SDL3 presentation route"),
     ),
 )
@@ -374,7 +373,7 @@ def test_ecs_frame_oracles_support_explicit_exact_and_tolerant_rules() -> None:
         frame_digest(expected, 2, 1)
 
 
-def test_ecs_release_provenance_is_mandatory_only_for_authoritative_records() -> None:
+def test_ecs_release_provenance_is_mandatory_for_local_records() -> None:
     valid = {
         "source_commit": "a" * 40,
         "source_digest": "sha256:" + "b" * 64,
@@ -387,7 +386,7 @@ def test_ecs_release_provenance_is_mandatory_only_for_authoritative_records() ->
     contract = ReleaseProvenanceContract()
     assert contract.validate(valid)["profile"] == "release"
 
-    with pytest.raises(EcsOracleError, match="recorded hexadecimal source commit"):
+    with pytest.raises(EcsOracleError, match="hexadecimal source commit"):
         contract.validate({**valid, "source_commit": "unrecorded"})
     with pytest.raises(EcsOracleError, match="profile='release'"):
         contract.validate({**valid, "profile": "debug"})

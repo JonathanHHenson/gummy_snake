@@ -318,7 +318,7 @@ def test_canvas_workload_builder_preserves_distinct_headless_and_native_routes()
     assert native.headless is False
     assert native.execution_class.value == "native-interactive"
     with pytest.raises(ExecutionRouteError, match="require execution_class"):
-        build_workload("lifecycle-hidpi", {}, "trial")
+        build_workload("lifecycle-hidpi", {}, "simulated-realtime")
     with pytest.raises(CanvasWorkloadError, match="dispatch_route"):
         build_workload("lifecycle-hidpi", {"dispatch_route": "renderer-adapter"}, "headless")
 

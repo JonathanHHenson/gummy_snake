@@ -174,11 +174,10 @@ class Track:
     ) -> TrackPlayback | Sound:
         """Start playback and return a handle.
 
-        By default, bounded direct playback starts a Rust SDL audio stream from
-        the serialized physical plan and renders playback windows on demand,
-        rather than pre-rendering the whole track before audio starts. Call
-        ``wait_until_stop()`` on the returned ``TrackPlayback`` to block until
-        bounded playback finishes.
+        Realtime playback compiles one Rust-owned physical program and starts a
+        voice on the process-local SDL mixer. Open tracks repeat that native
+        program without Python horizon expansion. Call ``wait_until_stop()`` on
+        finite playback to block until it finishes.
         """
 
         if not realtime:
@@ -186,23 +185,15 @@ class Track:
             rendered.play()
             return rendered
         rolling = duration is None and _should_play_as_rolling_loop(self.logical_plan)
-        duration_seconds = None if rolling else _duration_seconds_or_default(duration, self)
-        rendered_cache = (
-            None
-            if rolling or duration_seconds is None
-            else self._render_cache.get((duration_seconds, int(sample_rate)))
-        )
+        duration_seconds = _duration_seconds_or_default(duration, self)
         playback = TrackPlayback(
-            None
-            if rolling or duration_seconds is None
-            else _expand_physical_plan(self.logical_plan, duration_seconds),
-            logical_plan=self.logical_plan if rolling else None,
+            _expand_physical_plan(self.logical_plan, duration_seconds),
             sample_rate=sample_rate,
             player_factory=player_factory,
             look_ahead=look_ahead,
             name=self.logical_plan.name,
             rolling=rolling,
-            rendered_cache=rendered_cache,
+            rendered_cache=self._render_cache.get((duration_seconds, int(sample_rate))),
         )
         return playback.start()
 

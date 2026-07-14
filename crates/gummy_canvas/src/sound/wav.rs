@@ -8,6 +8,29 @@ pub(super) struct PcmS16Wav {
     pub(super) duration: f64,
 }
 
+impl PcmS16Wav {
+    pub(super) fn into_audio_asset(self) -> super::audio_manager::AudioAsset {
+        let frame_count = self.samples.len() / usize::from(self.channels);
+        let mut left = Vec::with_capacity(frame_count);
+        let mut right = Vec::with_capacity(frame_count);
+        for frame in self.samples.chunks_exact(usize::from(self.channels)) {
+            let left_sample = f64::from(frame[0]) / 32768.0;
+            left.push(left_sample);
+            right.push(if self.channels == 1 {
+                left_sample
+            } else {
+                f64::from(frame[1]) / 32768.0
+            });
+        }
+        super::audio_manager::AudioAsset {
+            left: std::sync::Arc::new(left),
+            right: std::sync::Arc::new(right),
+            sample_rate: self.sample_rate,
+            duration: self.duration,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum PlaybackWavError {
     InvalidHeader,

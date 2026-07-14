@@ -1,9 +1,4 @@
-"""Code-facing governance for deterministic local benchmark comparisons.
-
-The normal workflow uses ignored local history, release-built runners, correctness-first
-records, raw samples, and the fixed regression gate. Legacy Git authority constants remain
-available for explicit compatibility users but are not part of the default CLI path.
-"""
+"""Code-facing policy for deterministic local benchmark comparisons."""
 
 from __future__ import annotations
 
@@ -13,7 +8,6 @@ from decimal import Decimal
 from enum import StrEnum
 from types import MappingProxyType
 
-AUTHORITATIVE_DATA_REF = "refs/heads/benchmark-data-v1"
 LOCAL_HISTORY_DIRECTORY = ".scratch/benchmark/history"
 GOVERNANCE_VERSION = 1
 # Both representations are public so callers cannot confuse 5.00 percent with 0.05
@@ -28,11 +22,11 @@ if Decimal("0.05") != PERCENT_REGRESSION_LIMIT:  # pragma: no cover - import inv
 
 
 class GovernanceError(RuntimeError):
-    """A request attempted to weaken a frozen benchmark policy."""
+    """A request attempted to weaken a fixed benchmark policy."""
 
 
-class AuthorityError(GovernanceError):
-    """A workload or recorder does not meet authority requirements."""
+class CapabilityError(GovernanceError):
+    """A selected benchmark route is missing a required capability."""
 
 
 class BenchmarkMode(StrEnum):
@@ -41,10 +35,8 @@ class BenchmarkMode(StrEnum):
 
 
 class ExecutionClass(StrEnum):
-    """Catalog execution and authority classes with frozen semantics."""
+    """Concrete runtime routes selectable by benchmark catalogs."""
 
-    AUTHORITATIVE = "authoritative"
-    TRIAL = "trial"
     HEADLESS = "headless"
     SIMULATED_REALTIME = "simulated-realtime"
     NATIVE_INTERACTIVE = "native-interactive"
@@ -153,52 +145,33 @@ PRODUCTION_DOMAINS: Mapping[BenchmarkDomain, DomainInventoryEntry] = MappingProx
 @dataclass(frozen=True, slots=True)
 class ExecutionClassPolicy:
     class_: ExecutionClass
-    authoritative_eligible: bool
     route: str
     fail_closed_capabilities: tuple[str, ...]
-    timing_authority: str
+    timing_scope: str
 
 
 EXECUTION_CLASS_POLICIES: Mapping[ExecutionClass, ExecutionClassPolicy] = MappingProxyType(
     {
-        ExecutionClass.AUTHORITATIVE: ExecutionClassPolicy(
-            ExecutionClass.AUTHORITATIVE,
-            True,
-            "catalog-declared-release-worker",
-            ("all-catalog-capabilities",),
-            "eligible only after all authority requirements and gates pass",
-        ),
-        ExecutionClass.TRIAL: ExecutionClassPolicy(
-            ExecutionClass.TRIAL,
-            False,
-            "developer-selected-non-recording",
-            (),
-            "diagnostic only and never a baseline",
-        ),
         ExecutionClass.HEADLESS: ExecutionClassPolicy(
             ExecutionClass.HEADLESS,
-            True,
             "offscreen-canvas-or-offline-runtime",
             ("required-runtime", "offscreen-route"),
-            "authoritative only when cataloged; never substitutes for native routes",
+            "comparable only for cataloged headless behavior; never substitutes for native routes",
         ),
         ExecutionClass.SIMULATED_REALTIME: ExecutionClassPolicy(
             ExecutionClass.SIMULATED_REALTIME,
-            True,
             "deterministic-clock-and-bounded-runtime",
             ("required-runtime", "simulated-clock"),
-            "authoritative for declared simulated-time behavior only",
+            "comparable for declared simulated-time behavior only",
         ),
         ExecutionClass.NATIVE_INTERACTIVE: ExecutionClassPolicy(
             ExecutionClass.NATIVE_INTERACTIVE,
-            True,
             "native-window-with-headless-false",
             ("native-window", "gpu-or-declared-render-route", "frames-presented-counter"),
             "must verify public frames_presented and cannot use headless substitution",
         ),
         ExecutionClass.NATIVE_AUDIO: ExecutionClassPolicy(
             ExecutionClass.NATIVE_AUDIO,
-            True,
             "selected-native-audio-device",
             ("audio-output", "selected-audio-route"),
             "device route is fingerprinted; offline synthesis is not a substitute",
@@ -240,75 +213,31 @@ MODE_POLICIES: Mapping[BenchmarkMode, ModePolicy] = MappingProxyType(
 
 
 @dataclass(frozen=True, slots=True)
-class DatabaseGovernance:
-    default_backend: str = "local-filesystem"
+class LocalDatabasePolicy:
+    """Fixed policy for the ignored repository-local benchmark store."""
+
+    backend: str = "local-filesystem"
     history_directory: str = LOCAL_HISTORY_DIRECTORY
-    remote_required: bool = False
-    recorder: str = "explicit-maintainer-release-recorder"
     append_policy: str = "immutable-primary-key-first-writer-wins"
     audit: str = "canonical-index-and-record-validation"
     schema_migration: str = "versioned-migration-required"
     benchmark_versioning: str = "meaning-change-requires-version-bump"
-    data_ref: str = AUTHORITATIVE_DATA_REF
     configurable_value: str = "local-history-directory-only"
-    retirement: str = "legacy-git-database-remains-explicitly-importable"
 
 
-DATABASE_GOVERNANCE = DatabaseGovernance()
-LEGACY_BENCHMARK_DATA_AUTHORITY = "historical-non-authoritative-not-imported"
-
-
-@dataclass(frozen=True, slots=True)
-class AuthorityRequirements:
-    """Properties required before a workload may make an authoritative record."""
-
-    self_contained: bool
-    release_built: bool
-    cataloged: bool
-    correctness_first: bool
-    capability_explicit: bool
-    independent_of_legacy: bool
-
-    @property
-    def satisfied(self) -> bool:
-        return all(
-            (
-                self.self_contained,
-                self.release_built,
-                self.cataloged,
-                self.correctness_first,
-                self.capability_explicit,
-                self.independent_of_legacy,
-            )
-        )
-
-
-def require_authoritative_workload(requirements: AuthorityRequirements) -> None:
-    """Reject incomplete authority declarations instead of assuming safe defaults."""
-
-    if not requirements.satisfied:
-        missing = [
-            name
-            for name in AuthorityRequirements.__dataclass_fields__
-            if not getattr(requirements, name)
-        ]
-        raise AuthorityError(
-            "authoritative workloads must be self-contained, release-built, cataloged, "
-            "correctness-first, capability-explicit, and independent of legacy helpers; "
-            f"missing: {', '.join(missing)}"
-        )
+LOCAL_DATABASE_POLICY = LocalDatabasePolicy()
 
 
 def degradation_exceeds_limit(change_fraction: Decimal) -> bool:
-    """Apply the frozen policy: exactly 5.00% passes; any larger degradation fails."""
+    """Apply the fixed policy: exactly 5.00% passes; any larger degradation fails."""
 
     if not isinstance(change_fraction, Decimal) or not change_fraction.is_finite():
         raise GovernanceError("degradation must be a finite Decimal fraction")
     return change_fraction > REGRESSION_LIMIT_FRACTION
 
 
-def reject_authority_overrides(arguments: Iterable[str]) -> None:
-    """Retain legacy authority-CLI validation for explicit compatibility callers."""
+def reject_policy_overrides(arguments: Iterable[str]) -> None:
+    """Reject CLI flags that would weaken fixed local comparison semantics."""
 
     forbidden = (
         "--threshold",
@@ -318,20 +247,18 @@ def reject_authority_overrides(arguments: Iterable[str]) -> None:
         "--force-record",
         "--ignore-fingerprint",
         "--fingerprint",
-        "--database-ref",
-        "--branch",
         "--sampling",
         "--profile",
     )
     for argument in arguments:
         if any(argument == flag or argument.startswith(f"{flag}=") for flag in forbidden):
-            raise GovernanceError(f"authoritative override is not supported: {argument}")
+            raise GovernanceError(f"benchmark policy override is not supported: {argument}")
 
 
-def capability_error(required: str, detail: str | None = None) -> AuthorityError:
-    """Create a clear fail-closed capability error without selecting an alternate path."""
+def capability_error(required: str, detail: str | None = None) -> CapabilityError:
+    """Create a fail-closed capability error without selecting an alternate path."""
 
     suffix = f": {detail}" if detail else ""
-    return AuthorityError(
+    return CapabilityError(
         f"required benchmark capability unavailable ({required}){suffix}; no fallback is permitted"
     )

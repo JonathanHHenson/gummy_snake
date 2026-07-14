@@ -15,6 +15,7 @@ from gummysnake.backend.canvas_runtime.renderer.primitive_support.batches import
 from gummysnake.core.color import Color
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
+from gummysnake.exceptions import BackendCapabilityError
 
 
 def _renderer(self: object) -> CanvasRendererHost:
@@ -67,27 +68,16 @@ def line(
     style: StyleState,
     transform: Matrix2D,
 ) -> None:
-    if self._queue_primitive_batch(
+    if not self._queue_primitive_batch(
         _PRIMITIVE_LINE,
         (x1, y1, x2, y2, 0.0, 0.0),
         style,
         transform,
     ):
-        return
-    renderer = _renderer(self)
-    renderer._flush_image_batch()
-    use_current_state = renderer._can_use_current_state(style, transform)
-    line_batch = renderer._line_batch_state
-    if use_current_state:
-        if line_batch.has_records() and not line_batch.matches_current():
-            renderer._flush_line_batch()
-        line_batch.append_current((x1, y1, x2, y2))
-        return
-    style_payload = renderer._style_payload(style)
-    matrix_payload = renderer._matrix_payload(transform)
-    if line_batch.has_records() and not line_batch.matches_style(style_payload, matrix_payload):
-        renderer._flush_line_batch()
-    renderer._line_batch_state.append_styled((x1, y1, x2, y2), style_payload, matrix_payload)
+        raise BackendCapabilityError(
+            "The installed canvas runtime does not expose typed Rust line recording. "
+            "No Python line queue or per-line fallback is enabled."
+        )
 
 
 def rect(

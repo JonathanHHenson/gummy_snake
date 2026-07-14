@@ -51,3 +51,4 @@ def test_linear_image_sampling_interpolates_when_scaled():
     assert _rgba_at(pixels, 4, 1, 0) == (64, 64, 64, 255)
     assert _rgba_at(pixels, 4, 2, 0) == (191, 191, 191, 255)
     assert _rgba_at(pixels, 4, 3, 0) == (255, 255, 255, 255)
+    assert context.renderer_performance_counters()["image_atlas_resident_bytes"] > 0

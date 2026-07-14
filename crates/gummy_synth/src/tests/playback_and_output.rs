@@ -4,44 +4,16 @@ use flate2::Compression;
 use std::io::Write;
 
 #[test]
-fn playback_plan_window_matches_full_render_window_for_simple_synth() {
-    let sample_rate = 8_000;
-    let mut opts = OptMap::new();
-    opts.insert("release".to_owned(), SynthValue::Float(0.15));
-    opts.insert("amp".to_owned(), SynthValue::Float(0.5));
-    let plan = SynthPlaybackPlan {
-        events: vec![EventPayload {
-            node_id: 90,
-            seed: 0,
-            order: 0,
-            kind: "play".to_owned(),
-            time_seconds: 0.0,
-            value: SynthValue::Float(60.0),
-            opts,
-            synth_name: "_sine".to_owned(),
-            synth_opts: OptMap::new(),
-            fx_chain: Vec::new(),
-            controls: Vec::new(),
-        }],
-        duration_seconds: 0.2,
-        dry_event_cache: Mutex::new(HashMap::new()),
-    };
+fn dynamic_band_limited_sampling_is_finite_and_rate_sensitive() {
+    let source = [0.0, 1.0, 0.0, -1.0, 0.0];
 
-    let full = plan
-        .render_window_i16(0.0, 0.2, sample_rate)
-        .expect("full window renders");
-    let window = plan
-        .render_window_i16(0.05, 0.04, sample_rate)
-        .expect("live window renders");
-    let offset = (0.05_f64 * sample_rate as f64).round() as usize * 2;
-    let window_len = (0.04_f64 * sample_rate as f64).ceil() as usize * 2;
+    let normal = band_limited_sample(&source, 1.5, 1.0);
+    let downsampled = band_limited_sample(&source, 1.5, 2.0);
 
-    assert_eq!(window, full[offset..offset + window_len]);
-
-    assert!(plan
-        .render_window_i16(0.25, 0.05, sample_rate)
-        .expect("post-plan window renders")
-        .is_empty());
+    assert!(normal.is_finite());
+    assert!(downsampled.is_finite());
+    assert_ne!(normal, downsampled);
+    assert_eq!(band_limited_sample(&source, 1.0, 0.0), 0.0);
 }
 
 #[test]

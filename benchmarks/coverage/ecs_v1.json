@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:342cbdd4e02c03eae5dc3c83ad7b70c30cc0d27a1e21582f6b45429ceb34d322",
+  "catalog_digest": "sha256:a7a05528c568b0bf3e2b5c7232be57ce0c7eae2394554779b24733688b47ce2c",
   "entries": [
     {
       "capabilities": [
@@ -8,7 +8,7 @@
       ],
       "case_id": "bounded-longevity-48x32",
       "correctness_label": "bounded-longevity-resources-world-digest",
-      "definition_digest": "sha256:e0d348b49504c4bb47520807fa4cdfb50bf4bda40355af0d28e68bfa01a0f69c",
+      "definition_digest": "sha256:4bdfdba4196602f7c0c2da682fc85d1b1e216cbefb57d2658b3601bd58018275",
       "metric_identity": {
         "id": "longevity-row-frame-elapsed-ns",
         "version": 1
@@ -44,7 +44,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:43fcd5e5ebe418101454b2fe2d356bdbb99c22aaa68a6d5a4cee71a072816d2c",
+        "expected_correctness_digest": "sha256:af7018b23566113172942a9d39d9656752fc881d7ab29c798a14574c4d2c390c",
         "fixture_seed": 290001,
         "frames": 32,
         "metric_profile": "ecs-longevity",
@@ -71,7 +71,7 @@
       ],
       "case_id": "diagnostics-snapshot-reset",
       "correctness_label": "diagnostics-reset-counter-digest",
-      "definition_digest": "sha256:ac7d568fa4f60c2dc71f4a1413f3a6b608ff9c944c462d7d75bf20ba6caa74ee",
+      "definition_digest": "sha256:a3ea14aaf0fdc92b8275f6f2b065f6026ee009c13f70ef35ce148521a9b9cedc",
       "metric_identity": {
         "id": "diagnostic-snapshot-elapsed-ns",
         "version": 1
@@ -109,7 +109,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:e24093e9168421c1b78e28c8baa156655c0501530d9b2930e38acd5cf622ae3a",
+        "expected_correctness_digest": "sha256:ad6460a73a164db1977c88973797ee8d7d607258bbd49c2f6fc8b9614bc7ed3c",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "oracle_profile": "full-world-v1",
@@ -138,7 +138,7 @@
       ],
       "case_id": "stale-strict-spatial-failures",
       "correctness_label": "actionable-failure-type-message-digest",
-      "definition_digest": "sha256:e97788fb5f77a4f97ebbadce698464b1d1f63f76b9f31ccd6cc2d05c37e11cf0",
+      "definition_digest": "sha256:76df31beaaca3bd6a74a33a736751c68395383db29c2c6c32041de890852a93d",
       "metric_identity": {
         "id": "failure-check-elapsed-ns",
         "version": 1
@@ -169,7 +169,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:3e2fa1e701b182f7e8301122a348c426801ec92b8bce0726f85f17704290dd18",
+        "expected_correctness_digest": "sha256:537d4232a059417d3fb109f9353130531db41112270981eec4e0b0d14de57ac0",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "oracle_profile": "failure-trace-v1",
@@ -192,7 +192,7 @@
       ],
       "case_id": "bounded-longevity-256x128",
       "correctness_label": "bounded-longevity-resources-world-digest",
-      "definition_digest": "sha256:199e25bfdfa582107566d5a9e71bc8c939d94f49af1ac60dab9f6268ec78bd13",
+      "definition_digest": "sha256:781f02485af4732a8a90a9af804feae5bfa15b14cb5f0c75012a92055be2baa0",
       "metric_identity": {
         "id": "longevity-row-frame-elapsed-ns",
         "version": 1
@@ -228,7 +228,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:738b6a81d599bb9a47787ce96f79bfb6b933452ca632a4cee776bdd284a5dd60",
+        "expected_correctness_digest": "sha256:47c9016affc0ffb33a8ad586364eff75f30dc7b24d8ae00c74fbea2c380fb32a",
         "fixture_seed": 290001,
         "frames": 128,
         "metric_profile": "ecs-longevity",
@@ -255,7 +255,7 @@
       ],
       "case_id": "diagnostics-volume-1000x16-reset8",
       "correctness_label": "diagnostics-snapshot-reset-volume-digest",
-      "definition_digest": "sha256:85445e9fd693a62549d231b0e16039fbde48ae63641ad8aa82227d8761c171a3",
+      "definition_digest": "sha256:c28daa130f979afcb88a15d078adc0d6265f0ef1ab1554638d11dd239296e3c0",
       "metric_identity": {
         "id": "diagnostic-snapshot-elapsed-ns",
         "version": 1
@@ -289,7 +289,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:edd2b4ad263c8387df92c8617f681ba932915ad63d74afb8d8fe9056ac7bac3c",
+        "expected_correctness_digest": "sha256:4d70f4fbee372cfab9aebb50c2f1bf7a53b341389c03efe555e5c9d6dfb5ef8a",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "oracle_profile": "full-world-v1",
@@ -318,7 +318,7 @@
       ],
       "case_id": "compact-fill-64x3",
       "correctness_label": "headless-world-frame-command-digest",
-      "definition_digest": "sha256:7b36d96186e88ee7c0ce38e9885b79f947d7248ffdece12aa7dab050e087f7e6",
+      "definition_digest": "sha256:89d298038f0890ba02e2ffe1c539d81774ce2f5c48f259fb5acad6f41aa03b36",
       "metric_identity": {
         "id": "headless-draw-record-elapsed-ns",
         "version": 1
@@ -351,7 +351,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:4c74c2d715443b6dcba2f5129283b9de21c4377b7f0acd9cf39082cccbe92876",
+        "expected_correctness_digest": "sha256:d8755a9bc9c43332ffca8d82ad8f2d2de837c85cdea8b24f887a9d4fff1c25eb",
         "fixture_seed": 290001,
         "frames": 3,
         "height": 96,
@@ -380,7 +380,7 @@
       ],
       "case_id": "simulation-render-128x4",
       "correctness_label": "headless-simulation-world-frame-digest",
-      "definition_digest": "sha256:1b24d41dfbc1882bd12715b72d02de495d9ba1f6916d3938d250a78fb0221db5",
+      "definition_digest": "sha256:664dbc2fbadce5c84923db37b780e23c3c4c3c20b3e61d61a85f2982d7a546a9",
       "metric_identity": {
         "id": "headless-simulation-row-frame-ns",
         "version": 1
@@ -414,7 +414,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:608ca5b83736e11a1a776a49ff7e313ea2fb90a41ab104c2139ea59ef7a47fc3",
+        "expected_correctness_digest": "sha256:84c874ca4216d8f0f670a795a865657d746c204e55941ebb4777a7af540c251c",
         "fixture_seed": 290001,
         "frames": 4,
         "height": 120,
@@ -444,7 +444,7 @@
       ],
       "case_id": "compact-fill-1000x3",
       "correctness_label": "headless-world-frame-hidpi-route-digest",
-      "definition_digest": "sha256:50117a5410fe4e6bfc24c96f97e2a772911cbf7e42304e10a0a57de9bbe023b5",
+      "definition_digest": "sha256:1be67b2faf0a7794afadf6f991f9e9cf6d1b7c328e570fe23be63d600c960164",
       "metric_identity": {
         "id": "headless-row-frame-elapsed-ns",
         "version": 1
@@ -479,7 +479,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:7f4c167795d6eced930590cc6fc4b76b8dc3571f9158c0e23a7117e05045907e",
+        "expected_correctness_digest": "sha256:63960932007614ad2db18c69e94577b4b4d42dc80a0c52f4f6299d0bd94819b3",
         "fixture_seed": 290001,
         "frames": 3,
         "height": 240,
@@ -510,7 +510,7 @@
       ],
       "case_id": "hidpi-fill-256x3-d2",
       "correctness_label": "headless-world-frame-hidpi-route-digest",
-      "definition_digest": "sha256:ac9a02021b4144f4bc9a790c20b93eede469beda66211e6a52c8665b9be11e92",
+      "definition_digest": "sha256:00ec75277e4ac2da7cc4554f29d6337d2a5d31f13fbbfc6e581eea62d49ab17f",
       "metric_identity": {
         "id": "headless-row-frame-elapsed-ns",
         "version": 1
@@ -546,7 +546,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:4fd80c4a1105b24909fb83b7b6df5ce2d2de7b1ce7d6400bcc6d1cfcb827fc6e",
+        "expected_correctness_digest": "sha256:54e5945ba9dafadbdd01bca2ab571274472de50835b1f05820b2b359f6a5bf59",
         "fixture_seed": 290001,
         "frames": 3,
         "height": 120,
@@ -577,7 +577,7 @@
       ],
       "case_id": "simulation-render-1000x8",
       "correctness_label": "headless-world-frame-hidpi-route-digest",
-      "definition_digest": "sha256:43563d9a05927f16ed90b9f2aacd8966274a4c2566f286e4c2f474da712bae55",
+      "definition_digest": "sha256:d76eaf5ad434819b6a01163f152b51cfcb4aef2dafdf1d6eda3419fcc18ae43b",
       "metric_identity": {
         "id": "headless-row-frame-elapsed-ns",
         "version": 1
@@ -612,7 +612,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:459d09bc2b942e7a7078aa0f0e04135e30263751b4aee6ff738dea6ab0410f9e",
+        "expected_correctness_digest": "sha256:a72da55680afe37bffe9a37964d006929c850d173ad11f3b87afbbcd917f59c6",
         "fixture_seed": 290001,
         "frames": 8,
         "height": 240,
@@ -643,7 +643,7 @@
       ],
       "case_id": "simulation-render-64x600",
       "correctness_label": "headless-world-frame-hidpi-route-digest",
-      "definition_digest": "sha256:65ad614ce5ed213ca0aa72ebfa6ce384f8149ac022c925a9c7af2c09912a8b63",
+      "definition_digest": "sha256:1469b9608f4b8f87b5e96b63f0b1cb740c46a56fab991ceedfcb70e9a539c8fd",
       "metric_identity": {
         "id": "headless-row-frame-elapsed-ns",
         "version": 1
@@ -678,7 +678,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:1b4a10a4415bf3358e9f99a5ca9140e435d8591955bc9ddf87ee96f97c100b24",
+        "expected_correctness_digest": "sha256:4ec07af5463dd38a8fd27d8d3ecffb952c6cb6e1463edf4cdbbb69302bfe6d44",
         "fixture_seed": 290001,
         "frames": 600,
         "height": 120,
@@ -707,7 +707,7 @@
       ],
       "case_id": "changed-filter-structural-remove-96",
       "correctness_label": "change-filter-deferred-structural-digest",
-      "definition_digest": "sha256:f52b46cfc1becda53f9ca169a28add6631439eb03b9d3d1e27660970973e3f07",
+      "definition_digest": "sha256:e6e27415dcb889f124d9ffdc9f4f7325a2fdfb172db535dc6309da4e3eac2d37",
       "metric_identity": {
         "id": "mutation-row-elapsed-ns",
         "version": 1
@@ -740,7 +740,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:bcc84387b8bc82a660932bccad841d4be5dfa3caafbb44bb79eb5b559780c15c",
+        "expected_correctness_digest": "sha256:07e07b76be3edc89ad675728263943b3a0590f2a579cceb9485943375fdc42bb",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "oracle_profile": "full-world-v1",
@@ -764,7 +764,7 @@
       ],
       "case_id": "explicit-python-system-udf-128",
       "correctness_label": "python-system-udf-boundary-writeback-digest",
-      "definition_digest": "sha256:70b01c4517b4e919d4f2bd0c2f9179348cbbd7665a995903620f9267259f96a4",
+      "definition_digest": "sha256:3f8101a675779a82e076c7de8e08d52965c9e263518a1b74b4f3e8cca05e5585",
       "metric_identity": {
         "id": "python-boundary-row-elapsed-ns",
         "version": 1
@@ -798,7 +798,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:95677a8945d157ed4fab7abfa395632e318e0442a3055f8bc0bb95e629e60afc",
+        "expected_correctness_digest": "sha256:f9c9975fc9990fe3ade60fbb3e50b13845e2b1855bfcdf2d0f871a9462ae707f",
         "fixture_seed": 290001,
         "metric_profile": "ecs-bridge",
         "oracle_profile": "full-world-v1",
@@ -823,7 +823,7 @@
       ],
       "case_id": "resource-event-reduction-128",
       "correctness_label": "resource-event-order-retention-digest",
-      "definition_digest": "sha256:b68dbd7887bac5c7c7ddd65e2eb0ea7ffbe1df9d543756ba0bfdfa974a12274a",
+      "definition_digest": "sha256:1785f8b008140389d130dd9a33d00c3c26764ade6a1cd4a7f1cc1300dbffd2b5",
       "metric_identity": {
         "id": "event-elapsed-ns",
         "version": 1
@@ -880,7 +880,7 @@
       ],
       "case_id": "udf-plan-inline-128",
       "correctness_label": "udf-plan-zero-runtime-python-digest",
-      "definition_digest": "sha256:3f17888592ac40b3b831ec61c94c987abfd7d58dca5e7a5ab55fc5990ab13e46",
+      "definition_digest": "sha256:e362859c1324b3730a5bef8d9d4661f13d51016f5cb649022ce4227eb7443ee6",
       "metric_identity": {
         "id": "udf-plan-row-elapsed-ns",
         "version": 1
@@ -913,7 +913,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:9502e674ff3c2f1efefdd264345d23a3cd9f59f319a6c0895bfd03c4a632074c",
+        "expected_correctness_digest": "sha256:8761a7907d13e92b2237d7999b5fceb4f81d0cbee3a111076d55e5a3e857b510",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "oracle_profile": "full-world-v1",
@@ -937,7 +937,7 @@
       ],
       "case_id": "events-0-readers-1",
       "correctness_label": "event-volume-reader-order-cleanup-digest",
-      "definition_digest": "sha256:1a13510920c5bc0f29465b358f1b57e7337eb7bf91836af0f57732404d62e923",
+      "definition_digest": "sha256:606ad073fa2a7dc00c567c50ef3ed8a1c8862b09ecf66c7069b3d04ffb65edd3",
       "metric_identity": {
         "id": "event-reader-elapsed-ns",
         "version": 1
@@ -999,7 +999,7 @@
       ],
       "case_id": "events-1000-readers-1",
       "correctness_label": "event-volume-reader-order-cleanup-digest",
-      "definition_digest": "sha256:5273364f6496df69523a7b89d5709c0d6f44831ed108c7ea506dfdf6ab3f484e",
+      "definition_digest": "sha256:fa57b2e7b1dc7bbc62137721fd53fdc8238bb7db2ae77aca5423788749da3b6b",
       "metric_identity": {
         "id": "event-reader-elapsed-ns",
         "version": 1
@@ -1061,7 +1061,7 @@
       ],
       "case_id": "events-10000-readers-4",
       "correctness_label": "event-volume-reader-order-cleanup-digest",
-      "definition_digest": "sha256:4b4b0a347c0efd6e825191117ca4f7243242f514de32bf6ca86fd2f365473ed8",
+      "definition_digest": "sha256:dc93e9ab11ce777916409005e8206ec92e783a8aaa2c5c51971e94b6e457e66d",
       "metric_identity": {
         "id": "event-reader-elapsed-ns",
         "version": 1
@@ -1123,7 +1123,7 @@
       ],
       "case_id": "explicit-python-system-udf-1000",
       "correctness_label": "python-system-udf-boundary-writeback-digest",
-      "definition_digest": "sha256:8f64ee089c4938723a8d5af597799392f3383f36abaf334f5c3fb8e4d2a68788",
+      "definition_digest": "sha256:32079f3396c93dd723b956cf8eb4541ddd7e5aec63a6df43b5c32e175c3a2659",
       "metric_identity": {
         "id": "python-boundary-row-elapsed-ns",
         "version": 1
@@ -1157,7 +1157,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:da4d5e8459345af1448d0028f6c5ce4e06657258965e49eb7d8bea450400a3a0",
+        "expected_correctness_digest": "sha256:8157474b57e6b57f23177d470d9c593c232b35aa7fbd7d388403e49305b48cb0",
         "fixture_seed": 290001,
         "metric_profile": "ecs-bridge",
         "oracle_profile": "full-world-v1",
@@ -1182,7 +1182,7 @@
       ],
       "case_id": "structural-add-component-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:f70653fd5ac4fb5ab41d8602ba9db881704eba34c0fd0414412f90cf223de861",
+      "definition_digest": "sha256:fcc2c15b4df4eb3bd2420130848a1c7c34bfba749b4ce02901993c36b31c6248",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1215,7 +1215,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:1578ba5ee0c4fd447a41f79b1603fd934e13a90de1d206f0fcb62a56122bc0f8",
+        "expected_correctness_digest": "sha256:20d910977135b4fe17ab4925a23b6caec25cb556b1b80b9426bd11dc79cca1b8",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "mutation_percent": 10,
@@ -1241,7 +1241,7 @@
       ],
       "case_id": "structural-add-tag-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:82379605b5ae4239a22612fcbc4928ebdc6218000329181bede8279f2c5363f9",
+      "definition_digest": "sha256:604cc8b31e1f1726e4602a21ae538e0a4839ceb0a5efde9885ab57c7b984e674",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1274,7 +1274,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:999d0c6a656786c7b8a18b76355b565f8d09c6b2d7ce7f338b3d91cb0bb4a576",
+        "expected_correctness_digest": "sha256:da2ed02ef39f58f89533e8ab1b2a0b071dc4ecfec0532d7ddc134aa30e0d623a",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "mutation_percent": 10,
@@ -1300,7 +1300,7 @@
       ],
       "case_id": "structural-despawn-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:055c7e8a4201927eb08dfcd227355a034e4ab0a4214d0f02a3bde30ad583eaf6",
+      "definition_digest": "sha256:d498671578ce146a97f62dd0245d553535f8de959224103b5f4db4a9b126cfd3",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1333,7 +1333,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:5a47836a7f0c00e26fe9b4b57781f459c40dc2985a6f5d484d086046f840bc12",
+        "expected_correctness_digest": "sha256:9d44c2ad9a4db4b82193ae5ad37d24dbd089956fbf5afde6b2c69bde6dae8ede",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "mutation_percent": 10,
@@ -1359,7 +1359,7 @@
       ],
       "case_id": "structural-remove-component-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:12183681ce39f08c5524470b408731e2580b112dbc0ed3661c600ed7234feea9",
+      "definition_digest": "sha256:2d1ab55979d3839c63a5a203b0cb6ed87eaa4398af2665b49113e6231bbe45a8",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1392,7 +1392,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:7cc351434aa10f2a13daf6dd08f8d2e567898b84b8488caeb06b97d08ac043fc",
+        "expected_correctness_digest": "sha256:a42abef7889758dbe38d7c4967d5df0ac8f87131f17e2ebe4f2c0d8b2d3e96eb",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "mutation_percent": 10,
@@ -1418,7 +1418,7 @@
       ],
       "case_id": "structural-remove-component-128-p100",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:accf96fa698b7018272359df33c20c25e4f612e5a4aa82856a507eddf51fa2ee",
+      "definition_digest": "sha256:ffa44baf98d22207469319e1b913de4cbb8c87b2484b2dd8ff7212e4b0cad6d2",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1451,7 +1451,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:659040e509892a5b138018f0e4caa8faa1a67d32007ae6208d7e4ba8957ae686",
+        "expected_correctness_digest": "sha256:f75ea4f90e9b2c3663c08dd9e2b9adb865c309731aabc120c9c50472bb0998ce",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "mutation_percent": 100,
@@ -1477,7 +1477,7 @@
       ],
       "case_id": "structural-remove-tag-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:83b2f39424cac8e927d44f8b17b565ba0c1c47159e95c3594ae566b1c0e1bfd2",
+      "definition_digest": "sha256:ffc1be5c80c87ca2781e6b238486b28e70d13f096bdcf6baa12355360d837a78",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1510,7 +1510,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:539c010827e025e0e071f01299f107a84c97ef2bff860a09f51ce65d1240c8ce",
+        "expected_correctness_digest": "sha256:cefb154eb2e2bf3a84d067e58e1427cc51db4c0692655db692cc53f4302b39dd",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "mutation_percent": 10,
@@ -1536,7 +1536,7 @@
       ],
       "case_id": "cache-reuse-release-four-by-four",
       "correctness_label": "plan-cache-reuse-release-digest",
-      "definition_digest": "sha256:299614f4c839a157b61d45ee5baed6036ba34f69c1d67df269555798e79d3c80",
+      "definition_digest": "sha256:8c063c2d6abf0515a991a005a5f9ec40b90fbc441a7889a289c8d5ba6862c56e",
       "metric_identity": {
         "id": "plan-lifecycle-elapsed-ns",
         "version": 1
@@ -1574,7 +1574,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:602584a8b9626cb694af573a9b3cc1233dd8744c10263d8db06cf3a5575dd5f4",
+        "expected_correctness_digest": "sha256:78123cc1d67cfdd8ae47b1431791225838421a6647efd794bd046d0f63169d50",
         "fixture_seed": 290001,
         "frames": 4,
         "metric_profile": "ecs-core",
@@ -1604,7 +1604,7 @@
       ],
       "case_id": "equivalent-systems-1",
       "correctness_label": "equivalent-explain-compiled-handle-digest",
-      "definition_digest": "sha256:ec8d09ba6a72ffc4d70680bd74ad59a47952b4acd55b5c9fec822a947fa6e244",
+      "definition_digest": "sha256:96a3684c48eccaedc3014d60c47fa71b7df1f90b52cc862c58723fb05ce97768",
       "metric_identity": {
         "id": "system-registration-elapsed-ns",
         "version": 1
@@ -1659,7 +1659,7 @@
       ],
       "case_id": "equivalent-systems-100",
       "correctness_label": "equivalent-explain-compiled-handle-digest",
-      "definition_digest": "sha256:f23c29ba9db1cbf47f99319f5374acbc04e2de7dd1abd5d7ae5542611a36bfc3",
+      "definition_digest": "sha256:8b239a647990fb636c4be8c5643d6409598617bc5f76c52115724675198b7677",
       "metric_identity": {
         "id": "system-registration-elapsed-ns",
         "version": 1
@@ -1714,7 +1714,7 @@
       ],
       "case_id": "hostile-plan-schema-failures",
       "correctness_label": "hostile-plan-schema-error-digest",
-      "definition_digest": "sha256:4abcd69123a5e61e40f96e01f20b9cdb9c555253a07cc5783b12126f5b22677b",
+      "definition_digest": "sha256:6ef350684e3028c290b3549a8ab0aa9be2d8622c3828f56e6070a262083c8815",
       "metric_identity": {
         "id": "hostile-input-check-elapsed-ns",
         "version": 1
@@ -1768,7 +1768,7 @@
       ],
       "case_id": "logical-build-compile-eight",
       "correctness_label": "plan-explain-compile-counter-digest",
-      "definition_digest": "sha256:f9ae78af6fc0d6dc7d432496507dd908fc0651ea40c755f5a5067c380134864f",
+      "definition_digest": "sha256:1d4a2fac0c215b2569105429b4926dc98ac62e9686ee0a1988aa28ba8809c468",
       "metric_identity": {
         "id": "plan-node-elapsed-ns",
         "version": 1
@@ -1800,7 +1800,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:b47598768a04006d271bc1e4d4b6b883ddc72162fded919d75532cbc0c4f5337",
+        "expected_correctness_digest": "sha256:cbb1992a162d92b260339dd490a76e2c8611335bb921e8363c325505f2d78232",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "oracle_profile": "full-world-v1",
@@ -1825,7 +1825,7 @@
       ],
       "case_id": "plan-a10-d1-q1-r0",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:af706af30e850f833680074314ecd29ec8b2229491606a0555af76213e4eb732",
+      "definition_digest": "sha256:c74e10ac6428ff78222858ce2c97a66ed9df3fdc9c6bfdfdfbe2ee74ce1ed7bc",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -1883,7 +1883,7 @@
       ],
       "case_id": "plan-a10-d1-q64-r0",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:eda1d2e0b5a1979461346974ae0e1467e6355e3a2fef6d6d6a733a87f05fbd7f",
+      "definition_digest": "sha256:801c54e806c91e4538adcb1bae7597f4e34491d8c8fe6282ea4976611ca77b6d",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -1941,7 +1941,7 @@
       ],
       "case_id": "plan-a100-d16-q8-r50",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:740c9d54f6f6616f29edaf4bc2ddd3b51936a10dfe5b2c972231c84b5b2af74f",
+      "definition_digest": "sha256:8cf618d2b2b5ffd23fc50d5e48e9795a7ad2f41d3e6d2a3699ae3b74fc2f299a",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -1999,7 +1999,7 @@
       ],
       "case_id": "plan-a1000-d128-q8-r90",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:5c790532812ece19b3b8839906ab79ae099ee96d661379f259d09b45b6da7f6d",
+      "definition_digest": "sha256:386dde72b9c4be8f6697754dac35ecf1ccf6d3cfe1055833dfcfd61c3e92f30c",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -2057,7 +2057,7 @@
       ],
       "case_id": "plan-a10000-d1-q1-r90",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:c4353616bde83192aff7c2d494cbb961c5fcf96efc0cf43c57056d175b260003",
+      "definition_digest": "sha256:ecac25c258fcf36c3ba44e43802beed97ce4ac3311938e8b096ff27eced9ff7f",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -2115,7 +2115,7 @@
       ],
       "case_id": "schema-invalidation-two-runs",
       "correctness_label": "schema-fingerprint-recompile-replace-digest",
-      "definition_digest": "sha256:d801af4e65f1a8224746e3542995ec4ad17222f7646e050aa55d0bcd5a8df3de",
+      "definition_digest": "sha256:3d5e8d13a15ac5eb0db77b97c1e5901cd7a2db1c760450f759fd7228735e2296",
       "metric_identity": {
         "id": "invalidation-run-elapsed-ns",
         "version": 1
@@ -2170,7 +2170,7 @@
       ],
       "case_id": "steady-reuse-16",
       "correctness_label": "steady-no-recompile-reuse-digest",
-      "definition_digest": "sha256:9492d61c741b173d6ca482c56695eae38bb3f1c8663c59b653d49e3d748aa9ec",
+      "definition_digest": "sha256:3ba72844591fad01d1eeb03049861b6eb9e076192e229c18632a50475acaff69",
       "metric_identity": {
         "id": "steady-plan-run-elapsed-ns",
         "version": 1
@@ -2227,7 +2227,7 @@
       ],
       "case_id": "batch-four-field-transport-256",
       "correctness_label": "batch-selected-field-value-digest",
-      "definition_digest": "sha256:9ae69431367f9bd460fb1ea88a291985b142b02629f94f053b7779e2ee81080d",
+      "definition_digest": "sha256:4c986e91e21d095945c686808e47b6932806e16a6c03b65b22f0cc48eb009c87",
       "metric_identity": {
         "id": "transport-row-elapsed-ns",
         "version": 1
@@ -2259,7 +2259,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:fdf193dcec2f074e7cdf3974bafc19f93cb512c62c25a7d51cbd249985c9a6ef",
+        "expected_correctness_digest": "sha256:c563ef083b5b8aa0e5bb9cd8f7a36f2383f4004fe69ac1ed63ef4d8774546a5d",
         "fixture_seed": 290001,
         "metric_profile": "ecs-bridge",
         "oracle_profile": "full-world-v1",
@@ -2282,7 +2282,7 @@
       ],
       "case_id": "cardinality-0",
       "correctness_label": "limit-aware-cardinality-order-digest",
-      "definition_digest": "sha256:e125c9b9d2a0b23ac51806f10f44f6a1bb428e20234e09917e36fbf4f07d28c7",
+      "definition_digest": "sha256:a3e2634d1e2cd1f22d26f489643d09924b5d09402fa299affc4590c64d9df1d0",
       "metric_identity": {
         "id": "cardinality-candidate-elapsed-ns",
         "version": 1
@@ -2337,7 +2337,7 @@
       ],
       "case_id": "cardinality-1",
       "correctness_label": "limit-aware-cardinality-order-digest",
-      "definition_digest": "sha256:c806265bfc628de12f2036675c2ef66a142a6735c235d14968697ad3e5990231",
+      "definition_digest": "sha256:b4343191b0f9c19ed1da6d23069d4ebbf6fdc67ca78e2c7b7e4f4fa3ed40b9df",
       "metric_identity": {
         "id": "cardinality-candidate-elapsed-ns",
         "version": 1
@@ -2392,7 +2392,7 @@
       ],
       "case_id": "cardinality-10000",
       "correctness_label": "limit-aware-cardinality-order-digest",
-      "definition_digest": "sha256:2c412fbbb19cd924cbfd3d3e59b904997e5213366989b22818b90d847930055b",
+      "definition_digest": "sha256:6bddbc66ed3952b089a3dea109142a4ea432727c4ac9700fa51b93a8e9fdba11",
       "metric_identity": {
         "id": "cardinality-candidate-elapsed-ns",
         "version": 1
@@ -2447,7 +2447,7 @@
       ],
       "case_id": "cardinality-2",
       "correctness_label": "limit-aware-cardinality-order-digest",
-      "definition_digest": "sha256:61cfb7de3a3e11965e778045b3da84448fc50070d5eb72e52a9b89e04d2f4b48",
+      "definition_digest": "sha256:0611d3c2722d53b2d333416944c104d20ab80ba0db94904249c6e3792cc63e3b",
       "metric_identity": {
         "id": "cardinality-candidate-elapsed-ns",
         "version": 1
@@ -2502,7 +2502,7 @@
       ],
       "case_id": "cardinality-zero-one-many",
       "correctness_label": "cardinality-outcome-digest",
-      "definition_digest": "sha256:e7f37146eb6729abcf183c0b6297d1f232f85bdb27707f8b4569b8b17218ec5b",
+      "definition_digest": "sha256:9af6b0fd58dacafc7d0965da97c247f239c85a03b0a23a28c4c908ed8782f6a8",
       "metric_identity": {
         "id": "cardinality-check-elapsed-ns",
         "version": 1
@@ -2556,7 +2556,7 @@
       ],
       "case_id": "join-q2-s0-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:dc26dc2cfa0a68c48fc7a07fa4e72437ae46bb0eaf5b4981a8ba8718a668f481",
+      "definition_digest": "sha256:6205ca1de043362d677bd23b8cd537464a0820e20e26ae877f627d58ae25b50a",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2617,7 +2617,7 @@
       ],
       "case_id": "join-q2-s1-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:fd544d577ee2165dc6bd940035e0beb4877df1840b564396d67a17cd6dca6085",
+      "definition_digest": "sha256:373c81d741e498917560ca68707c22a0bbca00cb61dee727f69ae9853579b2ca",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2678,7 +2678,7 @@
       ],
       "case_id": "join-q2-s50-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:3a8424c6c82745a382f56eae7e2a0c1480f67e151ff5109daf0b62b715cf0e7c",
+      "definition_digest": "sha256:440ec51dc7c22806e69110d14018a697d1f415abee1f64148e62c4bd5afc3efb",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2739,7 +2739,7 @@
       ],
       "case_id": "join-q3-s0-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:b509cb6a707140080984fb691e9b905f29e3f8b51e0b7e3302c66b48d105edf6",
+      "definition_digest": "sha256:2ac4e484c0022fa65c357da64a950989a77ebf827e4ddff41881915d8f8064a5",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2800,7 +2800,7 @@
       ],
       "case_id": "join-q3-s1-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:5a531a7f8361cdad3aa4c70697ae9157a67d9f0b7c8cbb8c069676e8ada1f263",
+      "definition_digest": "sha256:82d8f9e7fbc110317e4ddb82a574ec5653c4d2b0ee8d06d0c14621620a98d1b6",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2861,7 +2861,7 @@
       ],
       "case_id": "join-q3-s50-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:a748c1843da7af1a69e8b39ce2f0084e669c550a191874fb5ed79127f291f88c",
+      "definition_digest": "sha256:d6d343203a255423bdc4a4243da74172e361aecca0765c146caa09074fe14495",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2922,7 +2922,7 @@
       ],
       "case_id": "join-q4-s0-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:b88d3e23a4655fc6a37cbaac1490736166edc055102b166a1f8074fd25f68ede",
+      "definition_digest": "sha256:f1f12f2dca0642e49c468f83a3f2f681fe6c9e945bb14171af79edfa0e5835b5",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2983,7 +2983,7 @@
       ],
       "case_id": "join-q4-s1-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:0bde5dd52e21fd5987e5321ba04ef916de031c7e22fd5287541d12fde050d954",
+      "definition_digest": "sha256:bb63966eebb362faf6ee2d143eb45e82a9cf93203d11d10d85a32aa68f97ec65",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -3044,7 +3044,7 @@
       ],
       "case_id": "join-q4-s50-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:861fed5e75448a113377e3991bdaa40316426bf4753a3670bef8cd848abaa9a8",
+      "definition_digest": "sha256:a6f0939e0a0d95fb3806634bb2c5f1b746b098928ca3d644cf90e48309be6083",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -3105,7 +3105,7 @@
       ],
       "case_id": "ordered-filtered-views-192",
       "correctness_label": "query-order-view-value-digest",
-      "definition_digest": "sha256:0ae90d3afda625daea29161fd6e00e557f0249df9cdb94ed00f552bfb3fda74f",
+      "definition_digest": "sha256:f1f30087fea0eadf8d0ce4d64ff00ba0ab997fa85be416389b841ed0f1409a2e",
       "metric_identity": {
         "id": "query-row-elapsed-ns",
         "version": 1
@@ -3137,7 +3137,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:cb627dd22f89a088b5f57bed6067d61bc5dfd202efa9a24929b83e02a8ccec31",
+        "expected_correctness_digest": "sha256:68ec7f18598be6b410c3c3bc6e8bc25fa93d75a25545ccfe5a66d57750d7dfe9",
         "fixture_seed": 290001,
         "metric_profile": "ecs-bridge",
         "oracle_profile": "full-world-v1",
@@ -3160,7 +3160,7 @@
       ],
       "case_id": "query-selectivity-0-of-1000",
       "correctness_label": "cold-warm-selectivity-order-digest",
-      "definition_digest": "sha256:7bbd30435a686dee68bffba81b6b501dd5b2becc8299d9896ffb2e2340359095",
+      "definition_digest": "sha256:41cdbb0776db01e0bb4578a1f7223294e57d3ad9699487ecac433c5a100be9f7",
       "metric_identity": {
         "id": "query-candidate-elapsed-ns",
         "version": 1
@@ -3216,7 +3216,7 @@
       ],
       "case_id": "query-selectivity-1-of-1000",
       "correctness_label": "cold-warm-selectivity-order-digest",
-      "definition_digest": "sha256:caa30640ca902ff4a698d8a7f1d4a07c0620f056ca04aace0fa7d0a141ec3991",
+      "definition_digest": "sha256:e705b23d8640b171b4fb69a7d1b2ea85e8eea35a3f3d249b4f4dcdf7bc5d7539",
       "metric_identity": {
         "id": "query-candidate-elapsed-ns",
         "version": 1
@@ -3272,7 +3272,7 @@
       ],
       "case_id": "query-selectivity-100-of-1000",
       "correctness_label": "cold-warm-selectivity-order-digest",
-      "definition_digest": "sha256:7889e0ea6ce57e4bb6a9e72b12b56c358936fba7d1aa0bd97ad7ff56e8e62895",
+      "definition_digest": "sha256:0fc5a48435e9244219e75f7ce9f5f2f1a3dd56f4ef605e0e0a5c5029175f514c",
       "metric_identity": {
         "id": "query-candidate-elapsed-ns",
         "version": 1
@@ -3328,7 +3328,7 @@
       ],
       "case_id": "query-selectivity-50-of-1000",
       "correctness_label": "cold-warm-selectivity-order-digest",
-      "definition_digest": "sha256:ce7252cd162436ae1cf9f8228c125efe472824c6fee50fcf11ab45a98f010857",
+      "definition_digest": "sha256:937dc9bc01fcdfab2999caf1e4cf689037fa93e5d37add668b20c73acd36cef8",
       "metric_identity": {
         "id": "query-candidate-elapsed-ns",
         "version": 1
@@ -3384,7 +3384,7 @@
       ],
       "case_id": "required-excluded-filter-100",
       "correctness_label": "required-excluded-component-tag-digest",
-      "definition_digest": "sha256:afd9261c6c960d7ec082702a5e5b8d2cf6411503b4f6ec33bd2b398a150fd90f",
+      "definition_digest": "sha256:a445ce50263d191548a2d609b37d4883f84d73ceb93c31117f3ed369a83bca6e",
       "metric_identity": {
         "id": "filtered-row-elapsed-ns",
         "version": 1
@@ -3441,7 +3441,7 @@
       ],
       "case_id": "transport-categorical-16f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:d7ad68a231374504ca089c0531f1112a970f0a2a736fbf214974f1c0d0d93b77",
+      "definition_digest": "sha256:400bb9d89da41837f971559885e77cc3b024b1e931f8b93b6d4d2281e90bf544",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3498,7 +3498,7 @@
       ],
       "case_id": "transport-list-16f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:1f453d3b9e17d032a7fe79aec9f67d396b67d85fa828b8b649bf3667c61e0c39",
+      "definition_digest": "sha256:45d2af7f224ae0d9ff5ecb914a19f517a8e10e0436724f391791dcd1ab6bdb0b",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3555,7 +3555,7 @@
       ],
       "case_id": "transport-scalar-16f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:b912192c62be8bd5c678d4a7de7c305109d70acc4249611878370b7818d92de7",
+      "definition_digest": "sha256:d1192f37ad3b432782994421f07f62fae4f50af706565cc8772aaddc622b522e",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3612,7 +3612,7 @@
       ],
       "case_id": "transport-scalar-1f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:114db0fad9587c3847e87c5d2b44b4c5e7e2845a8ba610a93a97bf8f200746ca",
+      "definition_digest": "sha256:794e97e6476c80d3e1ffa7dc1684158e1e1d5ceb8a2993b4b9c56638c842e99e",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3669,7 +3669,7 @@
       ],
       "case_id": "transport-scalar-2f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:93e142e5c7d576e772866112f4d7bb3b2c1fbc73ba909f0a43ba9ac590a58cd7",
+      "definition_digest": "sha256:00c7ee9c3e87cd29e70d8001b6f48dc2b1e1678cf23eb1911a3d9e74219b2182",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3726,7 +3726,7 @@
       ],
       "case_id": "transport-scalar-8f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:89643d6b7d7e1045af0d9c0cdb1fd69b884c6324f0a9f14a7894bd76a618f8dc",
+      "definition_digest": "sha256:88e4a06af92b7369c6b8a07d5180c97e55a8bb46d307ad7b5ff50f2b7fe484df",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3783,7 +3783,7 @@
       ],
       "case_id": "transport-vector-16f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:43bf9c73c909db9ff82782cd8facf83351cff0c0d539ecb09cc938369db418af",
+      "definition_digest": "sha256:46ab672b23307ef64aa248cc2550522907c2dbac74201391f125f218324ea68d",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3840,7 +3840,7 @@
       ],
       "case_id": "ordered-groups-eight-frames",
       "correctness_label": "group-order-serial-result-digest",
-      "definition_digest": "sha256:0631525d3b768e4161b8c952e52540e32c41db6f0ae4a7e194297e0e4e2088d1",
+      "definition_digest": "sha256:6f547d00a70ac8fdd4b5b98a236296b6ea6a6c03d2b7e41305165e52a60c33c8",
       "metric_identity": {
         "id": "scheduled-system-elapsed-ns",
         "version": 1
@@ -3872,7 +3872,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:6615799c7fc8db0c4db6f1551898f72c61fede19dcb40cc0254906977f3a3a0e",
+        "expected_correctness_digest": "sha256:e0908cd8943e9be6891cf222d099d293434241e822ec0aaed6e1fd1d507d46c9",
         "fixture_seed": 290001,
         "frames": 8,
         "metric_profile": "ecs-core",
@@ -3897,7 +3897,7 @@
       ],
       "case_id": "parallel-snapshot-128x2",
       "correctness_label": "parallel-snapshot-field-digest",
-      "definition_digest": "sha256:545412138f634ec0a73555dfbf14a527166ca3974fb3952c5fcdafa241492a83",
+      "definition_digest": "sha256:9c6638db13103bf1f8ee221064d71dbd735b97e13a82dec2aba5eb352362e120",
       "metric_identity": {
         "id": "parallel-field-elapsed-ns",
         "version": 1
@@ -3930,7 +3930,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:20f0e91e1edfcb36c0d519a31cd2c4fcc8d8b11edcb0eb128b22d31cb7ca964d",
+        "expected_correctness_digest": "sha256:4b2439978ccdf1a1633c7ee4546231fb7c0961900817be382a17764df698bc26",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "oracle_profile": "full-world-v1",
@@ -3954,7 +3954,7 @@
       ],
       "case_id": "simulated-four-system-eight-frame",
       "correctness_label": "simulated-multisystem-world-digest",
-      "definition_digest": "sha256:201305750d4dc93b2394b946de47d0e666c1983949007e6473225c920ccb373d",
+      "definition_digest": "sha256:9bd82be454480ef8538364392da65a706b50231c6f8e7d8a02e13e7128e4f175",
       "metric_identity": {
         "id": "simulated-row-system-elapsed-ns",
         "version": 1
@@ -3988,7 +3988,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:b2f7e916f5d03cd537430f7adb078016c6275d42f551881c6973c4412b043c83",
+        "expected_correctness_digest": "sha256:dea818018bd0613eadec4f22929e6257d45e5ca3a19e9899c300f869d66292fc",
         "fixture_seed": 290001,
         "frames": 8,
         "metric_profile": "ecs-core",
@@ -4015,7 +4015,7 @@
       ],
       "case_id": "schedule-s64-g8-e16-f2",
       "correctness_label": "schedule-scale-order-world-digest",
-      "definition_digest": "sha256:472a960c457b0f7eb24ef70ccbfb31efd75eab156f9cc28b49d98aff27d996f7",
+      "definition_digest": "sha256:9163e7c4102142ec35a13cf4de98ddbeb1bc6dc5727a087a905aa6ef27dcee5f",
       "metric_identity": {
         "id": "scheduled-row-system-elapsed-ns",
         "version": 1
@@ -4050,7 +4050,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:51c5ff1646e7a600fbb5436c210b4d6e743b648abc3104b16e65bca5b4010d10",
+        "expected_correctness_digest": "sha256:1f1b06acb3a16308d2dab09964d5b2cb0920d7d0d7ea3f35681571ad91de7152",
         "fixture_seed": 290001,
         "frames": 2,
         "group_count": 8,
@@ -4079,7 +4079,7 @@
       ],
       "case_id": "schedule-s8-g1-e16-f2",
       "correctness_label": "schedule-scale-order-world-digest",
-      "definition_digest": "sha256:fbf2c68103da92f214994ab9b5aca0fd81cdd25329b4d172bfa831ca61dade7d",
+      "definition_digest": "sha256:7fa1c43f207fb697da132c0a28d1d4666098408e769f7332146f6686b41dcd34",
       "metric_identity": {
         "id": "scheduled-row-system-elapsed-ns",
         "version": 1
@@ -4114,7 +4114,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:e20cc1387729c845b71963ac6057f768438ebaea8a890072f777bd0bbc595153",
+        "expected_correctness_digest": "sha256:23828b5b2927e3f73bf80d7010789933e3e8264b8c6d6ee29ff742f044706c6b",
         "fixture_seed": 290001,
         "frames": 2,
         "group_count": 1,
@@ -4144,7 +4144,7 @@
       ],
       "case_id": "hash-grid-auto-96x3",
       "correctness_label": "hash-grid-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:3773a27e7ace0a007e105e86f7efdcc3eac0cc64d7108acd1b1a0706c073d41d",
+      "definition_digest": "sha256:160d98ac9ab820abf6e73b07e367f6f70619b8f451ab7d18138e63562c2fbdbc",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -4181,7 +4181,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:b52fcd408fe0c68e48711c78b699f8657f8ce9ed98ffae141bde4497eb5ca6ab",
+        "expected_correctness_digest": "sha256:cacc0ea33744fa55e41d68022d057f438d66de36e555f2a1e8a52278299dd878",
         "fixture_seed": 290001,
         "frames": 3,
         "metric_profile": "ecs-spatial",
@@ -4213,7 +4213,7 @@
       ],
       "case_id": "hilbert-rebuild-use-96x3",
       "correctness_label": "hilbert-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:17fad1d62f06a10d2dc81323503ec4065a0c066a87ea9148cca70157ded37495",
+      "definition_digest": "sha256:8f9b4efbc8c8b181c3447d5a9e9d8d96101a0ec113eeef436a95c218fba4b9af",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -4250,7 +4250,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:42c60466c43bc584d2124b59c955a92ffcc7409d265b17de72d81c2eafce3d82",
+        "expected_correctness_digest": "sha256:3762382fb1c81c285370a12b0fcd59e94b0023e9a15a0da60be1972feb16ba34",
         "fixture_seed": 290001,
         "frames": 3,
         "metric_profile": "ecs-spatial",
@@ -4282,7 +4282,7 @@
       ],
       "case_id": "octree-incremental-96x3",
       "correctness_label": "octree-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:18de4735f4f0a3f022ce44a6f3d892f4813030f35025f452c165f6621001bc98",
+      "definition_digest": "sha256:51c26e2b84521f946df7745ed7acf2eeb5897644633362844cf3a62a80e7326f",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -4319,7 +4319,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:b11f9d53dc6fb8dfb9db6ae6a8df345213901992fc8ebd2ca6712442bfba6ee8",
+        "expected_correctness_digest": "sha256:322fb0d0dfac5e8e1f64b157091df4e67e85f4ac14f76fc1078dc79ff07816a8",
         "fixture_seed": 290001,
         "frames": 3,
         "metric_profile": "ecs-spatial",
@@ -4351,7 +4351,7 @@
       ],
       "case_id": "quadtree-rebuild-frame-96x3",
       "correctness_label": "quadtree-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:b3bfd9f6d69d57fb141d0a0dea0ea8361083afc5d78f2246917ee83b20745116",
+      "definition_digest": "sha256:6cf2eddac51d5f6c137da83fe2d71cdf1d7a63c73e770d476c6993c4c3ee6de4",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -4388,7 +4388,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:e7574cea93b71cf0265d9a67ee523c0d79ee3ed8ccf964983f41ae84b994d07e",
+        "expected_correctness_digest": "sha256:692a99dc2c240ee1f654eb1da62b01a03c081da25d3a55aedcb595794f5b8209",
         "fixture_seed": 290001,
         "frames": 3,
         "metric_profile": "ecs-spatial",
@@ -4420,7 +4420,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-clustered-n128-m0-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:f916ff96432bcf5c0fbaab5bb8c6214e0aa13be4cb305c2e097d084927af6059",
+      "definition_digest": "sha256:72fd9dcaee8b191792deabfa771ad0d50d475e1ead26dba9b6a712357ae4cc26",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4461,7 +4461,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:7e4d509eb5a7ec1ecc332a3998de2937412129c9b66d5f20c450f6414610c027",
+        "expected_correctness_digest": "sha256:1dda17c219afa3f87be9d9f782cf81302e0702b826ef4cd1d81ad6abb81940e4",
         "fixture_seed": 290001,
         "frames": 2,
         "metric_profile": "ecs-spatial",
@@ -4496,7 +4496,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-clustered-n128-m10-s4",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:c91f555d1a7401db1a11233225742a76aeb896a96c2b50927cf27bf34c2ce8a4",
+      "definition_digest": "sha256:f7e976cc17b2a8242b2069692d034f093be4f9970c41e714db7ffa4bd88957c4",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4537,7 +4537,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:e4e1e0311e7f8a44ac76335665e883453a640a971dfbdf85fe4a21bd8cad0666",
+        "expected_correctness_digest": "sha256:9d33ba309b99c163574c8923f5a4181f495a4c7685f9888879d78b49f77a037a",
         "fixture_seed": 290001,
         "frames": 2,
         "metric_profile": "ecs-spatial",
@@ -4572,7 +4572,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-diagonal-n128-m0-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:5f366283e63ea89da993977b590648a4c29149aad171504b4ce7b3a9839d0305",
+      "definition_digest": "sha256:5e691bd71cdab5d792ba4993a4abae503046b17b59bcbb947bfe52f4f10c98f2",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4613,7 +4613,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:1c6a621fdad006d4d5c48d8e6ffc19435153a0086552aad6e6612ee65fd40334",
+        "expected_correctness_digest": "sha256:81c0159398a79f19d0015d30a584356a6831124ee365211883e86413dbdc1ba7",
         "fixture_seed": 290001,
         "frames": 2,
         "metric_profile": "ecs-spatial",
@@ -4648,7 +4648,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-same-cell-n128-m0-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:1b276b5193062a526314448fb2b3a272b8b02c2c22a915290fa18b8b2028b8dd",
+      "definition_digest": "sha256:6d2850cf21008a4acc2fc86c86f6209fb18bf986ca4448b4669afdb431eb466b",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4689,7 +4689,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:69ba4ae9f29e0d3983553d39ada164429bcf52590e29c90693b89977d2041116",
+        "expected_correctness_digest": "sha256:5056ba136fe34048adc5c256842b6def1fca68a13a834f0c6ce83e5a7774f956",
         "fixture_seed": 290001,
         "frames": 2,
         "metric_profile": "ecs-spatial",
@@ -4724,7 +4724,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-uniform-n128-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:eb21753c42a2a311d66340caa7bdc26a82855df0cb5f663c7f77377541b9692c",
+      "definition_digest": "sha256:f67223dcf60d867a4e02a62418fe3ee861c78fc4e4cc4be09021c0189d85859d",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4765,7 +4765,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:bd390e343579a079185757c63251612fb07d24027a9f433bbf12ce955423fde9",
+        "expected_correctness_digest": "sha256:e86dcaa1319583701b92d01e8f39caaf03e02b2f8a55c21cde748280270ae2d1",
         "fixture_seed": 290001,
         "frames": 2,
         "metric_profile": "ecs-spatial",
@@ -4800,7 +4800,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-uniform-n512-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:783cc7b46aba9647c56bf97a79266b89043f0ac38340e2de791bd1d29782ab13",
+      "definition_digest": "sha256:779d9defb5ffc0c58ba580b1a87632915523354e23875c208e5755ff99d4010b",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4841,7 +4841,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:49f956a9200785aff27dbc83d0637fd839ab1a6379addedad038093ab6c3a7db",
+        "expected_correctness_digest": "sha256:020f2db2bb7c5d8277cb10ea7c06f2feabb07381bd6dcb40b5e43c834611469a",
         "fixture_seed": 290001,
         "frames": 2,
         "metric_profile": "ecs-spatial",
@@ -4876,7 +4876,7 @@
       ],
       "case_id": "spatial-hilbert-2d-uniform-n128-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:66567d1e74ab319c9186af19815d9fe22e6a4ec1d49d944c5d29c68fe11df9ab",
+      "definition_digest": "sha256:6d4e8b850c69817662cd36f56e1722654f90a6d6cd5272c4b77ef65a24e2e5f0",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4917,7 +4917,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:5265e2b5cf4be21f0f196119c7e622a55f904121b4cc117bb269a87540e4359b",
+        "expected_correctness_digest": "sha256:7894c8cd8d9b98b435dfa6a497c8786f5af95166977851a828bbea402206c19a",
         "fixture_seed": 290001,
         "frames": 2,
         "metric_profile": "ecs-spatial",
@@ -4952,7 +4952,7 @@
       ],
       "case_id": "spatial-octree-3d-uniform-n128-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:ae1ab3d22c01fd2eac59a1cbdbd6f719e14a2892519fedd3a4ccd636eefb13e6",
+      "definition_digest": "sha256:01d827871b7667748c345d83ec916e1cf657460386e9790e555586bc82ae7d60",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4993,7 +4993,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:fd52637baaed9b0872cdd28ca8d25ecffc01dd069cab60efd2278799374a47c2",
+        "expected_correctness_digest": "sha256:1a0fdbcd22d3657b7d137beb61c1b4a2ec9b02886132995295ee7b44672a82ed",
         "fixture_seed": 290001,
         "frames": 2,
         "metric_profile": "ecs-spatial",
@@ -5028,7 +5028,7 @@
       ],
       "case_id": "spatial-quadtree-2d-uniform-n128-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:f19af6942f489551e0a2d0823722ad79b331085a242d0efca42d49b1a9f89579",
+      "definition_digest": "sha256:7c93d6fa32fda46fa7f8328c319df9cac7dfa89638f0ebc75fa15f2cec183043",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -5069,7 +5069,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:ea8feb6f408809a77794f8904d0aac38925cde591bc4220e02b149025da4d2df",
+        "expected_correctness_digest": "sha256:8c1501f07e451a123e080d1e9bde3babc9195a51b39aa89e63b13ba75e92d985",
         "fixture_seed": 290001,
         "frames": 2,
         "metric_profile": "ecs-spatial",
@@ -5103,7 +5103,7 @@
       ],
       "case_id": "all-storage-list-0-8",
       "correctness_label": "all-storage-range-float-vector-list-rollback-digest",
-      "definition_digest": "sha256:bf9131302e13c95641ab0bf42202adf9a5de14db83a951d6569f56fb5d43f428",
+      "definition_digest": "sha256:4c4c061507e6608f91f2185229a51cf4a5cac44b1fab4f43f69cc56d92987025",
       "metric_identity": {
         "id": "storage-value-roundtrip-elapsed-ns",
         "version": 1
@@ -5159,7 +5159,7 @@
       ],
       "case_id": "all-storage-list-256-8",
       "correctness_label": "all-storage-range-float-vector-list-rollback-digest",
-      "definition_digest": "sha256:c88c595436a770ba94ff944578f6de66b889dea505662d6fe4ec728cd7dab206",
+      "definition_digest": "sha256:5dc2893a9d5f2cd7e3eb89117cc61381c718ec321d15ba2ecd91a6de637bf7fb",
       "metric_identity": {
         "id": "storage-value-roundtrip-elapsed-ns",
         "version": 1
@@ -5215,7 +5215,7 @@
       ],
       "case_id": "all-storage-list-32-8",
       "correctness_label": "all-storage-range-float-vector-list-rollback-digest",
-      "definition_digest": "sha256:afdba434d8cb78af7fd966d5e835f651116872aab41026427f85e37bd4acfa37",
+      "definition_digest": "sha256:43eac0349a956a5bd493a0e545938d75afbe95c90e186bd78dab800830297bd6",
       "metric_identity": {
         "id": "storage-value-roundtrip-elapsed-ns",
         "version": 1
@@ -5271,7 +5271,7 @@
       ],
       "case_id": "all-storage-list-4-8",
       "correctness_label": "all-storage-range-float-vector-list-rollback-digest",
-      "definition_digest": "sha256:a88a9f11e7bb99cb4622db913a8535d70230a6c3893956cb520f37b36df8ffa4",
+      "definition_digest": "sha256:4d3406dc22156da6b8e86e1cb3ba8d5e1e8c650b7d5f637da9720e894eccac31",
       "metric_identity": {
         "id": "storage-value-roundtrip-elapsed-ns",
         "version": 1
@@ -5327,7 +5327,7 @@
       ],
       "case_id": "schema-registration-16x4",
       "correctness_label": "schema-count-field-width-idempotency-digest",
-      "definition_digest": "sha256:de788a9d66b08d64448d78dbdbf53a5adc75ad5e52d1dbba681155a3ead11287",
+      "definition_digest": "sha256:9a33818a17bebd50c46ba158692ac967406d3e4802b2eed4d78556e189646ab9",
       "metric_identity": {
         "id": "schema-field-registration-elapsed-ns",
         "version": 1
@@ -5384,7 +5384,7 @@
       ],
       "case_id": "schema-registration-1x1",
       "correctness_label": "schema-count-field-width-idempotency-digest",
-      "definition_digest": "sha256:b2a59297d2ebb8313f2c695cbfe9319fe3f57a071f7909076420914a752a67dd",
+      "definition_digest": "sha256:5e2dcfc156344fe909592005ee85f9168c23914c5415d82ce1f51a35504c33de",
       "metric_identity": {
         "id": "schema-field-registration-elapsed-ns",
         "version": 1
@@ -5441,7 +5441,7 @@
       ],
       "case_id": "schema-registration-256x16",
       "correctness_label": "schema-count-field-width-idempotency-digest",
-      "definition_digest": "sha256:5753e3b092eeafd0096dc10d82582719a42c5667fb9cc9f2d1a91a189af34269",
+      "definition_digest": "sha256:1e7ddc29459d910ccc968af53c1906bdf0db180267bcffa3eb45200137afa9ac",
       "metric_identity": {
         "id": "schema-field-registration-elapsed-ns",
         "version": 1
@@ -5498,7 +5498,7 @@
       ],
       "case_id": "schema-registration-64x16",
       "correctness_label": "schema-count-field-width-idempotency-digest",
-      "definition_digest": "sha256:319641fa4f9c8693a0f7fca36fc41ae01fceae7bc1813ac0c191ee8a0e1c958f",
+      "definition_digest": "sha256:9f9fb110fff7b32fd5b45461f393e15ca235ba3ed5a4143a5759ee90638ac1b3",
       "metric_identity": {
         "id": "schema-field-registration-elapsed-ns",
         "version": 1
@@ -5555,7 +5555,7 @@
       ],
       "case_id": "schema-storage-families",
       "correctness_label": "idempotent-schema-storage-mapping-digest",
-      "definition_digest": "sha256:d1b696165c3750551c5bdf6ddadc63ecb59da65011736dd8c3ba2b1f3c035e26",
+      "definition_digest": "sha256:1fcdc2573d66e556afd8e80958e16cdb5bd320ea9a72c1ec3f7aefed17006c0d",
       "metric_identity": {
         "id": "schema-validation-elapsed-ns",
         "version": 1
@@ -5610,7 +5610,7 @@
       ],
       "case_id": "sparse-id-10000-live-100",
       "correctness_label": "sparse-id-live-row-stale-generation-digest",
-      "definition_digest": "sha256:2510cd91bedabe94aba9f7b8a8b75d7f893f3d31f0edf833d7165353952e6273",
+      "definition_digest": "sha256:5d89beb1b1e9e0cb2eac5bd29c36b1c7ce671bc471cff6f27055cdc0902d6676",
       "metric_identity": {
         "id": "historical-entity-elapsed-ns",
         "version": 1
@@ -5666,7 +5666,7 @@
       ],
       "case_id": "spawn-1000-c1-f1-t0",
       "correctness_label": "spawn-shape-values-tags-ids-digest",
-      "definition_digest": "sha256:25460161e5b870e109930f354a2d0dc97069365e6c736bfae15bb541f6100d05",
+      "definition_digest": "sha256:f230d5392fa0cefa8aac2ee8b694b12fbd90f6b10203e4143e64cd1acaec114b",
       "metric_identity": {
         "id": "spawn-entity-elapsed-ns",
         "version": 1
@@ -5726,7 +5726,7 @@
       ],
       "case_id": "spawn-1000-c4-f4-t2",
       "correctness_label": "spawn-shape-values-tags-ids-digest",
-      "definition_digest": "sha256:d7ff5e741f60fb64f6f7ad937b64cdada075805a55b971320d9b52804e67eb88",
+      "definition_digest": "sha256:caf22c532dc36c5790a3cbec11feb127f46ddce1a81dc0185dc7169af46f0188",
       "metric_identity": {
         "id": "spawn-entity-elapsed-ns",
         "version": 1
@@ -5786,7 +5786,7 @@
       ],
       "case_id": "spawn-1000-c8-f16-t8",
       "correctness_label": "spawn-shape-values-tags-ids-digest",
-      "definition_digest": "sha256:d2afd93938bd1a86fa0e23d7c637bf3d94a9863acd4efad0e031fc13a00c15b6",
+      "definition_digest": "sha256:e7a6a541ac37d690b1e3ffd83ff9e38cfa4bbd5a4042f67538158c7fd7539f54",
       "metric_identity": {
         "id": "spawn-entity-elapsed-ns",
         "version": 1
@@ -5846,7 +5846,7 @@
       ],
       "case_id": "spawn-10000-c1-f1-t0",
       "correctness_label": "spawn-shape-values-tags-ids-digest",
-      "definition_digest": "sha256:008b2cbe76ab4175311f601db34e2f39290548bb48b747184d1fe855c22c129e",
+      "definition_digest": "sha256:856abdb3421cc47d00870e71e20c0b29ef06c77f80aaaae176616c948f009bf8",
       "metric_identity": {
         "id": "spawn-entity-elapsed-ns",
         "version": 1
@@ -5906,7 +5906,7 @@
       ],
       "case_id": "spawn-mixed-archetypes-128",
       "correctness_label": "spawn-values-tags-order-digest",
-      "definition_digest": "sha256:ba1280b634c57180d0f5be435be8d24c1a91402c7b0c22a70a74d0c85f6ad34b",
+      "definition_digest": "sha256:4e2dcc9752a2e87b1efdf7132977675848c9bec56c326f890d284702796ca009",
       "metric_identity": {
         "id": "entity-operation-elapsed-ns",
         "version": 1
@@ -5939,7 +5939,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:73e7891c609b1c1b67133e85b9454102235327ee4b2a812b06ba57094cb7b26e",
+        "expected_correctness_digest": "sha256:09699c61e91fe97fe5c5faee682d373fb88ecf8c615fcddc0044454c8b83d5df",
         "fixture_seed": 290001,
         "metric_profile": "ecs-core",
         "oracle_profile": "full-world-v1",
@@ -5963,7 +5963,7 @@
       ],
       "case_id": "structural-generation-churn-96x4",
       "correctness_label": "structural-churn-values-generations-digest",
-      "definition_digest": "sha256:401dd4d6d1c029a803d8505d1fad1e6d10fa67f37985a5b7d03131336b78c2ad",
+      "definition_digest": "sha256:0ba8eb0971e4115ca3d464728df53bd6927f2aca17825e78161a11134b748eed",
       "metric_identity": {
         "id": "churn-row-elapsed-ns",
         "version": 1
@@ -5997,7 +5997,7 @@
             "detail": "Direct release gummy_ecs Rust harness is not implemented in this catalog."
           }
         },
-        "expected_correctness_digest": "sha256:3807e2326b3d1d19a068aacab1d473f48cdac4d8e4625f2b591852d5f3b82e36",
+        "expected_correctness_digest": "sha256:98b8fac6a64b4f5dcf229cea6c8b7db639756254a8144ca06a449039302c3e6a",
         "fixture_seed": 290001,
         "iterations": 4,
         "metric_profile": "ecs-core",

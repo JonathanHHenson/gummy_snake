@@ -88,19 +88,6 @@ pub(crate) fn output_limit_window(
     (out_left, out_right)
 }
 
-pub(crate) fn samples_to_interleaved_i16(left: &[f64], right: &[f64], frames: usize) -> Vec<i16> {
-    let mut output = Vec::with_capacity(frames * 2);
-    for index in 0..frames {
-        for sample in [
-            left.get(index).copied().unwrap_or(0.0),
-            right.get(index).copied().unwrap_or(0.0),
-        ] {
-            output.push((sample.clamp(-1.0, 1.0) * 32767.0).round() as i16);
-        }
-    }
-    output
-}
-
 #[cfg(test)]
 pub(crate) fn stereo_wav_bytes(left: &[f64], right: &[f64], sample_rate: u32) -> Vec<u8> {
     let mut payload = Vec::with_capacity(44 + left.len().min(right.len()) * 4);

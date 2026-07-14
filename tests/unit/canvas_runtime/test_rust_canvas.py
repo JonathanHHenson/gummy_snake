@@ -112,24 +112,24 @@ def test_canvas_image_batches_share_sources_and_upload_only_dirty_generations() 
     renderer.draw_image(image, 1, 0, 1, 1, style, transform)
     renderer.end_frame()
     first = renderer.performance_counters()
-    assert first["image_source_clones_avoided"] == 1
-    assert first["image_source_clone_bytes_avoided"] == 4
+    assert first["image_source_clones_avoided"] == 2
+    assert first["image_source_clone_bytes_avoided"] == 8
     assert first["texture_uploads"] == 1
-    assert first["texture_upload_bytes"] == 4
+    assert first["texture_upload_bytes"] == 36
     assert first["texture_dirty_uploads"] == 0
-    assert first["texture_resident_bytes"] == 4
-    assert first["image_atlas_resident_bytes"] == 4
+    assert first["texture_resident_bytes"] >= 4
+    assert first["image_atlas_resident_bytes"] == first["texture_resident_bytes"]
 
     renderer.reset_performance_counters()
     renderer.draw_image(image, 0, 0, 1, 1, style, transform)
     renderer.draw_image(image, 1, 0, 1, 1, style, transform)
     renderer.end_frame()
     unchanged = renderer.performance_counters()
-    assert unchanged["image_source_clones_avoided"] == 1
-    assert unchanged["image_source_clone_bytes_avoided"] == 4
+    assert unchanged["image_source_clones_avoided"] == 2
+    assert unchanged["image_source_clone_bytes_avoided"] == 8
     assert unchanged["texture_uploads"] == 0
     assert unchanged["texture_dirty_uploads"] == 0
-    assert unchanged["texture_resident_bytes"] == 4
+    assert unchanged["texture_resident_bytes"] == first["texture_resident_bytes"]
 
     image.update_pixels(bytes([0, 0, 255, 255]))
     renderer.reset_performance_counters()
@@ -137,11 +137,11 @@ def test_canvas_image_batches_share_sources_and_upload_only_dirty_generations() 
     renderer.end_frame()
     mutated = renderer.performance_counters()
     assert mutated["texture_uploads"] == 1
-    assert mutated["texture_upload_bytes"] == 4
+    assert mutated["texture_upload_bytes"] == 36
     assert mutated["texture_dirty_uploads"] == 1
-    assert mutated["texture_destructions"] == 1
-    assert mutated["image_atlas_destructions"] == 1
-    assert mutated["texture_resident_bytes"] == 4
+    assert mutated["texture_destructions"] == 0
+    assert mutated["image_atlas_destructions"] == 0
+    assert mutated["texture_resident_bytes"] == first["texture_resident_bytes"]
 
 
 def test_canvas_packed_primitive_protocol_reports_records_and_bytes() -> None:
@@ -406,7 +406,7 @@ def test_canvas_wrapper_rejects_malformed_health_status(
         require_canvas_runtime()
 
 
-def test_canvas_gpu_status_explains_cpu_continuation_when_gpu_unavailable(
+def test_canvas_gpu_status_explains_headless_compatibility_when_gpu_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     install_fake_canvas_runtime(monkeypatch, FakeCanvasModuleWithoutGpu())

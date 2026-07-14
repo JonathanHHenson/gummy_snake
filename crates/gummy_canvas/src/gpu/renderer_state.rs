@@ -19,6 +19,44 @@ pub(super) struct TextureAsset {
     pub(super) bytes: usize,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct PersistentAtlasPlacement {
+    pub(crate) texture_key: u64,
+    pub(crate) x: usize,
+    pub(crate) y: usize,
+    pub(crate) page_width: usize,
+    pub(crate) page_height: usize,
+    pub(crate) uploaded: bool,
+}
+
+pub(super) struct PersistentAtlasEntry {
+    pub(super) version: u64,
+    pub(super) page_index: usize,
+    pub(super) x: usize,
+    pub(super) y: usize,
+    pub(super) width: usize,
+    pub(super) height: usize,
+    pub(super) last_used: u64,
+}
+
+pub(super) struct PersistentAtlasPage {
+    pub(super) texture_key: u64,
+    pub(super) width: usize,
+    pub(super) height: usize,
+    pub(super) next_x: usize,
+    pub(super) next_y: usize,
+    pub(super) row_height: usize,
+}
+
+pub(super) struct PersistentImageAtlas {
+    pub(super) entries: HashMap<u64, PersistentAtlasEntry>,
+    pub(super) pages: Vec<PersistentAtlasPage>,
+    pub(super) page_size: usize,
+    pub(super) max_pages: usize,
+    pub(super) clock: u64,
+    pub(super) next_texture_key: u64,
+}
+
 pub(super) struct ClipTextureAsset {
     pub(super) _texture: wgpu::Texture,
     pub(super) _view: wgpu::TextureView,
@@ -115,6 +153,7 @@ pub struct GpuRenderer {
     pub(super) commands: Vec<DrawCommand>,
     pub(super) previous_render_commands: Vec<DrawCommand>,
     pub(super) textures: HashMap<u64, TextureAsset>,
+    pub(super) persistent_image_atlas: PersistentImageAtlas,
     pub(super) model_meshes: HashMap<u64, GpuModelMesh>,
     pub(super) primitive_staging: Vec<Vertex>,
     pub(super) image_staging: Vec<ImageVertex>,

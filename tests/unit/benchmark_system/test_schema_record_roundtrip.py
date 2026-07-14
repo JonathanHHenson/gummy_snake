@@ -17,7 +17,6 @@ from benchmarks.schema.records import (
     MetricResult,
     Provenance,
     RecordError,
-    Revocation,
     parse_benchmark_record,
 )
 
@@ -172,14 +171,3 @@ def test_record_payloads_are_deeply_immutable_after_identity_is_computed() -> No
     assert fingerprint.id == identifier
     with pytest.raises(TypeError):
         stable_gpu["driver"] = "three"
-
-
-def test_revocation_round_trip_is_versioned_and_content_addressed() -> None:
-    revocation = Revocation(_digest("8"), "invalid thermal qualification", {"reviewers": 2})
-
-    parsed = Revocation.from_mapping(revocation.to_dict())
-
-    assert parsed == revocation
-    assert parsed.id == revocation.id
-    with pytest.raises(RecordError, match="unsupported revocation"):
-        Revocation(_digest("8"), "reason", {"reviewers": 2}, schema_version=2)

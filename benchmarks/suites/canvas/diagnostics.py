@@ -255,7 +255,10 @@ CANVAS_DIAGNOSTIC_REQUIREMENTS = (
     DiagnosticRequirement(
         "media_copies_and_texture_identity",
         "media",
-        note="Media conversion exposes no public copy/frame or texture-identity counters.",
+        note=(
+            "MediaFrameSink and Video expose object-scoped copy/frame, residency, image-key, "
+            "and generation diagnostics; they are not part of renderer snapshots."
+        ),
     ),
     DiagnosticRequirement(
         "resize_and_surface_reconfiguration_time",

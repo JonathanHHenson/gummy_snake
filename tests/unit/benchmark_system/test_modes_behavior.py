@@ -50,7 +50,6 @@ class FakeRunner:
 
 @dataclass
 class FakeDatabase:
-    known: bool = False
     exact: object | None = None
     ancestor: object | None = None
     latest: object | None = None
@@ -61,9 +60,6 @@ class FakeDatabase:
 
     def require_clean_head(self) -> str:
         return "head"
-
-    def fingerprint_known(self, fingerprint_id: str) -> bool:
-        return self.known
 
     def exact_record(
         self, subject: str, fingerprint_id: str, suite_id: str, suite_version: int
@@ -138,7 +134,6 @@ def test_record_head_writes_only_after_pass() -> None:
     assert passed.recorded
     assert passed.record_path == ".scratch/benchmark/history/record.json"
     assert passed.record_id == current.record_id
-    assert passed.candidate_branch is None
     assert database.writes == 1
 
 
@@ -155,7 +150,7 @@ def test_cli_worktree_uses_local_store_and_record_head_checks_preconditions(
     class CliDatabase(FakeDatabase):
         def __init__(self, repository: object, history: object) -> None:
             database_arguments.append((repository, history))
-            super().__init__(known=False)
+            super().__init__()
 
     class CliRunner:
         def __init__(self, _repository: object, _catalog: object, _output: object) -> None:
@@ -190,4 +185,7 @@ def test_cli_has_local_history_default_and_no_remote_option() -> None:
 
     assert namespace.history == Path(".scratch/benchmark/history")
     assert not hasattr(namespace, "remote")
-    assert "--remote" not in _parser().format_help()
+    help_text = _parser().format_help()
+    assert "--remote" not in help_text
+    assert "--database-ref" not in help_text
+    assert "--branch" not in help_text

@@ -123,10 +123,6 @@ impl InteractiveRuntime {
         self.pixel_density.max(1.0)
     }
 
-    pub fn logical_size(&self) -> (i64, i64) {
-        (self.logical_width, self.logical_height)
-    }
-
     pub fn should_close(&self) -> bool {
         self.closed
     }

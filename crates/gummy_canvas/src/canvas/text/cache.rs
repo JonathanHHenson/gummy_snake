@@ -130,9 +130,15 @@ impl Canvas {
             .max(resident);
     }
 
-    fn update_texture_cache_byte_counters(&mut self) {
-        let resident = self.texture_cache_versions.resident_bytes() as u64;
-        let atlas_resident = self.texture_cache_versions.atlas_resident_bytes() as u64;
+    pub(crate) fn update_texture_cache_byte_counters(&mut self) {
+        let persistent_atlas_resident = self
+            .gpu
+            .as_ref()
+            .map_or(0, |gpu| gpu.persistent_image_atlas_resident_bytes() as u64);
+        let resident = (self.texture_cache_versions.resident_bytes() as u64)
+            .saturating_add(persistent_atlas_resident);
+        let atlas_resident = (self.texture_cache_versions.atlas_resident_bytes() as u64)
+            .saturating_add(persistent_atlas_resident);
         self.performance_counters.texture_resident_bytes = resident;
         self.performance_counters.texture_peak_bytes =
             self.performance_counters.texture_peak_bytes.max(resident);

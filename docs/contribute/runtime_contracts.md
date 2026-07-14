@@ -8,8 +8,8 @@ boundary, not a private Python or Rust implementation layout.
 
 | Surface | Current contract | Validation owner |
 | --- | --- | --- |
-| Canvas ABI | version `18`, exposed by `canvas_abi_version()` and the legacy `CANVAS_ABI_VERSION` module attribute | `gummysnake.rust.canvas.require_canvas_runtime()` |
-| ECS ABI | version `4`, exposed by `ecs_abi_version()` through `_canvas` | `gummysnake.rust.ecs.require_ecs_runtime()` |
+| Canvas ABI | version `21`, exposed by `canvas_abi_version()` and the legacy `CANVAS_ABI_VERSION` module attribute | `gummysnake.rust.canvas.require_canvas_runtime()` |
+| ECS ABI | version `6`, exposed by `ecs_abi_version()` through `_canvas` | `gummysnake.rust.ecs.require_ecs_runtime()` |
 | Canvas/ECS health | a callable health probe must return a non-empty string other than `"unavailable"` | the same pre-construction validators |
 | Runtime shape | canvas asset/state classes and ECS world/registry classes must be present and constructible | the same pre-construction validators |
 
@@ -69,18 +69,17 @@ spatial construction paths.
 surface is the Python `_canvas` extension validated above.
 
 `gummy_synth` is a PyO3-free typed Rust library. It exposes `SynthError`,
-`SynthResult`, typed event values, `render_serialized_plan_wav_bytes`,
-`SynthPlaybackPlan::from_serialized_plan`, and
-`SynthPlaybackPlan::render_window_i16`. Its public `codec` module owns the
-bounds-checked RIFF/WAV chunk scanner and optional metadata used by both synth
-sample decoding and `gummy_canvas`; it does not choose a supported audio format
-or construct Python errors. Synth samples retain their mono/stereo 8-, 16-, and
-32-bit PCM WAV plus FLAC policy, while canvas duration probing and SDL playback
-retain their respective metadata and uncompressed 16-bit PCM policies.
-`gummy_canvas/src/bindings/synth.rs` owns all Python dict/list parsing,
-registration of the existing `_canvas` synth functions, and conversion of typed
-synth failures back to the established Python `ValueError` messages.
-`SynthPlaybackPlan::duration_seconds` remains an ordinary domain API.
+`SynthResult`, typed event values, `CompiledSynthProgram`,
+`StatefulBlockRenderer`, the versioned `CausalNormaliser`, canonical
+band-limited sampling, and serialized-plan WAV rendering. The removed
+`SynthPlaybackPlan` context-window/full-signal route is not a compatibility API.
+Its public `codec` module owns the bounds-checked RIFF/WAV chunk scanner used by
+synth sample decoding and `gummy_canvas`; it does not construct Python errors.
+Synth samples retain mono/stereo 8-, 16-, and 32-bit PCM WAV plus FLAC support.
+Public `CanvasSound` assets accept mono/stereo 16-bit PCM WAV, keep encoded and
+decoded data in Rust, and feed the same process-local SDL3 manager as synth
+sessions. `gummy_canvas/src/bindings/synth.rs` owns Python parsing, registration,
+diagnostics, and conversion of typed failures to Python exceptions.
 
 ### WAV caller-policy matrix
 
@@ -90,8 +89,8 @@ format decisions and public failure behavior:
 | Consumer | Accepted format policy | Container/error policy |
 | --- | --- | --- |
 | Synth sample decoder | Mono or stereo 8-, 16-, or 32-bit PCM-width WAV data; FLAC stays on its existing decoder path. The WAV audio-format tag is retained as metadata but is not a new synth decoder filter. | Unknown RIFF chunks and odd-byte padding are ignored; malformed chunks, missing required chunks, and unsupported width/channel combinations remain `SynthError` failures. A final incomplete stereo frame retains the prior truncation behavior. |
-| `CanvasSound` duration probe | Any WAV metadata that can determine frame bytes; it does not impose the SDL playback format restriction. | Non-WAV and incomplete metadata produce `None`; malformed chunk lengths and `fmt ` chunks retain their `ValueError` messages. |
-| SDL synth WAV playback | Exactly uncompressed 16-bit PCM with non-zero channel count/sample rate and 16-bit-aligned data. | The canvas adapter maps typed policy failures back to the existing `ValueError` messages before SDL stream setup. |
+| `CanvasSound` asset load/render | Mono or stereo uncompressed 16-bit PCM WAV with non-zero sample rate. | Unsupported codecs, depth, channels, malformed chunks, and unaligned data fail before asset construction; no alternate decoder/player is selected. |
+| Shared SDL mixer | Rust-owned planar asset PCM and stateful synth PCM are converted dynamically to the explicit 48 kHz stereo 16-bit device stream through the canonical band-limited sampler. | Device/stream startup failures are actionable capability errors. The manager uses bounded low/high-water queuing and never launches another player. |
 
 ## Diagnostics and performance investigation
 
@@ -101,7 +100,7 @@ public ECS counters through `ecs_diagnostics()`. Keep their names and meanings i
 `ecs_physical_system_runs > 0`, `ecs_udf_calls == 0`, and no physical-plan or
 physical-execution errors.
 
-Use a release-built canvas extension for performance investigation and comparison. Compare results only across matching machine, OS, interpreter, revision, and release-build fingerprints; debug-build timing and native audio playback timing are not release evidence. Confirm behavior with the relevant contract tests, bounded smoke examples, and resource stress checks when their lifecycle coverage applies.
+Use a release-built canvas extension for performance investigation and comparison. Compare results only on the exact machine, OS, interpreter, and release-build fingerprint, with revision retained as provenance; debug-build timing is non-comparable. Native-interactive and native-audio timing runs are optional information. Confirm behavior with the relevant contract tests, bounded smoke examples, and resource stress checks when their lifecycle coverage applies.
 
 Offline synth rendering should remain deterministic: verify WAV format, frame count, non-silence, and repeated render byte equality. Report local render time only as diagnostic context.
 

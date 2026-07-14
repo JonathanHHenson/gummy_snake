@@ -24,6 +24,9 @@ from gummysnake.backend.canvas_runtime.renderer.primitive_support.batches import
 from gummysnake.backend.canvas_runtime.renderer.primitive_support.batches import (
     queue_primitive_batch as _queue_primitive_batch_impl,
 )
+from gummysnake.backend.canvas_runtime.renderer.primitive_support.batches import (
+    record_fill_primitive_batch as _record_fill_primitive_batch_impl,
+)
 from gummysnake.backend.canvas_runtime.renderer.primitive_support.paths import (
     CapturedShapeState,
 )
@@ -204,6 +207,13 @@ class CanvasRendererPrimitivesMixin:
         transform: Matrix2D,
     ) -> bool:
         return _queue_fill_primitive_fast_path_impl(_renderer(self), kind, coords, style, transform)
+
+    def _record_fill_primitive_batch(
+        self,
+        records: list[tuple[object, ...]],
+        transform: Matrix2D,
+    ) -> None:
+        _record_fill_primitive_batch_impl(_renderer(self), records, transform)
 
     def _queue_primitive_batch(
         self,

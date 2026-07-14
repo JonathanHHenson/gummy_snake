@@ -30,8 +30,8 @@ help:
 	  '  make check                 Comprehensive local gate; requires a release canvas runtime.' \
 	  '  make test-focused          Unit and contract suites for quick feedback.' \
 	  '  make test-full             Full Python suite; stress tests stay opt-in.' \
-	'  make benchmark-smoke       Run all self-contained replacement headless benchmark cases once.'
-	  '  make benchmark-audit       Audit the fixed-ref replacement benchmark data store.' \
+	  '  make benchmark-smoke       Run all self-contained replacement headless benchmark cases once.' \
+	  '  make benchmark-audit       Audit ignored local benchmark history.' \
 	  '  make rust-check            Format, Clippy, and direct tests for every Rust crate.' \
 	  '  make release-candidate     Release runtime plus smoke and opt-in stress validation.' \
 	  '  make package-verify        Build and verify archives in a private temporary workspace.' \
@@ -98,13 +98,13 @@ test: test-full
 test-stress:
 	$(PYTEST) tests/stress --run-stress -q -s
 
-# Explicit release validation remains opt-in. Replacement benchmark recording is
-# governed separately by scripts/benchmark.py and never reuses the retired suite.
+# Explicit release validation remains opt-in. Local benchmark recording is
+# handled separately by scripts/benchmark.py and never reuses the retired suite.
 release-candidate: runtime-develop-release smoke-release test-stress
 
-# Governed replacement benchmark commands. These do not invoke retired pytest
-# scenarios; authoritative worktree/record-head runs remain fail-closed until
-# their isolated release worker and qualified runner requirements are satisfied.
+# Local-first benchmark commands. These do not invoke retired pytest scenarios;
+# worktree and record-head runs remain fail-closed when release-worker or route
+# requirements are not satisfied.
 benchmark-smoke:
 	$(PYTHON) scripts/benchmark.py smoke benchmarks/canvas_v1.toml
 	$(PYTHON) scripts/benchmark.py smoke benchmarks/ecs_v1.toml

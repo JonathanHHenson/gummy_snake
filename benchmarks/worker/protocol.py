@@ -49,7 +49,7 @@ def require_capabilities(execution_class: ExecutionClass, capabilities: Capabili
         required = ("gpu", "native_window")
     elif execution_class is ExecutionClass.NATIVE_AUDIO:
         required = ("audio",)
-    elif execution_class in (ExecutionClass.HEADLESS, ExecutionClass.AUTHORITATIVE):
+    elif execution_class is ExecutionClass.HEADLESS:
         required = ("gpu",)
     else:
         required = ()

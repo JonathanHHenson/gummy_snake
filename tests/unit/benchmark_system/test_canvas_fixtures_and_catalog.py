@@ -190,7 +190,8 @@ def test_canvas_catalog_is_static_and_hashes_complete_executable_matrices() -> N
 
     assert len(catalog.workloads) == 92
     assert {workload.suite_version for workload in catalog.workloads} == {5}
-    assert {workload.version for workload in catalog.workloads} == {2}
+    assert {workload.version for workload in catalog.workloads} == {2, 3}
+    assert sum(workload.version == 3 for workload in catalog.workloads) == 1
     assert {workload.id for workload in catalog.workloads} == {
         "lifecycle-hidpi",
         "primitives-paths-order",

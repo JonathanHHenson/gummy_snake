@@ -46,7 +46,7 @@ checks = ["uv run pytest tests/unit/synth/test_synth_tracks.py", "uv run mypy sr
 
 [[inline_suppressions]]
 path = "tests/unit/synth/test_synth_canvas_binding.py"
-line = 206
+line = 213
 tool = "type"
 codes = ["arg-type"]
 owner = "Canvas synth binding validation tests"

@@ -211,7 +211,7 @@ impl CanvasImage {
 }
 
 impl CanvasImage {
-    fn from_pixels(width: usize, height: usize, pixels: Vec<u8>) -> Self {
+    pub(crate) fn from_pixels(width: usize, height: usize, pixels: Vec<u8>) -> Self {
         Self {
             key: NEXT_IMAGE_KEY.fetch_add(1, Ordering::Relaxed),
             version: 0,
@@ -230,7 +230,21 @@ impl CanvasImage {
         Ok((y * self.width + x) * 4)
     }
 
-    fn bump_version(&mut self) {
+    pub(crate) fn replace_pixels_preserving_identity(
+        &mut self,
+        width: usize,
+        height: usize,
+        pixels: Vec<u8>,
+    ) -> PyResult<()> {
+        validate_rgba_buffer(pixels.len(), width, height)?;
+        self.width = width;
+        self.height = height;
+        self.pixels = Arc::new(pixels);
+        self.bump_version();
+        Ok(())
+    }
+
+    pub(crate) fn bump_version(&mut self) {
         self.version = self.version.wrapping_add(1);
     }
 }

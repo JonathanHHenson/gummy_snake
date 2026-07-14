@@ -20,23 +20,36 @@ pub mod codec;
 
 mod block_contract;
 mod causal_normaliser;
+// These modules still contain whole-event reference helpers used by parity tests.
+// The canonical runtime does not call those helpers; Epic 320 tracks their deletion.
+#[cfg_attr(not(test), allow(dead_code))]
 mod dsp;
 mod executor;
+#[cfg_attr(not(test), allow(dead_code))]
 mod fx_chain;
+#[cfg_attr(not(test), allow(dead_code))]
 mod fx_core;
+#[cfg_attr(not(test), allow(dead_code))]
 mod fx_modulation;
+#[cfg_attr(not(test), allow(dead_code))]
 mod fx_space;
+#[cfg_attr(not(test), allow(dead_code))]
 mod output;
 mod plans;
 mod playback;
 mod program;
+#[cfg_attr(not(test), allow(dead_code))]
 mod sample_voice;
 mod samples;
 mod stateful_block_renderer;
+#[cfg_attr(not(test), allow(dead_code))]
 mod synth_rendering;
 mod types;
+#[cfg_attr(not(test), allow(dead_code))]
 mod validation;
+#[cfg_attr(not(test), allow(dead_code))]
 mod voice_controls;
+#[cfg_attr(not(test), allow(dead_code))]
 mod voice_core;
 mod wav_sink;
 
@@ -46,6 +59,7 @@ pub(crate) use fx_chain::*;
 pub(crate) use fx_core::*;
 pub(crate) use fx_modulation::*;
 pub(crate) use fx_space::*;
+#[cfg(test)]
 pub(crate) use output::*;
 pub(crate) use plans::*;
 
@@ -73,16 +87,15 @@ pub use program::{
 pub(crate) use sample_voice::*;
 pub(crate) use samples::*;
 pub use samples::{
-    sample_cache_diagnostics, sample_duration, SampleCacheDiagnostics,
-    SAMPLE_RESAMPLE_CACHE_BUDGET_BYTES, SAMPLE_SOURCE_CACHE_BUDGET_BYTES,
+    band_limited_sample, band_limited_sample_strided, sample_cache_diagnostics, sample_duration,
+    SampleCacheDiagnostics, SAMPLE_RESAMPLE_CACHE_BUDGET_BYTES, SAMPLE_SOURCE_CACHE_BUDGET_BYTES,
 };
 pub use stateful_block_renderer::StatefulBlockRenderer;
 pub use synth_rendering::render_event_wav;
 pub(crate) use synth_rendering::*;
 pub(crate) use types::*;
 pub use types::{
-    ControlPayload, EventPayload, FxPayload, OptMap, SynthError, SynthPlaybackPlan, SynthResult,
-    SynthValue,
+    ControlPayload, EventPayload, FxPayload, OptMap, SynthError, SynthResult, SynthValue,
 };
 pub(crate) use validation::*;
 

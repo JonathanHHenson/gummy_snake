@@ -36,7 +36,7 @@ def test_canvas_owned_synth_functions_preserve_names_outputs_and_value_errors() 
 
     assert event_wav.startswith(b"RIFF")
     assert plan_wav.startswith(b"RIFF")
-    assert canvas_abi_version() == 20
+    assert canvas_abi_version() == 21
 
     with pytest.raises(ValueError) as serialized_error:
         runtime.synth_render_serialized_plan_wav(b"", 8_000)
@@ -103,6 +103,13 @@ def test_synth_workers_preserve_exact_wav_and_report_bounded_parallel_regions() 
             assert diagnostics["parallel_tasks"] == 0
             assert diagnostics["parallel_scratch_peak_bytes"] == 0
             assert diagnostics["worker_pool_initializations"] == 0
+            assert diagnostics["causal_normaliser_contract_version"] == 1
+            assert diagnostics["audio_queue_low_water_frames"] > 0
+            assert (
+                diagnostics["audio_queue_high_water_frames"]
+                > diagnostics["audio_queue_low_water_frames"]
+            )
+            assert diagnostics["audio_active_voices"] == 0
     finally:
         sy.configure_workers("auto")
 

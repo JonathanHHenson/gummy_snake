@@ -7,6 +7,7 @@ mod context;
 mod pipeline;
 mod render;
 mod renderer_state;
+mod resources;
 mod setup;
 mod shaders;
 mod surface;
@@ -18,6 +19,10 @@ mod tests;
 
 #[allow(unused_imports)]
 pub use renderer_state::GpuRenderer;
+pub(crate) use resources::{
+    gpu_resource_diagnostics, reset_gpu_resource_diagnostics, webgpu_context_info,
+    GpuComputeShader, GpuStorageBuffer,
+};
 #[allow(unused_imports)]
 pub(crate) use types::ImageVertex;
 #[allow(unused_imports)]

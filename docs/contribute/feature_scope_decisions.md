@@ -67,13 +67,15 @@ raise Gummy Snake validation errors.
 
 Core sound assets are native Gummy Snake assets. The stable public
 `gummysnake.assets.sound` loader is the sole loading authority and returns a
-`Sound` wrapper backed by a Rust-managed `CanvasSound` handle when supported.
-Metadata and byte access do not require an audio output device. A focused native
-playback runtime owns platform-player selection, subprocess cleanup, and
-temporary playback resources. It selects `afplay`, `paplay`, `aplay`, or
-`ffplay` in that order; if none is available, `play()` raises a Gummy Snake
-capability error while non-audio sketches and metadata workflows can continue.
-No silent player or synthetic-audio fallback is used.
+`Sound` wrapper backed by a Rust-managed `CanvasSound` audio asset. Metadata and
+byte access do not require an audio output device. Loaded and rendered sounds,
+plus finite and rolling synth sessions, use one process-local SDL3 device
+manager and deterministic voice mixer. Controls travel through synchronized
+native commands, rate conversion uses the canonical band-limited resampler, and
+end notifications cross back to the Python owner thread. If SDL3 cannot open a
+device, `play()` raises a Gummy Snake capability error while non-audio sketches
+and metadata workflows can continue. There is no subprocess, temporary-file,
+silent-player, synthetic-audio, or alternate playback fallback.
 
 Audio analysis and synthesis are public deterministic helpers. `AudioBuffer`,
 `Amplitude`, `FFT`, `Oscillator`, `Envelope`, `AudioFilter`, and `AudioInput`

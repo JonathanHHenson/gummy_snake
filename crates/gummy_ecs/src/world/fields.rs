@@ -70,18 +70,13 @@ impl World {
         field: &str,
         entities: &[Entity],
         locations: &[(usize, usize)],
-    ) -> Result<Vec<Option<(u32, f64)>>> {
+    ) -> Result<HashMap<Entity, f64>> {
         if entities.len() != locations.len() {
             return Err(EcsError::InvalidPlan(
                 "resolved f64 cache requires one location per entity".to_string(),
             ));
         }
-        let max_index = entities
-            .iter()
-            .map(|entity| entity.index as usize)
-            .max()
-            .unwrap_or(0);
-        let mut values = vec![None; max_index + 1];
+        let mut values = HashMap::with_capacity(entities.len());
         let Some((first_archetype, _)) = locations.first().copied() else {
             return Ok(values);
         };
@@ -96,16 +91,16 @@ impl World {
                     let Some(value) = column.get(*row) else {
                         return Err(EcsError::RowOutOfBounds);
                     };
-                    values[entity.index as usize] = Some((entity.generation, *value));
+                    values.insert(*entity, *value);
                 }
                 return Ok(values);
             }
         }
         for (entity, (archetype, row)) in entities.iter().zip(locations.iter()) {
-            values[entity.index as usize] = Some((
-                entity.generation,
+            values.insert(
+                *entity,
                 self.archetypes[*archetype].get_field_f64(*row, component, field)?,
-            ));
+            );
         }
         Ok(values)
     }

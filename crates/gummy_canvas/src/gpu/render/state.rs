@@ -113,16 +113,16 @@ impl GpuRenderer {
     }
 
     pub fn can_append_glyphon_text_command(&self) -> bool {
-        let mut saw_text = false;
-        for command in &self.commands {
-            match command {
-                DrawCommand::Clear(_) => {}
-                DrawCommand::Text { .. } => saw_text = true,
-                _ if saw_text => return false,
-                _ => {}
-            }
-        }
-        true
+        let Some(last_text_index) = self
+            .commands
+            .iter()
+            .rposition(|command| matches!(command, DrawCommand::Text { .. }))
+        else {
+            return true;
+        };
+        self.commands[last_text_index + 1..]
+            .iter()
+            .all(|command| matches!(command, DrawCommand::Text { .. }))
     }
 
     pub(crate) fn render_loop_counters(&self) -> GpuRenderLoopCounters {

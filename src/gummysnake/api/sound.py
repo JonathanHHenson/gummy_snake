@@ -93,7 +93,7 @@ def get_audio_context() -> AudioContextInfo:
         "backend": "gummy-snake-native",
         "analysis": True,
         "synthesis": True,
-        "playback": "platform-player",
+        "playback": "rust-sdl3-mixer",
         "web_audio": False,
     }
 

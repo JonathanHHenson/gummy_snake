@@ -140,7 +140,7 @@ def snapshot_declared_roots(repository: Path, roots: Iterable[str]) -> SourceSna
         for current, directories, names in os.walk(root, followlinks=False):
             current_path = Path(current)
             # Never descend ignored build/output trees (notably Rust target/). Git's
-            # tracked set remains authoritative for files that are actually inputs.
+            # tracked set remains canonical for files that are actually inputs.
             descend: list[str] = []
             for name in sorted(directories):
                 absolute = current_path / name

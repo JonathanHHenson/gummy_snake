@@ -245,6 +245,29 @@ class FakeCanvas(FakeCanvasImageKernelsMixin):
         ]
         self.calls.append(("batch_primitives_current", records))
 
+    def batch_primitives_mixed_packed(
+        self,
+        payload: bytes,
+        styles: bytes,
+        matrices: bytes,
+    ) -> None:
+        record_format = Struct("<B7x6dII")
+        style_format = Struct("<BB6x4B4Bd")
+        matrix_format = Struct("<6d")
+        records = [
+            record_format.unpack_from(payload, offset)
+            for offset in range(0, len(payload), record_format.size)
+        ]
+        decoded_styles = [
+            style_format.unpack_from(styles, offset)
+            for offset in range(0, len(styles), style_format.size)
+        ]
+        decoded_matrices = [
+            matrix_format.unpack_from(matrices, offset)
+            for offset in range(0, len(matrices), matrix_format.size)
+        ]
+        self.calls.append(("batch_primitives_mixed", records, decoded_styles, decoded_matrices))
+
     def batch_fill_primitives(self, *args: object) -> None:
         self.calls.append(("batch_fill_primitives", *args))
 

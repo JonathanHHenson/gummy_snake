@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from gummysnake.assets.media.frame import MediaFrameSink
 from gummysnake.assets.media.streams import (
     AudioVideoCapture,
     Capture,
@@ -14,6 +15,7 @@ from gummysnake.assets.media.streams import (
 
 __all__ = [
     "Video",
+    "MediaFrameSink",
     "Capture",
     "AudioVideoCapture",
     "create_video",

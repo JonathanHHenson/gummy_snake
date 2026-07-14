@@ -77,7 +77,7 @@ execution.
 | Crate | Purpose and Python exposure | ABI/build role | Focused command |
 | --- | --- | --- | --- |
 | [`gummy_canvas`](../../crates/gummy_canvas/) | Required canvas/runtime crate. It exposes `gummysnake.rust._canvas`, canvas state, rendering, assets, SDL3 input/windowing, and the linked ECS/synth bridge. | Owns canvas ABI `18`; no Python fallback. | `cargo test --manifest-path crates/gummy_canvas/Cargo.toml` |
-| [`gummy_ecs`](../../crates/gummy_ecs/) | Canonical ECS storage, schedules, physical plans, events/resources, and spatial indexes, linked through canvas. | Owns ECS ABI `4`; no Python non-UDF executor. | `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` |
+| [`gummy_ecs`](../../crates/gummy_ecs/) | Canonical ECS storage, schedules, physical plans, events/resources, and spatial indexes, linked through canvas. | Owns ECS ABI `6`; no Python non-UDF executor. | `cargo test --manifest-path crates/gummy_ecs/Cargo.toml` |
 | [`gummy_synth`](../../crates/gummy_synth/) | Synth, sample, FX, decoding, and WAV rendering, linked through canvas. | Mandatory synth rendering; no Python audio/synth fallback. | `cargo test --manifest-path crates/gummy_synth/Cargo.toml` |
 | [`gummy_accel`](../../crates/gummy_accel/) | Small optional accelerated kernels exposed by `_accelerated`. | Optional only; never substitutes for mandatory canvas/ECS/synth runtime behavior. | `cargo test --manifest-path crates/gummy_accel/Cargo.toml` |
 

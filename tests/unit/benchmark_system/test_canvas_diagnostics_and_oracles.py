@@ -240,7 +240,8 @@ def test_headless_sprite_cache_reset_preserves_warm_resources_and_fails_closed()
     )
     assert before_reset.counter("cpu_fallbacks") == 0
     assert before_reset.counter("texture_uploads") == 1
-    assert before_reset.counter("texture_upload_bytes") == len(fixture.source.pixels)
+    padded_upload_bytes = (fixture.source.width + 2) * (fixture.source.height + 2) * 4
+    assert before_reset.counter("texture_upload_bytes") == padded_upload_bytes
 
     reset_canvas_diagnostics(context)
     after_reset = capture_renderer_diagnostics(context, required=fixture.required_counters)

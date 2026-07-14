@@ -9,27 +9,13 @@ from typing import Any, Protocol, cast
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND
 
-EXPECTED_ECS_ABI_VERSION = 5
-
-_REQUIRED_ECS_WORLD_METHODS = (
-    "query_with_terms",
-    "compiled_plan_count",
-    "spatial_index_cache_len",
-    "structural_revision",
-    "field_revision",
-    "diagnostics",
-    "reset_diagnostics",
-    "execute_compiled_plan",
-    "execute_compiled_plans",
-    "execute_compiled_plan_to_canvas",
-    "execute_compiled_plans_to_canvas",
-)
+EXPECTED_ECS_ABI_VERSION = 6
 
 
 class _RustEcsWorld(Protocol):
-    def allocate_entity(self) -> tuple[int, int]: ...
-
-    def spawn_with_defaults(self, components: list[str]) -> tuple[int, int]: ...
+    def spawn_batch(
+        self, rows: list[tuple[dict[str, dict[str, Any]], list[str]]]
+    ) -> list[tuple[int, int]]: ...
 
     def despawn_entity(self, index: int, generation: int) -> None: ...
 
@@ -273,14 +259,13 @@ def require_ecs_runtime() -> _EcsCanvasModule:
             f"(expected {EXPECTED_ECS_ABI_VERSION}, got {marker!r}). "
             f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
         )
-    health_check = getattr(_canvas, "ecs_health_check", None)
-    if not callable(health_check):
-        raise BackendCapabilityError(
-            "The Rust ECS runtime is missing ecs_health_check(). "
-            f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
-        )
     try:
-        health = health_check()
+        health = _canvas.ecs_health_check()
+    except (AttributeError, TypeError) as exc:
+        raise BackendCapabilityError(
+            "The Rust ECS runtime is missing the required ecs_health_check() ABI entry. "
+            f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
+        ) from exc
     except Exception as exc:
         raise BackendCapabilityError(
             "The Rust ECS runtime failed its health check. "
@@ -291,21 +276,17 @@ def require_ecs_runtime() -> _EcsCanvasModule:
             "The Rust ECS runtime reported an unhealthy runtime state "
             f"({health!r}). Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
         )
-    world_type = getattr(_canvas, "EcsWorld", None)
+    try:
+        world_type = _canvas.EcsWorld
+    except AttributeError as exc:
+        raise BackendCapabilityError(
+            "The Rust ECS runtime is missing the required EcsWorld ABI type. "
+            f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
+        ) from exc
     if not isinstance(world_type, type):
         raise BackendCapabilityError(
-            "The Rust ECS runtime is missing EcsWorld. "
+            "The Rust ECS runtime exposes a malformed EcsWorld ABI type. "
             f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
-        )
-    missing_methods = [
-        name
-        for name in _REQUIRED_ECS_WORLD_METHODS
-        if not callable(getattr(world_type, name, None))
-    ]
-    if missing_methods:
-        raise BackendCapabilityError(
-            "The Rust ECS runtime is missing required EcsWorld method(s) "
-            f"{', '.join(missing_methods)}. Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
         )
     return _canvas
 
@@ -318,12 +299,14 @@ def create_ecs_world() -> _RustEcsWorld:
 def create_spatial_index_registry() -> _RustEcsSpatialIndexRegistry:
     """Create a Rust-owned registry for compiled ECS spatial indexes."""
     runtime = require_ecs_runtime()
-    if not hasattr(runtime, "EcsSpatialIndexRegistry"):
+    try:
+        registry_type = runtime.EcsSpatialIndexRegistry
+    except AttributeError as exc:
         raise BackendCapabilityError(
-            "The Rust ECS runtime is missing EcsSpatialIndexRegistry. "
+            "The Rust ECS runtime is missing the required EcsSpatialIndexRegistry ABI type. "
             f"Rebuild it with: {GUMMY_CANVAS_BUILD_COMMAND}"
-        )
-    return runtime.EcsSpatialIndexRegistry()
+        ) from exc
+    return registry_type()
 
 
 __all__ = [

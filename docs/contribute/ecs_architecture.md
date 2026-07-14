@@ -202,6 +202,17 @@ each write using IEEE-754 round-to-nearest/ties-to-even, while non-finite values
 and Float32 range overflow are errors. Python performs matching early validation,
 but Rust remains authoritative for all bridge and physical-plan inputs.
 
+Entity creation crosses the PyO3 boundary through one complete-row `spawn_batch`
+request. Rust validates every schema, field, storage value, and tag in the batch
+before mutating allocator, archetype, tag, revision, or change-journal state. The
+normal Python `add_entity()` path uses this transaction even for one entity; the
+former allocate-then-add bridge sequence is not exposed by ECS ABI 6.
+
+The ABI marker is the complete bridge-shape contract. Python validates the native
+marker and health result before constructing `EcsWorld`; it does not probe individual
+world methods or select a compatibility implementation. Missing or stale ABI entries
+therefore fail with rebuild guidance rather than entering a legacy path.
+
 ## System lifecycle
 
 A decorated system plan is a build function, not a per-frame Python loop:
@@ -254,6 +265,10 @@ with equivalent group constraints run in registration order.
 
 `do_in_order(*actions)` is serial and later actions observe writes from earlier
 actions. `do_in_parallel(*actions)` represents independent snapshot-style work.
+The Rust structural command buffer has an explicit apply barrier that preflights the
+complete declared command sequence against a lightweight membership overlay; a late
+invalid add/remove/despawn therefore cannot partially apply earlier staged commands
+or drain the pending buffer.
 Prepared query bindings use fixed slots rather than per-row string maps. Batched
 compiled plans derive field-level read/write conflicts, so same-component disjoint
 fields can share a deterministic wave. Those non-overlapping waves execute against
@@ -372,18 +387,36 @@ under `ecs.spatial`:
 - algorithms: `HashGrid`, `Quadtree`, `Octree`, and `HilbertCurve`.
 
 Scheduled systems serialize these relations into Rust spatial physical plans.
-`allow_fallback` remains accepted for source compatibility, but non-UDF scheduled
-systems must not use Python spatial fallback execution. Dense all-moving spatial
-workloads may choose rebuild-based strategies over incremental updates when that
-is faster and deterministic.
+`allow_fallback` remains accepted for source compatibility, but it applies only to
+legacy relation materialization invoked from code already inside an explicit Python
+boundary. Even `allow_fallback=True` cannot redirect a scheduled non-UDF system;
+unsupported physical nodes fail closed. Dense all-moving spatial workloads may
+choose rebuild-based strategies over incremental updates when that is faster and
+deterministic. Sparse numeric and spatial precompute caches are keyed
+by complete generation-safe `Entity` handles, so their memory follows live/query rows
+rather than the largest historical entity index. Query-row-specialized paths retain
+compact row-order vectors where the query itself provides a dense index.
 
-## UDF boundary
+## Explicit Python and compatibility boundaries
 
-`@ecs.udf_plan` declares a Rust-backed typed UDF plan and must not execute
-Python at runtime. `@ecs.udf` is the intentional Python runtime execution
-boundary inside ECS plans. UDF annotations are mandatory. Use Python UDFs for
-side effects, external APIs, or operations that cannot be expressed in the lazy
-DSL. Do not use Python UDFs for hot component math that can be represented with
+The scheduler has only two author-selected Python runtime boundaries:
+
+- `@ecs.system` runs the declared callback with the GIL held and materializes only
+  its declared queries as Rust-backed compatibility views.
+- `@ecs.udf` runs the declared UDF action and materializes only its declared
+  arguments/mutations. Mixed UDF sequences return to Rust for non-UDF actions.
+
+Those views and batches read/write canonical Rust storage; they do not form a
+Python component-column mirror or alternate executor. Logical-plan import aliases,
+view/tuple adapters, expression `eval()` hooks, and spatial `iter_contexts()` remain
+compatibility surfaces for code already inside an explicit Python/materialization
+boundary. They must never be selected after non-UDF physical compilation fails.
+
+`@ecs.udf_plan` is different: its Python function expands expressions once during
+plan construction, then the prepared plan executes in Rust and
+`ecs_udf_calls` remains zero. UDF annotations are mandatory. Use runtime Python
+UDFs for side effects, external APIs, or operations that cannot be expressed in
+the lazy DSL. Do not use them for hot component math that can be represented with
 expressions/actions/spatial relations.
 
 ```python
@@ -393,8 +426,11 @@ def fetch_weather(locations: Iterable[ecs.Entity[Location]]) -> None:
         location.add_component(Temperature(fetch_temperature(location[Location].lon)))
 ```
 
-UDF calls increment diagnostics and should be excluded from Rust-acceleration
-performance claims unless the claim explicitly measures UDF overhead.
+Runtime UDF and Python-system calls increment separate diagnostics and should be
+excluded from Rust-only acceleration claims unless the claim explicitly measures
+that boundary. Conversely, nonzero `ecs_scheduler_world_clones` or ECS canvas
+Python replay/materialization counters are not UDF allowances: they identify
+remaining selectable migration paths and keep Epic 300 PBIs 007/010/011/012 open.
 
 ## Diagnostics and explain output
 
@@ -433,9 +469,9 @@ IDs unless they are explicitly labelled debug-only.
 For ECS changes, run the smallest focused checks first and broaden before handoff:
 
 ```sh
-uv run ruff check src/gummysnake/ecs tests/unit/ecs/test_ecs.py
+uv run ruff check src/gummysnake/ecs tests/unit/ecs
 uv run mypy src/gummysnake/ecs
-uv run pytest tests/unit/ecs/test_ecs.py -q
+uv run pytest tests/unit/ecs -q
 cargo test --manifest-path crates/gummy_ecs/Cargo.toml
 cargo test --manifest-path crates/gummy_canvas/Cargo.toml
 uv run python examples/10_ecs/firefly_constellation.py --headless --frames 1 --no-save

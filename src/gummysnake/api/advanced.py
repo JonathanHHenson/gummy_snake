@@ -100,7 +100,9 @@ from gummysnake.assets.gpu import (
     create_compute_shader,
     create_storage_buffer,
     dispatch_compute,
+    gpu_resource_diagnostics,
     read_storage_buffer,
+    reset_gpu_resource_diagnostics,
     update_storage_buffer,
     webgpu_context,
 )
@@ -119,6 +121,8 @@ __all__ = [
     "read_storage_buffer",
     "create_compute_shader",
     "dispatch_compute",
+    "gpu_resource_diagnostics",
+    "reset_gpu_resource_diagnostics",
     "Video",
     "Capture",
     "AudioVideoCapture",

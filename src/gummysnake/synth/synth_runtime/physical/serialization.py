@@ -5,8 +5,6 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from gummysnake.assets._audio_codec import MemorySoundSource
-from gummysnake.assets.sound import Sound
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.synth.synth_runtime.composition.event_api import _resolve_sample_source
 from gummysnake.synth.synth_runtime.composition.logical_nodes import (
@@ -14,7 +12,6 @@ from gummysnake.synth.synth_runtime.composition.logical_nodes import (
     ScheduledEvent,
 )
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
-from gummysnake.synth.synth_runtime.playback_export.samples_and_export import _wav_duration_seconds
 from gummysnake.synth.synth_runtime.values.foundation import (
     _MAX_FX_CHAIN_DEPTH,
     _MAX_PLAN_VALUE_DEPTH,
@@ -396,35 +393,6 @@ def _required_string(value: object, label: str) -> str:
     if not isinstance(value, str) or not value:
         raise ArgumentValidationError(f"Serialized synth {label} must be a non-empty string.")
     return value
-
-
-def _render_event_sound(
-    event: ScheduledEvent,
-    controls: Sequence[ScheduledControl],
-    fx_controls: Mapping[int, Sequence[ScheduledControl]],
-    sample_rate: int,
-    player_factory: Any | None,
-    name: str,
-) -> Sound | None:
-    from gummysnake.synth.synth_runtime.physical.rendering import _require_synth_runtime
-
-    runtime = _require_synth_runtime()
-    payload = bytes(
-        runtime.synth_render_event_wav(
-            _event_payload(event, controls, fx_controls),
-            int(sample_rate),
-        )
-    )
-    if not payload:
-        return None
-    seconds = _wav_duration_seconds(payload)
-    if seconds <= 0:
-        return None
-    return Sound(
-        MemorySoundSource(payload, duration=seconds),
-        path=Path(f"{name}-event-{event.node_id}.wav"),
-        player_factory=player_factory,
-    )
 
 
 def _fx_opts_at(

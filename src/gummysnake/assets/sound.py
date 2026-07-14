@@ -1,51 +1,18 @@
-"""Stable public sound assets and loaders.
-
-``Sound``, ``CanvasSound``, ``load_sound``, and ``load_sound_async`` are the
-public compatibility surface.  Native player implementation details live in
-``sound_runtime.native_playback``; private hook aliases below deliberately
-remain available for existing test and integration monkeypatches.
-"""
+"""Stable public sound assets and native SDL playback loaders."""
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
 from gummysnake.assets._paths import resolve_asset_path
 from gummysnake.assets.sound_runtime.canvas_sound import CanvasSound
-from gummysnake.assets.sound_runtime.native_playback import (
-    NativeAudioPlayer,
-)
-from gummysnake.assets.sound_runtime.native_playback import (
-    platform_play_command as _native_platform_play_command,
-)
-from gummysnake.assets.sound_runtime.native_playback import (
-    stop_active_native_audio_players as _stop_active_native_audio_players,
-)
 from gummysnake.assets.sound_runtime.sound import Sound as _RuntimeSound
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
 
-def _platform_play_command(path: Path) -> list[str] | None:
-    """Return the selected platform-player command.
-
-    This private compatibility hook is intentionally retained for integrations
-    that instrument player selection.  Public code should use ``Sound.play()``.
-    """
-
-    return _native_platform_play_command(path)
-
-
-class _NativeAudioPlayer(NativeAudioPlayer):
-    """Compatibility player whose command hook resolves through this module."""
-
-    def _play_command(self) -> list[str] | None:
-        return _platform_play_command(self._path)
-
-
 class Sound(_RuntimeSound):
-    """Loaded sound asset with playback controls."""
+    """Rust-owned sound asset with process-local native SDL playback."""
 
     def __init__(
         self,
@@ -59,15 +26,16 @@ class Sound(_RuntimeSound):
             source,
             path=path,
             rust_sound=rust_sound,
-            player_factory=player_factory or _NativeAudioPlayer,
+            player_factory=player_factory,
         )
 
 
 def load_sound(path: str | Path) -> Sound:
-    """Load a sound file for playback and byte access.
+    """Load a mono or stereo 16-bit PCM WAV into a Rust-owned audio asset.
 
-    This is the authoritative sound-loading implementation.  It always returns
-    the stable public ``Sound`` type backed by a Rust-managed ``CanvasSound``.
+    Loading and metadata access do not open an audio device. ``Sound.play()``
+    opens or reuses the process-local SDL3 manager and fails clearly if native
+    audio is unavailable.
     """
 
     sound_path = resolve_asset_path(path)
@@ -78,23 +46,16 @@ def load_sound(path: str | Path) -> Sound:
     except BackendCapabilityError:
         raise
     except Exception as exc:
-        raise ArgumentValidationError(f"Could not load sound {sound_path!s}.") from exc
+        raise ArgumentValidationError(
+            f"Could not load sound {sound_path!s}; expected mono or stereo 16-bit PCM WAV audio."
+        ) from exc
     return Sound(rust_sound, path=sound_path, rust_sound=rust_sound)
 
 
 async def load_sound_async(path: str | Path) -> Sound:
-    """Load a sound file using the async asset-loading API."""
+    """Load a sound through the awaitable asset API using the same native asset path."""
 
     return load_sound(path)
 
 
-__all__ = [
-    "CanvasSound",
-    "Sound",
-    "_NativeAudioPlayer",
-    "_platform_play_command",
-    "_stop_active_native_audio_players",
-    "load_sound",
-    "load_sound_async",
-    "subprocess",
-]
+__all__ = ["CanvasSound", "Sound", "load_sound", "load_sound_async"]

@@ -159,15 +159,20 @@ captured image, and `duration` must produce a positive finite frame duration.
 - `create_video_async(...)`
 
 `load_sound()` is the stable public loading authority and returns the public
-`Sound` wrapper with a Rust-managed `CanvasSound` handle attached. Sound bytes
-and duration metadata stay in the canvas runtime until code asks for Python
-bytes with `sound.to_bytes()`, while Python keeps the current friendly `play()`,
-`pause()`, `stop()`, `close()`, `loop()`, `no_loop()`, `looping(...)`,
-`seek(seconds)`, `time()`, `is_playing()`, `is_paused()`, `volume()`, `rate()`,
-and `pan()` controls. Playback uses the first available platform player in the
-order `afplay`, `paplay`, `aplay`, or `ffplay`; otherwise `play()` raises a
-Gummy Snake capability error while metadata and bytes remain usable. Loading and
-metadata access do not require a player, and no synthetic-audio fallback is used.
+`Sound` wrapper with a Rust-managed `CanvasSound` audio asset attached. Mono and
+stereo 16-bit PCM WAV bytes, decoded planar PCM, metadata, and stable asset
+identity stay in Rust until code explicitly asks for `sound.to_bytes()`. Loaded
+and generated/rendered sounds share one process-local SDL3 device manager and
+voice mixer. Each `play()` creates independent native voice state while reusing
+the immutable decoded asset. `pause()`, `stop()`, `close()`, `loop()`,
+`no_loop()`, `looping(...)`, `seek(seconds)`, `time()`, `is_playing()`,
+`is_paused()`, `volume()`, `rate()`, and `pan()` are synchronized at native mixer
+frame boundaries; rate/device conversion uses the canonical band-limited
+resampler. `on_ended()` callbacks are queued by Rust and drained on the Python
+owner thread when state is observed. `playback_diagnostics()` reports per-voice
+block/frame/state data. Loading and metadata access do not open a device. Missing
+devices and unsupported formats fail clearly; playback never creates temporary
+files, launches subprocesses, synthesizes silence, or selects another player.
 
 Audio analysis and synthesis are deterministic, headless-safe Pythonic helpers.
 `AudioBuffer` stores sample tuples, `Amplitude` computes RMS levels, `FFT`
@@ -177,12 +182,17 @@ processes low-pass/high-pass buffers, and `AudioInput` is an explicit input
 buffer for tests and audio-reactive sketches. Gummy Snake does not expose Web
 Audio node graphs or browser audio contexts.
 
-Video and capture helpers require installing the `media` extra. Decoded
-grayscale, BGR, and BGRA frames are converted to Gummy Snake RGBA image buffers
-by the Rust canvas runtime once the optional media dependency supplies a
-contiguous frame buffer.
+`create_video()` currently decodes self-contained GIF files in the mandatory Rust
+canvas runtime and does not select an OpenCV or platform decoder. External decoder
+integrations may use the optional `media` extra to supply contiguous unsigned-byte
+grayscale, BGR, BGRA, or explicit RGBA frames; conversion then remains in the Rust
+canvas runtime. `MediaFrameSink(width, height)`
+is the public integration API for repeatedly updating one stable `Image` from
+such buffers without allocating a new Python image wrapper for each frame. Use
+`sink.update(frame, format=None, stride=None)`, `sink.image`, and
+`sink.diagnostics()` to update, access, and inspect that reusable image.
 
-`create_video()` returns a `Video` with explicit `play()`, `pause()`, `stop()`,
+`create_video()` rejects unsupported codecs clearly and returns a `Video` with explicit `play()`, `pause()`, `stop()`,
 `loop()`, `no_loop()`, `looping(...)`, `seek(seconds)`, `time()`, `speed(...)`,
 `read()`, `current_frame()`, and `close()` methods. `speed()` records the
 intended playback rate for clock-driven integrations; explicit `read()` calls
@@ -190,14 +200,13 @@ still pull one decoded frame at a time. `read()` returns a Gummy Snake `Image`,
 so video frames can be passed to `image()` and to texture-capable 3D paths like
 other images.
 
-`create_capture()` covers native video/camera capture through the optional media
-backend and deterministic audio input through `AudioInput`. Use
-`create_capture("audio")` for a started audio input stream and
-`create_capture("audio+video")` / `"video+audio"` for `AudioVideoCapture`, a
-composite object exposing `.video`, `.audio`, frame reads, audio reads, and
-shared lifecycle methods. Browser permission APIs and DOM media elements are not
-exposed; camera access can still fail in headless or privacy-restricted
-environments with a package-specific capability error.
+`create_capture("audio")` returns a started deterministic `AudioInput`. Rust-native
+camera/video capture is not available in the current build, so `"video"` and
+combined audio/video requests raise an actionable `BackendCapabilityError` rather
+than selecting OpenCV, a synthetic camera, or another platform decoder. Physical
+camera availability and cross-platform hardware evidence are not required for the
+headless media contract. Browser permission APIs and DOM media elements are not
+exposed.
 
 ## Offscreen Graphics, Framebuffers, and Compute
 
@@ -207,8 +216,10 @@ environments with a package-specific capability error.
 - `create_storage_buffer(data_or_size, dtype="float")`
 - `update_storage_buffer(buffer, data, offset=0)`
 - `read_storage_buffer(buffer)`
-- `create_compute_shader(callback=None, source=None, label=None)`
+- `create_compute_shader(source=..., entry_point="main", label=None)`
 - `dispatch_compute(shader, x, y=1, z=1, **buffers)`
+- `gpu_resource_diagnostics()`
+- `reset_gpu_resource_diagnostics()`
 
 `Graphics` is an offscreen canvas with isolated style, transform, pixel, and 3D
 state, built by the mandatory canvas backend. Its `drawing` property provides a
@@ -219,9 +230,14 @@ to the offscreen canvas backing buffer, and `remove()` releases its backend.
 `Framebuffer` extends `Graphics` with depth metadata for render-target workflows.
 There is no Python image or interactive fallback.
 
-The `WEBGPU` compute helpers are deterministic and safe in headless runs. They
-provide explicit storage buffers plus callback-backed compute dispatch without
-exposing browser WebGPU contexts or JavaScript shader objects.
+The `WEBGPU` compute helpers use Rust-owned WGPU storage buffers and compiled
+WGSL shaders without exposing browser WebGPU contexts or JavaScript shader
+objects. `dispatch_compute()` binds storage buffers in keyword insertion order;
+Python callback execution and CPU compute fallbacks are not supported. Missing
+GPU capabilities fail with an actionable `BackendCapabilityError`.
+`gpu_resource_diagnostics()` reports Rust-owned allocation, upload, readback,
+compile, dispatch, and release counters. `reset_gpu_resource_diagnostics()`
+resets those counters without releasing live resources.
 
 3D asset helpers also include awaitable variants:
 

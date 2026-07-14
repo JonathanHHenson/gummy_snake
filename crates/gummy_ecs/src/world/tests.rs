@@ -1,5 +1,5 @@
 use super::{ChangeEpoch, ChangeKind, World};
-use crate::archetype::ComponentRow;
+use crate::archetype::{ComponentRow, EntityRowData, SpawnEntity};
 use crate::column::EcsValue;
 use crate::entity::Entity;
 use crate::query::{QueryCardinality, QueryFilter, QueryTerm};
@@ -52,6 +52,73 @@ fn archetype_spawn_query_and_structural_moves_are_deterministic() {
     );
     world.remove_component(first, "Velocity").unwrap();
     assert_eq!(world.query(["Velocity".to_string()]).unwrap(), vec![second]);
+}
+
+#[test]
+fn bulk_spawn_validates_every_complete_row_before_mutating_world() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let valid = SpawnEntity::new(
+        EntityRowData::from([(
+            "Position".to_string(),
+            ComponentRow::from([
+                ("x".to_string(), EcsValue::F64(1.0)),
+                ("y".to_string(), EcsValue::F64(2.0)),
+            ]),
+        )]),
+        vec!["hero".to_string()],
+    );
+    let incomplete = SpawnEntity::new(
+        EntityRowData::from([(
+            "Position".to_string(),
+            ComponentRow::from([("x".to_string(), EcsValue::F64(3.0))]),
+        )]),
+        Vec::new(),
+    );
+
+    let error = world
+        .spawn_batch(vec![valid.clone(), incomplete])
+        .unwrap_err();
+    assert!(error.to_string().contains("missing Position.y"));
+    assert_eq!(world.alive_count(), 0);
+    assert_eq!(world.structural_revision(), 0);
+    assert!(world.change_journal().is_empty());
+    assert_eq!(world.diagnostics().bulk_spawn_calls, 0);
+
+    let entities = world.spawn_batch(vec![valid]).unwrap();
+    assert_eq!(entities.len(), 1);
+    assert_eq!(world.entity_tags(entities[0]).unwrap(), vec!["hero"]);
+    assert_eq!(
+        world.get_field(entities[0], "Position", "x").unwrap(),
+        EcsValue::F64(1.0)
+    );
+    assert_eq!(world.diagnostics().bulk_spawn_calls, 1);
+    assert_eq!(world.diagnostics().bulk_spawn_entities, 1);
+}
+
+#[test]
+fn numeric_spatial_cache_is_proportional_to_live_rows_not_historical_entity_ids() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let mut entities = (0..2_048)
+        .map(|_| world.spawn_with_defaults(["Position".to_string()]).unwrap())
+        .collect::<Vec<_>>();
+    let retained = entities.pop().unwrap();
+    for entity in entities {
+        world.despawn(entity).unwrap();
+    }
+    world
+        .set_field(retained, "Position", "x", EcsValue::F64(42.0))
+        .unwrap();
+
+    let locations = world.locations_for_entities([retained]).unwrap();
+    let cache = world
+        .field_f64_cache_for_resolved_entities("Position", "x", &[retained], &locations)
+        .unwrap();
+
+    assert_eq!(retained.index, 2_047);
+    assert_eq!(cache.len(), 1);
+    assert_eq!(cache.get(&retained), Some(&42.0));
 }
 
 #[test]
@@ -194,6 +261,31 @@ fn change_journal_tracks_staged_and_f64_mutations_without_recording_noop_f64_wri
             .get(),
         7
     );
+}
+
+#[test]
+fn staged_barrier_rejects_late_invalid_commands_without_partial_application() {
+    let mut world = World::new();
+    register_position_velocity(&mut world);
+    let entity = world.spawn_with_defaults(["Position".to_string()]).unwrap();
+    let revision = world.structural_revision();
+    let journal_len = world.change_journal().len();
+    world.stage_add_component(entity, "Velocity");
+    world.stage_add_component(entity, "Velocity");
+
+    let error = world.apply_staged().unwrap_err();
+
+    assert!(error
+        .to_string()
+        .contains("already has ECS component Velocity"));
+    assert_eq!(
+        world.entity_components(entity).unwrap(),
+        vec!["Position".to_string()]
+    );
+    assert_eq!(world.structural_revision(), revision);
+    assert_eq!(world.change_journal().len(), journal_len);
+    assert_eq!(world.staged_command_count(), 2);
+    assert_eq!(world.diagnostics().staged_commands_applied, 0);
 }
 
 #[test]

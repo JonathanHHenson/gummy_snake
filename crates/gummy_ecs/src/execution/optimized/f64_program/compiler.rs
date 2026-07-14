@@ -13,7 +13,7 @@ use super::{
     CompiledSpatialF64Array, F64BinaryOp,
 };
 
-type EntityF64Cache = HashMap<String, HashMap<String, Vec<Option<(u32, f64)>>>>;
+type EntityF64Cache = HashMap<String, HashMap<String, HashMap<Entity, f64>>>;
 type QueryRowF64Cache = HashMap<String, HashMap<String, Vec<f64>>>;
 
 #[allow(clippy::too_many_arguments)]
@@ -24,7 +24,7 @@ pub(in crate::execution) fn compile_f64_readonly_program<'a>(
     query_name: &str,
     numeric_field_cache: &'a EntityF64Cache,
     numeric_field_cache_rows: &'a QueryRowF64Cache,
-    spatial_precomputed_f64: &'a HashMap<usize, Vec<Option<(u32, f64)>>>,
+    spatial_precomputed_f64: &'a HashMap<usize, HashMap<Entity, f64>>,
     spatial_precomputed_f64_rows: &'a HashMap<usize, SpatialF64RowArray>,
 ) -> CompiledF64ReadOnlyProgram<'a> {
     let mut expressions = Vec::with_capacity(plan.expressions.len());
@@ -72,7 +72,7 @@ pub(in crate::execution) fn compile_f64_readonly_program<'a>(
                         *slot
                     } else {
                         let slot = field_arrays.len();
-                        field_arrays.push(CompiledF64Array::SparseEntity(values.as_slice()));
+                        field_arrays.push(CompiledF64Array::SparseEntity(values));
                         field_array_slots.insert(key, slot);
                         slot
                     };
@@ -136,7 +136,7 @@ pub(in crate::execution) fn compile_f64_readonly_program<'a>(
                     CompiledF64Expr::SpatialAggregate(slot)
                 } else if let Some(values) = spatial_precomputed_f64.get(&expr_index) {
                     let slot = spatial_arrays.len();
-                    spatial_arrays.push(CompiledSpatialF64Array::SparseEntity(values.as_slice()));
+                    spatial_arrays.push(CompiledSpatialF64Array::SparseEntity(values));
                     CompiledF64Expr::SpatialAggregate(slot)
                 } else {
                     CompiledF64Expr::Unsupported(format!(
@@ -376,21 +376,12 @@ pub(in crate::execution) fn compiled_field_f64_value(
                 entity.index, entity.generation
             ))
         }),
-        CompiledF64Array::SparseEntity(values) => {
-            let Some(Some((generation, value))) = values.get(entity.index as usize) else {
-                return Err(EcsError::InvalidPlan(format!(
-                    "numeric field cache missing entity {}:{}",
-                    entity.index, entity.generation
-                )));
-            };
-            if *generation != entity.generation {
-                return Err(EcsError::InvalidPlan(format!(
-                    "numeric field cache has stale entity generation for {}:{}",
-                    entity.index, entity.generation
-                )));
-            }
-            Ok(*value)
-        }
+        CompiledF64Array::SparseEntity(values) => values.get(&entity).copied().ok_or_else(|| {
+            EcsError::InvalidPlan(format!(
+                "numeric field cache missing entity {}:{}",
+                entity.index, entity.generation
+            ))
+        }),
     }
 }
 
@@ -418,18 +409,12 @@ pub(in crate::execution) fn compiled_spatial_f64_value(
                 ))
             }),
         CompiledSpatialF64Array::SparseEntity(values) => {
-            let Some(Some((generation, value))) = values.get(entity.index as usize) else {
-                return Err(EcsError::InvalidPlan(format!(
+            values.get(&entity).copied().ok_or_else(|| {
+                EcsError::InvalidPlan(format!(
                     "spatial aggregate missing entity {}:{}",
                     entity.index, entity.generation
-                )));
-            };
-            if *generation != entity.generation {
-                return Err(EcsError::InvalidPlan(
-                    "spatial aggregate has stale entity generation".to_string(),
-                ));
-            }
-            Ok(*value)
+                ))
+            })
         }
     }
 }

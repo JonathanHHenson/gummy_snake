@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from benchmarks.governance import AuthorityError, ExecutionClass
+from benchmarks.governance import CapabilityError, ExecutionClass
 from benchmarks.worker import (
     CapabilitySet,
     FreshWorker,
@@ -22,7 +22,7 @@ from benchmarks.worker.protocol import PHASES, PROTOCOL_VERSION
 
 
 def test_capabilities_fail_closed_for_missing_native_window() -> None:
-    with pytest.raises(AuthorityError, match="native_window"):
+    with pytest.raises(CapabilityError, match="native_window"):
         require_capabilities(
             ExecutionClass.NATIVE_INTERACTIVE, CapabilitySet(runtime=True, gpu=True)
         )

@@ -19,6 +19,7 @@ use super::parse::parse_bridge_plan_payload;
 use super::summaries::{execution_report_to_dict, physical_plan_summary_to_dict};
 use super::values::{
     component_row_from_dict, component_row_to_dict, ecs_value_to_py, py_to_ecs_value,
+    spawn_entities_from_list,
 };
 
 fn py_value_error(err: impl Display) -> PyErr {
@@ -43,17 +44,13 @@ impl PyEcsWorld {
         }
     }
 
-    fn allocate_entity(&mut self) -> (u32, u32) {
-        let entity = self.world.spawn_empty();
-        (entity.index, entity.generation)
-    }
-
-    fn spawn_with_defaults(&mut self, components: Vec<String>) -> PyResult<(u32, u32)> {
-        let entity = self
-            .world
-            .spawn_with_defaults(components)
-            .map_err(py_value_error)?;
-        Ok((entity.index, entity.generation))
+    fn spawn_batch(&mut self, rows: &Bound<'_, PyList>) -> PyResult<Vec<(u32, u32)>> {
+        let rows = spawn_entities_from_list(rows)?;
+        let entities = self.world.spawn_batch(rows).map_err(py_value_error)?;
+        Ok(entities
+            .into_iter()
+            .map(|entity| (entity.index, entity.generation))
+            .collect())
     }
 
     fn despawn_entity(&mut self, index: u32, generation: u32) -> PyResult<()> {

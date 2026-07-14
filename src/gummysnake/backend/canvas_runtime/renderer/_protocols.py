@@ -5,16 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
-    PackedImageBatchState,
-    PackedTextBatchState,
-)
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
-    LineBatchState,
     ModelBatchKey,
-    ModelBatchState,
     ModelTransformPayload,
-    PrimitiveBatchState,
 )
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
@@ -34,11 +27,6 @@ TextMetricKey = tuple[str, str | None, int, int]
 
 
 class CanvasRendererHost(Protocol):
-    _line_batch_state: LineBatchState
-    _primitive_batch_state: PrimitiveBatchState
-    _model_batch_state: ModelBatchState
-    _text_batch: PackedTextBatchState
-    _image_batch: PackedImageBatchState
     _skip_canvas_end_frame: bool
     _last_pixel_bytes: bytes | None
     _current_matrix_payload: MatrixPayload
@@ -62,6 +50,11 @@ class CanvasRendererHost(Protocol):
         matrix: MatrixPayload,
     ) -> None: ...
     def _queue_model_batch(self, key: ModelBatchKey, transform: ModelTransformPayload) -> bool: ...
+    def _record_fill_primitive_batch(
+        self,
+        records: list[tuple[object, ...]],
+        transform: Matrix2D,
+    ) -> None: ...
     def _queue_primitive_batch(
         self,
         kind: int,

@@ -36,13 +36,13 @@ def test_canvas_context_style_cache_invalidation_respects_push_pop(
 
     canvas = backend.renderer._canvas
     assert canvas is not None
-    batches = [call for call in canvas.calls if call[0] == "batch_primitives"]
+    batches = [call for call in canvas.calls if call[0] == "batch_primitives_mixed"]
     first, second, third = batches[-3:]
-    assert first[2]["fill"] == (255, 0, 0, 255)
-    assert second[2]["fill"] == (0, 255, 0, 255)
-    assert third[2]["fill"] == (255, 0, 0, 255)
-    assert first[3] == third[3] == (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
-    assert second[3] == (1.0, 0.0, 0.0, 1.0, 5.0, 6.0)
+    assert first[2][0][2:6] == (255, 0, 0, 255)
+    assert second[2][0][2:6] == (0, 255, 0, 255)
+    assert third[2][0][2:6] == (255, 0, 0, 255)
+    assert first[3] == third[3] == [(1.0, 0.0, 0.0, 1.0, 0.0, 0.0)]
+    assert second[3] == [(1.0, 0.0, 0.0, 1.0, 5.0, 6.0)]
 
 
 def test_canvas_context_rect_uses_primitive_batch_bridge(
@@ -60,10 +60,10 @@ def test_canvas_context_rect_uses_primitive_batch_bridge(
     context.renderer.end_frame()
 
     call = canvas.calls[-2]
-    assert call[0] == "batch_primitives"
-    assert call[1] == [(1, 10.0, 11.0, 12.0, 13.0, 0.0, 0.0)]
-    assert call[2]["fill"] == (255, 0, 0, 255)
-    assert call[3] == (1.0, 0.0, 0.0, 1.0, 3.0, 4.0)
+    assert call[0] == "batch_primitives_mixed"
+    assert [record[:7] for record in call[1]] == [(1, 10.0, 11.0, 12.0, 13.0, 0.0, 0.0)]
+    assert call[2][0][2:6] == (255, 0, 0, 255)
+    assert call[3] == [(1.0, 0.0, 0.0, 1.0, 3.0, 4.0)]
 
 
 def test_canvas_context_triangle_batches_before_quad_direct_shape_bridge(
@@ -81,15 +81,16 @@ def test_canvas_context_triangle_batches_before_quad_direct_shape_bridge(
 
     triangle_call = canvas.calls[-3]
     quad_call = canvas.calls[-2]
-    assert triangle_call[0] == "batch_primitives"
-    assert triangle_call[1] == [(2, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0)]
+    assert triangle_call[0] == "batch_primitives_mixed"
+    assert [record[:7] for record in triangle_call[1]] == [(2, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0)]
     assert quad_call[0] == "quad"
     assert quad_call[1:9] == (7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0)
-    assert triangle_call[-2] is quad_call[-2]
-    assert triangle_call[-1] is quad_call[-1]
+    assert triangle_call[2][0][2:6] == quad_call[-2]["fill"]
+    assert triangle_call[2][0][6:10] == quad_call[-2]["stroke"]
+    assert triangle_call[3] == [quad_call[-1]]
 
 
-def test_canvas_renderer_batches_simple_primitives_until_order_boundary() -> None:
+def test_canvas_renderer_records_simple_primitives_before_order_boundary() -> None:
     from gummysnake.backend.canvas_renderer import CanvasRenderer
     from gummysnake.core.color import Color
     from gummysnake.core.state import StyleState
@@ -109,10 +110,10 @@ def test_canvas_renderer_batches_simple_primitives_until_order_boundary() -> Non
 
     canvas = renderer._canvas
     assert canvas is not None
-    primitive_call = next(call for call in canvas.calls if call[0] == "batch_fill_primitives")
-    text_call = next(call for call in canvas.calls if call[0] == "text_batch_frame")
-    assert canvas.calls.index(primitive_call) < canvas.calls.index(text_call)
-    assert primitive_call[1] == [
+    primitive_calls = [call for call in canvas.calls if call[0] == "batch_fill_primitives"]
+    text_call = next(call for call in canvas.calls if call[0] == "text_batch")
+    assert max(canvas.calls.index(call) for call in primitive_calls) < canvas.calls.index(text_call)
+    assert [record for call in primitive_calls for record in call[1]] == [
         (1, 1, 2, 3, 4, 0.0, 0.0, 255, 0, 0, 255),
         (2, 1, 1, 5, 1, 3, 6, 255, 0, 0, 255),
         (3, 10, 10, 4, 6, 0.0, 0.0, 255, 0, 0, 255),
@@ -220,8 +221,8 @@ def test_canvas_context_clip_path_context_manager_applies_path(
     calls = canvas.calls
     assert calls[-3][0] == "begin_clip"
     assert calls[-3][1] == [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]
-    assert calls[-2][0] == "batch_primitives"
-    assert calls[-2][1] == [(1, 0.0, 0.0, 20.0, 20.0, 0.0, 0.0)]
+    assert calls[-2][0] == "batch_primitives_mixed"
+    assert [record[:7] for record in calls[-2][1]] == [(1, 0.0, 0.0, 20.0, 20.0, 0.0, 0.0)]
     assert calls[-1] == ("end_clip",)
 
 

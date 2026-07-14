@@ -17,12 +17,32 @@ class FakeCanvasSynthProgram:
     pass
 
 
+class FakeGpuStorageBuffer:
+    pass
+
+
+class FakeGpuComputeShader:
+    pass
+
+
+class FakeCanvasMediaFrameSink:
+    pass
+
+
+class FakeCanvasVideo:
+    pass
+
+
 class FakeCanvasModule:
     CANVAS_ABI_VERSION = EXPECTED_CANVAS_ABI_VERSION
     FRAME_COMMAND_ABI_VERSION = FRAME_COMMAND_ABI_VERSION
     Matrix2D = FakeRustMatrix2D
     Canvas = FakeCanvas
     CanvasImage = FakeRustImage
+    CanvasMediaFrameSink = FakeCanvasMediaFrameSink
+    CanvasVideo = FakeCanvasVideo
+    GpuStorageBuffer = FakeGpuStorageBuffer
+    GpuComputeShader = FakeGpuComputeShader
     CanvasModel3D = FakeRustModel3D
     CanvasMesh3D = FakeRustMesh3D
     CanvasSound = FakeRustSound
@@ -43,6 +63,15 @@ class FakeCanvasModule:
 
     def gpu_available(self) -> bool:
         return True
+
+    def webgpu_context_info(self) -> dict[str, object]:
+        return {"native_gpu": True}
+
+    def gpu_resource_diagnostics(self) -> dict[str, int]:
+        return {}
+
+    def reset_gpu_resource_diagnostics(self) -> None:
+        return None
 
     def parse_obj_model_handle(self, text: str, source: str, normalize: bool) -> FakeRustModel3D:
         return FakeRustModel3D()

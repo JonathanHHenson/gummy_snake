@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:133cdf150ae0e7f608d274a852dc28f9532eac3ea8f2890fa4a5d67d1e68646e",
+  "catalog_digest": "sha256:a89d43a66c68b0f15d7ccf1e5dd574376299ff99975785de4aec653be4a38661",
   "entries": [
     {
       "capabilities": [
@@ -10,7 +10,7 @@
       ],
       "case_id": "headless-framebuffer-16-small",
       "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:afeab82162ac3d5f77af97557a6ff4b657f9ef42ab9431c8c9b838284a25fe61",
+      "definition_digest": "sha256:29b6d50ca01ba5cf5612f5d1ae232a86515878fd74cebba51c419052fbe14831",
       "metric_identity": {
         "id": "resource-lifecycle-elapsed-ns",
         "version": 1
@@ -44,7 +44,7 @@
       ],
       "case_id": "headless-image-operations-1k",
       "correctness_label": "image-asset-operations-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:f830b919ae9d0e1192f73ca90f15e0015b6b62864c274f51de7e0cc252cef00f",
+      "definition_digest": "sha256:fb434a7073d7ee2ab145f2e06fad2c22c00da6fceffe491d4f3aa5c5fc7dd527",
       "metric_identity": {
         "id": "asset-operation-elapsed-ns",
         "version": 1
@@ -77,7 +77,7 @@
       ],
       "case_id": "headless-image-operations-64px",
       "correctness_label": "image-asset-operations-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:49b7f95c2cbad6d95b7e59e00a8239679d156c15a1fd164a9c2219ceb7994077",
+      "definition_digest": "sha256:4c60b9dc6ced829358446604e8edd1a0dc8d6ec9fa03ca87f7cbddd9596131a3",
       "metric_identity": {
         "id": "asset-operation-elapsed-ns",
         "version": 1
@@ -110,7 +110,7 @@
       ],
       "case_id": "headless-media-bgr-1080p-30",
       "correctness_label": "media-frame-conversion-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:ae6bb7cfdc88711bba9a37f93f25c23c50ec06f7943fd9d76fc7509c14db444b",
+      "definition_digest": "sha256:09f6aa2dcd39af83947fbf8038a95680c8c35a7faf8f07009a05efae8ee508f0",
       "metric_identity": {
         "id": "media-frame-conversion-elapsed-ns",
         "version": 1
@@ -144,7 +144,7 @@
       ],
       "case_id": "headless-media-gray-720p-30",
       "correctness_label": "media-frame-conversion-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:61567f938c53b5e020808d0a05f4df817cc6fce6676c8e0494c7415bd42f2e73",
+      "definition_digest": "sha256:dcc720ea813fe0f2ab2b2f7fbdaa740a8544e04f352df011163f69f6d5461989",
       "metric_identity": {
         "id": "media-frame-conversion-elapsed-ns",
         "version": 1
@@ -180,7 +180,7 @@
       ],
       "case_id": "headless-model-10k-triangles-export",
       "correctness_label": "model-import-export-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:f5a500968b3fec46fb8f53afacf30cc32f46e1bd7c502624cb1461cbd5895b21",
+      "definition_digest": "sha256:9f01c3c40e1efa5f2ad2e7f571f6d311820943648879ff9aaa905ed0bed118c6",
       "metric_identity": {
         "id": "model-operation-elapsed-ns",
         "version": 1
@@ -217,7 +217,7 @@
       ],
       "case_id": "headless-offscreen-1-small",
       "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:23140f8ffd0256ae6002260dbbed2bcaeda12aefa7fa6ef3280a36a926b7e736",
+      "definition_digest": "sha256:23a89cab6f71b9f280be97f62b36f432749b7d49f810cf3313d41bc48be891aa",
       "metric_identity": {
         "id": "resource-lifecycle-elapsed-ns",
         "version": 1
@@ -250,7 +250,7 @@
       ],
       "case_id": "headless-offscreen-16-small",
       "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:4b4b67fd31e0c24b3ec48cb88dea36b6674a64da46d0cdbcd206afb086e1ef87",
+      "definition_digest": "sha256:25da2f0854b878365e1ae528d40ab0f4e62fd5dcf5fac1cb40c9721d5719b8ba",
       "metric_identity": {
         "id": "resource-lifecycle-elapsed-ns",
         "version": 1
@@ -283,7 +283,7 @@
       ],
       "case_id": "headless-offscreen-64-small",
       "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:0b4d9228444ac3536ee5187f8c91299c41c1afc4a21c1ea05b596a13554efda0",
+      "definition_digest": "sha256:387655fd6c784771bbd5fbf76f42a16108395c8f270e48a2aedcdf1e5abbbd91",
       "metric_identity": {
         "id": "resource-lifecycle-elapsed-ns",
         "version": 1
@@ -319,7 +319,7 @@
       ],
       "case_id": "headless-png-roundtrip-1k",
       "correctness_label": "png-export-roundtrip-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:8af306280524ba48a64c5cd98435838e5d7a66d29e96694eb44c18be27904ce6",
+      "definition_digest": "sha256:4088da2444886548402965ab9355c480b806612623c8d79a691d91416b55d3cf",
       "metric_identity": {
         "id": "export-elapsed-ns",
         "version": 1
@@ -354,7 +354,7 @@
       ],
       "case_id": "headless-png-roundtrip-64px",
       "correctness_label": "png-export-roundtrip-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:498b4d458f9939db028975450553336c4c98797e71105b14a538e19387b0d40f",
+      "definition_digest": "sha256:8d166fd8efeabfe9e5c851abb1c593cc17f6bf200b95cb648b3eeefc8a840a6e",
       "metric_identity": {
         "id": "export-elapsed-ns",
         "version": 1
@@ -381,45 +381,12 @@
     {
       "capabilities": [
         "canvas-runtime",
-        "offscreen-rendering",
-        "pixel-readback",
-        "deterministic-cpu-compute"
-      ],
-      "case_id": "headless-storage-compute-64x64",
-      "correctness_label": "storage-compute-lifecycle-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:56e8fa93d3dd9c1eeebcc13c1a72fe7c0290f5f7dd1d169ef78ebea715485fab",
-      "metric_identity": {
-        "id": "compute-dispatch-elapsed-ns",
-        "version": 1
-      },
-      "required_counters": [],
-      "route": "headless",
-      "runtime_parameters": {
-        "buffer_size": 4096,
-        "case_kind": "storage-compute-lifecycle",
-        "density": "1.0",
-        "dispatch_route": "global",
-        "dispatch_x": 64,
-        "dispatch_y": 64,
-        "frame_rate": 60,
-        "frames": 1,
-        "height": 128,
-        "required_counters": [],
-        "width": 128
-      },
-      "sampling_profile": "canvas-bounded-v1",
-      "workload_id": "assets-media-models",
-      "workload_version": 2
-    },
-    {
-      "capabilities": [
-        "canvas-runtime",
         "native-window",
         "media-frame-conversion"
       ],
       "case_id": "native-media-bgra-4k-300",
       "correctness_label": "media-frame-conversion-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:908ae352bdf1e1ef0de2851946a2e9363c7d341b22101dded14b4b4613832e26",
+      "definition_digest": "sha256:bb9766d4d83aeddacba05b57bd41a01c9e1e0087e33ac4918157f01d1e76750a",
       "metric_identity": {
         "id": "media-frame-conversion-elapsed-ns",
         "version": 1
@@ -458,7 +425,7 @@
       ],
       "case_id": "native-model-1-triangle-1k-instances",
       "correctness_label": "model-import-export-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:178440de96055b1d0041f84bf6e34c442965ac31597ece18230287bed544559a",
+      "definition_digest": "sha256:9cd211ae518b6884da98045a6ac64d38dfaec300dcd6dd2e4dd86b8ef2bbbf57",
       "metric_identity": {
         "id": "model-operation-elapsed-ns",
         "version": 1
@@ -497,7 +464,7 @@
       ],
       "case_id": "native-offscreen-1080p",
       "correctness_label": "offscreen-resource-churn-exact-output-lifecycle-and-cleanup",
-      "definition_digest": "sha256:1af6c1a70901b2b3bc058a6357f931594037931d0cd629c951d574cc1bef7a4f",
+      "definition_digest": "sha256:c20d27b0ffb47f496985afba4fc8e80b37c80c43a8b931f6abab3c738fd8c765",
       "metric_identity": {
         "id": "resource-lifecycle-elapsed-ns",
         "version": 1
@@ -531,11 +498,44 @@
         "canvas-runtime",
         "offscreen-rendering",
         "pixel-readback",
+        "native-wgpu-compute"
+      ],
+      "case_id": "headless-storage-compute-64x64",
+      "correctness_label": "storage-compute-lifecycle-exact-output-lifecycle-and-cleanup",
+      "definition_digest": "sha256:e34ec71bbe7448b9c5173d95fb38852117e7dc66d37b3eab35276130ca995352",
+      "metric_identity": {
+        "id": "compute-dispatch-elapsed-ns",
+        "version": 1
+      },
+      "required_counters": [],
+      "route": "headless",
+      "runtime_parameters": {
+        "buffer_size": 4096,
+        "case_kind": "storage-compute-lifecycle",
+        "density": "1.0",
+        "dispatch_route": "global",
+        "dispatch_x": 64,
+        "dispatch_y": 64,
+        "frame_rate": 60,
+        "frames": 1,
+        "height": 128,
+        "required_counters": [],
+        "width": 128
+      },
+      "sampling_profile": "canvas-bounded-v1",
+      "workload_id": "assets-media-models",
+      "workload_version": 3
+    },
+    {
+      "capabilities": [
+        "canvas-runtime",
+        "offscreen-rendering",
+        "pixel-readback",
         "effects"
       ],
       "case_id": "headless-blend-add",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:91eac9ba5b4eb262dec05355248fcbeabbe77c99be096075e1db7c7067d3c95a",
+      "definition_digest": "sha256:569d18ba7eee6459610f3eccc40d20679d36b68e57a377ff3db9e26d28069721",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -569,7 +569,7 @@
       ],
       "case_id": "headless-blend-blend",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:8299ccacaa60c3a88532679be10707f2eb29db8e8bdb98322cbf9a959ca52660",
+      "definition_digest": "sha256:f2f0ea47c632460b800d53538c3e726ea675831b22b518595d8eff703b607945",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -602,7 +602,7 @@
       ],
       "case_id": "headless-blend-darkest",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:56fb44c928596ac8af40198ad56bbc4f8ecf763f4a78067fc3fab9912cb53384",
+      "definition_digest": "sha256:8de881fa615e002571a2f34e593b3e21899782e0847659db24283aae8de3992a",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -639,7 +639,7 @@
       ],
       "case_id": "headless-blend-difference",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:0c4428bdaaf406fd3e1d82c18e4193cd96c275ee97ae80fc8a155d6d642457dc",
+      "definition_digest": "sha256:fa2031388ce9aee19c686ae9cdb40505f195f1f99875578e29642c1d9489a52e",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -676,7 +676,7 @@
       ],
       "case_id": "headless-blend-exclusion",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:84271b5ffb7574b0f723cb48162bf46449278300ead3bb20792e1d08c9b74e56",
+      "definition_digest": "sha256:52c48957ed07cbb7a61262e74d61585e655d25f28c5f0db884f3778965d94b11",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -713,7 +713,7 @@
       ],
       "case_id": "headless-blend-lightest",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:93bbff0685d7ba5b92da4a7f08cc1e8889c55669c953d250c29f52250924c78c",
+      "definition_digest": "sha256:99b692a1f7dc926d27450ab4deef5b9fce07b3e0cf72b071660d4d7b029a3f8c",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -750,7 +750,7 @@
       ],
       "case_id": "headless-blend-multiply",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:b203749685f06a9c8120eb0d7f52d67e545ea73e9d61f565f115cffc5508bae7",
+      "definition_digest": "sha256:7a5258005f9082845bb24325725da6c6b0ddd56972c5faf4ab69ee89685e7a32",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -787,7 +787,7 @@
       ],
       "case_id": "headless-blend-replace",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:9679ecedea70462d68bf8b5c46fc165f709a8f6b63bc1f68a332424594aa01a4",
+      "definition_digest": "sha256:0c4667abe0ff8be51f541f9ab9d350845eb4b83a0aeea3bd8ce1ee0497a381cc",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -824,7 +824,7 @@
       ],
       "case_id": "headless-blend-screen",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:ca1c3af4d55f85352c1cf414d9caf1fc7df7127b37c000653c1473e0c7c112e9",
+      "definition_digest": "sha256:2c670371df967dae3f4613adf90f685036e583a9e974115caa170fdba00fd7b1",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -862,7 +862,7 @@
       ],
       "case_id": "headless-erase-64-operations",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:aed4e6d0cd2bcc80bcb21865c4b7a184d50beeae0c7b12936be55280376c6074",
+      "definition_digest": "sha256:11d9ae68a8a4210ca85c6478cf10222724afd2fe6b15e29344b62b43194a248c",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -896,7 +896,7 @@
       ],
       "case_id": "headless-filter-blur",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:a45269585e26dc70c72253a977f776ff8290dbaf64520b95dc071c0c7cf91eb9",
+      "definition_digest": "sha256:237c3511b154b6e3fb6bde282c9b48a6229927df0e3fe0bf6f123a2cc06cbafd",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -934,7 +934,7 @@
       ],
       "case_id": "headless-filter-dilate",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:ecc50e97c3b25db6ef8227fd8219b82bf7e5a805e9134d7fc3b97694a964a4c7",
+      "definition_digest": "sha256:0369941cb20a8309e52a4d7a81f990456b5f18c5e9b79450591c7fc1f68a7b65",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -972,7 +972,7 @@
       ],
       "case_id": "headless-filter-erode",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:e0325770843a146f9916761396b46ca29ddf846adee18b0f1856f37a240eebc4",
+      "definition_digest": "sha256:0b2654c00d182791aed1fdf6afcd25629a1dde1d6b6f7ca521bc2c9b7caa856c",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1010,7 +1010,7 @@
       ],
       "case_id": "headless-filter-gray",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:fa9e0be2428540318cb13c3c8d5ea60dcf2a3937e794518530b12d32e4b20045",
+      "definition_digest": "sha256:07b7d358b966e7765c5989c4cf760f5345027bad8702fc443120d2dda48ee36c",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1048,7 +1048,7 @@
       ],
       "case_id": "headless-filter-invert",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:c5511626f4a102317d204b11fbdcc284785581ad85f18feaaa2d4fb17ceaa8db",
+      "definition_digest": "sha256:c0a214307aaaf1e7f807692e4d95d0bfea6d589f09d106b03fde97204c7e9396",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1086,7 +1086,7 @@
       ],
       "case_id": "headless-filter-posterize",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:deb22f833de3eb9f281de7c4173df12fbc698921c6e6d80e62e57efd160df548",
+      "definition_digest": "sha256:03f8320e978265d754b1814bce250937841b1313f7ab29997247a078d3e4cfe7",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1124,7 +1124,7 @@
       ],
       "case_id": "headless-filter-threshold",
       "correctness_label": "effect-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:0c945381c9daacbcbf687599e456ccc6d79cf6bc0dc79d75862823590415ee45",
+      "definition_digest": "sha256:8463106424dc47044753f849e2a6bf95a68bdd310df20082fdeec80b4ad9b065",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1162,7 +1162,7 @@
       ],
       "case_id": "headless-readback-bytes-1080p",
       "correctness_label": "pixel-readback-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:4891cdc3b978ff16ee5b436b51b2516c175ac4de07091eee3ccd3700f555fd45",
+      "definition_digest": "sha256:08ef91820bae4ce39376cd426f4d17ed304d2f2a57bf77322dbf830988dc205e",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1204,7 +1204,7 @@
       ],
       "case_id": "headless-readback-full-720p",
       "correctness_label": "pixel-readback-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:1bd600f2b968093e0ea83e756a764cf34147415bd23a4a16b824b2607efc963b",
+      "definition_digest": "sha256:21a599c4f7f5f4de2b290ff2548ec58488eccb4d35ee407a224959e904ead146",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1246,7 +1246,7 @@
       ],
       "case_id": "headless-readback-pixel-1px",
       "correctness_label": "pixel-readback-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:e37fb1fba995848335110002aaf85c4904a1ba22cfe455a5d5571f5cd4e340ab",
+      "definition_digest": "sha256:4962bfceaedf42c71a601cac105e5daa55d108a1ed954bc2a89ada520fe5b22b",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1288,7 +1288,7 @@
       ],
       "case_id": "headless-readback-region-64x64",
       "correctness_label": "pixel-readback-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:9b5e8d37177471864ce8e4404f8c4743e04ee334262b8744dcc00e368444f84a",
+      "definition_digest": "sha256:758c91b8be904413f8e4a7457e681e25d1f55b7621b52a526012e2654ae9533c",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1330,7 +1330,7 @@
       ],
       "case_id": "headless-sprites-1-unique-1k-32px-unchanged",
       "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:3c315cfc1b4e8acd422c6aa5b3a0c90b5e122cc362d5c8b49c287ec21b3f7438",
+      "definition_digest": "sha256:49b3bb02660a45724839157453d431cfe8f66aeb25d0994bbe1137195cdff671",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1374,7 +1374,7 @@
       ],
       "case_id": "headless-sprites-1080p-source-full-replacement",
       "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:ad2d699b9fe57c7a10e150005761ae175756d1fbd5b0e1144d94f5bb8cffda20",
+      "definition_digest": "sha256:b0e42d91854e499138ff2d40fd8af2f49b934aa774e216fcf6a7581f14a525fd",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1418,7 +1418,7 @@
       ],
       "case_id": "headless-sprites-128-unique-1k-32px-one-percent",
       "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:b5d2dd1841a10b82bb437d4314ae8fdb437224930fc4142f3043f8a87e164da2",
+      "definition_digest": "sha256:3f36cc86c68ecb9e6c128cd0c19c517a6e3fe2a94ae095812eb56269936cb75c",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1462,7 +1462,7 @@
       ],
       "case_id": "headless-sprites-8-unique-1k-256px-one-pixel",
       "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:10146efc41308a53fc90c5aa10954ea977a6498c0f04e768112c0e6e045035ff",
+      "definition_digest": "sha256:c83b49e1ff9cf1728cbdb75e2439b752d0a73e8bc916df6a23767fc8f3dd2aa4",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1506,7 +1506,7 @@
       ],
       "case_id": "headless-text-1k-repeated-size-12",
       "correctness_label": "text-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:1845849cf9710dd9eae88c144ba051a85f83c2b1b74ad5492cca8efa7727dcf8",
+      "definition_digest": "sha256:29899bfbb4e892b4f98eebe6d8f53faf87d49a4981aa5ef9a6feb3d0ed349a2f",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1548,7 +1548,7 @@
       ],
       "case_id": "headless-text-1k-unique-size-48-transformed",
       "correctness_label": "text-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:f854870965963fe48ccc716db62ea2003203a0b45fb70ed980b87cd2219a1e34",
+      "definition_digest": "sha256:5d1f24134a535cc41ebad8855e25cf2ffcf13bccae39d8cdf40d6b3e571e79df",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1588,7 +1588,7 @@
       ],
       "case_id": "headless-write-block-64x64",
       "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:3a36d9125200133c9365c150715c20dec24d189f821aba303c4298da2060ea4e",
+      "definition_digest": "sha256:fda04f25c24a81ac5bb957984ff983daff1bfd0e9907039a83fced56b6ef32cb",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1626,7 +1626,7 @@
       ],
       "case_id": "headless-write-composite-64x64",
       "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:8dce61dd73df53b57e7d2feaf5b2928877695740d0a6a10a20be1a75cce58718",
+      "definition_digest": "sha256:8fffa5993f465cd61306a37313da039660742e24f253ee3b74c49ec1b95e8239",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1664,7 +1664,7 @@
       ],
       "case_id": "headless-write-full-320x180",
       "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:339a4091035346212f9b3d88b5095f9a6127e1857824331719a2cd3bcc0642bb",
+      "definition_digest": "sha256:093839919b748eb7cbea6ce1aa074282706e93ea9b744b1fb1a5570b63967cc6",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1702,7 +1702,7 @@
       ],
       "case_id": "headless-write-one-byte-1x1",
       "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:5684fa78c49f2a1a9f4c28cc875b43cbb35584a1032c32ced7653a353ba3d9a0",
+      "definition_digest": "sha256:0ab9867f059a0f9c15151100df02c559bb4225807ebf6d3ea30cb9ed562d2c75",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1740,7 +1740,7 @@
       ],
       "case_id": "headless-write-one-pixel-1x1",
       "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:46f004f69a72d17ed3cc442f33e3fc28a15c0890a428c363f666829b00fb3416",
+      "definition_digest": "sha256:723d8674181d45089b4aef2027ed061c07d499bcf91f6f90224aaf7136a8a23a",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1778,7 +1778,7 @@
       ],
       "case_id": "headless-write-overwrite-64x64",
       "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:8a8f8f198fd0229eb07044c4f0ffd3207591cf00d6e4c7f7b41fc7ca9c53e599",
+      "definition_digest": "sha256:4e51e51894f72152a07ca609d185e50407c33ba83ae6ef5fcd6092d78c77dc0c",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1816,7 +1816,7 @@
       ],
       "case_id": "headless-write-row-320x1",
       "correctness_label": "pixel-write-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:831efc771a2b78e69badcd689e6973245e0cee2ebf9d5f6a2abc6d286d3d7a8e",
+      "definition_digest": "sha256:ebc3cff3e9dab6250c1439b0d4b22e08e8c7fc73729d0cd4a053f6eecde6432b",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1853,7 +1853,7 @@
       ],
       "case_id": "native-ordered-filter-overlay",
       "correctness_label": "ordered-effects-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:878576f897d137c61669b9d91cd59e471c2d664c8cff8e1f463b0f020ca27099",
+      "definition_digest": "sha256:7c2d44b63aacebac7b57120e216534650a309c3d3d91c7901e1d0b5cbfd071f2",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1890,7 +1890,7 @@
       ],
       "case_id": "native-sprites-10k-alternating",
       "correctness_label": "sprite-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:4549352cccafd521a74f92a68191ad8c943686c73251d96ebd88ca3935f96a16",
+      "definition_digest": "sha256:d159e7cce9097413a929036ce6d2e93716771a58ab2c527e228872f91498836e",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1935,7 +1935,7 @@
       ],
       "case_id": "native-text-1k-multiscript-size-128-clipped",
       "correctness_label": "text-matrix-exact-locality-order-and-declared-work",
-      "definition_digest": "sha256:2b778cd1cb53fe525983238980ab2923af9cf07b6de43948749b52220467efe3",
+      "definition_digest": "sha256:b0a324239da43a5e6f44eb06044f1b260dad976e30b61d3fec9dec60958f1256",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -1976,7 +1976,7 @@
       ],
       "case_id": "headless-clear-loop-120fps",
       "correctness_label": "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:fc5027aa7a5bbc9c5997e5561d0bba0ad83d15ed1ccc83255620f92e3628fe12",
+      "definition_digest": "sha256:64613a666925f2456571aa991cb467fadcc663c1f127c2534232fefba321716c",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -2006,7 +2006,7 @@
       ],
       "case_id": "headless-clear-loop-30fps",
       "correctness_label": "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:fb076a33bbf9a58e51f28f0a1e76130076e069d180081d943c726817100214e6",
+      "definition_digest": "sha256:7e66f78af835fa273ee69c363172d027128ced2eb68714beb49a358145897b42",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -2036,7 +2036,7 @@
       ],
       "case_id": "headless-clear-loop-60fps",
       "correctness_label": "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:9cbc06795eefae27e2a6b08f8f35bbc0bcc982faffceb7ea5947fb58fc106969",
+      "definition_digest": "sha256:6a62b48f973b5becf7d283a03f420284fb8631de0699a4f7d7980eb978761cb5",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -2066,7 +2066,7 @@
       ],
       "case_id": "headless-dynamic-frame-rate-30-60-120",
       "correctness_label": "dynamic-frame-rate-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:6bf6549a563bf000c1b7e4f284371bdaa8dc7e1f8e5546cc8464c890f76abf13",
+      "definition_digest": "sha256:b608785a47b057d60118b9646c049797dfbef1cca6ef15217dcaebe10c66a8c7",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -2102,7 +2102,7 @@
       ],
       "case_id": "headless-empty-startup-first-frame",
       "correctness_label": "empty-loop-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:3a1d084ea09690598b30f156f5c65884ff7bdb7413d8af27d0a038cf0451574e",
+      "definition_digest": "sha256:46c02ff67b2146ea1d69dd8255a11de4c2d714af033739417273480043285265",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -2132,7 +2132,7 @@
       ],
       "case_id": "headless-explicit-redraw",
       "correctness_label": "explicit-redraw-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:63f4f5cb31dea243ad3b4890040c4b2df54879837cf5b13b14db3357d9f0fd1a",
+      "definition_digest": "sha256:ee900a02a33c378bef7338f6a7206f446582f0d988d4dcc23847b7de6ddb808e",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -2162,7 +2162,7 @@
       ],
       "case_id": "headless-hidpi-1080p-density-2",
       "correctness_label": "empty-loop-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:862cca59f6918c14f9d53a91f5d618418cb0432b3fc60ad66f5d5d2f82bf68e4",
+      "definition_digest": "sha256:1965b48ebba33541296736dfab23c16e472021e037818e2686505f2c845d9f90",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -2192,7 +2192,7 @@
       ],
       "case_id": "headless-hidpi-640x480-density-1-5",
       "correctness_label": "empty-loop-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:bdfe6b123a6895a03be9f8811b0c7c5c6e23f040397581e6eef6de9512c3ba3a",
+      "definition_digest": "sha256:be613fb24e89404f84651aaefd3707be117e4af3b0c716e880ad6c479542b7f3",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -2222,7 +2222,7 @@
       ],
       "case_id": "headless-no-loop-idle",
       "correctness_label": "no-loop-idle-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:4e448dd3bd8cf9bd368b289f5834764db5b5e3406b382323b4254dbe80cee605",
+      "definition_digest": "sha256:17ceb42349f64ed6fc78dd9bfcd7edf3af4a9ced89178b311bc610cb15cc9ff2",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -2252,7 +2252,7 @@
       ],
       "case_id": "headless-resize-density-churn",
       "correctness_label": "resize-density-churn-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:354a5d35782041cdd9e548365937b18a861fc8889f75c584196aca5cf2d257b6",
+      "definition_digest": "sha256:7fe7742a62860232436ef9cee3bd535ffcb34c6a5578a9a3a2b47e18bd6e8f5e",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -2303,7 +2303,7 @@
       ],
       "case_id": "native-4k-density-1",
       "correctness_label": "empty-loop-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:613e50201e11b8de1c93785a4877ceebdae525fe2dd4e63ae88ddfb572fc6f6f",
+      "definition_digest": "sha256:e9f30bff89344e0e73a582640690d49d868b9b17946b972414a29981c38b1fd6",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -2336,7 +2336,7 @@
       ],
       "case_id": "native-clear-loop-120-presented-frames",
       "correctness_label": "continuous-clear-loop-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:c05988d24413485033f4115bfeb6bc8672f726456fca8f4e700a25321cfaf57a",
+      "definition_digest": "sha256:5552475ace740f77eb5e2a04bab2997027b2ab0784684dc8aea9d9517b02e146",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -2369,7 +2369,7 @@
       ],
       "case_id": "native-dynamic-frame-rate-30-60-120",
       "correctness_label": "dynamic-frame-rate-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:6d694855ed1c780b9c78c68961a108947962aa080b8fb7a882b8b3f68de228d1",
+      "definition_digest": "sha256:e4e12d7fec91aa7cf02718b8481357977efd9c61d9b7bf3db0b78ac017aacc5c",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -2410,7 +2410,7 @@
       ],
       "case_id": "native-interactive-explicit-redraw",
       "correctness_label": "explicit-redraw-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:c6704a33f01ffff52b06657ce23bef5d5230024100336d51d214b07f628e3248",
+      "definition_digest": "sha256:cb61850834c656fd752ab1b6c125996e089051670ba5b252cab4b7a615423066",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -2443,7 +2443,7 @@
       ],
       "case_id": "native-interactive-no-loop-idle",
       "correctness_label": "no-loop-idle-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:2188c66b95615e3559772daf9cb5976cf2bc8ee0b1b6fe043a765f7b26e56643",
+      "definition_digest": "sha256:89d80e0917a38bd5fd33ba48fbc9517e89c614f5203406223568fae5a1173fe8",
       "metric_identity": {
         "id": "lifecycle-elapsed-ns",
         "version": 1
@@ -2476,7 +2476,7 @@
       ],
       "case_id": "native-interactive-resize-density-churn",
       "correctness_label": "resize-density-churn-exact-callback-frame-logical-physical-dimensions",
-      "definition_digest": "sha256:f7a83283a13f03b365717542ad863ed11aabfdfa66b8c9c67f06fdf19dcaaa83",
+      "definition_digest": "sha256:32ec0f8d1b155d044ea80b2c8e37192ab8e8e0190b6c03472e6ff285080e5706",
       "metric_identity": {
         "id": "frame-elapsed-ns",
         "version": 1
@@ -2534,7 +2534,7 @@
       ],
       "case_id": "headless-arc-curves-256",
       "correctness_label": "curves-contours-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:412d8922ae30888418a88af5f27fdc14a87a58c5508efab737af52f42fa303cf",
+      "definition_digest": "sha256:596c1f21e8c21aec55665fe15751617c03c271206792799104f7bc56ba6140a6",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2572,7 +2572,7 @@
       ],
       "case_id": "headless-captured-paths-128-by-32",
       "correctness_label": "paths-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:e4c74e66e54e8963f8af15fda315ec53d67d828008bc7bff85d083aca672f725",
+      "definition_digest": "sha256:85f7ba7efd18bc295045d5895ed4734d42c6dba0249e66e884111d0597fd8ab2",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2609,7 +2609,7 @@
       ],
       "case_id": "headless-captured-paths-8-by-4096",
       "correctness_label": "paths-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:2907fc081c8062fb1424f3d0b3c547634ad7d83428a79b64f51662d44eae2695",
+      "definition_digest": "sha256:855390e36d59f8e2ee73d38fcdce6e9af1a67ea19244a568e0fc81f3fd553280",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2645,7 +2645,7 @@
       ],
       "case_id": "headless-circle-10k-low-mutation",
       "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:8bb79d11b9f056a965d1ae5ffe5669ea61ece5123dd2b90174d3f62feeaab279",
+      "definition_digest": "sha256:f17c033cb50decc623abe1113b17e63c0ab254ecd6c89fab9cf1f05c49b18d35",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2683,7 +2683,7 @@
       ],
       "case_id": "headless-clips-depth-1-simple",
       "correctness_label": "nested-clips-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:bc4ee10677d9f9e7e4bcde74d02349df4232086131cddc1114d226cc9d96eb4c",
+      "definition_digest": "sha256:d1e8a1b67e3cb2eddbba35271196f8b8c7809ecb892e1de637266aa9dac4d67d",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2721,7 +2721,7 @@
       ],
       "case_id": "headless-clips-depth-4-by-32",
       "correctness_label": "nested-clips-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:2d6f6c5a4739f38b60ae1455d0e5d0d02f02dd4dea5f98f4ddc5b84afdc24d4f",
+      "definition_digest": "sha256:e6ab5c9284b1a51cb1af38d2704ffd89e732c4e3892887566c49dd4659a44a34",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2759,7 +2759,7 @@
       ],
       "case_id": "headless-contour-hole-curves-256",
       "correctness_label": "curves-contours-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:e921c633562727bdfbcdee195243cc8d45fc02a73a61295d4f2cc755054b6766",
+      "definition_digest": "sha256:6582cc63689339b2dee3092af27f21106b0d2dc63f304e8816ea5c89f2b2b2dd",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2797,7 +2797,7 @@
       ],
       "case_id": "headless-cubic-curves-256",
       "correctness_label": "curves-contours-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:2090cd3fea42eaea888fa89005b7d21dafd99b0dce5e7bf428baf23fd715f854",
+      "definition_digest": "sha256:be421d7f302c8a5846257b1ec796e028f9d236ffb5740dc3c94cebbb22ca5115",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2835,7 +2835,7 @@
       ],
       "case_id": "headless-independent-lines-1k",
       "correctness_label": "independent-lines-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:5f8b5486d9aa0f6073a6af383558c0984f99443733fec3c33d7eeb97dcbb8ba8",
+      "definition_digest": "sha256:c869d0c222fcad51670987002af637a04a75ac8ab5ccc68fcd0cef3bc93e3918",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2872,7 +2872,7 @@
       ],
       "case_id": "headless-mixed-1k-static-16-styles",
       "correctness_label": "mixed-primitives-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:86ab3d30498095815d9b4203103e9ef5f2d7f4c9a94fcebed0610674ae685c60",
+      "definition_digest": "sha256:59e05f2a5dfd001633ff077a4c63571c10ad2a78025272229f0c1658c18f1c19",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2910,7 +2910,7 @@
       ],
       "case_id": "headless-mixed-5k-low-mutation-32-styles",
       "correctness_label": "mixed-primitives-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:af1ffd8998dd0b58ca671013fad4ff4736e09bff289c48b1ed14057f002c03df",
+      "definition_digest": "sha256:b5b07d3d122b82887a0b6fb87dbb8be6caef1c6d24cee409536ef8b9eaefb1dc",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2948,7 +2948,7 @@
       ],
       "case_id": "headless-ordered-family-stream-8-switches",
       "correctness_label": "ordered-family-stream-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:e3cef0bcd081d0fab5207f26f0845fed2c1d41fe6448440a46580cee01ecd612",
+      "definition_digest": "sha256:b2b0556b8212d420286e42b9ecd1dad016beab5d49149d847ef109d5b61c5ce2",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -2985,7 +2985,7 @@
       ],
       "case_id": "headless-polyline-10k",
       "correctness_label": "polyline-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:e25f0477dab00bbc5badba83bd8284bc014eb6f09bd65e7d38744f36e7186409",
+      "definition_digest": "sha256:0e06b88e3f9bc9af88d161fce7448df4cddd244a83ae0ea3371c8f16551be5da",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3022,7 +3022,7 @@
       ],
       "case_id": "headless-quadratic-curves-256",
       "correctness_label": "curves-contours-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:5f21bd90ce06bd9e9d70448aca8c162dd2163bb8057e8aa4e6d69b06d1cc610b",
+      "definition_digest": "sha256:a817c0a7acbc986eabb7357262bced7f9ece50454adab562b0ed3c3ba3d364a4",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3059,7 +3059,7 @@
       ],
       "case_id": "headless-rect-1k-static-fast",
       "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:c76736ca656ff887af17de81b37c7471f927dd44e5e82b59ff83de676997d532",
+      "definition_digest": "sha256:02619833914252df250a3f1f2f87469144dafece6a9071cdff0f77888fdeea07",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3096,7 +3096,7 @@
       ],
       "case_id": "headless-rect-1k-static-global",
       "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:2c4b47f52de3ad9e4d47fe14a8bf3efddd1d1eedd59c83e3967adf2ad4fd4075",
+      "definition_digest": "sha256:0eb3c8fa4933bf59cb3214bb48fb1f48369afe9c83a44d06048b772a358c678e",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3133,7 +3133,7 @@
       ],
       "case_id": "headless-rect-1k-static-object",
       "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:92bf0c2f45a957cc494d2272f3b424bd78da30bb84da5ff97b541ec1ad46f19a",
+      "definition_digest": "sha256:d9061e4adc7ed70ea73296a161fab7f5bc66ff54c40a8e0afff6d93c66dda1c2",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3170,7 +3170,7 @@
       ],
       "case_id": "native-clips-depth-16-by-2048",
       "correctness_label": "nested-clips-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:a1ab4c85c8083a020e250069ed1e8ea9e701755d770697f331253f2bbca6c9d2",
+      "definition_digest": "sha256:b4f074f9500c3f5c6b9893b901d20a8e30be3f13b7f054d23f1f2a601132749b",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3209,7 +3209,7 @@
       ],
       "case_id": "native-independent-lines-50k",
       "correctness_label": "independent-lines-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:9806404919f2ad48e411688f10dfd4de0e92d3c8a0699081e88267f7724feac1",
+      "definition_digest": "sha256:dff3b2332dbff0912936a1a1d192288dce2ec03d5083a7fcfbeb68a2ef365d97",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3247,7 +3247,7 @@
       ],
       "case_id": "native-mixed-20k-dynamic-64-styles",
       "correctness_label": "mixed-primitives-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:375355a0257ba7988024f5266a759e6e2c2809b56f312d29c40c94ae331a79d5",
+      "definition_digest": "sha256:df8be55421d8f2e6a7d664796821676016133b19520a7122d79e4489f4706ffd",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3286,7 +3286,7 @@
       ],
       "case_id": "native-ordered-family-stream-32-switches",
       "correctness_label": "ordered-family-stream-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:07e5e858ac2847cd1dc5dc6d5bd9d0b4c6d1c007689a173c851f3e08b96d3e57",
+      "definition_digest": "sha256:11e2ab1ff2bf8c878333df9e45798e569f17cbb2de0f426170ac49274fa26307",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3324,7 +3324,7 @@
       ],
       "case_id": "native-polyline-50k",
       "correctness_label": "polyline-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:412f0568eddc6649dc4900249dde323c6d0adc5d8ff1bd437bf5f66e26748fd6",
+      "definition_digest": "sha256:f9ea686588ffd13b1d76e0628c9a3d9ee70ffd3221fe7585a9bc5eb7f9abc954",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3361,7 +3361,7 @@
       ],
       "case_id": "native-rect-1k-static-global",
       "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:c16a0d788badcbb1cc7feef500248e3d7cb06b1f05cb2339406ba5f9663350cb",
+      "definition_digest": "sha256:ee6ad49d53a6230fb6208aa93b085cd89de66d1efeb91aff7cdcf44c86420333",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1
@@ -3399,7 +3399,7 @@
       ],
       "case_id": "native-triangle-100k-dynamic",
       "correctness_label": "uniform-primitives-declared-work-and-exact-order-sentinels",
-      "definition_digest": "sha256:de1ca11cc7abfbedf195bf8e77739c1452ea4c18f601f23a82ee0567f08de94c",
+      "definition_digest": "sha256:fcd505383864fd911ac580c0191bc2423e35e8b83b17536c999f6eae0ac836c9",
       "metric_identity": {
         "id": "draw-elapsed-ns",
         "version": 1

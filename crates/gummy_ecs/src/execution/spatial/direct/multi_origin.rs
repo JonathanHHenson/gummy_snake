@@ -166,11 +166,7 @@ impl<'a> PlanExecutor<'a> {
             return Ok(false);
         }
         let result_values_are_dense = spatial_result_values_are_dense(&batches);
-        let max_entity_index = origin_rows
-            .iter()
-            .map(|entity| entity.index as usize)
-            .max()
-            .unwrap_or(0);
+
         let worker_count = rayon::current_num_threads().max(1);
         let chunk_size = (origin_rows.len() / (worker_count * 4))
             .clamp(128, 1024)
@@ -325,7 +321,6 @@ impl<'a> PlanExecutor<'a> {
             &result_exprs,
             result_count,
             origin_rows.len(),
-            max_entity_index,
             result_values_are_dense,
         )?;
         if let Some(start) = profile_start {

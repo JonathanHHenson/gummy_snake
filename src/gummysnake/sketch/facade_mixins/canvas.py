@@ -23,7 +23,13 @@ from gummysnake.assets.gpu import (
     dispatch_compute as _dispatch_compute,
 )
 from gummysnake.assets.gpu import (
+    gpu_resource_diagnostics as _gpu_resource_diagnostics,
+)
+from gummysnake.assets.gpu import (
     read_storage_buffer as _read_storage_buffer,
+)
+from gummysnake.assets.gpu import (
+    reset_gpu_resource_diagnostics as _reset_gpu_resource_diagnostics,
 )
 from gummysnake.assets.gpu import (
     update_storage_buffer as _update_storage_buffer,
@@ -119,6 +125,12 @@ class SketchFacadeCanvasMixin(SketchFacadeBaseMixin):
 
     def webgpu_context(self) -> WebGpuContextInfo:
         return _webgpu_context()
+
+    def gpu_resource_diagnostics(self) -> dict[str, int]:
+        return _gpu_resource_diagnostics()
+
+    def reset_gpu_resource_diagnostics(self) -> None:
+        _reset_gpu_resource_diagnostics()
 
     def resize_canvas(self, width: int, height: int, *, pixel_density: float | None = None) -> None:
         self._ctx.resize_canvas(width, height, pixel_density=pixel_density)

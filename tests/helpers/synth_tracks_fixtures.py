@@ -296,10 +296,20 @@ def _wav_payload(duration_seconds: float, sample_rate: int = 44_100) -> bytes:
 
 
 class _FakeCanvasAudioPlayback:
-    def __init__(self, duration: float) -> None:
+    def __init__(self, duration: float, *, looping: bool = False) -> None:
         self.duration = duration
+        self.looping = looping
+        self.error: str | None = None
+        self.play_calls = 0
+        self.pause_calls = 0
         self.stop_calls = 0
         self.close_calls = 0
+
+    def play(self) -> None:
+        self.play_calls += 1
+
+    def pause(self) -> None:
+        self.pause_calls += 1
 
     def stop(self) -> None:
         self.stop_calls += 1
@@ -314,6 +324,15 @@ class _FakeCanvasAudioPlayback:
     def is_playing(self) -> bool:
         return False
 
+    def diagnostics(self) -> dict[str, object]:
+        return {
+            "duration_seconds": self.duration,
+            "playing": False,
+            "looping": self.looping,
+            "blocks": 1,
+            "rendered_frames": int(self.duration * 44_100),
+        }
+
 
 class _FakeSynthRuntime:
     def __init__(self) -> None:
@@ -322,6 +341,7 @@ class _FakeSynthRuntime:
         self.play_serialized_plan_calls: list[tuple[bytes, int]] = []
         self.play_wav_bytes_calls: list[bytes] = []
         self.playbacks: list[_FakeCanvasAudioPlayback] = []
+        self.play_looping_flags: list[bool] = []
         self.plan_calls: list[tuple[list[dict[str, object]], float, int]] = []
         self.event_calls: list[tuple[dict[str, object], int]] = []
         self.worker_count: int | str = "auto"
@@ -397,11 +417,14 @@ class _FakeSynthRuntime:
     def synth_reset_diagnostics(self) -> None:
         self.diagnostic_counters.clear()
 
-    def synth_play_compiled_program(self, program: object) -> _FakeCanvasAudioPlayback:
+    def synth_play_compiled_program(
+        self, program: object, looping: bool = False
+    ) -> _FakeCanvasAudioPlayback:
         payload = bytes(program._payload)
         sample_rate = int(program.sample_rate)
         self.play_serialized_plan_calls.append((payload, sample_rate))
-        playback = _FakeCanvasAudioPlayback(float(program.duration))
+        self.play_looping_flags.append(looping)
+        playback = _FakeCanvasAudioPlayback(float(program.duration), looping=looping)
         self.playbacks.append(playback)
         return playback
 

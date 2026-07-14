@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::gpu::context::GpuDeviceContext;
 use crate::gpu::pipeline::{preferred_surface_format, surface_config};
+use crate::gpu::textures::padded_atlas_pixels;
 use crate::gpu::{GpuColor, GpuRenderer, ModelUniform, ModelVertex};
 use crate::types::BlendMode;
 
@@ -75,6 +76,21 @@ fn flat_model_uniform(color: GpuColor, z: f32) -> ModelUniform {
         point_position: [0.0; 4],
         flags: [0.0; 4],
     }
+}
+
+#[test]
+fn persistent_atlas_padding_repeats_edge_texels() {
+    let pixels = [
+        10, 20, 30, 255, 40, 50, 60, 255, 70, 80, 90, 255, 100, 110, 120, 255,
+    ];
+
+    let padded = padded_atlas_pixels(&pixels, 2, 2);
+
+    assert_eq!(padded.len(), 4 * 4 * 4);
+    assert_eq!(pixel_at(&padded, 4, 0, 0), [10, 20, 30, 255]);
+    assert_eq!(pixel_at(&padded, 4, 3, 0), [40, 50, 60, 255]);
+    assert_eq!(pixel_at(&padded, 4, 0, 3), [70, 80, 90, 255]);
+    assert_eq!(pixel_at(&padded, 4, 3, 3), [100, 110, 120, 255]);
 }
 
 fn pixel_at(pixels: &[u8], width: usize, x: usize, y: usize) -> [u8; 4] {

@@ -43,8 +43,6 @@ class ModeResult:
     baseline_found: bool = False
     record_path: str | None = None
     record_id: str | None = None
-    candidate_branch: str | None = None
-    candidate_commit: str | None = None
 
 
 class BenchmarkRunner(Protocol):
@@ -55,8 +53,6 @@ class ModeDatabase(Protocol):
     def head(self) -> str: ...
 
     def require_clean_head(self) -> str: ...
-
-    def fingerprint_known(self, fingerprint_id: str) -> bool: ...
 
     def exact_record(
         self, subject: str, fingerprint_id: str, suite_id: str, suite_version: int
@@ -107,8 +103,6 @@ def _compatible_baseline(
     if exact is not None:
         return exact
     ancestor_lookup = getattr(database, "nearest_ancestor_record", None)
-    if not callable(ancestor_lookup):
-        ancestor_lookup = getattr(database, "nearest_first_parent_record", None)
     if callable(ancestor_lookup):
         ancestor = ancestor_lookup(subject, fingerprint, suite, version)
         if ancestor is not None:
@@ -170,39 +164,18 @@ def record_head(database: ModeDatabase, runner: BenchmarkRunner, compare: Compar
     # Recheck clean HEAD immediately before the immutable local write.
     if database.require_clean_head() != head:
         raise ModeError("HEAD changed while benchmarking; refusing to record")
-    writer = getattr(database, "record", None)
-    if callable(writer):
-        stored = writer(record)
-        path = getattr(stored, "path", None)
-        record_id = getattr(stored, "record_id", None)
-        created = getattr(stored, "created", True)
-        if path is None or not isinstance(record_id, str) or not isinstance(created, bool):
-            raise ModeError("database returned an invalid local record result")
-        return ModeResult(
-            BenchmarkMode.RECORD_HEAD,
-            outcome,
-            reason,
-            recorded=created,
-            baseline_found=baseline is not None,
-            record_path=str(path),
-            record_id=record_id,
-        )
-
-    # Compatibility for callers that explicitly inject the legacy Git database.
-    stage = getattr(database, "stage_candidate", None)
-    if not callable(stage):
-        raise ModeError("database does not support local recording")
-    staged = stage(record)
-    branch = getattr(staged, "branch", None)
-    commit = getattr(staged, "commit", None)
-    if not isinstance(branch, str) or not isinstance(commit, str):
-        raise ModeError("database returned an invalid staged candidate")
+    stored = database.record(record)
+    path = getattr(stored, "path", None)
+    record_id = getattr(stored, "record_id", None)
+    created = getattr(stored, "created", True)
+    if path is None or not isinstance(record_id, str) or not isinstance(created, bool):
+        raise ModeError("database returned an invalid local record result")
     return ModeResult(
         BenchmarkMode.RECORD_HEAD,
         outcome,
         reason,
-        recorded=True,
+        recorded=created,
         baseline_found=baseline is not None,
-        candidate_branch=branch,
-        candidate_commit=commit,
+        record_path=str(path),
+        record_id=record_id,
     )

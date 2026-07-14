@@ -13,7 +13,7 @@ impl Canvas {
         let (physical_width, physical_height) = physical_dimensions(width, height, pixel_density)?;
         let (gpu, gpu_error) = match crate::gpu::GpuRenderer::new(physical_width, physical_height) {
             Ok(renderer) => (Some(renderer), None),
-            Err(err) => (None, Some(err)),
+            Err(error) => (None, Some(error)),
         };
         Ok(Self {
             width,

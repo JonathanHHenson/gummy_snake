@@ -70,46 +70,18 @@ def test_bounded_loop_excludes_event_at_exact_duration_boundary() -> None:
     assert [event.time_seconds for event in physical.events] == [0.0, 1.0]
 
 
-def test_track_play_uses_rust_plan_render_for_bounded_realtime(monkeypatch) -> None:
-    class _FakePlayer:
-        instances = []
-
-        def __init__(self, path: Path) -> None:
-            self.path = path
-            self.play_calls = 0
-            self.pause_calls = 0
-            self.seek_calls: list[float] = []
-            self.delete_calls = 0
-            _FakePlayer.instances.append(self)
-
-        def play(self) -> None:
-            self.play_calls += 1
-
-        def pause(self) -> None:
-            self.pause_calls += 1
-
-        def seek(self, value: float) -> None:
-            self.seek_calls.append(value)
-
-        def delete(self) -> None:
-            self.delete_calls += 1
-
+def test_track_play_compiles_bounded_plan_once_for_native_realtime(monkeypatch) -> None:
     runtime = _FakeSynthRuntime()
-
     patch_synth_runtime(monkeypatch, runtime)
 
-    playback = _short_realtime_track().play(
-        duration=0.08,
-        player_factory=_FakePlayer,
-        look_ahead=0.0,
-    )
+    playback = _short_realtime_track().play(duration=0.08, look_ahead=0.0)
 
     assert isinstance(playback, sy.TrackPlayback)
     assert playback.wait_until_stop(timeout=2.0)
     assert not playback.is_playing()
-    assert [player.play_calls for player in _FakePlayer.instances] == [1]
-    assert len(runtime.serialized_plan_calls) == 1
-    assert sy.PhysicalPlan.from_bytes(runtime.serialized_plan_calls[0][0]).duration_seconds == 0.08
+    assert len(runtime.compiled_program_calls) == 1
+    payload, _sample_rate = runtime.compiled_program_calls[0]
+    assert sy.PhysicalPlan.from_bytes(payload).duration_seconds == 0.08
     assert runtime.plan_calls == []
     assert runtime.event_calls == []
 

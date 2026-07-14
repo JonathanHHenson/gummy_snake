@@ -88,10 +88,10 @@ type QueryLocationCache = HashMap<String, Vec<(usize, usize)>>;
 type SpatialIndexMetadata = HashMap<String, (String, u64, u64)>;
 type SpatialRelationCacheKey = (String, Option<usize>, Option<usize>, bool, String, u64);
 type SpatialRelationCache = HashMap<SpatialRelationCacheKey, Arc<Vec<SpatialRecord>>>;
-type NumericFieldCache = HashMap<String, HashMap<String, Vec<Option<(u32, f64)>>>>;
+type NumericFieldCache = HashMap<String, HashMap<String, HashMap<Entity, f64>>>;
 type NumericFieldRowCache = HashMap<String, HashMap<String, Vec<f64>>>;
 type SpatialBatchSpecCache = HashMap<(String, Option<usize>, Option<usize>), Vec<SpatialBatchSpec>>;
-type SparseSpatialF64Cache = HashMap<usize, Vec<Option<(u32, f64)>>>;
+type SparseSpatialF64Cache = HashMap<usize, HashMap<Entity, f64>>;
 type RowSpatialF64Cache = HashMap<usize, SpatialF64RowArray>;
 
 pub(in crate::execution) struct PlanExecutor<'a> {

@@ -9,6 +9,8 @@ pub struct Diagnostics {
     pub archetype_moves: usize,
     pub structural_commands_applied: usize,
     pub staged_commands_applied: usize,
+    pub bulk_spawn_calls: usize,
+    pub bulk_spawn_entities: usize,
     pub query_cache_hits: usize,
     pub query_cache_misses: usize,
     pub query_cache_refreshes: usize,

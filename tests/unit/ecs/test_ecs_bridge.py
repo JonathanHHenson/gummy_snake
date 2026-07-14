@@ -121,15 +121,52 @@ def test_python_change_terms_compile_as_stable_rust_query_filters(
         world.add_system(unsupported)
 
 
+def test_rust_ecs_bridge_bulk_spawn_is_transactional_and_complete() -> None:
+    world = rust_ecs.create_ecs_world()
+    world.register_schema("Position", [("x", "Float64"), ("y", "Float64")])
+
+    spawned = world.spawn_batch(
+        [
+            ({"Position": {"x": 1.0, "y": 2.0}}, ["hero"]),
+            ({"Position": {"x": 3.0, "y": 4.0}}, ["enemy"]),
+        ]
+    )
+
+    assert len(spawned) == 2
+    assert world.alive_count() == 2
+    assert world.diagnostics()["bulk_spawn_calls"] == 1
+    assert world.diagnostics()["bulk_spawn_entities"] == 2
+    assert not hasattr(type(world), "allocate_entity")
+    assert not hasattr(type(world), "spawn_with_defaults")
+
+    with pytest.raises(ValueError, match="missing Position.y"):
+        world.spawn_batch(
+            [
+                ({"Position": {"x": 5.0, "y": 6.0}}, []),
+                ({"Position": {"x": 7.0}}, []),
+            ]
+        )
+
+    assert world.alive_count() == 2
+    assert world.diagnostics()["bulk_spawn_calls"] == 1
+    assert world.diagnostics()["bulk_spawn_entities"] == 2
+
+
 def test_rust_ecs_bridge_executes_plan_payload() -> None:
     world = rust_ecs.create_ecs_world()
     world.register_schema("Position", [("x", "Float64"), ("y", "Float64")])
     world.register_schema("Velocity", [("dx", "Float64"), ("dy", "Float64")])
-    index, generation = world.allocate_entity()
-    world.add_component_default(index, generation, "Position")
-    world.add_component_default(index, generation, "Velocity")
-    world.set_field(index, generation, "Position", "x", 2.0)
-    world.set_field(index, generation, "Velocity", "dx", 3.0)
+    [(index, generation)] = world.spawn_batch(
+        [
+            (
+                {
+                    "Position": {"x": 2.0, "y": 0.0},
+                    "Velocity": {"dx": 3.0, "dy": 0.0},
+                },
+                [],
+            )
+        ]
+    )
     payload = {
         "version": BRIDGE_PLAN_VERSION,
         "schema_fingerprint": world.schema_fingerprint(),
@@ -171,9 +208,17 @@ def test_rust_ecs_bridge_executes_removed_component_query_term() -> None:
     world = rust_ecs.create_ecs_world()
     world.register_schema("Position", [("x", "Float64"), ("y", "Float64")])
     world.register_schema("Velocity", [("dx", "Float64"), ("dy", "Float64")])
-    index, generation = world.allocate_entity()
-    world.add_component_default(index, generation, "Position")
-    world.add_component_default(index, generation, "Velocity")
+    [(index, generation)] = world.spawn_batch(
+        [
+            (
+                {
+                    "Position": {"x": 0.0, "y": 0.0},
+                    "Velocity": {"dx": 0.0, "dy": 0.0},
+                },
+                [],
+            )
+        ]
+    )
     world.remove_component(index, generation, "Velocity")
     payload = {
         "version": BRIDGE_PLAN_VERSION,
@@ -215,7 +260,21 @@ def test_rust_ecs_bridge_enforces_typed_storage_at_all_write_boundaries() -> Non
             ("samples", "List[Int16]"),
         ],
     )
-    index, generation = world.spawn_with_defaults(["Typed"])
+    [(index, generation)] = world.spawn_batch(
+        [
+            (
+                {
+                    "Typed": {
+                        "count": 0,
+                        "ratio": 0.0,
+                        "kind": "",
+                        "samples": [],
+                    }
+                },
+                [],
+            )
+        ]
+    )
 
     world.set_field(index, generation, "Typed", "count", 255)
     with pytest.raises(ValueError, match="UInt8 range"):
@@ -262,10 +321,6 @@ def test_rust_ecs_wrapper_validates_abi_and_spatial_registry(
         def query_with_terms(self, terms: list[tuple[str, str]]) -> list[tuple[int, int]]:
             return []
 
-    for method_name in rust_ecs._REQUIRED_ECS_WORLD_METHODS:
-        if not hasattr(FakeWorld, method_name):
-            setattr(FakeWorld, method_name, lambda self, *args, **kwargs: 0)
-
     class FakeRegistry:
         pass
 
@@ -286,18 +341,6 @@ def test_rust_ecs_wrapper_validates_abi_and_spatial_registry(
     monkeypatch.setattr(rust_ecs, "_canvas", bad_runtime)
     with pytest.raises(BackendCapabilityError, match="ABI"):
         rust_ecs.require_ecs_runtime()
-
-    class MissingMethodWorld:
-        pass
-
-    missing_required_method = SimpleNamespace(
-        ecs_abi_version=lambda: rust_ecs.EXPECTED_ECS_ABI_VERSION,
-        ecs_health_check=lambda: "ok",
-        EcsWorld=MissingMethodWorld,
-    )
-    monkeypatch.setattr(rust_ecs, "_canvas", missing_required_method)
-    with pytest.raises(BackendCapabilityError, match="query_with_terms"):
-        rust_ecs.create_ecs_world()
 
     missing_spatial = SimpleNamespace(
         ecs_abi_version=lambda: rust_ecs.EXPECTED_ECS_ABI_VERSION,

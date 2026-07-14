@@ -46,8 +46,8 @@ class AudioBuffer:
         """Encode this buffer as a playable ``Sound``.
 
         Args:
-            path: Display path to attach to the generated sound. The bytes stay
-                in memory until playback needs a temporary file.
+            path: Display path to attach to the generated sound. Encoded bytes
+                and decoded PCM stay in the Rust-owned audio asset.
 
         Returns:
             A ``Sound`` containing this buffer encoded as 16-bit PCM WAV data.

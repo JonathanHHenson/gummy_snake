@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
 use crate::plan::{ExprNode, SpatialRelationNode};
@@ -18,11 +20,10 @@ impl<'a> PlanExecutor<'a> {
         expr_index: usize,
         entity: Entity,
     ) -> Option<f64> {
-        let values = self.spatial_precomputed_f64.get(&expr_index)?;
-        let Some(Some((generation, value))) = values.get(entity.index as usize) else {
-            return None;
-        };
-        (*generation == entity.generation).then_some(*value)
+        self.spatial_precomputed_f64
+            .get(&expr_index)?
+            .get(&entity)
+            .copied()
     }
 
     pub(in crate::execution) fn store_precomputed_spatial_f64(
@@ -31,12 +32,10 @@ impl<'a> PlanExecutor<'a> {
         entity: Entity,
         value: f64,
     ) {
-        let row = entity.index as usize;
-        let values = self.spatial_precomputed_f64.entry(expr_index).or_default();
-        if values.len() <= row {
-            values.resize(row + 1, None);
-        }
-        values[row] = Some((entity.generation, value));
+        self.spatial_precomputed_f64
+            .entry(expr_index)
+            .or_default()
+            .insert(entity, value);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -47,14 +46,13 @@ impl<'a> PlanExecutor<'a> {
         result_exprs: &[usize],
         result_count: usize,
         row_count: usize,
-        max_entity_index: usize,
         result_values_are_dense: bool,
     ) -> Result<()> {
         match layout {
             SpatialPrecomputeLayout::SparseEntity => {
                 let mut result_arrays = result_exprs
                     .iter()
-                    .map(|expr_index| (*expr_index, vec![None; max_entity_index + 1]))
+                    .map(|expr_index| (*expr_index, HashMap::with_capacity(row_count)))
                     .collect::<Vec<_>>();
                 for chunk in chunk_results {
                     let SpatialChunkResult {
@@ -70,8 +68,7 @@ impl<'a> PlanExecutor<'a> {
                         let base = origin_index * result_count;
                         for (slot, value) in values[base..base + result_count].iter().enumerate() {
                             if present.is_none_or(|present| present[base + slot]) {
-                                result_arrays[slot].1[origin.index as usize] =
-                                    Some((origin.generation, *value));
+                                result_arrays[slot].1.insert(origin, *value);
                             }
                         }
                     }

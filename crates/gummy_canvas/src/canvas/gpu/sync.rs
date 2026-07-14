@@ -1,11 +1,12 @@
 use crate::prelude::*;
+use pyo3::exceptions::PyRuntimeError;
 
 impl Canvas {
     pub(crate) fn prepare_cpu_composite(&mut self) -> PyResult<()> {
         self.flush_pending_3d_triangles();
         self.performance_counters.cpu_fallbacks += 1;
-        Err(PyValueError::new_err(
-            "CPU raster/compositing fallback is disabled in gummy_canvas. This drawing path must use a GPU implementation instead.",
+        Err(PyRuntimeError::new_err(
+            "CPU raster/compositing fallback is disabled in gummy_canvas. This drawing path requires a supported native destination-blend implementation.",
         ))
     }
 

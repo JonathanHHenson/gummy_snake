@@ -160,11 +160,7 @@ impl<'a> PlanExecutor<'a> {
             return Ok(false);
         }
         let result_values_are_dense = spatial_result_values_are_dense(&batches);
-        let max_entity_index = origin_rows
-            .iter()
-            .map(|entity| entity.index as usize)
-            .max()
-            .unwrap_or(0);
+
         let max_radius = batches
             .iter()
             .map(|batch| batch.query_radius)
@@ -349,7 +345,6 @@ impl<'a> PlanExecutor<'a> {
             &result_exprs,
             result_count,
             origin_rows.len(),
-            max_entity_index,
             result_values_are_dense,
         )?;
         if let Some(start) = profile_start {

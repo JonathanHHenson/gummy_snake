@@ -75,7 +75,7 @@ Each release wheel is built and smoked on its own native builder:
 | macOS ARM64 | installed native wheel |
 | Windows x64 | installed native wheel |
 
-The isolated installed-wheel consumer verifies canvas ABI **18**, ECS ABI **4**,
+The isolated installed-wheel consumer verifies canvas ABI **18**, ECS ABI **6**,
 mandatory health checks, a bounded headless render, Rust-owned empty ECS world
 creation, non-empty Rust synth WAV rendering, bundled asset lookup, and the
 clear capability error emitted when the canvas/ECS native import is deliberately
@@ -84,11 +84,15 @@ blocked. It runs outside the source checkout and rejects non-native imports.
 ## Release-candidate validation
 
 Run `make release-candidate` to build a **release** canvas extension, execute the
-release smoke tier, and include the opt-in resource stress checks. This target does
-not execute performance benchmarks. A maintainer invokes `scripts/benchmark.py`
-manually; comparable results use release builds and ignored local history keyed by
-fingerprint and commit, with a strict >5% local regression threshold. Automated
-validation continues to cover schemas, deterministic correctness oracles, fixed
-workloads, path diagnostics, and smoke. Optional native-interactive or native-audio
-suites may be unavailable without blocking release completion and must never be
-replaced by a fallback route.
+release smoke tier, and include the opt-in resource stress checks. CI covers benchmark
+schemas, deterministic correctness oracles, fixed workloads, path diagnostics, and
+bounded smoke.
+
+For the manual release benchmark workflow, audit `.scratch/benchmark/history`, run
+`scripts/benchmark.py worktree <catalog>` for the Canvas, ECS, and Synth catalogs,
+finalize a clean release commit, then run `record-head <catalog>` for each catalog.
+Finish with `list` and `audit`; put `--history <path>` before a subcommand when using an
+alternate local store. Comparable results require release builds, retained raw samples,
+deterministic oracles, and the exact fingerprint. The fixed local policy fails a
+regression greater than 5%; exactly 5% passes. Native-interactive and native-audio runs
+are optional manual information and never substitute for the deterministic routes.

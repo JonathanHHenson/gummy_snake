@@ -1,7 +1,27 @@
 use crate::gpu::pipeline::to_wgpu_color;
+use crate::gpu::renderer_state::{
+    PersistentAtlasEntry, PersistentAtlasPage, PersistentAtlasPlacement,
+};
 use crate::gpu::types::*;
 use crate::types::BlendMode;
 use wgpu::util::DeviceExt;
+
+pub(super) fn padded_atlas_pixels(pixels: &[u8], width: usize, height: usize) -> Vec<u8> {
+    let padded_width = width + 2;
+    let padded_height = height + 2;
+    let mut padded = vec![0; padded_width * padded_height * 4];
+    for padded_y in 0..padded_height {
+        let source_y = padded_y.saturating_sub(1).min(height - 1);
+        for padded_x in 0..padded_width {
+            let source_x = padded_x.saturating_sub(1).min(width - 1);
+            let source_offset = (source_y * width + source_x) * 4;
+            let destination_offset = (padded_y * padded_width + padded_x) * 4;
+            padded[destination_offset..destination_offset + 4]
+                .copy_from_slice(&pixels[source_offset..source_offset + 4]);
+        }
+    }
+    padded
+}
 
 impl GpuRenderer {
     pub fn push_clip_path(&mut self, records: &[StrokePathRecord]) -> Result<usize, String> {
@@ -305,6 +325,194 @@ impl GpuRenderer {
         }
     }
 
+    pub fn persistent_image_atlas_resident_bytes(&self) -> usize {
+        self.persistent_image_atlas
+            .pages
+            .iter()
+            .map(|page| page.width * page.height * 4)
+            .sum()
+    }
+
+    pub fn place_persistent_atlas_image(
+        &mut self,
+        key: u64,
+        version: u64,
+        width: usize,
+        height: usize,
+        pixels: &[u8],
+    ) -> Result<Option<PersistentAtlasPlacement>, String> {
+        if width == 0 || height == 0 {
+            return Ok(None);
+        }
+        let expected = width
+            .checked_mul(height)
+            .and_then(|value| value.checked_mul(4))
+            .ok_or_else(|| "Image atlas dimensions are too large.".to_owned())?;
+        if pixels.len() != expected {
+            return Err(format!(
+                "Image atlas source length must be {expected}, got {}.",
+                pixels.len()
+            ));
+        }
+        let padded_width = width
+            .checked_add(2)
+            .ok_or_else(|| "Image atlas width is too large.".to_owned())?;
+        let padded_height = height
+            .checked_add(2)
+            .ok_or_else(|| "Image atlas height is too large.".to_owned())?;
+        let page_size = self.persistent_image_atlas.page_size;
+        if padded_width > page_size || padded_height > page_size {
+            return Ok(None);
+        }
+        self.persistent_image_atlas.clock = self.persistent_image_atlas.clock.wrapping_add(1);
+        let clock = self.persistent_image_atlas.clock;
+        if let Some(entry) = self.persistent_image_atlas.entries.get_mut(&key) {
+            if entry.width == width && entry.height == height {
+                let page = &self.persistent_image_atlas.pages[entry.page_index];
+                let uploaded = entry.version != version;
+                let placement = PersistentAtlasPlacement {
+                    texture_key: page.texture_key,
+                    x: entry.x,
+                    y: entry.y,
+                    page_width: page.width,
+                    page_height: page.height,
+                    uploaded,
+                };
+                entry.last_used = clock;
+                if !uploaded {
+                    return Ok(Some(placement));
+                }
+                entry.version = version;
+                let texture_key = page.texture_key;
+                let x = entry.x;
+                let y = entry.y;
+                let padded_pixels = padded_atlas_pixels(pixels, width, height);
+                self.upload_texture_region(
+                    texture_key,
+                    &padded_pixels,
+                    padded_width,
+                    padded_height,
+                    x - 1,
+                    y - 1,
+                )?;
+                return Ok(Some(placement));
+            }
+            self.persistent_image_atlas.entries.remove(&key);
+        }
+
+        let mut selected_page = None;
+        for (index, page) in self.persistent_image_atlas.pages.iter().enumerate() {
+            let fits_current_row = page.next_x + padded_width <= page.width
+                && page.next_y + padded_height <= page.height;
+            let fits_new_row = page.next_y + page.row_height + padded_height <= page.height;
+            if fits_current_row || fits_new_row {
+                selected_page = Some(index);
+                break;
+            }
+        }
+        if selected_page.is_none()
+            && self.persistent_image_atlas.pages.len() < self.persistent_image_atlas.max_pages
+        {
+            let texture_key = self.persistent_image_atlas.next_texture_key;
+            self.persistent_image_atlas.next_texture_key = texture_key.wrapping_add(1);
+            let zero_pixels = vec![0; page_size * page_size * 4];
+            self.upload_texture(texture_key, page_size, page_size, &zero_pixels)?;
+            self.persistent_image_atlas.pages.push(PersistentAtlasPage {
+                texture_key,
+                width: page_size,
+                height: page_size,
+                next_x: 0,
+                next_y: 0,
+                row_height: 0,
+            });
+            selected_page = Some(self.persistent_image_atlas.pages.len() - 1);
+        }
+        let Some(page_index) = selected_page else {
+            return Ok(None);
+        };
+        let (texture_key, x, y, page_width, page_height) = {
+            let page = &mut self.persistent_image_atlas.pages[page_index];
+            if page.next_x + padded_width > page.width {
+                page.next_x = 0;
+                page.next_y += page.row_height;
+                page.row_height = 0;
+            }
+            let x = page.next_x + 1;
+            let y = page.next_y + 1;
+            page.next_x += padded_width;
+            page.row_height = page.row_height.max(padded_height);
+            (page.texture_key, x, y, page.width, page.height)
+        };
+        let padded_pixels = padded_atlas_pixels(pixels, width, height);
+        self.upload_texture_region(
+            texture_key,
+            &padded_pixels,
+            padded_width,
+            padded_height,
+            x - 1,
+            y - 1,
+        )?;
+        self.persistent_image_atlas.entries.insert(
+            key,
+            PersistentAtlasEntry {
+                version,
+                page_index,
+                x,
+                y,
+                width,
+                height,
+                last_used: clock,
+            },
+        );
+        Ok(Some(PersistentAtlasPlacement {
+            texture_key,
+            x,
+            y,
+            page_width,
+            page_height,
+            uploaded: true,
+        }))
+    }
+
+    fn upload_texture_region(
+        &self,
+        texture_key: u64,
+        pixels: &[u8],
+        width: usize,
+        height: usize,
+        x: usize,
+        y: usize,
+    ) -> Result<(), String> {
+        let asset = self
+            .textures
+            .get(&texture_key)
+            .ok_or_else(|| "Persistent atlas page texture is unavailable.".to_owned())?;
+        self.device_context.queue().write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &asset._texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d {
+                    x: x as u32,
+                    y: y as u32,
+                    z: 0,
+                },
+                aspect: wgpu::TextureAspect::All,
+            },
+            pixels,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(width as u32 * 4),
+                rows_per_image: Some(height as u32),
+            },
+            wgpu::Extent3d {
+                width: width as u32,
+                height: height as u32,
+                depth_or_array_layers: 1,
+            },
+        );
+        Ok(())
+    }
+
     pub fn upload_pixels(&mut self, pixels: &[u8]) -> Result<(), String> {
         let expected = self.texture_size.width as usize * self.texture_size.height as usize * 4;
         if pixels.len() != expected {
@@ -328,6 +536,66 @@ impl GpuRenderer {
                 rows_per_image: Some(self.texture_size.height),
             },
             self.texture_size,
+        );
+        Ok(())
+    }
+
+    pub fn upload_pixel_region(
+        &mut self,
+        pixels: &[u8],
+        source_width: usize,
+        source_height: usize,
+        source_x: usize,
+        source_y: usize,
+        destination_x: usize,
+        destination_y: usize,
+        copy_width: usize,
+        copy_height: usize,
+    ) -> Result<(), String> {
+        let expected = source_width
+            .checked_mul(source_height)
+            .and_then(|value| value.checked_mul(4))
+            .ok_or_else(|| "Pixel region dimensions are too large.".to_owned())?;
+        if pixels.len() != expected {
+            return Err(format!(
+                "Pixel region buffer length must be {expected}, got {}.",
+                pixels.len()
+            ));
+        }
+        if source_x + copy_width > source_width
+            || source_y + copy_height > source_height
+            || destination_x + copy_width > self.texture_size.width as usize
+            || destination_y + copy_height > self.texture_size.height as usize
+        {
+            return Err("Pixel region copy exceeds source or destination bounds.".to_owned());
+        }
+        if copy_width == 0 || copy_height == 0 {
+            return Ok(());
+        }
+        self.previous_render_commands.clear();
+        let source_offset = (source_y * source_width + source_x) * 4;
+        self.device_context.queue().write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d {
+                    x: destination_x as u32,
+                    y: destination_y as u32,
+                    z: 0,
+                },
+                aspect: wgpu::TextureAspect::All,
+            },
+            &pixels[source_offset..],
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(source_width as u32 * 4),
+                rows_per_image: Some(source_height as u32),
+            },
+            wgpu::Extent3d {
+                width: copy_width as u32,
+                height: copy_height as u32,
+                depth_or_array_layers: 1,
+            },
         );
         Ok(())
     }

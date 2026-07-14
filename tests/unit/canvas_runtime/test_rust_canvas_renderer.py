@@ -113,7 +113,7 @@ def test_text_metrics_do_not_use_stale_current_style_after_native_sync() -> None
     assert canvas.calls[-1][1]["text_size"] == 18.0
 
 
-def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None:
+def test_canvas_renderer_records_packed_style_and_transform_payloads() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(8, 8)
     style = StyleState(fill_color=Color(255, 0, 0, 128), stroke_color=Color(0, 0, 255, 255))
@@ -126,13 +126,15 @@ def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None
     canvas = renderer._canvas
     assert canvas is not None
     renderer.end_frame()
-    primitive_call = canvas.calls[-2]
-    assert primitive_call[0] == "batch_primitives"
-    assert primitive_call[1] == [
+    primitive_calls = [call for call in canvas.calls if call[0] == "batch_primitives_mixed"]
+    assert [record[:7] for call in primitive_calls for record in call[1]] == [
         (4, 0, 0, 1, 1, 0.0, 0.0),
         (4, 2, 2, 3, 3, 0.0, 0.0),
         (3, 2, 2, 3, 3, 0.0, 0.0),
     ]
+    assert all(call[2][0][2:6] == (255, 0, 0, 128) for call in primitive_calls)
+    assert all(call[2][0][6:10] == (0, 0, 255, 255) for call in primitive_calls)
+    assert all(call[3] == [(1.0, 0.0, 0.0, 1.0, 0.0, 0.0)] for call in primitive_calls)
 
     style.fill_color = Color(0, 255, 0, 255)
     style.mark_changed()
@@ -140,19 +142,13 @@ def test_canvas_renderer_reuses_unchanged_style_and_transform_payloads() -> None
     moved = Matrix2D.translation(4, 5)
     renderer.line(0, 0, 1, 1, style, moved)
 
-    changed_call = canvas.calls[-1]
-    assert changed_call[0] == "batch_primitives"
-    assert changed_call[2] is not primitive_call[2]
-    assert changed_call[2]["fill"] == (0, 255, 0, 255)
-    assert changed_call[3] is primitive_call[3]
-
-    renderer.end_frame()
-
-    transformed_call = canvas.calls[-2]
-    assert transformed_call[0] == "batch_primitives"
-    assert transformed_call[2] is changed_call[2]
-    assert transformed_call[3] is not changed_call[3]
-    assert transformed_call[3] == (1.0, 0.0, 0.0, 1.0, 4, 5)
+    changed_call, transformed_call = [
+        call for call in canvas.calls if call[0] == "batch_primitives_mixed"
+    ][-2:]
+    assert changed_call[2][0][2:6] == (0, 255, 0, 255)
+    assert changed_call[3] == [(1.0, 0.0, 0.0, 1.0, 0.0, 0.0)]
+    assert transformed_call[2] == changed_call[2]
+    assert transformed_call[3] == [(1.0, 0.0, 0.0, 1.0, 4.0, 5.0)]
 
 
 def test_canvas_renderer_model_batch_normalizes_packed_transforms() -> None:
@@ -185,15 +181,15 @@ def test_canvas_renderer_model_batch_normalizes_packed_transforms() -> None:
 
     canvas = renderer._canvas
     assert canvas is not None
-    call = next(call for call in canvas.calls if call[0] == "draw_model_shaded_batch")
-    assert call[-1] == [
+    calls = [call for call in canvas.calls if call[0] == "draw_model_shaded_batch"]
+    assert [transform for call in calls for transform in call[-1]] == [
         flat_transform,
         (2.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 5.0, 6.0, 0.0, 1.0),
         (1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0),
     ]
     counters = renderer.performance_counters()
     assert counters["model_batch_records"] == 3
-    assert counters["model_batch_max_records"] == 3
+    assert counters["model_batch_max_records"] == 1
 
 
 def test_canvas_renderer_maps_rust_value_errors() -> None:

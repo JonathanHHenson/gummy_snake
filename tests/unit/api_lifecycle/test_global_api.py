@@ -5,6 +5,7 @@ import pytest
 import gummysnake as gs
 from gummysnake.core.input_events import KeyboardEvent, MouseEvent
 from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.rust.canvas import canvas_gpu_available
 
 _GLOBAL_CALLBACK_EVENTS = []
 
@@ -200,18 +201,25 @@ def test_offscreen_graphics_framebuffer_and_compute_helpers():
     framebuffer.remove()
     graphics.remove()
 
+    if not canvas_gpu_available():
+        pytest.skip("native GPU resource APIs are unavailable")
+
     buffer = gs.create_storage_buffer([1, 2, 3], dtype="int")
-
-    def increment(global_id, buffers):
-        index = global_id[0]
-        current = buffers["values"].read()[index]
-        buffers["values"].update([current + 10], offset=index)
-
-    shader = gs.create_compute_shader(increment, label="increment")
+    shader = gs.create_compute_shader(
+        source="""
+@group(0) @binding(0) var<storage, read_write> values: array<i32>;
+@compute @workgroup_size(1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    values[gid.x] = values[gid.x] + 10;
+}
+""",
+        label="increment",
+    )
     gs.dispatch_compute(shader, 3, values=buffer)
 
     assert gs.read_storage_buffer(buffer) == (11, 12, 13)
     assert gs.webgpu_context()["compute_shaders"] is True
+    assert gs.gpu_resource_diagnostics()["compute_dispatches"] >= 1
 
 
 def test_device_sensor_sample_updates_state_and_dispatches_callbacks():
@@ -251,14 +259,21 @@ def test_device_sensor_sample_updates_state_and_dispatches_callbacks():
 
 
 def test_object_mode_facade_exposes_advanced_epic_helpers():
+    if not canvas_gpu_available():
+        pytest.skip("native GPU resource APIs are unavailable")
+
     class AdvancedSketch(gs.Sketch):
         def setup(self):
             self.create_canvas(8, 8, renderer=gs.WEBGPU)
             buffer = self.create_storage_buffer([1, 2], dtype="int")
             shader = self.create_compute_shader(
-                lambda gid, buffers: buffers["values"].update(
-                    [buffers["values"].read()[gid[0]] * 2], offset=gid[0]
-                )
+                source="""
+@group(0) @binding(0) var<storage, read_write> values: array<i32>;
+@compute @workgroup_size(1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    values[gid.x] = values[gid.x] * 2;
+}
+"""
             )
             self.dispatch_compute(shader, 2, values=buffer)
             assert self.read_storage_buffer(buffer) == (2, 4)

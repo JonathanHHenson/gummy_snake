@@ -5,7 +5,7 @@ import pytest
 
 import gummysnake as gs
 from gummysnake.core.color import Color
-from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 
 
 def test_pixels_round_trip_and_pixel_array_include_physical_density():
@@ -51,6 +51,9 @@ def test_load_pixel_bytes_and_update_pixels_accept_memoryview():
 
 
 def test_canvas_get_set_copy_helpers_and_filter_use_gpu_region_effect():
+    overlay = gs.create_image(1, 1)
+    overlay.set(0, 0, (100, 50, 20, 128))
+
     def setup():
         gs.create_canvas(3, 2)
         gs.background(0, 0, 0, 255)
@@ -60,12 +63,18 @@ def test_canvas_get_set_copy_helpers_and_filter_use_gpu_region_effect():
         assert isinstance(region, gs.Image)
         gs.copy(1, 0, 1, 1, 2, 1, 1, 1)
         assert gs.get(2, 1) == gs.Color(10, 20, 30, 255)
+        gs.set(0, 1, overlay)
+        assert gs.get(0, 1) == gs.Color(50, 25, 10, 255)
         gs.filter(gs.INVERT)
 
     context = gs.run(setup=setup, headless=True, max_frames=0)
     assert context.get(2, 1) == gs.Color(245, 235, 225, 255)
+    assert context.get(0, 1) == gs.Color(205, 230, 245, 255)
     counters = context.renderer_performance_counters()
     assert counters["gpu_region_effect_passes"] >= 1
+    native = counters["native"]
+    assert isinstance(native, dict)
+    assert native["gpu_region_effect_passes"] >= 3
     assert counters["cpu_fallbacks"] == 0
 
 
@@ -183,9 +192,8 @@ def test_unsupported_multiply_rect_fails_instead_of_cpu_compositing():
         gs.fill(128, 255, 255, 255)
         gs.rect(0, 0, 1, 1)
 
-    context = gs.run(setup=setup, headless=True, max_frames=0)
-    with pytest.raises(ArgumentValidationError, match="CPU raster/compositing fallback"):
-        context.load_pixels()
+    with pytest.raises(BackendCapabilityError, match="CPU raster/compositing fallback"):
+        gs.run(setup=setup, headless=True, max_frames=0)
 
 
 def test_blend_region_requires_gpu_region_blend():
@@ -197,7 +205,7 @@ def test_blend_region_requires_gpu_region_blend():
         gs.rect(0, 0, 1, 1)
         gs.blend(0, 0, 1, 1, 3, 0, 1, 1, gs.ADD)
 
-    with pytest.raises(ArgumentValidationError, match="CPU raster/compositing fallback"):
+    with pytest.raises(BackendCapabilityError, match="CPU raster/compositing fallback"):
         gs.run(setup=setup, headless=True, max_frames=0)
 
 
@@ -212,5 +220,5 @@ def test_blend_region_with_image_source_requires_gpu_region_blend():
         gs.background(0, 0, 0, 255)
         gs.blend(source, 0, 0, 2, 2, 1, 1, 1, 1, gs.BLEND)
 
-    with pytest.raises(ArgumentValidationError, match="CPU raster/compositing fallback"):
+    with pytest.raises(BackendCapabilityError, match="CPU raster/compositing fallback"):
         gs.run(setup=setup, headless=True, max_frames=0)

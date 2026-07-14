@@ -13,10 +13,10 @@ from gummysnake.assets.media import create_video_async as _create_video_async
 
 
 def create_video(path: str | Path) -> Video:
-    """Open a video file for frame playback in a sketch.
+    """Open a self-contained GIF through the Rust media runtime.
 
     Args:
-        path: Path to a video file supported by the installed media extras.
+        path: Path to a GIF file supported by the installed Rust canvas runtime.
 
     Returns:
         A ``Video`` object that can provide frames to image APIs.
@@ -26,10 +26,10 @@ def create_video(path: str | Path) -> Video:
 
 
 async def create_video_async(path: str | Path) -> Video:
-    """Open a video file without blocking an async sketch callback.
+    """Open a Rust-decoded GIF from an async sketch callback.
 
     Args:
-        path: Path to a video file supported by the installed media extras.
+        path: Path to a GIF file supported by the installed Rust canvas runtime.
 
     Returns:
         A ``Video`` object that can provide frames to image APIs.
@@ -45,7 +45,7 @@ def create_capture(
     width: int | None = None,
     height: int | None = None,
 ) -> Capture | AudioInput | AudioVideoCapture:
-    """Create a camera, microphone, or combined media capture source.
+    """Create audio input or request an explicitly supported native capture source.
 
     Args:
         kind: Capture kind, such as ``"video"``, ``"audio"``, or ``"audio_video"``.
@@ -67,7 +67,7 @@ async def create_capture_async(
     width: int | None = None,
     height: int | None = None,
 ) -> Capture | AudioInput | AudioVideoCapture:
-    """Create a media capture source without blocking an async callback.
+    """Create audio input or request native capture from an async callback.
 
     Args:
         kind: Capture kind, such as ``"video"``, ``"audio"``, or ``"audio_video"``.

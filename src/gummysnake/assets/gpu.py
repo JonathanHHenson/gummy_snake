@@ -1,154 +1,229 @@
-"""Safe native compute/storage helpers.
+"""Rust/WGPU storage buffers and compute shaders.
 
-The public API is intentionally Pythonic and CPU-backed today. It gives sketches
-and tests deterministic storage-buffer semantics without exposing browser WebGPU
-contexts or JavaScript shader objects.
+Python owns argument validation and small typed wrappers only. Canonical buffer
+bytes, WGSL modules, pipelines, bind groups, dispatch, mapping, and resource
+lifecycle are owned by the mandatory ``gummy_canvas`` runtime.
 """
 
 from __future__ import annotations
 
+import struct
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
-from typing import TypedDict
+from typing import Any, Protocol, TypedDict, cast
 
-from gummysnake.exceptions import ArgumentValidationError
+from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.rust.canvas import GUMMY_CANVAS_BUILD_COMMAND, require_canvas_runtime
 
 Number = int | float
 ComputeCallback = Callable[[tuple[int, int, int], dict[str, "StorageBuffer"]], None]
 
 
 class WebGpuContextInfo(TypedDict):
-    """Capabilities reported by ``webgpu_context()``.
-
-    Attributes:
-        backend: Name of the deterministic native compute backend.
-        native_gpu: Whether this helper exposes native GPU execution.
-        storage_buffers: Whether storage-buffer helpers are available.
-        compute_shaders: Whether compute dispatch helpers are available.
-        browser_context: ``False`` because Gummy Snake does not expose browser APIs.
-    """
+    """Capabilities reported by :func:`webgpu_context`."""
 
     backend: str
+    adapter: str
     native_gpu: bool
     storage_buffers: bool
     compute_shaders: bool
     browser_context: bool
+    max_buffer_size: int
+    max_storage_buffers_per_shader_stage: int
+
+
+class _NativeStorageBuffer(Protocol):
+    size: int
+    dtype: str
+    closed: bool
+
+    def update_bytes(self, payload: bytes, offset: int) -> None: ...
+
+    def read_bytes(self) -> bytes: ...
+
+    def close(self) -> None: ...
+
+
+class _NativeComputeShader(Protocol):
+    def dispatch(
+        self, buffers: list[_NativeStorageBuffer], x: int, y: int = 1, z: int = 1
+    ) -> None: ...
+
+
+def _runtime_resource_class(name: str) -> type[Any]:
+    runtime = require_canvas_runtime()
+    resource_type = getattr(runtime, name, None)
+    if not isinstance(resource_type, type):
+        raise BackendCapabilityError(
+            f"The installed gummysnake.rust._canvas runtime does not expose {name}. "
+            f"Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`."
+        )
+    return resource_type
+
+
+def _coerce_values(values: Iterable[Number], dtype: str) -> list[Number]:
+    if dtype == "float":
+        result: list[Number] = []
+        for value in values:
+            if isinstance(value, bool) or not isinstance(value, int | float):
+                raise ArgumentValidationError("StorageBuffer values must be numeric.")
+            result.append(float(value))
+        return result
+    if dtype == "int":
+        result = []
+        for value in values:
+            if isinstance(value, bool) or not isinstance(value, int | float):
+                raise ArgumentValidationError("StorageBuffer values must be numeric.")
+            integer = int(value)
+            if integer < -(2**31) or integer >= 2**31:
+                raise ArgumentValidationError(
+                    "Integer StorageBuffer values must fit in a signed 32-bit integer."
+                )
+            result.append(integer)
+        return result
+    raise ArgumentValidationError("StorageBuffer dtype must be 'float' or 'int'.")
+
+
+def _pack_values(values: list[Number], dtype: str) -> bytes:
+    if not values:
+        return b""
+    code = "f" if dtype == "float" else "i"
+    return struct.pack(f"<{len(values)}{code}", *values)
+
+
+def _unpack_values(payload: bytes, dtype: str) -> tuple[Number, ...]:
+    if not payload:
+        return ()
+    code = "f" if dtype == "float" else "i"
+    return cast(tuple[Number, ...], struct.unpack(f"<{len(payload) // 4}{code}", payload))
 
 
 class StorageBuffer:
-    """Typed numeric storage buffer with explicit read/update operations."""
+    """Typed numeric storage buffer backed by a Rust-owned WGPU allocation."""
+
+    __slots__ = ("_native", "dtype")
 
     def __init__(self, data: Iterable[Number] | int, *, dtype: str = "float") -> None:
-        """Create a numeric storage buffer from initial values or a size."""
-        if dtype not in {"float", "int"}:
-            raise ArgumentValidationError("StorageBuffer dtype must be 'float' or 'int'.")
-        self.dtype = dtype
+        """Create a native storage buffer from initial values or an element count."""
+
+        if isinstance(data, bool):
+            raise ArgumentValidationError("StorageBuffer size must be an integer, not bool.")
         if isinstance(data, int):
             if data < 0:
                 raise ArgumentValidationError("StorageBuffer size cannot be negative.")
-            values: Iterable[Number] = [0] * data
+            raw_values: Iterable[Number] = [0] * data
         else:
-            values = data
-        self._values = [self._coerce(value) for value in values]
-        self.closed = False
+            raw_values = data
+        values = _coerce_values(raw_values, dtype)
+        native_type = _runtime_resource_class("GpuStorageBuffer")
+        try:
+            self._native = cast(
+                _NativeStorageBuffer,
+                native_type.from_bytes(_pack_values(values, dtype), len(values), dtype),
+            )
+        except (RuntimeError, ValueError) as exc:
+            raise BackendCapabilityError(
+                "Native WGPU storage-buffer creation failed. No CPU storage fallback is used. "
+                f"Runtime detail: {exc}"
+            ) from exc
+        self.dtype = dtype
 
     @property
     def size(self) -> int:
-        """Return the number of numeric elements in the buffer."""
+        """Return the number of 32-bit elements in the buffer."""
 
-        return len(self._values)
+        return int(self._native.size)
+
+    @property
+    def closed(self) -> bool:
+        """Return whether the native allocation has been released."""
+
+        return bool(self._native.closed)
 
     def read(self) -> tuple[Number, ...]:
-        """Copy the current buffer contents.
+        """Map and copy the current native storage-buffer contents."""
 
-        Returns:
-            Stored numeric values in buffer order.
-        """
-
-        self._ensure_open()
-        return tuple(self._values)
+        try:
+            return _unpack_values(bytes(self._native.read_bytes()), self.dtype)
+        except (RuntimeError, ValueError) as exc:
+            raise BackendCapabilityError(f"Native storage-buffer readback failed: {exc}") from exc
 
     def update(self, data: Iterable[Number], *, offset: int = 0) -> None:
-        """Replace a range of buffer values.
+        """Upload a range of values into the native storage buffer."""
 
-        Args:
-            data: Numeric values to write.
-            offset: First element index to update.
-        """
-
-        self._ensure_open()
         start = int(offset)
         if start < 0:
             raise ArgumentValidationError("StorageBuffer update offset cannot be negative.")
-        incoming = [self._coerce(value) for value in data]
-        end = start + len(incoming)
-        if end > len(self._values):
+        values = _coerce_values(data, self.dtype)
+        if start + len(values) > self.size:
             raise ArgumentValidationError("StorageBuffer update exceeds buffer size.")
-        self._values[start:end] = incoming
+        try:
+            self._native.update_bytes(_pack_values(values, self.dtype), start)
+        except (RuntimeError, ValueError) as exc:
+            raise BackendCapabilityError(f"Native storage-buffer upload failed: {exc}") from exc
 
     def close(self) -> None:
-        """Close the buffer and release stored values."""
+        """Release the native WGPU allocation deterministically."""
 
-        self.closed = True
-        self._values.clear()
-
-    def _coerce(self, value: Number) -> Number:
-        return int(value) if self.dtype == "int" else float(value)
-
-    def _ensure_open(self) -> None:
-        if self.closed:
-            raise ArgumentValidationError("StorageBuffer has been closed.")
+        self._native.close()
 
 
-@dataclass(slots=True)
 class ComputeShader:
-    """CPU-backed compute shader wrapper.
+    """Compiled Rust/WGPU WGSL compute shader."""
 
-    Pass a Python callable accepting ``global_id`` and bound buffers. Source text
-    may be stored as metadata for future native compilers, but dispatch requires a
-    callable so execution is explicit, safe, and deterministic.
-    """
+    __slots__ = ("_native", "source", "entry_point", "label")
 
-    callback: ComputeCallback | None = None
-    source: str | None = None
-    label: str | None = None
+    def __init__(
+        self,
+        *,
+        source: str,
+        entry_point: str = "main",
+        label: str | None = None,
+    ) -> None:
+        if not source.strip():
+            raise ArgumentValidationError("ComputeShader WGSL source cannot be empty.")
+        if not entry_point.strip():
+            raise ArgumentValidationError("ComputeShader entry_point cannot be empty.")
+        native_type = _runtime_resource_class("GpuComputeShader")
+        try:
+            self._native = cast(
+                _NativeComputeShader,
+                native_type.from_wgsl(source, entry_point, label),
+            )
+        except (RuntimeError, ValueError) as exc:
+            raise BackendCapabilityError(
+                f"WGSL compute shader compilation failed for entry point {entry_point!r}: {exc}"
+            ) from exc
+        self.source = source
+        self.entry_point = entry_point
+        self.label = label
 
     def dispatch(self, x: int, y: int = 1, z: int = 1, **buffers: StorageBuffer) -> None:
-        """Run the compute callback for each global invocation id.
+        """Dispatch native WGPU workgroups with bindings in keyword insertion order."""
 
-        Args:
-            x: Number of invocations in the x dimension.
-            y: Number of invocations in the y dimension.
-            z: Number of invocations in the z dimension.
-            **buffers: Named storage buffers available to the callback.
-        """
-
-        if self.callback is None:
-            raise ArgumentValidationError(
-                "ComputeShader dispatch requires a Python callback in the current native API."
-            )
-        for dimension in (x, y, z):
-            if dimension < 0:
-                raise ArgumentValidationError("Compute dispatch dimensions cannot be negative.")
-        for buffer in buffers.values():
+        dimensions = (int(x), int(y), int(z))
+        if any(dimension <= 0 for dimension in dimensions):
+            raise ArgumentValidationError("Compute dispatch dimensions must be positive.")
+        if not buffers:
+            raise ArgumentValidationError("Compute dispatch requires at least one storage buffer.")
+        native_buffers: list[_NativeStorageBuffer] = []
+        for name, buffer in buffers.items():
             if not isinstance(buffer, StorageBuffer):
-                raise ArgumentValidationError("ComputeShader buffers must be StorageBuffer values.")
-        for gx in range(int(x)):
-            for gy in range(int(y)):
-                for gz in range(int(z)):
-                    self.callback((gx, gy, gz), buffers)
+                raise ArgumentValidationError(
+                    f"Compute binding {name!r} must be a StorageBuffer value."
+                )
+            if buffer.closed:
+                raise ArgumentValidationError(f"Compute binding {name!r} has been closed.")
+            native_buffers.append(buffer._native)
+        try:
+            self._native.dispatch(native_buffers, *dimensions)
+        except (RuntimeError, ValueError) as exc:
+            raise BackendCapabilityError(
+                f"Native WGPU compute dispatch failed for {self.entry_point!r}: {exc}"
+            ) from exc
 
 
 def create_storage_buffer(data: Iterable[Number] | int, *, dtype: str = "float") -> StorageBuffer:
-    """Create a deterministic numeric storage buffer.
-
-    Args:
-        data: Initial numeric values, or an integer size for a zero-filled buffer.
-        dtype: ``"float"`` or ``"int"`` coercion mode.
-
-    Returns:
-        A ``StorageBuffer`` for compute callbacks.
-    """
+    """Create a Rust/WGPU storage buffer."""
 
     return StorageBuffer(data, dtype=dtype)
 
@@ -156,13 +231,7 @@ def create_storage_buffer(data: Iterable[Number] | int, *, dtype: str = "float")
 def update_storage_buffer(
     buffer: StorageBuffer, data: Iterable[Number], *, offset: int = 0
 ) -> None:
-    """Write numeric values into an existing storage buffer.
-
-    Args:
-        buffer: Buffer to update.
-        data: Numeric values to write.
-        offset: First element index to update.
-    """
+    """Upload numeric values into an existing native storage buffer."""
 
     if not isinstance(buffer, StorageBuffer):
         raise ArgumentValidationError("update_storage_buffer() requires a StorageBuffer.")
@@ -170,14 +239,7 @@ def update_storage_buffer(
 
 
 def read_storage_buffer(buffer: StorageBuffer) -> tuple[Number, ...]:
-    """Read all values from a storage buffer.
-
-    Args:
-        buffer: Buffer to read.
-
-    Returns:
-        Stored numeric values in buffer order.
-    """
+    """Read all values from a native storage buffer."""
 
     if not isinstance(buffer, StorageBuffer):
         raise ArgumentValidationError("read_storage_buffer() requires a StorageBuffer.")
@@ -188,40 +250,29 @@ def create_compute_shader(
     callback: ComputeCallback | None = None,
     *,
     source: str | None = None,
+    entry_point: str = "main",
     label: str | None = None,
 ) -> ComputeShader:
-    """Create a CPU-backed compute shader wrapper.
+    """Compile a WGSL compute shader in the Rust/WGPU runtime.
 
-    Args:
-        callback: Python function called once per dispatch invocation.
-        source: Optional source text stored as metadata for future native compilers.
-        label: Optional human-readable name for diagnostics.
-
-    Returns:
-        A ``ComputeShader`` that can be passed to ``dispatch_compute()``.
+    Python callbacks were removed by Epic 280 because they executed canonical
+    compute work on the CPU. Pass WGSL ``source`` instead.
     """
 
-    if callback is None and (source is None or not source.strip()):
+    if callback is not None:
         raise ArgumentValidationError(
-            "create_compute_shader() requires a callback or source metadata."
+            "Python compute callbacks were removed by Epic 280. Pass WGSL source=...; "
+            "Gummy Snake does not provide a CPU compute fallback."
         )
-    if callback is not None and not callable(callback):
-        raise ArgumentValidationError("create_compute_shader() callback must be callable.")
-    return ComputeShader(callback=callback, source=source, label=label)
+    if source is None or not source.strip():
+        raise ArgumentValidationError("create_compute_shader() requires non-empty WGSL source.")
+    return ComputeShader(source=source, entry_point=entry_point, label=label)
 
 
 def dispatch_compute(
     shader: ComputeShader, x: int, y: int = 1, z: int = 1, **buffers: StorageBuffer
 ) -> None:
-    """Run a compute shader over a 1D, 2D, or 3D dispatch grid.
-
-    Args:
-        shader: Compute shader created by ``create_compute_shader()``.
-        x: Number of invocations in the x dimension.
-        y: Number of invocations in the y dimension.
-        z: Number of invocations in the z dimension.
-        **buffers: Named storage buffers available to the shader callback.
-    """
+    """Dispatch a native WGSL compute shader."""
 
     if not isinstance(shader, ComputeShader):
         raise ArgumentValidationError("dispatch_compute() requires a ComputeShader.")
@@ -229,19 +280,53 @@ def dispatch_compute(
 
 
 def webgpu_context() -> WebGpuContextInfo:
-    """Return compute/storage capability information.
+    """Return shared native WGPU adapter limits and capability information."""
 
-    Returns:
-        A dictionary describing Gummy Snake's deterministic native compute helper.
-    """
+    runtime = require_canvas_runtime()
+    callback = getattr(runtime, "webgpu_context_info", None)
+    if not callable(callback):
+        raise BackendCapabilityError(
+            "The installed canvas runtime does not expose native WGPU resource information. "
+            f"Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`."
+        )
+    try:
+        return cast(WebGpuContextInfo, cast(dict[str, object], callback()))
+    except (RuntimeError, ValueError) as exc:
+        raise BackendCapabilityError(
+            "Native WGPU resources are unavailable and no CPU fallback is enabled. "
+            f"Runtime detail: {exc}"
+        ) from exc
 
+
+def gpu_resource_diagnostics() -> dict[str, int]:
+    """Return Rust-owned storage/compute allocation and dispatch diagnostics."""
+
+    runtime = require_canvas_runtime()
+    callback = getattr(runtime, "gpu_resource_diagnostics", None)
+    if not callable(callback):
+        raise BackendCapabilityError(
+            "The installed canvas runtime does not expose GPU resource diagnostics. "
+            f"Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`."
+        )
+    payload = cast(dict[str, object], callback())
     return {
-        "backend": "gummy-snake-native-cpu-compute",
-        "native_gpu": False,
-        "storage_buffers": True,
-        "compute_shaders": True,
-        "browser_context": False,
+        str(key): int(value)
+        for key, value in payload.items()
+        if isinstance(value, int) and not isinstance(value, bool)
     }
+
+
+def reset_gpu_resource_diagnostics() -> None:
+    """Reset Rust-owned GPU resource counters without releasing live resources."""
+
+    runtime = require_canvas_runtime()
+    callback = getattr(runtime, "reset_gpu_resource_diagnostics", None)
+    if not callable(callback):
+        raise BackendCapabilityError(
+            "The installed canvas runtime does not expose GPU resource diagnostic reset. "
+            f"Rebuild it with `{GUMMY_CANVAS_BUILD_COMMAND}`."
+        )
+    callback()
 
 
 __all__ = [
@@ -250,7 +335,9 @@ __all__ = [
     "create_compute_shader",
     "create_storage_buffer",
     "dispatch_compute",
+    "gpu_resource_diagnostics",
     "read_storage_buffer",
+    "reset_gpu_resource_diagnostics",
     "update_storage_buffer",
     "webgpu_context",
     "WebGpuContextInfo",

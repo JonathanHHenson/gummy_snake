@@ -18,7 +18,7 @@ The stable top-level counters are:
 | Counter | Meaning |
 | --- | --- |
 | `gpu_draws` | Drawing commands queued for the renderer/GPU-oriented path. |
-| `cpu_fallbacks` | Operations that require CPU compositing or CPU pixel work. |
+| `cpu_fallbacks` | Operations that use documented Rust CPU compatibility compositing or pixel work instead of GPU acceleration. |
 | `pixel_readbacks` | Canvas pixel reads into Python or CPU memory. |
 | `pixel_readback_requested_bytes` / `pixel_readback_copied_bytes` | RGBA bytes callers requested and bytes copied into the returned readback buffer. They distinguish a small requested region from the amount actually returned without estimating hidden GPU work. |
 | `pixel_uploads` | Full pixel or texture uploads back to the canvas. |
@@ -28,11 +28,11 @@ The stable top-level counters are:
 | `image_source_clones_avoided` / `image_source_clone_bytes_avoided` | Full RGBA source clones avoided when ordered batches and cache entries retain shared Rust image payloads. |
 | `image_cache_resident_bytes` / `image_cache_peak_bytes` | Current and peak logical RGBA bytes retained by the bounded CPU image cache. Shared `Arc` payloads are counted once per cache entry even when the canonical handle also owns the same allocation. |
 | `image_cache_evictions` / `image_cache_evicted_bytes` | CPU image-cache entries and logical payload bytes released to satisfy count or byte limits. |
-| `texture_cache_hits` / `texture_uploads` | Native texture reuse or upload, including canvas-managed image handles and the existing ordered image atlas path. |
+| `texture_cache_hits` / `texture_uploads` | Native texture reuse or upload, including canvas-managed image handles and persistent ordered image-atlas pages. |
 | `texture_upload_bytes` / `texture_dirty_uploads` | RGBA bytes uploaded and uploads caused by an existing stable texture key advancing to a new image/atlas generation. |
 | `texture_resident_bytes` / `texture_peak_bytes` | Current and peak GPU RGBA texture bytes tracked by the bounded texture cache. |
 | `texture_cache_evictions` / `texture_destructions` | Texture-cache evictions and actual resources removed/replaced in the GPU texture map. Resources referenced by pending ordered commands remain frame-pinned until a later safe eviction opportunity. |
-| `image_atlas_resident_bytes` / `image_atlas_peak_bytes` | Current and peak bytes belonging to textures produced by the single ordered image/text atlas path. |
+| `image_atlas_resident_bytes` / `image_atlas_peak_bytes` | Current and peak bytes belonging to persistent padded image-atlas pages and atlas-backed cached text/image resources. |
 | `image_atlas_evictions` / `image_atlas_destructions` | Atlas entries evicted and actual atlas GPU resources removed or replaced. |
 | `text_cache_hits` / `text_cache_misses` | Text metric or glyph cache reuse. |
 | `text_cache_evictions` | Bounded text or text-metric cache entries evicted during dynamic text churn. |
@@ -127,9 +127,29 @@ threshold used to avoid scheduling tiny regions.
 
 Diagnostics are process-wide and intended for tests and benchmark metadata.
 Worker selection affects only performance: indexed event outputs are reduced in
-stable event/FX order. Realtime/device window rendering is not counted as parallel
-work because it remains serial until deadline-safe behavior is separately
-qualified.
+stable event/FX order. Realtime mixer rendering remains serial and deterministic;
+the offline worker setting never changes device quality or semantics.
+
+Audio playback adds these stable fields:
+
+| Counter | Meaning |
+| --- | --- |
+| `causal_normaliser_contract_version` | Version of the canonical stateful normaliser used by block/device sinks. |
+| `audio_manager_initializations` / `audio_device_open_count` / `audio_device_error_count` | Process-local SDL manager and device lifecycle. |
+| `audio_active_voices` / `audio_peak_active_voices` | Current and high-water loaded/rendered/synth voice counts. |
+| `audio_active_synth_sessions` / `audio_peak_active_synth_sessions` | Current and high-water stateful synth sessions in the shared mixer. |
+| `audio_mixed_blocks` / `audio_mixed_frames` | Deterministic pre-device mixer work. |
+| `audio_command_count` | Synchronized native play/pause/stop/loop/control/seek/close commands applied at mixer boundaries. |
+| `audio_queue_frames` / `audio_queue_min_frames` / `audio_queue_peak_frames` | Current and observed SDL queue depth. |
+| `audio_queue_low_water_frames` / `audio_queue_high_water_frames` | Fixed bounded render-ahead policy. |
+| `audio_queue_underruns` | Active playback observations where the device queue reached zero. |
+| `audio_asset_bytes` / `audio_asset_voice_starts` | Decoded asset bytes referenced by active voices and starts. |
+| `audio_synth_session_starts` | Native finite/rolling synth session starts. |
+
+`Sound.playback_diagnostics()` and `TrackPlayback.playback_diagnostics()` expose
+per-session duration, position, play/pause/loop state, rendered blocks/frames,
+end generation, and error. Physical-device observations are optional; the
+headless manager/mixer tests and no-device failure path remain deterministic.
 
 ## ECS Diagnostics
 
@@ -151,7 +171,7 @@ Common stable counters include:
 | `ecs_system_frame_runs` | ECS group phases executed on drawn frames. This should advance with drawn frames. |
 | `ecs_canvas_commands` | Canvas draw commands emitted by Rust-executed ECS systems and replayed into the canvas runtime. |
 | `ecs_physical_plan_compiles` | Logical action trees serialized and compiled into Rust physical plans. |
-| `ecs_steady_physical_plan_reuses` / `ecs_dynamic_change_plan_recompiles` | Cached plan reuse versus current Python `allowed_entities` recompilation for change-filtered plans. The dynamic counter remains a migration gap until Rust change journals own those filters. |
+| `ecs_steady_physical_plan_reuses` / `ecs_dynamic_change_plan_recompiles` | Cached plan reuse versus prohibited dynamic change-plan recompilation. Rust change-journal filters keep the dynamic counter at zero on steady frames. |
 | `ecs_rust_compiled_plans` | Rust physical-plan handles cached by the world. |
 | `ecs_physical_system_runs` | Non-UDF systems executed through Rust physical plans. It should advance when validating a Rust-executed hot path. |
 | `ecs_physical_rows_scanned` | Rows scanned by the Rust physical executor. |
@@ -165,6 +185,7 @@ Common stable counters include:
 | `ecs_python_event_mirror_entries` / `ecs_python_event_payload_materializations` | Prohibited Python event paths; both remain zero. |
 | `ecs_diagnostic_messages_deduplicated` / `ecs_diagnostic_messages_dropped` | Repeated messages and unique messages evicted from the bounded Rust store. Exact warning/error counters are unaffected. |
 | `ecs_entities_alive` / `ecs_rust_entities_alive` | Public and Rust-side live entity counts; these should agree. |
+| `ecs_bulk_spawn_calls` / `ecs_bulk_spawn_entities` | Successful transactional complete-row spawn batches and entities committed by them. Rejected batches do not advance either counter or mutate world state. |
 | `ecs_spatial_indexes_built` / `ecs_spatial_index_reuses` | Rust spatial-index construction and reuse. |
 | `ecs_spatial_candidate_rows` / `ecs_spatial_exact_rows` / `ecs_spatial_false_positive_rows` | Broad-phase and exact-filter spatial relation shape. |
 | `ecs_spatial_deduplicated_pairs` | Self-pairs skipped by unique unordered pair policies. |
@@ -272,7 +293,7 @@ when the effect shape is supported by the GPU path.
 | `load_pixels()` / `pixels()` | Readback into `PixelBuffer` plus list-compatible access | Synchronizes canvas data and allocates a mutable Python buffer wrapper | Use `load_pixel_bytes()` for bytes workflows; keep dirty `PixelBuffer` edits row-aligned when uploading back. |
 | `load_pixel_bytes()` | Byte readback | Synchronizes canvas data but does not populate `context.pixels` | Keep data as `bytes`/`memoryview` and pass it back to bulk APIs when possible. |
 | `update_pixels()` | Full or dirty-region pixel upload | Buffer-like inputs reach Rust through the Python buffer protocol; list inputs are copied for compatibility | Use `bytes`, `bytearray`, `memoryview`, or the `PixelBuffer` returned by `load_pixels()`; prefer dirty row-aligned updates over full-canvas uploads. |
-| `get()`, `set()`, canvas `filter()` | CPU compositing fallback | Canvas-to-image copy plus upload | Prefer renderer-native drawing or image-local work. |
+| `get()`, `set()`, canvas `filter()` | GPU subregion read/write or ordered GPU effect when available; exact-semantics Rust software compatibility otherwise | Region operations avoid full-canvas synchronization on the GPU path; GPU-less headless work remains in the mandatory Rust canvas runtime | Prefer bounded regions and inspect pixel/effect counters when tuning hot paths. |
 | `begin_shape()` / `end_shape()` and clip paths | Rust shape-buffer finalization | Normal canvas paths avoid Python vertex-list extraction | Keep shape construction in the captured shape APIs; use diagnostics to catch fallback extraction. |
 | WEBGL model drawing | Rust-owned model handles; unstroked built-in primitive/model draws use retained GPU vertex/index buffers with GPU transform/projection/depth/material/texture pipelines when GPU drawing is available | First draw may upload model buffers and textures; fallback projected points are logical coordinates and direct GPU primitive fallback must scale by `pixel_density()` | Reuse primitive/model and image objects so retained buffers and texture caches stay hot. |
 | `save_obj()` / `save_stl()` | Streaming text writer | Writes incrementally instead of assembling unbounded `list[str]` payloads | Use direct export helpers for large generated meshes. |

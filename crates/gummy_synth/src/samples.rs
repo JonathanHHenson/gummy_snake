@@ -781,11 +781,70 @@ fn resample_source(source: &SampleSource, target_rate: u32) -> SynthResult<Sampl
     })
 }
 
+/// Sample one fractional source position with the canonical band-limited kernel.
+///
+/// `source_step` is the number of source frames advanced per output frame. It
+/// may change between calls for playback-rate automation. The cutoff follows
+/// the narrower Nyquist band, so dynamic downsampling does not select a linear
+/// or otherwise reduced-quality route.
+pub fn band_limited_sample(samples: &[f64], source_position: f64, source_step: f64) -> f64 {
+    band_limited_sample_strided(samples, source_position, source_step, 1, 0)
+}
+
+/// Sample one channel from interleaved source frames with the canonical kernel.
+pub fn band_limited_sample_strided(
+    samples: &[f64],
+    source_position: f64,
+    source_step: f64,
+    stride: usize,
+    channel: usize,
+) -> f64 {
+    if samples.is_empty()
+        || stride == 0
+        || channel >= stride
+        || !source_position.is_finite()
+        || !source_step.is_finite()
+        || source_step <= 0.0
+    {
+        return 0.0;
+    }
+    let frame_count = samples.len() / stride;
+    let cutoff = source_step.recip().min(1.0) * RESAMPLER_CUTOFF_MARGIN;
+    let center = source_position.floor() as isize;
+    let mut value = 0.0;
+    let mut weight_sum = 0.0;
+    for tap in -RESAMPLER_RADIUS + 1..=RESAMPLER_RADIUS {
+        let source_index = center + tap;
+        if source_index < 0 || source_index >= frame_count as isize {
+            continue;
+        }
+        let distance = source_position - source_index as f64;
+        let normalized = distance / RESAMPLER_RADIUS as f64;
+        if normalized.abs() >= 1.0 {
+            continue;
+        }
+        let window = 0.42 + 0.5 * (PI * normalized).cos() + 0.08 * (2.0 * PI * normalized).cos();
+        let argument = PI * distance * cutoff;
+        let sinc = if argument.abs() < 1e-12 {
+            1.0
+        } else {
+            argument.sin() / argument
+        };
+        let weight = cutoff * sinc * window;
+        value += samples[source_index as usize * stride + channel] * weight;
+        weight_sum += weight;
+    }
+    if weight_sum.abs() > 1e-12 {
+        value / weight_sum
+    } else {
+        0.0
+    }
+}
+
 /// Deterministic Blackman-windowed sinc conversion used for every asset-rate change.
 ///
-/// The cutoff follows the narrower Nyquist band, so downsampling does not alias
-/// source energy into the target passband. The fixed 32-tap support gives one
-/// cross-platform quality policy rather than selecting a reduced linear path.
+/// The fixed 32-tap support gives one cross-platform quality policy rather than
+/// selecting a reduced linear path.
 pub(crate) fn resample(samples: &[f64], source_rate: u32, target_rate: u32) -> Vec<f64> {
     if samples.is_empty() || source_rate == 0 || target_rate == 0 {
         return Vec::new();
@@ -796,40 +855,14 @@ pub(crate) fn resample(samples: &[f64], source_rate: u32, target_rate: u32) -> V
     let target_count = ((samples.len() as u128 * target_rate as u128 + source_rate as u128 / 2)
         / source_rate as u128) as usize;
     let ratio = target_rate as f64 / source_rate as f64;
-    let cutoff = ratio.min(1.0) * RESAMPLER_CUTOFF_MARGIN;
+    let source_step = ratio.recip();
     let mut output = Vec::with_capacity(target_count);
     for index in 0..target_count {
-        let source_position = index as f64 / ratio;
-        let center = source_position.floor() as isize;
-        let mut value = 0.0;
-        let mut weight_sum = 0.0;
-        for tap in -RESAMPLER_RADIUS + 1..=RESAMPLER_RADIUS {
-            let source_index = center + tap;
-            if source_index < 0 || source_index >= samples.len() as isize {
-                continue;
-            }
-            let distance = source_position - source_index as f64;
-            let normalized = distance / RESAMPLER_RADIUS as f64;
-            if normalized.abs() >= 1.0 {
-                continue;
-            }
-            let window =
-                0.42 + 0.5 * (PI * normalized).cos() + 0.08 * (2.0 * PI * normalized).cos();
-            let argument = PI * distance * cutoff;
-            let sinc = if argument.abs() < 1e-12 {
-                1.0
-            } else {
-                argument.sin() / argument
-            };
-            let weight = cutoff * sinc * window;
-            value += samples[source_index as usize] * weight;
-            weight_sum += weight;
-        }
-        output.push(if weight_sum.abs() > 1e-12 {
-            value / weight_sum
-        } else {
-            0.0
-        });
+        output.push(band_limited_sample(
+            samples,
+            index as f64 * source_step,
+            source_step,
+        ));
     }
     output
 }

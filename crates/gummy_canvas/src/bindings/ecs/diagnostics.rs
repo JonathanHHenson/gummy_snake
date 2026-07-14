@@ -27,6 +27,8 @@ pub(super) fn diagnostics_to_dict<'py>(
         "staged_commands_applied",
         diagnostics.staged_commands_applied,
     )?;
+    dict.set_item("bulk_spawn_calls", diagnostics.bulk_spawn_calls)?;
+    dict.set_item("bulk_spawn_entities", diagnostics.bulk_spawn_entities)?;
     dict.set_item("query_cache_hits", diagnostics.query_cache_hits)?;
     dict.set_item("query_cache_misses", diagnostics.query_cache_misses)?;
     dict.set_item("query_cache_refreshes", diagnostics.query_cache_refreshes)?;

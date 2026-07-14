@@ -323,7 +323,9 @@ from gummysnake.assets.gpu import (
     create_compute_shader,
     create_storage_buffer,
     dispatch_compute,
+    gpu_resource_diagnostics,
     read_storage_buffer,
+    reset_gpu_resource_diagnostics,
     update_storage_buffer,
     webgpu_context,
 )
@@ -335,6 +337,7 @@ from gummysnake.assets.image import (
 )
 from gummysnake.assets.media import (
     Capture,
+    MediaFrameSink,
     Video,
 )
 from gummysnake.assets.sound import (
@@ -659,6 +662,8 @@ __all__ = [
     "describe_element",
     "device_orientation",
     "dispatch_compute",
+    "gpu_resource_diagnostics",
+    "reset_gpu_resource_diagnostics",
     "display_density",
     "display_height",
     "display_width",
@@ -839,6 +844,7 @@ __all__ = [
     "FastDrawScope",
     "create_image",
     "Capture",
+    "MediaFrameSink",
     "Video",
     "AudioVideoCapture",
     "CanvasSound",

@@ -78,36 +78,6 @@ pub struct EventPayload {
     pub controls: Vec<ControlPayload>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct FxOptionSnapshot {
-    pub(crate) time_seconds: f64,
-    pub(crate) order: u64,
-    pub(crate) opts: OptMap,
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct FxBusNode {
-    pub(crate) fx: Option<FxPayload>,
-    pub(crate) input_left: Vec<f64>,
-    pub(crate) input_right: Vec<f64>,
-    pub(crate) option_snapshots: Vec<FxOptionSnapshot>,
-    pub(crate) children: Vec<FxBusNode>,
-    pub(crate) time_origin_seconds: f64,
-}
-
-#[derive(Debug)]
-pub struct SynthPlaybackPlan {
-    pub(crate) events: Vec<EventPayload>,
-    pub(crate) duration_seconds: f64,
-    pub(crate) dry_event_cache: Mutex<HashMap<(usize, u32), Arc<StereoEventSignal>>>,
-}
-
-#[derive(Debug)]
-pub(crate) struct StereoEventSignal {
-    pub(crate) left: Vec<f64>,
-    pub(crate) right: Vec<f64>,
-}
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum SynthKind {
     Silence,

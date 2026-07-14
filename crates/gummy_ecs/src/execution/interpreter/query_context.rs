@@ -137,15 +137,13 @@ impl<'a> PlanExecutor<'a> {
         if !self.numeric_field_cache_enabled {
             return self.world.get_field_f64(entity, component, field);
         }
-        let row = entity.index as usize;
-        if let Some(fields) = self.numeric_field_cache.get(component) {
-            if let Some(values) = fields.get(field) {
-                if let Some(Some((generation, value))) = values.get(row) {
-                    if *generation == entity.generation {
-                        return Ok(*value);
-                    }
-                }
-            }
+        if let Some(value) = self
+            .numeric_field_cache
+            .get(component)
+            .and_then(|fields| fields.get(field))
+            .and_then(|values| values.get(&entity))
+        {
+            return Ok(*value);
         }
         let value = self.world.get_field_f64(entity, component, field)?;
         let values = self
@@ -154,10 +152,7 @@ impl<'a> PlanExecutor<'a> {
             .or_default()
             .entry(field.to_string())
             .or_default();
-        if values.len() <= row {
-            values.resize(row + 1, None);
-        }
-        values[row] = Some((entity.generation, value));
+        values.insert(entity, value);
         Ok(value)
     }
 }

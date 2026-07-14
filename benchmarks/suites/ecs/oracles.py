@@ -125,7 +125,7 @@ class CounterExpectation:
 
 @dataclass(frozen=True, slots=True)
 class ReleaseProvenanceContract:
-    """Authoritative ECS recording requirements enforced by the shared recorder."""
+    """Release-build requirements enforced before local ECS recording."""
 
     profile: str = "release"
     required_features: tuple[str, ...] = ("extension-module",)
@@ -145,22 +145,18 @@ class ReleaseProvenanceContract:
         missing = sorted(required - set(reported))
         if missing:
             raise EcsOracleError(
-                "authoritative ECS benchmark provenance is missing: " + ", ".join(missing)
+                "ECS benchmark release provenance is missing: " + ", ".join(missing)
             )
         commit = reported["source_commit"]
         if not isinstance(commit, str) or not _GIT_OBJECT.fullmatch(commit):
-            raise EcsOracleError(
-                "authoritative ECS benchmarks require a recorded hexadecimal source commit"
-            )
+            raise EcsOracleError("ECS benchmark recording requires a hexadecimal source commit")
         for name in ("source_digest", "tree_digest"):
             value = reported[name]
             if not isinstance(value, str) or not _DIGEST.fullmatch(value):
-                raise EcsOracleError(
-                    f"authoritative ECS benchmarks require a recorded {name} SHA-256 digest"
-                )
+                raise EcsOracleError(f"ECS benchmark recording requires a {name} SHA-256 digest")
         if reported["profile"] != self.profile:
             raise EcsOracleError(
-                f"authoritative ECS benchmarks require profile={self.profile!r}, "
+                f"ECS benchmark recording requires profile={self.profile!r}, "
                 f"got {reported['profile']!r}"
             )
         features = reported["features"]
@@ -170,8 +166,7 @@ class ReleaseProvenanceContract:
         missing_features = sorted(set(self.required_features) - set(normalized_features))
         if missing_features:
             raise EcsOracleError(
-                "authoritative ECS benchmark build is missing feature(s): "
-                + ", ".join(missing_features)
+                "ECS benchmark release build is missing feature(s): " + ", ".join(missing_features)
             )
         for name in ("canvas_crate_version", "ecs_crate_version"):
             value = reported[name]

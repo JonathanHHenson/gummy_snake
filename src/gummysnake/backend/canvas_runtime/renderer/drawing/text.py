@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import cast
 
 from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer.command_ingress import pack_text_commands
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.payloads import text_metric_key
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
@@ -42,17 +43,22 @@ class CanvasRendererTextMixin:
         style: StyleState,
         transform: Matrix2D,
     ) -> None:
-        style_payload = dict(_renderer(self)._style_payload(style))
-        matrix_payload = _renderer(self)._matrix_payload(transform)
-        if _renderer(self)._text_batch and (
-            _renderer(self)._text_batch.style != style_payload
-            or _renderer(self)._text_batch.matrix != matrix_payload
-        ):
-            _renderer(self)._flush_text_batch()
-        for value, x, y in items:
-            _renderer(self)._text_batch.append(value, x, y)
-        _renderer(self)._text_batch.style = style_payload
-        _renderer(self)._text_batch.matrix = matrix_payload
+        renderer = _renderer(self)
+        records, utf8 = pack_text_commands(items)
+        if not items:
+            return
+        renderer._count("gpu_draws", len(items))
+        renderer._call(
+            "typed text command recording",
+            renderer._require_canvas_method(
+                "text_batch_packed",
+                "typed text command recording",
+            ),
+            records,
+            utf8,
+            dict(renderer._style_payload(style)),
+            renderer._matrix_payload(transform),
+        )
 
     def text_width(self, value: str, style: StyleState) -> float:
         _renderer(self)._flush_line_batch_only()
@@ -132,24 +138,4 @@ class CanvasRendererTextMixin:
         )
 
     def _flush_text_batch(self, *, final: bool = False) -> None:
-        if not _renderer(self)._text_batch:
-            return
-        records, utf8, style, matrix, record_count = _renderer(self)._text_batch.drain()
-        if style is None or matrix is None or record_count == 0:
-            return
-        _renderer(self)._count("gpu_draws", record_count)
-        method_name = "text_batch_frame_packed" if final else "text_batch_packed"
-        batch = _renderer(self)._require_canvas_method(
-            method_name,
-            "typed batched text drawing",
-        )
-        reused = _renderer(self)._call(
-            "typed batched text drawing",
-            batch,
-            records,
-            utf8,
-            style,
-            matrix,
-        )
-        if final and reused is True:
-            _renderer(self)._skip_canvas_end_frame = True
+        del final

@@ -27,7 +27,6 @@ impl GpuRenderer {
             .text_renderer
             .render(&self.text_atlas, &self.text_viewport, &mut pass);
         drop(pass);
-        self.text_atlas.trim();
     }
 
     fn prepare_text_areas(&mut self, commands: &[DrawCommand]) -> bool {

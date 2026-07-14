@@ -25,12 +25,30 @@ fn explicit_pixel_paths_allocate_cpu_buffers_lazily() {
     assert!(canvas.present_pixels.is_empty());
 
     canvas.set_pixel_rgba(1, 0, (10, 20, 30, 255)).unwrap();
-    assert_eq!(canvas.present_pixels.len(), 2);
+    assert!(canvas.present_pixels.is_empty());
     assert_eq!(canvas.load_pixels(), vec![0, 0, 0, 0, 10, 20, 30, 255]);
 
     canvas.resize_canvas(3, 1, 1.0, SUPPORTED_RENDERER).unwrap();
     assert!(canvas.pixels.is_empty());
     assert!(canvas.present_pixels.is_empty());
+}
+
+#[test]
+fn gpu_less_headless_pixel_writes_use_rust_software_compatibility() {
+    let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    canvas.gpu = None;
+    canvas.gpu_error = Some("test GPU unavailable".to_owned());
+    canvas
+        .update_pixels(vec![0, 0, 0, 255, 0, 0, 0, 255])
+        .unwrap();
+
+    canvas.set_pixel_rgba(1, 0, (10, 20, 30, 255)).unwrap();
+    canvas
+        .update_pixel_region(vec![255, 0, 0, 128], 1, 1, 0, 0, true)
+        .unwrap();
+
+    assert_eq!(canvas.load_pixels(), vec![128, 0, 0, 255, 10, 20, 30, 255]);
+    assert_eq!(canvas.performance_counters.pixel_region_uploads, 2);
 }
 
 #[test]

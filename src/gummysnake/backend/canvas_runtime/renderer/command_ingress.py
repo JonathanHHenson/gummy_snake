@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from struct import Struct
 from typing import Protocol, cast
 
@@ -150,93 +149,61 @@ def pack_filter_effect(mode: c.ImageFilter, value: float | None) -> bytes:
     return EFFECT_RECORD.pack(2, mode_code, 0, 0, 0, 0, 0.0 if value is None else float(value))
 
 
-@dataclass(slots=True)
-class PackedImageBatchState:
-    """Compact image records plus stable Rust image handles for one ordered run."""
+def pack_image_commands(
+    commands: Sequence[
+        tuple[
+            object,
+            float,
+            float,
+            float,
+            float,
+            tuple[int, int, int, int] | None,
+            MatrixPayload,
+        ]
+    ],
+) -> tuple[bytes, list[object]]:
+    """Pack one ordered image submission without retaining Python frame state."""
 
-    records: bytearray = field(default_factory=bytearray)
-    images: list[object] = field(default_factory=list)
-    image_indices: dict[int, int] = field(default_factory=dict)
-    style: dict[str, object] | None = None
-    record_count: int = 0
-
-    def __bool__(self) -> bool:
-        return self.record_count > 0
-
-    def append(
-        self,
-        rust_image: object,
-        dx: float,
-        dy: float,
-        dw: float,
-        dh: float,
-        source: tuple[int, int, int, int] | None,
-        matrix: MatrixPayload,
-    ) -> None:
+    records = bytearray(IMAGE_RECORD.size * len(commands))
+    images: list[object] = []
+    image_indices: dict[int, int] = {}
+    for index, (rust_image, dx, dy, dw, dh, source, matrix) in enumerate(commands):
         key = int(cast(RustImageHandle, rust_image).key)
-        image_index = self.image_indices.get(key)
+        image_index = image_indices.get(key)
         if image_index is None:
-            image_index = len(self.images)
-            self.image_indices[key] = image_index
-            self.images.append(rust_image)
-        flags = 1 if source is not None else 0
-        self.records.extend(
-            IMAGE_RECORD.pack(
-                image_index,
-                flags,
-                float(dx),
-                float(dy),
-                float(dw),
-                float(dh),
-                *(source or (0, 0, 0, 0)),
-                *matrix,
-            )
+            image_index = len(images)
+            image_indices[key] = image_index
+            images.append(rust_image)
+        IMAGE_RECORD.pack_into(
+            records,
+            index * IMAGE_RECORD.size,
+            image_index,
+            1 if source is not None else 0,
+            float(dx),
+            float(dy),
+            float(dw),
+            float(dh),
+            *(source or (0, 0, 0, 0)),
+            *matrix,
         )
-        self.record_count += 1
-
-    def drain(self) -> tuple[bytes, list[object], dict[str, object] | None, int]:
-        snapshot = (bytes(self.records), self.images, self.style, self.record_count)
-        self.records.clear()
-        self.images = []
-        self.image_indices.clear()
-        self.style = None
-        self.record_count = 0
-        return snapshot
+    return bytes(records), images
 
 
-@dataclass(slots=True)
-class PackedTextBatchState:
-    """UTF-8 text blob and fixed-width placement records for one style/transform run."""
+def pack_text_commands(items: Sequence[tuple[str, float, float]]) -> tuple[bytes, bytes]:
+    """Pack text placements and one UTF-8 blob without a Python frame queue."""
 
-    records: bytearray = field(default_factory=bytearray)
-    utf8: bytearray = field(default_factory=bytearray)
-    style: dict[str, object] | None = None
-    matrix: MatrixPayload | None = None
-    record_count: int = 0
-
-    def __bool__(self) -> bool:
-        return self.record_count > 0
-
-    def append(self, value: str, x: float, y: float) -> None:
+    records = bytearray(TEXT_RECORD.size * len(items))
+    utf8 = bytearray()
+    for index, (value, x, y) in enumerate(items):
         encoded = value.encode("utf-8")
-        offset = len(self.utf8)
-        self.utf8.extend(encoded)
-        self.records.extend(TEXT_RECORD.pack(offset, len(encoded), float(x), float(y)))
-        self.record_count += 1
-
-    def drain(
-        self,
-    ) -> tuple[bytes, bytes, dict[str, object] | None, MatrixPayload | None, int]:
-        snapshot = (
-            bytes(self.records),
-            bytes(self.utf8),
-            self.style,
-            self.matrix,
-            self.record_count,
+        offset = len(utf8)
+        utf8.extend(encoded)
+        TEXT_RECORD.pack_into(
+            records,
+            index * TEXT_RECORD.size,
+            offset,
+            len(encoded),
+            float(x),
+            float(y),
         )
-        self.records.clear()
-        self.utf8.clear()
-        self.style = None
-        self.matrix = None
-        self.record_count = 0
-        return snapshot
+    return bytes(records), bytes(utf8)

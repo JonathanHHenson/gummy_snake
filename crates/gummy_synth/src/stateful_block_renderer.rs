@@ -417,7 +417,7 @@ impl OscillatorSource {
             &["note", "amp", "pan", "pulse_width", "cutoff", "res"],
         )?;
         validate_option_keys(
-            &opts,
+            opts,
             &[
                 "note",
                 "attack",
@@ -458,20 +458,21 @@ impl OscillatorSource {
         let active_notes: Vec<f64> = notes.into_iter().flatten().collect();
         let (default_attack, default_decay, default_sustain, default_release) =
             default_synth_envelope(kind);
-        let attack = float_opt(&opts, "attack", default_attack).max(0.0);
-        let decay = float_opt(&opts, "decay", default_decay).max(0.0);
-        let sustain = float_opt(&opts, "sustain", default_sustain).max(0.0);
-        let release = float_opt(&opts, "release", default_release).max(0.0);
+        let attack = float_opt(opts, "attack", default_attack).max(0.0);
+        let decay = float_opt(opts, "decay", default_decay).max(0.0);
+        let sustain = float_opt(opts, "sustain", default_sustain).max(0.0);
+        let release = float_opt(opts, "release", default_release).max(0.0);
+        let total_seconds = (attack + decay + sustain + release)
+            .max(natural_synth_tail(kind, opts))
+            .max(0.01);
         let total_frames = checked_frame_count(
-            (attack + decay + sustain + release)
-                .max(natural_synth_tail(kind, &opts))
-                .max(0.01),
+            total_seconds,
             sample_rate,
             "stateful oscillator envelope duration",
             1,
         )?;
         let layers = if kind == SynthKind::Layered {
-            Some(layered_specs(&opts)?)
+            Some(layered_specs(opts)?)
         } else {
             None
         };
@@ -497,7 +498,7 @@ impl OscillatorSource {
             } else if kind != SynthKind::Silence {
                 lanes.push(OscillatorLane {
                     kind,
-                    waveform: synth_waveform(kind, &opts),
+                    waveform: synth_waveform(kind, opts),
                     phase: 0.0,
                     base_note: note,
                     static_phase_delta: note_frequency(note).max(0.0) / sample_rate as f64,
@@ -525,7 +526,7 @@ impl OscillatorSource {
             .transpose()?
             .filter(AutomationCursor::has_points);
         let cutoff = AutomationCursor::compile(
-            float_opt(&opts, "cutoff", default_synth_cutoff(kind)),
+            float_opt(opts, "cutoff", default_synth_cutoff(kind)),
             "cutoff",
             &event.controls,
             control_frames,
@@ -533,7 +534,7 @@ impl OscillatorSource {
             sample_rate,
         )?;
         let resonance = AutomationCursor::compile(
-            float_opt(&opts, "res", default_synth_res(kind)),
+            float_opt(opts, "res", default_synth_res(kind)),
             "res",
             &event.controls,
             control_frames,
@@ -565,12 +566,12 @@ impl OscillatorSource {
             resonance,
             static_coefficients,
         });
-        let sustain_level = float_opt(&opts, "sustain_level", 1.0).max(0.0);
-        let attack_level = float_opt(&opts, "attack_level", 1.0).max(0.0);
-        let decay_level = decay_level_opt(&opts, sustain_level);
-        let env_curve = float_opt(&opts, "env_curve", 1.0).round() as i32;
+        let sustain_level = float_opt(opts, "sustain_level", 1.0).max(0.0);
+        let attack_level = float_opt(opts, "attack_level", 1.0).max(0.0);
+        let decay_level = decay_level_opt(opts, sustain_level);
+        let env_curve = float_opt(opts, "env_curve", 1.0).round() as i32;
         let pan = AutomationCursor::compile(
-            float_opt(&opts, "pan", 0.0),
+            float_opt(opts, "pan", 0.0),
             "pan",
             &event.controls,
             control_frames,
@@ -594,7 +595,7 @@ impl OscillatorSource {
                 env_curve,
             ),
             amplitude: AutomationCursor::compile(
-                float_opt(&opts, "amp", 1.0).max(0.0) * synth_amp_fudge(kind, &opts),
+                float_opt(opts, "amp", 1.0).max(0.0) * synth_amp_fudge(kind, opts),
                 "amp",
                 &event.controls,
                 control_frames,
@@ -606,7 +607,7 @@ impl OscillatorSource {
             note,
             note_root,
             pulse_width: AutomationCursor::compile(
-                float_opt(&opts, "pulse_width", 0.5),
+                float_opt(opts, "pulse_width", 0.5),
                 "pulse_width",
                 &event.controls,
                 control_frames,
@@ -623,7 +624,7 @@ impl OscillatorSource {
                 .max(0.0)
             }),
             linked_peak: 0.0,
-            dc_blocker: bool_opt(&opts, "leak_dc", false).then_some(DcBlocker {
+            dc_blocker: bool_opt(opts, "leak_dc", false).then_some(DcBlocker {
                 previous_input_left: 0.0,
                 previous_input_right: 0.0,
                 previous_output_left: 0.0,
@@ -747,7 +748,7 @@ impl SampleSourceState {
         let event_frame = execution.frame.as_usize();
         validate_source_control_keys(event, &["amp", "pan", "rate"])?;
         validate_option_keys(
-            &opts,
+            opts,
             &[
                 "start",
                 "finish",
@@ -773,17 +774,17 @@ impl SampleSourceState {
             "stateful sample option",
         )?;
         let source = sample_source(&event.value, sample_rate)?;
-        let start = float_opt(&opts, "start", 0.0).clamp(0.0, 1.0);
-        let finish = float_opt(&opts, "finish", 1.0).clamp(0.0, 1.0);
-        let mut initial_rate = float_opt(&opts, "rate", 1.0);
+        let start = float_opt(opts, "start", 0.0).clamp(0.0, 1.0);
+        let finish = float_opt(opts, "finish", 1.0).clamp(0.0, 1.0);
+        let mut initial_rate = float_opt(opts, "rate", 1.0);
         if opts.contains_key("rpitch") {
-            initial_rate *= 2.0_f64.powf(float_opt(&opts, "rpitch", 0.0) / 12.0);
+            initial_rate *= 2.0_f64.powf(float_opt(opts, "rpitch", 0.0) / 12.0);
         }
         if opts.contains_key("pitch") {
-            initial_rate *= 2.0_f64.powf(float_opt(&opts, "pitch", 0.0) / 12.0);
+            initial_rate *= 2.0_f64.powf(float_opt(opts, "pitch", 0.0) / 12.0);
         }
         if opts.contains_key("beat_stretch") {
-            initial_rate = source.duration / float_opt(&opts, "beat_stretch", 1.0).max(0.001);
+            initial_rate = source.duration / float_opt(opts, "beat_stretch", 1.0).max(0.001);
         }
         if initial_rate == 0.0 {
             return Err(SynthError::new("sample rate cannot be zero."));
@@ -810,8 +811,8 @@ impl SampleSourceState {
         let source_frames = high.saturating_sub(low);
         let estimated_output_frames =
             ((source_frames as f64 / initial_rate.abs()).ceil() as usize).max(1);
-        let attack = float_opt(&opts, "attack", 0.0).max(0.0);
-        let release = float_opt(&opts, "release", 0.0).max(0.0);
+        let attack = float_opt(opts, "attack", 0.0).max(0.0);
+        let release = float_opt(opts, "release", 0.0).max(0.0);
         let estimated_seconds = estimated_output_frames as f64 / sample_rate as f64;
         let sustain = opts
             .get("sustain")
@@ -824,10 +825,10 @@ impl SampleSourceState {
             "stateful sample envelope duration",
             1,
         )?;
-        let cutoff_note = float_opt(&opts, "cutoff", 131.0);
-        let anti_alias = bool_opt(&opts, "anti_alias", true);
+        let cutoff_note = float_opt(opts, "cutoff", 131.0);
+        let anti_alias = bool_opt(opts, "anti_alias", true);
         let pan = AutomationCursor::compile(
-            float_opt(&opts, "pan", 0.0),
+            float_opt(opts, "pan", 0.0),
             "pan",
             &event.controls,
             control_frames,
@@ -853,12 +854,12 @@ impl SampleSourceState {
                 if anti_alias && rate.initial > 1.0 {
                     cutoff_hz = cutoff_hz.min(sample_rate as f64 * 0.45 / rate.initial.sqrt());
                 }
-                if float_opt(&opts, "res", 0.0) > 0.0 {
+                if float_opt(opts, "res", 0.0) > 0.0 {
                     BiquadCoefficients::resonant_filter(
                         FilterKind::Low,
                         cutoff_hz.max(20.0),
                         sample_rate,
-                        sonic_filter_rq(float_opt(&opts, "res", 0.0).clamp(0.0, 0.99)),
+                        sonic_filter_rq(float_opt(opts, "res", 0.0).clamp(0.0, 0.99)),
                     )
                 } else {
                     BiquadCoefficients::filter(
@@ -889,11 +890,11 @@ impl SampleSourceState {
                 1.0,
                 1.0,
                 1.0,
-                float_opt(&opts, "env_curve", 1.0).round() as i32,
+                float_opt(opts, "env_curve", 1.0).round() as i32,
             ),
-            pre_amp: float_opt(&opts, "pre_amp", 1.0).max(0.0),
+            pre_amp: float_opt(opts, "pre_amp", 1.0).max(0.0),
             amplitude: AutomationCursor::compile(
-                float_opt(&opts, "amp", 1.0).max(0.0),
+                float_opt(opts, "amp", 1.0).max(0.0),
                 "amp",
                 &event.controls,
                 control_frames,
@@ -909,7 +910,7 @@ impl SampleSourceState {
             }),
             static_filter_coefficients,
             cutoff_note,
-            resonance: float_opt(&opts, "res", 0.0).clamp(0.0, 0.99),
+            resonance: float_opt(opts, "res", 0.0).clamp(0.0, 0.99),
             anti_alias,
         })
     }
@@ -1259,10 +1260,7 @@ enum BlockFxKind {
         filter: StereoFilterState,
         coefficients: BiquadCoefficients,
     },
-    Normaliser {
-        level: f64,
-        linked_peak: f64,
-    },
+    Normaliser(CausalNormaliser),
     Reverb(ReverbState),
     Gverb(GverbState),
     Slicer(SlicerState),
@@ -1279,7 +1277,7 @@ enum BlockFxKind {
         subsub_amp: f64,
     },
     Vowel {
-        bands: [BandFilterState; 3],
+        bands: Box<[BandFilterState; 3]>,
         gains: [f64; 3],
     },
     Flanger(FlangerState),
@@ -2095,10 +2093,20 @@ impl BlockFx {
                     0.0,
                 ),
             },
-            CompiledBlockFxKind::Normaliser => BlockFxKind::Normaliser {
-                level: float_opt(&payload.opts, "level", 1.0).max(0.0),
-                linked_peak: 0.0,
-            },
+            CompiledBlockFxKind::Normaliser => {
+                let level = float_opt(&payload.opts, "level", 1.0).max(0.0);
+                if level <= 0.0 {
+                    BlockFxKind::Level
+                } else {
+                    BlockFxKind::Normaliser(CausalNormaliser::new(
+                        sample_rate,
+                        CausalNormaliserConfig {
+                            target: level,
+                            ..CausalNormaliserConfig::default()
+                        },
+                    )?)
+                }
+            }
             CompiledBlockFxKind::Reverb => {
                 BlockFxKind::Reverb(compile_reverb_state(&payload.opts, sample_rate)?)
             }
@@ -2156,7 +2164,10 @@ impl BlockFx {
             },
             CompiledBlockFxKind::Vowel => {
                 let (bands, gains) = compile_vowel_state(&payload.opts);
-                BlockFxKind::Vowel { bands, gains }
+                BlockFxKind::Vowel {
+                    bands: Box::new(bands),
+                    gains,
+                }
             }
             CompiledBlockFxKind::Flanger => {
                 BlockFxKind::Flanger(compile_flanger_state(&payload.opts, sample_rate)?)
@@ -2288,14 +2299,8 @@ impl BlockFx {
                     filtered.1 + (dry.1 - filtered.1) * *resonance * 0.35,
                 )
             }
-            BlockFxKind::Normaliser { level, linked_peak } => {
-                *linked_peak = linked_peak.max(dry.0.abs().max(dry.1.abs()));
-                if *linked_peak <= 1e-9 || *level <= 0.0 {
-                    dry
-                } else {
-                    let gain = *level / *linked_peak;
-                    (dry.0 * gain, dry.1 * gain)
-                }
+            BlockFxKind::Normaliser(normaliser) => {
+                normaliser.process_frame(dry.0, dry.1).unwrap_or((0.0, 0.0))
             }
             BlockFxKind::Reverb(state) => {
                 let comb_left = (dry.0 * 0.75 + dry.1 * 0.25) * 0.015;
@@ -2499,6 +2504,7 @@ impl BlockFx {
             BlockFxKind::Echo(state) => state.tail_frames,
             BlockFxKind::Reverb(state) => state.tail_frames,
             BlockFxKind::Gverb(state) => state.tail_frames,
+            BlockFxKind::Normaliser(normaliser) => normaliser.latency_frames(),
             _ => 0,
         }
     }
@@ -3005,12 +3011,14 @@ impl StatefulBlockRenderer {
             .block_frames
             .checked_mul(2)
             .ok_or_else(|| SynthError::new("stateful render block PCM capacity overflowed."))?;
-        let mut diagnostics = BlockRenderDiagnostics::default();
-        diagnostics.normaliser_latency_frames = normaliser
-            .as_ref()
-            .map_or(0, CausalNormaliser::latency_frames);
         let limiter = StatefulLimiter::new(program.sample_rate());
-        diagnostics.limiter_latency_frames = limiter.latency_frames();
+        let mut diagnostics = BlockRenderDiagnostics {
+            normaliser_latency_frames: normaliser
+                .as_ref()
+                .map_or(0, CausalNormaliser::latency_frames),
+            limiter_latency_frames: limiter.latency_frames(),
+            ..BlockRenderDiagnostics::default()
+        };
         let scratch_bytes = pcm_capacity * std::mem::size_of::<i16>()
             + config.block_frames * 6 * std::mem::size_of::<f64>();
         diagnostics.observe_scratch(scratch_bytes);

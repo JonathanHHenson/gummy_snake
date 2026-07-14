@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gummy_ecs::{ComponentRow, EcsValue};
+use gummy_ecs::{ComponentRow, EcsValue, EntityRowData, SpawnEntity};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyTuple};
@@ -90,6 +90,45 @@ pub(super) fn component_row_from_dict(fields: &Bound<'_, PyDict>) -> PyResult<Co
         row.insert(key.extract::<String>()?, py_to_ecs_value(&value)?);
     }
     Ok(row)
+}
+
+pub(super) fn spawn_entities_from_list(rows: &Bound<'_, PyList>) -> PyResult<Vec<SpawnEntity>> {
+    let mut entities = Vec::with_capacity(rows.len());
+    for (row_index, value) in rows.iter().enumerate() {
+        let row = value.downcast::<PyTuple>().map_err(|_| {
+            PyValueError::new_err(format!(
+                "ECS bulk spawn row {row_index} must be a (components, tags) tuple"
+            ))
+        })?;
+        if row.len() != 2 {
+            return Err(PyValueError::new_err(format!(
+                "ECS bulk spawn row {row_index} must contain components and tags"
+            )));
+        }
+        let component_value = row.get_item(0)?;
+        let component_dict = component_value.downcast::<PyDict>().map_err(|_| {
+            PyValueError::new_err(format!(
+                "ECS bulk spawn row {row_index} components must be a dict"
+            ))
+        })?;
+        let mut components = EntityRowData::with_capacity(component_dict.len());
+        for (name, fields) in component_dict.iter() {
+            let component_name = name.extract::<String>()?;
+            let fields = fields.downcast::<PyDict>().map_err(|_| {
+                PyValueError::new_err(format!(
+                    "ECS bulk spawn component {component_name:?} fields must be a dict"
+                ))
+            })?;
+            components.insert(component_name, component_row_from_dict(fields)?);
+        }
+        let tags = row.get_item(1)?.extract::<Vec<String>>().map_err(|_| {
+            PyValueError::new_err(format!(
+                "ECS bulk spawn row {row_index} tags must be a list of strings"
+            ))
+        })?;
+        entities.push(SpawnEntity::new(components, tags));
+    }
+    Ok(entities)
 }
 
 pub(super) fn component_row_to_dict<'py>(

@@ -13,69 +13,25 @@ if TYPE_CHECKING:
     from gummysnake.ecs.world import EcsWorld
 
 
-_STYLE_COMMANDS = frozenset(
-    {
-        "fill",
-        "no_fill",
-        "stroke",
-        "no_stroke",
-        "stroke_weight",
-        "erase",
-        "no_erase",
-        "blend_mode",
-    }
-)
-
-
 @dataclass
 class _CanvasReplayState:
     """Renderer state required to preserve ordered compact fill replay."""
 
     context: Any
     renderer: Any
-    primitive_batch: Any
     constants: Any
-    direct_fill_active: bool = False
-    primitive_records: Any = None
-    matrix_payload: Any = None
-    current_fill: Any = None
-    direct_fill_allowed: bool = False
-
-    def __post_init__(self) -> None:
-        self.refresh_direct_fill_state()
-
-    def refresh_direct_fill_state(self) -> None:
-        """Synchronize compact-fill eligibility after a replayed command."""
-        style = self.context.state.style
-        self.primitive_records = self.primitive_batch.records
-        self.matrix_payload = self.renderer._matrix_payload(self.context.state.transform.matrix)
-        self.current_fill = style.fill_rgba
-        self.direct_fill_allowed = (
-            self.current_fill is not None
-            and style.stroke_rgba is None
-            and not style.erasing
-            and style.blend_mode == self.constants.BLEND
-        )
 
     def append_fill_primitive(self, kind: int, coords: tuple[float, ...]) -> bool:
-        """Append an eligible fill primitive without crossing renderer batch boundaries."""
-        if not self.direct_fill_allowed or self.current_fill is None:
-            return False
-        if not self.direct_fill_active:
-            self.renderer._flush_batches_before_primitive_batch()
-            self.primitive_records = self.primitive_batch.records
-            self.direct_fill_active = True
-        if self.primitive_batch.has_records() and not self.primitive_batch.matches_fill(
-            self.matrix_payload
-        ):
-            self.renderer._flush_primitive_batch_only()
-            self.primitive_records = self.primitive_batch.records
-        self.primitive_records.append((kind, *coords, *self.current_fill))
-        self.primitive_batch.style = None
-        self.primitive_batch.matrix = self.matrix_payload
-        self.primitive_batch.current = False
-        self.primitive_batch.mode = "fill"
-        return True
+        """Record an eligible fill primitive through direct Rust command ingress."""
+
+        return bool(
+            self.renderer.queue_fill_primitive_fast_path(
+                kind,
+                coords,
+                self.context.state.style,
+                self.context.state.transform.matrix,
+            )
+        )
 
 
 def dispatch_canvas_commands(world: EcsWorld, report: dict[str, Any]) -> None:
@@ -101,7 +57,7 @@ def _new_canvas_replay_state(world: EcsWorld) -> _CanvasReplayState:
     from gummysnake import constants as c
 
     renderer = cast(Any, context.renderer)
-    return _CanvasReplayState(context, renderer, renderer._primitive_batch_state, c)
+    return _CanvasReplayState(context, renderer, c)
 
 
 def _canvas_command_handlers(context: Any) -> dict[str, Callable[..., Any]]:
@@ -211,9 +167,6 @@ def _dispatch_canvas_command(
     args: Sequence[Any],
 ) -> None:
     _resolve_canvas_handler(state.context, handlers, name)(*args)
-    if name not in _STYLE_COMMANDS:
-        state.direct_fill_active = False
-    state.refresh_direct_fill_state()
 
 
 def _resolve_canvas_handler(

@@ -1,5 +1,4 @@
 import inspect
-import shutil
 import wave
 from pathlib import Path
 
@@ -9,51 +8,140 @@ import gummysnake as gs
 from gummysnake import BackendCapabilityError
 from gummysnake.assets import sound as sound_module
 from gummysnake.assets.sound_runtime import loading_and_playback
+from gummysnake.assets.sound_runtime.canvas_sound import CanvasSound
 
 
-class _FakePlayer:
-    instances = []
-
-    def __init__(self, path: Path) -> None:
-        self.path = path
-        self.queued = []
-        self.play_calls = 0
-        self.pause_calls = 0
-        self.seek_calls = []
-        self.delete_calls = 0
-        self.volume = 0.0
-        self.pitch = 0.0
-        self.position = (0.0, 0.0, 0.0)
-        self.loop = False
-        self._time = 0.0
-        _FakePlayer.instances.append(self)
-
-    def queue(self, source) -> None:
-        self.queued.append(source)
+class _FakePlayback:
+    def __init__(self, duration: float, *, looping: bool, position: float) -> None:
+        self.duration = duration
+        self.error = None
+        self._playing = True
+        self._paused = False
+        self._looping = looping
+        self._time = position
+        self._ended = 0
+        self.stop_calls = 0
+        self.close_calls = 0
+        self.volume_updates: list[float] = []
+        self.rate_updates: list[float] = []
+        self.pan_updates: list[float] = []
+        self.seek_updates: list[float] = []
 
     def play(self) -> None:
-        self.play_calls += 1
+        self._playing = True
+        self._paused = False
 
     def pause(self) -> None:
-        self.pause_calls += 1
+        self._playing = False
+        self._paused = True
 
-    def seek(self, value: float) -> None:
-        self.seek_calls.append(value)
-        self._time = value
+    def stop(self) -> None:
+        self.stop_calls += 1
+        self._playing = False
+        self._paused = False
+        self._time = 0.0
+
+    def close(self) -> None:
+        self.close_calls += 1
+
+    def looping(self, value: bool | None = None) -> bool:
+        if value is not None:
+            self._looping = value
+        return self._looping
+
+    def set_volume(self, value: float) -> None:
+        self.volume_updates.append(value)
+
+    def set_rate(self, value: float) -> None:
+        self.rate_updates.append(value)
+
+    def set_pan(self, value: float) -> None:
+        self.pan_updates.append(value)
+
+    def seek(self, seconds: float) -> None:
+        self.seek_updates.append(seconds)
+        self._time = seconds
 
     def time(self) -> float:
         return self._time
 
-    def delete(self) -> None:
-        self.delete_calls += 1
+    def is_playing(self) -> bool:
+        if self.error:
+            raise RuntimeError(self.error)
+        return self._playing
+
+    def is_paused(self) -> bool:
+        return self._paused
+
+    def take_ended(self) -> bool:
+        if self._ended <= 0:
+            return False
+        self._ended -= 1
+        return True
+
+    def diagnostics(self) -> dict[str, object]:
+        return {
+            "duration_seconds": self.duration,
+            "position_seconds": self._time,
+            "playing": self._playing,
+            "paused": self._paused,
+            "looping": self._looping,
+            "blocks": 3,
+            "rendered_frames": 96,
+            "ended_generation": 1 if self._ended else 0,
+            "error": self.error,
+        }
+
+    def finish_naturally(self) -> None:
+        self._playing = False
+        self._paused = False
+        self._time = self.duration
+        self._ended += 1
+
+
+class _FakeRustSound:
+    def __init__(self, path: str = "tone.wav", payload: bytes = b"RIFFfake") -> None:
+        self.path = path
+        self.duration = 1.25
+        self.byte_len = len(payload)
+        self.sample_rate = 8_000
+        self.frame_count = 10_000
+        self.payload = payload
+        self.play_calls: list[tuple[float, float, float, bool, float]] = []
+        self.playbacks: list[_FakePlayback] = []
+        self.play_error: Exception | None = None
+
+    def to_bytes(self) -> bytes:
+        return self.payload
+
+    def play(
+        self,
+        volume: float = 1.0,
+        rate: float = 1.0,
+        pan: float = 0.0,
+        looping: bool = False,
+        position: float = 0.0,
+    ) -> _FakePlayback:
+        if self.play_error is not None:
+            raise self.play_error
+        self.play_calls.append((volume, rate, pan, looping, position))
+        playback = _FakePlayback(self.duration, looping=looping, position=position)
+        self.playbacks.append(playback)
+        return playback
+
+
+def _sound() -> tuple[sound_module.Sound, _FakeRustSound]:
+    rust = _FakeRustSound()
+    asset = CanvasSound.from_rust(rust)
+    return sound_module.Sound(asset, path=Path(rust.path), rust_sound=asset), rust
 
 
 def _write_wav(path: Path) -> None:
     with wave.open(str(path), "wb") as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
-        wav.setframerate(8000)
-        wav.writeframes(b"\0\0" * 10000)
+        wav.setframerate(8_000)
+        wav.writeframes(b"\0\0" * 10_000)
 
 
 def test_public_sound_contract_and_legacy_loader_keep_public_identity(tmp_path: Path):
@@ -73,169 +161,128 @@ def test_public_sound_contract_and_legacy_loader_keep_public_identity(tmp_path: 
         str(inspect.signature(sound_module.load_sound_async)) == "(path: 'str | Path') -> 'Sound'"
     )
 
-    loaded = loading_and_playback.load_sound(sound_path)
+    original = sound_module.CanvasSound.from_file
+    sound_module.CanvasSound.from_file = lambda _path: CanvasSound.from_rust(_FakeRustSound())
+    try:
+        loaded = loading_and_playback.load_sound(sound_path)
+    finally:
+        sound_module.CanvasSound.from_file = original
     assert type(loaded) is sound_module.Sound
 
 
-def test_platform_player_selection_keeps_supported_order(monkeypatch, tmp_path: Path):
-    sound_path = tmp_path / "tone.wav"
-    _write_wav(sound_path)
-    players = {
-        "afplay": None,
-        "paplay": "/usr/bin/paplay",
-        "aplay": "/usr/bin/aplay",
-        "ffplay": "/usr/bin/ffplay",
-    }
-    monkeypatch.setattr(shutil, "which", players.__getitem__)
-
-    assert sound_module._platform_play_command(sound_path) == ["/usr/bin/paplay", str(sound_path)]
-
-    players.update({"paplay": None, "aplay": None})
-    assert sound_module._platform_play_command(sound_path) == [
-        "/usr/bin/ffplay",
-        "-nodisp",
-        "-autoexit",
-        "-loglevel",
-        "quiet",
-        str(sound_path),
-    ]
-
-    players["ffplay"] = None
-    assert sound_module._platform_play_command(sound_path) is None
-
-
-def test_load_sound_and_create_audio_use_backend_neutral_player(monkeypatch, tmp_path: Path):
-    sound_path = tmp_path / "tone.wav"
-    _write_wav(sound_path)
-    _FakePlayer.instances.clear()
-    monkeypatch.setattr(sound_module, "_NativeAudioPlayer", _FakePlayer)
-
-    clip = gs.load_sound(sound_path)
-
-    assert isinstance(clip._rust_sound, sound_module.CanvasSound)
-    assert clip.byte_len == sound_path.stat().st_size
-    assert clip.to_bytes() == sound_path.read_bytes()
-
+def test_sound_uses_atomic_native_controls_and_independent_voice_state() -> None:
+    clip, rust = _sound()
     clip.volume(0.4)
     clip.rate(1.5)
     clip.pan(-0.25)
     clip.looping(True)
-    clip.play()
     clip.seek(0.5)
 
-    assert clip.duration == 1.25
-    player = clip._player
-    assert player is not None
-    assert player.path == sound_path
-    assert player.play_calls == 1
-    assert player.volume == 0.4
-    assert player.pitch == 1.5
-    assert player.position == (-0.25, 0.0, 0.0)
-    assert player.loop is True
-    assert player.seek_calls == [0.5]
-    assert clip.time() == 0.5
-    assert clip.is_playing() is True
-
-    clip.pause()
-    assert clip.is_paused() is True
-    clip.no_loop()
-    assert clip.looping() is False
-    clip.close()
-
-    assert player.pause_calls >= 2
-    assert player.seek_calls == [0.5, 0.0]
-    assert player.delete_calls == 1
-    assert clip._player is None
-
-    created = gs.create_audio(sound_path)
-    assert isinstance(created, sound_module.Sound)
-
-    import gummysnake.assets as assets
-
-    assert assets.load_sound is sound_module.load_sound
-    assert assets.load_sound_async is sound_module.load_sound_async
-
-
-def test_sound_play_preserves_specific_backend_capability_errors(tmp_path: Path):
-    sound_path = tmp_path / "tone.wav"
-    _write_wav(sound_path)
-
-    class MissingPlayer(_FakePlayer):
-        def play(self) -> None:
-            raise BackendCapabilityError("Audio playback requires an available platform player.")
-
-    clip = sound_module.Sound(object(), path=sound_path, player_factory=MissingPlayer)
-
-    with pytest.raises(BackendCapabilityError, match="available platform player"):
-        clip.play()
-
-
-def test_native_audio_player_cleanup_stops_spawned_process(monkeypatch, tmp_path: Path):
-    sound_path = tmp_path / "tone.wav"
-    _write_wav(sound_path)
-
-    class _FakeProcess:
-        def __init__(self) -> None:
-            self.terminate_calls = 0
-            self.wait_calls = 0
-            self.kill_calls = 0
-            self.is_running = True
-
-        def poll(self):
-            return None if self.is_running else 0
-
-        def terminate(self) -> None:
-            self.terminate_calls += 1
-            self.is_running = False
-
-        def wait(self, timeout=None):
-            self.wait_calls += 1
-            return 0
-
-        def kill(self) -> None:
-            self.kill_calls += 1
-            self.is_running = False
-
-    process = _FakeProcess()
-    monkeypatch.setattr(
-        sound_module, "_platform_play_command", lambda path: ["fake-player", str(path)]
-    )
-    monkeypatch.setattr(sound_module.subprocess, "Popen", lambda *args, **kwargs: process)
-
-    player = sound_module._NativeAudioPlayer(sound_path)
-    player.play()
-    sound_module._stop_active_native_audio_players()
-    sound_module._stop_active_native_audio_players()
-
-    assert process.terminate_calls == 1
-    assert process.wait_calls == 1
-    assert process.kill_calls == 0
-
-
-def test_generated_oscillator_sound_materializes_temp_file_for_playback(monkeypatch):
-    _FakePlayer.instances.clear()
-    monkeypatch.setattr(sound_module, "_NativeAudioPlayer", _FakePlayer)
-
-    clip = gs.create_oscillator("sine", frequency=220.0, amplitude=0.5).to_sound(
-        0.05, sample_rate=8000
-    )
-    payload = clip.to_bytes()
-
     clip.play()
 
-    player = clip._player
-    assert player is not None
-    assert player.path != Path("generated.wav")
-    assert player.path.exists()
-    assert player.path.read_bytes() == payload
-    temporary_path = player.path
+    assert rust.play_calls == [(0.4, 1.5, -0.25, True, 0.5)]
+    playback = rust.playbacks[0]
+    assert clip.duration == 1.25
+    assert clip.byte_len == len(rust.payload)
+    assert clip.to_bytes() == rust.payload
+    assert clip.is_playing() is True
 
-    clip.stop()
+    clip.seek(0.5)
+    clip.volume(0.25)
+    clip.rate(0.75)
+    clip.pan(0.5)
+    clip.pause()
+    assert playback.seek_updates == [0.5]
+    assert playback.volume_updates == [0.25]
+    assert playback.rate_updates == [0.75]
+    assert playback.pan_updates == [0.5]
+    assert clip.time() == 0.5
+    assert clip.is_paused() is True
 
-    assert not temporary_path.exists()
+    clip.no_loop()
+    assert playback.looping() is False
+    clip.close()
+    assert playback.stop_calls == 1
+    assert playback.close_calls == 1
+    assert clip.is_playing() is False
 
 
-def test_audio_analysis_and_synthesis_helpers_are_deterministic():
+def test_sound_delivers_natural_end_once_on_python_owner_poll() -> None:
+    clip, rust = _sound()
+    calls: list[sound_module.Sound] = []
+    clip.on_ended(calls.append)
+    clip.play()
+    rust.playbacks[0].finish_naturally()
+
+    assert clip.is_playing() is False
+    assert clip.time() == pytest.approx(clip.duration)
+    assert calls == [clip]
+
+
+def test_sound_native_errors_are_actionable_capability_errors() -> None:
+    clip, rust = _sound()
+    rust.play_error = RuntimeError("no SDL device")
+
+    with pytest.raises(BackendCapabilityError, match="SDL3 audio support"):
+        clip.play()
+
+    rust.play_error = None
+    clip.play()
+    rust.playbacks[0].error = "device lost"
+    with pytest.raises(BackendCapabilityError, match="device lost"):
+        clip.is_playing()
+
+
+def test_generated_oscillator_builds_rust_asset_without_temp_file(monkeypatch) -> None:
+    created: list[tuple[Path, bytes]] = []
+
+    def _from_bytes(path: str | Path, payload: bytes) -> CanvasSound:
+        created.append((Path(path), payload))
+        return CanvasSound.from_rust(_FakeRustSound(str(path), payload))
+
+    monkeypatch.setattr(CanvasSound, "from_bytes", _from_bytes)
+
+    clip = gs.create_oscillator("sine", frequency=220.0, amplitude=0.5).to_sound(
+        0.05, sample_rate=8_000
+    )
+
+    assert created[0][0] == Path("generated.wav")
+    assert created[0][1].startswith(b"RIFF")
+    assert clip.to_bytes() == created[0][1]
+    assert not hasattr(sound_module, "_NativeAudioPlayer")
+    assert not hasattr(sound_module, "_platform_play_command")
+
+
+def test_sound_validation_and_native_diagnostics() -> None:
+    clip, rust = _sound()
+    for value in (-1.0, float("nan"), float("inf")):
+        with pytest.raises(gs.ArgumentValidationError):
+            clip.volume(value)
+    for value in (0.0, -1.0, float("nan"), float("inf")):
+        with pytest.raises(gs.ArgumentValidationError):
+            clip.rate(value)
+    with pytest.raises(gs.ArgumentValidationError):
+        clip.seek(clip.duration + 0.1)
+    with pytest.raises(gs.ArgumentValidationError):
+        sound_module.Sound(
+            CanvasSound.from_rust(rust),
+            path=Path("tone.wav"),
+            rust_sound=CanvasSound.from_rust(rust),
+            player_factory=object(),
+        )
+
+    clip.play()
+    diagnostics = clip.playback_diagnostics()
+    assert diagnostics["blocks"] == 3
+    assert diagnostics["rendered_frames"] == 96
+
+
+def test_audio_analysis_and_synthesis_helpers_are_deterministic(monkeypatch):
+    monkeypatch.setattr(
+        CanvasSound,
+        "from_bytes",
+        lambda path, payload: CanvasSound.from_rust(_FakeRustSound(str(path), payload)),
+    )
     amplitude = gs.create_amplitude([1.0, -1.0, 1.0, -1.0])
     assert amplitude.analyze() == pytest.approx(1.0)
 
@@ -248,22 +295,13 @@ def test_audio_analysis_and_synthesis_helpers_are_deterministic():
     assert samples.samples == pytest.approx((0.0,))
     generated_sound = samples.to_sound("buffer.wav")
     assert generated_sound.path == Path("buffer.wav")
-    assert generated_sound.duration == pytest.approx(samples.duration)
+    assert generated_sound.duration == pytest.approx(1.25)
     assert generated_sound.to_bytes().startswith(b"RIFF")
 
     envelope = gs.create_envelope(attack=0.5, decay=0.0, sustain=0.5, release=0.5)
     assert envelope.value_at(0.25) == pytest.approx(0.5)
 
-    audio_filter = gs.create_filter("lowpass", frequency=1000.0)
-    filtered = audio_filter.process([1.0, 0.0, 0.0], sample_rate=8000)
-    assert len(filtered.samples) == 3
-
-    audio_in = gs.create_audio_in(sample_rate=8000)
-    audio_in.start()
-    audio_in.push_samples([0.1, 0.2])
-    assert audio_in.read().sample_rate == 8000
-    assert audio_in.read().samples == (0.1, 0.2)
-
     context = gs.get_audio_context()
     assert context["analysis"] is True
     assert context["synthesis"] is True
+    assert context["playback"] == "rust-sdl3-mixer"

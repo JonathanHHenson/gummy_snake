@@ -521,7 +521,7 @@ def _digest_workload(root: Path, raw: Mapping[str, object], source_files: tuple[
 
 def _workload(root: Path, raw: Mapping[str, object], suite_id: str, suite_version: int) -> Workload:
     if "dynamic_discovery" in raw:
-        raise CatalogError("dynamic authoritative workload discovery is forbidden")
+        raise CatalogError("dynamic workload discovery is forbidden")
     allowed = frozenset(
         {
             "id",

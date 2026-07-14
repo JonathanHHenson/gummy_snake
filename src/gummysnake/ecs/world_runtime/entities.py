@@ -8,7 +8,12 @@ from dataclasses import fields
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake.ecs.runtime_views import Entity, EntityView
-from gummysnake.ecs.schema_helpers import _schema_name, _tag_name, _validate_storage_value
+from gummysnake.ecs.schema_helpers import (
+    _dataclass_field_dict,
+    _schema_name,
+    _tag_name,
+    _validate_storage_value,
+)
 from gummysnake.ecs.value_types import DataclassInstance, EcsStoredValue, EcsTag
 from gummysnake.exceptions import (
     EntityNotFoundError,
@@ -29,15 +34,19 @@ def add_entity(
     for component in components:
         world._validate_value(component)
         component_values[type(component)] = component
-    index, generation = world._rust.allocate_entity()
-    entity = Entity(index, generation, world._world_id)
-    for component_type, component in component_values.items():
-        world._rust.add_component_default(index, generation, _schema_name(component_type))
-        sync_component_fields_to_rust(world, entity, component_type, component)
-    for tag in tags:
-        world._rust.add_tag(index, generation, _tag_name(tag))
+    component_rows = {
+        _schema_name(component_type): _dataclass_field_dict(component)
+        for component_type, component in component_values.items()
+    }
+    tag_names = [_tag_name(tag) for tag in tags]
+    spawned = world._rust.spawn_batch([(component_rows, tag_names)])
+    if len(spawned) != 1:
+        raise SystemExecutionError(
+            f"Rust ECS bulk spawn returned {len(spawned)} handles for one entity."
+        )
+    index, generation = spawned[0]
     world._invalidate_spatial_indexes()
-    return entity
+    return Entity(index, generation, world._world_id)
 
 
 def despawn_entity(world: EcsWorld, entity: Entity) -> None:

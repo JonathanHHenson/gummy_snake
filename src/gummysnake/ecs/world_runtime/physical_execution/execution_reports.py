@@ -196,18 +196,10 @@ def dispatch_canvas_fill_batches(world: EcsWorld, report: dict[str, Any]) -> Non
     if context is None:
         raise SystemExecutionError("ECS canvas draw commands require an active SketchContext.")
     renderer = cast(Any, context.renderer)
-    primitive_batch = renderer._primitive_batch_state
-    matrix_payload = renderer._matrix_payload(context.state.transform.matrix)
-    renderer._flush_batches_before_primitive_batch()
-    primitive_records = primitive_batch.records
+    transform = context.state.transform.matrix
     for batch in batches:
-        if not batch:
-            continue
-        if primitive_batch.has_records() and not primitive_batch.matches_fill(matrix_payload):
-            renderer._flush_primitive_batch_only()
-            primitive_records = primitive_batch.records
-        primitive_records.extend(tuple(record) for record in batch)
-        primitive_batch.style = None
-        primitive_batch.matrix = matrix_payload
-        primitive_batch.current = False
-        primitive_batch.mode = "fill"
+        if batch:
+            renderer._record_fill_primitive_batch(
+                [tuple(record) for record in batch],
+                transform,
+            )

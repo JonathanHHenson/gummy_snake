@@ -167,6 +167,11 @@ def test_text_before_later_primitive_and_centered_text_is_not_clipped():
                 prefix_pixels.append((x, y))
 
     assert prefix_pixels
+    counters = context.renderer_performance_counters()
+    native = counters["native"]
+    assert isinstance(native, dict)
+    assert native["native_text_commands"] == 1
+    assert native["native_image_commands"] >= 1
 
 
 def test_custom_shape_and_bezier_render():

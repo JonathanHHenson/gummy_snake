@@ -42,6 +42,6 @@ def test_smoke_runs_only_static_headless_canvas_cases(monkeypatch, capsys) -> No
     assert [workload_id for workload_id, _ in calls] == [line["workload"] for line in lines]
 
 
-def test_smoke_does_not_accept_authority_bypasses(capsys) -> None:
+def test_smoke_does_not_accept_policy_bypasses(capsys) -> None:
     assert main(["--threshold=0.02", "smoke", str(CATALOG)]) == 2
-    assert "authoritative override is not supported" in capsys.readouterr().err
+    assert "benchmark policy override is not supported" in capsys.readouterr().err

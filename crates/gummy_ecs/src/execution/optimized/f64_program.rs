@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::entity::Entity;
+
 mod compiler;
 mod ops;
 mod readonly;
@@ -118,13 +120,13 @@ pub(in crate::execution) struct CompiledF64ReadOnlyProgram<'a> {
 
 #[derive(Clone, Copy)]
 pub(in crate::execution) enum CompiledF64Array<'a> {
-    SparseEntity(&'a [Option<(u32, f64)>]),
+    SparseEntity(&'a HashMap<Entity, f64>),
     QueryRows(&'a [f64]),
 }
 
 #[derive(Clone, Copy)]
 enum CompiledSpatialF64Array<'a> {
-    SparseEntity(&'a [Option<(u32, f64)>]),
+    SparseEntity(&'a HashMap<Entity, f64>),
     QueryRows(&'a [f64]),
     QueryRowsOptional(&'a [Option<f64>]),
 }

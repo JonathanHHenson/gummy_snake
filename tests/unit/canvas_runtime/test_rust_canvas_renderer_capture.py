@@ -96,9 +96,10 @@ def test_canvas_renderer_batches_lines_with_mixed_primitives() -> None:
 
     canvas = renderer._canvas
     assert canvas is not None
-    batch = next(call for call in canvas.calls if call[0] == "batch_primitives")
-    assert batch[1] == [
+    batches = [call for call in canvas.calls if call[0] == "batch_primitives_mixed"]
+    assert [record[:7] for batch in batches for record in batch[1]] == [
         (2, 1, 2, 3, 4, 5, 6),
         (4, 7, 8, 9, 10, 0.0, 0.0),
         (3, 11, 12, 13, 14, 0.0, 0.0),
     ]
+    assert all(batch[3] == [(1.0, 0.0, 0.0, 1.0, 0.0, 0.0)] for batch in batches)

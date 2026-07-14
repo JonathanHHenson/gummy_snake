@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::gpu::context::GpuDeviceContext;
+use crate::gpu::renderer_state::PersistentImageAtlas;
 use crate::gpu::setup::pipelines::create_pipeline_resources;
 use crate::gpu::setup::resources::{
     checked_texture_size, create_default_clip_textures, create_linear_texture_sampler,
@@ -24,7 +25,7 @@ impl GpuRenderer {
     ) -> Result<Self, String> {
         let device = device_context.device();
         let queue = device_context.queue();
-        let limits = device_context.limits();
+        let max_texture_dimension_2d = device_context.limits().max_texture_dimension_2d;
         let viewport_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("gummy_canvas viewport uniform"),
             size: std::mem::size_of::<ViewportUniform>() as u64,
@@ -53,7 +54,7 @@ impl GpuRenderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let texture_size = checked_texture_size(width, height, limits.max_texture_dimension_2d)?;
+        let texture_size = checked_texture_size(width, height, max_texture_dimension_2d)?;
         let texture = create_offscreen_texture(device, texture_size);
         let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let pixel_prefix_texture = create_pixel_prefix_texture(device, texture_size);
@@ -133,6 +134,14 @@ impl GpuRenderer {
             commands: Vec::new(),
             previous_render_commands: Vec::new(),
             textures: HashMap::new(),
+            persistent_image_atlas: PersistentImageAtlas {
+                entries: HashMap::new(),
+                pages: Vec::new(),
+                page_size: (max_texture_dimension_2d as usize).min(2048).max(1),
+                max_pages: 4,
+                clock: 0,
+                next_texture_key: 0xA71A_7000_0000_0000,
+            },
             model_meshes: HashMap::new(),
             primitive_staging: Vec::new(),
             image_staging: Vec::new(),

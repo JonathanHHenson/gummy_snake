@@ -2,8 +2,8 @@ use super::*;
 
 /// Version for the stateful normaliser signal contract.
 ///
-/// The processor is intentionally separate from the legacy whole-buffer
-/// normalisation helper until every synth sink uses the block renderer.
+/// This is the canonical normalisation contract for stateful synth sinks. It
+/// never scans or retains a complete future signal.
 pub const CAUSAL_NORMALISER_CONTRACT_VERSION: u32 = 1;
 pub const DEFAULT_CAUSAL_NORMALISER_LOOKAHEAD_SECONDS: f64 = 0.005;
 pub const DEFAULT_CAUSAL_NORMALISER_ATTACK_SECONDS: f64 = 0.001;
@@ -161,7 +161,7 @@ impl CausalNormaliser {
         }
     }
 
-    fn process_frame(&mut self, left: f64, right: f64) -> Option<(f64, f64)> {
+    pub fn process_frame(&mut self, left: f64, right: f64) -> Option<(f64, f64)> {
         self.delayed_frames.push_back((left, right));
         (self.delayed_frames.len() > self.lookahead_frames)
             .then(|| self.emit_oldest())

@@ -40,8 +40,8 @@ The canonical renderer compiles events, automation cursors, oscillator lanes, an
 FX nodes once, then preserves envelope/filter/FX/normaliser/limiter state while it
 produces fixed-size PCM blocks. Static note increments, pan gains, and filter
 coefficients are precomputed; automated values advance through sorted typed cursors.
-The same stateful block session feeds byte-returning render, streaming WAV, rendered
-`Sound`, and finite SDL queue sinks.
+The same stateful block session feeds byte-returning render, streaming WAV,
+rendered `Sound`, finite SDL sessions, and native rolling program repetitions.
 
 `sy.configure_workers("auto")` (or `1`, `2`, `4`, `8`) remains the stable worker
 configuration API. The current stateful renderer preserves identical output across
@@ -73,7 +73,8 @@ configuration and cached assets.
 - `track.save("name.gsfx", duration=...)` writes a binary serialized FX physical plan.
 - `track.save(path, format=sy.Format.MP3, duration=...)` sends WAV input to `ffmpeg` over stdin, captures encoder errors, and atomically replaces the MP3 destination. FFmpeg is an explicit export capability, never a playback fallback.
 - `track.to_sound(path, duration=...)` performs a full Rust-backed offline render and returns a `gs.Sound` whose encoded audio remains owned by a Rust `CanvasSound`; Python bytes are allocated only if `to_bytes()` is called.
-- `track.play(duration=...)` compiles the bounded physical plan once and hands it to the Rust SDL bridge. A dedicated worker advances the same stateful block renderer into a bounded low/high-water SDL queue without Python event scheduling, context-window rerendering, temporary WAV files, or platform-player subprocesses. It returns a `TrackPlayback` handle with `stop()`, `wait_until_stop()`, `join()`, and `is_playing()`. Open/rolling logical tracks still require the remaining native open-program migration and are not cross-platform-qualified by this finite path.
+- `track.play(duration=...)` compiles the bounded physical plan once and hands it to the process-local Rust SDL mixer. The manager advances the same stateful block renderer into a bounded low/high-water queue without Python event scheduling, context-window rerendering, temporary WAV files, or playback subprocesses. It returns a `TrackPlayback` handle with `pause()`, `resume()`, `stop()`, `wait_until_stop()`, `join()`, `is_playing()`, and `playback_diagnostics()`.
+- `track.play()` on an open logical track expands and compiles one deterministic native rolling program at startup, then repeats that Rust-owned program state until stopped. Python does not grow horizons, maintain emitted-instance sets, or render per-event sounds. Moving full lazy-expression/loop expansion into Rust remains part of PBI 002, so rolling programs currently repeat the startup-compiled physical interval.
 - `track.play(duration=..., realtime=False)` keeps the offline behavior: render the full track to a `Sound`, start it, and return that `Sound`.
 
 ## Logical actions
@@ -345,11 +346,11 @@ Common Sonic Pi options such as `amp`, `mix`, `pre_amp`, and `pre_mix` are handl
 
 ### Normaliser migration status
 
-Canonical stateful render sinks use the versioned, channel-linked causal
+Canonical stateful render and SDL sinks use the versioned, channel-linked causal
 normaliser with fixed lookahead, attack, release, target, and explicit finite-stream
-flush behavior. Its state is preserved across arbitrary block partitions. Legacy
-whole-buffer/window render helpers still exist for compatibility tests and rolling
-migration work, so final legacy deletion and device qualification remain open. See
+flush behavior. The public normaliser FX uses this processor and preserves its
+state across arbitrary block partitions. The removed playback context-window and
+`SynthPlaybackPlan` routes cannot be selected. See
 the contributor [synth causal normaliser migration
 contract](../contribute/synth_normaliser_migration.md) for the v1 policy.
 
@@ -359,4 +360,4 @@ This synth runtime supports deterministic logical planning, `@sy.synth` source-d
 
 The bundled sample library lives at `assets/samples/sonic_pi/` in the source tree and includes Sonic Pi's `README.md` with CC0 attribution/source notes. Sample names are resolved without the file extension, for example `sy.sample("bd_haus")` resolves to `bd_haus.flac`. Bundled compiled synth assets live at `assets/synths/compiled/`; bundled compiled FX assets live at `assets/fx/compiled/`.
 
-Per the project rules and initial feature request, this API intentionally does not implement live loops, MIDI in/out, OSC, live audio input, multichannel sound output routing, or Minecraft APIs. The module leaves room for those to become runtime-backed extensions later.
+Per the project rules and initial feature request, this API intentionally does not implement live code mutation, MIDI in/out, OSC, live audio input, multichannel sound output routing, or Minecraft APIs. Open tracks can roll through the native compiled-program session; changing a running logical program remains outside the current contract.

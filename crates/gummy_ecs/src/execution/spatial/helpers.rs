@@ -18,19 +18,12 @@ pub(in crate::execution) fn fast_field_array_value(
     array: &FastFieldArray,
     entity: Entity,
 ) -> Result<f64> {
-    let Some(Some((generation, value))) = array.values.get(entity.index as usize) else {
-        return Err(EcsError::InvalidPlan(format!(
+    array.values.get(&entity).copied().ok_or_else(|| {
+        EcsError::InvalidPlan(format!(
             "missing cached f64 value for entity {}:{} field {}.{}",
             entity.index, entity.generation, array.component, array.field
-        )));
-    };
-    if *generation != entity.generation {
-        return Err(EcsError::InvalidPlan(format!(
-            "fast numeric field array has stale entity generation for {}:{}",
-            entity.index, entity.generation
-        )));
-    };
-    Ok(*value)
+        ))
+    })
 }
 
 pub(in crate::execution) fn fast_field_array_record_values(

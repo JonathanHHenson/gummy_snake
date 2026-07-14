@@ -55,7 +55,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:73e7891c609b1c1b67133e85b9454102235327ee4b2a812b06ba57094cb7b26e"
+expected_correctness_digest = "sha256:09699c61e91fe97fe5c5faee682d373fb88ecf8c615fcddc0044454c8b83d5df"
 entity_count = 128
 work_units = 128
 required_counters = ["ecs_entities_alive", "ecs_rust_entities_alive", "ecs_rust_component_schemas_total"]
@@ -87,7 +87,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:3807e2326b3d1d19a068aacab1d473f48cdac4d8e4625f2b591852d5f3b82e36"
+expected_correctness_digest = "sha256:98b8fac6a64b4f5dcf229cea6c8b7db639756254a8144ca06a449039302c3e6a"
 entity_count = 96
 iterations = 4
 churn_count = 24
@@ -121,7 +121,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:cb627dd22f89a088b5f57bed6067d61bc5dfd202efa9a24929b83e02a8ccec31"
+expected_correctness_digest = "sha256:68ec7f18598be6b410c3c3bc6e8bc25fa93d75a25545ccfe5a66d57750d7dfe9"
 entity_count = 192
 work_units = 192
 required_counters = ["ecs_entities_alive", "ecs_rust_entities_alive"]
@@ -153,7 +153,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:fdf193dcec2f074e7cdf3974bafc19f93cb512c62c25a7d51cbd249985c9a6ef"
+expected_correctness_digest = "sha256:c563ef083b5b8aa0e5bb9cd8f7a36f2383f4004fe69ac1ed63ef4d8774546a5d"
 entity_count = 256
 work_units = 256
 required_counters = ["ecs_entities_alive", "ecs_rust_component_schemas_total"]
@@ -216,7 +216,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:b47598768a04006d271bc1e4d4b6b883ddc72162fded919d75532cbc0c4f5337"
+expected_correctness_digest = "sha256:cbb1992a162d92b260339dd490a76e2c8611335bb921e8363c325505f2d78232"
 system_count = 8
 work_units = 16
 required_counters = ["ecs_physical_plan_compiles", "ecs_rust_compiled_plans", "ecs_schedule_rebuilds"]
@@ -248,7 +248,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:602584a8b9626cb694af573a9b3cc1233dd8744c10263d8db06cf3a5575dd5f4"
+expected_correctness_digest = "sha256:78123cc1d67cfdd8ae47b1431791225838421a6647efd794bd046d0f63169d50"
 frames = 4
 cycles = 4
 work_units = 16
@@ -281,7 +281,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:6615799c7fc8db0c4db6f1551898f72c61fede19dcb40cc0254906977f3a3a0e"
+expected_correctness_digest = "sha256:e0908cd8943e9be6891cf222d099d293434241e822ec0aaed6e1fd1d507d46c9"
 frames = 8
 work_units = 24
 required_counters = ["ecs_schedule_rebuilds", "ecs_physical_system_runs", "ecs_physical_fields_written"]
@@ -313,7 +313,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:20f0e91e1edfcb36c0d519a31cd2c4fcc8d8b11edcb0eb128b22d31cb7ca964d"
+expected_correctness_digest = "sha256:4b2439978ccdf1a1633c7ee4546231fb7c0961900817be382a17764df698bc26"
 entity_count = 128
 work_units = 256
 required_counters = ["ecs_physical_system_runs", "ecs_physical_rows_scanned", "ecs_physical_fields_written"]
@@ -345,7 +345,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:b2f7e916f5d03cd537430f7adb078016c6275d42f551881c6973c4412b043c83"
+expected_correctness_digest = "sha256:dea818018bd0613eadec4f22929e6257d45e5ca3a19e9899c300f869d66292fc"
 entity_count = 64
 frames = 8
 system_count = 4
@@ -379,7 +379,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:bcc84387b8bc82a660932bccad841d4be5dfa3caafbb44bb79eb5b559780c15c"
+expected_correctness_digest = "sha256:07e07b76be3edc89ad675728263943b3a0590f2a579cceb9485943375fdc42bb"
 entity_count = 96
 work_units = 96
 required_counters = ["ecs_change_detection_refreshes", "ecs_structural_commands_applied", "ecs_physical_system_runs"]
@@ -443,7 +443,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:95677a8945d157ed4fab7abfa395632e318e0442a3055f8bc0bb95e629e60afc"
+expected_correctness_digest = "sha256:f9c9975fc9990fe3ade60fbb3e50b13845e2b1855bfcdf2d0f871a9462ae707f"
 entity_count = 128
 work_units = 256
 required_counters = ["ecs_python_system_calls", "ecs_python_system_barriers", "ecs_python_system_entities_materialized", "ecs_udf_calls"]
@@ -475,7 +475,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:9502e674ff3c2f1efefdd264345d23a3cd9f59f319a6c0895bfd03c4a632074c"
+expected_correctness_digest = "sha256:8761a7907d13e92b2237d7999b5fceb4f81d0cbee3a111076d55e5a3e857b510"
 entity_count = 128
 work_units = 128
 required_counters = ["ecs_physical_system_runs", "ecs_physical_rows_scanned", "ecs_physical_fields_written"]
@@ -507,7 +507,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:b52fcd408fe0c68e48711c78b699f8657f8ce9ed98ffae141bde4497eb5ca6ab"
+expected_correctness_digest = "sha256:cacc0ea33744fa55e41d68022d057f438d66de36e555f2a1e8a52278299dd878"
 entity_count = 96
 frames = 3
 radius = "20.0"
@@ -542,7 +542,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:e7574cea93b71cf0265d9a67ee523c0d79ee3ed8ccf964983f41ae84b994d07e"
+expected_correctness_digest = "sha256:692a99dc2c240ee1f654eb1da62b01a03c081da25d3a55aedcb595794f5b8209"
 entity_count = 96
 frames = 3
 radius = "20.0"
@@ -577,7 +577,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:b11f9d53dc6fb8dfb9db6ae6a8df345213901992fc8ebd2ca6712442bfba6ee8"
+expected_correctness_digest = "sha256:322fb0d0dfac5e8e1f64b157091df4e67e85f4ac14f76fc1078dc79ff07816a8"
 entity_count = 96
 frames = 3
 radius = "20.0"
@@ -612,7 +612,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:42c60466c43bc584d2124b59c955a92ffcc7409d265b17de72d81c2eafce3d82"
+expected_correctness_digest = "sha256:3762382fb1c81c285370a12b0fcd59e94b0023e9a15a0da60be1972feb16ba34"
 entity_count = 96
 frames = 3
 radius = "20.0"
@@ -647,7 +647,7 @@ oracle_profile = "full-world-frame-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "H"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:4c74c2d715443b6dcba2f5129283b9de21c4377b7f0acd9cf39082cccbe92876"
+expected_correctness_digest = "sha256:d8755a9bc9c43332ffca8d82ad8f2d2de837c85cdea8b24f887a9d4fff1c25eb"
 entity_count = 64
 frames = 3
 width = 128
@@ -682,7 +682,7 @@ oracle_profile = "full-world-frame-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "H"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:608ca5b83736e11a1a776a49ff7e313ea2fb90a41ab104c2139ea59ef7a47fc3"
+expected_correctness_digest = "sha256:84c874ca4216d8f0f670a795a865657d746c204e55941ebb4777a7af540c251c"
 entity_count = 128
 frames = 4
 width = 160
@@ -717,7 +717,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:e24093e9168421c1b78e28c8baa156655c0501530d9b2930e38acd5cf622ae3a"
+expected_correctness_digest = "sha256:ad6460a73a164db1977c88973797ee8d7d607258bbd49c2f6fc8b9614bc7ed3c"
 entity_count = 64
 work_units = 2
 required_counters = ["ecs_physical_system_runs", "ecs_physical_rows_scanned", "ecs_physical_fields_written", "ecs_query_cache_hits", "ecs_query_cache_misses", "ecs_query_cache_refreshes", "ecs_query_cache_invalidations", "ecs_rust_compiled_plans"]
@@ -749,7 +749,7 @@ oracle_profile = "failure-trace-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:3e2fa1e701b182f7e8301122a348c426801ec92b8bce0726f85f17704290dd18"
+expected_correctness_digest = "sha256:537d4232a059417d3fb109f9353130531db41112270981eec4e0b0d14de57ac0"
 work_units = 6
 required_counters = ["ecs_strict_mode_errors", "ecs_physical_duplicate_writes"]
 [workloads.primary_metric]
@@ -780,7 +780,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:43fcd5e5ebe418101454b2fe2d356bdbb99c22aaa68a6d5a4cee71a072816d2c"
+expected_correctness_digest = "sha256:af7018b23566113172942a9d39d9656752fc881d7ab29c798a14574c4d2c390c"
 entity_count = 48
 frames = 32
 churn_count = 4
@@ -2446,7 +2446,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:e20cc1387729c845b71963ac6057f768438ebaea8a890072f777bd0bbc595153"
+expected_correctness_digest = "sha256:23828b5b2927e3f73bf80d7010789933e3e8264b8c6d6ee29ff742f044706c6b"
 entity_count = 16
 frames = 2
 group_count = 1
@@ -2481,7 +2481,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:51c5ff1646e7a600fbb5436c210b4d6e743b648abc3104b16e65bca5b4010d10"
+expected_correctness_digest = "sha256:1f1b06acb3a16308d2dab09964d5b2cb0920d7d0d7ea3f35681571ad91de7152"
 entity_count = 16
 frames = 2
 group_count = 8
@@ -2516,7 +2516,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:1578ba5ee0c4fd447a41f79b1603fd934e13a90de1d206f0fcb62a56122bc0f8"
+expected_correctness_digest = "sha256:20d910977135b4fe17ab4925a23b6caec25cb556b1b80b9426bd11dc79cca1b8"
 entity_count = 128
 mutation_percent = 10
 operation = "add-component"
@@ -2550,7 +2550,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:7cc351434aa10f2a13daf6dd08f8d2e567898b84b8488caeb06b97d08ac043fc"
+expected_correctness_digest = "sha256:a42abef7889758dbe38d7c4967d5df0ac8f87131f17e2ebe4f2c0d8b2d3e96eb"
 entity_count = 128
 mutation_percent = 10
 operation = "remove-component"
@@ -2584,7 +2584,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:999d0c6a656786c7b8a18b76355b565f8d09c6b2d7ce7f338b3d91cb0bb4a576"
+expected_correctness_digest = "sha256:da2ed02ef39f58f89533e8ab1b2a0b071dc4ecfec0532d7ddc134aa30e0d623a"
 entity_count = 128
 mutation_percent = 10
 operation = "add-tag"
@@ -2618,7 +2618,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:539c010827e025e0e071f01299f107a84c97ef2bff860a09f51ce65d1240c8ce"
+expected_correctness_digest = "sha256:cefb154eb2e2bf3a84d067e58e1427cc51db4c0692655db692cc53f4302b39dd"
 entity_count = 128
 mutation_percent = 10
 operation = "remove-tag"
@@ -2652,7 +2652,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:5a47836a7f0c00e26fe9b4b57781f459c40dc2985a6f5d484d086046f840bc12"
+expected_correctness_digest = "sha256:9d44c2ad9a4db4b82193ae5ad37d24dbd089956fbf5afde6b2c69bde6dae8ede"
 entity_count = 128
 mutation_percent = 10
 operation = "despawn"
@@ -2686,7 +2686,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:659040e509892a5b138018f0e4caa8faa1a67d32007ae6208d7e4ba8957ae686"
+expected_correctness_digest = "sha256:f75ea4f90e9b2c3663c08dd9e2b9adb865c309731aabc120c9c50472bb0998ce"
 entity_count = 128
 mutation_percent = 100
 operation = "remove-component"
@@ -2819,7 +2819,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:da4d5e8459345af1448d0028f6c5ce4e06657258965e49eb7d8bea450400a3a0"
+expected_correctness_digest = "sha256:8157474b57e6b57f23177d470d9c593c232b35aa7fbd7d388403e49305b48cb0"
 entity_count = 1000
 work_units = 2000
 required_counters = ["ecs_python_system_calls", "ecs_python_system_barriers", "ecs_python_system_entities_materialized", "ecs_udf_calls"]
@@ -2851,7 +2851,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:bd390e343579a079185757c63251612fb07d24027a9f433bbf12ce955423fde9"
+expected_correctness_digest = "sha256:e86dcaa1319583701b92d01e8f39caaf03e02b2f8a55c21cde748280270ae2d1"
 algorithm = "hash-grid"
 dimensions = 2
 distribution = "uniform"
@@ -2891,7 +2891,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:ea8feb6f408809a77794f8904d0aac38925cde591bc4220e02b149025da4d2df"
+expected_correctness_digest = "sha256:8c1501f07e451a123e080d1e9bde3babc9195a51b39aa89e63b13ba75e92d985"
 algorithm = "quadtree"
 dimensions = 2
 distribution = "uniform"
@@ -2931,7 +2931,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:fd52637baaed9b0872cdd28ca8d25ecffc01dd069cab60efd2278799374a47c2"
+expected_correctness_digest = "sha256:1a0fdbcd22d3657b7d137beb61c1b4a2ec9b02886132995295ee7b44672a82ed"
 algorithm = "octree"
 dimensions = 3
 distribution = "uniform"
@@ -2971,7 +2971,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:5265e2b5cf4be21f0f196119c7e622a55f904121b4cc117bb269a87540e4359b"
+expected_correctness_digest = "sha256:7894c8cd8d9b98b435dfa6a497c8786f5af95166977851a828bbea402206c19a"
 algorithm = "hilbert"
 dimensions = 2
 distribution = "uniform"
@@ -3011,7 +3011,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:7e4d509eb5a7ec1ecc332a3998de2937412129c9b66d5f20c450f6414610c027"
+expected_correctness_digest = "sha256:1dda17c219afa3f87be9d9f782cf81302e0702b826ef4cd1d81ad6abb81940e4"
 algorithm = "hash-grid"
 dimensions = 2
 distribution = "clustered"
@@ -3051,7 +3051,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:1c6a621fdad006d4d5c48d8e6ffc19435153a0086552aad6e6612ee65fd40334"
+expected_correctness_digest = "sha256:81c0159398a79f19d0015d30a584356a6831124ee365211883e86413dbdc1ba7"
 algorithm = "hash-grid"
 dimensions = 2
 distribution = "diagonal"
@@ -3091,7 +3091,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:69ba4ae9f29e0d3983553d39ada164429bcf52590e29c90693b89977d2041116"
+expected_correctness_digest = "sha256:5056ba136fe34048adc5c256842b6def1fca68a13a834f0c6ce83e5a7774f956"
 algorithm = "hash-grid"
 dimensions = 2
 distribution = "same-cell"
@@ -3131,7 +3131,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:e4e1e0311e7f8a44ac76335665e883453a640a971dfbdf85fe4a21bd8cad0666"
+expected_correctness_digest = "sha256:9d33ba309b99c163574c8923f5a4181f495a4c7685f9888879d78b49f77a037a"
 algorithm = "hash-grid"
 dimensions = 2
 distribution = "clustered"
@@ -3171,7 +3171,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:49f956a9200785aff27dbc83d0637fd839ab1a6379addedad038093ab6c3a7db"
+expected_correctness_digest = "sha256:020f2db2bb7c5d8277cb10ea7c06f2feabb07381bd6dcb40b5e43c834611469a"
 algorithm = "hash-grid"
 dimensions = 2
 distribution = "uniform"
@@ -3211,7 +3211,7 @@ oracle_profile = "full-world-frame-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "H"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:7f4c167795d6eced930590cc6fc4b76b8dc3571f9158c0e23a7117e05045907e"
+expected_correctness_digest = "sha256:63960932007614ad2db18c69e94577b4b4d42dc80a0c52f4f6299d0bd94819b3"
 entity_count = 1000
 frames = 3
 width = 320
@@ -3246,7 +3246,7 @@ oracle_profile = "full-world-frame-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "H"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:4fd80c4a1105b24909fb83b7b6df5ce2d2de7b1ce7d6400bcc6d1cfcb827fc6e"
+expected_correctness_digest = "sha256:54e5945ba9dafadbdd01bca2ab571274472de50835b1f05820b2b359f6a5bf59"
 entity_count = 256
 frames = 3
 width = 160
@@ -3282,7 +3282,7 @@ oracle_profile = "full-world-frame-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "H"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:459d09bc2b942e7a7078aa0f0e04135e30263751b4aee6ff738dea6ab0410f9e"
+expected_correctness_digest = "sha256:a72da55680afe37bffe9a37964d006929c850d173ad11f3b87afbbcd917f59c6"
 entity_count = 1000
 frames = 8
 width = 320
@@ -3317,7 +3317,7 @@ oracle_profile = "full-world-frame-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "H"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = false, detail = "Public Python/PyO3 bridge route is not implemented in this catalog." }, H = { available = true, detail = "Bounded headless sketch lifecycle is implemented and required by this case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:1b4a10a4415bf3358e9f99a5ca9140e435d8591955bc9ddf87ee96f97c100b24"
+expected_correctness_digest = "sha256:4ec07af5463dd38a8fd27d8d3ecffb952c6cb6e1463edf4cdbbb69302bfe6d44"
 entity_count = 64
 frames = 600
 width = 160
@@ -3352,7 +3352,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:edd2b4ad263c8387df92c8617f681ba932915ad63d74afb8d8fe9056ac7bac3c"
+expected_correctness_digest = "sha256:4d70f4fbee372cfab9aebb50c2f1bf7a53b341389c03efe555e5c9d6dfb5ef8a"
 entity_count = 1000
 snapshots = 16
 reset_every = 8
@@ -3386,7 +3386,7 @@ oracle_profile = "full-world-v1"
 release_provenance_profile = "isolated-release-wheel-v1"
 execution_layer = "P"
 execution_layer_capabilities = { R = { available = false, detail = "Direct release gummy_ecs Rust harness is not implemented in this catalog." }, P = { available = true, detail = "Public Python/PyO3 bridge route is implemented by the Rust-backed EcsWorld facade." }, H = { available = false, detail = "Bounded headless sketch lifecycle is not exercised by this direct bridge case." }, I = { available = false, detail = "Native interactive SDL3 presentation route is not implemented in this catalog." } }
-expected_correctness_digest = "sha256:738b6a81d599bb9a47787ce96f79bfb6b933452ca632a4cee776bdd284a5dd60"
+expected_correctness_digest = "sha256:47c9016affc0ffb33a8ad586364eff75f30dc7b24d8ae00c74fbea2c380fb32a"
 entity_count = 256
 frames = 128
 churn_count = 2

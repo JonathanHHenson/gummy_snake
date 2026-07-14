@@ -108,7 +108,7 @@ class CanvasBackend(
             if status == "available":
                 return status
             return (
-                f"{status}; headless rendering can continue through CPU-backed canvas paths, "
+                f"{status}; headless rendering can continue through Rust CPU-backed canvas paths, "
                 "but native interactive presentation and GPU-accelerated drawing may be "
                 "disabled or slower."
             )

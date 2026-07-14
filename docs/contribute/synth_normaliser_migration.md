@@ -1,14 +1,13 @@
 # Synth causal normaliser migration
 
-Epic 320 replaces the legacy whole-buffer peak normalisation path with one
-versioned, stateful processor. This document is the contract for that migration;
-it does **not** claim that the legacy full-track renderer already has these
-semantics.
+Epic 320 replaces whole-buffer peak normalisation with one versioned, stateful
+processor. The stateful block renderer and its offline, rendered-Sound, finite
+SDL, and rolling SDL sinks now use this contract for the public normaliser FX.
 
 ## Contract v1
 
 `gummy_synth::CausalNormaliser` is the canonical processor primitive for the
-future block renderer. Version 1 has these fixed semantics:
+block renderer. Version 1 has these fixed semantics:
 
 - Stereo channels are linked: each gain decision uses the greatest absolute
   sample across both channels.
@@ -34,26 +33,25 @@ exact partition equivalence.
 
 ## Migration boundary
 
-The current legacy helpers `normalise_pair()` and `fx_normaliser()` scan an
-entire supplied signal and apply one global gain. They are a documented
-non-authoritative baseline for signal comparison only; they must not be used as
-the expected output for the v1 processor.
+The old `normalise_pair()`/`fx_normaliser()` helpers remain only behind
+superseded whole-event compatibility rendering and are non-authoritative. They
+must not be used as expected output for the v1 processor or selected by canonical
+track/Sound/device routes.
 
-The causal processor is intentionally not wired into only one legacy route. The
-cutover happens when the Epic 320 stateful block renderer owns every offline,
-finite, open, file, bytes, rendered-sound, and SDL sink. That cutover is
-responsible for:
+The stateful block renderer owns offline, finite, open, file, bytes,
+rendered-sound, and SDL sinks. The remaining migration work is responsible for:
 
 1. compiling normaliser options into typed processor configuration;
 2. preserving the processor state across blocks, silence, and effect tails;
 3. applying FX-bus controls at exact frame boundaries;
-4. removing whole-signal normalisation from all execution routes; and
+4. deleting whole-signal normalisation with the remaining whole-event helpers; and
 5. versioning public signal/oracle expectations as an explicit semantic
    migration.
 
-Until then, contributors must not describe current `Track.render()`,
-`Track.save()`, finite playback, or public `Sound` playback as causal-normaliser
-routes.
+`Track.render()`, `Track.save()`, `Track.to_sound()`, finite/rolling playback,
+and public rendered `Sound` playback all consume canonical block-engine PCM. A
+raw loaded `Sound` asset does not apply synth FX; it only uses the shared native
+mixer and canonical dynamic resampler.
 
 ## Validation requirements for cutover
 
@@ -66,5 +64,5 @@ A route may adopt v1 only after it passes:
 - shared FX-bus controls during input, silence, and tails; and
 - offline, finite SDL, and open stream parity using the one block engine.
 
-Device hardware qualification remains a separate operational gate. No headless
-or simulated result may be reported as physical-audio qualification.
+Native-audio runs are optional manual information. They report the route actually
+executed and never relabel headless or simulated output as native-audio output.

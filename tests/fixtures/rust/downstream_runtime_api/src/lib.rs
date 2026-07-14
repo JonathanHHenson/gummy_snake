@@ -6,7 +6,7 @@
 
 use gummy_ecs as ecs;
 
-const _: [(); 5] = [(); ecs::ECS_ABI_VERSION as usize];
+const _: [(); 6] = [(); ecs::ECS_ABI_VERSION as usize];
 const _: [(); 2] = [(); ecs::BRIDGE_PLAN_VERSION as usize];
 
 #[allow(dead_code)]
@@ -53,8 +53,8 @@ fn ecs_root_reexports_compile() {
 }
 
 #[allow(dead_code)]
-fn synth_stable_domain_api_compiles(plan: &gummy_synth::SynthPlaybackPlan) -> f64 {
-    plan.duration_seconds()
+fn synth_stable_domain_api_compiles(program: &gummy_synth::CompiledSynthProgram) -> f64 {
+    program.duration_seconds()
 }
 
 /// Typed synth APIs are ordinary Rust domain calls. The Python `_canvas`
@@ -64,8 +64,8 @@ fn synth_typed_api_compiles() {
     let bytes = b"";
     let _: gummy_synth::SynthResult<Vec<u8>> =
         gummy_synth::render_serialized_plan_wav_bytes(bytes, 44_100);
-    let _: gummy_synth::SynthResult<gummy_synth::SynthPlaybackPlan> =
-        gummy_synth::SynthPlaybackPlan::from_serialized_plan(bytes);
+    let _: gummy_synth::SynthResult<gummy_synth::CompiledSynthProgram> =
+        gummy_synth::CompiledSynthProgram::from_serialized_plan(bytes, 44_100);
 }
 
 // `gummy_canvas_runtime` is deliberately an unused direct dependency: cargo

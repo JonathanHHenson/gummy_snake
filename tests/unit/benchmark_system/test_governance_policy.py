@@ -4,39 +4,68 @@ from decimal import Decimal
 
 import pytest
 
+import benchmarks
+import benchmarks.governance as governance
 from benchmarks.governance import (
-    AUTHORITATIVE_DATA_REF,
-    DATABASE_GOVERNANCE,
     EXECUTION_CLASS_POLICIES,
-    LEGACY_BENCHMARK_DATA_AUTHORITY,
+    LOCAL_DATABASE_POLICY,
     LOCAL_HISTORY_DIRECTORY,
     MODE_POLICIES,
     PERCENT_REGRESSION_LIMIT,
     PRODUCTION_DOMAINS,
     REGRESSION_LIMIT_FRACTION,
     REGRESSION_LIMIT_PERCENT,
-    AuthorityError,
-    AuthorityRequirements,
     BenchmarkDomain,
     BenchmarkMode,
     ExecutionClass,
     GovernanceError,
     degradation_exceeds_limit,
-    reject_authority_overrides,
-    require_authoritative_workload,
+    reject_policy_overrides,
 )
 
 
-def test_authoritative_reference_and_requirements_are_frozen() -> None:
-    assert AUTHORITATIVE_DATA_REF == "refs/heads/benchmark-data-v1"
-    with pytest.raises(AuthorityError):
-        require_authoritative_workload(AuthorityRequirements(True, True, True, True, True, False))
+def test_only_local_benchmark_policy_is_exported_and_selectable() -> None:
+    assert benchmarks.__all__ == [
+        "DEFAULT_LOCAL_HISTORY",
+        "LocalBenchmarkDatabase",
+        "PERCENT_REGRESSION_LIMIT",
+    ]
+    assert {execution_class.value for execution_class in ExecutionClass} == {
+        "headless",
+        "simulated-realtime",
+        "native-interactive",
+        "native-audio",
+    }
+    assert set(governance.__all__) == {
+        "EXECUTION_CLASS_POLICIES",
+        "GOVERNANCE_VERSION",
+        "LOCAL_DATABASE_POLICY",
+        "LOCAL_HISTORY_DIRECTORY",
+        "MODE_POLICIES",
+        "PERCENT_REGRESSION_LIMIT",
+        "PRODUCTION_DOMAIN_INVENTORY",
+        "PRODUCTION_DOMAINS",
+        "REGRESSION_LIMIT_FRACTION",
+        "REGRESSION_LIMIT_PERCENT",
+        "BenchmarkDomain",
+        "BenchmarkMode",
+        "CapabilityError",
+        "DomainInventoryEntry",
+        "ExecutionClass",
+        "ExecutionClassPolicy",
+        "GovernanceError",
+        "LocalDatabasePolicy",
+        "ModePolicy",
+        "capability_error",
+        "degradation_exceeds_limit",
+        "reject_policy_overrides",
+    }
 
 
-def test_authority_bypass_flags_are_rejected() -> None:
-    for argument in ("--threshold=0.02", "--regression-limit", "--database-ref=other"):
-        with pytest.raises(GovernanceError, match="override is not supported"):
-            reject_authority_overrides(["worktree", argument])
+def test_fixed_policy_bypass_flags_are_rejected() -> None:
+    for argument in ("--threshold=0.02", "--regression-limit", "--force-record"):
+        with pytest.raises(GovernanceError, match="policy override is not supported"):
+            reject_policy_overrides(["worktree", argument])
 
 
 def test_five_percent_policy_has_consistent_fraction_and_display_definitions() -> None:
@@ -70,20 +99,16 @@ def test_production_domain_inventory_covers_the_replacement_scope() -> None:
         assert entry.permitted_execution_classes
 
 
-def test_execution_mode_and_database_authority_are_structured_and_fail_closed() -> None:
+def test_execution_modes_and_local_database_policy_are_structured_and_fail_closed() -> None:
     assert set(EXECUTION_CLASS_POLICIES) == set(ExecutionClass)
-    assert not EXECUTION_CLASS_POLICIES[ExecutionClass.TRIAL].authoritative_eligible
     native = EXECUTION_CLASS_POLICIES[ExecutionClass.NATIVE_INTERACTIVE]
     assert "frames-presented-counter" in native.fail_closed_capabilities
-    assert "headless" in native.timing_authority
+    assert "headless" in native.timing_scope
 
     assert not MODE_POLICIES[BenchmarkMode.WORKTREE].database_writes
     assert MODE_POLICIES[BenchmarkMode.RECORD_HEAD].database_writes
     assert "exact HEAD" in MODE_POLICIES[BenchmarkMode.WORKTREE].baseline
     assert "ancestor" in MODE_POLICIES[BenchmarkMode.WORKTREE].baseline
-    assert DATABASE_GOVERNANCE.default_backend == "local-filesystem"
-    assert DATABASE_GOVERNANCE.history_directory == LOCAL_HISTORY_DIRECTORY
-    assert DATABASE_GOVERNANCE.remote_required is False
-    assert DATABASE_GOVERNANCE.configurable_value == "local-history-directory-only"
-    assert DATABASE_GOVERNANCE.data_ref == AUTHORITATIVE_DATA_REF
-    assert LEGACY_BENCHMARK_DATA_AUTHORITY == "historical-non-authoritative-not-imported"
+    assert LOCAL_DATABASE_POLICY.backend == "local-filesystem"
+    assert LOCAL_DATABASE_POLICY.history_directory == LOCAL_HISTORY_DIRECTORY
+    assert LOCAL_DATABASE_POLICY.configurable_value == "local-history-directory-only"

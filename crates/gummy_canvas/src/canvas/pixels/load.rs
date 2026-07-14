@@ -56,25 +56,42 @@ impl Canvas {
             ));
         }
         self.performance_counters.pixel_readbacks += 1;
-        if self.offscreen_dirty && self.pixels_stale {
-            self.render_gpu_frame(true);
-        } else if self.pixels_stale {
-            self.read_gpu_pixels();
-        }
-        self.ensure_cpu_pixel_buffer();
         let requested_bytes = (width as u64)
             .checked_mul(height as u64)
             .and_then(|pixels| pixels.checked_mul(4))
             .ok_or_else(|| PyValueError::new_err("Pixel region byte length is too large."))?;
-        let region = crop_rgba_with_padding(
-            &self.pixels,
-            self.physical_width,
-            self.physical_height,
-            x,
-            y,
-            width as usize,
-            height as usize,
-        );
+        let region = if self.pixels_stale && self.gpu.is_some() {
+            self.flush_pending_3d_triangles();
+            let encode_render = self.offscreen_dirty;
+            let result = self
+                .gpu
+                .as_mut()
+                .expect("GPU availability checked before region readback")
+                .read_pixel_region(x, y, width as usize, height as usize, encode_render)
+                .map_err(|error| {
+                    PyValueError::new_err(format!("GPU pixel-region readback failed: {error}"))
+                })?;
+            self.performance_counters.gpu_pixel_readbacks += 1;
+            if encode_render {
+                self.performance_counters.gpu_frames_rendered += 1;
+                if let Some(gpu) = self.gpu.as_mut() {
+                    gpu.begin_frame();
+                }
+                self.mark_gpu_rendered_without_readback();
+            }
+            result
+        } else {
+            self.ensure_cpu_pixel_buffer();
+            crop_rgba_with_padding(
+                &self.pixels,
+                self.physical_width,
+                self.physical_height,
+                x,
+                y,
+                width as usize,
+                height as usize,
+            )
+        };
         self.performance_counters.pixel_readback_requested_bytes += requested_bytes;
         self.performance_counters.pixel_readback_copied_bytes += region.len() as u64;
         self.performance_counters.pixel_bytes_created += 1;

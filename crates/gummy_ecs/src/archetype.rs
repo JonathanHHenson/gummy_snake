@@ -8,6 +8,19 @@ use crate::schema::{ComponentId, ComponentSchema, SchemaRegistry};
 pub type ComponentRow = HashMap<String, EcsValue>;
 pub type EntityRowData = HashMap<String, ComponentRow>;
 
+/// Complete typed component rows and tags for one transactional spawn request.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct SpawnEntity {
+    pub components: EntityRowData,
+    pub tags: Vec<String>,
+}
+
+impl SpawnEntity {
+    pub fn new(components: EntityRowData, tags: Vec<String>) -> Self {
+        Self { components, tags }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ComponentSetKey(Vec<ComponentId>);
 

@@ -1,4 +1,5 @@
-use crate::archetype::{Archetype, ComponentSetKey};
+use crate::archetype::{Archetype, ComponentSetKey, EntityRowData, SpawnEntity};
+use crate::column::coerce_value_for_storage;
 use crate::entity::Entity;
 use crate::error::{EcsError, Result};
 use crate::schema::{ComponentId, ComponentSchema};
@@ -6,6 +7,13 @@ use crate::schema::{ComponentId, ComponentSchema};
 use super::{ChangeKind, EntityLocation, World};
 
 const TAG_PREFIX: &str = "#tag:";
+
+struct PreparedSpawn {
+    key: ComponentSetKey,
+    component_names: Vec<String>,
+    components: EntityRowData,
+    tags: Vec<String>,
+}
 
 impl World {
     pub fn spawn_empty(&mut self) -> Entity {
@@ -22,6 +30,111 @@ impl World {
         self.change_journal.record(entity, ChangeKind::Spawned);
         self.note_structural_revision();
         entity
+    }
+
+    /// Spawn complete component rows in one all-or-nothing structural transaction.
+    ///
+    /// Every schema, field, value, and tag is validated before the first archetype,
+    /// allocator, journal, or revision mutation. Once validation succeeds, insertion
+    /// uses only the prevalidated physical values and cannot produce a data error.
+    pub fn spawn_batch(&mut self, rows: Vec<SpawnEntity>) -> Result<Vec<Entity>> {
+        let prepared = rows
+            .into_iter()
+            .map(|row| self.prepare_spawn(row))
+            .collect::<Result<Vec<_>>>()?;
+
+        let archetypes = prepared
+            .iter()
+            .map(|row| {
+                self.ensure_archetype(row.key.clone())
+                    .expect("prevalidated spawn key must build an archetype")
+            })
+            .collect::<Vec<_>>();
+        let mut entities = Vec::with_capacity(prepared.len());
+
+        for (row, archetype) in prepared.into_iter().zip(archetypes) {
+            let entity = self.entities.spawn();
+            self.entity_tags.clear_slot(entity.index);
+            let entity_row = self.archetypes[archetype]
+                .push_row(entity, Some(&row.components))
+                .expect("prevalidated spawn row must match its archetype");
+            self.locations.insert(entity, archetype, entity_row);
+            self.entity_order.insert(entity);
+            for tag in &row.tags {
+                let tag_id = self.tag_registry.intern(tag);
+                self.entity_tags.add(entity.index, tag_id);
+            }
+            self.change_journal.record(entity, ChangeKind::Spawned);
+            for component in row.component_names {
+                self.change_journal
+                    .record(entity, ChangeKind::ComponentAdded { component });
+            }
+            for tag in row.tags {
+                self.change_journal
+                    .record(entity, ChangeKind::TagAdded { tag });
+            }
+            self.diagnostics.structural_commands_applied += 1;
+            self.note_structural_revision();
+            entities.push(entity);
+        }
+
+        self.diagnostics.bulk_spawn_calls += 1;
+        self.diagnostics.bulk_spawn_entities += entities.len();
+        Ok(entities)
+    }
+
+    fn prepare_spawn(&self, row: SpawnEntity) -> Result<PreparedSpawn> {
+        let mut component_names = row.components.keys().cloned().collect::<Vec<_>>();
+        component_names.sort();
+        let key = self.component_key_for_names(component_names.iter().map(String::as_str))?;
+        let mut components = EntityRowData::with_capacity(row.components.len());
+
+        for component_name in &component_names {
+            let schema = self
+                .schemas
+                .get(component_name)
+                .ok_or_else(|| EcsError::UnknownSchema(component_name.clone()))?;
+            let mut input = row
+                .components
+                .get(component_name)
+                .cloned()
+                .expect("component name came from the spawn row");
+            let mut normalized = crate::archetype::ComponentRow::with_capacity(schema.fields.len());
+            for field in &schema.fields {
+                let value = input.remove(&field.name).ok_or_else(|| {
+                    EcsError::InvalidPlan(format!(
+                        "transactional spawn row is missing {}.{}",
+                        component_name, field.name
+                    ))
+                })?;
+                normalized.insert(
+                    field.name.clone(),
+                    coerce_value_for_storage(field.storage_type, value)?,
+                );
+            }
+            if let Some(field) = input.keys().min() {
+                return Err(EcsError::UnknownField {
+                    component: component_name.clone(),
+                    field: field.clone(),
+                });
+            }
+            components.insert(component_name.clone(), normalized);
+        }
+
+        let mut tags = row.tags;
+        if tags.iter().any(String::is_empty) {
+            return Err(EcsError::InvalidPlan(
+                "ECS tag name cannot be empty".to_string(),
+            ));
+        }
+        tags.sort();
+        tags.dedup();
+        Ok(PreparedSpawn {
+            key,
+            component_names,
+            components,
+            tags,
+        })
     }
 
     pub fn spawn_with_defaults(
@@ -257,7 +370,7 @@ impl World {
         Ok(())
     }
 
-    fn component_key_for_names<'a>(
+    pub(super) fn component_key_for_names<'a>(
         &self,
         names: impl IntoIterator<Item = &'a str>,
     ) -> Result<ComponentSetKey> {

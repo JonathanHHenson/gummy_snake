@@ -83,14 +83,9 @@ impl Canvas {
     pub(crate) fn reset_performance_counters_impl(&mut self) {
         self.performance_counters = PerformanceCounters::default();
         let image_resident = self.image_cache.resident_bytes() as u64;
-        let texture_resident = self.texture_cache_versions.resident_bytes() as u64;
-        let atlas_resident = self.texture_cache_versions.atlas_resident_bytes() as u64;
         self.performance_counters.image_cache_resident_bytes = image_resident;
         self.performance_counters.image_cache_peak_bytes = image_resident;
-        self.performance_counters.texture_resident_bytes = texture_resident;
-        self.performance_counters.texture_peak_bytes = texture_resident;
-        self.performance_counters.image_atlas_resident_bytes = atlas_resident;
-        self.performance_counters.image_atlas_peak_bytes = atlas_resident;
+        self.update_texture_cache_byte_counters();
         if let Some(gpu) = self.gpu.as_mut() {
             gpu.reset_render_loop_counters();
         }

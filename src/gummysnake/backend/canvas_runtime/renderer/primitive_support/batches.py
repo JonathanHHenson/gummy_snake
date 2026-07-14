@@ -1,8 +1,8 @@
-"""Primitive batch queuing and flushing helpers for the Rust canvas renderer."""
+"""Direct packed primitive ingress for the Rust-owned frame recorder."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Sequence
 from struct import Struct
 from typing import cast
 
@@ -11,9 +11,6 @@ from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRenderer
 from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
     pack_matrix,
     pack_primitive_style,
-)
-from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
-    PrimitiveBatchSnapshot,
 )
 from gummysnake.core.state import StyleState
 from gummysnake.core.transform import Matrix2D
@@ -32,9 +29,9 @@ _FillPrimitiveRecord = tuple[int, float, float, float, float, float, float, int,
 def _pack_primitive_records(
     records: list[tuple[int, float, float, float, float, float, float]],
 ) -> bytes:
-    """Encode styled primitive records for the versioned Rust-owned command ingress."""
     payload = bytearray(_PACKED_PRIMITIVE_RECORD.size * len(records))
-    for index, (kind, a, b, c1, d, e, f) in enumerate(records):
+    for index, record in enumerate(records):
+        kind, a, b, c1, d, e, f = record
         _PACKED_PRIMITIVE_RECORD.pack_into(
             payload,
             index * _PACKED_PRIMITIVE_RECORD.size,
@@ -51,7 +48,8 @@ def _pack_primitive_records(
 
 def _pack_fill_primitive_records(records: list[_FillPrimitiveRecord]) -> bytes:
     payload = bytearray(_PACKED_FILL_PRIMITIVE_RECORD.size * len(records))
-    for index, (kind, a, b, c1, d, e, f, red, green, blue, alpha) in enumerate(records):
+    for index, record in enumerate(records):
+        kind, a, b, c1, d, e, f, red, green, blue, alpha = record
         _PACKED_FILL_PRIMITIVE_RECORD.pack_into(
             payload,
             index * _PACKED_FILL_PRIMITIVE_RECORD.size,
@@ -109,19 +107,15 @@ def _pack_mixed_primitive_records(
     return bytes(payload), bytes(styles), bytes(matrices)
 
 
-def _pack_line_records(records: list[tuple[float, float, float, float]]) -> bytes:
-    payload = bytearray(_PACKED_LINE_RECORD.size * len(records))
-    for index, record in enumerate(records):
-        _PACKED_LINE_RECORD.pack_into(payload, index * _PACKED_LINE_RECORD.size, *record)
-    return bytes(payload)
+def _record_submission(renderer: CanvasRendererHost, record_count: int) -> None:
+    renderer._count("gpu_draws", record_count)
+    renderer._count("primitive_batch_records", record_count)
+    renderer._count("primitive_batch_flushes")
+    renderer._max_count("primitive_batch_max_records", record_count)
 
 
 def flush_line_batch(self: CanvasRendererHost) -> None:
-    self._flush_line_batch_only()
-    self._flush_primitive_batch_only()
-    self._flush_image_batch()
-    self._flush_model_batch()
-    self._flush_text_batch()
+    """Compatibility no-op; all command families submit directly to Rust."""
 
 
 def queue_fill_primitive_fast_path(
@@ -132,10 +126,8 @@ def queue_fill_primitive_fast_path(
     transform: Matrix2D,
 ) -> bool:
     fill_color = style.fill_rgba
-    canvas = getattr(self, "_canvas", None)
-    batch_fill = (
-        getattr(canvas, "batch_fill_primitives_packed", None) if canvas is not None else None
-    )
+    canvas = self._require_canvas()
+    batch_fill = getattr(canvas, "batch_fill_primitives_packed", None)
     if (
         kind == _PRIMITIVE_LINE
         or fill_color is None
@@ -145,14 +137,38 @@ def queue_fill_primitive_fast_path(
         or not callable(batch_fill)
     ):
         return False
-
-    matrix_payload = self._matrix_payload(transform)
-    flush_batches_before_primitive_batch(self)
-    primitive_batch = self._primitive_batch_state
-    if primitive_batch.has_records() and not primitive_batch.matches_fill(matrix_payload):
-        self._flush_primitive_batch_only()
-    self._primitive_batch_state.append_fill((kind, *coords, *fill_color), matrix_payload)
+    record = cast(_FillPrimitiveRecord, (kind, *coords, *fill_color))
+    _record_submission(self, 1)
+    self._call(
+        "packed fill primitive recording",
+        batch_fill,
+        _pack_fill_primitive_records([record]),
+        self._matrix_payload(transform),
+    )
     return True
+
+
+def record_fill_primitive_batch(
+    self: CanvasRendererHost,
+    records: Sequence[tuple[object, ...]],
+    transform: Matrix2D,
+) -> None:
+    """Record one Rust-produced compact fill batch without Python queue state."""
+
+    if not records:
+        return
+    batch_fill = self._require_canvas_method(
+        "batch_fill_primitives_packed",
+        "packed fill primitive batch recording",
+    )
+    typed_records = [cast(_FillPrimitiveRecord, tuple(record)) for record in records]
+    _record_submission(self, len(typed_records))
+    self._call(
+        "packed fill primitive batch recording",
+        batch_fill,
+        _pack_fill_primitive_records(typed_records),
+        self._matrix_payload(transform),
+    )
 
 
 def queue_primitive_batch(
@@ -164,216 +180,51 @@ def queue_primitive_batch(
 ) -> bool:
     if queue_fill_primitive_fast_path(self, kind, coords, style, transform):
         return True
-
     canvas = self._require_canvas()
     matrix_payload = self._matrix_payload(transform)
-    batch_mixed = getattr(canvas, "batch_primitives_mixed_packed", None)
-    if callable(batch_mixed):
-        flush_batches_before_primitive_batch(self)
-        primitive_batch = self._primitive_batch_state
-        if primitive_batch.has_records() and not primitive_batch.matches_mixed():
-            self._flush_primitive_batch_only()
-        self._primitive_batch_state.append_mixed(
-            (kind, *coords, self._style_payload(style), matrix_payload)
+    mixed = getattr(canvas, "batch_primitives_mixed_packed", None)
+    if callable(mixed):
+        payload, styles, matrices = _pack_mixed_primitive_records(
+            [(kind, *coords, self._style_payload(style), matrix_payload)]
         )
+        _record_submission(self, 1)
+        self._call("packed mixed primitive recording", mixed, payload, styles, matrices)
         return True
-
     current = (
         getattr(canvas, "batch_primitives_current_packed", None)
         if self._can_use_current_state(style, transform)
         else None
     )
     if callable(current):
-        flush_batches_before_primitive_batch(self)
-        primitive_batch = self._primitive_batch_state
-        if primitive_batch.has_records() and not primitive_batch.matches_current():
-            self._flush_primitive_batch_only()
-        self._primitive_batch_state.append_current((kind, *coords))
+        _record_submission(self, 1)
+        self._call(
+            "packed current-state primitive recording",
+            current,
+            _pack_primitive_records([(kind, *coords)]),
+        )
         return True
-
-    batch = getattr(canvas, "batch_primitives_packed", None)
-    if not callable(batch):
-        return False
-    style_payload = self._style_payload(style)
-    flush_batches_before_primitive_batch(self)
-    primitive_batch = self._primitive_batch_state
-    if primitive_batch.has_records() and not primitive_batch.matches_styled(
-        style_payload,
+    styled = self._require_canvas_method(
+        "batch_primitives_packed",
+        "typed primitive command recording",
+    )
+    _record_submission(self, 1)
+    self._call(
+        "packed primitive recording",
+        styled,
+        _pack_primitive_records([(kind, *coords)]),
+        self._style_payload(style),
         matrix_payload,
-    ):
-        self._flush_primitive_batch_only()
-    self._primitive_batch_state.append_styled((kind, *coords), style_payload, matrix_payload)
+    )
     return True
 
 
 def flush_batches_before_primitive_batch(self: CanvasRendererHost) -> None:
-    if self._line_batch_state.has_records():
-        self._flush_line_batch_only()
-    if self._text_batch:
-        self._flush_text_batch()
-    self._flush_image_batch()
-    self._flush_model_batch()
+    """Compatibility no-op; Rust records family order as calls arrive."""
 
 
 def flush_line_batch_only(self: CanvasRendererHost) -> None:
-    renderer = self
-    if not renderer._line_batch_state.has_records():
-        return
-    snapshot = renderer._line_batch_state.drain()
-    lines = snapshot.records
-    style = snapshot.style
-    matrix = snapshot.matrix
-    if snapshot.current:
-        batch_lines_current = renderer._require_canvas_method(
-            "batch_lines_current_packed", "packed current-state line batch drawing"
-        )
-        renderer._count("gpu_draws", len(lines))
-        renderer._call(
-            "packed current-state line drawing", batch_lines_current, _pack_line_records(lines)
-        )
-        return
-    if style is None or matrix is None:
-        return
-    batch_lines = renderer._require_canvas_method("batch_lines_packed", "packed line batch drawing")
-    renderer._count("gpu_draws", len(lines))
-    renderer._call("packed line drawing", batch_lines, _pack_line_records(lines), style, matrix)
-
-
-def _drain_primitive_batch(renderer: CanvasRendererHost) -> PrimitiveBatchSnapshot:
-    """Transfer the pending batch state into one immutable flush snapshot."""
-    return renderer._primitive_batch_state.drain()
-
-
-def _native_primitive_batch_submission(
-    renderer: CanvasRendererHost,
-    snapshot: PrimitiveBatchSnapshot,
-) -> tuple[str, Callable[..., object], tuple[object, ...]] | None:
-    """Select the native call and payload tuple for an already-drained batch."""
-    records = snapshot.records
-    if snapshot.mode == "mixed":
-        callback = renderer._require_canvas_method(
-            "batch_primitives_mixed_packed", "packed mixed primitive batch drawing"
-        )
-        payload, styles, matrices = _pack_mixed_primitive_records(records)
-        return "packed mixed primitive drawing", callback, (payload, styles, matrices)
-    if snapshot.mode == "fill" and snapshot.matrix is not None:
-        callback = renderer._require_canvas_method(
-            "batch_fill_primitives_packed", "packed fill primitive batch drawing"
-        )
-        return (
-            "packed fill primitive drawing",
-            callback,
-            (
-                _pack_fill_primitive_records(cast(list[_FillPrimitiveRecord], records)),
-                snapshot.matrix,
-            ),
-        )
-    if snapshot.current:
-        callback = renderer._require_canvas_method(
-            "batch_primitives_current_packed", "packed current-state primitive batch drawing"
-        )
-        return (
-            "packed current-state primitive drawing",
-            callback,
-            (
-                _pack_primitive_records(
-                    cast(list[tuple[int, float, float, float, float, float, float]], records)
-                ),
-            ),
-        )
-    if snapshot.style is not None and snapshot.matrix is not None:
-        callback = renderer._require_canvas_method(
-            "batch_primitives_packed", "packed primitive batch drawing"
-        )
-        return (
-            "packed batched primitive drawing",
-            callback,
-            (
-                _pack_primitive_records(
-                    cast(list[tuple[int, float, float, float, float, float, float]], records)
-                ),
-                snapshot.style,
-                snapshot.matrix,
-            ),
-        )
-    return None
-
-
-def _record_primitive_batch_submission(
-    renderer: CanvasRendererHost,
-    record_count: int,
-) -> None:
-    """Update batch diagnostics exactly once for a native batch submission."""
-    renderer._count("gpu_draws", record_count)
-    renderer._count("primitive_batch_records", record_count)
-    renderer._count("primitive_batch_flushes")
-    renderer._max_count("primitive_batch_max_records", record_count)
-
-
-def _submit_native_primitive_batch(
-    renderer: CanvasRendererHost,
-    snapshot: PrimitiveBatchSnapshot,
-) -> bool:
-    """Submit one compatible native primitive batch and record its diagnostics."""
-    submission = _native_primitive_batch_submission(renderer, snapshot)
-    if submission is None:
-        return False
-    operation, callback, payload = submission
-    _record_primitive_batch_submission(renderer, len(snapshot.records))
-    renderer._call(operation, callback, *payload)
-    return True
-
-
-def _submit_unbatched_primitive_records(
-    renderer: CanvasRendererHost,
-    snapshot: PrimitiveBatchSnapshot,
-) -> None:
-    """Preserve the legacy per-primitive bridge path when native batching is absent."""
-    canvas = renderer._require_canvas()
-    renderer._count("primitive_batch_fallbacks", len(snapshot.records))
-    for kind, a, b, c1, d, e, f in snapshot.records:
-        renderer._count("gpu_draws")
-        if kind == _PRIMITIVE_RECT and snapshot.style is not None and snapshot.matrix is not None:
-            renderer._call(
-                "rectangle drawing", canvas.rect, a, b, c1, d, snapshot.style, snapshot.matrix
-            )
-        elif (
-            kind == _PRIMITIVE_TRIANGLE
-            and snapshot.style is not None
-            and snapshot.matrix is not None
-        ):
-            renderer._call(
-                "triangle drawing",
-                canvas.triangle,
-                a,
-                b,
-                c1,
-                d,
-                e,
-                f,
-                snapshot.style,
-                snapshot.matrix,
-            )
-        elif (
-            kind == _PRIMITIVE_ELLIPSE
-            and snapshot.style is not None
-            and snapshot.matrix is not None
-        ):
-            renderer._call(
-                "ellipse drawing", canvas.ellipse, a, b, c1, d, snapshot.style, snapshot.matrix
-            )
-        elif kind == _PRIMITIVE_LINE and snapshot.style is not None and snapshot.matrix is not None:
-            renderer._call(
-                "line drawing", canvas.line, a, b, c1, d, snapshot.style, snapshot.matrix
-            )
+    """Compatibility no-op; no Python line queue exists."""
 
 
 def flush_primitive_batch_only(self: CanvasRendererHost) -> None:
-    """Flush pending primitives without crossing an ordered command-family boundary."""
-    renderer = self
-    if not renderer._primitive_batch_state.has_records():
-        return
-    snapshot = _drain_primitive_batch(renderer)
-    if _submit_native_primitive_batch(renderer, snapshot):
-        return
-    _submit_unbatched_primitive_records(renderer, snapshot)
+    """Compatibility no-op; no Python primitive queue exists."""

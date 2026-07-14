@@ -3,10 +3,10 @@
 This document defines correctness semantics for the replacement synth benchmark
 catalogue (`benchmarks/synth_v1.toml`). It prevents a timing baseline from silently
 blessing a known rendering or playback defect. Performance runs are manually invoked
-and stored as ignored local history keyed by fingerprint and commit; automated checks
-retain deterministic fixtures, signal/PCM oracles, path checks, schemas, and headless
-smoke. Native-audio runs are optional manual information and may be unavailable without
-blocking completion.
+and stored as ignored local history under `.scratch/benchmark/history`, keyed by exact
+fingerprint and commit. CI runs deterministic fixtures, signal/PCM oracles, path checks,
+schemas, and headless smoke as correctness coverage. Native-audio runs are optional
+manual information.
 
 ## Ownership and measured boundaries
 
@@ -259,15 +259,15 @@ partitions already rendered exact production PCM using a deterministic virtual
 clock; it reports block-frame and measured adapter-operation distributions but
 is neither stateful DSP-partition nor device evidence.
 
-The optional SDL adapter is intentionally fail-closed in the current runtime.
-SDL playback can open and stop, but the public bridge does not expose negotiated
-format/rate/channels, queue watermarks, underruns, or a stop/reopen result. The
-adapter therefore reports unavailable before opening a device.
-`stateful-partition-rolling-native-route-guards` exercises this pre-open guard and
-confirms that no device was opened. It also records that arbitrary block/session
-diagnostics and a deterministic headless rolling sink are unavailable. No hardware
-evidence, microphone input, serial identifier, or private device identifier is
-required or collected, and unavailability does not block completion.
+The runtime now exposes one process-local SDL3 manager with an explicit 48 kHz
+stereo S16 queue, fixed low/high-water frames, current/min/peak queue depth,
+underruns, active/peak voices and synth sessions, mixed blocks/frames, command
+counts, device open/errors, and per-playback block/session snapshots. The optional
+physical-device adapter may still report unavailable when its host has no device
+or until it is updated to consume those fields; that is adapter/host evidence, not
+an alternate playback route. Deterministic manager/mixer tests do not require
+hardware. No microphone input, serial identifier, or private device identifier is
+required or collected, and optional device unavailability does not block completion.
 
 ## Metrics
 
@@ -280,25 +280,27 @@ they are not mislabeled as exact allocation counts or current RSS. Unsupported
 platform metrics are represented by `{available = false, value = null, reason =
 ...}`.
 
-Cache hit/miss/byte metrics use the same availability schema. The current sample
-cache exposes no public counters, so the benchmark records explicit cold/warm
-canonical-path identities and marks cache counters unavailable instead of
-inventing values. The same rule applies to Rust allocation counts, bridge copy
+Cache hit/miss/eviction/entry/byte/budget/stale-invalidation/lock-contention
+metrics use the public synth diagnostics. Benchmarks still record explicit
+cold/warm canonical-path identities and must mark any counter absent from an
+older runtime unavailable instead of inventing values. The same rule applies to Rust allocation counts, bridge copy
 counts, exact GIL-held intervals, and split Rust deserialize/validate/index/prepare
 timers: only exact input/output/intermediate byte lengths, net Python allocation
 block deltas, public GIL-release counters, and heartbeat pauses are currently
 truthful. Native adapter diagnostics include Canvas/Synth crate versions,
 source/build digests, profile, and features. A benchmark snapshot digest mismatch
-rejects the extension as stale; an unrecorded development build is marked
-non-comparable rather than release-qualified.
+rejects the extension as stale; an unrecorded development build is non-comparable.
 
 Streaming and device schemas reserve first-audio/prefill time, queue high/low
-watermarks, underruns, deadline ratio, stop latency, and cleanup completion.
-Those fields remain unavailable for the SDL route until the native runtime
-exposes them. Stateful memory/file cases report exact bytes, frames, public GIL
-release render/write counters, and sink parity; block count, active voice/bus
-high water, scratch/current/peak bytes, processor-state bytes, tail frames, and
-limiter/normaliser latency remain unavailable at Python scope. The primary
+watermarks, underruns, deadline ratio, stop latency, and cleanup completion. Queue
+watermarks/depth/underruns, device counts, manager commands, active/peak voices
+and sessions, and mixed block/frame counts are now public. First-audio/prefill,
+deadline ratio, stop-latency timing, cleanup timing, and hot reopen remain
+unavailable until measured explicitly. Stateful memory/file cases report exact
+bytes, frames, public GIL release render/write counters, and sink parity;
+per-playback SDL sessions report blocks/rendered frames/state/error, while the
+full renderer scratch/bus/tail diagnostic struct is not yet exposed at Python
+scope. The primary
 metric remains measured elapsed work for the declared phase. A counter (for
 example heartbeat observations) is a correctness diagnostic and must not be
 substituted for elapsed time.
@@ -348,10 +350,9 @@ current RSS are not public and remain unavailable.
 
 Comparable timing history is created only by a maintainer using a release build,
 fixed workloads, retained raw samples, deterministic oracles, and exact route
- diagnostics. History is local and ignored, keyed by fingerprint and commit, and a
-regression greater than 5% fails the local comparison. No macOS/Linux/Windows matrix,
-A/A campaign, physical-device evidence, or cross-platform record is a completion gate.
-Optional native-audio runs may remain unavailable.
+diagnostics. History is local and ignored, keyed by exact fingerprint and commit, and a
+regression greater than 5% fails the local comparison; exactly 5% passes. Optional
+native-audio runs are manual information.
 
 ## Focused commands
 
@@ -361,10 +362,13 @@ uv run pytest tests/unit/benchmark_system/test_synth_fixtures_oracles.py -q
 uv run pytest tests/unit/benchmark_system/test_synth_catalog.py -q
 uv run pytest tests/unit/benchmark_system/test_synth_dispatch.py -q
 uv run pytest tests/unit/benchmark_system/test_synth_coverage.py -q
-uv run python -m benchmarks.cli smoke benchmarks/synth_v1.toml
+uv run python scripts/benchmark.py smoke benchmarks/synth_v1.toml
 cargo test --manifest-path crates/gummy_synth/Cargo.toml
 ```
 
-Run performance timing manually with the declared release provenance, fixed workload,
-raw-sample, correctness, capability, and path-diagnostic checks. Do not invoke an
-unavailable optional device workload as an offline fallback.
+Run performance timing through `scripts/benchmark.py worktree` and record a clean
+release commit with `record-head`. Use `list` and `audit` to inspect and validate local
+history; pass `--history <path>` before the subcommand for another local store. Keep the
+release provenance, fixed workload, raw-sample, correctness, capability, deterministic
+oracle, exact-fingerprint, and path-diagnostic checks. Optional native-audio workloads
+report their actual availability and never select an offline route as a substitute.

@@ -26,7 +26,9 @@ pub mod tag;
 pub mod tree_spatial;
 pub mod world;
 
-pub use archetype::{Archetype, ComponentRow, ComponentSetKey, ComponentTable, EntityRowData};
+pub use archetype::{
+    Archetype, ComponentRow, ComponentSetKey, ComponentTable, EntityRowData, SpawnEntity,
+};
 pub use column::{coerce_value_for_storage, Column, EcsValue};
 pub use command::{Command, CommandBuffer};
 pub use diagnostics::Diagnostics;
@@ -68,10 +70,10 @@ pub use world::{
 };
 
 pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
-pub const ECS_ABI_VERSION: u32 = 5;
+pub const ECS_ABI_VERSION: u32 = 6;
 
 pub fn health_check() -> &'static str {
-    "gummy-ecs 5"
+    "gummy-ecs 6"
 }
 
 #[cfg(test)]

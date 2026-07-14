@@ -4,6 +4,11 @@
 //! implementation belongs under `canvas`, ECS execution belongs to `gummy_ecs`,
 //! and synth/sample/FX rendering belongs to `gummy_synth`.
 
+use crate::gpu::{
+    gpu_resource_diagnostics, reset_gpu_resource_diagnostics, webgpu_context_info,
+    GpuComputeShader, GpuStorageBuffer,
+};
+use crate::media::{CanvasMediaFrameSink, CanvasVideo};
 use crate::prelude::*;
 pub(crate) use health::{
     benchmark_provenance, canvas_abi_version, frame_command_abi_version, gpu_available,
@@ -27,6 +32,9 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(benchmark_provenance, m)?)?;
     m.add_function(wrap_pyfunction!(native_window_available, m)?)?;
     m.add_function(wrap_pyfunction!(gpu_available, m)?)?;
+    m.add_function(wrap_pyfunction!(webgpu_context_info, m)?)?;
+    m.add_function(wrap_pyfunction!(gpu_resource_diagnostics, m)?)?;
+    m.add_function(wrap_pyfunction!(reset_gpu_resource_diagnostics, m)?)?;
     m.add_function(wrap_pyfunction!(ecs_abi_version, m)?)?;
     m.add_function(wrap_pyfunction!(ecs_health_check, m)?)?;
     m.add_function(wrap_pyfunction!(image_resize_rgba, m)?)?;
@@ -61,6 +69,10 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Matrix2D>()?;
     m.add_class::<Canvas>()?;
     m.add_class::<CanvasImage>()?;
+    m.add_class::<GpuStorageBuffer>()?;
+    m.add_class::<GpuComputeShader>()?;
+    m.add_class::<CanvasMediaFrameSink>()?;
+    m.add_class::<CanvasVideo>()?;
     m.add_class::<CanvasSound>()?;
     m.add_class::<CanvasAudioPlayback>()?;
     m.add_class::<PyEcsWorld>()?;

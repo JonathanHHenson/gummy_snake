@@ -90,10 +90,10 @@ class ReleaseBuildPlan:
 
     def __post_init__(self) -> None:
         if not self.command or self.command[0] != "uv":
-            raise ProvenanceError("authoritative release plans must use uv")
+            raise ProvenanceError("benchmark release plans must use uv")
         if self.profile != "release" or not self.features:
             raise ProvenanceError(
-                "authoritative builds require a release profile and explicit features"
+                "benchmark builds require a release profile and explicit features"
             )
 
     @property

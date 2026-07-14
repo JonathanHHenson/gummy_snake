@@ -866,6 +866,7 @@ _WHEEL_CONSUMER_SCRIPT = (
     from gummysnake.rust.ecs import (
         EXPECTED_ECS_ABI_VERSION,
         create_ecs_world,
+        create_spatial_index_registry,
         ecs_abi_version,
         ecs_health_check,
         require_ecs_runtime,
@@ -902,18 +903,19 @@ _WHEEL_CONSUMER_SCRIPT = (
             raise SystemExit("wheel did not import the mandatory native canvas extension")
         if not _PACKAGED_SAMPLE.is_file():
             raise SystemExit("wheel did not install the required bd_haus sample asset")
-        if EXPECTED_CANVAS_ABI_VERSION != 20 or canvas_abi_version() != 20:
-                    raise SystemExit("installed wheel does not expose required canvas ABI 20")
+        if EXPECTED_CANVAS_ABI_VERSION != 21 or canvas_abi_version() != 21:
+                    raise SystemExit("installed wheel does not expose required canvas ABI 21")
         if canvas_health_check() != "rust-canvas":
             raise SystemExit("installed wheel has an unhealthy canvas extension")
-        if EXPECTED_ECS_ABI_VERSION != 4 or ecs_abi_version() != 4:
-            raise SystemExit("installed wheel does not expose required ECS ABI 4")
+        if EXPECTED_ECS_ABI_VERSION != 6 or ecs_abi_version() != 6:
+            raise SystemExit("installed wheel does not expose required ECS ABI 6")
         if not ecs_health_check().startswith("gummy-ecs"):
             raise SystemExit("installed wheel has an unhealthy ECS bridge")
         require_canvas_runtime()
-        runtime = require_ecs_runtime()
+        require_ecs_runtime()
+        create_spatial_index_registry()
         world = create_ecs_world()
-        if not hasattr(runtime, "EcsSpatialIndexRegistry") or world.alive_count() != 0:
+        if world.alive_count() != 0:
             raise SystemExit("installed wheel failed the Rust-owned empty ECS world contract")
 
         canvas = _canvas.Canvas(8, 8, 1.0, "headless", "p2d")

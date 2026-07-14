@@ -12,7 +12,7 @@ from ..schema.catalog import MetricSpec, PercentageTransform, ZeroPolicy
 
 
 class StatisticsError(ValueError):
-    """Sampling input cannot support a valid authoritative decision."""
+    """Sampling input cannot support a valid local comparison decision."""
 
 
 class Decision(StrEnum):
@@ -90,7 +90,7 @@ def normalized_process_medians(
 
 
 def median_of_process_medians(blocks_ns: Sequence[Sequence[int]], work_per_block: int) -> Decimal:
-    """The authoritative point estimate; blocks are never flattened across workers."""
+    """Return the fixed point estimate without flattening blocks across workers."""
 
     return _median(normalized_process_medians(blocks_ns, work_per_block))
 
@@ -129,7 +129,7 @@ def compare_samples(
             "candidate remained within the metric's absolute correctness gate",
         )
     if metric.zero_policy not in (ZeroPolicy.POSITIVE_BASELINE, ZeroPolicy.EXPLICIT_TRANSFORM):
-        raise StatisticsError("unsupported metric zero policy for authoritative percentage gate")
+        raise StatisticsError("unsupported metric zero policy for the local percentage gate")
     if metric.requires_positive_baseline and baseline <= 0:
         raise StatisticsError("percentage comparison requires a strictly positive denominator")
     change = metric.percentage_change(baseline, candidate)

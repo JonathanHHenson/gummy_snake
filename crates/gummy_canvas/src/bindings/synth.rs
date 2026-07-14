@@ -335,12 +335,46 @@ fn synth_diagnostics<'py>(py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         "sample_cache_lock_contentions",
         diagnostics.sample_cache.lock_contentions,
     )?;
+    payload.set_item(
+        "causal_normaliser_contract_version",
+        gummy_synth::CAUSAL_NORMALISER_CONTRACT_VERSION,
+    )?;
+    let audio = crate::sound::audio_diagnostics();
+    payload.set_item(
+        "audio_manager_initializations",
+        audio.manager_initializations,
+    )?;
+    payload.set_item("audio_device_open_count", audio.device_open_count)?;
+    payload.set_item("audio_device_error_count", audio.device_error_count)?;
+    payload.set_item("audio_active_voices", audio.active_voices)?;
+    payload.set_item("audio_peak_active_voices", audio.peak_active_voices)?;
+    payload.set_item("audio_active_synth_sessions", audio.active_synth_sessions)?;
+    payload.set_item(
+        "audio_peak_active_synth_sessions",
+        audio.peak_active_synth_sessions,
+    )?;
+    payload.set_item("audio_mixed_blocks", audio.mixed_blocks)?;
+    payload.set_item("audio_mixed_frames", audio.mixed_frames)?;
+    payload.set_item("audio_command_count", audio.command_count)?;
+    payload.set_item("audio_queue_frames", audio.queue_frames)?;
+    payload.set_item("audio_queue_min_frames", audio.queue_min_frames)?;
+    payload.set_item("audio_queue_peak_frames", audio.queue_peak_frames)?;
+    payload.set_item("audio_queue_low_water_frames", audio.queue_low_water_frames)?;
+    payload.set_item(
+        "audio_queue_high_water_frames",
+        audio.queue_high_water_frames,
+    )?;
+    payload.set_item("audio_queue_underruns", audio.queue_underruns)?;
+    payload.set_item("audio_asset_bytes", audio.asset_bytes)?;
+    payload.set_item("audio_asset_voice_starts", audio.asset_voice_starts)?;
+    payload.set_item("audio_synth_session_starts", audio.synth_session_starts)?;
     Ok(payload)
 }
 
 #[pyfunction]
 fn synth_reset_diagnostics() {
     gummy_synth::reset_diagnostics();
+    crate::sound::reset_audio_diagnostics();
 }
 
 fn synth_error(error: gummy_synth::SynthError) -> PyErr {

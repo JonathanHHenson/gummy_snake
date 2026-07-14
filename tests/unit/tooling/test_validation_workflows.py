@@ -102,7 +102,7 @@ def test_documented_validation_matrix_covers_native_wheel_and_opt_in_release_gat
 
     for required_text in (
         "canvas ABI **18**",
-        "ECS ABI **4**",
+        "ECS ABI **6**",
         "make release-candidate",
         "Python renderer",
         "Linux x86_64",

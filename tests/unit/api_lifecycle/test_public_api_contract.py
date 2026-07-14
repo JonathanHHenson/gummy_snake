@@ -33,14 +33,14 @@ _PUBLIC_MODULES: dict[str, ModuleType] = {
 }
 _EXPECTED_FINGERPRINTS = {
     "gummysnake": {
-        "count": 491,
-        "exports": "1f82440a679bc9ea277c021f791d2f548991a98e87ae60fe67cd88c51b3f2ce7",
-        "surface": "18cb1303be430673d206b079f256021d5c51244c749b7d75f4663e51625c3d11",
+        "count": 494,
+        "exports": "5c21bc631e434a507f5f5e92c0675227a458ce085984a52b5b985125cd9fa0b7",
+        "surface": "45b5a2d97ec9a2b8d79cb2000ee2092352b0488553132958d0717b074f4f7258",
     },
     "gummysnake.api.global_mode": {
-        "count": 329,
-        "exports": "85b256961688b03de29c3c2fff8c63fea8c3990b01a936e6190b6f8fbb62edd8",
-        "surface": "4484001cc703e35d2b67ec636e49f40d895004249ba461369d75e51d36dbf6c6",
+        "count": 331,
+        "exports": "03f56f796966de540b37c43103a9026ce09cf169eca93d67d6e55e992191eed2",
+        "surface": "38108b7df3dc1306b912d0e0c01000bdd43a13c34396407a7854e6ddfebde9ba",
     },
     "gummysnake.constants": {
         "count": 116,

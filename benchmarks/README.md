@@ -6,21 +6,18 @@ or source-tree test helpers.
 
 ## Local-first policy
 
-- A maintainer invokes performance benchmarks manually. Pull-request, merge, and
-  release CI continue to automate correctness, schema, catalog, oracle, and smoke
-  checks, but do not execute or gate on benchmark timing.
-- Comparable history is local and ignored, keyed by the exact machine fingerprint,
-  subject commit, suite, and suite version under `.scratch/benchmark/`. No remote
-  branch, protected branch, or shared benchmark-data repository is authoritative.
+- A maintainer invokes performance benchmarks manually. CI runs the correctness,
+  schema, catalog, deterministic-oracle, and bounded smoke checks.
+- Comparable history is ignored local data under `.scratch/benchmark/history`, keyed
+  by the exact machine fingerprint, subject commit, suite, and suite version.
 - Comparable timing runs use isolated release builds, fixed catalog workloads,
   deterministic correctness oracles, retained raw samples, and route diagnostics.
 - Percentage degradation is a fixed strict `> 5.00%` local policy. Exactly 5.00%
   passes. A zero-tolerance counter is an absolute correctness gate, not a percentage
   metric.
 - Native-interactive and native-audio suites are optional, manually invoked,
-  informational suites. They may be unavailable on a maintainer's machine without
-  blocking benchmark, epic, or release completion, and are never replaced by a
-  headless, simulated, or synthetic route.
+  informational suites. They report their actual availability and are never replaced
+  by a headless, simulated, or synthetic route.
 
 ## Commands
 
@@ -33,12 +30,60 @@ uv run python scripts/benchmark.py smoke benchmarks/ecs_v1.toml
 uv run python scripts/benchmark.py smoke benchmarks/synth_v1.toml
 uv run python scripts/benchmark.py worktree benchmarks/canvas_v1.toml
 uv run python scripts/benchmark.py record-head benchmarks/canvas_v1.toml
+uv run python scripts/benchmark.py list
+uv run python scripts/benchmark.py audit
+uv run python scripts/benchmark.py --history .scratch/benchmark/alternate-history list
 ```
 
-`smoke` is an automated correctness path: it executes every static headless case
-in the selected Canvas, ECS, or Synth catalog once through production public APIs
-and writes neither records nor timing history. It excludes optional native-interactive
-and native-audio cases instead of downgrading them.
+`--history <path>` is a global option and must appear before the subcommand. It selects
+an alternate local history directory for `worktree`, `record-head`, `list`, and `audit`;
+the default is `.scratch/benchmark/history`.
+
+- `smoke` executes every static headless case in the selected Canvas, ECS, or Synth
+  catalog once through production public APIs. It is an automated correctness path
+  and writes neither records nor timing history. Optional native-interactive and
+  native-audio cases are excluded rather than downgraded.
+- `worktree` builds and measures the current worktree with an isolated release wheel,
+  compares it with compatible local history for the exact fingerprint, and never
+  writes a record.
+- `record-head` requires a clean worktree, builds and measures the current commit, and
+  appends an immutable local record only after correctness and comparison pass.
+- `list` prints validated local records. Add `--json` after the subcommand for one JSON
+  object per record.
+- `audit` validates the local index, canonical records, paths, and unindexed files. Add
+  `--json` after the subcommand for machine-readable output.
+
+## Manual release benchmark workflow
+
+Release benchmarks are a maintainer-run workflow:
+
+1. Run the normal release correctness checks, including `make release-candidate` and
+   `make benchmark-smoke`. CI separately runs benchmark correctness coverage.
+2. Run `uv run python scripts/benchmark.py audit` to verify existing local history.
+3. Before finalizing the release commit, run `worktree` for each Canvas, ECS, and Synth
+   catalog and investigate any fixed-policy regression:
+
+   ```sh
+   uv run python scripts/benchmark.py worktree benchmarks/canvas_v1.toml
+   uv run python scripts/benchmark.py worktree benchmarks/ecs_v1.toml
+   uv run python scripts/benchmark.py worktree benchmarks/synth_v1.toml
+   ```
+
+4. Commit the intended release state and ensure the worktree is clean.
+5. Run `record-head` for all three catalogs to append results for the release commit:
+
+   ```sh
+   uv run python scripts/benchmark.py record-head benchmarks/canvas_v1.toml
+   uv run python scripts/benchmark.py record-head benchmarks/ecs_v1.toml
+   uv run python scripts/benchmark.py record-head benchmarks/synth_v1.toml
+   ```
+
+6. Finish with `uv run python scripts/benchmark.py list` and
+   `uv run python scripts/benchmark.py audit`.
+
+A first run on an exact fingerprint may report `pass-new-fingerprint`; `worktree`
+leaves it unrecorded, while a successful `record-head` establishes local history.
+
 ### Canvas v5 catalog
 
 `benchmarks/canvas_v1.toml` currently declares 100 exact Canvas cases: 66 bounded
@@ -86,13 +131,11 @@ substitutes `P`/`H`. See `docs/contribute/ecs_benchmark_semantics.md`.
 
 #### Optional manual native suites
 
-Native input/window, touch, presentation, and native-audio cases are manually invoked
-when the maintainer has the required runtime and devices. They report only public,
-truthful diagnostics and deterministic pre-device or callback oracles. No physical
-automation driver, touch/camera/audio hardware evidence package, fixed host, or
-cross-platform record is required for completion. Unavailable cases are reported as
-such and do not block headless correctness, local timing history, epic completion,
-or releases.
+Native input/window, touch, presentation, and native-audio cases are optional manual
+informational runs when the maintainer has the required runtime and devices. They report
+only public diagnostics and deterministic pre-device or callback oracles. Unavailable
+cases are reported as unavailable and do not replace headless correctness or comparable
+local timing runs.
 
 `worktree` and `record-head` use an isolated release build and refuse to substitute
 source imports, a Python renderer, or synthetic measurements. The maintainer chooses
@@ -110,13 +153,13 @@ Records use canonical JSON with sorted keys, one newline, no binary floats, and 
 non-finite values. Local ignored history is keyed by fingerprint and commit:
 
 ```text
-.scratch/benchmark/history/v1/<fingerprint-id>/<subject-commit>/<suite-id>@<suite-version>.json
+.scratch/benchmark/history/records/v1/<fingerprint-id>/<subject-commit>/<suite-id>@<suite-version>.json
 ```
 
 The fingerprint carries stable comparison-environment fields only. Source commit,
 source snapshot, artifact hashes, and runtime build identity are provenance fields
-and are explicitly excluded from the fingerprint. Local history is developer data:
-it is not committed, pushed, protected, or treated as a project-wide authority.
+and are explicitly excluded from the fingerprint. Local history is ignored developer
+state and remains on the maintainer's machine unless they explicitly preserve it.
 
 ## Operational boundary
 
@@ -125,17 +168,18 @@ timed blocks in each of two fresh processes under the current local profiles. Ra
 blocks are retained without deletion; the decision uses the declared metric
 transform and median of process medians.
 
-Correctness is checked before timing and remains automated through catalog, oracle,
-schema, and smoke tests. Comparable performance runs require release provenance,
+Correctness is checked before timing and remains covered in CI through catalog,
+oracle, schema, and smoke tests. Comparable performance runs require release provenance,
 fixed workloads, exact work accounting, raw samples, and path diagnostics. A local
 regression greater than 5.00% fails; exactly 5.00% passes.
 
 Operational procedures:
 
-- **Invoke manually:** the maintainer runs `worktree` or `record-head`; CI does not
-  execute performance timing or publish benchmark history.
-- **Audit:** run `make benchmark-audit` and the relevant catalog/coverage checks
-  against local ignored data.
+- **Invoke manually:** the maintainer runs `worktree` for a non-writing comparison or
+  `record-head` to append a clean-commit result.
+- **Inspect and audit:** use `list` to inspect validated records and `audit` (or
+  `make benchmark-audit`) to check local ignored history. Pass `--history <path>`
+  before the subcommand to operate on another local store.
 - **Staleness:** start a new local history key when the fingerprint, catalog/suite,
   workload, metric, policy, or route meaning changes.
 - **Regression triage:** retain raw blocks and diagnostics; reproduce on the exact

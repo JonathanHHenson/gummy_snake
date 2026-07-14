@@ -17,7 +17,7 @@ GUMMY_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml "
     "--features extension-module"
 )
-EXPECTED_CANVAS_ABI_VERSION = 20
+EXPECTED_CANVAS_ABI_VERSION = 21
 
 
 class _RustCanvasImage(Protocol):
@@ -57,13 +57,27 @@ class _RustCanvasImage(Protocol):
 
 class _RustCanvasSound(Protocol):
     path: str
-    duration: float | None
+    duration: float
     byte_len: int
+    sample_rate: int
+    frame_count: int
 
     @staticmethod
     def from_file(path: str) -> _RustCanvasSound: ...
 
+    @staticmethod
+    def from_bytes(path: str, payload: bytes) -> _RustCanvasSound: ...
+
     def to_bytes(self) -> bytes: ...
+
+    def play(
+        self,
+        volume: float = 1.0,
+        rate: float = 1.0,
+        pan: float = 0.0,
+        looping: bool = False,
+        position: float = 0.0,
+    ) -> _RustCanvasAudioPlayback: ...
 
 
 class _RustCanvasSynthProgram(Protocol):
@@ -82,20 +96,47 @@ class _RustCanvasSynthProgram(Protocol):
 
 class _RustCanvasAudioPlayback(Protocol):
     duration: float
+    error: str | None
+
+    def play(self) -> None: ...
+
+    def pause(self) -> None: ...
 
     def stop(self) -> None: ...
 
     def close(self) -> None: ...
 
+    def looping(self, value: bool | None = None) -> bool: ...
+
+    def set_volume(self, value: float) -> None: ...
+
+    def set_rate(self, value: float) -> None: ...
+
+    def set_pan(self, value: float) -> None: ...
+
+    def seek(self, seconds: float) -> None: ...
+
+    def time(self) -> float: ...
+
     def wait_until_stop(self, timeout: float | None = None) -> bool: ...
 
     def is_playing(self) -> bool: ...
+
+    def is_paused(self) -> bool: ...
+
+    def take_ended(self) -> bool: ...
+
+    def diagnostics(self) -> dict[str, Any]: ...
 
 
 class _CanvasModule(Protocol):
     Matrix2D: type[Any]
     Canvas: type[Any]
     CanvasImage: type[_RustCanvasImage]
+    CanvasMediaFrameSink: type[Any]
+    CanvasVideo: type[Any]
+    GpuStorageBuffer: type[Any]
+    GpuComputeShader: type[Any]
     CanvasSound: type[_RustCanvasSound]
     CanvasSynthProgram: type[_RustCanvasSynthProgram]
     SketchContextState: type[Any]
@@ -107,6 +148,12 @@ class _CanvasModule(Protocol):
     def native_window_available(self) -> bool: ...
 
     def gpu_available(self) -> bool: ...
+
+    def webgpu_context_info(self) -> dict[str, Any]: ...
+
+    def gpu_resource_diagnostics(self) -> dict[str, int]: ...
+
+    def reset_gpu_resource_diagnostics(self) -> None: ...
 
     def image_resize_rgba(
         self, width: int, height: int, pixels: bytes, target_width: int, target_height: int
@@ -170,7 +217,7 @@ class _CanvasModule(Protocol):
     ) -> bytes: ...
 
     def synth_play_compiled_program(
-        self, program: _RustCanvasSynthProgram
+        self, program: _RustCanvasSynthProgram, looping: bool = False
     ) -> _RustCanvasAudioPlayback: ...
 
     def synth_render_event_wav(self, event: dict[str, Any], sample_rate: int) -> bytes: ...
@@ -194,7 +241,7 @@ class _CanvasModule(Protocol):
     def synth_reset_diagnostics(self) -> None: ...
 
     def synth_play_serialized_plan(
-        self, payload: bytes, sample_rate: int
+        self, payload: bytes, sample_rate: int, looping: bool = False
     ) -> _RustCanvasAudioPlayback: ...
 
     def synth_play_wav_bytes(self, payload: bytes) -> _RustCanvasAudioPlayback: ...
@@ -275,7 +322,7 @@ def canvas_gpu_status() -> str:
     if available:
         return "available"
     return (
-        "unavailable: headless rendering can continue through CPU-backed canvas paths, "
+        "unavailable: headless rendering can continue through Rust CPU-backed canvas paths, "
         "but native interactive presentation and GPU-accelerated drawing may be disabled "
         "or slower on this machine/build."
     )
@@ -331,6 +378,10 @@ def _validate_canvas_runtime(module: _CanvasModule) -> None:
         "Matrix2D",
         "Canvas",
         "CanvasImage",
+        "CanvasMediaFrameSink",
+        "CanvasVideo",
+        "GpuStorageBuffer",
+        "GpuComputeShader",
         "CanvasModel3D",
         "CanvasMesh3D",
         "CanvasSound",
@@ -348,7 +399,12 @@ def _validate_canvas_runtime(module: _CanvasModule) -> None:
             f"`{GUMMY_CANVAS_BUILD_COMMAND}`."
         )
 
-    required_functions = ("parse_obj_model_handle",)
+    required_functions = (
+        "parse_obj_model_handle",
+        "webgpu_context_info",
+        "gpu_resource_diagnostics",
+        "reset_gpu_resource_diagnostics",
+    )
     missing_functions = [
         name for name in required_functions if not callable(getattr(module, name, None))
     ]

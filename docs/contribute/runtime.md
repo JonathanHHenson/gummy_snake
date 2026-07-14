@@ -283,13 +283,13 @@ texture sampling, and built-in material shading belong in GPU pipelines when
 GPU drawing is available. Fallback software projection/shading/rasterization is
 reserved for unsupported or CPU-only paths.
 
-`load_sound()` keeps sound bytes and metadata in a Rust-owned `CanvasSound`
-handle attached to the public `Sound` wrapper. Python owns the friendly playback
-control API, while the focused native playback runtime owns platform command
-selection, subprocess lifecycle, and temporary playback files. Duration and byte
-access flow through the Rust handle so future decoding, waveform analysis,
-resampling, and playback work can happen without first copying sound data into
-Python-owned structures.
+`load_sound()` keeps encoded bytes and decoded PCM in a Rust-owned `CanvasSound`
+asset attached to the public `Sound` wrapper. Python owns the friendly playback
+control API, while one process-local SDL3 audio manager owns synchronized voice
+commands, deterministic mixing, rate conversion, queue watermarks, and device
+errors for loaded sounds and synth sessions. Playback does not create temporary
+files or subprocesses. Duration and explicit byte access flow through the Rust
+handle without moving canonical PCM into Python-owned structures.
 
 Remaining asset migration candidates are shader sources, font files/outline data,
 and large generic byte/data assets. Migrate them when a runtime-owned operation

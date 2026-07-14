@@ -2799,10 +2799,10 @@ precision = 3
 
 [[workloads]]
 id = "assets-media-models"
-version = 2
+version = 3
 case_id = "headless-storage-compute-64x64"
 execution_class = "headless"
-capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "deterministic-cpu-compute"]
+capabilities = ["canvas-runtime", "offscreen-rendering", "pixel-readback", "native-wgpu-compute"]
 correctness = "storage-compute-lifecycle-exact-output-lifecycle-and-cleanup"
 sampling_profile = "canvas-bounded-v1"
 source_files = ["suites/__init__.py", "suites/canvas/__init__.py", "suites/canvas/fixtures.py", "suites/canvas/diagnostics.py", "suites/canvas/oracles.py", "suites/canvas/workloads.py"]

@@ -13,7 +13,7 @@ use pollster::block_on;
 static PROCESS_DEVICE_CONTEXT: OnceLock<Mutex<Option<Arc<GpuDeviceContext>>>> = OnceLock::new();
 
 /// Immutable WGPU infrastructure that may be shared by GPU renderers.
-pub(super) struct GpuDeviceContext {
+pub(crate) struct GpuDeviceContext {
     instance: wgpu::Instance,
     adapter: wgpu::Adapter,
     device: wgpu::Device,
@@ -23,7 +23,7 @@ pub(super) struct GpuDeviceContext {
 
 impl GpuDeviceContext {
     /// Return the process-local WGPU context, creating it once without a fallback adapter.
-    pub(super) fn process_shared() -> Result<Arc<Self>, String> {
+    pub(crate) fn process_shared() -> Result<Arc<Self>, String> {
         let slot = PROCESS_DEVICE_CONTEXT.get_or_init(|| Mutex::new(None));
         let mut guard = slot
             .lock()
@@ -72,15 +72,15 @@ impl GpuDeviceContext {
         &self.adapter
     }
 
-    pub(super) fn device(&self) -> &wgpu::Device {
+    pub(crate) fn device(&self) -> &wgpu::Device {
         &self.device
     }
 
-    pub(super) fn queue(&self) -> &wgpu::Queue {
+    pub(crate) fn queue(&self) -> &wgpu::Queue {
         &self.queue
     }
 
-    pub(super) fn limits(&self) -> &wgpu::Limits {
+    pub(crate) fn limits(&self) -> &wgpu::Limits {
         &self.limits
     }
 

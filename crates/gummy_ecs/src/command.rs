@@ -22,6 +22,10 @@ impl CommandBuffer {
         self.commands.push(command);
     }
 
+    pub fn as_slice(&self) -> &[Command] {
+        &self.commands
+    }
+
     pub fn drain(&mut self) -> impl Iterator<Item = Command> + '_ {
         self.commands.drain(..)
     }

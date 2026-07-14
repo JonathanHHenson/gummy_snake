@@ -214,9 +214,6 @@ class LocalBenchmarkDatabase:
             and record.suite_version == suite_version
         )
 
-    def fingerprint_known(self, fingerprint_id: str) -> bool:
-        return any(record.fingerprint.id == fingerprint_id for _, record in self._indexed_records())
-
     def exact_record(
         self, subject: str, fingerprint_id: str, suite_id: str, suite_version: int
     ) -> dict[str, object] | None:
@@ -246,13 +243,6 @@ class LocalBenchmarkDatabase:
             if record is not None:
                 return record.to_dict()
         return None
-
-    def nearest_first_parent_record(
-        self, subject: str, fingerprint_id: str, suite_id: str, suite_version: int
-    ) -> dict[str, object] | None:
-        """Compatibility alias for callers that used the former Git database contract."""
-
-        return self.nearest_ancestor_record(subject, fingerprint_id, suite_id, suite_version)
 
     def latest_record(
         self, fingerprint_id: str, suite_id: str, suite_version: int

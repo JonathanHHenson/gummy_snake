@@ -1161,8 +1161,12 @@ class _FixtureMediaFrame:
             return self.height, self.width
         return self.height, self.width, self.channels
 
-    def tobytes(self) -> bytes:
-        return self.payload
+    def __buffer__(self, flags: int, /) -> memoryview:
+        del flags
+        return memoryview(self.payload)
+
+    def __release_buffer__(self, buffer: memoryview, /) -> None:
+        del buffer
 
 
 def _draw_media_frame_conversion(plan: WorkloadPlan) -> int:
@@ -1275,13 +1279,17 @@ def _draw_storage_compute_lifecycle(gs: Any, plan: WorkloadPlan) -> int:
     dispatch_x = _positive_int(plan.parameters, "dispatch_x", 1, size)
     dispatch_y = _positive_int(plan.parameters, "dispatch_y", 1, size)
     buffer = gs.create_storage_buffer(size, dtype="int")
-
-    def kernel(global_id: tuple[int, int, int], buffers: dict[str, Any]) -> None:
-        x, y, _ = global_id
-        index = y * dispatch_x + x
-        buffers["values"].update((index + 1,), offset=index)
-
-    shader = gs.create_compute_shader(kernel, label="canvas-benchmark-deterministic-compute")
+    shader = gs.create_compute_shader(
+        source=f"""
+@group(0) @binding(0) var<storage, read_write> values: array<i32>;
+@compute @workgroup_size(1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {{
+    let index = gid.y * {dispatch_x}u + gid.x;
+    values[index] = i32(index + 1u);
+}}
+""",
+        label="canvas-benchmark-deterministic-compute",
+    )
     gs.dispatch_compute(shader, dispatch_x, dispatch_y, values=buffer)
     values = gs.read_storage_buffer(buffer)
     work = dispatch_x * dispatch_y

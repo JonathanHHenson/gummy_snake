@@ -131,7 +131,7 @@ make verify-wheel-accel WHEEL_DIR=dist/canvas ACCELERATED_WHEEL_DIR=dist/acceler
 The verifier inspects wheel members, compares every public native module
 function’s symbol and runtime signature to its shipped `.pyi` file, then uses
 `uv run --isolated` to type-check and execute a consumer installed from the
-wheel. That consumer requires canvas ABI 20, ECS ABI 4, health checks, an
+wheel. That consumer requires canvas ABI 21, ECS ABI 6, health checks,
 empty Rust ECS world, a headless frame, packaged synth/FX/sample lookup, and a
 non-empty Rust-rendered WAV. A separate consumer blocks the native extension and
 requires the clear rebuild-guidance capability error rather than a Python
@@ -140,21 +140,28 @@ fallback. Both consumers reject source-tree imports.
 ## Performance Investigation
 
 The replacement benchmark system has self-contained Canvas, ECS, and Synth catalogs.
-Automated correctness remains part of catalog/schema/oracle tests and bounded headless
-smoke. Run every bounded headless correctness case with:
+CI runs catalog/schema/oracle tests and bounded headless smoke as correctness coverage.
+Run every bounded headless correctness case locally with:
 
 ```sh
 make benchmark-smoke
 ```
 
-Performance timing is not a CI or release gate. A maintainer invokes
-`scripts/benchmark.py worktree <catalog>` or `record-head <catalog>` manually. Comparable
-runs build an isolated release wheel from a verified materialized snapshot, execute
-fixed workloads, check deterministic oracles before timing, retain raw samples and path
-diagnostics, and write ignored local history keyed by fingerprint and commit. The local
-policy fails degradation greater than 5.00% on an exact fingerprint; exactly 5.00%
-passes. Native-interactive and native-audio suites are optional manual information and
-may be unavailable without blocking completion.
+A maintainer runs performance timing manually with
+`scripts/benchmark.py worktree <catalog>` and records a clean commit with
+`record-head <catalog>`. Comparable runs build an isolated release wheel from a verified
+materialized snapshot, execute fixed workloads, check deterministic oracles before
+timing, retain raw samples and path diagnostics, and use ignored local history under
+`.scratch/benchmark/history`. Comparisons require the exact fingerprint. The fixed local
+policy fails degradation greater than 5.00%; exactly 5.00% passes.
+
+Use `scripts/benchmark.py list` to inspect validated records and
+`scripts/benchmark.py audit` to validate the local store. To select another store, put
+`--history <path>` before the subcommand. For releases, run `worktree` for all three
+catalogs before finalizing the release commit, then run `record-head` for all three from
+the clean commit and finish with `list` and `audit`. Native-interactive and native-audio
+runs are optional manual information. See [`benchmarks/README.md`](../../benchmarks/README.md)
+for the complete workflow.
 
 For Rust-executed ECS hot paths, confirm `ecs_physical_system_runs` advances while
 `ecs_udf_calls` remains zero. For spatial paths, inspect candidate/exact rows and

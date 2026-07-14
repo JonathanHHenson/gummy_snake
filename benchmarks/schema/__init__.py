@@ -34,7 +34,6 @@ from .records import (
     MetricResult,
     Provenance,
     RecordError,
-    Revocation,
     normalize_architecture,
     parse_benchmark_record,
 )
@@ -61,7 +60,6 @@ __all__ = [
     "PercentageTransform",
     "Provenance",
     "RecordError",
-    "Revocation",
     "VersioningRules",
     "Workload",
     "ZeroPolicy",

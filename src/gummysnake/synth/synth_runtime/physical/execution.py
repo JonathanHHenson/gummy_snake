@@ -43,6 +43,26 @@ class SynthRuntimeDiagnostics(TypedDict):
     sample_resample_cache_budget_bytes: int
     sample_cache_stale_invalidations: int
     sample_cache_lock_contentions: int
+    causal_normaliser_contract_version: int
+    audio_manager_initializations: int
+    audio_device_open_count: int
+    audio_device_error_count: int
+    audio_active_voices: int
+    audio_peak_active_voices: int
+    audio_active_synth_sessions: int
+    audio_peak_active_synth_sessions: int
+    audio_mixed_blocks: int
+    audio_mixed_frames: int
+    audio_command_count: int
+    audio_queue_frames: int
+    audio_queue_min_frames: int
+    audio_queue_peak_frames: int
+    audio_queue_low_water_frames: int
+    audio_queue_high_water_frames: int
+    audio_queue_underruns: int
+    audio_asset_bytes: int
+    audio_asset_voice_starts: int
+    audio_synth_session_starts: int
 
 
 def configure_workers(worker_count: WorkerCount = "auto") -> int:

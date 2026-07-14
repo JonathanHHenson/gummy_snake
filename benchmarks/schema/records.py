@@ -1,4 +1,4 @@
-"""Strict fingerprint, provenance, result, record, and revocation schemas."""
+"""Strict fingerprint, provenance, result, and benchmark record schemas."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from .canonical import CanonicalJsonError, canonical_json, canonical_json_loads,
 
 FINGERPRINT_SCHEMA_VERSION = 1
 RECORD_SCHEMA_VERSION = 1
-REVOCATION_SCHEMA_VERSION = 1
+
 _ID = re.compile(r"^[a-z][a-z0-9-]*$")
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _DIGEST_COMPAT = re.compile(r"^sha256:[a-zA-Z0-9._-]+$")
@@ -751,7 +751,7 @@ class BenchmarkRecord:
         if len(set(keys)) != len(keys):
             raise RecordError("record contains duplicate metric benchmark keys")
         if any(not metric.correctness_passed for metric in metrics):
-            raise RecordError("authoritative records require correctness to pass before timing")
+            raise RecordError("benchmark records require correctness to pass before timing")
         object.__setattr__(self, "metrics", metrics)
         object.__setattr__(
             self, "capabilities", _coerce_items(self.capabilities, CapabilityResult, "capabilities")
@@ -766,11 +766,9 @@ class BenchmarkRecord:
             self, "invalidations", _coerce_items(self.invalidations, Invalidation, "invalidations")
         )
         if any(result.required and not result.available for result in self.capabilities):
-            raise RecordError(
-                "authoritative record cannot contain an unavailable required capability"
-            )
+            raise RecordError("benchmark record cannot contain an unavailable required capability")
         if any(not result.passed for result in self.correctness):
-            raise RecordError("authoritative record cannot contain a failed correctness check")
+            raise RecordError("benchmark record cannot contain a failed correctness check")
         object.__setattr__(
             self, "run_conditions", _frozen_mapping(self.run_conditions, "run conditions")
         )
@@ -873,51 +871,6 @@ class BenchmarkRecord:
         if expected_path is not None and expected_path != record.expected_path:
             raise RecordError("record path does not match its primary key")
         return record
-
-
-@dataclass(frozen=True, slots=True)
-class Revocation:
-    record_id: str
-    reason: str
-    approval: Mapping[str, object]
-    schema_version: int = REVOCATION_SCHEMA_VERSION
-
-    def __post_init__(self) -> None:
-        _digest(self.record_id, "revoked record id")
-        _text(self.reason, "revocation reason")
-        if self.schema_version != REVOCATION_SCHEMA_VERSION:
-            raise RecordError("unsupported revocation schema version")
-        if not isinstance(self.approval, Mapping) or not self.approval:
-            raise RecordError("revocation requires approval metadata")
-        object.__setattr__(self, "approval", _frozen_mapping(self.approval, "approval metadata"))
-
-    @property
-    def id(self) -> str:
-        return content_hash(self.to_dict())
-
-    def to_dict(self) -> dict[str, object]:
-        approval = _thaw(self.approval)
-        assert isinstance(approval, dict)
-        return {
-            "schema_version": self.schema_version,
-            "record_id": self.record_id,
-            "reason": self.reason,
-            "approval": approval,
-        }
-
-    @classmethod
-    def from_mapping(cls, raw: Mapping[str, object]) -> Revocation:
-        fields = frozenset({"schema_version", "record_id", "reason", "approval"})
-        _strict_keys(raw, allowed=fields, required=fields, label="revocation")
-        approval = raw["approval"]
-        if not isinstance(approval, Mapping):
-            raise RecordError("revocation approval must be an object")
-        return cls(
-            _digest(raw["record_id"], "revoked record id", strict=True),
-            _text(raw["reason"], "revocation reason"),
-            approval,
-            _positive_integer(raw["schema_version"], "revocation schema_version"),
-        )
 
 
 def parse_benchmark_record(

@@ -326,7 +326,7 @@ def test_spatial_relations_share_target_index_across_sensor_origins() -> None:
     assert diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
 
 
-def test_spatial_tree_algorithms_execute_in_rust_without_fallbacks() -> None:
+def test_spatial_allow_fallback_flag_does_not_redirect_scheduled_plans() -> None:
     @ecs.system_plan
     def tree_system(entity: ecs.Query[Position]) -> None:
         pos = ecs.spatial.point2(entity[Position].x, entity[Position].y)
@@ -335,6 +335,7 @@ def test_spatial_tree_algorithms_execute_in_rust_without_fallbacks() -> None:
             position=pos,
             radius=4.0,
             algorithm=ecs.spatial.Quadtree(ecs.spatial.Bounds2D(-10, -10, 10, 10)),
+            allow_fallback=True,
         )
         entity[Position].y.set_to(relation.count())
 
@@ -349,6 +350,8 @@ def test_spatial_tree_algorithms_execute_in_rust_without_fallbacks() -> None:
     assert diagnostics["ecs_spatial_indexes_built"] <= 1
     assert diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
     assert diagnostics.get("ecs_python_fallback_system_runs", 0) == 0
+    assert diagnostics.get("ecs_python_system_calls", 0) == 0
+    assert diagnostics.get("ecs_udf_calls", 0) == 0
 
     strict_world = EcsWorld()
     strict_world.configure(strict=True)
