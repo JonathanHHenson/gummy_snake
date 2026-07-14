@@ -156,6 +156,11 @@ class CanvasRendererCounterMixin:
                 "frame-command diagnostics."
             )
         payload = callback()
+        if not isinstance(payload, dict):
+            raise BackendCapabilityError(
+                "The installed gummysnake.rust._canvas runtime returned malformed "
+                "frame-command diagnostics. Rebuild gummy_canvas before inspecting them."
+            )
         return {str(key): int(value) for key, value in payload.items() if isinstance(value, int)}
 
     def reset_performance_counters(self) -> None:

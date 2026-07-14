@@ -205,8 +205,7 @@ impl<'a> PlanExecutor<'a> {
             let dense_target_count = dense_targets.iter().filter(|dense| **dense).count();
             let dirty_writes = dirty.iter().filter(|value| **value).count();
             eprintln!(
-                "ecs_profile row_local_f64_targets targets={} dense_targets={} dirty_writes={}",
-                target_count, dense_target_count, dirty_writes
+                "ecs_profile row_local_f64_targets targets={target_count} dense_targets={dense_target_count} dirty_writes={dirty_writes}"
             );
         }
         self.world.begin_change_summary_batch();

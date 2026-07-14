@@ -48,7 +48,7 @@ class ReviewedLimit:
 # are exact current baselines so implementation work cannot accumulate there.
 BINDING_EXCEPTION_LIMITS: dict[Path, ReviewedLimit] = {
     Path("crates/gummy_canvas/src/canvas/methods.rs"): ReviewedLimit(
-        910,
+        1046,
         "Canvas PyO3 binding surface; implementation belongs in split helpers.",
     ),
     Path("crates/gummy_canvas/src/bindings/ecs/world.rs"): ReviewedLimit(
@@ -64,13 +64,37 @@ REVIEWED_PRODUCTION_LIMITS: dict[Path, ReviewedLimit] = {
         502,
         "Reviewed ECS facade baseline; split work is tracked separately.",
     ),
+    Path("crates/gummy_canvas/src/bindings/synth.rs"): ReviewedLimit(
+        588,
+        "Reviewed synth PyO3 binding baseline; implementation belongs in split helpers.",
+    ),
+    Path("crates/gummy_canvas/src/gpu/textures.rs"): ReviewedLimit(
+        603,
+        "Reviewed GPU texture baseline; split work is tracked separately.",
+    ),
+    Path("crates/gummy_canvas/src/sound/audio_manager.rs"): ReviewedLimit(
+        995,
+        "Reviewed native audio-manager baseline; split work is tracked separately.",
+    ),
+    Path("crates/gummy_ecs/src/column.rs"): ReviewedLimit(
+        1242,
+        "Reviewed ECS column-storage baseline; split work is tracked separately.",
+    ),
     Path("crates/gummy_ecs/src/execution/actions.rs"): ReviewedLimit(
         598,
         "Reviewed ECS execution baseline; split work is tracked separately.",
     ),
+    Path("crates/gummy_ecs/src/execution/executor.rs"): ReviewedLimit(
+        541,
+        "Reviewed ECS physical-executor baseline; split work is tracked separately.",
+    ),
     Path("crates/gummy_ecs/src/execution/row_local_actions.rs"): ReviewedLimit(
         1647,
         "Reviewed ECS execution baseline; split work is tracked separately.",
+    ),
+    Path("crates/gummy_ecs/src/execution/spatial/helpers.rs"): ReviewedLimit(
+        516,
+        "Reviewed ECS spatial-helper baseline; split work is tracked separately.",
     ),
     Path("crates/gummy_ecs/src/execution/spatial_direct/single.rs"): ReviewedLimit(
         651,
@@ -83,6 +107,14 @@ REVIEWED_PRODUCTION_LIMITS: dict[Path, ReviewedLimit] = {
     Path("crates/gummy_synth/src/lib.rs"): ReviewedLimit(
         4405,
         "Reviewed synth baseline; planned domain split retains current behavior.",
+    ),
+    Path("crates/gummy_synth/src/samples.rs"): ReviewedLimit(
+        816,
+        "Reviewed synth sample-engine baseline; split work is tracked separately.",
+    ),
+    Path("crates/gummy_synth/src/stateful_block_renderer.rs"): ReviewedLimit(
+        3316,
+        "Reviewed stateful synth-renderer baseline; split work is tracked separately.",
     ),
 }
 

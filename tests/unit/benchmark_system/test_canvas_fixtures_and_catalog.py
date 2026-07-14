@@ -234,7 +234,9 @@ def test_canvas_catalog_is_static_and_hashes_complete_executable_matrices() -> N
         "object",
         "fast",
     }
-    assert max(int(workload.parameters["draw_count"]) for workload in primitives) == 100_000
+    draw_counts = [workload.parameters["draw_count"] for workload in primitives]
+    assert all(isinstance(value, int) for value in draw_counts)
+    assert max(value for value in draw_counts if isinstance(value, int)) == 100_000
     assert {workload.parameters.get("clip_depth") for workload in primitives} >= {1, 4, 16}
 
     features = [

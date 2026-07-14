@@ -190,8 +190,7 @@ impl<W: Write + Seek> StereoPcmWavSink<W> {
             .ok_or(StereoWavSinkError::StreamPositionOverflow)?;
 
         self.block_bytes.clear();
-        self.block_bytes
-            .reserve(samples.len() * std::mem::size_of::<i16>());
+        self.block_bytes.reserve(std::mem::size_of_val(samples));
         for sample in samples {
             self.block_bytes.extend_from_slice(&sample.to_le_bytes());
         }

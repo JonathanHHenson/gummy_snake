@@ -551,7 +551,7 @@ impl Voice {
                 let duration = program.duration_seconds();
                 let voice = SynthVoice::new(program, looping)?;
                 (
-                    VoiceSource::Synth(voice),
+                    VoiceSource::Synth(Box::new(voice)),
                     duration,
                     1.0,
                     1.0,
@@ -737,7 +737,7 @@ fn validate_seek(seconds: f64, duration: f64) -> Result<(), String> {
 
 enum VoiceSource {
     Asset(AssetVoice),
-    Synth(SynthVoice),
+    Synth(Box<SynthVoice>),
 }
 
 impl VoiceSource {

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 
 use crate::command::Command;
 use crate::entity::Entity;
@@ -104,9 +104,9 @@ impl World {
         states: &'a mut HashMap<Entity, Option<HashSet<String>>>,
         entity: Entity,
     ) -> Result<&'a mut Option<HashSet<String>>> {
-        if !states.contains_key(&entity) {
+        if let Entry::Vacant(entry) = states.entry(entity) {
             let components = self.entity_components(entity)?.into_iter().collect();
-            states.insert(entity, Some(components));
+            entry.insert(Some(components));
         }
         Ok(states
             .get_mut(&entity)

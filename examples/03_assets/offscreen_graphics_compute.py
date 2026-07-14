@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -14,20 +15,30 @@ from examples.common import example_parser, save_once
 OUTPUT = Path("examples/output/03_assets/offscreen_graphics_compute.png")
 ARGS = example_parser(__doc__ or "", OUTPUT).parse_args()
 
-CONTEXT_INFO: dict[str, object] = {}
+CONTEXT_INFO: Mapping[str, object] = {}
 BAR_VALUES: tuple[float, ...] = ()
 GRAPHICS: gs.Graphics | None = None
 FRAMEBUFFER: gs.Framebuffer | None = None
 
+SMOOTH_BARS_WGSL = """
+@group(0) @binding(0) var<storage, read_write> source: array<f32>;
+@group(0) @binding(1) var<storage, read_write> bars: array<f32>;
 
-def _compute_smooth_bars(global_id, buffers) -> None:
-    index = global_id[0]
-    source = buffers["source"].read()
-    previous_value = source[(index - 1) % len(source)]
-    current_value = source[index]
-    next_value = source[(index + 1) % len(source)]
-    smoothed = previous_value * 0.25 + current_value * 0.5 + next_value * 0.25
-    buffers["bars"].update([(float(smoothed) + 1.0) * 0.5], offset=index)
+@compute @workgroup_size(1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let count = arrayLength(&source);
+    let index = gid.x;
+    if index >= count {
+        return;
+    }
+    let previous_index = (index + count - 1u) % count;
+    let next_index = (index + 1u) % count;
+    let smoothed = source[previous_index] * 0.25
+        + source[index] * 0.5
+        + source[next_index] * 0.25;
+    bars[index] = (smoothed + 1.0) * 0.5;
+}
+"""
 
 
 def _draw_bars(target: gs.Graphics | gs.Framebuffer, values: tuple[float, ...]) -> None:
@@ -52,11 +63,7 @@ def setup() -> None:
     source_values = [math.sin(index * 0.33) * math.cos(index * 0.07) for index in range(48)]
     source = gs.create_storage_buffer(source_values)
     bars = gs.create_storage_buffer(len(source_values))
-    shader = gs.create_compute_shader(
-        _compute_smooth_bars,
-        source="smooth neighboring waveform samples into normalized bar heights",
-        label="smooth-bars",
-    )
+    shader = gs.create_compute_shader(source=SMOOTH_BARS_WGSL, label="smooth-bars")
     gs.dispatch_compute(shader, len(source_values), source=source, bars=bars)
     BAR_VALUES = tuple(float(value) for value in gs.read_storage_buffer(bars))
 

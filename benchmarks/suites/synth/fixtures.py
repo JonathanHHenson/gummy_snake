@@ -13,7 +13,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from urllib.parse import unquote, urlparse
 
 
 @dataclass(frozen=True, slots=True)
@@ -444,6 +443,35 @@ def packaged_sample_catalog() -> tuple[PackagedSampleCase, ...]:
     return _PACKAGED_SAMPLE_CASES
 
 
+def _decode_file_url_path(value: str) -> str:
+    payload = bytearray()
+    index = 0
+    while index < len(value):
+        if value[index] == "%" and index + 2 < len(value):
+            try:
+                payload.append(int(value[index + 1 : index + 3], 16))
+            except ValueError:
+                pass
+            else:
+                index += 3
+                continue
+        payload.extend(value[index].encode("utf-8"))
+        index += 1
+    return payload.decode("utf-8", errors="replace")
+
+
+def _local_file_url_path(url: str) -> Path | None:
+    prefix = "file://"
+    if not url.startswith(prefix):
+        return None
+    value = url[len(prefix) :]
+    if value.startswith("localhost/"):
+        value = value[len("localhost") :]
+    elif not value.startswith("/"):
+        return None
+    return Path(_decode_file_url_path(value))
+
+
 def _editable_distribution_file(distribution: object, relative: Path) -> Path | None:
     read_text = getattr(distribution, "read_text", None)
     if not callable(read_text):
@@ -465,10 +493,10 @@ def _editable_distribution_file(distribution: object, relative: Path) -> Path | 
         or not isinstance(url, str)
     ):
         return None
-    parsed = urlparse(url)
-    if parsed.scheme != "file" or parsed.netloc not in ("", "localhost"):
+    directory_path = _local_file_url_path(url)
+    if directory_path is None:
         return None
-    candidate = (Path(unquote(parsed.path)) / relative).resolve()
+    candidate = (directory_path / relative).resolve()
     return candidate if candidate.is_file() else None
 
 

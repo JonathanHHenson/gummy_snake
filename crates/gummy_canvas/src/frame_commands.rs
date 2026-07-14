@@ -202,13 +202,15 @@ pub(crate) fn decode_primitive_styles(bytes: &[u8]) -> PyResult<Vec<Style>> {
                 b: record[14],
                 a: record[15],
             });
-            let mut style = Style::default();
-            style.fill = fill;
-            style.stroke = stroke;
-            style.stroke_weight = read_f64(record, 16);
-            style.blend_mode = blend_mode;
-            style.blend_mode_kind = blend_mode_kind;
-            style.erasing = flags & 0b100 != 0;
+            let style = Style {
+                fill,
+                stroke,
+                stroke_weight: read_f64(record, 16),
+                blend_mode,
+                blend_mode_kind,
+                erasing: flags & 0b100 != 0,
+                ..Style::default()
+            };
             crate::runtime::style::ensure_supported_style(&style)?;
             Ok(style)
         })
@@ -232,10 +234,9 @@ pub(crate) fn decode_matrices(bytes: &[u8]) -> PyResult<Vec<Matrix>> {
         .collect())
 }
 
-pub(crate) fn decode_path(
-    points: &[u8],
-    contour_ends: &[u8],
-) -> PyResult<(Vec<(f64, f64)>, Vec<Vec<(f64, f64)>>)> {
+pub(crate) type DecodedPath = (Vec<(f64, f64)>, Vec<Vec<(f64, f64)>>);
+
+pub(crate) fn decode_path(points: &[u8], contour_ends: &[u8]) -> PyResult<DecodedPath> {
     ensure_record_size(points, "path point", PATH_POINT_RECORD_BYTES)?;
     ensure_record_size(contour_ends, "path contour", PATH_CONTOUR_RECORD_BYTES)?;
     let points = points

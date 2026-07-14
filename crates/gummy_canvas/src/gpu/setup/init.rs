@@ -137,7 +137,7 @@ impl GpuRenderer {
             persistent_image_atlas: PersistentImageAtlas {
                 entries: HashMap::new(),
                 pages: Vec::new(),
-                page_size: (max_texture_dimension_2d as usize).min(2048).max(1),
+                page_size: (max_texture_dimension_2d as usize).clamp(1, 2048),
                 max_pages: 4,
                 clock: 0,
                 next_texture_key: 0xA71A_7000_0000_0000,

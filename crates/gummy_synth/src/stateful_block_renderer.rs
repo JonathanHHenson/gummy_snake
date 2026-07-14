@@ -1114,8 +1114,8 @@ fn sample_between(samples: &[f64], position: f64, low: usize, high: usize) -> f6
 
 #[derive(Clone)]
 enum ActiveSource {
-    Oscillator(OscillatorSource),
-    Sample(SampleSourceState),
+    Oscillator(Box<OscillatorSource>),
+    Sample(Box<SampleSourceState>),
 }
 
 impl ActiveSource {
@@ -1128,10 +1128,12 @@ impl ActiveSource {
         match execution.kind {
             CompiledEventKind::Play => {
                 OscillatorSource::from_event(event, execution, sample_rate, control_frames)
+                    .map(Box::new)
                     .map(Self::Oscillator)
             }
             CompiledEventKind::Sample => {
                 SampleSourceState::from_event(event, execution, sample_rate, control_frames)
+                    .map(Box::new)
                     .map(Self::Sample)
             }
         }

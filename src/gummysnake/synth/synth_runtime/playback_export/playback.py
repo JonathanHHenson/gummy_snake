@@ -4,7 +4,7 @@ import contextlib
 from dataclasses import dataclass
 from pathlib import Path
 from time import monotonic
-from typing import Any
+from typing import Any, cast
 
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
@@ -122,7 +122,7 @@ class TrackPlayback:
             if finished and not self._rolling:
                 diagnostics = getattr(playback, "diagnostics", None)
                 if callable(diagnostics):
-                    self._last_diagnostics = dict(diagnostics())
+                    self._last_diagnostics = dict(cast(dict[str, object], diagnostics()))
                 playback.close()
                 self._rust_playback = None
                 self._closed = True
@@ -181,7 +181,7 @@ class TrackPlayback:
         diagnostics = getattr(playback, "diagnostics", None)
         if not callable(diagnostics):
             return {"playing": self.is_playing(), "looping": self._rolling}
-        return dict(diagnostics())
+        return dict(cast(dict[str, object], diagnostics()))
 
     def _capture_native_error(self) -> None:
         playback = self._rust_playback

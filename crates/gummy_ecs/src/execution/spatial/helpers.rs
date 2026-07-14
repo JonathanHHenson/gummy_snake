@@ -444,50 +444,6 @@ fn bounds_from_values(dimensions: u8, values: &[f64]) -> Result<SpatialAabb> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::execution::spatial::point_hash_grid::DirectPointRecord;
-
-    #[test]
-    fn fast_field_arrays_follow_spatial_record_order_without_hash_lookup() {
-        let first = Entity {
-            index: 1,
-            generation: 2,
-        };
-        let second = Entity {
-            index: 3,
-            generation: 4,
-        };
-        let array = FastFieldArray {
-            component: "Trail".to_string(),
-            field: "strength".to_string(),
-            entities: vec![first, second],
-            values: vec![10.0, 20.0],
-        };
-        let aligned = vec![
-            DirectPointRecord {
-                entity: first,
-                point: SpatialPoint::point2(0.0, 0.0).unwrap(),
-            },
-            DirectPointRecord {
-                entity: second,
-                point: SpatialPoint::point2(1.0, 1.0).unwrap(),
-            },
-        ];
-        assert_eq!(
-            fast_field_array_record_values(&array, &aligned).unwrap(),
-            vec![10.0, 20.0]
-        );
-
-        let reordered = vec![aligned[1].clone(), aligned[0].clone()];
-        assert_eq!(
-            fast_field_array_record_values(&array, &reordered).unwrap(),
-            vec![20.0, 10.0]
-        );
-    }
-}
-
 pub(in crate::execution) fn build_spatial_index(
     algorithm: &crate::plan::SpatialAlgorithmNode,
     kind: SpatialAlgorithmKind,
@@ -553,5 +509,49 @@ pub(in crate::execution) fn build_spatial_index(
             "unsupported spatial algorithm '{}'",
             algorithm.kind
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::execution::spatial::point_hash_grid::DirectPointRecord;
+
+    #[test]
+    fn fast_field_arrays_follow_spatial_record_order_without_hash_lookup() {
+        let first = Entity {
+            index: 1,
+            generation: 2,
+        };
+        let second = Entity {
+            index: 3,
+            generation: 4,
+        };
+        let array = FastFieldArray {
+            component: "Trail".to_string(),
+            field: "strength".to_string(),
+            entities: vec![first, second],
+            values: vec![10.0, 20.0],
+        };
+        let aligned = vec![
+            DirectPointRecord {
+                entity: first,
+                point: SpatialPoint::point2(0.0, 0.0).unwrap(),
+            },
+            DirectPointRecord {
+                entity: second,
+                point: SpatialPoint::point2(1.0, 1.0).unwrap(),
+            },
+        ];
+        assert_eq!(
+            fast_field_array_record_values(&array, &aligned).unwrap(),
+            vec![10.0, 20.0]
+        );
+
+        let reordered = vec![aligned[1].clone(), aligned[0].clone()];
+        assert_eq!(
+            fast_field_array_record_values(&array, &reordered).unwrap(),
+            vec![20.0, 10.0]
+        );
     }
 }

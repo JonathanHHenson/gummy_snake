@@ -10,6 +10,9 @@ use crate::query::{
 
 use super::{CachedExecutionQuery, ComponentChange, World};
 
+type ExecutionQueryRows = Arc<Vec<Entity>>;
+type ExecutionQueryLocations = Arc<Vec<(usize, usize)>>;
+
 impl World {
     pub fn query(
         &mut self,
@@ -84,7 +87,7 @@ impl World {
     pub(crate) fn execution_query(
         &mut self,
         filter: &QueryFilter,
-    ) -> Result<(Arc<Vec<Entity>>, Arc<Vec<(usize, usize)>>)> {
+    ) -> Result<(ExecutionQueryRows, ExecutionQueryLocations)> {
         let cacheable = !filter.terms.iter().any(|term| {
             matches!(
                 term,
