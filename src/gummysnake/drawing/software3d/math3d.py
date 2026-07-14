@@ -4,19 +4,19 @@ from __future__ import annotations
 
 from gummysnake.drawing.renderer3d import Vec3
 from gummysnake.drawing.renderer3d._math import (
-    add as _shared_add,
+    add as add,
 )
 from gummysnake.drawing.renderer3d._math import (
-    cross as _shared_cross,
+    cross as cross,
 )
 from gummysnake.drawing.renderer3d._math import (
-    dot as _shared_dot,
+    dot as dot,
 )
 from gummysnake.drawing.renderer3d._math import (
     normalized_or_none,
 )
 from gummysnake.drawing.renderer3d._math import (
-    subtract as _shared_subtract,
+    subtract as sub,
 )
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -42,22 +42,6 @@ def face_normal(points: list[Vec3]) -> Vec3 | None:
     if dot(normal, normal) == 0:
         return None
     return normal
-
-
-def sub(a: Vec3, b: Vec3) -> Vec3:
-    return _shared_subtract(a, b)
-
-
-def add(a: Vec3, b: Vec3) -> Vec3:
-    return _shared_add(a, b)
-
-
-def dot(a: Vec3, b: Vec3) -> float:
-    return _shared_dot(a, b)
-
-
-def cross(a: Vec3, b: Vec3) -> Vec3:
-    return _shared_cross(a, b)
 
 
 def normalize(value: Vec3) -> Vec3:

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from gummysnake.api.sound import AudioContextInfo
 from gummysnake.api.sound import get_audio_context as _get_audio_context
-from gummysnake.assets.audio import (
+from gummysnake.assets.audio_runtime import (
     FFT,
     Amplitude,
     AudioBuffer,
@@ -18,12 +18,12 @@ from gummysnake.assets.audio import (
     Oscillator,
     WaveformName,
 )
-from gummysnake.assets.audio import create_amplitude as _create_amplitude
-from gummysnake.assets.audio import create_audio_in as _create_audio_in
-from gummysnake.assets.audio import create_envelope as _create_envelope
-from gummysnake.assets.audio import create_fft as _create_fft
-from gummysnake.assets.audio import create_filter as _create_filter
-from gummysnake.assets.audio import create_oscillator as _create_oscillator
+from gummysnake.assets.audio_runtime import create_amplitude as _create_amplitude
+from gummysnake.assets.audio_runtime import create_audio_in as _create_audio_in
+from gummysnake.assets.audio_runtime import create_envelope as _create_envelope
+from gummysnake.assets.audio_runtime import create_fft as _create_fft
+from gummysnake.assets.audio_runtime import create_filter as _create_filter
+from gummysnake.assets.audio_runtime import create_oscillator as _create_oscillator
 from gummysnake.assets.sound import Sound
 from gummysnake.assets.sound import load_sound as _load_sound
 from gummysnake.assets.sound import load_sound_async as _load_sound_async
@@ -73,9 +73,8 @@ class SketchFacadeAudioMixin(SketchFacadeBaseMixin):
         filter_type: FilterType = "lowpass",
         *,
         frequency: float = 1_000.0,
-        resonance: float = 0.0,
     ) -> AudioFilter:
-        return _create_filter(filter_type, frequency=frequency, resonance=resonance)
+        return _create_filter(filter_type, frequency=frequency)
 
     def create_audio_in(self, *, sample_rate: int = 44_100) -> AudioInput:
         return _create_audio_in(sample_rate=sample_rate)

@@ -10,7 +10,7 @@ from gummysnake.ecs.world_helpers import _current_delta_time, _current_key_down
 from gummysnake.exceptions import SystemExecutionError
 
 if TYPE_CHECKING:
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 @dataclass

@@ -78,12 +78,12 @@ The runtime has a small set of objects that appear in most changes:
 | `FunctionSketch` | `src/gummysnake/sketch/runtime.py` | Wraps module-level `setup()`, `draw()`, and event callbacks so function-mode sketches use the same lifecycle as object-mode sketches. |
 | `SketchBuilder` | `src/gummysnake/sketch/runtime.py` | Stores decorator-registered callbacks for `@gs.setup`, `@gs.draw`, and `@gs.on(...)` sketches. |
 | `SketchContext` | `src/gummysnake/context.py` plus `src/gummysnake/context_mixins/` mixins | Runtime controller for one sketch. It validates high-level Gummy Snake operations, calls plugins, updates Rust-owned context state through Python facades, and sends drawing work to the renderer. |
-| `SketchState` | `src/gummysnake/core/state.py` | Compatibility facade for one sketch. Canvas lifecycle, timing, loop flags, input snapshots, and shape-building buffers read/write the Rust `SketchContextState`; Python still keeps API conversion state such as color mode and style objects used at the public boundary. |
+| `SketchState` | `src/gummysnake/core/state_facades/sketch.py` | Facade for one sketch. Canvas lifecycle, timing, loop flags, input snapshots, and shape-building buffers read/write the Rust `SketchContextState`; Python still keeps API conversion state such as color mode and style objects used at the public boundary. |
 | `CanvasBackend` | `src/gummysnake/backend/canvas.py` plus `src/gummysnake/backend/canvas_runtime/host/` mixins | Runtime adapter. It chooses headless vs interactive execution, opens native windows when supported, schedules frames, and dispatches input events. |
 | `CanvasRenderer` | `src/gummysnake/backend/canvas_renderer.py` plus `src/gummysnake/backend/canvas_runtime/renderer/` mixins/helpers | Drawing adapter. It mirrors canvas dimensions, synchronizes Python facade state mutations into Rust current state, and forwards drawing requests to the Rust canvas runtime. Bridge, lifecycle, counters, caches, payload builders, and batch state live in focused internal modules. |
 | `gummysnake.rust.canvas` | `src/gummysnake/rust/canvas.py` | Import, ABI validation, health-check, and capability wrapper for the PyO3 runtime module. It turns missing native support into clear Gummy Snake errors. |
 | `gummysnake.rust.ecs` | `src/gummysnake/rust/ecs.py` | ECS ABI validation and typed wrapper around the ECS objects exposed by the mandatory canvas extension. |
-| `EcsWorld` | `src/gummysnake/ecs/world.py` compatibility facade plus `src/gummysnake/ecs/world_facade/` implementation | Python-facing ECS facade. The compatibility module preserves imports; `world_facade/` validates schemas, registers systems/resources/events, and delegates canonical storage and physical execution to Rust. |
+| `EcsWorld` | `src/gummysnake/ecs/world_facade/world.py` | Python-facing ECS facade. `world_facade/` validates schemas, registers systems/resources/events, and delegates canonical storage and physical execution to Rust. |
 | `gummy_ecs` | `crates/gummy_ecs/` | Rust ECS storage, scheduler, physical-plan, event, resource, and spatial-index implementation. |
 | `gummy_synth` | `crates/gummy_synth/` | Rust synth/sample/FX renderer used by logical synth tracks and registered through the canvas PyO3 module. |
 | `gummy_canvas` | `crates/gummy_canvas/` | Required Rust canvas runtime, renderer implementation, and PyO3 bridge exposing canvas plus ECS and synth runtime functions. |
@@ -138,7 +138,7 @@ These names are close enough to be confusing:
 
 - `Sketch` is the user-program object and lifecycle owner.
 - `SketchContext` is the active runtime controller for that sketch.
-- `SketchState` is the Python compatibility facade over Rust-owned context
+- `SketchState` is the Python facade over Rust-owned context
   state plus Python-only API conversion state.
 
 The implementation still has Python classes with those names, but ownership
@@ -150,7 +150,7 @@ flowchart TD
         Callbacks[preload / setup / draw]
         Dispatch[callback and plugin dispatch]
         Validation[public API validation<br/>Python wrappers]
-        Facades[read-through facades<br/>for compatibility]
+        Facades[read-through facades]
     end
 
     subgraph Rust["Rust state owners"]
@@ -203,7 +203,7 @@ conversion and synchronize the Rust canvas current style. When `circle()` runs,
 `CanvasRenderer` to issue a stateful Rust draw call using the Rust-owned current
 style and transform.
 
-`SketchState` is defined in `src/gummysnake/core/state.py` and exposes:
+`SketchState` is defined in `src/gummysnake/core/state_facades/sketch.py` and exposes:
 
 - `canvas`: logical size, physical size, pixel density, renderer kind, and
   whether a canvas has been created, backed by Rust `SketchContextState`.
@@ -317,7 +317,7 @@ Use these rules of thumb:
 - `src/gummysnake/api/`: public entry points grouped by topic (`lifecycle`,
   `environment`, `timing`, `input`, `images`, `pixels`, `text`, `compositing`,
   `media`, `models`, `shaders`, `sound`, `three_d`), split global-mode modules,
-  current-context access, and compatibility facades.
+  current-context access, and topic facades.
 - `src/gummysnake/context_mixins/`: method mixins that compose `SketchContext` by
   concern: canvas, input, images, pixels, shapes, style, text, transforms, and 3D.
 - `src/gummysnake/assets/`: image package (`assets/image/core.py` owns the public
@@ -329,16 +329,14 @@ Use these rules of thumb:
   `backend/canvas_runtime/renderer/` and are split into bridge, lifecycle,
   counters, caches, payload builders, primitive batch state, and drawing concern
   modules.
-- `src/gummysnake/constants/`: enum-backed public constants and compatibility
-  aliases.
+- `src/gummysnake/constants/`: enum-backed public constants and aliases.
 - `src/gummysnake/context.py`: `SketchContext` composition root and high-level
   runtime controller.
 - `src/gummysnake/core/`: color, geometry, math, random/noise, pixel buffer
-  helpers (`core/pixels.py`), input event dataclasses (`core/input_events.py`),
-  state, `state_facades`, transforms, data helpers, and vector types.
-- `src/gummysnake/drawing/`: renderer protocols, the `renderer3d` package,
-  `software3d` helpers, and retained `prototype3d` compatibility/prototype
-  helpers.
+  helpers (`core/pixels.py`), input event dataclasses (`core/input_event_model/`),
+  `state_facades`, transforms, data helpers, and vector types.
+- `src/gummysnake/drawing/`: renderer protocols plus the `renderer3d` and
+  `software3d` packages.
 - `src/gummysnake/plugins/`: plugin interfaces and registry.
 - `src/gummysnake/rust/`: Python wrappers around PyO3 runtime modules and
   Rust-backed kernels.
@@ -371,7 +369,7 @@ Use these rules of thumb:
   and concern-based `tests/` own the corresponding audio domains. `executor.rs`
   owns the single bounded persistent offline worker pool, stable indexed dry-event
   regions, worker configuration, scratch limits, and synth execution diagnostics.
-  Serialized plan header/schema/compression and WAV output are compatibility
+  Serialized plan header/schema/compression and WAV output are stable runtime
   contracts; this crate has no Python or alternate-renderer fallback. The canvas
   PyO3 adapter validates/copies Python inputs before releasing the GIL around
   Rust-owned compile/render/decode/WAV work. `gummy_canvas::sound` owns one
@@ -383,15 +381,14 @@ Use these rules of thumb:
 ## Naming And Layout Conventions
 
 - Public Python APIs and docs use `snake_case`. Public 3D API/doc identifiers use
-  `three_d` where a Python name is needed. Existing compatibility import paths
-  such as `gummysnake.drawing.renderer3d` and `gummysnake.drawing.software3d`
-  keep their `3d` spelling because user/tests may import those modules directly.
+  `three_d` where a Python name is needed. The `renderer3d` and `software3d`
+  package names retain their established `3d` spelling.
 - Avoid adjacent Python module/package pairs such as `foo.py` plus `_foo/`, and
   avoid ambiguous `foo.py` plus `foo/`. Prefer one descriptive package such as
   `context_mixins`, `facade_mixins`, `state_facades`, or
   `canvas_runtime/renderer`.
 - Use `mixins` only for modules whose classes are composed into a public root
-  class. Use `facades` for compatibility/export/property-forwarding surfaces.
+  class. Use `facades` for public/property-forwarding surfaces.
   Use `runtime`, `host`, and `renderer` for backend/runtime implementation
   boundaries rather than generic support-package names.
 - Test-only resources belong under `tests/fixtures/`; shared test fakes/helpers

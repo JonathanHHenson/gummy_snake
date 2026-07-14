@@ -1,4 +1,8 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::performance::PerformanceCounters;
+use crate::runtime::native_window_available as runtime_native_window_available;
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
 
 impl Canvas {
     pub(crate) fn dimensions_impl(&self) -> (i64, i64, usize, usize, f64) {

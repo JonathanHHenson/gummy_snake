@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from gummysnake import constants as c
-from gummysnake._fast_draw import FastDrawScope
 from gummysnake.context_mixins._protocols import SketchContextHost
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.fast_draw_runtime import FastDrawScope
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext

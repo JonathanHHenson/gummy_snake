@@ -1,5 +1,7 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 impl Canvas {
     pub(crate) fn prepare_cpu_composite(&mut self) -> PyResult<()> {

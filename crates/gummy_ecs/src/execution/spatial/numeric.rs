@@ -2,11 +2,11 @@ use crate::error::{EcsError, Result};
 use crate::plan::typed_ir::AggregateKind;
 use crate::plan::{ExprNode, SpatialRelationNode};
 
-use super::super::aggregate_eval::{aggregate_empty, aggregate_finish};
-use super::super::value_ops::{bool_f64, numeric_f64};
 use super::super::{EvalContext, PlanExecutor};
 use super::helpers::dimensions_len;
 use super::support::{SpatialBatchAccum, SpatialBatchSpec, SpatialBatchValue};
+use crate::execution::interpreter::aggregate_eval::{aggregate_empty, aggregate_finish};
+use crate::execution::interpreter::value_ops::{bool_f64, numeric_f64};
 
 impl<'a> PlanExecutor<'a> {
     #[allow(clippy::too_many_arguments)]

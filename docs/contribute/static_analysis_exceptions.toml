@@ -28,7 +28,7 @@ checks = ["uv run pytest tests/unit/ecs/test_ecs_plans.py", "uv run mypy src"]
 
 [[inline_suppressions]]
 path = "src/gummysnake/synth/synth_runtime/values/foundation.py"
-line = 251
+line = 263
 tool = "type"
 codes = ["override"]
 owner = "Synth expression operators"
@@ -37,7 +37,7 @@ checks = ["uv run pytest tests/unit/synth/test_synth_tracks.py", "uv run mypy sr
 
 [[inline_suppressions]]
 path = "src/gummysnake/synth/synth_runtime/values/foundation.py"
-line = 254
+line = 266
 tool = "type"
 codes = ["override"]
 owner = "Synth expression operators"

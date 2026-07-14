@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from gummysnake.assets.image import CanvasImage, Image
-from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost, MatrixPayload
+from gummysnake.backend.canvas_runtime.renderer._protocols import (
+    MatrixPayload,
+    _renderer,
+)
 from gummysnake.backend.canvas_runtime.renderer.command_ingress import pack_image_commands
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
-
-
-def _renderer(self: object) -> CanvasRendererHost:
-    return cast(CanvasRendererHost, self)
 
 
 class CanvasRendererImagesMixin:

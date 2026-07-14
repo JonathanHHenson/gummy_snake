@@ -1,4 +1,8 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::images::crop_rgba_with_padding;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyBytes;
 
 impl Canvas {
     pub(crate) fn ensure_cpu_pixel_buffer(&mut self) {

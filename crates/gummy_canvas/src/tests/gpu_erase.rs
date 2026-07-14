@@ -1,4 +1,6 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::config::*;
+use crate::types::{BlendMode, Rgba, Style};
 
 #[test]
 fn gpu_erase_preserves_destination_rgb_and_clears_alpha() {

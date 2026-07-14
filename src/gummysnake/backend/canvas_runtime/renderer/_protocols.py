@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
     ModelBatchKey,
     ModelBatchState,
     ModelTransformPayload,
 )
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 
 MatrixPayload = tuple[float, float, float, float, float, float]
@@ -25,6 +25,10 @@ ImageBatchRecord = tuple[
     MatrixPayload,
 ]
 TextMetricKey = tuple[str, str | None, int, int]
+
+
+def _renderer(value: object) -> CanvasRendererHost:
+    return cast(CanvasRendererHost, value)
 
 
 class CanvasRendererHost(Protocol):

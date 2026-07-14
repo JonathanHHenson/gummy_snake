@@ -33,7 +33,7 @@ VALID_FOCUSES = frozenset({"behavior", "implementation"})
 VALID_ROLES = frozenset(
     {
         "composition_root",
-        "compatibility_facade",
+        "facade",
         "mandatory_rust_boundary",
         "udf_boundary",
         "implementation",

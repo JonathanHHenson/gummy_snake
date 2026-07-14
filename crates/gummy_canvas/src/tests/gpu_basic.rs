@@ -1,4 +1,6 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::config::*;
+use crate::types::{BlendMode, Rgba, Style};
 
 #[test]
 fn gpu_status_reports_available_or_clear_error() {

@@ -34,7 +34,6 @@ def test_spatial_aabb_overlaps_deduplicate_self_pairs() -> None:
             target_bounds=bounds,
             algorithm=ecs.spatial.HashGrid(cell_size=8.0),
             pair_policy="unique_unordered",
-            allow_fallback=False,
         )
         with ecs.conditional(), ecs.when(overlaps.any()):
             entity.ctx[Position].y.set_to(overlaps.count())

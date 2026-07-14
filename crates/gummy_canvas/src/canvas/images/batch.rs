@@ -1,7 +1,10 @@
+use crate::assets::{CachedText, CanvasImage};
 use crate::frame_commands::{
     ensure_record_size, ensure_reserved_zero, read_f64, read_i32, read_u32, IMAGE_RECORD_BYTES,
 };
-use crate::prelude::*;
+use crate::raster::Matrix;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyTuple};
 use std::collections::HashMap;
 use std::sync::Arc;

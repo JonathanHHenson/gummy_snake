@@ -63,15 +63,15 @@ refactored.
 
 | Source owner | Boundary or role | Behavior-focused routes | Implementation-focused routes |
 | --- | --- | --- | --- |
-| `src/gummysnake/*.py` | package composition and compatibility shell | public API, context, drawing/golden, basic-shapes smoke | impact-map audit |
-| `src/gummysnake/api/` | public composition and global-mode compatibility | public API, drawing/golden, 2D/assets smokes | — |
+| `src/gummysnake/*.py` | package composition and public shell | public API, context, drawing/golden, basic-shapes smoke | impact-map audit |
+| `src/gummysnake/api/` | public composition and global-mode API | public API, drawing/golden, 2D/assets smokes | — |
 | `src/gummysnake/assets/` | Python wrapper over Rust asset handles | asset units, drawing/golden, lifecycle stress, asset smoke | — |
 | `src/gummysnake/backend/` | canvas host/renderer composition; mandatory canvas boundary | renderer contracts, drawing/golden, bounded smoke, stress | renderer adapter characterization |
-| `src/gummysnake/constants/` | enum compatibility facade | public API and basic-shapes smoke | — |
+| `src/gummysnake/constants/` | enum facade | public API and basic-shapes smoke | — |
 | `src/gummysnake/context_mixins/` | `SketchContext` public composition | context, contracts, drawing/golden, smokes | — |
 | `src/gummysnake/core/` | shared state/value implementation | context/assets units, drawing/golden, stress | — |
 | `src/gummysnake/drawing/` | 3D/protocol helpers; Rust owns native rendering | WEBGL units/integration and WEBGL smoke | — |
-| `src/gummysnake/ecs/` | logical-plan facade, compatibility surface, mandatory Rust and explicit UDF boundaries | plan/bridge units, spatial stress, ECS/boids smokes | — |
+| `src/gummysnake/ecs/` | logical-plan facade, mandatory Rust and explicit UDF boundaries | plan/bridge units, spatial stress, ECS/boids smokes | — |
 | `src/gummysnake/fast_draw_runtime/` | public fast facade | context, drawing/golden, and 2D smoke | — |
 | `src/gummysnake/plugins/` | lifecycle/group dispatch implementation | lifecycle/group ordering and smoke | — |
 | `src/gummysnake/rust/` | mandatory ABI/capability wrapper boundary | canvas/ECS/synth bridge behavior, smokes, stress | ABI/adapter wrapper tests |

@@ -1,4 +1,4 @@
-"""Private Rust-bridge adapters behind :class:`gummysnake.ecs.world.EcsWorld`.
+"""Private Rust-bridge adapters behind :class:`gummysnake.ecs.world_facade.EcsWorld`.
 
 The modules are grouped by the boundary they adapt, not by public API names:
 

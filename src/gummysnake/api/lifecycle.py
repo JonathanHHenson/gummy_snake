@@ -8,8 +8,8 @@ from typing import cast
 
 from gummysnake import constants as c
 from gummysnake.context import SketchContext
-from gummysnake.ecs.systems import SystemDefinition
-from gummysnake.ecs.systems import system as ecs_system
+from gummysnake.ecs.logical_plan.systems import SystemDefinition
+from gummysnake.ecs.logical_plan.systems import system as ecs_system
 from gummysnake.sketch import EVENT_CALLBACK_NAMES, FunctionSketch, SketchBuilder
 
 type LifecycleCallback = Callable[[], object]

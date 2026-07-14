@@ -3,39 +3,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
 
 use crate::software3d::model::types::{
-    CameraPayload, LightKindPayload, LightPayload, MaterialPayload, MeshPayload, ProjectionPayload,
-    Transform3D, Vec3d,
+    CameraPayload, LightKindPayload, LightPayload, MaterialPayload, ProjectionPayload, Transform3D,
+    Vec3d,
 };
-
-pub(crate) fn parse_mesh_payloads(meshes: &Bound<'_, PyAny>) -> PyResult<Vec<MeshPayload>> {
-    let sequence = meshes.downcast::<PyList>()?;
-    let mut parsed = Vec::with_capacity(sequence.len());
-    for item in sequence.iter() {
-        let dict = item.downcast::<PyDict>()?;
-        let vertices = dict
-            .get_item("vertices")?
-            .ok_or_else(|| PyValueError::new_err("mesh payload is missing vertices."))?
-            .extract::<Vec<(f64, f64, f64)>>()?
-            .into_iter()
-            .map(|(x, y, z)| Vec3d { x, y, z })
-            .collect();
-        let faces = dict
-            .get_item("faces")?
-            .ok_or_else(|| PyValueError::new_err("mesh payload is missing faces."))?
-            .extract::<Vec<Vec<usize>>>()?;
-        let texcoords = dict
-            .get_item("texcoords")?
-            .map(|value| value.extract::<Vec<(f64, f64)>>())
-            .transpose()?
-            .unwrap_or_default();
-        parsed.push(MeshPayload {
-            vertices,
-            faces,
-            texcoords,
-        });
-    }
-    Ok(parsed)
-}
 
 pub(crate) fn parse_camera_payload(camera: &Bound<'_, PyAny>) -> PyResult<CameraPayload> {
     let dict = camera.downcast::<PyDict>()?;
@@ -179,21 +149,6 @@ pub(crate) fn parse_transform_payload(
         return Ok(None);
     };
     match values.len() {
-        6 => {
-            let a = values[0];
-            let b = values[1];
-            let c = values[2];
-            let d = values[3];
-            let e = values[4];
-            let f = values[5];
-            let z_scale = ((a.hypot(b) + c.hypot(d)) / 2.0).max(1e-9);
-            Ok(Some([
-                [a, b, 0.0, 0.0],
-                [c, d, 0.0, 0.0],
-                [0.0, 0.0, z_scale, 0.0],
-                [e, -f, 0.0, 1.0],
-            ]))
-        }
         16 => Ok(Some([
             [values[0], values[1], values[2], values[3]],
             [values[4], values[5], values[6], values[7]],
@@ -201,7 +156,7 @@ pub(crate) fn parse_transform_payload(
             [values[12], values[13], values[14], values[15]],
         ])),
         length => Err(PyValueError::new_err(format!(
-            "model transform payload must contain 6 affine or 16 matrix values, got {length}"
+            "model transform payload must contain 16 matrix values, got {length}"
         ))),
     }
 }

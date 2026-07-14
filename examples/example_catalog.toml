@@ -30,7 +30,6 @@ headless = true
 smoke_tier = "fast"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/01_getting_started/timing_and_animation.py"
@@ -47,7 +46,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/02_drawing/color_blend_erase.py"
@@ -64,7 +62,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/02_drawing/contours_clipping_tint_export.py"
@@ -81,7 +78,6 @@ headless = true
 smoke_tier = "release"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/02_drawing/filled_arcs_curves.py"
@@ -98,7 +94,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/02_drawing/pixels_and_export.py"
@@ -115,7 +110,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/02_drawing/shapes_curves.py"
@@ -132,7 +126,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/02_drawing/transforms_and_modes.py"
@@ -149,7 +142,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/03_assets/audio_analysis_synthesis.py"
@@ -166,7 +158,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/03_assets/data_files.py"
@@ -183,7 +174,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/03_assets/images_and_sprites.py"
@@ -200,7 +190,6 @@ headless = true
 smoke_tier = "fast"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/03_assets/offscreen_graphics_compute.py"
@@ -217,7 +206,6 @@ headless = true
 smoke_tier = "extended"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/03_assets/sound_asset_metadata.py"
@@ -234,7 +222,6 @@ headless = true
 smoke_tier = "extended"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/04_text/typography_accessibility.py"
@@ -251,7 +238,6 @@ headless = true
 smoke_tier = "fast"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/05_interaction/input_state.py"
@@ -268,7 +254,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/05_interaction/lifecycle_controls.py"
@@ -285,7 +270,6 @@ headless = true
 smoke_tier = "fast"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/05_interaction/sensors_environment.py"
@@ -302,7 +286,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/06_math/noise_vectors_random.py"
@@ -319,7 +302,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/07_plugins/plugin_hooks.py"
@@ -336,7 +318,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/08_3d/advanced_webgpu_geometry.py"
@@ -353,7 +334,6 @@ headless = true
 smoke_tier = "extended"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/08_3d/lorenz_attractor_3d.py"
@@ -370,7 +350,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/08_3d/webgl_scene.py"
@@ -387,7 +366,6 @@ headless = true
 smoke_tier = "fast"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/09_performance/ants_2d.py"
@@ -405,7 +383,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = true
-compatibility = "canonical"
 
 [[files]]
 path = "examples/09_performance/boids_3d.py"
@@ -422,7 +399,6 @@ headless = true
 smoke_tier = "release"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = true
-compatibility = "canonical"
 
 [[files]]
 path = "examples/09_performance/nature_of_code_attractor.py"
@@ -439,7 +415,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = true
-compatibility = "canonical"
 
 [[files]]
 path = "examples/09_performance/sixty_fps_load_showcase.py"
@@ -456,32 +431,31 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = true
-compatibility = "canonical"
 
 [[files]]
 path = "examples/09_performance/ant_colony_runtime/__init__.py"
 classification = "support_module"
-topic = "performance / ant colony compatibility package"
+topic = "performance / ant colony package"
 
 [[files]]
 path = "examples/09_performance/ant_colony_runtime/ant_simulation_query.py"
 classification = "support_module"
-topic = "performance / ant colony compatibility simulation"
+topic = "performance / ant colony simulation"
 
 [[files]]
 path = "examples/09_performance/ant_colony_runtime/configuration.py"
 classification = "support_module"
-topic = "performance / ant colony compatibility configuration"
+topic = "performance / ant colony configuration"
 
 [[files]]
 path = "examples/09_performance/ant_colony_runtime/sketch_systems.py"
 classification = "support_module"
-topic = "performance / ant colony compatibility sketch systems"
+topic = "performance / ant colony sketch systems"
 
 [[files]]
 path = "examples/09_performance/ant_colony_runtime/world_setup_and_pheromones.py"
 classification = "support_module"
-topic = "performance / ant colony compatibility world setup"
+topic = "performance / ant colony world setup"
 
 [[files]]
 path = "examples/09_performance/ecs_scenarios/__init__.py"
@@ -503,7 +477,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = true
-compatibility = "canonical"
 
 [[files]]
 path = "examples/09_performance/ecs_scenarios/rust_2d_primitives_branching.py"
@@ -520,7 +493,6 @@ headless = true
 smoke_tier = "release"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = true
-compatibility = "canonical"
 
 [[files]]
 path = "examples/09_performance/ecs_scenarios/spatial_events_for_each_stress.py"
@@ -537,7 +509,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = true
-compatibility = "canonical"
 
 [[files]]
 path = "examples/09_performance/ecs_scenarios/structural_churn_tags_components.py"
@@ -554,7 +525,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = true
-compatibility = "canonical"
 
 [[files]]
 path = "examples/09_performance/ecs_scenarios/webgl_3d_ecs_primitives_models.py"
@@ -571,7 +541,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = true
-compatibility = "canonical"
 
 [[files]]
 path = "examples/10_ecs/crystal_moths.py"
@@ -588,7 +557,6 @@ headless = true
 smoke_tier = "extended"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/10_ecs/firefly_constellation.py"
@@ -605,102 +573,6 @@ headless = true
 smoke_tier = "fast"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
-
-[[files]]
-path = "examples/11_temporary_perf_tests/__init__.py"
-classification = "support_module"
-topic = "legacy performance scenario package"
-
-[[files]]
-path = "examples/11_temporary_perf_tests/python_systems_udfs_sprites.py"
-classification = "compatibility_entry_point"
-id = "legacy_python_systems_udfs_sprites"
-canonical_id = "python_systems_udfs_sprites"
-topic = "legacy performance / ECS Python UDF boundary"
-extras = []
-assets = []
-capabilities = ["canvas", "ecs"]
-flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
-output = "examples/output/09_performance/ecs_scenarios/python_systems_udfs_sprites.png"
-output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
-headless = true
-smoke_tier = "none"
-smoke_args = []
-performance_only = true
-compatibility = "historical"
-
-[[files]]
-path = "examples/11_temporary_perf_tests/rust_2d_primitives_branching.py"
-classification = "compatibility_entry_point"
-id = "legacy_rust_2d_primitives_branching"
-canonical_id = "rust_2d_primitives_branching"
-topic = "legacy performance / ECS physical-plan 2D branching"
-extras = []
-assets = []
-capabilities = ["canvas", "ecs"]
-flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
-output = "examples/output/09_performance/ecs_scenarios/rust_2d_primitives_branching.png"
-output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
-headless = true
-smoke_tier = "none"
-smoke_args = []
-performance_only = true
-compatibility = "historical"
-
-[[files]]
-path = "examples/11_temporary_perf_tests/spatial_events_for_each_stress.py"
-classification = "compatibility_entry_point"
-id = "legacy_spatial_events_for_each_stress"
-canonical_id = "spatial_events_for_each_stress"
-topic = "legacy performance / ECS spatial events"
-extras = []
-assets = []
-capabilities = ["canvas", "ecs"]
-flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
-output = "examples/output/09_performance/ecs_scenarios/spatial_events_for_each_stress.png"
-output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
-headless = true
-smoke_tier = "none"
-smoke_args = []
-performance_only = true
-compatibility = "historical"
-
-[[files]]
-path = "examples/11_temporary_perf_tests/structural_churn_tags_components.py"
-classification = "compatibility_entry_point"
-id = "legacy_structural_churn_tags_components"
-canonical_id = "structural_churn_tags_components"
-topic = "legacy performance / ECS structural churn"
-extras = []
-assets = []
-capabilities = ["canvas", "ecs"]
-flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
-output = "examples/output/09_performance/ecs_scenarios/structural_churn_tags_components.png"
-output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
-headless = true
-smoke_tier = "none"
-smoke_args = []
-performance_only = true
-compatibility = "historical"
-
-[[files]]
-path = "examples/11_temporary_perf_tests/webgl_3d_ecs_primitives_models.py"
-classification = "compatibility_entry_point"
-id = "legacy_webgl_3d_ecs_primitives_models"
-canonical_id = "webgl_3d_ecs_primitives_models"
-topic = "legacy performance / ECS WEBGL models"
-extras = []
-assets = []
-capabilities = ["canvas", "ecs", "three_d"]
-flags = ["--headless", "--interactive", "--frames", "--output", "--no-save"]
-output = "examples/output/09_performance/ecs_scenarios/webgl_3d_ecs_primitives_models.png"
-output_behavior = "Forwards all CLI behavior and output to the canonical scenario"
-headless = true
-smoke_tier = "none"
-smoke_args = []
-performance_only = true
-compatibility = "historical"
 
 [[files]]
 path = "examples/12_synth/acid_walk.py"
@@ -717,7 +589,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/12_synth/control_fx_and_scales.py"
@@ -734,7 +605,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/12_synth/idm_breakout.py"
@@ -751,7 +621,6 @@ headless = true
 smoke_tier = "release"
 smoke_args = ["--duration", "0.1", "--no-play", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/12_synth/tron_bikes.py"
@@ -768,7 +637,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/12_synth/wob_rhythm.py"
@@ -785,25 +653,6 @@ headless = true
 smoke_tier = "fast"
 smoke_args = ["--duration", "0.1", "--no-play", "--no-save"]
 performance_only = false
-compatibility = "canonical"
-
-[[files]]
-path = "examples/12_synth/wob_rythm.py"
-classification = "compatibility_entry_point"
-id = "legacy_wob_rythm"
-canonical_id = "wob_rhythm"
-topic = "legacy synth / wobble rhythm and ambient choir"
-extras = []
-assets = ["assets/samples/sonic_pi", "assets/synths/compiled", "assets/fx/compiled"]
-capabilities = ["synth"]
-flags = ["--duration", "--output", "--no-play", "--no-save"]
-output = "examples/output/12_synth/wob_rythm.wav"
-output_behavior = "Preserves the historical WAV default and playback behavior while delegating to wob_rhythm"
-headless = true
-smoke_tier = "none"
-smoke_args = []
-performance_only = false
-compatibility = "historical"
 
 [[files]]
 path = "examples/games/asteroids.py"
@@ -820,7 +669,6 @@ headless = true
 smoke_tier = "extended"
 smoke_args = ["--headless", "--frames", "1", "--no-save"]
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/games/coin_runner.py"
@@ -837,7 +685,6 @@ headless = true
 smoke_tier = "none"
 smoke_args = []
 performance_only = false
-compatibility = "canonical"
 
 [[files]]
 path = "examples/games/asteroids_game/__init__.py"

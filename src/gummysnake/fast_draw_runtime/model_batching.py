@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D
 from gummysnake.drawing.software3d.payloads import _IDENTITY4, Matrix4Payload
-from gummysnake.exceptions import BackendCapabilityError
 
 ModelInstanceTransform = Sequence[float] | Sequence[Sequence[float]]
 
@@ -27,8 +26,8 @@ class FastModelBatchingMixin:
     __slots__ = ()
 
     _context: SketchContext
-    _draw_model_fast: Callable[..., object] | None
-    _draw_model_instances_fast: Callable[..., object] | None
+    _draw_model_fast: Callable[..., object]
+    _draw_model_instances_fast: Callable[..., object]
     _model_batch_cache: tuple[tuple[object, ...], ModelBatchKey] | None
     _model_batch_signature_cache: tuple[object, tuple[object, ...]] | None
     _model_batch_state: ModelBatchState | None
@@ -83,43 +82,40 @@ class FastModelBatchingMixin:
     def model(self, shape: Mesh3D | Model3D) -> None:
         """Draw a model using retained Rust batching without materializing face data."""
         draw_model_fast = self._draw_model_fast
-        if draw_model_fast is not None:
-            signature_cache = self._model_batch_signature_cache
-            if signature_cache is not None and signature_cache[0] is shape:
-                signature = signature_cache[1]
-            else:
-                signature = self._model_batch_signature(shape)
-            cache = self._model_batch_cache
-            if cache is not None and (cache[0] is signature or cache[0] == signature):
-                key = cache[1]
-                batch_state = self._model_batch_state
-                if batch_state is not None and batch_state.key is key and batch_state.has_records():
-                    if self._transform3d_active and self._transform3d_compact:
-                        if batch_state.compact_translation_quaternion:
-                            batch_state.append_translation_quaternion(
-                                key,
-                                self._transform3d_tx,
-                                self._transform3d_ty,
-                                self._transform3d_tz,
-                                self._transform3d_qw,
-                                self._transform3d_qx,
-                                self._transform3d_qy,
-                                self._transform3d_qz,
-                            )
-                            return
-                    elif not batch_state.compact_translation_quaternion:
-                        batch_state.append(key, self._model_transform3d_payload() or _IDENTITY4)
-                        return
-            transform = self._model_transform3d_batch_payload()
-            draw_model_fast(shape, model_transform=transform)
+        signature_cache = self._model_batch_signature_cache
+        if signature_cache is not None and signature_cache[0] is shape:
+            signature = signature_cache[1]
+        else:
+            signature = self._model_batch_signature(shape)
+        cache = self._model_batch_cache
+        if cache is not None and (cache[0] is signature or cache[0] == signature):
+            key = cache[1]
             batch_state = self._model_batch_state
-            current_key = None if batch_state is None else batch_state.key
-            if batch_state is not None and current_key is not None and batch_state.has_records():
-                self._model_batch_cache = (signature, current_key)
-            else:
-                self._model_batch_cache = None
-            return
-        self._context.model(shape)
+            if batch_state is not None and batch_state.key is key and batch_state.has_records():
+                if self._transform3d_active and self._transform3d_compact:
+                    if batch_state.compact_translation_quaternion:
+                        batch_state.append_translation_quaternion(
+                            key,
+                            self._transform3d_tx,
+                            self._transform3d_ty,
+                            self._transform3d_tz,
+                            self._transform3d_qw,
+                            self._transform3d_qx,
+                            self._transform3d_qy,
+                            self._transform3d_qz,
+                        )
+                        return
+                elif not batch_state.compact_translation_quaternion:
+                    batch_state.append(key, self._model_transform3d_payload() or _IDENTITY4)
+                    return
+        transform = self._model_transform3d_batch_payload()
+        draw_model_fast(shape, model_transform=transform)
+        batch_state = self._model_batch_state
+        current_key = None if batch_state is None else batch_state.key
+        if batch_state is not None and current_key is not None and batch_state.has_records():
+            self._model_batch_cache = (signature, current_key)
+        else:
+            self._model_batch_cache = None
 
     def model_instances(
         self,
@@ -128,14 +124,9 @@ class FastModelBatchingMixin:
     ) -> None:
         """Draw bulk retained-model instances from complete per-instance matrices.
 
-        Flat 16-value matrices are column-major. Nested 4x4 row-major matrices and
-        existing six-value affine model transforms are also accepted. The supplied
-        matrices do not read or mutate this scope's fast transform stack.
+        Flat 16-value matrices are column-major and nested 4x4 matrices are
+        row-major. The supplied matrices do not read or mutate this scope's fast
+        transform stack.
         """
         draw_model_instances_fast = self._draw_model_instances_fast
-        if draw_model_instances_fast is None:
-            raise BackendCapabilityError(
-                "model_instances() requires bulk retained-model drawing support from the "
-                "active Gummy Snake context."
-            )
         draw_model_instances_fast(shape, transforms)

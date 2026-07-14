@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from gummysnake.backend.canvas_renderer import CanvasRenderer
 from gummysnake.core.color import Color
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 from tests.helpers.canvas_runtime.modules import FakeCanvasModule
 

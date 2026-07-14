@@ -172,6 +172,12 @@ fn validate_spatial_relation_queries(
             "spatial algorithm dimensions must be 2 or 3".to_string(),
         ));
     }
+    if !matches!(relation.pair_policy.as_str(), "all" | "unique_unordered") {
+        return Err(EcsError::InvalidPlan(format!(
+            "unknown spatial pair policy {}",
+            relation.pair_policy
+        )));
+    }
     Ok(())
 }
 

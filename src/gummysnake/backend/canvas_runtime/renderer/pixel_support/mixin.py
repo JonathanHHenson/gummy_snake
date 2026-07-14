@@ -8,7 +8,7 @@ from typing import cast
 
 from gummysnake import constants as c
 from gummysnake.assets.image import Image
-from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer._protocols import _renderer
 from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
     pack_adjust_prefix_effect,
     pack_filter_effect,
@@ -24,10 +24,6 @@ from gummysnake.backend.canvas_runtime.renderer.pixel_support.uploads import (
 )
 from gummysnake.core.pixels import PixelBuffer
 from gummysnake.exceptions import ArgumentValidationError
-
-
-def _renderer(self: object) -> CanvasRendererHost:
-    return cast(CanvasRendererHost, self)
 
 
 class CanvasRendererPixelsMixin:

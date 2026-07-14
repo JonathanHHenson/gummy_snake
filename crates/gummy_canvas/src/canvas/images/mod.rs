@@ -1,4 +1,7 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::Matrix;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 mod atlas;
 mod batch;

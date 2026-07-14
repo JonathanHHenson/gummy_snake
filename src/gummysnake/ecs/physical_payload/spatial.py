@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from gummysnake.ecs.expressions import Expression
+from gummysnake.ecs.logical_plan.expressions import Expression
 from gummysnake.ecs.physical_payload.helpers import spatial_bounds_values
 from gummysnake.ecs.physical_payload.types import BridgeNode, PayloadState, PhysicalPlanUnsupported
 from gummysnake.exceptions import SystemPlanError

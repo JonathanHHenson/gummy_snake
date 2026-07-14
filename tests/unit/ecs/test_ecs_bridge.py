@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from gummysnake.ecs.specs import ChangeTerm
+from gummysnake.ecs.logical_plan.specifications import ChangeTerm
 from tests.helpers.ecs_fixtures import (
     BRIDGE_PLAN_VERSION,
     HERO,

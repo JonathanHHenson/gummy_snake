@@ -4,18 +4,26 @@
 //! implementation belongs under `canvas`, ECS execution belongs to `gummy_ecs`,
 //! and synth/sample/FX rendering belongs to `gummy_synth`.
 
+use crate::assets::CanvasImage;
+use crate::canvas_state::Canvas;
 use crate::gpu::{
     gpu_resource_diagnostics, reset_gpu_resource_diagnostics, webgpu_context_info,
     GpuComputeShader, GpuStorageBuffer,
 };
 use crate::media::{CanvasMediaFrameSink, CanvasVideo};
-use crate::prelude::*;
+use crate::sound::{
+    synth_play_compiled_program, synth_play_serialized_plan, synth_play_wav_bytes,
+    CanvasAudioPlayback, CanvasSound,
+};
+use crate::types::Matrix2D;
+use crate::{sketch_state, software3d};
 pub(crate) use health::{
     benchmark_provenance, canvas_abi_version, frame_command_abi_version, gpu_available,
     health_check, native_window_available,
 };
 use image_ops::*;
 use models::*;
+use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 mod ecs;
 mod health;
@@ -43,7 +51,6 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(image_mask_rgba, m)?)?;
     m.add_function(wrap_pyfunction!(image_filter_rgba, m)?)?;
     m.add_function(wrap_pyfunction!(media_frame_to_rgba, m)?)?;
-    m.add_function(wrap_pyfunction!(parse_obj_model, m)?)?;
     m.add_function(wrap_pyfunction!(create_mesh3d_handle, m)?)?;
     m.add_function(wrap_pyfunction!(create_model3d_handle, m)?)?;
     m.add_function(wrap_pyfunction!(parse_obj_model_handle, m)?)?;
@@ -54,14 +61,12 @@ pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(create_cylinder_model_handle, m)?)?;
     m.add_function(wrap_pyfunction!(create_cone_model_handle, m)?)?;
     m.add_function(wrap_pyfunction!(create_torus_model_handle, m)?)?;
-    m.add_function(wrap_pyfunction!(project_shade_faces, m)?)?;
     m.add_function(wrap_pyfunction!(project_shade_model_handle, m)?)?;
     m.add_function(wrap_pyfunction!(rasterize_faces_rgba, m)?)?;
     synth::register(m)?;
     m.add_function(wrap_pyfunction!(synth_play_compiled_program, m)?)?;
     m.add_function(wrap_pyfunction!(synth_play_serialized_plan, m)?)?;
     m.add_function(wrap_pyfunction!(synth_play_wav_bytes, m)?)?;
-    m.add("CANVAS_ABI_VERSION", CANVAS_ABI_VERSION)?;
     m.add(
         "FRAME_COMMAND_ABI_VERSION",
         crate::frame_commands::FRAME_COMMAND_ABI_VERSION,

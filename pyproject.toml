@@ -80,7 +80,6 @@ include = [
     "tests/unit/benchmark_system",
     "examples/09_performance/ant_colony_runtime",
     "examples/09_performance/ants_2d.py",
-    "examples/11_temporary_perf_tests",
     "examples/support/ant_colony",
 ]
 

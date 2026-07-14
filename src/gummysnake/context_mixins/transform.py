@@ -7,7 +7,7 @@ from typing import Any
 
 from gummysnake import constants as c
 from gummysnake.core import math as gs_math
-from gummysnake.core.state import StateStackEntry
+from gummysnake.core.state_facades import StateStackEntry
 from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import ArgumentValidationError
 

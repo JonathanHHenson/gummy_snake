@@ -4,19 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from gummysnake.ecs import runtime_views
 from gummysnake.ecs.runtime_view_model import (
-    ComponentView,
     Entity,
-    EntityMutation,
-    EntityView,
-    MutEntity,
-    ResourceView,
-    SystemHandle,
 )
-from gummysnake.ecs.world import EcsWorld
+from gummysnake.ecs.world_facade import EcsWorld, initialization
 from gummysnake.ecs.world_facade import EcsWorld as FacadeEcsWorld
-from gummysnake.ecs.world_facade import initialization
 
 
 class _FakeRustWorld:
@@ -59,17 +51,10 @@ class _Position:
     y: float
 
 
-def test_world_compatibility_class_and_runtime_view_exports_keep_identity() -> None:
-    """Compatibility modules re-export the canonical facade and runtime-view objects."""
+def test_world_facade_uses_canonical_runtime_view_objects() -> None:
+    """The world facade exposes the canonical runtime-view objects."""
 
     assert EcsWorld is FacadeEcsWorld
-    assert runtime_views.Entity is Entity
-    assert runtime_views.EntityView is EntityView
-    assert runtime_views.EntityMutation is EntityMutation
-    assert runtime_views.MutEntity is MutEntity
-    assert runtime_views.SystemHandle is SystemHandle
-    assert runtime_views.ComponentView is ComponentView
-    assert runtime_views.ResourceView is ResourceView
     assert Entity.__module__ == "gummysnake.ecs.runtime_view_model.entity_mutation"
 
 

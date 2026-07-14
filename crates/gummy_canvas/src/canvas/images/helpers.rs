@@ -1,5 +1,14 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::images::validate_rgba_buffer;
+use crate::raster::{
+    clipped_source_rect, image_to_canvas_matrix, matrix_determinant, matrix_transform_point,
+    point_to_f32, Matrix,
+};
 use crate::runtime::style::*;
+use crate::types::{Rgba, Style};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn draw_image_pixels(

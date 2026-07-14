@@ -12,7 +12,6 @@ from gummysnake.context import SketchContext
 from gummysnake.exceptions import (
     BackendCapabilityError,
     ContextError,
-    UnsupportedFeatureError,
 )
 from gummysnake.rust import canvas as canvas_bridge
 from gummysnake.rust import ecs as ecs_bridge
@@ -151,12 +150,3 @@ def test_missing_ecs_runtime_raises_rebuild_guidance(
 
     with pytest.raises(BackendCapabilityError, match="Rebuild it with"):
         ecs_bridge.require_ecs_runtime()
-
-
-def test_intentionally_unsupported_image_operations_raise_package_errors() -> None:
-    image = gs.create_image(1, 1)
-
-    with pytest.raises(UnsupportedFeatureError, match="Image.blend"):
-        image.blend(0, 0, 1, 1, 0, 0, 1, 1, gs.BLEND)
-    with pytest.raises(UnsupportedFeatureError, match="Animated image"):
-        image.play()

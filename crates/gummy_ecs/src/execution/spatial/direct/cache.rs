@@ -5,7 +5,6 @@ use crate::error::{EcsError, Result};
 use crate::plan::{ExprNode, SpatialRelationNode};
 use crate::spatial::SpatialPoint;
 
-use super::super::super::value_ops::literal_expr_numeric;
 use super::super::super::PlanExecutor;
 use super::super::helpers::spatial_relations_same_base;
 use super::super::support::{
@@ -13,6 +12,7 @@ use super::super::support::{
     FastSpatialBinaryOp, FastSpatialValueExpr, SpatialChunkResult, SpatialF64RowArray,
     SpatialLocalCounters, SpatialPrecomputeLayout,
 };
+use crate::execution::interpreter::value_ops::literal_expr_numeric;
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn precomputed_spatial_f64(

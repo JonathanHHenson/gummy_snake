@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from gummysnake.assets.sound import CanvasSound, Sound
 from gummysnake.exceptions import ArgumentValidationError
@@ -170,7 +170,6 @@ class Track:
         sample_rate: int = _SAMPLE_RATE,
         realtime: bool = True,
         look_ahead: float = 0.05,
-        player_factory: Any | None = None,
     ) -> TrackPlayback | Sound:
         """Start playback and return a handle.
 
@@ -189,17 +188,12 @@ class Track:
         playback = TrackPlayback(
             _expand_physical_plan(self.logical_plan, duration_seconds),
             sample_rate=sample_rate,
-            player_factory=player_factory,
             look_ahead=look_ahead,
             name=self.logical_plan.name,
             rolling=rolling,
             rendered_cache=self._render_cache.get((duration_seconds, int(sample_rate))),
         )
         return playback.start()
-
-
-# Backwards-compatible alias for people looking for a plan class in docs/tests.
-TrackInstance = Track
 
 
 def load_physical_plan(path: str | Path) -> PhysicalPlan:

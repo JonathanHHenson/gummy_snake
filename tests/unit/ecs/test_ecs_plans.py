@@ -18,22 +18,6 @@ from tests.helpers.ecs_fixtures import (
 )
 
 
-def test_logical_plan_compatibility_exports_preserve_identities() -> None:
-    from gummysnake.ecs import actions, expressions
-    from gummysnake.ecs.action_model.nodes import Action as LegacyAction
-    from gummysnake.ecs.action_tools.plan_building import build_session as legacy_build_session
-    from gummysnake.ecs.expressions.core import Expression as LegacyExpression
-    from gummysnake.ecs.logical_plan.actions import Action as LogicalAction
-    from gummysnake.ecs.logical_plan.building import build_session as logical_build_session
-    from gummysnake.ecs.logical_plan.expressions import Expression as LogicalExpression
-    from gummysnake.ecs.specifications import QuerySpec as CompatibilityQuerySpec
-
-    assert ecs.Action is actions.Action is LegacyAction is LogicalAction
-    assert ecs.Expression is expressions.Expression is LegacyExpression is LogicalExpression
-    assert actions.build_session is legacy_build_session is logical_build_session
-    assert ecs.Query[Position].__class__ is CompatibilityQuerySpec
-
-
 def test_rust_udf_expands_to_physical_expression_plan() -> None:
     world = EcsWorld()
     world.add_entity(Position(3, 0))
@@ -82,7 +66,6 @@ def test_system_plan_explain_describes_spatial_relations() -> None:
             radius=5.0,
             algorithm=ecs.spatial.HashGrid(cell_size=5.0),
             include_self=False,
-            allow_fallback=False,
             name="nearby_positions",
         )
         with ecs.conditional(), ecs.when(nearby.any()):
@@ -241,7 +224,6 @@ def test_spatial_hash_neighbors_and_join_aggregates() -> None:
             radius=6.0,
             algorithm=ecs.spatial.HashGrid(cell_size=6.0),
             include_self=False,
-            allow_fallback=False,
         )
         hero[Position].y.set_to(neighbors.count())
 
@@ -257,7 +239,6 @@ def test_spatial_hash_neighbors_and_join_aggregates() -> None:
             target_position=ecs.spatial.point2(hero[Position].x, hero[Position].y),
             radius=4.0,
             algorithm=ecs.spatial.HashGrid(cell_size=4.0),
-            allow_fallback=False,
         )
         with ecs.conditional(), ecs.when(nearby.any()):
             platform.ctx[Velocity].dx.set_to(nearby.count())
@@ -297,7 +278,6 @@ def test_spatial_relations_share_target_index_across_sensor_origins() -> None:
             target_position=target,
             radius=0.25,
             algorithm=ecs.spatial.HashGrid(cell_size=1.0),
-            allow_fallback=False,
             name="center_marker_sensor",
         )
         offset = ecs.spatial.join(
@@ -307,7 +287,6 @@ def test_spatial_relations_share_target_index_across_sensor_origins() -> None:
             target_position=target,
             radius=0.25,
             algorithm=ecs.spatial.HashGrid(cell_size=1.0),
-            allow_fallback=False,
             name="offset_marker_sensor",
         )
         hero[Velocity].dx.set_to(centered.count())
@@ -324,40 +303,3 @@ def test_spatial_relations_share_target_index_across_sensor_origins() -> None:
     assert diagnostics["ecs_spatial_indexes_built"] <= 1
     assert diagnostics["ecs_spatial_algorithm_hash_grid"] == 1
     assert diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
-
-
-def test_spatial_allow_fallback_flag_does_not_redirect_scheduled_plans() -> None:
-    @ecs.system_plan
-    def tree_system(entity: ecs.Query[Position]) -> None:
-        pos = ecs.spatial.point2(entity[Position].x, entity[Position].y)
-        relation = ecs.spatial.neighbors(
-            entity,
-            position=pos,
-            radius=4.0,
-            algorithm=ecs.spatial.Quadtree(ecs.spatial.Bounds2D(-10, -10, 10, 10)),
-            allow_fallback=True,
-        )
-        entity[Position].y.set_to(relation.count())
-
-    world = EcsWorld()
-    world.add_entity(Position(0, 0))
-    world.add_system(tree_system)
-    world.run_pre_draw_systems()
-    diagnostics = world.diagnostics()
-    assert diagnostics["ecs_physical_system_runs"] == 1
-    assert diagnostics["ecs_spatial_algorithm_quadtree"] == 1
-    assert diagnostics["ecs_spatial_index_cache_len"] == 1
-    assert diagnostics["ecs_spatial_indexes_built"] <= 1
-    assert diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0
-    assert diagnostics.get("ecs_python_fallback_system_runs", 0) == 0
-    assert diagnostics.get("ecs_python_system_calls", 0) == 0
-    assert diagnostics.get("ecs_udf_calls", 0) == 0
-
-    strict_world = EcsWorld()
-    strict_world.configure(strict=True)
-    strict_world.add_entity(Position(0, 0))
-    strict_world.add_system(tree_system)
-    strict_world.run_pre_draw_systems()
-    strict_diagnostics = strict_world.diagnostics()
-    assert strict_diagnostics["ecs_spatial_algorithm_quadtree"] == 1
-    assert strict_diagnostics.get("ecs_spatial_index_fallbacks", 0) == 0

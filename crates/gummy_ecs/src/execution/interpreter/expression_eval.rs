@@ -4,12 +4,12 @@ use crate::column::EcsValue;
 use crate::error::{EcsError, Result};
 use crate::plan::ExprNode;
 
-use super::super::f64_program::{eval_binary_f64, eval_unary_f64};
 use super::super::{EvalContext, ExprCacheKey, PlanExecutor, TypedExpr};
 use super::aggregate_eval::{aggregate_empty, aggregate_finish};
 use super::value_ops::{
     bool_f64, default_input_state_value, eval_binary, eval_unary, numeric_f64, truthy, truthy_f64,
 };
+use crate::execution::optimized::f64_program::{eval_binary_f64, eval_unary_f64};
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn eval_expr_f64(

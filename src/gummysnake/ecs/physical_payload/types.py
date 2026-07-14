@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from gummysnake.ecs.expressions import QueryProxy
+from gummysnake.ecs.logical_plan.expressions import QueryProxy
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.systems import BuiltSystem
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.logical_plan.systems import BuiltSystem
+    from gummysnake.ecs.world_facade import EcsWorld
 
 BRIDGE_PLAN_VERSION = 2
 

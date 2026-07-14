@@ -1,8 +1,13 @@
 use super::layout::{
     layout_cached_text_line, layout_gpu_text_line, physical_font_size, text_lines,
 };
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::Matrix;
 use crate::runtime::style::*;
+use crate::types::Style;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn text_impl(

@@ -1,4 +1,7 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::{stroke_width, Matrix, Point};
+use crate::types::{BlendMode, Rgba, Style};
+use pyo3::prelude::*;
 
 use super::instances::{
     transformed_ellipse_instance, transformed_polygon_fill_instances, transformed_rect_instance,

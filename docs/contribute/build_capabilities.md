@@ -18,7 +18,7 @@ Use this matrix when validating local builds, wheels, and release candidates.
 
 ## Compatibility Marker
 
-`gummy_canvas` exposes `CANVAS_ABI_VERSION` / `canvas_abi_version()` for canvas
+`gummy_canvas` exposes `canvas_abi_version()` for canvas
 and linked synth APIs, plus `ecs_abi_version()` for the Rust ECS bridge. Python
 validates native integer markers and health probes before returning runtime modules.
 Missing, malformed, unhealthy, or mismatched runtimes raise `BackendCapabilityError`

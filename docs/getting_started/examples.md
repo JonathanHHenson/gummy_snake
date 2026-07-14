@@ -20,8 +20,7 @@ The numbered directories form the learning sequence documented in
 [`examples/README.md`](../../examples/README.md): drawing, assets, text,
 interaction, math, plugins, 3D, performance, ECS, and synth. The performance
 group is intentionally separate from the learning path; it demonstrates dense
-rendering and ECS workloads. `examples/11_temporary_perf_tests/` contains retained
-forwarding paths only, while `examples/support/` and `examples/assets/` are not
+rendering and ECS workloads. `examples/support/` and `examples/assets/` are not
 standalone lessons.
 
 Run an example interactively:
@@ -51,6 +50,4 @@ uv run python scripts/example_smoke.py --tier extended
 uv run python scripts/example_smoke.py --tier release
 ```
 
-The canonical wobble synth path and callable are `wob_rhythm`; the historical
-`examples/12_synth/wob_rythm.py` path/callable remains supported with its original
-`wob_rythm.wav` default output.
+The wobble synth path and callable are `wob_rhythm`.

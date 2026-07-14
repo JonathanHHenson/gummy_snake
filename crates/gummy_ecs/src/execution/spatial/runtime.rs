@@ -6,13 +6,13 @@ use crate::plan::typed_ir::{AggregateKind, SpatialMetadataKind};
 use crate::plan::{ExprNode, SpatialRelationNode};
 use crate::spatial::SpatialRecord;
 
-use super::super::aggregate_eval::{aggregate_empty, aggregate_finish};
-use super::super::value_ops::literal_expr_numeric;
 use super::super::{EvalContext, PlanExecutor};
 use super::helpers::{dimensions_len, spatial_relations_same_base};
 use super::support::{
     comparison_from_op, reverse_comparison, NumericComparison, SpatialDistanceFilter,
 };
+use crate::execution::interpreter::aggregate_eval::{aggregate_empty, aggregate_finish};
+use crate::execution::interpreter::value_ops::literal_expr_numeric;
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn eval_spatial_metadata(

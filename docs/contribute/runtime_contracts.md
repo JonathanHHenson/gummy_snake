@@ -8,7 +8,7 @@ boundary, not a private Python or Rust implementation layout.
 
 | Surface | Current contract | Validation owner |
 | --- | --- | --- |
-| Canvas ABI | version `21`, exposed by `canvas_abi_version()` and the legacy `CANVAS_ABI_VERSION` module attribute | `gummysnake.rust.canvas.require_canvas_runtime()` |
+| Canvas ABI | version `21`, exposed by `canvas_abi_version()` | `gummysnake.rust.canvas.require_canvas_runtime()` |
 | ECS ABI | version `6`, exposed by `ecs_abi_version()` through `_canvas` | `gummysnake.rust.ecs.require_ecs_runtime()` |
 | Canvas/ECS health | a callable health probe must return a non-empty string other than `"unavailable"` | the same pre-construction validators |
 | Runtime shape | canvas asset/state classes and ECS world/registry classes must be present and constructible | the same pre-construction validators |

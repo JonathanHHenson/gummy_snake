@@ -205,7 +205,7 @@ class EventWriterProxy:
             event: Event instance matching this writer's event type.
         """
 
-        from gummysnake.ecs.actions import append_action, emit_event
+        from gummysnake.ecs.logical_plan.actions import append_action, emit_event
         from gummysnake.exceptions import SystemPlanError
 
         if type(event) is not self.event_type:

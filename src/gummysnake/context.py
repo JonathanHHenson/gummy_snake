@@ -15,7 +15,7 @@ from gummysnake.context_mixins.style import StyleContextMixin
 from gummysnake.context_mixins.text import TextContextMixin
 from gummysnake.context_mixins.three_d import ThreeDContextMixin
 from gummysnake.context_mixins.transform import TransformContextMixin
-from gummysnake.core.state import SketchState
+from gummysnake.core.state_facades import SketchState
 from gummysnake.drawing.renderer3d import Camera3D, Light3D, Material3D, Model3D, Shader3D
 from gummysnake.drawing.renderer3d.types import (
     FrustumProjection,
@@ -23,7 +23,7 @@ from gummysnake.drawing.renderer3d.types import (
     PerspectiveProjection,
     VertexPropertyValue,
 )
-from gummysnake.ecs.world import EcsWorld
+from gummysnake.ecs.world_facade import EcsWorld
 
 if TYPE_CHECKING:
     from gummysnake.plugins.registry import PluginRegistry

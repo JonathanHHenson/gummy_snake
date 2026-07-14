@@ -1,8 +1,13 @@
+use crate::assets::CanvasImage;
+use crate::canvas_state::Canvas;
 use crate::frame_commands::{
     ensure_record_size, read_f64, FrameCommandFamily, MODEL_TRANSFORM_RECORD_BYTES,
     MODEL_TRANSLATION_QUATERNION_RECORD_BYTES,
 };
-use crate::prelude::*;
+use crate::types::BlendMode;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::{PyAny, PyList};
 
 impl Canvas {
     pub(crate) fn shaded_faces_impl(&mut self, faces: &Bound<'_, PyAny>) -> PyResult<()> {

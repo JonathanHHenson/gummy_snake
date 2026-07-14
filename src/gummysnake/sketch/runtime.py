@@ -10,9 +10,9 @@ from gummysnake._async import call_maybe_async, call_maybe_async_with_optional_a
 from gummysnake.api.current import activate_context
 from gummysnake.backend.registry import create_backend
 from gummysnake.context import SketchContext
-from gummysnake.ecs.runtime_views import SystemHandle
-from gummysnake.ecs.systems import SystemDefinition
-from gummysnake.ecs.systems import system as ecs_system
+from gummysnake.ecs.logical_plan.systems import SystemDefinition
+from gummysnake.ecs.logical_plan.systems import system as ecs_system
+from gummysnake.ecs.runtime_view_model import SystemHandle
 from gummysnake.plugins.base import LifecycleHookName
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from gummysnake.sketch.facade import SketchFacadeMixin
@@ -197,7 +197,9 @@ class SketchBuilder:
 
     @property
     def draw_callback(self) -> Callable[[], Any] | None:
-        return self._draw_func
+        if self._draw_func is not None:
+            return self._draw_func
+        return None if self._draw_system is None else self._draw_system.function
 
     @property
     def draw_system(self) -> SystemDefinition | None:
@@ -226,7 +228,6 @@ class SketchBuilder:
     def register_draw_system(self, definition: SystemDefinition) -> None:
         """Use a prebuilt ECS draw-system definition for the registered draw callback."""
         self._draw_system = definition
-        self._draw_func = definition.function  # compatibility for code that inspects the builder
 
     def on[F: Callable[..., Any]](
         self, event_name: str | c.CallbackEventName | c.TouchEventName

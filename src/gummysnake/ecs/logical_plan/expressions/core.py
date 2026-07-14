@@ -10,7 +10,7 @@ from .helpers import ExpressionInput, _cached_expression_eval, ensure_expr
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.logical_plan.specifications import Query
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
     from .aggregates import GroupedExpression
     from .proxies import QueryProxy

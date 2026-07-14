@@ -7,7 +7,7 @@ from typing import Literal, Protocol
 
 from gummysnake.drawing.renderer import Renderer
 from gummysnake.drawing.renderer3d.materials import Light3D, Material3D, Texture3D
-from gummysnake.drawing.renderer3d.mesh import Mesh3D
+from gummysnake.drawing.renderer3d.mesh_model import Mesh3D
 from gummysnake.drawing.renderer3d.model import Model3D
 from gummysnake.drawing.renderer3d.shader import Shader3D, ShaderUniformValue
 from gummysnake.drawing.renderer3d.types import Camera3D, Matrix4, Projection3D

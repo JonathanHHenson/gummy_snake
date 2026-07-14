@@ -1,5 +1,9 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::{polygon_is_convex, stroke_width, Matrix};
 use crate::runtime::style::*;
+use crate::types::Style;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn polygon_impl(

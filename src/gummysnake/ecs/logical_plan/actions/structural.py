@@ -26,7 +26,6 @@ from gummysnake.ecs.logical_plan.specifications import EventWriterProxy
 from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.exceptions import SystemPlanError
 
-# Re-export core action node types from this compatibility chunk's historical __all__.
 from .nodes import (
     Action,
     DefaultAction,

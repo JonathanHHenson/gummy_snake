@@ -6,13 +6,13 @@ use crate::spatial::{
     Dimensions, HashGridIndex, HilbertIndex, OctreeIndex, QuadtreeIndex, SpatialAabb, SpatialPoint,
 };
 
-use super::super::value_ops::bool_f64;
 use super::point_hash_grid::DirectPointRecord;
 use super::support::{
     BuiltSpatialIndex, FastAggregateKind, FastDirectSpatialRelationBatch, FastFieldArray,
     FastSpatialBatchValue, FastSpatialBinaryOp, FastSpatialValueExpr, SpatialBatchAccum,
     SpatialLocalCounters,
 };
+use crate::execution::interpreter::value_ops::bool_f64;
 
 pub(in crate::execution) fn fast_field_array_value(
     array: &FastFieldArray,

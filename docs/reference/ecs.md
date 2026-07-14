@@ -242,7 +242,7 @@ def steering_value(velocity: ecs.ComponentExpressionProxy) -> ecs.Expression:
 For draw-side and Python UDF/system boundaries, use `ecs.EntityView` or
 `ecs.Entity[T]` annotations. Mutable Python entity access must be declared with
 `ecs.EntityMutation[T](...)` metadata on `@ecs.udf` or `@ecs.system`;
-`ecs.MutEntity` is deprecated. `gs.FastDrawScope` is the public type for a local
+Use `ecs.Entity[...]` with `ecs.EntityMutation[...]` metadata for mutable UDF boundaries. `gs.FastDrawScope` is the public type for a local
 `draw_fast = gs.fast()` binding in examples that mix ECS readback with dense
 drawing.
 
@@ -382,7 +382,6 @@ def proximity(
         target_position=spatial.point2(player[Position].x, player[Position].y),
         radius=80.0,
         algorithm=spatial.HashGrid(cell_size=80.0),
-        allow_fallback=False,
     )
     with ecs.conditional():
         with ecs.when(nearby.any()):
@@ -412,11 +411,8 @@ and `B-A`.
 `Quadtree`, `Octree`, and `HilbertCurve` config objects are accepted as explicit
 algorithm requests. Hash-grid, quadtree, octree, and 2D Hilbert-curve relations
 serialize into the Rust physical executor behind a shared spatial trait, so
-systems can switch algorithms without changing public query results. The legacy
-`allow_fallback` keyword is accepted for source compatibility, but it only describes
-Python-side relation materialization for code already inside an explicit Python
-boundary. Passing `allow_fallback=True` never redirects a scheduled `@ecs.system_plan`
-out of the Rust physical executor; unsupported scheduled nodes still fail closed.
+systems can switch algorithms without changing public query results. Unsupported
+scheduled nodes fail closed instead of redirecting execution to Python.
 
 ## Change detection
 

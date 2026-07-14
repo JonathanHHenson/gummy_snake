@@ -88,7 +88,7 @@ def test_serialized_plan_render_resolves_packaged_sample_names() -> None:
     runtime = synth_rendering._require_synth_runtime()
 
     serialized_payload = bytes(runtime.synth_render_serialized_plan_wav(plan.to_bytes(), 44_100))
-    legacy_payload = bytes(
+    event_payload = bytes(
         runtime.synth_render_plan_wav(
             synth_rendering._event_payloads(plan),
             plan.duration_seconds,
@@ -96,7 +96,7 @@ def test_serialized_plan_render_resolves_packaged_sample_names() -> None:
         )
     )
 
-    assert serialized_payload == legacy_payload
+    assert serialized_payload == event_payload
 
 
 def test_serialized_plan_render_is_repeatable_with_packaged_samples_and_fx() -> None:

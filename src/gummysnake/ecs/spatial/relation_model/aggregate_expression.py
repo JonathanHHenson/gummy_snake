@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from gummysnake.ecs.expressions import Expression, QueryProxy
+from gummysnake.ecs.logical_plan.expressions import Expression, QueryProxy
 from gummysnake.ecs.spatial.runtime import _spatial_context_key
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.spatial.relation_model.relation import SpatialRelation
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 @dataclass(frozen=True, eq=False)

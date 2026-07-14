@@ -1,5 +1,12 @@
 use super::{BatchCanvasImage, BatchUniqueImage, IMAGE_ATLAS_MAX_UNIQUE_IMAGES};
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::{
+    clipped_source_rect, image_to_canvas_matrix, matrix_determinant, matrix_transform_point,
+    point_to_f32,
+};
+use crate::types::{BlendMode, Rgba, Style};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 impl Canvas {
     pub(crate) fn try_draw_gpu_image_atlas_batch(

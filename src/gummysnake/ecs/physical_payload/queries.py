@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from gummysnake.ecs.expressions import QueryProxy
+from gummysnake.ecs.logical_plan.expressions import QueryProxy
+from gummysnake.ecs.logical_plan.specifications import ChangeTerm, QuerySpec, TagTerm, WithoutTerm
 from gummysnake.ecs.physical_payload.helpers import schema_name
 from gummysnake.ecs.physical_payload.types import BridgeNode, PayloadState, PhysicalPlanUnsupported
-from gummysnake.ecs.specs import ChangeTerm, QuerySpec, TagTerm, WithoutTerm
 from gummysnake.exceptions import SystemPlanError
 
 type AddTerm = Callable[[str, str], None]

@@ -19,7 +19,7 @@ from .nodes import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 @dataclass(frozen=True)
@@ -60,7 +60,7 @@ def validate_mutation_metadata(
 
     if not mutations:
         return {}
-    from gummysnake.ecs.runtime_views import EntityMutation
+    from gummysnake.ecs.runtime_view_model import EntityMutation
 
     parameter_names = builtins.set(inspect.signature(callback).parameters)
     normalized: dict[str, frozenset[object]] = {}

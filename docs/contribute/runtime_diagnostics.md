@@ -24,7 +24,7 @@ The stable top-level counters are:
 | `pixel_uploads` | Full pixel or texture uploads back to the canvas. |
 | `gpu_blend_commands` | Non-default blend commands that stayed in the GPU command stream. |
 | `gpu_region_effect_passes` | Bounded GPU region-effect passes, such as internal pixel-prefix mutation. |
-| `image_cache_hits` / `image_cache_misses` | Bounded legacy image-cache reuse or insertion. Rust `CanvasImage` entries retain shared immutable payload ownership rather than cloning RGBA bytes. |
+| `image_cache_hits` / `image_cache_misses` | Bounded image-cache reuse or insertion. Rust `CanvasImage` entries retain shared immutable payload ownership rather than cloning RGBA bytes. |
 | `image_source_clones_avoided` / `image_source_clone_bytes_avoided` | Full RGBA source clones avoided when ordered batches and cache entries retain shared Rust image payloads. |
 | `image_cache_resident_bytes` / `image_cache_peak_bytes` | Current and peak logical RGBA bytes retained by the bounded CPU image cache. Shared `Arc` payloads are counted once per cache entry even when the canonical handle also owns the same allocation. |
 | `image_cache_evictions` / `image_cache_evicted_bytes` | CPU image-cache entries and logical payload bytes released to satisfy count or byte limits. |
@@ -44,17 +44,15 @@ The stable top-level counters are:
 | `direct_model_draws` | Rust-owned model-handle draws that avoid Python face dictionaries; GPU builds use retained model buffers and built-in model pipelines. |
 | `python_face_payloads` | Legacy/fallback shaded-face payloads materialized as Python dictionaries. |
 | `direct_shape_finalizations` | Rust-owned `begin_shape()` buffers finalized directly into draw or clip operations. |
-| `shape_buffer_extractions` | Shape buffers extracted into Python lists for compatibility fallback paths. |
+| `shape_buffer_extractions` | Shape buffers extracted into Python lists for public inspection paths. |
 | `pixel_payload_copies` | Pixel uploads that required Python list/sequence conversion before reaching the runtime. |
 | `pixel_noop_upload_skips` | Full-canvas byte payload uploads skipped because they were the exact fresh `load_pixel_bytes()` result. |
 | `primitive_batch_records` | Python-side primitive records flushed through compact fill, current-state, or mixed primitive batch bridges. |
 | `primitive_batch_flushes` | Python-side compact primitive batch bridge calls. |
 | `primitive_batch_max_records` | Largest primitive batch flushed in the current counter window; low values in dense scenes usually indicate accidental segmentation. |
-| `primitive_batch_fallbacks` | Primitive records replayed through legacy per-shape calls because the native batch ABI was unavailable. |
 | `image_batch_records` | Python-side image records flushed through compact image batch bridges, including transformed sprite records. |
 | `image_batch_flushes` | Python-side compact image batch bridge calls. |
 | `image_batch_max_records` | Largest image batch flushed in the current counter window; sprite fields should usually coalesce into large batches. |
-| `image_batch_fallbacks` | Image records replayed through legacy per-image calls because the native batch ABI was unavailable. |
 
 When the installed Rust canvas exposes native counters, the Python report also
 contains a `native` dictionary. Treat that dictionary as diagnostic detail; use

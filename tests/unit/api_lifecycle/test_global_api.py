@@ -3,7 +3,7 @@ from typing import Any, cast
 import pytest
 
 import gummysnake as gs
-from gummysnake.core.input_events import KeyboardEvent, MouseEvent
+from gummysnake.core.input_event_model import KeyboardEvent, MouseEvent
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.rust.canvas import canvas_gpu_available
 
@@ -190,7 +190,7 @@ def test_fast_draw_scope_composes_with_style_and_transform_contexts():
 
 def test_offscreen_graphics_framebuffer_and_compute_helpers():
     graphics = gs.create_graphics(4, 4)
-    graphics.background(0, 0, 255)
+    graphics.drawing.background(0, 0, 255)
     assert graphics.width == 4
     assert graphics.height == 4
     assert len(graphics.to_rgba_bytes()) == 4 * 4 * 4
@@ -280,7 +280,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             assert self.webgpu_context()["storage_buffers"] is True
 
             graphics = self.create_graphics(2, 2)
-            graphics.background(255)
+            graphics.drawing.background(255)
             assert graphics.width == 2
             graphics.remove()
 

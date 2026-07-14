@@ -56,20 +56,9 @@ class Sound:
         *,
         path: Path,
         rust_sound: CanvasSound | None = None,
-        player_factory: Any | None = None,
     ) -> None:
-        """Create a sound facade while preserving the established constructor shape.
+        """Create a sound facade backed by the native SDL audio route."""
 
-        ``player_factory`` remains accepted for source compatibility but custom
-        playback backends are no longer selectable. Native SDL playback is the
-        only supported route.
-        """
-
-        if player_factory is not None:
-            raise ArgumentValidationError(
-                "Custom Sound player factories are no longer supported; playback requires "
-                "the native Gummy Snake SDL3 audio manager."
-            )
         self._path = path
         self._rust_sound = rust_sound or self._asset_from_source(source, path)
         self._source = self._rust_sound

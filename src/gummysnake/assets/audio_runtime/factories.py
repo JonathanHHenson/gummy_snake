@@ -133,19 +133,18 @@ def create_envelope(
 
 
 def create_filter(
-    filter_type: FilterType = "lowpass", *, frequency: float = 1_000.0, resonance: float = 0.0
+    filter_type: FilterType = "lowpass", *, frequency: float = 1_000.0
 ) -> AudioFilter:
     """Create a low-pass or high-pass audio filter.
 
     Args:
         filter_type: ``"lowpass"`` or ``"highpass"``.
         frequency: Cutoff frequency in Hertz.
-        resonance: Reserved for future richer filters and currently stored only.
 
     Returns:
         A new ``AudioFilter``.
     """
-    return AudioFilter(filter_type, frequency=frequency, resonance=resonance)
+    return AudioFilter(filter_type, frequency=frequency)
 
 
 def create_audio_in(*, sample_rate: int = 44_100) -> AudioInput:

@@ -23,7 +23,7 @@ _GROUP_LIFECYCLE_HOOK_RE = re.compile(r"^(before|after)_[a-z][a-z0-9_]*$")
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
-    from gummysnake.core.input_events import KeyboardEvent, MouseEvent, TouchEvent
+    from gummysnake.core.input_event_model import KeyboardEvent, MouseEvent, TouchEvent
     from gummysnake.sketch import Sketch
 
 

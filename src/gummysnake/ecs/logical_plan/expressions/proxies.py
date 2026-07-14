@@ -13,7 +13,7 @@ from .helpers import ExpressionInput
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.logical_plan.actions import EntityIteratorSource
     from gummysnake.ecs.logical_plan.specifications import Query, QuerySpec
-    from gummysnake.ecs.world import EcsWorld, EntityView
+    from gummysnake.ecs.world_facade import EcsWorld, EntityView
 
 
 @dataclass(frozen=True, eq=False)
@@ -185,7 +185,7 @@ class FieldExpression(Expression):
         """
 
         self._ensure_writable()
-        from gummysnake.ecs.actions import append_action, set
+        from gummysnake.ecs.logical_plan.actions import append_action, set
 
         append_action(
             set(self, value), operation=f"{self.component_type.__name__}.{self.field_name}.set_to()"
@@ -260,7 +260,7 @@ class EntityExpression(Expression):
             component: Component class to add, or a component instance whose values should be used.
         """
 
-        from gummysnake.ecs.actions import add_component_action, append_action
+        from gummysnake.ecs.logical_plan.actions import add_component_action, append_action
 
         append_action(
             add_component_action(self, component), operation="query.entity.add_component()"
@@ -273,7 +273,7 @@ class EntityExpression(Expression):
             component_type: Component class to remove.
         """
 
-        from gummysnake.ecs.actions import append_action, remove_component_action
+        from gummysnake.ecs.logical_plan.actions import append_action, remove_component_action
 
         append_action(
             remove_component_action(self, component_type),
@@ -287,7 +287,7 @@ class EntityExpression(Expression):
             tag: Tag value to add.
         """
 
-        from gummysnake.ecs.actions import add_tag_action, append_action
+        from gummysnake.ecs.logical_plan.actions import add_tag_action, append_action
 
         append_action(add_tag_action(self, tag), operation="query.entity.add_tag()")
 
@@ -298,14 +298,14 @@ class EntityExpression(Expression):
             tag: Tag value to remove.
         """
 
-        from gummysnake.ecs.actions import append_action, remove_tag_action
+        from gummysnake.ecs.logical_plan.actions import append_action, remove_tag_action
 
         append_action(remove_tag_action(self, tag), operation="query.entity.remove_tag()")
 
     def despawn(self) -> None:
         """Despawn every entity matched by this query."""
 
-        from gummysnake.ecs.actions import append_action, despawn_action
+        from gummysnake.ecs.logical_plan.actions import append_action, despawn_action
 
         append_action(despawn_action(self), operation="query.entity.despawn()")
 

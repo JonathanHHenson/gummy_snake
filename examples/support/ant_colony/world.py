@@ -179,7 +179,6 @@ def update_pheromone_query(marker: ecs.Query, ant: ecs.Query, *, red_colony: boo
         radius=PHEROMONE_DEPOSIT_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=PHEROMONE_DEPOSIT_RADIUS, dimensions=2),
         include_self=False,
-        allow_fallback=False,
         name=f"{colony_name}_ant_pheromone_deposit",
     )
     food_deposit = nearby_ants.sum(nearby_ants.item[AntAgent].food_trail)

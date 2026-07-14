@@ -11,7 +11,7 @@ from gummysnake.drawing.renderer3d import (
     Material3D,
     Model3D,
     Projection3D,
-    _model_rust_handle,
+    _ensure_model_rust_handle,
 )
 from gummysnake.drawing.software3d.payloads import (
     camera_payload,
@@ -21,10 +21,6 @@ from gummysnake.drawing.software3d.payloads import (
     projection_payload,
 )
 from gummysnake.exceptions import ArgumentValidationError
-
-
-def _rows_as_tuples(rows: Any) -> list[tuple[float, ...]]:
-    return [tuple(float(value) for value in row) for row in rows]
 
 
 def rust_project_shade_faces(
@@ -49,70 +45,13 @@ def rust_project_shade_faces(
     lights_data = light_payloads(lights)
     transform_payload = model_transform_payload(model_transform)
 
-    handle = _model_rust_handle(model)
-    direct_project = getattr(runtime, "project_shade_model_handle", None)
-    if handle is not None and direct_project is not None:
-        try:
-            return list(
-                direct_project(
-                    handle,
-                    camera_data,
-                    projection_data,
-                    viewport_width,
-                    viewport_height,
-                    material_data,
-                    lights_data,
-                    normal_material,
-                    cull_backfaces,
-                    transform_payload,
-                )
-            )
-        except ValueError as exc:
-            raise ArgumentValidationError(str(exc)) from exc
-
-    if handle is not None:
-        payload = handle.to_mesh_payload()
-        source_meshes = [
-            {
-                "vertices": list(payload["vertices"]),
-                "faces": [list(face) for face in payload["faces"]],
-                "texcoords": list(payload.get("texcoords", ())),
-            }
-        ]
-    else:
-        source_meshes = [
-            {
-                "vertices": [(vertex.x, vertex.y, vertex.z) for vertex in mesh.vertices],
-                "faces": [list(face) for face in mesh.faces],
-                "texcoords": list(mesh.texcoords),
-            }
-            for mesh in model.meshes
-        ]
-
-    if transform_payload is not None:
-        import math
-
-        a, b, c, d, e, f = transform_payload
-        z_scale = (math.hypot(a, b) + math.hypot(c, d)) / 2.0
-        meshes = []
-        for mesh in source_meshes:
-            vertices = [
-                (a * x + c * y + e, b * x + d * y - f, z * z_scale)
-                for x, y, z in _rows_as_tuples(mesh["vertices"])
-            ]
-            meshes.append(
-                {
-                    "vertices": vertices,
-                    "faces": mesh["faces"],
-                    "texcoords": mesh["texcoords"],
-                }
-            )
-    else:
-        meshes = source_meshes
+    handle = _ensure_model_rust_handle(model)
+    if handle is None:
+        raise ArgumentValidationError("Model3D requires Rust-backed mesh handles.")
     try:
         return list(
-            runtime.project_shade_faces(
-                meshes,
+            runtime.project_shade_model_handle(
+                handle,
                 camera_data,
                 projection_data,
                 viewport_width,
@@ -121,6 +60,7 @@ def rust_project_shade_faces(
                 lights_data,
                 normal_material,
                 cull_backfaces,
+                transform_payload,
             )
         )
     except ValueError as exc:

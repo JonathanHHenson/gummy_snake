@@ -7,7 +7,6 @@ import pytest
 import gummysnake as gs
 from gummysnake import BackendCapabilityError
 from gummysnake.assets import sound as sound_module
-from gummysnake.assets.sound_runtime import loading_and_playback
 from gummysnake.assets.sound_runtime.canvas_sound import CanvasSound
 
 
@@ -144,7 +143,7 @@ def _write_wav(path: Path) -> None:
         wav.writeframes(b"\0\0" * 10_000)
 
 
-def test_public_sound_contract_and_legacy_loader_keep_public_identity(tmp_path: Path):
+def test_public_sound_contract_and_loaders_keep_public_identity(tmp_path: Path):
     sound_path = tmp_path / "tone.wav"
     _write_wav(sound_path)
 
@@ -164,7 +163,7 @@ def test_public_sound_contract_and_legacy_loader_keep_public_identity(tmp_path: 
     original = sound_module.CanvasSound.from_file
     sound_module.CanvasSound.from_file = lambda _path: CanvasSound.from_rust(_FakeRustSound())
     try:
-        loaded = loading_and_playback.load_sound(sound_path)
+        loaded = sound_module.load_sound(sound_path)
     finally:
         sound_module.CanvasSound.from_file = original
     assert type(loaded) is sound_module.Sound
@@ -263,14 +262,6 @@ def test_sound_validation_and_native_diagnostics() -> None:
             clip.rate(value)
     with pytest.raises(gs.ArgumentValidationError):
         clip.seek(clip.duration + 0.1)
-    with pytest.raises(gs.ArgumentValidationError):
-        sound_module.Sound(
-            CanvasSound.from_rust(rust),
-            path=Path("tone.wav"),
-            rust_sound=CanvasSound.from_rust(rust),
-            player_factory=object(),
-        )
-
     clip.play()
     diagnostics = clip.playback_diagnostics()
     assert diagnostics["blocks"] == 3

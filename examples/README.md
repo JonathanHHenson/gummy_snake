@@ -2,8 +2,8 @@
 
 The reviewed machine-readable inventory is
 [`example_catalog.toml`](example_catalog.toml). It classifies every Python file
-under `examples/` as a runnable entry point, a support module, a historical
-compatibility entry point, or an intentionally excluded generated file. For each
+under `examples/` as a runnable entry point, a support module, or an intentionally
+excluded generated file. For each
 runnable example it records requirements, assets, CLI flags, output behavior,
 headless suitability, smoke tier, and whether it is performance-only.
 
@@ -47,14 +47,10 @@ runtime features:
   performance-focused demonstrations rather than introductory lessons.
 - `10_ecs`: Rust ECS components, resources, ordered systems, typed views, and spatial joins.
 - `12_synth`: offline-capable synth tracks, samples, FX, controls, scales, and rings.
-  `wob_rhythm.py` is canonical; `wob_rythm.py` remains a supported historical adapter
-  with its original callable and default WAV output.
 
-`11_temporary_perf_tests` is deliberately **not** a learning group. It contains
-supported historical forwarding paths to the maintained `09_performance/ecs_scenarios/`
-commands. `games/` contains complete sprite-based sketches rather than numbered
-lessons. `assets/` is input data only, `support/` contains shared example/benchmark
-logic, and `output/` is generated and ignored.
+`games/` contains complete sprite-based sketches rather than numbered lessons.
+`assets/` is input data only, `support/` contains shared example/benchmark logic,
+and `output/` is generated and ignored.
 
 ## Bounded smoke tiers
 

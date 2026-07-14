@@ -5,7 +5,7 @@ import pytest
 from gummysnake import constants as c
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
-from gummysnake.core.input_events import KeyboardEvent
+from gummysnake.core.input_event_model import KeyboardEvent
 from gummysnake.exceptions import ArgumentValidationError
 from gummysnake.plugins.registry import GLOBAL_PLUGIN_REGISTRY
 from tests.helpers.canvas_runtime.context import (

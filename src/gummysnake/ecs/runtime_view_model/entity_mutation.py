@@ -119,20 +119,3 @@ class _EntityMutationAlias:
         self, *, add: bool = False, remove: bool = False, update: bool = True
     ) -> EntityMutation:
         return EntityMutation(self.component_type, add=add, remove=remove, update=update)
-
-
-class MutEntity:
-    """Deprecated mutable entity annotation marker."""
-
-    def __class_getitem__(cls, item: object) -> EntityAnnotation:
-        """Raise with migration guidance for old ``ecs.MutEntity[...]`` annotations."""
-        raise SystemPlanError(
-            "ecs.MutEntity has been replaced by ecs.Entity[...] plus EntityMutation[...] "
-            "metadata on @ecs.udf or @ecs.system."
-        )
-
-    def __getitem__(self, component_type: type[ComponentT]) -> ComponentT:
-        """Raise with migration guidance for old runtime ``MutEntity`` access."""
-        raise TypeError(
-            "ecs.MutEntity is deprecated; use ecs.Entity[...] and EntityMutation metadata."
-        )

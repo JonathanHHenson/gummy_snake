@@ -17,7 +17,7 @@ from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
     pack_path,
     pack_primitive_style,
 )
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.rust.canvas import (
@@ -317,7 +317,7 @@ def test_canvas_exposes_only_packed_batch_ingress() -> None:
     runtime = require_canvas_runtime()
     canvas = runtime.Canvas(8, 8, 1.0, "headless", "p2d")
 
-    for legacy_name in (
+    for removed_name in (
         "batch_lines",
         "batch_lines_current",
         "batch_primitives",
@@ -325,7 +325,7 @@ def test_canvas_exposes_only_packed_batch_ingress() -> None:
         "batch_primitives_mixed",
         "batch_fill_primitives",
     ):
-        assert not hasattr(canvas, legacy_name)
+        assert not hasattr(canvas, removed_name)
 
 
 def test_canvas_wrapper_uses_loaded_runtime(monkeypatch: pytest.MonkeyPatch) -> None:

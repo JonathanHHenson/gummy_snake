@@ -1,5 +1,7 @@
 use crate::gpu;
-use crate::prelude::*;
+use crate::raster::Matrix;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 

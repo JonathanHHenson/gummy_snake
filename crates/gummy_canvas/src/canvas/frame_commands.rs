@@ -1,5 +1,6 @@
+use crate::canvas_state::Canvas;
 use crate::frame_commands::{FrameCommandFamily, FRAME_COMMAND_ABI_VERSION};
-use crate::prelude::*;
+use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 impl Canvas {

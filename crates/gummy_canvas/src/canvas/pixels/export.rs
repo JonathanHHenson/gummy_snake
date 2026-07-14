@@ -1,6 +1,8 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
 use image::codecs::gif::{GifEncoder, Repeat};
 use image::{Delay, Frame, RgbaImage};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 use std::fs::File;
 use std::io::BufWriter;
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Literal, cast
 
 from gummysnake.exceptions import ArgumentValidationError
@@ -12,12 +12,13 @@ from gummysnake.synth.synth_runtime.values.foundation import (
     SynthPlanError,
     _as_float,
     _as_int,
-    _current_repeat_depth_or_none,
-    _next_expression_id,
+    _cached_expression_value,
+    _CachedExpression,
+    _expression_id_field,
+    _repeat_depth_field,
 )
 from gummysnake.synth.synth_runtime.values.lazy_values import (
     Ring,
-    _cached_expression_value,
     _source_bind_key,
     resolve_value,
 )
@@ -26,12 +27,8 @@ from gummysnake.synth.synth_runtime.values.lazy_values import (
 @dataclass(frozen=True, slots=True, eq=False)
 class LiteralExpression(Expression):
     value: object
-    id: int = field(default_factory=_next_expression_id, repr=False, compare=False)
-    repeat_depth: int | None = field(
-        default_factory=_current_repeat_depth_or_none,
-        repr=False,
-        compare=False,
-    )
+    id: int = _expression_id_field()
+    repeat_depth: int | None = _repeat_depth_field()
 
     def evaluate(self, ctx: EvalContext) -> object:
         return _cached_expression_value(
@@ -43,23 +40,11 @@ class LiteralExpression(Expression):
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class UnaryExpression(Expression):
+class UnaryExpression(_CachedExpression):
     op: str
     operand: Expression
-    id: int = field(default_factory=_next_expression_id, repr=False, compare=False)
-    repeat_depth: int | None = field(
-        default_factory=_current_repeat_depth_or_none,
-        repr=False,
-        compare=False,
-    )
-
-    def evaluate(self, ctx: EvalContext) -> object:
-        return _cached_expression_value(
-            ctx,
-            self.repeat_depth,
-            self.id,
-            lambda: self._evaluate_uncached(ctx),
-        )
+    id: int = _expression_id_field()
+    repeat_depth: int | None = _repeat_depth_field()
 
     def _evaluate_uncached(self, ctx: EvalContext) -> object:
         value = resolve_value(self.operand, ctx)
@@ -69,24 +54,12 @@ class UnaryExpression(Expression):
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class BinaryExpression(Expression):
+class BinaryExpression(_CachedExpression):
     op: str
     left: Expression
     right: Expression
-    id: int = field(default_factory=_next_expression_id, repr=False, compare=False)
-    repeat_depth: int | None = field(
-        default_factory=_current_repeat_depth_or_none,
-        repr=False,
-        compare=False,
-    )
-
-    def evaluate(self, ctx: EvalContext) -> object:
-        return _cached_expression_value(
-            ctx,
-            self.repeat_depth,
-            self.id,
-            lambda: self._evaluate_uncached(ctx),
-        )
+    id: int = _expression_id_field()
+    repeat_depth: int | None = _repeat_depth_field()
 
     def _evaluate_uncached(self, ctx: EvalContext) -> object:
         left = resolve_value(self.left, ctx)
@@ -107,24 +80,12 @@ class BinaryExpression(Expression):
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class CompareExpression(Expression):
+class CompareExpression(_CachedExpression):
     op: str
     left: Expression
     right: Expression
-    id: int = field(default_factory=_next_expression_id, repr=False, compare=False)
-    repeat_depth: int | None = field(
-        default_factory=_current_repeat_depth_or_none,
-        repr=False,
-        compare=False,
-    )
-
-    def evaluate(self, ctx: EvalContext) -> object:
-        return _cached_expression_value(
-            ctx,
-            self.repeat_depth,
-            self.id,
-            lambda: self._evaluate_uncached(ctx),
-        )
+    id: int = _expression_id_field()
+    repeat_depth: int | None = _repeat_depth_field()
 
     def _evaluate_uncached(self, ctx: EvalContext) -> object:
         left = resolve_value(self.left, ctx)
@@ -145,23 +106,11 @@ class CompareExpression(Expression):
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class RandomExpression(Expression):
+class RandomExpression(_CachedExpression):
     kind: Literal["rand", "rand_i", "rrand", "rrand_i", "dice", "one_in"]
     args: tuple[Expression, ...]
-    id: int = field(default_factory=_next_expression_id, repr=False, compare=False)
-    repeat_depth: int | None = field(
-        default_factory=_current_repeat_depth_or_none,
-        repr=False,
-        compare=False,
-    )
-
-    def evaluate(self, ctx: EvalContext) -> object:
-        return _cached_expression_value(
-            ctx,
-            self.repeat_depth,
-            self.id,
-            lambda: self._evaluate_uncached(ctx),
-        )
+    id: int = _expression_id_field()
+    repeat_depth: int | None = _repeat_depth_field()
 
     def _evaluate_uncached(self, ctx: EvalContext) -> object:
         values = tuple(resolve_value(arg, ctx) for arg in self.args)
@@ -191,22 +140,10 @@ class RandomExpression(Expression):
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class ChoiceExpression(Expression):
+class ChoiceExpression(_CachedExpression):
     source: Expression
-    id: int = field(default_factory=_next_expression_id, repr=False, compare=False)
-    repeat_depth: int | None = field(
-        default_factory=_current_repeat_depth_or_none,
-        repr=False,
-        compare=False,
-    )
-
-    def evaluate(self, ctx: EvalContext) -> object:
-        return _cached_expression_value(
-            ctx,
-            self.repeat_depth,
-            self.id,
-            lambda: self._evaluate_uncached(ctx),
-        )
+    id: int = _expression_id_field()
+    repeat_depth: int | None = _repeat_depth_field()
 
     def _evaluate_uncached(self, ctx: EvalContext) -> object:
         source = resolve_value(self.source, ctx)

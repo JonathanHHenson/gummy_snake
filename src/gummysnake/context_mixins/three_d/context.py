@@ -7,7 +7,7 @@ from enum import Enum, auto
 from typing import Any, Literal, cast, overload
 
 from gummysnake import constants as c
-from gummysnake.context_mixins.three_d.camera import ThreeDCameraMixin
+from gummysnake.context_mixins.three_d.camera_runtime import ThreeDCameraMixin
 from gummysnake.context_mixins.three_d.material import ThreeDMaterialMixin
 from gummysnake.context_mixins.three_d.model import ThreeDModelMixin
 from gummysnake.context_mixins.three_d.primitives import ThreeDPrimitivesMixin

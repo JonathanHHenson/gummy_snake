@@ -30,12 +30,6 @@ mod row_local;
 mod spatial;
 mod typed_ir;
 
-// Compatibility facades retain the imports used by independently owned
-// row-local and spatial packages while their implementations live by family.
-mod aggregate_eval;
-mod f64_program;
-mod value_ops;
-
 pub(in crate::execution) use self::executor::{
     DirectF64SetSpec, EvalContext, ExprCacheKey, PlanExecutor, QueryIndices, QueryLocationCache,
     QueryRows, WriteKey,

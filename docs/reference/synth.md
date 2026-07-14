@@ -19,7 +19,7 @@ sound = track.to_sound("bassline.wav", duration=sy.duration(secs=8))
 
 ## Runtime organization
 
-The public `gummysnake.synth` and `gummysnake.synth.core` modules are stable compatibility facades. Internally, `synth_runtime` has one-way, documented areas so contributors can follow a track from source composition to Rust-owned audio execution:
+The public `gummysnake.synth` module is the canonical synth API. Internally, `synth_runtime` has one-way, documented areas so contributors can follow a track from source composition to Rust-owned audio execution:
 
 - `composition/` records decorators, contexts, event APIs, logical nodes, and plan builders.
 - `values/` owns deterministic lazy expressions, rings, music helpers, and immutable synth/FX specifications.

@@ -90,7 +90,6 @@ def simulate_bodies(body: ecs.Query[ecs.Tag[BODY_TAG], Body3D]) -> None:
         radius=PERCEPTION_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=PERCEPTION_RADIUS, dimensions=3),
         include_self=False,
-        allow_fallback=False,
         name="temporary_3d_body_neighbors",
     )
     count = neighbors.count()

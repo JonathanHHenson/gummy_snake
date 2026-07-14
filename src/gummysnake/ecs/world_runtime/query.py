@@ -6,16 +6,27 @@ import itertools
 from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.actions import Action, UdfArgument, action_write_targets
-from gummysnake.ecs.expressions import Expression, FieldExpression, QueryProxy, expression_queries
-from gummysnake.ecs.helpers import ExpressionInput
-from gummysnake.ecs.runtime_views import Entity, EntityView
+from gummysnake.ecs.logical_plan.actions import Action, UdfArgument, action_write_targets
+from gummysnake.ecs.logical_plan.expressions import (
+    Expression,
+    ExpressionInput,
+    FieldExpression,
+    QueryProxy,
+    expression_queries,
+)
+from gummysnake.ecs.logical_plan.specifications import (
+    ChangeTerm,
+    Query,
+    QuerySpec,
+    TagTerm,
+    WithoutTerm,
+)
+from gummysnake.ecs.runtime_view_model import Entity, EntityView
 from gummysnake.ecs.schema_helpers import _schema_name
-from gummysnake.ecs.specifications import ChangeTerm, Query, QuerySpec, TagTerm, WithoutTerm
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 type MaterializedUdfArgument = list[EntityView] | ExpressionInput

@@ -6,9 +6,9 @@ from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
 from gummysnake.api.current import require_context
-from gummysnake.ecs.systems import SystemDefinition
+from gummysnake.ecs.logical_plan.systems import SystemDefinition
 from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
-from gummysnake.ecs.world import Entity, EntityView, SystemHandle
+from gummysnake.ecs.world_facade import Entity, EntityView, SystemHandle
 
 
 def add_entity(*components: DataclassInstance, tags: Iterable[EcsTag] = ()) -> Entity:
@@ -214,7 +214,6 @@ def add_system(
     before: Iterable[str] = (),
     after: Iterable[str] = (),
     run_if: Callable[[], bool] | None = None,
-    set: str | Iterable[str] | None = None,
     group: str | Iterable[str] | None = None,
 ) -> SystemHandle:
     """Register an ``@ecs.system`` or ``@ecs.system_plan`` with the active sketch.
@@ -226,7 +225,6 @@ def add_system(
         before: Groups that should run after this system's implicit group.
         after: Groups that should run before this system's implicit group.
         run_if: Optional callback checked before each scheduled run.
-        set: Deprecated alias for ``group``.
         group: Optional explicit system group name or sequence of group names.
 
     Returns:
@@ -240,7 +238,6 @@ def add_system(
         before=before,
         after=after,
         run_if=run_if,
-        set=set,
         group=group,
     )
 
@@ -286,17 +283,6 @@ def configure_ecs(*, strict: bool | None = None, warn_on_ambiguity: bool | None 
     require_context().configure_ecs(strict=strict, warn_on_ambiguity=warn_on_ambiguity)
 
 
-def configure_system_set(
-    name: str,
-    *,
-    enabled: bool | None = None,
-    run_if: Callable[[], bool] | None = None,
-) -> None:
-    """Deprecated alias for ``group(name, enabled=..., run_if=...)``."""
-
-    require_context().configure_system_set(name, enabled=enabled, run_if=run_if)
-
-
 def group(
     name: str,
     *,
@@ -339,7 +325,6 @@ __all__ = [
     "add_tag",
     "configure_ecs",
     "clear_events",
-    "configure_system_set",
     "despawn_entity",
     "disable_system",
     "ecs_diagnostics",

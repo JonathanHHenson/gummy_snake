@@ -6,7 +6,7 @@ from pathlib import Path
 from time import monotonic
 from typing import Any, cast
 
-from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
+from gummysnake.exceptions import BackendCapabilityError
 from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
 from gummysnake.synth.synth_runtime.physical.rendering import _require_synth_runtime
 from gummysnake.synth.synth_runtime.values.foundation import _SAMPLE_RATE
@@ -33,18 +33,11 @@ class TrackPlayback:
         plan: PhysicalPlan,
         *,
         sample_rate: int = _SAMPLE_RATE,
-        player_factory: Any | None = None,
         look_ahead: float = 0.05,
         name: str = "gummysnake-track",
         rolling: bool = False,
         rendered_cache: _RenderedTrackCacheEntry | None = None,
-        **_legacy_options: object,
     ) -> None:
-        if player_factory is not None:
-            raise ArgumentValidationError(
-                "Custom track player factories are no longer supported; realtime playback "
-                "requires the native Gummy Snake SDL3 audio manager."
-            )
         self._plan = plan
         self._sample_rate = int(sample_rate)
         self._name = name

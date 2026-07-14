@@ -1,4 +1,4 @@
-"""Implementation chunks for :mod:`gummysnake.assets.audio`."""
+"""Implementation chunks for :mod:`gummysnake.assets.audio_runtime`."""
 
 from __future__ import annotations
 

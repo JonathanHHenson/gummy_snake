@@ -9,7 +9,6 @@ pub(crate) use self::model::{
     create_plane_model_handle, create_sphere_model_handle, create_torus_model_handle,
     model_to_mesh_payload, parse_obj_model_handle, CanvasMesh3D, CanvasModel3D,
 };
-pub(crate) use self::obj::{normalize_obj_model, parse_obj_text};
 pub(crate) use self::render::{
     model_gpu_buffers, model_gpu_uniform_from_payloads, model_matrix_from_transform,
     model_matrix_from_translation_quaternion, project_mesh_payload_faces, rasterize_faces_rgba,

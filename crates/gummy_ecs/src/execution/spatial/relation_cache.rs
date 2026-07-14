@@ -6,10 +6,10 @@ use crate::error::{EcsError, Result};
 use crate::plan::{SpatialBoundsExprNode, SpatialRelationNode};
 use crate::spatial::{SpatialAabb, SpatialPoint, SpatialRecord};
 
-use super::super::value_ops::{numeric_f64, truthy};
 use super::super::{EvalContext, PlanExecutor};
 use super::helpers::point_bounds;
 use super::support::effective_query_radius;
+use crate::execution::interpreter::value_ops::{numeric_f64, truthy};
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn spatial_relation_records(

@@ -7,7 +7,7 @@ import math
 
 import gummysnake as gs
 from examples.common import example_parser, save_once
-from gummysnake.core.input_events import KeyboardEvent, MouseEvent
+from gummysnake.core.input_event_model import KeyboardEvent, MouseEvent
 
 from .constants import ASSETS, CANVAS_HEIGHT, CANVAS_WIDTH, INVULNERABLE_FRAMES, OUTPUT
 from .helpers import key_matches

@@ -23,7 +23,7 @@ from gummysnake.backend.canvas_runtime.renderer.renderer_state.payloads import (
     style_payload,
     text_metric_key,
 )
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import BackendCapabilityError
 

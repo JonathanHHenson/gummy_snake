@@ -5,7 +5,7 @@
 //! primitive oscillator families, layered oscillator banks, sample readers, and
 //! a reviewed subset of stateful FX. FX handles are compiled into a shared bus
 //! graph; unsupported processors fail during construction and are never
-//! delegated to the legacy duration-sized renderer.
+//! delegated to a duration-sized renderer.
 
 use super::*;
 use crate::program::{CompiledBlockFxKind, CompiledEventData, CompiledEventKind, CompiledFxData};
@@ -2058,7 +2058,7 @@ impl BlockFx {
             ],
             CompiledBlockFxKind::Unsupported => {
                 return Err(SynthError::new(format!(
-                    "stateful block renderer does not yet support FX {:?}; no legacy or dry-pass fallback is used.",
+                    "stateful block renderer does not yet support FX {:?}; no alternate or dry-pass fallback is used.",
                     payload.name
                 )))
             }
@@ -3073,7 +3073,7 @@ struct RenderState {
 /// Rust-owned session that renders supported compiled programs into fixed blocks.
 ///
 /// Construction fails for every unsupported source, shared bus, control, or
-/// processor instead of selecting a legacy renderer. `gummy_canvas` uses this
+/// processor instead of selecting another renderer. `gummy_canvas` uses this
 /// same session for bounded SDL render-ahead delivery.
 pub struct StatefulBlockRenderer {
     program: CompiledSynthProgram,

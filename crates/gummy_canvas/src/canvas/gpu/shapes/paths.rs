@@ -1,4 +1,7 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::{Matrix, Point};
+use crate::types::{BlendMode, Rgba};
+use pyo3::prelude::*;
 
 use super::records::{
     path_fill_arc_records, path_fill_polygon_records, path_fill_segment_records,

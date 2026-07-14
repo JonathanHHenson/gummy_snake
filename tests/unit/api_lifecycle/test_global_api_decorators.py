@@ -4,7 +4,7 @@ import pytest
 
 import gummysnake as gs
 from gummysnake.api.current import require_context
-from gummysnake.core.input_events import KeyboardEvent, MouseEvent
+from gummysnake.core.input_event_model import KeyboardEvent, MouseEvent
 from gummysnake.core.vector import Vector
 
 

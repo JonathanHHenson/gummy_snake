@@ -10,8 +10,8 @@ from gummysnake.ecs.physical_payload.queries import query_payload
 from gummysnake.ecs.physical_payload.types import BRIDGE_PLAN_VERSION, BridgePayload, PayloadState
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.systems import BuiltSystem
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.logical_plan.systems import BuiltSystem
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 class PhysicalPayloadBuilder:

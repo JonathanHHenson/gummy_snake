@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from gummysnake.assets._paths import resolve_asset_path
 from gummysnake.assets.sound_runtime.canvas_sound import CanvasSound
@@ -20,14 +19,8 @@ class Sound(_RuntimeSound):
         *,
         path: Path,
         rust_sound: CanvasSound | None = None,
-        player_factory: Any | None = None,
     ) -> None:
-        super().__init__(
-            source,
-            path=path,
-            rust_sound=rust_sound,
-            player_factory=player_factory,
-        )
+        super().__init__(source, path=path, rust_sound=rust_sound)
 
 
 def load_sound(path: str | Path) -> Sound:

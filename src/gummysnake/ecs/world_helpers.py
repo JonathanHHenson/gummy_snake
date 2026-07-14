@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from gummysnake.ecs.actions import Action, DefaultAction, ForEachAction, WhenAction
-from gummysnake.ecs.runtime_views import Entity, SystemHandle
+from gummysnake.ecs.logical_plan.actions import Action, DefaultAction, ForEachAction, WhenAction
+from gummysnake.ecs.runtime_view_model import Entity, SystemHandle
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 def _handle_matches(handle: SystemHandle, value: SystemHandle | str) -> bool:

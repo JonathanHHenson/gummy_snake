@@ -378,7 +378,7 @@ mod tests {
                     field: "dt".to_string(),
                 },
                 ExprNode::Binary {
-                    op: "+".to_string(),
+                    op: "add".to_string(),
                     left: 0,
                     right: 1,
                 },

@@ -11,7 +11,7 @@ mod uniforms;
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBytes, PyDict, PyList};
+use pyo3::types::{PyAny, PyBytes, PyList};
 
 use crate::software3d;
 
@@ -19,22 +19,6 @@ pub(crate) use payload::model_to_payload_dict;
 pub(crate) use uniforms::{
     model_gpu_translation_quaternion_uniforms, model_gpu_uniform, model_gpu_uniforms,
 };
-
-#[pyfunction]
-pub(crate) fn parse_obj_model<'py>(
-    py: Python<'py>,
-    text: &str,
-    source: &str,
-    normalize: bool,
-) -> PyResult<Bound<'py, PyDict>> {
-    let parsed = software3d::parse_obj_text(text, source)?;
-    let parsed = if normalize {
-        software3d::normalize_obj_model(parsed)
-    } else {
-        parsed
-    };
-    model_to_payload_dict(py, &parsed)
-}
 
 #[pyfunction]
 pub(crate) fn create_mesh3d_handle(
@@ -138,34 +122,6 @@ pub(crate) fn create_torus_model_handle(
     detail_y: usize,
 ) -> PyResult<software3d::CanvasModel3D> {
     software3d::create_torus_model_handle(radius, tube_radius, detail_x, detail_y)
-}
-
-#[pyfunction]
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn project_shade_faces<'py>(
-    py: Python<'py>,
-    meshes: &Bound<'py, PyAny>,
-    camera: &Bound<'py, PyAny>,
-    projection: &Bound<'py, PyAny>,
-    viewport_width: f64,
-    viewport_height: f64,
-    material: &Bound<'py, PyAny>,
-    lights: &Bound<'py, PyAny>,
-    normal_material: bool,
-    cull_backfaces: bool,
-) -> PyResult<Bound<'py, PyList>> {
-    projection::project_shade_faces(
-        py,
-        meshes,
-        camera,
-        projection,
-        viewport_width,
-        viewport_height,
-        material,
-        lights,
-        normal_material,
-        cull_backfaces,
-    )
 }
 
 #[pyfunction(signature = (model, camera, projection, viewport_width, viewport_height, material, lights, normal_material, cull_backfaces, transform=None))]

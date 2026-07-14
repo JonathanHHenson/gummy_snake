@@ -148,25 +148,8 @@ def test_image_save_uses_png_or_rejects_an_unsupported_suffix(tmp_path) -> None:
         image.rust_image.save(tmp_path / "image.jpg")
 
 
-def test_image_deferred_methods_raise_package_specific_errors() -> None:
+def test_image_pixel_density_setter_is_not_supported() -> None:
     image = gs.create_image(1, 1)
 
-    with pytest.raises(UnsupportedFeatureError, match="Image.blend"):
-        image.blend(0, 0, 1, 1, 0, 0, 1, 1, gs.BLEND)
     with pytest.raises(UnsupportedFeatureError, match="pixel_density"):
         image.pixel_density(2)
-    with pytest.raises(UnsupportedFeatureError, match="Animated image"):
-        image.delay(100)
-    with pytest.raises(UnsupportedFeatureError, match="Animated image"):
-        image.play()
-    with pytest.raises(UnsupportedFeatureError, match="Animated image"):
-        image.pause()
-    with pytest.raises(UnsupportedFeatureError, match="Animated image"):
-        image.reset()
-    with pytest.raises(UnsupportedFeatureError, match="Animated image"):
-        image.get_current_frame()
-    with pytest.raises(UnsupportedFeatureError, match="Animated image"):
-        image.set_frame(1)
-
-    image.set_frame(0)
-    assert image.num_frames() == 1

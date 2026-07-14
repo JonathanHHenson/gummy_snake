@@ -129,59 +129,6 @@ fn parse_pcm_s16_wav_core(bytes: &[u8]) -> Result<PcmS16Wav, PlaybackWavError> {
     })
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum DurationWavError {
-    MalformedChunkLength,
-    MalformedFmtChunk,
-}
-
-impl DurationWavError {
-    fn message(self) -> &'static str {
-        match self {
-            Self::MalformedChunkLength => "Could not load WAV sound: malformed chunk length.",
-            Self::MalformedFmtChunk => "Could not load WAV sound: malformed fmt chunk.",
-        }
-    }
-}
-
-pub(super) fn wav_duration_seconds(bytes: &[u8]) -> PyResult<Option<f64>> {
-    wav_duration_seconds_core(bytes).map_err(|error| PyValueError::new_err(error.message()))
-}
-
-fn wav_duration_seconds_core(bytes: &[u8]) -> Result<Option<f64>, DurationWavError> {
-    let wav = match gummy_synth::codec::parse_riff_wav(bytes) {
-        Ok(wav) => wav,
-        Err(gummy_synth::codec::RiffWavError::InvalidHeader) => return Ok(None),
-        Err(gummy_synth::codec::RiffWavError::MalformedChunkLength) => {
-            return Err(DurationWavError::MalformedChunkLength);
-        }
-        Err(gummy_synth::codec::RiffWavError::MalformedFmtChunk) => {
-            return Err(DurationWavError::MalformedFmtChunk);
-        }
-    };
-
-    let Some(channels) = wav.channels else {
-        return Ok(None);
-    };
-    let Some(sample_rate) = wav.sample_rate else {
-        return Ok(None);
-    };
-    let Some(bits_per_sample) = wav.bits_per_sample else {
-        return Ok(None);
-    };
-    let Some(data) = wav.data else {
-        return Ok(None);
-    };
-    let bytes_per_sample = u32::from(bits_per_sample).div_ceil(8);
-    let frame_bytes = u32::from(channels).saturating_mul(bytes_per_sample);
-    if sample_rate == 0 || frame_bytes == 0 {
-        return Ok(None);
-    }
-    Ok(Some(
-        data.len() as f64 / frame_bytes as f64 / sample_rate as f64,
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,15 +172,8 @@ mod tests {
         }
     }
 
-    fn duration_error(bytes: &[u8]) -> DurationWavError {
-        match wav_duration_seconds_core(bytes) {
-            Ok(_) => panic!("expected WAV duration probing to fail"),
-            Err(error) => error,
-        }
-    }
-
     #[test]
-    fn playback_parser_keeps_pcm_s16_contract_and_legacy_error_messages() {
+    fn playback_parser_enforces_pcm_s16_contract() {
         let valid = riff(&[
             (*b"JUNK", vec![1, 2, 3]),
             (*b"fmt ", pcm_fmt(1, 2, 8_000, 16)),
@@ -292,50 +232,5 @@ mod tests {
         for (bytes, expected) in cases {
             assert_eq!(playback_error(bytes).message(), *expected);
         }
-    }
-
-    #[test]
-    fn duration_probe_retains_its_permissive_metadata_policy() {
-        assert_eq!(
-            wav_duration_seconds_core(b"not a wav").expect("non-WAV is not an error"),
-            None
-        );
-
-        let unknown_and_padded = riff(&[
-            (*b"JUNK", vec![1]),
-            (*b"fmt ", pcm_fmt(3, 2, 8_000, 16)),
-            (*b"data", vec![0; 16]),
-        ]);
-        assert_eq!(
-            wav_duration_seconds_core(&unknown_and_padded).expect("metadata duration is available"),
-            Some(16.0 / 4.0 / 8_000.0)
-        );
-
-        let zero_rate = riff(&[(*b"fmt ", pcm_fmt(1, 1, 0, 16)), (*b"data", vec![0, 0])]);
-        let zero_channels = riff(&[(*b"fmt ", pcm_fmt(1, 0, 8_000, 16)), (*b"data", vec![0, 0])]);
-        let missing_data = riff(&[(*b"fmt ", pcm_fmt(1, 1, 8_000, 16))]);
-        assert_eq!(
-            wav_duration_seconds_core(&zero_rate).expect("zero rate remains no duration"),
-            None
-        );
-        assert_eq!(
-            wav_duration_seconds_core(&zero_channels).expect("zero channels remains no duration"),
-            None
-        );
-        assert_eq!(
-            wav_duration_seconds_core(&missing_data).expect("missing data remains no duration"),
-            None
-        );
-
-        let malformed_length = b"RIFF\0\0\0\0WAVEdata\x04\0\0\0\0\0";
-        let short_fmt = riff(&[(*b"fmt ", vec![0; 15])]);
-        assert_eq!(
-            duration_error(malformed_length).message(),
-            "Could not load WAV sound: malformed chunk length."
-        );
-        assert_eq!(
-            duration_error(&short_fmt).message(),
-            "Could not load WAV sound: malformed fmt chunk."
-        );
     }
 }

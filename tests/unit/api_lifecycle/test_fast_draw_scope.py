@@ -10,8 +10,8 @@ import pytest
 
 import gummysnake as gs
 from gummysnake import constants as c
-from gummysnake._fast_draw import FastDrawScope as CompatibilityFastDrawScope
 from gummysnake._fast_draw_math import _mat4_translation
+from gummysnake.fast_draw_runtime import FastDrawScope as ExportedFastDrawScope
 from gummysnake.fast_draw_runtime.scope import FastDrawScope
 
 _EXPECTED_SLOTS = (
@@ -227,10 +227,10 @@ def _scope() -> tuple[FastDrawScope, _FastContext]:
     return FastDrawScope(cast(Any, context)), context
 
 
-def test_fast_draw_scope_public_compatibility_slots_signatures_and_docs() -> None:
-    assert gs.FastDrawScope is CompatibilityFastDrawScope is FastDrawScope
+def test_fast_draw_scope_public_slots_signatures_and_docs() -> None:
+    assert gs.FastDrawScope is ExportedFastDrawScope is FastDrawScope
     assert FastDrawScope.__slots__ == _EXPECTED_SLOTS
-    assert inspect.signature(FastDrawScope) == inspect.signature(CompatibilityFastDrawScope)
+    assert inspect.signature(FastDrawScope) == inspect.signature(ExportedFastDrawScope)
     assert tuple(inspect.signature(FastDrawScope.image).parameters) == (
         "self",
         "image",
@@ -474,23 +474,3 @@ def test_fast_model_instances_forwards_once_without_mutating_the_transform_stack
     assert [record[1] for record in context.renderer._model_batch_state.records] == transforms
     assert scope._model_transform3d_payload() == transform_before
     assert scope._transform3d_stack == stack_before
-
-
-def test_fast_model_instances_fails_clearly_when_bulk_support_is_unavailable() -> None:
-    scope, context = _scope()
-    cast(Any, context)._draw_model_instances_fast = None
-    scope = FastDrawScope(cast(Any, context))
-
-    with pytest.raises(gs.BackendCapabilityError, match="bulk retained-model drawing support"):
-        scope.model_instances(cast(Any, _OpaqueModel()), ())
-
-
-def test_fast_model_preserves_the_legacy_direct_context_forward_when_no_batcher_exists() -> None:
-    scope, context = _scope()
-    cast(Any, context)._draw_model_fast = None
-    scope = FastDrawScope(cast(Any, context))
-    shape = cast(Any, _OpaqueModel())
-
-    scope.model(shape)
-
-    assert context.calls[-1] == ("model", (shape,), {})

@@ -150,7 +150,7 @@ captured image, and `duration` must produce a positive finite frame duration.
 - `create_fft(source=None, bins=1024, smoothing=0.0)`
 - `create_oscillator(waveform="sine", frequency=440.0, amplitude=1.0)`
 - `create_envelope(attack=0.01, decay=0.1, sustain=0.7, release=0.2)`
-- `create_filter(filter_type="lowpass", frequency=1000.0, resonance=0.0)`
+- `create_filter(filter_type="lowpass", frequency=1000.0)`
 - `create_audio_in(sample_rate=44100)`
 - `get_audio_context()`
 - `create_capture(...)`
@@ -223,8 +223,7 @@ exposed.
 
 `Graphics` is an offscreen canvas with isolated style, transform, pixel, and 3D
 state, built by the mandatory canvas backend. Its `drawing` property provides a
-statically visible drawing surface; direct calls such as `graphics.background()`
-and `graphics.rect()` remain supported. Use `snapshot()`, `to_rgba_bytes()`,
+statically visible drawing surface. Use `snapshot()`, `to_rgba_bytes()`,
 `save()`, or `image(graphics, x, y)` on another canvas. `pixel_density()` applies
 to the offscreen canvas backing buffer, and `remove()` releases its backend.
 `Framebuffer` extends `Graphics` with depth metadata for render-target workflows.

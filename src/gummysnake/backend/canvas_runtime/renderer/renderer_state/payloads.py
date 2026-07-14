@@ -7,7 +7,7 @@ from typing import Any, Protocol, cast
 
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.caches import LruCache
 from gummysnake.core.color import Color
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 
 _TEXT_METRIC_CACHE_LIMIT = 256

@@ -1,4 +1,9 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::Matrix;
+use crate::types::Style;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 mod fill;
 mod helpers;
 

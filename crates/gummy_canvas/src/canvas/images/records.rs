@@ -1,5 +1,7 @@
 use super::{BatchCanvasImage, BatchUniqueImage};
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::types::Style;
+use pyo3::prelude::*;
 
 impl Canvas {
     pub(crate) fn draw_image_batch_records(

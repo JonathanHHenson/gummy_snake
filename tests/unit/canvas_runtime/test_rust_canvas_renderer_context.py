@@ -93,7 +93,7 @@ def test_canvas_context_triangle_batches_before_quad_direct_shape_bridge(
 def test_canvas_renderer_records_simple_primitives_before_order_boundary() -> None:
     from gummysnake.backend.canvas_renderer import CanvasRenderer
     from gummysnake.core.color import Color
-    from gummysnake.core.state import StyleState
+    from gummysnake.core.state_facades import StyleState
     from gummysnake.core.transform import Matrix2D
     from tests.helpers.canvas_runtime.modules import FakeCanvasModule
 
@@ -125,7 +125,7 @@ def test_canvas_renderer_flushes_primitive_batch_before_image_pixel_and_backgrou
     from gummysnake.assets.image import Image
     from gummysnake.backend.canvas_renderer import CanvasRenderer
     from gummysnake.core.color import Color
-    from gummysnake.core.state import StyleState
+    from gummysnake.core.state_facades import StyleState
     from gummysnake.core.transform import Matrix2D
     from tests.helpers.canvas_runtime.modules import FakeCanvasModule
 

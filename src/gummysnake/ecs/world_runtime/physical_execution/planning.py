@@ -7,10 +7,10 @@ from contextlib import suppress
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.actions import Action
-from gummysnake.ecs.physical import PhysicalPlanUnsupported, build_physical_payload
-from gummysnake.ecs.runtime_views import _ScheduledSystem
-from gummysnake.ecs.systems import PlanBuiltSystem
+from gummysnake.ecs.logical_plan.actions import Action
+from gummysnake.ecs.logical_plan.systems import PlanBuiltSystem
+from gummysnake.ecs.physical_payload import PhysicalPlanUnsupported, build_physical_payload
+from gummysnake.ecs.runtime_view_model import _ScheduledSystem
 from gummysnake.ecs.world_helpers import (
     _contains_canvas_action,
     _contains_direct_udf_action,
@@ -28,7 +28,7 @@ from gummysnake.ecs.world_runtime.physical_execution.execution_reports import (
 from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 _PHYSICAL_COUNTERS: tuple[str, ...] = (

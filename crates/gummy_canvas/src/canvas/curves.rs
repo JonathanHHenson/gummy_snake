@@ -1,5 +1,11 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::config::*;
+use crate::raster::{stroke_width, Matrix};
 use crate::runtime::style::*;
+use crate::types::Style;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
+use std::f64::consts::PI;
 
 impl Canvas {
     pub(crate) fn ellipse_impl(

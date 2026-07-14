@@ -20,9 +20,6 @@ from .config import (
     Dimensions as Dimensions,
 )
 from .config import (
-    FallbackPolicy as FallbackPolicy,
-)
-from .config import (
     OutOfBoundsPolicy as OutOfBoundsPolicy,
 )
 from .config import (
@@ -34,16 +31,16 @@ from .config import (
 from .config import (
     UpdatePolicy as UpdatePolicy,
 )
-from .relations import (
+from .relation_model import (
     SpatialAabb,
     SpatialAggregateExpression,
     SpatialPoint,
     SpatialRelation,
 )
-from .relations import (
+from .relation_model import (
     SpatialDeltaProxy as SpatialDeltaProxy,
 )
-from .relations import (
+from .relation_model import (
     SpatialMetadataExpression as SpatialMetadataExpression,
 )
 

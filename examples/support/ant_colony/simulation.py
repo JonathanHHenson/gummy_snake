@@ -75,7 +75,6 @@ def _simulate_ant_query(
         radius=WALL_AVOID_RADIUS,
         algorithm=VOXEL_QUADTREE,
         include_self=False,
-        allow_fallback=False,
         name="ant_wall_avoidance",
     )
     wall_collisions = ecs.spatial.join(
@@ -86,7 +85,6 @@ def _simulate_ant_query(
         radius=WALL_COLLISION_RADIUS,
         algorithm=VOXEL_QUADTREE,
         include_self=False,
-        allow_fallback=False,
         name="ant_wall_collision",
     )
     food_contacts = ecs.spatial.join(
@@ -97,7 +95,6 @@ def _simulate_ant_query(
         radius=FOOD_COLLISION_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=FOOD_COLLISION_RADIUS, dimensions=2),
         include_self=False,
-        allow_fallback=False,
         name="ant_food_collision",
     )
     hills = ecs.spatial.join(
@@ -108,7 +105,6 @@ def _simulate_ant_query(
         radius=HOME_SCAN_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=HOME_SCAN_RADIUS, dimensions=2),
         include_self=False,
-        allow_fallback=False,
         name=f"{colony_name}_ant_home_scan",
     )
     center_trails = ecs.spatial.join(
@@ -119,7 +115,6 @@ def _simulate_ant_query(
         radius=PHEROMONE_SENSOR_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=PHEROMONE_SENSOR_RADIUS, dimensions=2),
         include_self=False,
-        allow_fallback=False,
         name="ant_center_pheromone_sensor",
     )
     left_trails = ecs.spatial.join(
@@ -130,7 +125,6 @@ def _simulate_ant_query(
         radius=PHEROMONE_SENSOR_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=PHEROMONE_SENSOR_RADIUS, dimensions=2),
         include_self=False,
-        allow_fallback=False,
         name="ant_left_pheromone_sensor",
     )
     right_trails = ecs.spatial.join(
@@ -141,7 +135,6 @@ def _simulate_ant_query(
         radius=PHEROMONE_SENSOR_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=PHEROMONE_SENSOR_RADIUS, dimensions=2),
         include_self=False,
-        allow_fallback=False,
         name="ant_right_pheromone_sensor",
     )
 

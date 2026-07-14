@@ -6,7 +6,7 @@ import re
 import gummysnake as gs
 import gummysnake.api.global_mode as global_mode
 from gummysnake.assets.image import ops as image_ops
-from gummysnake.core.input_events import (
+from gummysnake.core.input_event_model import (
     InputState,
     KeyboardEvent,
     MotionEvent,
@@ -37,7 +37,7 @@ def test_global_mode_all_exports_are_importable():
         assert hasattr(global_mode, name), name
 
 
-def test_cleanup_sensitive_compatibility_imports_remain_available():
+def test_canonical_grouped_imports_are_available():
     assert callable(image_ops.resize_rgba)
     assert callable(transform_model)
     assert InputState is not None

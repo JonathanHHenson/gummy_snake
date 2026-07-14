@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import cast
 
-from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer._protocols import _renderer
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
     ModelBatchKey,
     ModelTransformPayload,
 )
-
-
-def _renderer(self: object) -> CanvasRendererHost:
-    return cast(CanvasRendererHost, self)
 
 
 class CanvasRendererModelsMixin:

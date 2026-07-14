@@ -17,7 +17,7 @@ fn dynamic_band_limited_sampling_is_finite_and_rate_sensitive() {
 }
 
 #[test]
-fn standalone_event_wav_preserves_simple_legacy_pcm_exactly() {
+fn standalone_event_wav_preserves_simple_pcm_exactly() {
     let sample_rate = 8_000;
     let mut opts = OptMap::new();
     opts.insert("attack".to_owned(), SynthValue::Float(0.003));

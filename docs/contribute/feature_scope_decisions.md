@@ -42,7 +42,7 @@ render targets. Their backend-owned construction creates isolated headless
 `gummy_canvas` contexts with their own style, transform, pixel, and 3D state;
 `Graphics.snapshot()`/`to_rgba_bytes()` provide readback, and `remove()`
 releases the offscreen backend. `Graphics.drawing` is the statically documented
-drawing surface, while direct canvas-method forwarding remains compatible.
+drawing surface.
 `Framebuffer` extends `Graphics` with depth-attachment metadata for render-target
 workflows. No DOM, browser canvas, Pillow, Pyglet, or Python image fallback is
 exposed.

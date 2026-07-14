@@ -5,7 +5,6 @@ use crate::entity::Entity;
 use crate::error::{EcsError, Result};
 use crate::plan::ActionNode;
 
-use super::super::super::f64_program::{eval_compiled_f64_readonly, CompiledF64ReadOnlyProgram};
 use super::super::super::{
     truthy_f64, ExecutionCanvasCommand, ExecutionCanvasFillRecord, PlanExecutor,
 };
@@ -13,6 +12,9 @@ use super::{
     canvas_fill_primitive_supported, canvas_fill_record, collect_fill_batch_for_row_compiled,
     compiled_canvas_cache_for_program, eval_canvas_command_f64_args_with_world, parse_canvas_fill,
     CanvasFill, RowLocalFillBatch,
+};
+use crate::execution::optimized::f64_program::{
+    eval_compiled_f64_readonly, CompiledF64ReadOnlyProgram,
 };
 
 impl<'a> PlanExecutor<'a> {

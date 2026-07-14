@@ -6,12 +6,12 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.expressions import Expression, QueryProxy, replace_query
+from gummysnake.ecs.logical_plan.expressions import Expression, QueryProxy, replace_query
 from gummysnake.ecs.spatial.config import Dimensions
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.spatial.relation_model.relation import SpatialRelation
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 @dataclass(frozen=True)

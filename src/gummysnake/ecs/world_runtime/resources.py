@@ -6,7 +6,7 @@ import copy
 from dataclasses import fields, is_dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.runtime_views import ResourceView
+from gummysnake.ecs.runtime_view_model import ResourceView
 from gummysnake.ecs.schema_helpers import (
     _dataclass_field_dict,
     _event_payload_from_bridge,
@@ -19,7 +19,7 @@ from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsStor
 from gummysnake.exceptions import ComponentSchemaError, MissingResourceError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 def set_resource(world: EcsWorld, resource: DataclassInstance) -> None:

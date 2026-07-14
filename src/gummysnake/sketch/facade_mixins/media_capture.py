@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from gummysnake.assets.audio import AudioInput
+from gummysnake.assets.audio_runtime import AudioInput
 from gummysnake.assets.media import AudioVideoCapture, Capture, Video
 from gummysnake.assets.media import create_capture as _create_capture
 from gummysnake.assets.media import create_capture_async as _create_capture_async

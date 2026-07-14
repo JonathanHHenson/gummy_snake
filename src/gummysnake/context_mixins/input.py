@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 from gummysnake import constants as c
 from gummysnake.api.current import activate_context
 from gummysnake.backend.canvas_runtime import events as canvas_events
-from gummysnake.core.input_events import (
+from gummysnake.core.input_event_model import (
     KeyboardEvent,
     MotionEvent,
     MouseEvent,

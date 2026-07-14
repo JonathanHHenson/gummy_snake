@@ -4,13 +4,13 @@ use crate::error::{EcsError, Result};
 use crate::plan::{ExprNode, SpatialRelationNode};
 use crate::spatial::SpatialRecord;
 
-use super::super::super::value_ops::{bool_f64, literal_expr_numeric, truthy_f64};
 use super::super::super::{EvalContext, PlanExecutor};
 use super::super::helpers::{dimensions_len, direct_distance_squared};
 use super::super::support::{
     effective_query_radius, BuiltSpatialIndex, SpatialBatchAccum, SpatialBatchValue,
     SpatialPrecomputeLayout,
 };
+use crate::execution::interpreter::value_ops::{bool_f64, literal_expr_numeric, truthy_f64};
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution) fn precompute_direct_spatial_aggregates_for_query(

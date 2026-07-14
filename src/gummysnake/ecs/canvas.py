@@ -11,7 +11,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from gummysnake.ecs.expression_tools import ExpressionInput
+from gummysnake.ecs.logical_plan.expressions import ExpressionInput
 from gummysnake.exceptions import SystemPlanError
 
 
@@ -22,9 +22,9 @@ def _literal_arg(value: Any) -> Any:
 
 
 def _canvas_call(command: str, *args: ExpressionInput) -> None:
-    from gummysnake.ecs.action_tools.building import active_build_session, append_action
-    from gummysnake.ecs.actions import DefaultAction
-    from gummysnake.ecs.expressions import ensure_expr
+    from gummysnake.ecs.logical_plan.actions import DefaultAction
+    from gummysnake.ecs.logical_plan.building import active_build_session, append_action
+    from gummysnake.ecs.logical_plan.expressions import ensure_expr
 
     if not active_build_session():
         raise SystemPlanError(

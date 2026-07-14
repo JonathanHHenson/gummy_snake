@@ -4,13 +4,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
+from gummysnake.ecs.logical_plan.systems import BuiltSystem
 from gummysnake.ecs.runtime_view_model.component_resource_views import ComponentView
 from gummysnake.ecs.runtime_view_model.entity_mutation import ComponentT, Entity
-from gummysnake.ecs.systems import BuiltSystem
 from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 
 if TYPE_CHECKING:
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 class EntityView:

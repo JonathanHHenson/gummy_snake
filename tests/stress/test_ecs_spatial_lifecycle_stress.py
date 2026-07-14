@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import pytest
 
 from gummysnake import ecs
-from gummysnake.ecs.world import EcsWorld
+from gummysnake.ecs.world_facade import EcsWorld
 
 pytestmark = pytest.mark.stress
 
@@ -32,7 +32,6 @@ def _spatial_system(radius: float):
             radius=radius,
             algorithm=ecs.spatial.HashGrid(cell_size=max(1.0, radius)),
             include_self=False,
-            allow_fallback=False,
         )
         entity[Position].y.set_to(neighbors.count())
 

@@ -15,72 +15,83 @@ from __future__ import annotations
 
 from typing import Any
 
-from gummysnake.synth.core import (
-    Duration,
-    Format,
+from gummysnake.synth.synth_runtime.composition.context_managers import (
+    fx,
+    fx_input,
+    fx_output,
+    loop,
+    synth,
+    synth_input,
+    synth_output,
+    use_synth,
+)
+from gummysnake.synth.synth_runtime.composition.definitions import (
     FxDefinition,
-    FxHandle,
-    FxSignal,
-    NodeHandle,
-    PhysicalPlan,
-    Ring,
     SynthDefinition,
-    SynthPlanError,
-    SynthRuntimeDiagnostics,
-    SynthSignal,
-    Track,
     TrackDefinition,
-    TrackInstance,
-    TrackPlan,
-    TrackPlayback,
+)
+from gummysnake.synth.synth_runtime.composition.event_api import (
+    control,
+    play,
+    sample,
+    sample_duration,
+    sleep,
+    thread,
+    when,
+)
+from gummysnake.synth.synth_runtime.composition.logical_nodes import NodeHandle, TrackPlan
+from gummysnake.synth.synth_runtime.composition.track_decorator import track
+from gummysnake.synth.synth_runtime.physical.execution import (
+    SynthRuntimeDiagnostics,
     WorkerCount,
-    bools,
+    configure_workers,
+    reset_synth_diagnostics,
+    synth_diagnostics,
+)
+from gummysnake.synth.synth_runtime.physical.physical_plan import PhysicalPlan
+from gummysnake.synth.synth_runtime.playback_export.playback import TrackPlayback
+from gummysnake.synth.synth_runtime.playback_export.track import (
+    Track,
     builtin_fx_names,
     builtin_fx_path,
     builtin_synth_names,
     builtin_synth_path,
-    choose,
-    chord,
-    configure_workers,
-    control,
-    dice,
-    duration,
-    fx,
-    fx_input,
-    fx_output,
-    knit,
-    line,
     load_builtin_fx_plan,
     load_builtin_synth_plan,
     load_physical_plan,
+)
+from gummysnake.synth.synth_runtime.values.foundation import (
+    Duration,
+    Format,
+    SynthPlanError,
+    duration,
+)
+from gummysnake.synth.synth_runtime.values.lazy_values import Ring, ring
+from gummysnake.synth.synth_runtime.values.pattern_helpers import (
+    bools,
+    choose,
+    chord,
+    dice,
+    knit,
+    line,
     look,
-    loop,
     note,
     note_frequency,
     octs,
     one_in,
-    play,
     rand,
     rand_i,
     range,
-    reset_synth_diagnostics,
-    ring,
     rrand,
     rrand_i,
-    sample,
-    sample_duration,
     scale,
-    sleep,
     spread,
-    synth,
-    synth_diagnostics,
-    synth_input,
-    synth_output,
-    thread,
     tick,
-    track,
-    use_synth,
-    when,
+)
+from gummysnake.synth.synth_runtime.values.scales_and_specs import (
+    FxHandle,
+    FxSignal,
+    SynthSignal,
 )
 
 
@@ -111,7 +122,6 @@ __all__ = [
     "SynthSignal",
     "Track",
     "TrackDefinition",
-    "TrackInstance",
     "TrackPlan",
     "TrackPlayback",
     "WorkerCount",

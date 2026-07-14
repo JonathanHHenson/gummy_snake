@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from gummysnake.context import SketchContext
-    from gummysnake.core.input_events import KeyboardEvent, MouseEvent, TouchEvent
+    from gummysnake.core.input_event_model import KeyboardEvent, MouseEvent, TouchEvent
     from gummysnake.plugins.registry import PluginRegistry
 
 

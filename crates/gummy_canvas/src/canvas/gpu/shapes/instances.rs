@@ -1,4 +1,5 @@
-use crate::prelude::*;
+use crate::raster::{Matrix, Point};
+use crate::types::Rgba;
 
 const PROCEDURAL_TRANSFORMED_RECT_KIND: f32 = 5.0;
 const PROCEDURAL_TRANSFORMED_TRIANGLE_KIND: f32 = 6.0;

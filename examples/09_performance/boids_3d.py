@@ -151,7 +151,6 @@ def _boid_neighbors(
         radius=PERCEPTION_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=PERCEPTION_RADIUS, dimensions=3),
         include_self=False,
-        allow_fallback=False,
         name="boid_neighbors",
     )
 

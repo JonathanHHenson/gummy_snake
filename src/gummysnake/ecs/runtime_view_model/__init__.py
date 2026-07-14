@@ -1,8 +1,7 @@
 """Canonical implementation package for ECS runtime views and handles.
 
-``gummysnake.ecs.runtime_views`` is the supported compatibility module. This
-package groups the implementations without moving their classes, so public
-objects retain identity and stable ``__module__`` metadata:
+This package groups the runtime-view implementations while preserving explicit
+ownership and stable ``__module__`` metadata:
 
 - :mod:`entity_mutation` owns immutable entity handles and explicit Python-UDF
   mutation annotations;
@@ -22,7 +21,6 @@ from gummysnake.ecs.runtime_view_model.entity_mutation import (
     Entity,
     EntityAnnotation,
     EntityMutation,
-    MutEntity,
     _copy_stored_value,
 )
 from gummysnake.ecs.runtime_view_model.runtime_handles import (
@@ -39,7 +37,6 @@ __all__ = [
     "EntityAnnotation",
     "EntityMutation",
     "EntityView",
-    "MutEntity",
     "ResourceView",
     "SystemHandle",
     "_RuntimeEventWriter",

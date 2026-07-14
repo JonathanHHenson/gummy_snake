@@ -3,47 +3,13 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
 
 use super::input::{
-    parse_camera_payload, parse_light_payloads, parse_material_payload, parse_mesh_payloads,
-    parse_projection_payload, parse_transform_payload,
+    parse_camera_payload, parse_light_payloads, parse_material_payload, parse_projection_payload,
+    parse_transform_payload,
 };
 use crate::software3d;
 use crate::software3d::model::types::{
     CameraPayload, LightPayload, MaterialPayload, ProjectedPayloadFace,
 };
-
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn project_shade_faces<'py>(
-    py: Python<'py>,
-    meshes: &Bound<'py, PyAny>,
-    camera: &Bound<'py, PyAny>,
-    projection: &Bound<'py, PyAny>,
-    viewport_width: f64,
-    viewport_height: f64,
-    material: &Bound<'py, PyAny>,
-    lights: &Bound<'py, PyAny>,
-    normal_material: bool,
-    cull_backfaces: bool,
-) -> PyResult<Bound<'py, PyList>> {
-    validate_viewport(viewport_width, viewport_height)?;
-    let mesh_payloads = parse_mesh_payloads(meshes)?;
-    let camera = parse_camera_payload(camera)?;
-    let projection = parse_projection_payload(projection)?;
-    software3d::validate_projection_payload(&projection)?;
-    let material = parse_material_payload(material)?;
-    let lights = parse_light_payloads(lights)?;
-    let mut faces = Vec::new();
-    for mesh in &mesh_payloads {
-        faces.extend(software3d::project_mesh_payload_faces(
-            mesh,
-            &camera,
-            &projection,
-            viewport_width,
-            viewport_height,
-            cull_backfaces,
-        )?);
-    }
-    projected_faces_to_py(py, faces, &camera, &material, &lights, normal_material)
-}
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn project_shade_model_handle<'py>(

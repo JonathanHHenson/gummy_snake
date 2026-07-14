@@ -12,7 +12,7 @@ from gummysnake.backend.canvas_runtime.renderer.command_ingress import (
     pack_matrix,
     pack_primitive_style,
 )
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 
 _PRIMITIVE_RECT = 1

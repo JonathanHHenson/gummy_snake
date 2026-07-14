@@ -1,8 +1,6 @@
 //! Private canonical names for string-based bridge operations.
 //!
-//! The bridge DTOs intentionally retain their string fields for wire and Rust
-//! source compatibility. Execution compiles those strings to these closed
-//! internal domains once per prepared plan.
+//! Bridge DTO strings compile to closed internal domains once per prepared plan.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum UnaryOp {
@@ -20,8 +18,8 @@ pub(crate) enum UnaryOp {
 impl UnaryOp {
     pub(crate) fn parse(name: &str) -> Self {
         match name {
-            "neg" | "-" => Self::Neg,
-            "not" | "!" => Self::Not,
+            "neg" => Self::Neg,
+            "not" => Self::Not,
             "abs" => Self::Abs,
             "sqrt" => Self::Sqrt,
             "sin" => Self::Sin,
@@ -58,23 +56,23 @@ pub(crate) enum BinaryOp {
 impl BinaryOp {
     pub(crate) fn parse(name: &str) -> Self {
         match name {
-            "add" | "+" => Self::Add,
-            "sub" | "-" => Self::Sub,
-            "mul" | "*" => Self::Mul,
-            "truediv" | "/" => Self::TrueDiv,
-            "floordiv" | "//" => Self::FloorDiv,
-            "mod" | "%" => Self::Mod,
-            "pow" | "**" => Self::Pow,
-            "lt" | "<" => Self::Lt,
-            "le" | "<=" => Self::Le,
-            "gt" | ">" => Self::Gt,
-            "ge" | ">=" => Self::Ge,
-            "eq" | "==" => Self::Eq,
-            "ne" | "!=" => Self::Ne,
+            "add" => Self::Add,
+            "sub" => Self::Sub,
+            "mul" => Self::Mul,
+            "truediv" => Self::TrueDiv,
+            "floordiv" => Self::FloorDiv,
+            "mod" => Self::Mod,
+            "pow" => Self::Pow,
+            "lt" => Self::Lt,
+            "le" => Self::Le,
+            "gt" => Self::Gt,
+            "ge" => Self::Ge,
+            "eq" => Self::Eq,
+            "ne" => Self::Ne,
             "min" => Self::Min,
             "max" => Self::Max,
-            "and" | "&&" => Self::And,
-            "or" | "||" => Self::Or,
+            "and" => Self::And,
+            "or" => Self::Or,
             _ => Self::Unknown,
         }
     }
@@ -112,13 +110,11 @@ pub(crate) enum PairPolicy {
 }
 
 impl PairPolicy {
-    pub(crate) fn parse(name: &str) -> Self {
-        // The legacy executor treated every unrecognised policy as `all`.
-        // Preserve that accepted-wire behaviour while removing repeated string
-        // comparisons from spatial hot paths.
+    pub(crate) fn parse(name: &str) -> Option<Self> {
         match name {
-            "unique_unordered" => Self::UniqueUnordered,
-            _ => Self::All,
+            "all" => Some(Self::All),
+            "unique_unordered" => Some(Self::UniqueUnordered),
+            _ => None,
         }
     }
 }
@@ -138,7 +134,7 @@ impl SpatialAlgorithmKind {
             "hash_grid" => Self::HashGrid,
             "quadtree" => Self::Quadtree,
             "octree" => Self::Octree,
-            "hilbert_curve" | "hilbert" => Self::Hilbert,
+            "hilbert_curve" => Self::Hilbert,
             _ => Self::Unknown,
         }
     }
@@ -197,27 +193,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn canonical_operator_aliases_cover_bridge_spellings() {
+    fn canonical_operator_names_compile() {
         for (name, expected) in [
             ("neg", UnaryOp::Neg),
-            ("-", UnaryOp::Neg),
             ("not", UnaryOp::Not),
-            ("!", UnaryOp::Not),
             ("floor", UnaryOp::Floor),
         ] {
             assert_eq!(UnaryOp::parse(name), expected, "{name}");
         }
         for (name, expected) in [
             ("add", BinaryOp::Add),
-            ("+", BinaryOp::Add),
             ("floordiv", BinaryOp::FloorDiv),
-            ("//", BinaryOp::FloorDiv),
             ("pow", BinaryOp::Pow),
-            ("**", BinaryOp::Pow),
             ("and", BinaryOp::And),
-            ("&&", BinaryOp::And),
             ("or", BinaryOp::Or),
-            ("||", BinaryOp::Or),
         ] {
             assert_eq!(BinaryOp::parse(name), expected, "{name}");
         }
@@ -226,22 +215,17 @@ mod tests {
     }
 
     #[test]
-    fn canonical_spatial_aliases_preserve_legacy_defaults() {
+    fn canonical_spatial_names_compile() {
         assert_eq!(AggregateKind::parse("mean"), AggregateKind::Mean);
         assert_eq!(AggregateKind::parse("invalid"), AggregateKind::Unknown);
-        assert_eq!(PairPolicy::parse("all"), PairPolicy::All);
+        assert_eq!(PairPolicy::parse("all"), Some(PairPolicy::All));
         assert_eq!(
             PairPolicy::parse("unique_unordered"),
-            PairPolicy::UniqueUnordered
+            Some(PairPolicy::UniqueUnordered)
         );
-        // Unknown policies were historically treated as `all` by the executor.
-        assert_eq!(PairPolicy::parse("legacy"), PairPolicy::All);
+        assert_eq!(PairPolicy::parse("invalid"), None);
         assert_eq!(
             SpatialAlgorithmKind::parse("hilbert_curve"),
-            SpatialAlgorithmKind::Hilbert
-        );
-        assert_eq!(
-            SpatialAlgorithmKind::parse("hilbert"),
             SpatialAlgorithmKind::Hilbert
         );
         assert_eq!(

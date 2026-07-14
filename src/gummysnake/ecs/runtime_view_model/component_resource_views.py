@@ -10,7 +10,7 @@ from gummysnake.ecs.schema_helpers import _schema_name, _validate_storage_value
 from gummysnake.exceptions import MissingComponentError
 
 if TYPE_CHECKING:
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 class ComponentView:

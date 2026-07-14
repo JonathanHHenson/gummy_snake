@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 import gummysnake as gs
 from examples.common import example_parser, save_once
 from gummysnake import ecs
-from gummysnake.ecs.actions import UdfIterableSource
+from gummysnake.ecs.logical_plan.actions import UdfIterableSource
 
 WIDTH = 900
 HEIGHT = 520

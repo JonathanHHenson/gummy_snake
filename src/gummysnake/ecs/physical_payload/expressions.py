@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import cast
 
-from gummysnake.ecs.actions import LoopItem, UdfCallExpression
-from gummysnake.ecs.expressions import (
+from gummysnake.ecs.logical_plan.actions import LoopItem, UdfCallExpression
+from gummysnake.ecs.logical_plan.expressions import (
     AttributeExpression,
     BinaryExpression,
     DeltatimeExpression,

@@ -1,6 +1,12 @@
 use super::layout::physical_font_size;
-use crate::prelude::*;
+use crate::assets::CachedTextMetrics;
+use crate::canvas_state::Canvas;
+use crate::text::{text_ascent as measure_text_ascent, text_descent as measure_text_descent};
+use crate::types::Style;
 use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn text_width_impl(

@@ -11,7 +11,7 @@ from pathlib import Path
 
 CATALOG_PATH = Path("examples/example_catalog.toml")
 TIER_ORDER = {"fast": 0, "extended": 1, "release": 2}
-ENTRY_CLASSIFICATIONS = {"entry_point", "compatibility_entry_point"}
+ENTRY_CLASSIFICATIONS = {"entry_point"}
 
 
 def _load_catalog(repo_root: Path) -> list[dict[str, object]]:

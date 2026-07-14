@@ -14,9 +14,8 @@ from gummysnake.drawing.renderer3d.types import (
     Projection3D,
 )
 
-Matrix2DPayload = tuple[float, float, float, float, float, float]
 Matrix4Payload = tuple[float, ...]
-ModelTransformPayload = Matrix2DPayload | Matrix4Payload
+ModelTransformPayload = Matrix4Payload
 _IDENTITY4: Matrix4Payload = (
     1.0,
     0.0,
@@ -150,16 +149,36 @@ def model_transform_payload(
 ) -> ModelTransformPayload | None:
     """Model transform payload.
 
-    ``Matrix2D`` values keep the legacy six-value affine payload. Fast 3D paths may pass a
-    full 4x4 transform as either a flat column-major 16-value sequence or conventional
-    row-major nested 4x4 rows.
+    ``Matrix2D`` values are promoted to a 4x4 transform. Fast 3D paths may pass a
+    flat column-major 16-value sequence or conventional row-major nested 4x4 rows.
     """
     if transform is None:
         return None
     if isinstance(transform, Matrix2D):
         if transform == Matrix2D.identity():
             return None
-        return (transform.a, transform.b, transform.c, transform.d, transform.e, transform.f)
+        z_scale = max(
+            (math.hypot(transform.a, transform.b) + math.hypot(transform.c, transform.d)) / 2.0,
+            1e-9,
+        )
+        return (
+            transform.a,
+            transform.b,
+            0.0,
+            0.0,
+            transform.c,
+            transform.d,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            z_scale,
+            0.0,
+            transform.e,
+            -transform.f,
+            0.0,
+            1.0,
+        )
     matrix = _coerce_matrix4_payload(transform)
     return None if matrix == _IDENTITY4 else matrix
 

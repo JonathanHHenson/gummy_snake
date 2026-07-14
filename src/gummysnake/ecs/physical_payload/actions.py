@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from gummysnake.ecs.actions import (
+from gummysnake.ecs.logical_plan.actions import (
     Action,
     DefaultAction,
     EventIterableSource,
@@ -13,7 +13,7 @@ from gummysnake.ecs.actions import (
     UdfIterableSource,
     WhenAction,
 )
-from gummysnake.ecs.expressions import ResourceProxy, expression_queries
+from gummysnake.ecs.logical_plan.expressions import ResourceProxy, expression_queries
 from gummysnake.ecs.physical_payload.expressions import ExpressionSerializer
 from gummysnake.ecs.physical_payload.helpers import bridge_literal_value, schema_name
 from gummysnake.ecs.physical_payload.types import BridgeNode, PayloadState, PhysicalPlanUnsupported

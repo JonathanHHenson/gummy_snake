@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:b74a0038adfbfca7e40319f72a8fff923411dce6f0a876a05d0d1855b2f8bf15",
+  "catalog_digest": "sha256:98dd7c6fabc792039364e3ba4ef66f521e6a38765b43303af07770202e3a1c87",
   "entries": [
     {
       "capabilities": [
@@ -8,7 +8,7 @@
       ],
       "case_id": "bounded-longevity-48x32",
       "correctness_label": "bounded-longevity-resources-world-digest",
-      "definition_digest": "sha256:200b7ef1078e4008aa5ae5274aaeb07a30c8fd0b7e4048f8dc98f4bd4c542eb6",
+      "definition_digest": "sha256:a4548482be68b575f1157a8a57051b46976c4b6fe861c97440e1b52b70e3dbcd",
       "metric_identity": {
         "id": "longevity-row-frame-elapsed-ns",
         "version": 1
@@ -71,7 +71,7 @@
       ],
       "case_id": "diagnostics-snapshot-reset",
       "correctness_label": "diagnostics-reset-counter-digest",
-      "definition_digest": "sha256:38669805fbead45a3db664f20b5ab3827b2c292d70e06ea579b47b990f25e597",
+      "definition_digest": "sha256:5aedb991ac1581ebe37d1e4c20ec5887a8bd72cf1940c1d8a2c78733a7194965",
       "metric_identity": {
         "id": "diagnostic-snapshot-elapsed-ns",
         "version": 1
@@ -138,7 +138,7 @@
       ],
       "case_id": "stale-strict-spatial-failures",
       "correctness_label": "actionable-failure-type-message-digest",
-      "definition_digest": "sha256:898f1f6b0b623748a9e6605464d3a75898cbc5b29d14e7dd73f08043e28889e3",
+      "definition_digest": "sha256:1e13d64f345957b75a97a4d18d55fd74d708c6f67d51a93b9fee0907008b234c",
       "metric_identity": {
         "id": "failure-check-elapsed-ns",
         "version": 1
@@ -192,7 +192,7 @@
       ],
       "case_id": "bounded-longevity-256x128",
       "correctness_label": "bounded-longevity-resources-world-digest",
-      "definition_digest": "sha256:c482b71bad8c273c8148490cdaeee319f462034956ddc767493de6ccac6eacef",
+      "definition_digest": "sha256:3522913185b5414ee8475952c42aa25305970e69747ab7db67791c204daf04a7",
       "metric_identity": {
         "id": "longevity-row-frame-elapsed-ns",
         "version": 1
@@ -255,7 +255,7 @@
       ],
       "case_id": "diagnostics-volume-1000x16-reset8",
       "correctness_label": "diagnostics-snapshot-reset-volume-digest",
-      "definition_digest": "sha256:91375e27fcc94b235bd6a5105033dac26162fd7567e64e3a719f04198c0ecb6e",
+      "definition_digest": "sha256:b8f20f4ba9ad8359d65da57420dfa1d3cc3f27741e12806425b2c863c8307dca",
       "metric_identity": {
         "id": "diagnostic-snapshot-elapsed-ns",
         "version": 1
@@ -318,7 +318,7 @@
       ],
       "case_id": "compact-fill-64x3",
       "correctness_label": "headless-world-frame-command-digest",
-      "definition_digest": "sha256:28dfb299d569bba0daff880586c2d4069a949f32dde42f730fd1ff04a219517e",
+      "definition_digest": "sha256:9e8ffab4eb72aa29b86bc5c6fe6f9c5c959ebd8501b2daf4117aa6828c254a79",
       "metric_identity": {
         "id": "headless-draw-record-elapsed-ns",
         "version": 1
@@ -380,7 +380,7 @@
       ],
       "case_id": "simulation-render-128x4",
       "correctness_label": "headless-simulation-world-frame-digest",
-      "definition_digest": "sha256:61dc68bf9154863316b2cb9b46d2115a426a5fb084dbc0fc3a6c1e1d2eaeb0f2",
+      "definition_digest": "sha256:da3ca7edb63ad433a89e8d7c36378c175d1a364a101fb6b172a5868e8e1e463e",
       "metric_identity": {
         "id": "headless-simulation-row-frame-ns",
         "version": 1
@@ -444,7 +444,7 @@
       ],
       "case_id": "compact-fill-1000x3",
       "correctness_label": "headless-world-frame-hidpi-route-digest",
-      "definition_digest": "sha256:403a249d87e9b68792391d8bf088b1f1009307d53cf9b8524881d75d8032fd0c",
+      "definition_digest": "sha256:cbafe7014de54c63a898019ec311ff916cb70bc19648f2ea7205000d35e2fb6c",
       "metric_identity": {
         "id": "headless-row-frame-elapsed-ns",
         "version": 1
@@ -510,7 +510,7 @@
       ],
       "case_id": "hidpi-fill-256x3-d2",
       "correctness_label": "headless-world-frame-hidpi-route-digest",
-      "definition_digest": "sha256:61f90c574e657d55a19d6c2adcd9fa12090866279c0b7dc02dcb4fe77a5a6d76",
+      "definition_digest": "sha256:79f5e29190a2a0eef529281d7d71b26f3705164ea1c7bb4d1ab1e49ee23bbfbd",
       "metric_identity": {
         "id": "headless-row-frame-elapsed-ns",
         "version": 1
@@ -577,7 +577,7 @@
       ],
       "case_id": "simulation-render-1000x8",
       "correctness_label": "headless-world-frame-hidpi-route-digest",
-      "definition_digest": "sha256:77446f60e046932b246cc30da2343138452c47703d3e12b7729c393b9d902773",
+      "definition_digest": "sha256:90a210119fef691aa8b84e1e015bb9fce6a7092e30edc7c729a705ab9bac812f",
       "metric_identity": {
         "id": "headless-row-frame-elapsed-ns",
         "version": 1
@@ -643,7 +643,7 @@
       ],
       "case_id": "simulation-render-64x600",
       "correctness_label": "headless-world-frame-hidpi-route-digest",
-      "definition_digest": "sha256:b0b6f9277a6e5b2d16a917c90bf83a61c5f8843218dc4caf950f04c642c6e457",
+      "definition_digest": "sha256:f5b9e2dbd3dab26535fb954faacbb77a9ea670e3b5cf9a2246e65e69f3b36154",
       "metric_identity": {
         "id": "headless-row-frame-elapsed-ns",
         "version": 1
@@ -707,7 +707,7 @@
       ],
       "case_id": "changed-filter-structural-remove-96",
       "correctness_label": "change-filter-deferred-structural-digest",
-      "definition_digest": "sha256:31c049df22cb832af7013be85888d18917cab925fb4ac9165015f62eda5268d3",
+      "definition_digest": "sha256:a4ec231d128b1c0baaf57bf709a9ff0a3173d109f4594c1dfa379a1445720a5a",
       "metric_identity": {
         "id": "mutation-row-elapsed-ns",
         "version": 1
@@ -764,7 +764,7 @@
       ],
       "case_id": "explicit-python-system-udf-128",
       "correctness_label": "python-system-udf-boundary-writeback-digest",
-      "definition_digest": "sha256:3ea696f78e64e92339f13f450f9916c2d96595052b303a52a5a09e8478bcca4d",
+      "definition_digest": "sha256:66a4044159b86aa945d8bdef8557add187444ff500fb666f97858acbb76280c4",
       "metric_identity": {
         "id": "python-boundary-row-elapsed-ns",
         "version": 1
@@ -823,7 +823,7 @@
       ],
       "case_id": "resource-event-reduction-128",
       "correctness_label": "resource-event-order-retention-digest",
-      "definition_digest": "sha256:5f83c46ffb84761137158effeb0eef3127c80858b94ee858cf8e91812f9275d4",
+      "definition_digest": "sha256:c13e4cb874d49cab77cb7c3db48c6e665a35a7e87df9baa2b0a59d0acd65118f",
       "metric_identity": {
         "id": "event-elapsed-ns",
         "version": 1
@@ -880,7 +880,7 @@
       ],
       "case_id": "udf-plan-inline-128",
       "correctness_label": "udf-plan-zero-runtime-python-digest",
-      "definition_digest": "sha256:02dc1a7db050624077202fa1c6c552383b82270d3a5a6053099c299375fe2f24",
+      "definition_digest": "sha256:fbe54479846273cfe4442dcb62c7034e55c580d8233e1baa54e43a9983ab55e3",
       "metric_identity": {
         "id": "udf-plan-row-elapsed-ns",
         "version": 1
@@ -937,7 +937,7 @@
       ],
       "case_id": "events-0-readers-1",
       "correctness_label": "event-volume-reader-order-cleanup-digest",
-      "definition_digest": "sha256:ce4d96fd10519a1584b8985c424223ea3b4e56cc0cec63b1ad1540e5748ebfde",
+      "definition_digest": "sha256:53ed420320e0e23f35bd5a1c3d9aef1a70d90ded39b49249f76e79e00ba25602",
       "metric_identity": {
         "id": "event-reader-elapsed-ns",
         "version": 1
@@ -999,7 +999,7 @@
       ],
       "case_id": "events-1000-readers-1",
       "correctness_label": "event-volume-reader-order-cleanup-digest",
-      "definition_digest": "sha256:3deea7d4f3f00ebd8c505e6073cbc844bf149cfce610f02b5e6160afb21402c2",
+      "definition_digest": "sha256:970c42366a98b575c8321e64dbfad1110225fdf35022d85b00ae2b876d24f15f",
       "metric_identity": {
         "id": "event-reader-elapsed-ns",
         "version": 1
@@ -1061,7 +1061,7 @@
       ],
       "case_id": "events-10000-readers-4",
       "correctness_label": "event-volume-reader-order-cleanup-digest",
-      "definition_digest": "sha256:7a86b0afd8491abc20b27af8e79db242d90c0b9ed30d5cae8fee7f4ac52a40a9",
+      "definition_digest": "sha256:61c747969df273bc0b4a56148c753cf55538a838f9c556d5b2c70cda27bac49d",
       "metric_identity": {
         "id": "event-reader-elapsed-ns",
         "version": 1
@@ -1123,7 +1123,7 @@
       ],
       "case_id": "explicit-python-system-udf-1000",
       "correctness_label": "python-system-udf-boundary-writeback-digest",
-      "definition_digest": "sha256:02bd98fecf4e07cef1e7bd50b7cfe6621049c95778c25328a462dd721ff51952",
+      "definition_digest": "sha256:6f740c76719ab3f9d72c80a9c3f56b9158ae0423c333c170e722cab5e5320e95",
       "metric_identity": {
         "id": "python-boundary-row-elapsed-ns",
         "version": 1
@@ -1182,7 +1182,7 @@
       ],
       "case_id": "structural-add-component-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:225cefa7322144b578c6bfcde1d691e9c27e6d1b84a5aa0c109c97ef043c570a",
+      "definition_digest": "sha256:eb3c5de86ac4793752bf0c0e71c5f044b5708563c4e5f3093b01e9208cf4902e",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1241,7 +1241,7 @@
       ],
       "case_id": "structural-add-tag-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:f986bd7ea7af7108336f305c0fa3829263e1c9ce3142597ed984e55da3662455",
+      "definition_digest": "sha256:13b5e3ade82f1ddc867002eafdc42128a1d8e079cc299bd85392e48ea4fb8d18",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1300,7 +1300,7 @@
       ],
       "case_id": "structural-despawn-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:0ecb6910628a4c82e1c6348a71dadc199073fed5175f19a8fc25d0b2b822919a",
+      "definition_digest": "sha256:5313362eb66d7e3b98ca21e6523aed7aefd84af10274ae6914f09d91981934d4",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1359,7 +1359,7 @@
       ],
       "case_id": "structural-remove-component-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:9ee9a0b2f01525cf3b371598186a1bace4a46ae37c38f00ff18936456f720aee",
+      "definition_digest": "sha256:571b3cb813cc313e1167795c3bb7b63be67a6935da51b5acf4c096fdc00a9c2f",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1418,7 +1418,7 @@
       ],
       "case_id": "structural-remove-component-128-p100",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:94c359bc9d4a060666694bf77eebc1fb91dce54d061f2672426ece145ce850af",
+      "definition_digest": "sha256:344fff708f5a8af4b9f1a87b2f9940c70948ceb4b04fc31a779837c8d04fa12e",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1477,7 +1477,7 @@
       ],
       "case_id": "structural-remove-tag-128-p10",
       "correctness_label": "structural-operation-order-generation-digest",
-      "definition_digest": "sha256:a8dd07601b5a9b384d67c8a73a7b46b8bdd822eaa31c9a0f4d4873f78d405ec2",
+      "definition_digest": "sha256:34ac96aa70c0cc6d5c040b7b09ffa1fc5f6ad12ec008eaacbb29b0aef3c7b371",
       "metric_identity": {
         "id": "structural-command-elapsed-ns",
         "version": 1
@@ -1536,7 +1536,7 @@
       ],
       "case_id": "cache-reuse-release-four-by-four",
       "correctness_label": "plan-cache-reuse-release-digest",
-      "definition_digest": "sha256:ec61464cc3f9a039788dee10d11dfd895e407dc377b2f2b962bbecbf78662cb9",
+      "definition_digest": "sha256:b3a880b7c076f524fcd0ef551cbf9b512eb4ffecf388131e4952e154cfc8b652",
       "metric_identity": {
         "id": "plan-lifecycle-elapsed-ns",
         "version": 1
@@ -1604,7 +1604,7 @@
       ],
       "case_id": "equivalent-systems-1",
       "correctness_label": "equivalent-explain-compiled-handle-digest",
-      "definition_digest": "sha256:cf926275ec589fa4004e2b5e92416d14073d04ec081f91ff8eb5224d8b0b158e",
+      "definition_digest": "sha256:33d626988851f83e7a6d45a867ced21d6451e9d5c2402a075ee04c871121b269",
       "metric_identity": {
         "id": "system-registration-elapsed-ns",
         "version": 1
@@ -1659,7 +1659,7 @@
       ],
       "case_id": "equivalent-systems-100",
       "correctness_label": "equivalent-explain-compiled-handle-digest",
-      "definition_digest": "sha256:7a950060e4ab4331ebf5c1743a2134586923c99dab6b00dceb7ef64d3cc296c2",
+      "definition_digest": "sha256:2dd3d40c45a86d1480e55ccbebf7c82699e4a347226281ca0c6504060eeb0980",
       "metric_identity": {
         "id": "system-registration-elapsed-ns",
         "version": 1
@@ -1714,7 +1714,7 @@
       ],
       "case_id": "hostile-plan-schema-failures",
       "correctness_label": "hostile-plan-schema-error-digest",
-      "definition_digest": "sha256:47dab10395e49ecd54d4edede3c4b0336f924f200dd1e64deaa8bb51720ac388",
+      "definition_digest": "sha256:78c40f5b446e5d9fb14b4d1242f528f7846e3b72ec111bd7c21cb5299bd9b919",
       "metric_identity": {
         "id": "hostile-input-check-elapsed-ns",
         "version": 1
@@ -1768,7 +1768,7 @@
       ],
       "case_id": "logical-build-compile-eight",
       "correctness_label": "plan-explain-compile-counter-digest",
-      "definition_digest": "sha256:4a412a518d4e13767b374529f94ae17c60aacd64069c4c8a1e871508b79c8fa0",
+      "definition_digest": "sha256:2cc4a9f869814fe00093509829d3aeb264739e2cc63a61d81d7b6ffb1cf939dc",
       "metric_identity": {
         "id": "plan-node-elapsed-ns",
         "version": 1
@@ -1825,7 +1825,7 @@
       ],
       "case_id": "plan-a10-d1-q1-r0",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:4e30ccc9145799c21991cf34ff93648130c43f74712bda73b2d6b5738e869418",
+      "definition_digest": "sha256:9f37aab8e3b8fcce87907810f2ce1d8cb0c173b31620e5fe384787eee3f3eac6",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -1883,7 +1883,7 @@
       ],
       "case_id": "plan-a10-d1-q64-r0",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:749465cf34b9858469bdd2f74c2ce3d0063c6be7d079d9e3f7645da763bce727",
+      "definition_digest": "sha256:a6570fa14372ce45d05035dc6cbbb2a9641d53f9914ced5df90ec7a3723aa1c6",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -1941,7 +1941,7 @@
       ],
       "case_id": "plan-a100-d16-q8-r50",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:c5e2e2cd96bda993d8ad5ca033ca76553680adb99d4cb65114adca9317cd8bf2",
+      "definition_digest": "sha256:acd786b36328e56de61a258d69a895f4ae19cbf7a4743b21188f197cb82a2279",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -1999,7 +1999,7 @@
       ],
       "case_id": "plan-a1000-d128-q8-r90",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:fd2f6c4e91839da7f3bdaf8058d2786e174ec6e23c5052b4e0f5f7e08db924f4",
+      "definition_digest": "sha256:68852b5df18415665a9871b13772ee7b43816dac068673a5296f280ef8e3b03d",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -2057,7 +2057,7 @@
       ],
       "case_id": "plan-a10000-d1-q1-r90",
       "correctness_label": "plan-explain-payload-shape-digest",
-      "definition_digest": "sha256:d700cfd2926b4b8efe57d18edd01ab459d5320c3a74221f28dccf184b95e5f80",
+      "definition_digest": "sha256:22cbe5235d1f7bef3fd93d5ec3e22bb3d1d56a8c9caf09d9a964ea969d8895fb",
       "metric_identity": {
         "id": "plan-action-build-compile-ns",
         "version": 1
@@ -2115,7 +2115,7 @@
       ],
       "case_id": "schema-invalidation-two-runs",
       "correctness_label": "schema-fingerprint-recompile-replace-digest",
-      "definition_digest": "sha256:c6ac18e7c9179799d9b7965c944d7938ae822e98155beef50a814b2556710fab",
+      "definition_digest": "sha256:71c0e22644fb11e24ed86320f314d14aebcfa78028cbd55a4ac866c446e3567d",
       "metric_identity": {
         "id": "invalidation-run-elapsed-ns",
         "version": 1
@@ -2170,7 +2170,7 @@
       ],
       "case_id": "steady-reuse-16",
       "correctness_label": "steady-no-recompile-reuse-digest",
-      "definition_digest": "sha256:e5cf1cb9f89996bb8f3ba2b34eed451b8065f1873280324cda4883c50885f7da",
+      "definition_digest": "sha256:fa94b86c9d77f2921dcb0e6d447a619348eca44efadfeadb7d38b2ceaa4eaee5",
       "metric_identity": {
         "id": "steady-plan-run-elapsed-ns",
         "version": 1
@@ -2227,7 +2227,7 @@
       ],
       "case_id": "batch-four-field-transport-256",
       "correctness_label": "batch-selected-field-value-digest",
-      "definition_digest": "sha256:ca08fb33957cd71111a0118922e1a0fd2a2b428ccca6592528ac755f08704180",
+      "definition_digest": "sha256:7de49a4673819d71c178cca8f5108aaf739baa0b03d5f2d7dcc5bea8b9d4dc8f",
       "metric_identity": {
         "id": "transport-row-elapsed-ns",
         "version": 1
@@ -2282,7 +2282,7 @@
       ],
       "case_id": "cardinality-0",
       "correctness_label": "limit-aware-cardinality-order-digest",
-      "definition_digest": "sha256:fc16f9e9a129659e4ef916530b3228530e8759c03a55bc11758ae18692d006c6",
+      "definition_digest": "sha256:cc2ae7b94cb7e5be5911cd15bba4158cad9ed1301de4d3b07502ec5ff84e7aba",
       "metric_identity": {
         "id": "cardinality-candidate-elapsed-ns",
         "version": 1
@@ -2337,7 +2337,7 @@
       ],
       "case_id": "cardinality-1",
       "correctness_label": "limit-aware-cardinality-order-digest",
-      "definition_digest": "sha256:3c2b8219fe5649487ca62cc01f85413eab7018978e7bc6dcea661e8a43e567d3",
+      "definition_digest": "sha256:aecf2bf3b009620472884413cf29a623c83052a6fc33077f4dd95ffab13013ca",
       "metric_identity": {
         "id": "cardinality-candidate-elapsed-ns",
         "version": 1
@@ -2392,7 +2392,7 @@
       ],
       "case_id": "cardinality-10000",
       "correctness_label": "limit-aware-cardinality-order-digest",
-      "definition_digest": "sha256:4c1d675947b6cda658840e98efedd925bde0a7b2a9c97fa03ea88d54a7f37ed0",
+      "definition_digest": "sha256:d6d826b7904f95debac01e5281e8e4c87fa9402150a22b4180ab07a028c6383e",
       "metric_identity": {
         "id": "cardinality-candidate-elapsed-ns",
         "version": 1
@@ -2447,7 +2447,7 @@
       ],
       "case_id": "cardinality-2",
       "correctness_label": "limit-aware-cardinality-order-digest",
-      "definition_digest": "sha256:a318c9a2e61c3219fec018e7490ac6588a3aa2b985dec88c3d34f701476d17f9",
+      "definition_digest": "sha256:720829c5215b6269c825852c2436cf855d9c7bb2e8eb8bf81e5ef4c20cf59a7f",
       "metric_identity": {
         "id": "cardinality-candidate-elapsed-ns",
         "version": 1
@@ -2502,7 +2502,7 @@
       ],
       "case_id": "cardinality-zero-one-many",
       "correctness_label": "cardinality-outcome-digest",
-      "definition_digest": "sha256:b21b7f169b20cda6d6a6e30c0eae0fd4a7c916b05f69c602f2b5d8aea0258984",
+      "definition_digest": "sha256:ed023cbea6d510f8fdc2cc853f9ca3850c4cc2b779e119f71745d8dde4921b9e",
       "metric_identity": {
         "id": "cardinality-check-elapsed-ns",
         "version": 1
@@ -2556,7 +2556,7 @@
       ],
       "case_id": "join-q2-s0-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:6ebc88fa81be11ce631743ebe4f38420e81a6adad330b829623625bd181dccff",
+      "definition_digest": "sha256:88dc1610fc0b05c044c6e4ea42f4c06548b9f14e399c64a10e6d9ba98826dab6",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2617,7 +2617,7 @@
       ],
       "case_id": "join-q2-s1-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:c4095bacee150d4872fe61c55107830bc2f2e5c8770cebdfa87f4f4d2436f0d3",
+      "definition_digest": "sha256:a792a7863a626a42fcfeb77eb5a70d739434b798948aa0ac2c2a736f10b4cae9",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2678,7 +2678,7 @@
       ],
       "case_id": "join-q2-s50-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:97a6ad75159bed3d1f66f9493a45f2465f9a9a73e37332d2602c3833c8c98df1",
+      "definition_digest": "sha256:a20c7521af0a20b0900c275b0541a81a7777fc66bd01caef5e5c0dd17819437c",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2739,7 +2739,7 @@
       ],
       "case_id": "join-q3-s0-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:5071c1fee51aeba39ddf10ea3c742bbdfa6c4644199f929703f0d35f1a8dfb67",
+      "definition_digest": "sha256:d07c7e63047c6ada5d05ffcb616419bcc17b7ece6cca040a38e20aff54310bcb",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2800,7 +2800,7 @@
       ],
       "case_id": "join-q3-s1-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:ce30733525f048814cea8db6028e3738168d3e0493c0aac31d3b8c60afec87ee",
+      "definition_digest": "sha256:752c953087b41bd1ea7945b1fabb8ca424c9d5bc2b50eb6b94afe91636749af8",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2861,7 +2861,7 @@
       ],
       "case_id": "join-q3-s50-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:ce8e5003f7ae9699103d1e7181530c43c142aae9f16082b8d6e9c31b19e04485",
+      "definition_digest": "sha256:9f935fc9ecd819434e3057ac780ba89c699fe663569d5161514dce754751a40b",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2922,7 +2922,7 @@
       ],
       "case_id": "join-q4-s0-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:5c0eba9cf671764e4063608a50e92a40f173bbb9a1440c2ea6adbe1277f621a8",
+      "definition_digest": "sha256:d10174754e3e0b5217aa8e79292925f4c1816ecb15f81647882f5dd30ce60002",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -2983,7 +2983,7 @@
       ],
       "case_id": "join-q4-s1-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:9d6cfc76f7536f3a02dcda8d158b0ab3e581d009bf622cfd3767b56a99995e0c",
+      "definition_digest": "sha256:447d1ef153fc20902be58b8218b10e6a6fab6da80534da8714b05c4329d8e4a0",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -3044,7 +3044,7 @@
       ],
       "case_id": "join-q4-s50-400",
       "correctness_label": "multi-query-context-selectivity-digest",
-      "definition_digest": "sha256:c75cc2e9b60227819d9e199533d1a1f7d3ef91e688e8cd7ea83a117d784c33b7",
+      "definition_digest": "sha256:6ed2565e38c030ae0fd612bd9a54113ec9221663d53138fcd413b095553488e0",
       "metric_identity": {
         "id": "join-context-elapsed-ns",
         "version": 1
@@ -3105,7 +3105,7 @@
       ],
       "case_id": "ordered-filtered-views-192",
       "correctness_label": "query-order-view-value-digest",
-      "definition_digest": "sha256:7d1bc45d6b5366ceeb4330c07aff9c8954eb6b03b887a3f2f07df96991f8a627",
+      "definition_digest": "sha256:2336a7acb27879f49ab83f3f8099c93212a011a9b658cc2027dade794691612d",
       "metric_identity": {
         "id": "query-row-elapsed-ns",
         "version": 1
@@ -3160,7 +3160,7 @@
       ],
       "case_id": "query-selectivity-0-of-1000",
       "correctness_label": "cold-warm-selectivity-order-digest",
-      "definition_digest": "sha256:3ff9995365eff407dbfe0c7ab6a8d65f4d0b46113156ae41e98e6b8502915de3",
+      "definition_digest": "sha256:894d0808cca6dddd9dddb74fc7252fa17ca62d7e664e5eeb8fdd868fbad62165",
       "metric_identity": {
         "id": "query-candidate-elapsed-ns",
         "version": 1
@@ -3216,7 +3216,7 @@
       ],
       "case_id": "query-selectivity-1-of-1000",
       "correctness_label": "cold-warm-selectivity-order-digest",
-      "definition_digest": "sha256:dff9d4c69570c12788b1a878d7c4866cfd77f1df88292a8b81eaf8c6f8118f0c",
+      "definition_digest": "sha256:b32d26a48bd7c94abf60a88a17438bd2f0739a2c4d5bbb8d77f172e352f8601d",
       "metric_identity": {
         "id": "query-candidate-elapsed-ns",
         "version": 1
@@ -3272,7 +3272,7 @@
       ],
       "case_id": "query-selectivity-100-of-1000",
       "correctness_label": "cold-warm-selectivity-order-digest",
-      "definition_digest": "sha256:b48ea3ac72b60c1c8c5f0471674d6c1727d3ae235fbf323194f47e8b595b6761",
+      "definition_digest": "sha256:6dca4565f86d498a564b29fe7a6cbc42270ecd77301656d3d065f872d66d45e8",
       "metric_identity": {
         "id": "query-candidate-elapsed-ns",
         "version": 1
@@ -3328,7 +3328,7 @@
       ],
       "case_id": "query-selectivity-50-of-1000",
       "correctness_label": "cold-warm-selectivity-order-digest",
-      "definition_digest": "sha256:a60e639ec91f5b8db6b3cf4f88b709cd2f6c0b375fd7db1b78e4d51769138d0d",
+      "definition_digest": "sha256:dae83ce0c87c245ef37942af42c18add07674e9ffdd2ad4cc06c52c6646ed1bf",
       "metric_identity": {
         "id": "query-candidate-elapsed-ns",
         "version": 1
@@ -3384,7 +3384,7 @@
       ],
       "case_id": "required-excluded-filter-100",
       "correctness_label": "required-excluded-component-tag-digest",
-      "definition_digest": "sha256:bfe93f81ceb0ef4b30260a10a77430fa839d829742aab9d2ef920993815d4bc9",
+      "definition_digest": "sha256:6e3ad5a825c4e276a5b92a523eda495664acca1cf4e87f403145a7801a3c90b8",
       "metric_identity": {
         "id": "filtered-row-elapsed-ns",
         "version": 1
@@ -3441,7 +3441,7 @@
       ],
       "case_id": "transport-categorical-16f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:1d0705ce6c67711a0ad74f08e886a3f018ecef2f5cb0697e6dfec87c9a362c8f",
+      "definition_digest": "sha256:3a039a6a24be313d749ff3c5a5c1b8319da852f611b0fce74fc404c65b702947",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3498,7 +3498,7 @@
       ],
       "case_id": "transport-list-16f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:8a59983ee9fcf2f1b57efdf6a3a8ea405f2642a6e5a9bc90ea2f8ac3251ffaaa",
+      "definition_digest": "sha256:906d3b32f88f98673d53618039d1d2b44711d2ffaf97e0f1f4d13531c9661f04",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3555,7 +3555,7 @@
       ],
       "case_id": "transport-scalar-16f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:f10de0e990e9772fd9d42b98cc7f28e017b0355162150570bd0f9af9a6257cf5",
+      "definition_digest": "sha256:131c00f61c8eda63b9fdbc1bd5b0f6d5a95a7301bf23c7f0350bebc0877ff963",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3612,7 +3612,7 @@
       ],
       "case_id": "transport-scalar-1f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:592b03df433ba7f8b1dc21689bd328b1bed6f7c888b190f2c392a47683c72190",
+      "definition_digest": "sha256:40d3716107f68b63ba539b09943d29a53343ca5af9e4deba3b05258de8821ac8",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3669,7 +3669,7 @@
       ],
       "case_id": "transport-scalar-2f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:8481f24d53ac1d0ca3a182ee3f02a2e9e6000b1cac896dd7302cb103cc28b5f3",
+      "definition_digest": "sha256:a60eb2cfc3ff497ff858ced03d1bd826c8831f1820678127a920976736a4d492",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3726,7 +3726,7 @@
       ],
       "case_id": "transport-scalar-8f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:b26d7bfd2776d9d9f2c9e98c8778ff5f87b93055cdc44f616b509ccfe35dfb75",
+      "definition_digest": "sha256:cbfa312c50b748793e9fe47c5df0143c2c814431017d74c15723b553cfe4f7e7",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3783,7 +3783,7 @@
       ],
       "case_id": "transport-vector-16f-128",
       "correctness_label": "entity-component-batch-writeback-digest",
-      "definition_digest": "sha256:c026c0924f8dcd0dc6386522bc4df84a21d9a9bc23fe97a33376ac94874287c0",
+      "definition_digest": "sha256:8ed347dd1df51c11ef1479c78e12ab395097bfe13d1211175c44b75f3c31196e",
       "metric_identity": {
         "id": "transport-value-elapsed-ns",
         "version": 1
@@ -3840,7 +3840,7 @@
       ],
       "case_id": "ordered-groups-eight-frames",
       "correctness_label": "group-order-serial-result-digest",
-      "definition_digest": "sha256:4301dd233571274f37af1f5b860f6bbd5d5359803ea12403211b76a02b4559a5",
+      "definition_digest": "sha256:3f6b7c50b2ce6be80104261e7168e4e436d1455ee60f347fa58f7bec51c21b35",
       "metric_identity": {
         "id": "scheduled-system-elapsed-ns",
         "version": 1
@@ -3897,7 +3897,7 @@
       ],
       "case_id": "parallel-snapshot-128x2",
       "correctness_label": "parallel-snapshot-field-digest",
-      "definition_digest": "sha256:70a7a2090d9c57c2050a0c6bffeacb62b87a549b28d8fe531ac695430f6648b1",
+      "definition_digest": "sha256:3d03231361b326b65d6648f2381948e554fa36a7c1176798c92767e0c870daea",
       "metric_identity": {
         "id": "parallel-field-elapsed-ns",
         "version": 1
@@ -3954,7 +3954,7 @@
       ],
       "case_id": "simulated-four-system-eight-frame",
       "correctness_label": "simulated-multisystem-world-digest",
-      "definition_digest": "sha256:183a81cdfd9b4cca42d0be8a5795b94b60e9499200d4e33a3be9679f15152756",
+      "definition_digest": "sha256:04f9fbd771b4c54bb7edbfa184ff1a09853c786cd328f73a69630fa29269cefe",
       "metric_identity": {
         "id": "simulated-row-system-elapsed-ns",
         "version": 1
@@ -4015,7 +4015,7 @@
       ],
       "case_id": "schedule-s64-g8-e16-f2",
       "correctness_label": "schedule-scale-order-world-digest",
-      "definition_digest": "sha256:2ae82f566d39ce73c576124f434c3a381889b0642348cf137e0500de17661de7",
+      "definition_digest": "sha256:68f3d75fe55a3b6a9ce53190f35dfdc449436fadb71da16d50dc117894d4081e",
       "metric_identity": {
         "id": "scheduled-row-system-elapsed-ns",
         "version": 1
@@ -4079,7 +4079,7 @@
       ],
       "case_id": "schedule-s8-g1-e16-f2",
       "correctness_label": "schedule-scale-order-world-digest",
-      "definition_digest": "sha256:fdd982241b8f3f35eddf8a9f7c6afe79eebe9804fe175b2c69f27bb35a8b7884",
+      "definition_digest": "sha256:326abf70b5bd31cd0e0e66da03b2788aa751897a86587d96e9295bd0124e6b9a",
       "metric_identity": {
         "id": "scheduled-row-system-elapsed-ns",
         "version": 1
@@ -4144,7 +4144,7 @@
       ],
       "case_id": "hash-grid-auto-96x3",
       "correctness_label": "hash-grid-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:2178589f602b437756cadff0ebaf9e6729971c38bb00c63cbd8e87bda2a0ee66",
+      "definition_digest": "sha256:46a3426ce9af7abae131127e26c79dac9de1d33da80ef5847cb746e3f12b3c52",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -4213,7 +4213,7 @@
       ],
       "case_id": "hilbert-rebuild-use-96x3",
       "correctness_label": "hilbert-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:dbbd3853f95b53ef79294b9c60cbc2f9779d2d9c64055c7351e9550a65a1f40e",
+      "definition_digest": "sha256:33d4e3bb51946fd3450a0f4ab1587e979e80b11d968ab999d92233a88866880d",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -4282,7 +4282,7 @@
       ],
       "case_id": "octree-incremental-96x3",
       "correctness_label": "octree-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:a5a5298a4c258228b2be1ca3815ec9a5c91a652361df13ae4ab28a3667c5d28c",
+      "definition_digest": "sha256:9dd8536801f7355db206f78ecb9088bd0fd93072499d08c8feeb320561774d27",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -4351,7 +4351,7 @@
       ],
       "case_id": "quadtree-rebuild-frame-96x3",
       "correctness_label": "quadtree-bruteforce-update-cache-digest",
-      "definition_digest": "sha256:d4d012fbfcc18f3014db8f5e60459c29c13c016f6661d5a5804a02ba13d70d7e",
+      "definition_digest": "sha256:20efc89755cacceca42fa8131c691fe1e98904e5b67f3e60aee39e59035b9fa9",
       "metric_identity": {
         "id": "spatial-row-frame-elapsed-ns",
         "version": 1
@@ -4420,7 +4420,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-clustered-n128-m0-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:fec1cdc10045a22174dd5b369c2d150eff6e6e5eeb4ce07d50dab0d416cd40a9",
+      "definition_digest": "sha256:aacc930fa320d1c759e8adcab783a78549ad126f23bac123d0c5c720c789369b",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4496,7 +4496,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-clustered-n128-m10-s4",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:874fcf31ffd7b3bb744144c26fb2029cb76a442e0a3bbadfc3dce4258064b0f4",
+      "definition_digest": "sha256:301a34f4b2788615ccfef923c95269bdd7563bee601d8dcdbbdd38c06f804ede",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4572,7 +4572,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-diagonal-n128-m0-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:7c53cc7a30a16872cbbdec93e92327c30f017eecf3373abc5f57da2cc0b36b43",
+      "definition_digest": "sha256:e475fc7005c58c867d2d991396e505ee5dcacc9c86eae805cb40816b6cb80e7b",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4648,7 +4648,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-same-cell-n128-m0-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:95af06a4190d7dd89e4b8baa003bef78aece02d451c7ae8c636b4f818d89d28c",
+      "definition_digest": "sha256:0aa4dc8654354204f7569053bdd38683793874fc810fff0b968ac829eacfe4a6",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4724,7 +4724,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-uniform-n128-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:cd9e0dd123833f82ae583c9365158f77b017dcde0d889635f7af30d260f5d2d7",
+      "definition_digest": "sha256:a6810a5f2fbf321c1d6ab5c6ba333eb0b8095f1f5162c79e006cd27cc0fdc428",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4800,7 +4800,7 @@
       ],
       "case_id": "spatial-hash-grid-2d-uniform-n512-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:a5783d13196ebfa4a6934afe11c024ea8a6e36c689cffc3813bc02f8a3a29cd7",
+      "definition_digest": "sha256:2dbf27b4d432e688b56e8362d9cde8abc371e98a3bd21516ef4e9c7b2704366f",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4876,7 +4876,7 @@
       ],
       "case_id": "spatial-hilbert-2d-uniform-n128-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:b9d9be36d2f8612705a7e98505a5e6d074e1980208b3bcbb0f24e1b13e5cb597",
+      "definition_digest": "sha256:ea65cad67a026a855eabfc10ddab7c0bc2205e644785acf5f1fbee4aaec57b0b",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -4952,7 +4952,7 @@
       ],
       "case_id": "spatial-octree-3d-uniform-n128-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:6be637114cb3b311ebadd110ea434db03bebd59f678e9ee0b04bd15ab0732651",
+      "definition_digest": "sha256:4cc188a02ab38d8f1e43b13961651cc529c023322ae76eddf79cbb134b3b049c",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -5028,7 +5028,7 @@
       ],
       "case_id": "spatial-quadtree-2d-uniform-n128-m10-s1",
       "correctness_label": "spatial-distribution-update-cache-bruteforce-digest",
-      "definition_digest": "sha256:120490c794709db83fafcec895e863d4cb99fe2af896caabe213e3ef5a099c7e",
+      "definition_digest": "sha256:0828d2e0aa5876d92ca6196ab41c409fda13b5e77978c1eb227e462222cd8fa7",
       "metric_identity": {
         "id": "spatial-row-system-frame-elapsed-ns",
         "version": 1
@@ -5103,7 +5103,7 @@
       ],
       "case_id": "all-storage-list-0-8",
       "correctness_label": "all-storage-range-float-vector-list-rollback-digest",
-      "definition_digest": "sha256:748f9421df447029971a1826ec5158dc5f5616022cb8e0a939b7ee1bfc0aedb3",
+      "definition_digest": "sha256:2fd565f14684220b864f485590c908b73d818b493eee7bf6e03e56677bde8c0f",
       "metric_identity": {
         "id": "storage-value-roundtrip-elapsed-ns",
         "version": 1
@@ -5159,7 +5159,7 @@
       ],
       "case_id": "all-storage-list-256-8",
       "correctness_label": "all-storage-range-float-vector-list-rollback-digest",
-      "definition_digest": "sha256:abdd8e0cbe106f399ab3205cf89ab665f6d7778cfc82bc322c89820331270acd",
+      "definition_digest": "sha256:4252b8cf3d5eaf20c4beb71239fa68f389b7e56764352ad2e42e62b79d5a843c",
       "metric_identity": {
         "id": "storage-value-roundtrip-elapsed-ns",
         "version": 1
@@ -5215,7 +5215,7 @@
       ],
       "case_id": "all-storage-list-32-8",
       "correctness_label": "all-storage-range-float-vector-list-rollback-digest",
-      "definition_digest": "sha256:fcd3712c1a790b3bf149421af962ce04b5ecc041ecdaf8c46b89d3ffeac1a14a",
+      "definition_digest": "sha256:21855d17bc9180a7813099e70758df2f452cf041393815bc3372032f6f66debf",
       "metric_identity": {
         "id": "storage-value-roundtrip-elapsed-ns",
         "version": 1
@@ -5271,7 +5271,7 @@
       ],
       "case_id": "all-storage-list-4-8",
       "correctness_label": "all-storage-range-float-vector-list-rollback-digest",
-      "definition_digest": "sha256:dce094016069edc34c139b8fa5988629d3c9ca0ca2a828425cc09c841d0376dc",
+      "definition_digest": "sha256:0bb84547a8840034461763f2d5bbbd20ca6b7d50eac2bb6731cd7dd245dc648a",
       "metric_identity": {
         "id": "storage-value-roundtrip-elapsed-ns",
         "version": 1
@@ -5327,7 +5327,7 @@
       ],
       "case_id": "schema-registration-16x4",
       "correctness_label": "schema-count-field-width-idempotency-digest",
-      "definition_digest": "sha256:998adddfe363d3822632b618e15b3fa7a19e5961f796660cf23131d902bbb9e0",
+      "definition_digest": "sha256:72fd8cdc73f3a7c0b161f2bbf0be6bb3b61810a4b18faa15b9c6dc4eedd9561d",
       "metric_identity": {
         "id": "schema-field-registration-elapsed-ns",
         "version": 1
@@ -5384,7 +5384,7 @@
       ],
       "case_id": "schema-registration-1x1",
       "correctness_label": "schema-count-field-width-idempotency-digest",
-      "definition_digest": "sha256:d6bdbcd401dc6f2ff887a6534fa9d81913442c11afc0721a88107e254d225215",
+      "definition_digest": "sha256:d553b242ba585cad927c21366f8b69393f294f551a4ef9f7225e5d52326b932e",
       "metric_identity": {
         "id": "schema-field-registration-elapsed-ns",
         "version": 1
@@ -5441,7 +5441,7 @@
       ],
       "case_id": "schema-registration-256x16",
       "correctness_label": "schema-count-field-width-idempotency-digest",
-      "definition_digest": "sha256:221c07356e5f010e26c4b2949d03bc8e0f2a2479a0a59c8f5cbb0f18eedfb81d",
+      "definition_digest": "sha256:1ab1fbd5014b9bc8cdcb8989e970cf99c7730f0eeaece55e4631cbfdc5574709",
       "metric_identity": {
         "id": "schema-field-registration-elapsed-ns",
         "version": 1
@@ -5498,7 +5498,7 @@
       ],
       "case_id": "schema-registration-64x16",
       "correctness_label": "schema-count-field-width-idempotency-digest",
-      "definition_digest": "sha256:af1e36b07458418a3d8dcb9176e612faa17a1370f0046dd72bf7422a0c371794",
+      "definition_digest": "sha256:e9c276e0e99afe5651ecfe8f43360d04893d4034381a1efb14274a07608aa522",
       "metric_identity": {
         "id": "schema-field-registration-elapsed-ns",
         "version": 1
@@ -5555,7 +5555,7 @@
       ],
       "case_id": "schema-storage-families",
       "correctness_label": "idempotent-schema-storage-mapping-digest",
-      "definition_digest": "sha256:4f95434b954dcb8f89869c0e26d5c20773dedf6e530c60efdac6259eaf1ed0ba",
+      "definition_digest": "sha256:0fd6d1e517cb941a2a6d248f089ba837d4468645f7f78dd45cf484a946717628",
       "metric_identity": {
         "id": "schema-validation-elapsed-ns",
         "version": 1
@@ -5610,7 +5610,7 @@
       ],
       "case_id": "sparse-id-10000-live-100",
       "correctness_label": "sparse-id-live-row-stale-generation-digest",
-      "definition_digest": "sha256:bee5f5cb69f8ef438565e9760bbf66f7a9cb6463926765604e63501e8029293e",
+      "definition_digest": "sha256:754385ae6ae4beda591a2fe2b52610e6085c021f37d3141a95a3be34cd00271c",
       "metric_identity": {
         "id": "historical-entity-elapsed-ns",
         "version": 1
@@ -5666,7 +5666,7 @@
       ],
       "case_id": "spawn-1000-c1-f1-t0",
       "correctness_label": "spawn-shape-values-tags-ids-digest",
-      "definition_digest": "sha256:675785f051be961b725fef6ffe422511aa25047e311c58fcf7475641190f1e23",
+      "definition_digest": "sha256:711f9766a89762f73a30430b84aaac8613d5fbc57fd00e76f407e7e4a1d876ca",
       "metric_identity": {
         "id": "spawn-entity-elapsed-ns",
         "version": 1
@@ -5726,7 +5726,7 @@
       ],
       "case_id": "spawn-1000-c4-f4-t2",
       "correctness_label": "spawn-shape-values-tags-ids-digest",
-      "definition_digest": "sha256:6f368eca29fcda1e219a730007ec35cd772d6c8a9f843232d18899b1e141aac6",
+      "definition_digest": "sha256:113d7443c922d53612fd67781f606fa922a5f75e9ce9a986fb0b2f0df31db993",
       "metric_identity": {
         "id": "spawn-entity-elapsed-ns",
         "version": 1
@@ -5786,7 +5786,7 @@
       ],
       "case_id": "spawn-1000-c8-f16-t8",
       "correctness_label": "spawn-shape-values-tags-ids-digest",
-      "definition_digest": "sha256:0e15b1d9ec6cd90da66263c0fe3e137ec547c846eb0a1c840bc99be30e1e089b",
+      "definition_digest": "sha256:365aab6498b0f470ebc20c76fc20fdae19b79b46795963ee04df6645c52faa5b",
       "metric_identity": {
         "id": "spawn-entity-elapsed-ns",
         "version": 1
@@ -5846,7 +5846,7 @@
       ],
       "case_id": "spawn-10000-c1-f1-t0",
       "correctness_label": "spawn-shape-values-tags-ids-digest",
-      "definition_digest": "sha256:9da0055523282cb59871b28b1a7825d8d3dcb2118ec7605967dc07735b034d56",
+      "definition_digest": "sha256:39069320f1f990cf4b613394ac2a2b084b239984b7328705b174b37d4958148b",
       "metric_identity": {
         "id": "spawn-entity-elapsed-ns",
         "version": 1
@@ -5906,7 +5906,7 @@
       ],
       "case_id": "spawn-mixed-archetypes-128",
       "correctness_label": "spawn-values-tags-order-digest",
-      "definition_digest": "sha256:b65dfda478cfdb26db1b9da6282d3700fdcc74e3aba2a91d4c1496ba60df6856",
+      "definition_digest": "sha256:2c2ad160ed4b658ff76978a1c7936e4dfce548d3057001c63492c34f92a80f8d",
       "metric_identity": {
         "id": "entity-operation-elapsed-ns",
         "version": 1
@@ -5963,7 +5963,7 @@
       ],
       "case_id": "structural-generation-churn-96x4",
       "correctness_label": "structural-churn-values-generations-digest",
-      "definition_digest": "sha256:d9c5da11093f8b267fd9c89a4535fe26fe938043b5a3c363779c129c12635560",
+      "definition_digest": "sha256:65b97ebf25151baef61307a88ba0f05c7876f4734800fab73da7eaa099fa052d",
       "metric_identity": {
         "id": "churn-row-elapsed-ns",
         "version": 1

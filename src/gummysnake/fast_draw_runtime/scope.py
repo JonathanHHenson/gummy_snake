@@ -64,12 +64,8 @@ class FastDrawScope(
         self._image_style_payload: dict[str, object] | None = None
         self._image_matrix: object | None = None
         self._image_matrix_payload: tuple[float, float, float, float, float, float] | None = None
-        draw_model_fast = getattr(context, "_draw_model_fast", None)
-        self._draw_model_fast = draw_model_fast if callable(draw_model_fast) else None
-        draw_model_instances_fast = getattr(context, "_draw_model_instances_fast", None)
-        self._draw_model_instances_fast = (
-            draw_model_instances_fast if callable(draw_model_instances_fast) else None
-        )
+        self._draw_model_fast = context._draw_model_fast
+        self._draw_model_instances_fast = context._draw_model_instances_fast
         self._model_batch_cache: tuple[tuple[object, ...], ModelBatchKey] | None = None
         self._model_batch_signature_cache: tuple[object, tuple[object, ...]] | None = None
         self._model_batch_state: ModelBatchState | None = getattr(

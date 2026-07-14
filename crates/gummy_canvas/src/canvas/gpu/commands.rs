@@ -1,4 +1,6 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::types::{BlendMode, Rgba};
+use pyo3::prelude::*;
 
 impl Canvas {
     pub(crate) fn draw_gpu_text(

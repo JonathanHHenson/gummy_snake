@@ -205,7 +205,6 @@ class AudioFilter:
         filter_type: FilterType = "lowpass",
         *,
         frequency: float = 1_000.0,
-        resonance: float = 0.0,
     ) -> None:
         """Create a low-pass or high-pass audio filter.
 
@@ -213,8 +212,6 @@ class AudioFilter:
             filter_type: ``"lowpass"`` to smooth high frequencies or
                 ``"highpass"`` to reduce low frequencies.
             frequency: Cutoff frequency in Hertz.
-            resonance: Reserved for future richer filters; stored for API
-                compatibility but not used by this one-pole implementation.
         """
         if filter_type not in {"lowpass", "highpass"}:
             raise ArgumentValidationError("create_filter() supports 'lowpass' and 'highpass'.")
@@ -222,7 +219,6 @@ class AudioFilter:
             raise ArgumentValidationError("Filter frequency must be positive.")
         self.filter_type = filter_type
         self.frequency = float(frequency)
-        self.resonance = float(resonance)
 
     def process(
         self, buffer: AudioBuffer | Sequence[float], *, sample_rate: int = 44_100

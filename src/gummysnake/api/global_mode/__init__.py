@@ -10,7 +10,6 @@ from gummysnake.api.ecs import (
     add_tag,
     clear_events,
     configure_ecs,
-    configure_system_set,
     despawn_entity,
     disable_system,
     ecs_diagnostics,
@@ -234,7 +233,7 @@ from gummysnake.api.text import (
     text_widths,
     text_wrap,
 )
-from gummysnake.api.three_d import (
+from gummysnake.api.three_d_api import (
     ambient_light,
     ambient_material,
     box,
@@ -381,7 +380,6 @@ __all__ = [
     "disable_system",
     "clear_events",
     "configure_ecs",
-    "configure_system_set",
     "ecs_diagnostics",
     "emit_event",
     "reset_ecs_diagnostics",

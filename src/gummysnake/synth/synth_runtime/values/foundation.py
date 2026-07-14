@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import random as _random
 import struct
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -153,6 +154,17 @@ def _current_repeat_depth_or_none() -> int | None:
     return builder.repeat_depth
 
 
+def _expression_id_field() -> int:
+    return cast(int, field(default_factory=_next_expression_id, repr=False, compare=False))
+
+
+def _repeat_depth_field() -> int | None:
+    return cast(
+        int | None,
+        field(default_factory=_current_repeat_depth_or_none, repr=False, compare=False),
+    )
+
+
 def _binary_expression(op: str, left: object, right: object) -> Expression:
     from gummysnake.synth.synth_runtime.values.expressions import BinaryExpression
     from gummysnake.synth.synth_runtime.values.lazy_values import ensure_expr
@@ -253,3 +265,30 @@ class Expression:
 
     def __ne__(self, other: object) -> Expression:  # type: ignore[override]
         return _compare_expression("ne", self, other)
+
+
+class _CachedExpression(Expression):
+    id: int
+    repeat_depth: int | None
+
+    def evaluate(self, ctx: EvalContext) -> object:
+        return _cached_expression_value(
+            ctx, self.repeat_depth, self.id, lambda: self._evaluate_uncached(ctx)
+        )
+
+    def _evaluate_uncached(self, ctx: EvalContext) -> object:
+        raise NotImplementedError
+
+
+def _cached_expression_value(
+    ctx: EvalContext,
+    repeat_depth: int | None,
+    expression_id: int,
+    compute: Callable[[], object],
+) -> object:
+    if repeat_depth is None:
+        return compute()
+    key = ("expr", ctx.repeat_scope[:repeat_depth], expression_id)
+    if key not in ctx.bindings:
+        ctx.bindings[key] = compute()
+    return ctx.bindings[key]

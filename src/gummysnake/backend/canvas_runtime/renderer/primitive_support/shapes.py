@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from gummysnake import constants as c
-from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost, _renderer
 from gummysnake.backend.canvas_runtime.renderer.primitive_support.batches import (
     _PRIMITIVE_ELLIPSE,
     _PRIMITIVE_LINE,
@@ -13,13 +11,9 @@ from gummysnake.backend.canvas_runtime.renderer.primitive_support.batches import
     _PRIMITIVE_TRIANGLE,
 )
 from gummysnake.core.color import Color
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import BackendCapabilityError
-
-
-def _renderer(self: object) -> CanvasRendererHost:
-    return cast(CanvasRendererHost, self)
 
 
 def background(self: CanvasRendererHost, color: Color) -> None:

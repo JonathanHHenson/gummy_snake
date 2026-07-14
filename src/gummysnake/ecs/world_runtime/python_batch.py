@@ -5,13 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.runtime_views import Entity, EntityView, _copy_stored_value
+from gummysnake.ecs.logical_plan.specifications import ChangeTerm, QuerySpec, TagTerm, WithoutTerm
+from gummysnake.ecs.runtime_view_model import Entity, EntityView, _copy_stored_value
 from gummysnake.ecs.schema_helpers import _schema_name, _tag_name, _validate_storage_value
-from gummysnake.ecs.specs import ChangeTerm, QuerySpec, TagTerm, WithoutTerm
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 _BATCH_MISS = object()
 

@@ -36,7 +36,7 @@ def test_canvas_owned_synth_functions_preserve_names_outputs_and_value_errors() 
 
     assert event_wav.startswith(b"RIFF")
     assert plan_wav.startswith(b"RIFF")
-    assert canvas_abi_version() == 21
+    assert canvas_abi_version() == 22
 
     with pytest.raises(ValueError) as serialized_error:
         runtime.synth_render_serialized_plan_wav(b"", 8_000)

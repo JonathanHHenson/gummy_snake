@@ -18,7 +18,7 @@ pub enum RiffWavError {
 ///
 /// The scanner intentionally keeps optional fields: consumers decide which chunks
 /// and values are required for their own operation. If a chunk occurs more than
-/// once, its last value wins, matching the former callers' scanners.
+/// once, its last value wins.
 #[derive(Clone, Debug)]
 pub struct RiffWavMetadata<'a> {
     pub audio_format: Option<u16>,
@@ -30,9 +30,8 @@ pub struct RiffWavMetadata<'a> {
 
 /// Scan a RIFF/WAVE chunk stream without assigning an audio-format policy.
 ///
-/// Unknown chunks are ignored and odd-sized chunks consume their RIFF padding
-/// byte when present. The payload itself is bounds-checked; a final missing
-/// padding byte remains accepted for compatibility with the former scanners.
+/// Unknown chunks are ignored and odd-sized chunks must include their RIFF padding
+/// byte. Chunk payloads and padding are bounds-checked.
 pub fn parse_riff_wav(bytes: &[u8]) -> Result<RiffWavMetadata<'_>, RiffWavError> {
     if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return Err(RiffWavError::InvalidHeader);
@@ -78,7 +77,14 @@ pub fn parse_riff_wav(bytes: &[u8]) -> Result<RiffWavMetadata<'_>, RiffWavError>
             b"data" => metadata.data = Some(chunk),
             _ => {}
         }
-        offset += chunk_len + (chunk_len % 2);
+        let padded_len = chunk_len + (chunk_len % 2);
+        if offset
+            .checked_add(padded_len)
+            .is_none_or(|end| end > bytes.len())
+        {
+            return Err(RiffWavError::MalformedChunkLength);
+        }
+        offset += padded_len;
     }
 
     Ok(metadata)

@@ -1,8 +1,10 @@
+use crate::canvas_state::Canvas;
 use crate::frame_commands::{
     ensure_record_size, ensure_reserved_zero, read_f64, read_i32, read_u64, FrameCommandFamily,
     EFFECT_RECORD_BYTES,
 };
-use crate::prelude::*;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 #[derive(Clone, Copy)]
 enum TypedEffect {

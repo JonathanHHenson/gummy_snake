@@ -73,9 +73,7 @@ class _GraphicsDrawingFacade:
 class Graphics(Image):
     """Offscreen canvas with isolated style, transform, pixels, and 3D state.
 
-    ``drawing`` provides the typed drawing facade.  Established direct drawing
-    access (for example, ``graphics.rect(...)``) remains forwarded to that same
-    isolated context for compatibility.
+    ``drawing`` provides the typed drawing facade for the isolated context.
     """
 
     __slots__ = ("_drawing", "_offscreen", "_snapshot")
@@ -175,15 +173,6 @@ class Graphics(Image):
         """Stop the offscreen backend and release runtime resources."""
 
         self._offscreen.close()
-
-    def __getattr__(self, name: str) -> Callable[..., object]:
-        """Forward established direct drawing calls to the isolated context.
-
-        Use ``drawing`` for static type information.  This compatibility path
-        intentionally returns a callable rather than an unconstrained ``Any``.
-        """
-
-        return getattr(self._drawing, name)
 
     def save(self, path: str | Path) -> None:
         """Save a snapshot of the offscreen surface."""

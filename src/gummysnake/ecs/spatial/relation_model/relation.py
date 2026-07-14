@@ -4,11 +4,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.expression_tools import ExpressionInput
-from gummysnake.ecs.expressions import Expression, QueryProxy, ensure_expr
+from gummysnake.ecs.logical_plan.expressions import (
+    Expression,
+    ExpressionInput,
+    QueryProxy,
+    ensure_expr,
+)
+from gummysnake.ecs.logical_plan.specifications import QuerySpec
 from gummysnake.ecs.spatial.config import (
     Dimensions,
-    FallbackPolicy,
     PairPolicy,
     SpatialAlgorithm,
     _validate_positive_or_zero_finite,
@@ -27,11 +31,10 @@ from gummysnake.ecs.spatial.runtime import (
     _get_or_build_index,
     _spatial_context_key,
 )
-from gummysnake.ecs.specs import QuerySpec
 from gummysnake.ecs.value_types import EcsLiteralValue
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 @dataclass(frozen=True)
@@ -44,13 +47,10 @@ class SpatialRelation:
         origin_position: Point expression for the origin rows.
         target_position: Point expression for candidate item rows.
         radius: Optional distance limit for point-based relations.
-        bounds: Reserved compatibility field for bounds-style relations.
         origin_bounds: Optional bounding box expression for origin rows.
         target_bounds: Optional bounding box expression for item rows.
         algorithm: Spatial index configuration used by the Rust executor.
         include_self: Whether an entity can match itself when origin and item queries overlap.
-        allow_fallback: Whether legacy Python materialization is allowed at explicit Python
-            boundaries.
         name: Optional human-readable name used in explain output and diagnostics.
         exact_filter: Additional lazy predicate applied after spatial candidate lookup.
         pair_policy: ``"all"`` for every ordered pair, or ``"unique_unordered"`` for each pair once.
@@ -61,12 +61,10 @@ class SpatialRelation:
     origin_position: SpatialPoint
     target_position: SpatialPoint
     radius: Expression | None = None
-    bounds: object | None = None
     origin_bounds: SpatialAabb | None = None
     target_bounds: SpatialAabb | None = None
     algorithm: SpatialAlgorithm | None = None
     include_self: bool = False
-    allow_fallback: FallbackPolicy = None
     name: str | None = None
     exact_filter: Expression | None = None
     pair_policy: PairPolicy = "all"

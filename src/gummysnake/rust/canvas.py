@@ -17,7 +17,7 @@ GUMMY_CANVAS_BUILD_COMMAND = (
     "uvx maturin develop --release --manifest-path crates/gummy_canvas/Cargo.toml "
     "--features extension-module"
 )
-EXPECTED_CANVAS_ABI_VERSION = 21
+EXPECTED_CANVAS_ABI_VERSION = 22
 
 
 class _RustCanvasImage(Protocol):
@@ -199,9 +199,9 @@ class _CanvasModule(Protocol):
         self, meshes: list[Any], source: str = "gummy_snake_model"
     ) -> Any: ...
 
-    def project_shade_faces(
+    def project_shade_model_handle(
         self,
-        meshes: list[dict[str, Any]],
+        model: Any,
         camera: dict[str, Any],
         projection: dict[str, Any],
         viewport_width: float,
@@ -210,6 +210,7 @@ class _CanvasModule(Protocol):
         lights: list[dict[str, Any]],
         normal_material: bool,
         cull_backfaces: bool,
+        transform: list[float] | tuple[float, ...] | None = None,
     ) -> list[dict[str, Any]]: ...
 
     def rasterize_faces_rgba(
@@ -288,8 +289,10 @@ def canvas_abi_version() -> int | None:
     if _canvas is None:
         return None
     marker = getattr(_canvas, "canvas_abi_version", None)
+    if not callable(marker):
+        return None
     try:
-        value: Any = marker() if callable(marker) else getattr(_canvas, "CANVAS_ABI_VERSION", None)
+        value: Any = marker()
     except Exception:
         return None
     return value if isinstance(value, int) and not isinstance(value, bool) else None

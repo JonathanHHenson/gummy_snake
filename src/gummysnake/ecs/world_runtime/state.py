@@ -6,7 +6,12 @@ import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from gummysnake.ecs.runtime_views import Entity, SystemHandle, _ScheduledSystem, _SystemSetConfig
+from gummysnake.ecs.runtime_view_model import (
+    Entity,
+    SystemHandle,
+    _ScheduledSystem,
+    _SystemSetConfig,
+)
 from gummysnake.ecs.scheduling_helpers import (
     scheduled_system_group_names,
     sorted_system_groups,
@@ -16,7 +21,7 @@ from gummysnake.ecs.world_helpers import _handle_matches
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 def configure(
@@ -130,17 +135,6 @@ def invalidate_spatial_indexes(world: EcsWorld, *, clear_only: bool = False) -> 
     world._spatial_relation_cache.clear()
     world._spatial_aggregate_cache.clear()
     world._expression_eval_cache.clear()
-
-
-def configure_system_set(
-    world: EcsWorld,
-    name: str,
-    *,
-    enabled: bool | None = None,
-    run_if: Callable[[], bool] | None = None,
-) -> None:
-    """Deprecated compatibility wrapper for group configuration."""
-    configure_system_group(world, name, enabled=enabled, run_if=run_if)
 
 
 def configure_system_group(

@@ -28,12 +28,12 @@ def test_math_helpers_and_angle_mode():
     gs.run(setup=setup, draw=draw, headless=True, max_frames=1)
 
 
-def test_pythonic_math_helpers_and_removed_legacy_easy_names():
+def test_pythonic_math_helpers_and_removed_easy_names():
     assert gs.sq(3) == 9
     assert gs.fract(1.25) == 0.25
     assert sorted(gs.shuffle([1, 2, 3])) == [1, 2, 3]
 
-    legacy_easy_python_names = {
+    removed_easy_python_names = {
         "abs_",
         "ceil",
         "floor",
@@ -63,8 +63,8 @@ def test_pythonic_math_helpers_and_removed_legacy_easy_names():
         "minute",
         "second",
     }
-    assert legacy_easy_python_names.isdisjoint(gs.__all__)
-    assert not any(hasattr(gs, name) for name in legacy_easy_python_names)
+    assert removed_easy_python_names.isdisjoint(gs.__all__)
+    assert not any(hasattr(gs, name) for name in removed_easy_python_names)
 
 
 def test_vector_instance_and_static_helpers():

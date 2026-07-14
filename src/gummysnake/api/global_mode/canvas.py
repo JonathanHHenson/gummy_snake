@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Any, cast, overload
 
 from gummysnake import constants as c
-from gummysnake._fast_draw import FastDrawScope
 from gummysnake.api.current import require_context
 from gummysnake.core.color import Color, _rgb255_color_from_args
+from gummysnake.fast_draw_runtime import FastDrawScope
 
 Number = int | float
 ColorValue = Color | str

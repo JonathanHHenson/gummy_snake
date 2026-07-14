@@ -1,4 +1,4 @@
-"""Implementation package for the public :mod:`gummysnake.ecs.world` facade.
+"""Implementation package for the public :mod:`gummysnake.ecs.world_facade` facade.
 
 ``world.py`` remains the authoritative ``EcsWorld`` class. ``initialization``
 creates its Python facade metadata only after the required Rust bridge passes
@@ -9,8 +9,8 @@ operations remain in the focused ``world_runtime`` adapters.
 
 from __future__ import annotations
 
-from gummysnake.ecs.runtime_views import Entity, EntityMutation, EntityView, MutEntity, SystemHandle
+from gummysnake.ecs.runtime_view_model import Entity, EntityMutation, EntityView, SystemHandle
 
 from .world import EcsWorld
 
-__all__ = ["EcsWorld", "Entity", "EntityMutation", "EntityView", "MutEntity", "SystemHandle"]
+__all__ = ["EcsWorld", "Entity", "EntityMutation", "EntityView", "SystemHandle"]

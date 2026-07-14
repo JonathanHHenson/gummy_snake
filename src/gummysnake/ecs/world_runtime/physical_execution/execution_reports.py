@@ -15,8 +15,8 @@ from gummysnake.ecs.world_runtime.physical_execution.canvas_dispatch import (
 from gummysnake.exceptions import SystemExecutionError
 
 if TYPE_CHECKING:
-    from gummysnake.ecs.runtime_views import _ScheduledSystem
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.runtime_view_model import _ScheduledSystem
+    from gummysnake.ecs.world_facade import EcsWorld
 
 _PHYSICAL_COUNTERS: tuple[str, ...] = (
     "spatial_indexes_built",

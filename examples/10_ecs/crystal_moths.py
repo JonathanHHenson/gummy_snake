@@ -92,7 +92,6 @@ def lantern_navigation(
         target_position=ecs.spatial.point2(lantern[Position].x, lantern[Position].y),
         radius=LIGHT_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=LIGHT_RADIUS, dimensions=2),
-        allow_fallback=False,
         name="moth_lantern_light_field",
     )
 
@@ -103,7 +102,6 @@ def lantern_navigation(
         target_position=ecs.spatial.point2(lantern[Position].x, lantern[Position].y),
         radius=ORBIT_RADIUS,
         algorithm=ecs.spatial.HashGrid(cell_size=ORBIT_RADIUS, dimensions=2),
-        allow_fallback=False,
         name="moth_lantern_close_field",
     )
 

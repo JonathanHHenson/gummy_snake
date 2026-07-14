@@ -12,13 +12,13 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.specs import QuerySpec
+from gummysnake.ecs.logical_plan.specifications import QuerySpec
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.runtime_views import Entity, EntityView
-    from gummysnake.ecs.spatial.relations import SpatialRelation
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.runtime_view_model import Entity, EntityView
+    from gummysnake.ecs.spatial.relation_model import SpatialRelation
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 @dataclass(frozen=True)
@@ -114,7 +114,7 @@ def _get_or_build_index(relation: SpatialRelation, world: EcsWorld) -> _SpatialI
         world._diagnostics["ecs_spatial_algorithm_hash_grid"] += 1
     else:
         raise SystemPlanError(
-            f"Spatial algorithm {algorithm_kind!r} cannot be evaluated by the legacy Python "
+            f"Spatial algorithm {algorithm_kind!r} cannot be evaluated by the Python "
             "spatial expression evaluator. Scheduled ECS systems execute this algorithm in Rust."
         )
     cache[key] = index

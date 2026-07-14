@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from gummysnake.core.color import Color
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 
 
 def test_style_state_exposes_lazy_packed_rgba_fields() -> None:

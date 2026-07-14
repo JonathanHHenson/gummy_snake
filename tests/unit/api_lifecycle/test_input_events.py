@@ -6,7 +6,7 @@ from gummysnake.api import input as environment_input
 from gummysnake.api.current import activate_context
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
-from gummysnake.core.input_events import (
+from gummysnake.core.input_event_model import (
     InputState,
     KeyboardEvent,
     MouseEvent,

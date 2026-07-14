@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Protocol, cast
 
-from gummysnake.assets.audio import AudioInput, create_audio_in
+from gummysnake.assets.audio_runtime import AudioInput, create_audio_in
 from gummysnake.assets.image import Image
 from gummysnake.assets.image.canvas import CanvasImage
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError

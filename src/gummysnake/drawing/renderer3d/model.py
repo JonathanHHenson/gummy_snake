@@ -5,8 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from gummysnake.drawing.renderer3d.mesh import Mesh3D, _mesh_rust_handle
-from gummysnake.drawing.renderer3d.types import Vec3
+from gummysnake.drawing.renderer3d.mesh_model import Mesh3D, _mesh_rust_handle
 
 
 class Model3D:
@@ -39,16 +38,7 @@ class Model3D:
     def _materialize_rust_meshes(self) -> tuple[Mesh3D, ...]:
         if self._rust_handle is None:
             return ()
-        if hasattr(self._rust_handle, "to_mesh_handle"):
-            return (Mesh3D.from_rust_handle(self._rust_handle.to_mesh_handle()),)
-        payload = self._rust_handle.to_mesh_payload()
-        vertices = tuple(Vec3(float(x), float(y), float(z)) for x, y, z in payload["vertices"])
-        faces = tuple(tuple(int(index) for index in face) for face in payload["faces"])
-        texcoords = tuple((float(u), float(v)) for u, v in payload.get("texcoords", ()))
-        normals = tuple(
-            Vec3(float(x), float(y), float(z)) for x, y, z in payload.get("normals", ())
-        )
-        return (Mesh3D(vertices=vertices, faces=faces, normals=normals, texcoords=texcoords),)
+        return (Mesh3D.from_rust_handle(self._rust_handle.to_mesh_handle()),)
 
 
 def _model_rust_handle(model: Model3D) -> Any | None:

@@ -4,9 +4,11 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from gummysnake.ecs.action_model.nodes import Action, UdfArgument
-from gummysnake.ecs.expressions import Expression, FieldExpression, QueryProxy
-from gummysnake.ecs.runtime_views import (
+from gummysnake.ecs.logical_plan.actions import Action, UdfArgument
+from gummysnake.ecs.logical_plan.expressions import Expression, FieldExpression, QueryProxy
+from gummysnake.ecs.logical_plan.specifications import QuerySpec
+from gummysnake.ecs.logical_plan.systems import SystemDefinition
+from gummysnake.ecs.runtime_view_model import (
     Entity,
     EntityView,
     SystemHandle,
@@ -14,8 +16,6 @@ from gummysnake.ecs.runtime_views import (
     _SystemSetConfig,
 )
 from gummysnake.ecs.scheduling_helpers import sorted_scheduled_systems, validate_group_name
-from gummysnake.ecs.specifications import QuerySpec
-from gummysnake.ecs.system_model.definitions import SystemDefinition
 from gummysnake.ecs.types import StorageType
 from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsStoredValue, EcsTag
 from gummysnake.ecs.world_facade import initialization, schema_validation
@@ -93,17 +93,6 @@ class EcsWorld:
 
     def _invalidate_spatial_indexes(self, *, clear_only: bool = False) -> None:
         state_runtime.invalidate_spatial_indexes(self, clear_only=clear_only)
-
-    def configure_system_set(
-        self,
-        name: str,
-        *,
-        enabled: bool | None = None,
-        run_if: Callable[[], bool] | None = None,
-    ) -> None:
-        """Deprecated alias for ``group(name, enabled=..., run_if=...)``."""
-
-        self.group(name, enabled=enabled, run_if=run_if)
 
     def group(
         self,
@@ -492,7 +481,6 @@ class EcsWorld:
         before: Iterable[str] = (),
         after: Iterable[str] = (),
         run_if: Callable[[], bool] | None = None,
-        set: str | Iterable[str] | None = None,
         group: str | Iterable[str] | None = None,
     ) -> SystemHandle:
         """Register an ``@ecs.system`` or ``@ecs.system_plan`` with this world.
@@ -504,7 +492,6 @@ class EcsWorld:
             before: Groups that should run after this system's implicit group.
             after: Groups that should run before this system's implicit group.
             run_if: Optional callback checked before each scheduled run.
-            set: Deprecated alias for ``group``.
             group: Optional system group name or sequence of group names. Defaults to
                 ``system_<system_name>``.
 
@@ -520,7 +507,7 @@ class EcsWorld:
             before=tuple(before),
             after=tuple(after),
             run_if=run_if,
-            group_name=group if group is not None else set,
+            group_name=group,
         )
 
     def remove_system(self, handle: SystemHandle | str) -> None:

@@ -13,7 +13,7 @@ from gummysnake.drawing.renderer3d.materials import (
     Material3D,
     Texture3D,
 )
-from gummysnake.drawing.renderer3d.mesh import Mesh3D, _mesh_rust_handle
+from gummysnake.drawing.renderer3d.mesh_model import Mesh3D, _mesh_rust_handle
 from gummysnake.drawing.renderer3d.model import (
     Model3D,
     _ensure_model_rust_handle,

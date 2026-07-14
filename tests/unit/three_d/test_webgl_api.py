@@ -7,7 +7,7 @@ import pytest
 import gummysnake as gs
 from gummysnake.backend.canvas import CanvasBackend
 from gummysnake.context import SketchContext
-from gummysnake.core.input_events import MouseEvent
+from gummysnake.core.input_event_model import MouseEvent
 from gummysnake.drawing.renderer3d import Model3D, Shader3D
 from gummysnake.exceptions import (
     ArgumentValidationError,

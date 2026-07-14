@@ -1,5 +1,7 @@
 use crate::bindings::{health_check, native_window_available};
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::config::*;
+use crate::runtime::native_window_available as runtime_native_window_available;
 
 #[test]
 fn health_check_reports_canvas_backend() {
@@ -19,13 +21,14 @@ fn canvas_tracks_logical_and_physical_dimensions_without_eager_cpu_buffers() {
 #[test]
 fn explicit_pixel_paths_allocate_cpu_buffers_lazily() {
     let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
+    let gpu_available = canvas.gpu.is_some();
 
     assert_eq!(canvas.load_pixels(), vec![0; 8]);
     assert_eq!(canvas.pixels.len(), 8);
     assert!(canvas.present_pixels.is_empty());
 
     canvas.set_pixel_rgba(1, 0, (10, 20, 30, 255)).unwrap();
-    assert!(canvas.present_pixels.is_empty());
+    assert_eq!(canvas.present_pixels.is_empty(), gpu_available);
     assert_eq!(canvas.load_pixels(), vec![0, 0, 0, 0, 10, 20, 30, 255]);
 
     canvas.resize_canvas(3, 1, 1.0, SUPPORTED_RENDERER).unwrap();
@@ -34,7 +37,7 @@ fn explicit_pixel_paths_allocate_cpu_buffers_lazily() {
 }
 
 #[test]
-fn gpu_less_headless_pixel_writes_use_rust_software_compatibility() {
+fn gpu_less_headless_pixel_writes_use_rust_software_path() {
     let mut canvas = Canvas::new(2, 1, 1.0, SUPPORTED_MODE, SUPPORTED_RENDERER).unwrap();
     canvas.gpu = None;
     canvas.gpu_error = Some("test GPU unavailable".to_owned());

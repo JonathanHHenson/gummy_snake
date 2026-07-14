@@ -117,19 +117,13 @@ owns the mutable renderer state used to construct draw commands: current style,
 current transform matrix, push/pop drawing state, image/text draw state, and
 batching state. New drawing operations should prefer Rust `*_current` methods
 that consume the Rust-owned current style and matrix instead of rebuilding a
-full Python style/matrix payload per command. Legacy payload-style methods may
-Legacy payload-style methods may
-remain as compatibility shims for tests and staged migrations, but they should
-not become the primary path for new renderer work.
+full Python style/matrix payload per command.
 
 ### Renderer and context navigation
 
 `canvas_renderer.py` and `canvas.py` are deliberately thin composition roots.
 The renderer implementation is grouped by responsibility beneath
-`backend/canvas_runtime/renderer/`; stable flat internal modules remain explicit
-import shims while implementation code depends on the descriptive homes below.
-This keeps established internal test imports working without creating a
-same-stem module/package pair.
+`backend/canvas_runtime/renderer/`; imports use the descriptive owners below.
 
 | Responsibility | Implementation home | Dependency direction |
 | --- | --- | --- |
@@ -147,8 +141,8 @@ callback-facing state. In particular, SDL3 payloads marked
 `coordinates = "logical"` must not be scaled by pixel density.
 
 The primitive flush sequence is intentionally divided into state draining,
-native payload/submission selection, counter recording, and the existing
-unbatched bridge path. This separation must not alter record formats, native
+native payload/submission selection, counter recording, and direct submission.
+This separation must not alter record formats, native
 batch decisions, or the counter names and values surfaced by
 `renderer_performance_counters()`.
 
@@ -176,10 +170,10 @@ Use these examples when deciding where code belongs:
 | --- | --- |
 | Add a new public drawing function | topic module under `src/gummysnake/api/global_mode/`, `src/gummysnake/__init__.py`, `SketchContext` or a `src/gummysnake/context_mixins/` mixin, and maybe `CanvasRenderer`/Rust |
 | Change how `rect_mode(CENTER)` computes coordinates | `SketchContext` or geometry helpers |
-| Add a new Rust primitive call | `src/gummysnake/backend/canvas_runtime/renderer/primitives.py` and `crates/gummy_canvas`, preferably as a stateful `*_current` operation |
+| Add a new Rust primitive call | `src/gummysnake/backend/canvas_runtime/renderer/drawing/primitives.py`, `primitive_support/`, and `crates/gummy_canvas`, preferably as a stateful `*_current` operation |
 | Improve missing runtime or ABI error text | `gummysnake.rust.canvas` |
 | Poll a new native input event | `src/gummysnake/backend/canvas_runtime/host/events.py` and Rust SDL3 event support |
-| Add a new pixel export format | `src/gummysnake/backend/canvas_runtime/renderer/pixels.py` and `crates/gummy_canvas` |
+| Add a new pixel export format | `src/gummysnake/backend/canvas_runtime/renderer/pixel_support/` and `crates/gummy_canvas` |
 | Change frame scheduling | `src/gummysnake/backend/canvas_runtime/host/pacing.py` or `runtime.py` and lifecycle tests |
 | Change GPU command batching or pipeline switching | `crates/gummy_canvas/src/gpu/` plus render-order regression tests |
 

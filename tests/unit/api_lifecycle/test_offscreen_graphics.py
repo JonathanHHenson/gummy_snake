@@ -11,7 +11,7 @@ def test_graphics_uses_backend_owned_isolated_canvas_and_typed_surface() -> None
     try:
         drawing: GraphicsDrawingSurface = graphics.drawing
         drawing.background(0, 0, 255)
-        graphics.rect(0, 0, 2, 2)
+        drawing.rect(0, 0, 2, 2)
 
         snapshot = graphics.snapshot()
         assert graphics.drawing is graphics.drawing

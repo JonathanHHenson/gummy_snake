@@ -3,8 +3,7 @@
 Epic 290 ECS benchmarks are defined by `benchmarks/ecs_v1.toml` and implemented only
 under `benchmarks/suites/ecs/`. They generate schemas, entities, plans, resources,
 events, spatial inputs, and canvas commands in memory with the frozen seed `290001`.
-They must not import examples, test fixtures, legacy benchmark scenes, or old baseline
-values.
+They must not import examples, test fixtures, or old baseline values.
 
 Performance runs are local-first and manually invoked by a maintainer. Comparable
 history is ignored local data under `.scratch/benchmark/history`, keyed by exact

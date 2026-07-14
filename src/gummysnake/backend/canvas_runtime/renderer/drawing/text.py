@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-from typing import cast
-
-from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer._protocols import _renderer
 from gummysnake.backend.canvas_runtime.renderer.command_ingress import pack_text_commands
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.payloads import text_metric_key
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
-
-
-def _renderer(self: object) -> CanvasRendererHost:
-    return cast(CanvasRendererHost, self)
 
 
 class CanvasRendererTextMixin:

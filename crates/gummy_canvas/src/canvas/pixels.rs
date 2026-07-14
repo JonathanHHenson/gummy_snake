@@ -1,5 +1,6 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
 use crate::runtime::style::*;
+use pyo3::prelude::*;
 
 mod effects;
 mod export;

@@ -1,5 +1,8 @@
+use crate::canvas_state::Canvas;
 use crate::frame_commands::{decode_path, FrameCommandFamily, PATH_POINT_RECORD_BYTES};
-use crate::prelude::*;
+use crate::raster::Matrix;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn polygon_packed_impl(

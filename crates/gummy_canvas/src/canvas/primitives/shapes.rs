@@ -1,4 +1,9 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::{stroke_width, Matrix};
+use crate::types::{Rgba, Style};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn draw_captured_shape_current_impl(

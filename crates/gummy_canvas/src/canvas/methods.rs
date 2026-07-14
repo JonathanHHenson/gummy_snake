@@ -1,4 +1,8 @@
-use crate::prelude::*;
+use crate::assets::CanvasImage;
+use crate::canvas_state::Canvas;
+use crate::raster::Matrix;
+use pyo3::prelude::*;
+use pyo3::types::{PyAny, PyBytes, PyDict};
 
 #[pymethods]
 impl Canvas {

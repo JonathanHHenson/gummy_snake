@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
 
 impl Canvas {
     pub(crate) fn mark_gpu_output_dirty(&mut self) {

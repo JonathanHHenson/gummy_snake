@@ -6,11 +6,11 @@ from collections.abc import Callable, Iterable
 from typing import Any, cast
 
 from gummysnake._fast_draw_math import _mat4_translation_quaternion
-from gummysnake.backend.canvas_runtime.renderer.batch_state import (
+from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import (
     ModelBatchKey,
     ModelTransformPayload,
 )
-from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
+from gummysnake.context_mixins.three_d._protocols import _three_d
 from gummysnake.drawing.renderer3d import (
     Camera3D,
     Light3D,
@@ -39,11 +39,6 @@ from gummysnake.exceptions import (
     BackendCapabilityError,
     UnsupportedFeatureError,
 )
-
-
-def _three_d(self: Any) -> ThreeDContextHost:
-    return cast(ThreeDContextHost, self)
-
 
 CompactModelTransform = tuple[float, float, float, float, float, float, float]
 

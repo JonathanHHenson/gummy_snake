@@ -165,7 +165,7 @@ command = "uv run python scripts/structure_audit.py"
 
 [areas.package_shell]
 source = ["src/gummysnake/*.py"]
-roles = ["composition_root", "compatibility_facade"]
+roles = ["composition_root", "facade"]
 ownership = "Package exports, active-context convenience, async dispatch, and fast-draw entry points."
 [areas.package_shell.categories]
 unit = ["public_api", "context_state"]
@@ -179,7 +179,7 @@ packaging = ["distribution"]
 
 [areas.api]
 source = ["src/gummysnake/api/**/*.py"]
-roles = ["composition_root", "compatibility_facade"]
+roles = ["composition_root", "facade"]
 ownership = "Topic APIs and global-mode adapters compose the Python public surface."
 [areas.api.categories]
 unit = ["public_api", "context_state"]
@@ -221,8 +221,8 @@ packaging = ["distribution"]
 
 [areas.constants]
 source = ["src/gummysnake/constants/**/*.py"]
-roles = ["compatibility_facade"]
-ownership = "Enum-backed public constants and compatibility aliases."
+roles = ["facade"]
+ownership = "Enum-backed public constants and public aliases."
 [areas.constants.categories]
 unit = ["public_api"]
 contract = ["N/A: constants have no backend contract."]
@@ -264,7 +264,7 @@ packaging = ["distribution"]
 [areas.drawing]
 source = ["src/gummysnake/drawing/**/*.py"]
 roles = ["implementation"]
-ownership = "Renderer protocols and software/retained 3D compatibility helpers; native rendering remains Rust-owned."
+ownership = "Renderer protocols and software/retained 3D runtime helpers; native rendering remains Rust-owned."
 [areas.drawing.categories]
 unit = ["three_d"]
 contract = ["canvas_contracts"]
@@ -277,8 +277,8 @@ packaging = ["distribution"]
 
 [areas.ecs]
 source = ["src/gummysnake/ecs/**/*.py"]
-roles = ["composition_root", "compatibility_facade", "mandatory_rust_boundary", "udf_boundary"]
-ownership = "Schemas, logical plans, public views, compatibility facades, and explicit Python UDF boundaries; canonical storage and non-UDF execution are Rust-owned."
+roles = ["composition_root", "facade", "mandatory_rust_boundary", "udf_boundary"]
+ownership = "Schemas, logical plans, public views, public facades, and explicit Python UDF boundaries; canonical storage and non-UDF execution are Rust-owned."
 [areas.ecs.categories]
 unit = ["ecs_plans", "ecs_bridge"]
 contract = ["N/A: ECS plan semantics are characterized at the public logical-plan boundary, not by interchangeable backend contracts."]
@@ -291,7 +291,7 @@ packaging = ["distribution"]
 
 [areas.fast_draw_runtime]
 source = ["src/gummysnake/fast_draw_runtime/**/*.py"]
-roles = ["compatibility_facade"]
+roles = ["facade"]
 ownership = "Frame-local fast facade that preserves public style/transform semantics while reducing dispatch overhead."
 [areas.fast_draw_runtime.categories]
 unit = ["context_state"]
@@ -333,7 +333,7 @@ packaging = ["distribution"]
 
 [areas.sketch]
 source = ["src/gummysnake/sketch/**/*.py"]
-roles = ["composition_root", "compatibility_facade"]
+roles = ["composition_root", "facade"]
 ownership = "Sketch lifecycle runtime, decorator builder, and object-mode facade forwarding."
 [areas.sketch.categories]
 unit = ["lifecycle_groups", "public_api"]

@@ -30,6 +30,14 @@ fn entity(index: u32, generation: u32) -> Entity {
     Entity { index, generation }
 }
 
+#[inline]
+fn entity_handles(entities: Vec<Entity>) -> Vec<(u32, u32)> {
+    entities
+        .into_iter()
+        .map(|entity| (entity.index, entity.generation))
+        .collect()
+}
+
 #[pyclass(name = "EcsWorld")]
 pub(crate) struct PyEcsWorld {
     world: World,
@@ -47,10 +55,7 @@ impl PyEcsWorld {
     fn spawn_batch(&mut self, rows: &Bound<'_, PyList>) -> PyResult<Vec<(u32, u32)>> {
         let rows = spawn_entities_from_list(rows)?;
         let entities = self.world.spawn_batch(rows).map_err(py_value_error)?;
-        Ok(entities
-            .into_iter()
-            .map(|entity| (entity.index, entity.generation))
-            .collect())
+        Ok(entity_handles(entities))
     }
 
     fn despawn_entity(&mut self, index: u32, generation: u32) -> PyResult<()> {
@@ -402,10 +407,7 @@ impl PyEcsWorld {
 
     fn query_entities(&mut self, components: Vec<String>) -> PyResult<Vec<(u32, u32)>> {
         let entities = self.world.query(components).map_err(py_value_error)?;
-        Ok(entities
-            .into_iter()
-            .map(|entity| (entity.index, entity.generation))
-            .collect())
+        Ok(entity_handles(entities))
     }
 
     fn query_with_terms(&mut self, terms: Vec<(String, String)>) -> PyResult<Vec<(u32, u32)>> {
@@ -428,10 +430,7 @@ impl PyEcsWorld {
             .world
             .query_filter(QueryFilter::new(terms))
             .map_err(py_value_error)?;
-        Ok(entities
-            .into_iter()
-            .map(|entity| (entity.index, entity.generation))
-            .collect())
+        Ok(entity_handles(entities))
     }
 
     fn query_filtered(
@@ -455,10 +454,7 @@ impl PyEcsWorld {
             .world
             .query_filter(QueryFilter::new(terms))
             .map_err(py_value_error)?;
-        Ok(entities
-            .into_iter()
-            .map(|entity| (entity.index, entity.generation))
-            .collect())
+        Ok(entity_handles(entities))
     }
 
     fn query_component_fields(

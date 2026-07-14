@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Iterator
 from typing import Any
 
-from gummysnake.ecs.systems import SystemDefinition
+from gummysnake.ecs.logical_plan.systems import SystemDefinition
 from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
-from gummysnake.ecs.world import Entity, EntityView, SystemHandle
+from gummysnake.ecs.world_facade import Entity, EntityView, SystemHandle
 from gummysnake.sketch.facade_mixins.base import SketchFacadeBaseMixin
 
 
@@ -188,7 +188,6 @@ class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
         before: Iterable[str] = (),
         after: Iterable[str] = (),
         run_if: Callable[[], bool] | None = None,
-        set: str | Iterable[str] | None = None,
         group: str | Iterable[str] | None = None,
     ) -> SystemHandle:
         """Schedule an ECS system for this sketch.
@@ -200,7 +199,6 @@ class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
             before: Groups that should run after this system's implicit group.
             after: Groups that should run before this system's implicit group.
             run_if: Optional predicate checked before running the system.
-            set: Deprecated alias for ``group``.
             group: Optional explicit system group name or sequence of group names.
 
         Returns:
@@ -214,7 +212,6 @@ class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
             before=before,
             after=after,
             run_if=run_if,
-            set=set,
             group=group,
         )
 
@@ -256,17 +253,6 @@ class SketchFacadeEcsMixin(SketchFacadeBaseMixin):
         """
 
         self._ctx.configure_ecs(strict=strict, warn_on_ambiguity=warn_on_ambiguity)
-
-    def configure_system_set(
-        self,
-        name: str,
-        *,
-        enabled: bool | None = None,
-        run_if: Callable[[], bool] | None = None,
-    ) -> None:
-        """Deprecated alias for ``group(name, enabled=..., run_if=...)``."""
-
-        self._ctx.configure_system_set(name, enabled=enabled, run_if=run_if)
 
     def group(
         self,

@@ -98,7 +98,6 @@ def beacon_pull(
         target_position=ecs.spatial.point2(beacon[Beacon2D].x, beacon[Beacon2D].y),
         radius=132.0,
         algorithm=BEACON_GRID,
-        allow_fallback=False,
         name="signal_beacon_join",
     )
     nearby = field.count()
@@ -121,7 +120,6 @@ def neighbor_pressure(signal: ecs.Query[ecs.Tag[SIGNAL_TAG], Signal2D]) -> None:
         radius=30.0,
         algorithm=SIGNAL_GRID,
         include_self=False,
-        allow_fallback=False,
         name="signal_neighbors",
     )
     crowd = neighbors.count()
@@ -163,7 +161,6 @@ def overlap_beacons(
         ),
         algorithm=OVERLAP_TREE,
         include_self=False,
-        allow_fallback=False,
         name="signal_beacon_overlaps",
     ).count()
     updated_pressure = (state.pressure + hits * 0.10).clamp(0.0, 1.0)

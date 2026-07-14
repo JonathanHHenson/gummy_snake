@@ -5,12 +5,12 @@ use crate::entity::Entity;
 use crate::error::{EcsError, Result};
 use crate::plan::{ActionNode, CanvasCommandNode};
 
-use super::super::f64_program::{
-    compile_f64_readonly_program, eval_compiled_f64_readonly, CompiledF64ReadOnlyProgram,
-};
 use super::super::{
     truthy_f64, ExecutionCanvasCommand, ExecutionCanvasFillBatch, PlanExecutor,
     SpatialPrecomputeLayout,
+};
+use crate::execution::optimized::f64_program::{
+    compile_f64_readonly_program, eval_compiled_f64_readonly, CompiledF64ReadOnlyProgram,
 };
 
 impl<'a> PlanExecutor<'a> {

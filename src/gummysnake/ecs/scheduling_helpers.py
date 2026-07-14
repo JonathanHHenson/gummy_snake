@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from gummysnake.ecs.runtime_views import _ScheduledSystem, _SystemSetConfig
+from gummysnake.ecs.runtime_view_model import _ScheduledSystem, _SystemSetConfig
 from gummysnake.exceptions import SystemPlanError
 
 _GROUP_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")

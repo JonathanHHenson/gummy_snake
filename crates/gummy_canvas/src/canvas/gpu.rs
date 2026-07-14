@@ -1,4 +1,5 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::types::BlendMode;
 
 mod commands;
 

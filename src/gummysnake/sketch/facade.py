@@ -9,7 +9,7 @@ from gummysnake.sketch.facade_mixins.input import SketchFacadeInputMixin
 from gummysnake.sketch.facade_mixins.media import SketchFacadeMediaMixin
 from gummysnake.sketch.facade_mixins.shapes import SketchFacadeShapesMixin
 from gummysnake.sketch.facade_mixins.style import SketchFacadeStyleMixin
-from gummysnake.sketch.facade_mixins.three_d import SketchFacadeThreeDMixin
+from gummysnake.sketch.facade_mixins.three_d_facade import SketchFacadeThreeDMixin
 from gummysnake.sketch.facade_mixins.transform import SketchFacadeTransformMixin
 
 

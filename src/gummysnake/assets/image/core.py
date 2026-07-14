@@ -9,7 +9,6 @@ from typing import Self, cast, overload
 
 from gummysnake import constants as c
 from gummysnake.assets.image.canvas import CanvasImage
-from gummysnake.assets.image.deferred import ImageDeferredMixin
 from gummysnake.assets.image.exporting import png_export_path
 from gummysnake.assets.image.source import ImageSource, coerce_image_source
 from gummysnake.core.color import Color
@@ -17,7 +16,7 @@ from gummysnake.exceptions import ArgumentValidationError, UnsupportedFeatureErr
 
 
 @dataclass(slots=True)
-class Image(ImageDeferredMixin):
+class Image:
     """Mutable RGBA image used by Gummy Snake asset APIs.
 
     The public Image API remains Pythonic, while pixel storage and bulk image

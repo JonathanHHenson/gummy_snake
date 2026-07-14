@@ -7,7 +7,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import fields
 from typing import TYPE_CHECKING, Any, cast
 
-from gummysnake.ecs.runtime_views import Entity, EntityView
+from gummysnake.ecs.runtime_view_model import Entity, EntityView
 from gummysnake.ecs.schema_helpers import (
     _dataclass_field_dict,
     _schema_name,
@@ -23,7 +23,7 @@ from gummysnake.exceptions import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 def add_entity(

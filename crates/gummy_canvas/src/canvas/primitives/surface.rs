@@ -1,4 +1,6 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::types::{BlendMode, Rgba};
+use pyo3::prelude::*;
 
 impl Canvas {
     pub(crate) fn background_impl(&mut self, rgba: (u8, u8, u8, u8)) -> PyResult<()> {

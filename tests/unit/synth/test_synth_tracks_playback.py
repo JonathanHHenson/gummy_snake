@@ -111,16 +111,6 @@ def test_open_track_compiles_one_native_rolling_program_without_python_horizons(
     assert runtime.playbacks[0].close_calls == 1
 
 
-def test_track_play_rejects_removed_custom_player_route(monkeypatch) -> None:
-    runtime = _FakeSynthRuntime()
-    patch_synth_runtime(monkeypatch, runtime)
-
-    with pytest.raises(gs.ArgumentValidationError, match="native Gummy Snake SDL3"):
-        _short_realtime_track().play(duration=0.08, player_factory=object())
-
-    assert runtime.compiled_program_calls == []
-
-
 def test_music_data_helpers_are_pythonic_and_wrapping() -> None:
     notes = sy.ring("c4", "e4", "g4")
 

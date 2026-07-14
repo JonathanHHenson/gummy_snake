@@ -1,4 +1,6 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::config::*;
+use crate::runtime::native_window_available as runtime_native_window_available;
 
 #[test]
 fn interactive_runtime_primitives_track_open_and_close_state() {

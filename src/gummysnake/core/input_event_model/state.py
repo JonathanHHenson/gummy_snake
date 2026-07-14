@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from gummysnake import constants as c
-from gummysnake.core.input_event_model.events import MotionEvent, TouchPoint, _update_motion_state
+from gummysnake.core.input_event_model.events import TouchPoint, _update_motion_state
 from gummysnake.exceptions import BackendCapabilityError
 
 
@@ -51,27 +51,7 @@ class InputState:
     move_threshold: float = 0.5
     shake_threshold: float = 30.0
 
-    def update_motion(
-        self,
-        *,
-        acceleration_x: float | None = None,
-        acceleration_y: float | None = None,
-        acceleration_z: float | None = None,
-        rotation_x: float | None = None,
-        rotation_y: float | None = None,
-        rotation_z: float | None = None,
-        orientation: str | None = None,
-    ) -> MotionEvent:
-        return _update_motion_state(
-            self,
-            acceleration_x=acceleration_x,
-            acceleration_y=acceleration_y,
-            acceleration_z=acceleration_z,
-            rotation_x=rotation_x,
-            rotation_y=rotation_y,
-            rotation_z=rotation_z,
-            orientation=orientation,
-        )
+    update_motion = _update_motion_state
 
     def update_mouse(
         self, x: float, y: float, *, dx: float | None = None, dy: float | None = None

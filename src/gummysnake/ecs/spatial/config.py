@@ -9,7 +9,6 @@ from typing import Literal
 Dimensions = Literal[2, 3]
 UpdatePolicy = Literal["auto", "rebuild_each_use", "rebuild_each_frame", "incremental"]
 OutOfBoundsPolicy = Literal["overflow", "error"]
-FallbackPolicy = bool | None
 PairPolicy = Literal["all", "unique_unordered"]
 
 

@@ -5,10 +5,10 @@ from typing import cast
 import pytest
 
 from gummysnake.backend.canvas_renderer import CanvasRenderer
-from gummysnake.backend.canvas_runtime.renderer.pixels import PixelBuffer
 from gummysnake.context import SketchContext
 from gummysnake.core.color import Color
-from gummysnake.core.state import StyleState
+from gummysnake.core.pixels import PixelBuffer
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 from tests.helpers.canvas_runtime.context import make_canvas_context
 from tests.helpers.canvas_runtime.modules import FakeCanvasModule

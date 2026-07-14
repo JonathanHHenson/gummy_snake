@@ -1,6 +1,6 @@
 """Asset helpers for images, fonts, media, and lightweight data files."""
 
-from gummysnake.assets.audio import (
+from gummysnake.assets.audio_runtime import (
     FFT,
     Amplitude,
     AudioBuffer,

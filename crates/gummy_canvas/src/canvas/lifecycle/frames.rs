@@ -1,5 +1,8 @@
 use super::LIVE_RESIZE_PRESENT_COOLDOWN;
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::runtime::InteractiveRuntime;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 impl Canvas {
     pub(crate) fn begin_frame_impl(&mut self) {

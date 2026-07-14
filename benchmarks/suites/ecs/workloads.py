@@ -17,8 +17,8 @@ from benchmarks.suites.registry import SuiteExecution
 from gummysnake import Sketch, ecs
 from gummysnake.ecs import canvas as ca
 from gummysnake.ecs import types as ecs_t
-from gummysnake.ecs.physical import build_physical_payload
-from gummysnake.ecs.world import EcsWorld
+from gummysnake.ecs.physical_payload import build_physical_payload
+from gummysnake.ecs.world_facade import EcsWorld
 from gummysnake.exceptions import (
     ComponentSchemaError,
     EntityNotFoundError,
@@ -1896,7 +1896,6 @@ def _spatial(plan: WorkloadPlan) -> _Outcome:
                 radius=radius,
                 algorithm=cast(Any, algorithm),
                 include_self=False,
-                allow_fallback=False,
             )
             entity[Health].value.set_to(nearby.count())
     else:
@@ -1914,7 +1913,6 @@ def _spatial(plan: WorkloadPlan) -> _Outcome:
                 radius=radius,
                 algorithm=cast(Any, algorithm),
                 include_self=False,
-                allow_fallback=False,
             )
             entity[Health].value.set_to(nearby.count())
 
@@ -2000,7 +1998,6 @@ def _spatial_distribution(plan: WorkloadPlan) -> _Outcome:
                 radius=radius,
                 algorithm=cast(Any, algorithm),
                 include_self=False,
-                allow_fallback=False,
             )
             entity[Health].value.set_to(nearby.count())
 
@@ -2015,7 +2012,6 @@ def _spatial_distribution(plan: WorkloadPlan) -> _Outcome:
                 radius=radius,
                 algorithm=cast(Any, algorithm),
                 include_self=False,
-                allow_fallback=False,
             )
             entity[Health].value.set_to(nearby.count())
 

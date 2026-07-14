@@ -11,8 +11,8 @@ import pytest
 from gummysnake import Sketch, ecs
 from gummysnake.ecs import canvas as ca
 from gummysnake.ecs import types as ecs_t
-from gummysnake.ecs.physical import BRIDGE_PLAN_VERSION
-from gummysnake.ecs.world import EcsWorld
+from gummysnake.ecs.physical_payload import BRIDGE_PLAN_VERSION
+from gummysnake.ecs.world_facade import EcsWorld
 from gummysnake.exceptions import (
     BackendCapabilityError,
     ComponentSchemaError,

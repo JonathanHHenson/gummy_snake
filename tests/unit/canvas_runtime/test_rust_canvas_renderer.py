@@ -8,7 +8,7 @@ from gummysnake import constants as c
 from gummysnake.backend.canvas_renderer import CanvasRenderer
 from gummysnake.backend.canvas_runtime.renderer.renderer_state.batch_state import ModelBatchKey
 from gummysnake.core.color import Color
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
 from tests.helpers.canvas_runtime.modules import FakeCanvasModule
@@ -173,12 +173,11 @@ def _model_batch_key(
     )
 
 
-def test_canvas_renderer_model_batch_normalizes_and_submits_one_compatible_run() -> None:
+def test_canvas_renderer_model_batch_normalizes_and_submits_one_run() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(8, 8)
     key = _model_batch_key()
     flat_transform = tuple(float(index) for index in range(16))
-    affine_transform = (2.0, 0.0, 0.0, 4.0, 5.0, -6.0)
     nested_transform = (
         (1.0, 2.0, 3.0, 4.0),
         (5.0, 6.0, 7.0, 8.0),
@@ -187,7 +186,6 @@ def test_canvas_renderer_model_batch_normalizes_and_submits_one_compatible_run()
     )
 
     assert renderer._queue_model_batch(key, flat_transform)
-    assert renderer._queue_model_batch(key, affine_transform)
     assert renderer._queue_model_batch(key, nested_transform)
 
     canvas = renderer._canvas
@@ -200,13 +198,12 @@ def test_canvas_renderer_model_batch_normalizes_and_submits_one_compatible_run()
     assert len(calls) == 1
     assert [transform for call in calls for transform in call[-1]] == [
         flat_transform,
-        (2.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 5.0, 6.0, 0.0, 1.0),
         (1.0, 5.0, 9.0, 13.0, 2.0, 6.0, 10.0, 14.0, 3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0),
     ]
     counters = renderer.performance_counters()
-    assert counters["model_batch_records"] == 3
+    assert counters["model_batch_records"] == 2
     assert counters["model_batch_flushes"] == 1
-    assert counters["model_batch_max_records"] == 3
+    assert counters["model_batch_max_records"] == 2
 
 
 def test_canvas_renderer_model_batch_packs_n_flat_transforms_into_one_native_call() -> None:
@@ -268,14 +265,11 @@ def test_canvas_renderer_model_batch_flushes_between_compact_and_arbitrary_trans
     assert counters["model_batch_max_records"] == 2
 
 
-def test_canvas_renderer_model_batch_many_accepts_existing_forms_and_rolls_back_invalid_input() -> (
-    None
-):
+def test_canvas_renderer_model_batch_many_accepts_matrices_and_rolls_back_invalid_input() -> None:
     renderer = CanvasRenderer(FakeCanvasModule())
     renderer.resize(8, 8)
     key = _model_batch_key()
     flat_transform = tuple(float(index) for index in range(16))
-    affine_transform = (2.0, 0.0, 0.0, 4.0, 5.0, -6.0)
     nested_transform = (
         (1.0, 0.0, 0.0, 7.0),
         (0.0, 1.0, 0.0, 8.0),
@@ -284,14 +278,14 @@ def test_canvas_renderer_model_batch_many_accepts_existing_forms_and_rolls_back_
     )
     assert renderer._queue_model_batch(key, flat_transform)
 
-    with pytest.raises(ValueError, match=r"transform at index 1 is invalid:.*6 affine values"):
+    with pytest.raises(ValueError, match=r"transform at index 1 is invalid:.*16 matrix values"):
         renderer._queue_model_batch_many(
             key,
-            (affine_transform, (1.0, 2.0, 3.0), nested_transform),
+            (nested_transform, (1.0, 2.0, 3.0)),
         )
 
     assert renderer._model_batch_state.record_count == 1
-    assert renderer._queue_model_batch_many(key, (affine_transform, nested_transform)) == 2
+    assert renderer._queue_model_batch_many(key, (nested_transform,)) == 1
     renderer.end_frame()
 
     canvas = renderer.runtime_canvas()
@@ -299,13 +293,12 @@ def test_canvas_renderer_model_batch_many_accepts_existing_forms_and_rolls_back_
     assert len(model_calls) == 1
     assert model_calls[0][-1] == [
         flat_transform,
-        (2.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 5.0, 6.0, 0.0, 1.0),
         (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 7.0, 8.0, 9.0, 1.0),
     ]
     counters = renderer.performance_counters()
-    assert counters["model_batch_records"] == 3
+    assert counters["model_batch_records"] == 2
     assert counters["model_batch_flushes"] == 1
-    assert counters["model_batch_max_records"] == 3
+    assert counters["model_batch_max_records"] == 2
 
 
 def test_canvas_renderer_model_batch_many_rejects_a_non_iterable_clearly() -> None:

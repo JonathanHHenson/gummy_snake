@@ -1,4 +1,6 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::config::*;
+use crate::types::{BlendMode, Rgba, Style};
 
 fn multiply_style(fill: Rgba) -> Style {
     Style {

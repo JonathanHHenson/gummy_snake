@@ -31,10 +31,8 @@ IGNORED_PARTS = {
 }
 IGNORED_RELATIVE_DIRS = (Path("examples/output"),)
 EXAMPLE_CATALOG_PATH = Path("examples/example_catalog.toml")
-EXAMPLE_CLASSIFICATIONS = frozenset(
-    {"entry_point", "support_module", "compatibility_entry_point", "generated"}
-)
-EXAMPLE_ENTRY_CLASSIFICATIONS = frozenset({"entry_point", "compatibility_entry_point"})
+EXAMPLE_CLASSIFICATIONS = frozenset({"entry_point", "support_module", "generated"})
+EXAMPLE_ENTRY_CLASSIFICATIONS = frozenset({"entry_point"})
 EXAMPLE_SMOKE_TIERS = frozenset({"none", "fast", "extended", "release"})
 EXAMPLE_ALLOWED_EXTRAS = frozenset({"media", "numpy"})
 EXAMPLE_REQUIRED_FAST_IDS = frozenset(
@@ -117,8 +115,8 @@ STALE_TEXT_PATTERNS = {
     "rust_canvas_image_fakes": "use `tests.helpers.canvas_runtime.image_kernels` instead",
     "rust_canvas_state_fakes": "use `tests.helpers.canvas_runtime.state` instead",
     "webgl_helpers": "use `tests.helpers.webgl` instead",
-    "gummysnake.events.input_state": "use `gummysnake.core.input_events` instead",
-    "gummysnake.events.input_events": "use `gummysnake.core.input_events` instead",
+    "gummysnake.events.input_state": "use `gummysnake.core.input_event_model` instead",
+    "gummysnake.events.input_events": "use `gummysnake.core.input_event_model` instead",
 }
 DOCUMENTED_RUST_HUBS = {
     Path("crates/gummy_canvas/src/bindings.rs"),
@@ -386,11 +384,11 @@ def _audit_obsolete_source_packages(repo_root: Path) -> list[StructureViolation]
         ),
         Path("src/gummysnake/events.py"): (
             "obsolete_events_module",
-            "input event dataclasses belong in `src/gummysnake/core/input_events.py`",
+            "input event dataclasses belong in `src/gummysnake/core/input_event_model/`",
         ),
         Path("src/gummysnake/events"): (
             "obsolete_events_module",
-            "input event dataclasses belong in `src/gummysnake/core/input_events.py`",
+            "input event dataclasses belong in `src/gummysnake/core/input_event_model/`",
         ),
     }
     for relative_path, (code, message) in obsolete_paths.items():
@@ -556,7 +554,6 @@ def _audit_example_catalog(repo_root: Path) -> list[StructureViolation]:
     }
     catalog_paths: set[Path] = set()
     entries_by_id: dict[str, Mapping[str, object]] = {}
-    historical_entries: list[Mapping[str, object]] = []
     smoke_ids: dict[str, set[str]] = {tier: set() for tier in EXAMPLE_SMOKE_TIERS - {"none"}}
 
     for entry in entries:
@@ -622,7 +619,6 @@ def _audit_example_catalog(repo_root: Path) -> list[StructureViolation]:
             "smoke_tier",
             "smoke_args",
             "performance_only",
-            "compatibility",
         }
         missing_keys = sorted(required_keys - entry.keys())
         if missing_keys:
@@ -784,11 +780,7 @@ def _audit_example_catalog(repo_root: Path) -> list[StructureViolation]:
             or "_configuration.ARGS" in source
         )
         for flag in flags if isinstance(flags, list) else []:
-            if (
-                not supports_common_flags
-                and flag not in source
-                and classification != "compatibility_entry_point"
-            ):
+            if not supports_common_flags and flag not in source:
                 violations.append(
                     StructureViolation(
                         "stale_example_catalog_flag",
@@ -796,18 +788,6 @@ def _audit_example_catalog(repo_root: Path) -> list[StructureViolation]:
                         f"flag `{flag}` is not defined by this entry point",
                     )
                 )
-
-        compatibility = entry["compatibility"]
-        if compatibility == "historical":
-            historical_entries.append(entry)
-        elif compatibility != "canonical":
-            violations.append(
-                StructureViolation(
-                    "invalid_example_compatibility",
-                    path,
-                    "entry point compatibility must be `canonical` or `historical`",
-                )
-            )
 
     for path in sorted(discovered_paths - catalog_paths):
         violations.append(
@@ -828,19 +808,6 @@ def _audit_example_catalog(repo_root: Path) -> list[StructureViolation]:
                     "catalog_non_python_file",
                     path,
                     "catalog entry must correspond to a non-generated Python file",
-                )
-            )
-
-    for entry in historical_entries:
-        canonical_id = entry.get("canonical_id")
-        path = Path(str(entry.get("path")))
-        canonical = entries_by_id.get(canonical_id) if isinstance(canonical_id, str) else None
-        if canonical is None or canonical.get("compatibility") != "canonical":
-            violations.append(
-                StructureViolation(
-                    "invalid_example_compatibility_target",
-                    path,
-                    "historical entry point must reference one canonical_id",
                 )
             )
 

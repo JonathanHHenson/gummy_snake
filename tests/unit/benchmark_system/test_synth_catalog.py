@@ -178,13 +178,12 @@ def test_synth_package_init_is_documentation_only() -> None:
     assert "dispatch" not in source
 
 
-def test_synth_harness_is_independent_of_legacy_examples_network_and_fake_audio() -> None:
+def test_synth_harness_is_independent_of_examples_network_and_fake_audio() -> None:
     suite_root = ROOT / "benchmarks" / "suites" / "synth"
     sources = "\n".join(
         path.read_text(encoding="utf-8") for path in sorted(suite_root.glob("*.py"))
     )
 
-    assert "benchmarks.legacy" not in sources
     assert "examples/" not in sources
     assert "urllib" not in sources
     assert "requests" not in sources

@@ -5,6 +5,13 @@ from __future__ import annotations
 import math
 
 from gummysnake.drawing.renderer3d import Camera3D, Vec3
+from gummysnake.drawing.renderer3d._math import add as _add
+from gummysnake.drawing.renderer3d._math import cross as _cross
+from gummysnake.drawing.renderer3d._math import dot as _dot
+from gummysnake.drawing.renderer3d._math import length as _length
+from gummysnake.drawing.renderer3d._math import normalized_or_none
+from gummysnake.drawing.renderer3d._math import scale as _scale
+from gummysnake.drawing.renderer3d._math import subtract as _sub
 
 
 def _camera_basis(camera: Camera3D) -> tuple[Vec3, Vec3, Vec3]:
@@ -40,36 +47,5 @@ def _rotate_around_axis(vector: Vec3, axis: Vec3, angle: float) -> Vec3:
     )
 
 
-def _add(a: Vec3, b: Vec3) -> Vec3:
-    return Vec3(a.x + b.x, a.y + b.y, a.z + b.z)
-
-
-def _sub(a: Vec3, b: Vec3) -> Vec3:
-    return Vec3(a.x - b.x, a.y - b.y, a.z - b.z)
-
-
-def _scale(value: Vec3, scalar: float) -> Vec3:
-    return Vec3(value.x * scalar, value.y * scalar, value.z * scalar)
-
-
-def _dot(a: Vec3, b: Vec3) -> float:
-    return a.x * b.x + a.y * b.y + a.z * b.z
-
-
-def _cross(a: Vec3, b: Vec3) -> Vec3:
-    return Vec3(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x,
-    )
-
-
-def _length(value: Vec3) -> float:
-    return math.sqrt(_dot(value, value))
-
-
 def _normalize(value: Vec3) -> Vec3:
-    length = _length(value)
-    if length == 0.0:
-        return Vec3(0.0, 0.0, 0.0)
-    return _scale(value, 1.0 / length)
+    return normalized_or_none(value) or Vec3(0.0, 0.0, 0.0)

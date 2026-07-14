@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from gummysnake.ecs.expressions import Expression, QueryProxy, ensure_expr
+from gummysnake.ecs.logical_plan.expressions import Expression, QueryProxy, ensure_expr
 from gummysnake.exceptions import SystemPlanError
 
-from .config import FallbackPolicy, HashGrid, PairPolicy, SpatialAlgorithm, _default_cell_size
-from .relations import SpatialAabb, SpatialPoint, SpatialRelation
+from .config import HashGrid, PairPolicy, SpatialAlgorithm, _default_cell_size
+from .relation_model import SpatialAabb, SpatialPoint, SpatialRelation
 from .runtime import _validate_relation
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.specs import Query
+    from gummysnake.ecs.logical_plan.specifications import Query
 
 
 type SpatialExprInput = Expression | int | float
@@ -100,7 +100,6 @@ def neighbors(
     radius: SpatialExprInput,
     algorithm: SpatialAlgorithm | None = None,
     include_self: bool = False,
-    allow_fallback: FallbackPolicy = None,
     name: str | None = None,
 ) -> SpatialRelation:
     """Create a relation from each query row to nearby rows of the same query.
@@ -111,7 +110,6 @@ def neighbors(
         radius: Search radius expression or value.
         algorithm: Optional spatial index configuration. A hash grid is chosen by default.
         include_self: Include the origin entity as a possible match when true.
-        allow_fallback: Override whether explicit Python boundaries may materialize this relation.
         name: Optional label used in explain output and diagnostics.
 
     Returns:
@@ -134,7 +132,6 @@ def neighbors(
             algorithm=algorithm
             or HashGrid(_default_cell_size(radius), dimensions=position.dimensions),
             include_self=include_self,
-            allow_fallback=allow_fallback,
             name=name,
         )
     )
@@ -147,10 +144,8 @@ def join(
     origin_position: SpatialPoint,
     target_position: SpatialPoint,
     radius: SpatialExprInput | None = None,
-    bounds: object | None = None,
     algorithm: SpatialAlgorithm | None = None,
     include_self: bool = False,
-    allow_fallback: FallbackPolicy = None,
     name: str | None = None,
 ) -> SpatialRelation:
     """Create a relation from origin query rows to nearby target query rows.
@@ -162,10 +157,8 @@ def join(
         target_position: Lazy point expression for each target row.
         radius: Optional search radius expression or value. ``None`` means use the index
             broad phase.
-        bounds: Reserved compatibility value for bounds-based relations.
         algorithm: Optional spatial index configuration. A hash grid is chosen by default.
         include_self: Include the same entity as a possible match when the queries overlap.
-        allow_fallback: Override whether explicit Python boundaries may materialize this relation.
         name: Optional label used in explain output and diagnostics.
 
     Returns:
@@ -187,11 +180,9 @@ def join(
             origin_position=origin_position,
             target_position=target_position,
             radius=None if radius is None else ensure_expr(radius),
-            bounds=bounds,
             algorithm=algorithm
             or HashGrid(_default_cell_size(radius), dimensions=origin_position.dimensions),
             include_self=include_self,
-            allow_fallback=allow_fallback,
             name=name,
         )
     )
@@ -206,7 +197,6 @@ def overlaps(
     algorithm: SpatialAlgorithm | None = None,
     include_self: bool = False,
     pair_policy: PairPolicy = "all",
-    allow_fallback: FallbackPolicy = None,
     name: str | None = None,
 ) -> SpatialRelation:
     """Create a relation for rows whose axis-aligned bounding boxes overlap.
@@ -219,7 +209,6 @@ def overlaps(
         algorithm: Optional spatial index configuration. A hash grid is chosen by default.
         include_self: Include the same entity as a possible match when the queries overlap.
         pair_policy: ``"all"`` for every ordered pair, or ``"unique_unordered"`` once per pair.
-        allow_fallback: Override whether explicit Python boundaries may materialize this relation.
         name: Optional label used in explain output and diagnostics.
 
     Returns:
@@ -242,7 +231,6 @@ def overlaps(
             target_bounds=target_bounds,
             algorithm=algorithm or HashGrid(1.0, dimensions=origin_bounds.dimensions),
             include_self=include_self,
-            allow_fallback=allow_fallback,
             name=name,
             pair_policy=pair_policy,
         )

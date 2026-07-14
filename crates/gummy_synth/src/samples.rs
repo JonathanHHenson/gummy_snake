@@ -716,6 +716,9 @@ pub(crate) fn decode_wav_stereo(bytes: &[u8]) -> SynthResult<DecodedWav> {
             SynthError::new("Malformed WAV fmt chunk.")
         }
     })?;
+    let audio_format = wav
+        .audio_format
+        .ok_or_else(|| SynthError::new("WAV missing fmt chunk."))?;
     let channels = wav
         .channels
         .ok_or_else(|| SynthError::new("WAV missing fmt chunk."))?;
@@ -729,12 +732,17 @@ pub(crate) fn decode_wav_stereo(bytes: &[u8]) -> SynthResult<DecodedWav> {
         .data
         .ok_or_else(|| SynthError::new("WAV missing data chunk."))?;
     let width = usize::from(bits_per_sample.div_ceil(8));
-    if !matches!(width, 1 | 2 | 4) || !matches!(channels, 1 | 2) {
+    let step = width * usize::from(channels);
+    if audio_format != 1
+        || sample_rate == 0
+        || !matches!(width, 1 | 2 | 4)
+        || !matches!(channels, 1 | 2)
+        || data.len() % step != 0
+    {
         return Err(SynthError::new(
             "Unsupported PCM WAV format; expected mono or stereo 8/16/32-bit PCM.",
         ));
     }
-    let step = width * usize::from(channels);
     let mut left = Vec::with_capacity(data.len() / step);
     let mut right = Vec::with_capacity(data.len() / step);
     for frame in data.chunks_exact(step) {

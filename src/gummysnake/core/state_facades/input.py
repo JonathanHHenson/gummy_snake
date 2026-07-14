@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from gummysnake import constants as c
-from gummysnake.core.input_events import MotionEvent, TouchPoint, _update_motion_state
+from gummysnake.core.input_event_model import TouchPoint, _update_motion_state
 
 
 class InputState:
@@ -218,27 +218,7 @@ class InputState:
     def update_touches(self, touches: list[TouchPoint]) -> None:
         self._rust.update_touches(touches)
 
-    def update_motion(
-        self,
-        *,
-        acceleration_x: float | None = None,
-        acceleration_y: float | None = None,
-        acceleration_z: float | None = None,
-        rotation_x: float | None = None,
-        rotation_y: float | None = None,
-        rotation_z: float | None = None,
-        orientation: str | None = None,
-    ) -> MotionEvent:
-        return _update_motion_state(
-            self,
-            acceleration_x=acceleration_x,
-            acceleration_y=acceleration_y,
-            acceleration_z=acceleration_z,
-            rotation_x=rotation_x,
-            rotation_y=rotation_y,
-            rotation_z=rotation_z,
-            orientation=orientation,
-        )
+    update_motion = _update_motion_state
 
     def require_touch_supported(self) -> None:
         if not self.touch_supported:

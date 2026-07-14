@@ -187,12 +187,12 @@ fn spatial_aggregate_precomputes_pairwise_origin_item_expression() {
                 field: "dx".to_string(),
             },
             ExprNode::Binary {
-                op: "-".to_string(),
+                op: "sub".to_string(),
                 left: 0,
                 right: 2,
             },
             ExprNode::Binary {
-                op: "*".to_string(),
+                op: "mul".to_string(),
                 left: 6,
                 right: 5,
             },

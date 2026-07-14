@@ -2,6 +2,19 @@
 
 from __future__ import annotations
 
+from gummysnake.ecs.logical_plan.building import (
+    active_build_session,
+    append_action,
+    build_session,
+    conditional,
+    do,
+    do_in_order,
+    do_in_parallel,
+    for_each,
+    otherwise,
+    when,
+)
+
 from .nodes import (
     Action,
     DefaultAction,
@@ -58,16 +71,26 @@ __all__ = [
     "UdfPlanDefinition",
     "WhenAction",
     "_RuntimeUdfBase",
+    "active_build_session",
     "action_query_refs",
     "action_write_targets",
     "add_component_action",
     "add_tag_action",
+    "append_action",
+    "build_session",
+    "conditional",
     "despawn_action",
+    "do",
+    "do_in_order",
+    "do_in_parallel",
     "emit_event",
+    "for_each",
+    "otherwise",
     "remove_component_action",
     "remove_tag_action",
     "set",
     "udf",
     "udf_plan",
     "validate_mutation_metadata",
+    "when",
 ]

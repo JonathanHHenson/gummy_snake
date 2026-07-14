@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from gummysnake import constants as c
-from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer._protocols import _renderer
 from gummysnake.backend.canvas_runtime.renderer.primitive_support.batches import (
     flush_batches_before_primitive_batch as _flush_batches_before_primitive_batch_impl,
 )
@@ -58,12 +56,8 @@ from gummysnake.backend.canvas_runtime.renderer.primitive_support.shapes import 
     triangle as _triangle,
 )
 from gummysnake.core.color import Color
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
-
-
-def _renderer(self: object) -> CanvasRendererHost:
-    return cast(CanvasRendererHost, self)
 
 
 class CanvasRendererPrimitivesMixin:

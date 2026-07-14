@@ -10,7 +10,7 @@ use audio_manager::{start_playback, AudioAsset, PlaybackHandle, PlaybackSource, 
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
-use wav::{parse_pcm_s16_wav, wav_duration_seconds};
+use wav::parse_pcm_s16_wav;
 
 #[pyclass(name = "CanvasSound", unsendable)]
 #[derive(Clone, Debug)]
@@ -372,9 +372,4 @@ fn playback_error(error: String) -> PyErr {
 
 fn closed_playback_error() -> PyErr {
     PyRuntimeError::new_err("This native audio playback handle is closed.")
-}
-
-#[allow(dead_code)]
-fn _duration_probe_for_compatibility(bytes: &[u8]) -> PyResult<Option<f64>> {
-    wav_duration_seconds(bytes)
 }

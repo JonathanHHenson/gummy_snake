@@ -1,4 +1,7 @@
-use crate::prelude::*;
+use crate::assets::{CachedImage, CachedText};
+use crate::canvas::cache::{ImageCache, TextureCache};
+use crate::canvas_state::Canvas;
+use crate::config::*;
 use std::sync::Arc;
 
 #[test]

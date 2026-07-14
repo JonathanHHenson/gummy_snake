@@ -31,6 +31,11 @@ def cross(a: Vec3, b: Vec3) -> Vec3:
     )
 
 
+def scale(value: Vec3, scalar: float) -> Vec3:
+    """Return ``value`` scaled by ``scalar``."""
+    return Vec3(value.x * scalar, value.y * scalar, value.z * scalar)
+
+
 def length(value: Vec3) -> float:
     """Return the Euclidean vector length."""
     return math.sqrt(dot(value, value))

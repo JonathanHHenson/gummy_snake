@@ -37,7 +37,7 @@ fallback. See [Runtime contracts](runtime_contracts.md) for the frozen boundary.
 
 ## Python source map
 
-| Area | Canonical owner | Composition or compatibility surface | Focused checks |
+| Area | Canonical owner | Composition surface | Focused checks |
 | --- | --- | --- | --- |
 | Public API | `src/gummysnake/api/` | `src/gummysnake/__init__.py`, `src/gummysnake/api/global_mode/` | `tests/unit/api_lifecycle/test_public_api_contract.py`, `tests/unit/api_lifecycle/test_public_facade_contract.py` |
 | Constants | `src/gummysnake/constants/` | explicit package exports | `tests/unit/api_lifecycle/test_public_api_exports.py`, constants/reference checks |
@@ -49,15 +49,15 @@ fallback. See [Runtime contracts](runtime_contracts.md) for the frozen boundary.
 | Drawing and 3D helpers | `src/gummysnake/drawing/` | three-D context/API modules | integration WEBGL tests and bounded WEBGL smoke examples |
 | Fast draw facade | `src/gummysnake/fast_draw_runtime/` | `gs.fast()` and `Sketch.fast()` | drawing and public API tests |
 | Plugins | `src/gummysnake/plugins/` | `SketchContext` lifecycle dispatch | `tests/unit/api_lifecycle/test_plugins.py`, `tests/unit/ecs/test_ecs_schedule.py` |
-| ECS public and logical-plan layer | `src/gummysnake/ecs/logical_plan/` | `src/gummysnake/ecs/world.py` remains a compatibility facade; `world_facade/` owns the Python world implementation, while `logical_plan/` owns actions, expressions, build sessions, inspection, decorators, and specifications | `tests/unit/ecs/test_ecs_core.py`, `tests/unit/ecs/test_ecs_plans.py`, `tests/unit/ecs/test_ecs_schedule.py`, `tests/unit/ecs/test_ecs_spatial.py` |
-| ECS expressions and spatial relations | `src/gummysnake/ecs/logical_plan/expressions/`, `src/gummysnake/ecs/spatial/` | `src/gummysnake/ecs/actions.py`, `expressions/`, `systems.py`, and `physical.py` are explicit public composition surfaces | ECS plan and spatial tests |
-| Synth plans and playback controls | `src/gummysnake/synth/` | `src/gummysnake/synth/core.py` | synth unit and bridge tests |
+| ECS public and logical-plan layer | `src/gummysnake/ecs/logical_plan/` | `world_facade/` owns the Python world implementation; `logical_plan/` owns actions, expressions, build sessions, inspection, decorators, and specifications | `tests/unit/ecs/test_ecs_core.py`, `tests/unit/ecs/test_ecs_plans.py`, `tests/unit/ecs/test_ecs_schedule.py`, `tests/unit/ecs/test_ecs_spatial.py` |
+| ECS expressions and spatial relations | `src/gummysnake/ecs/logical_plan/expressions/`, `src/gummysnake/ecs/spatial/` | `logical_plan/actions/`, `logical_plan/systems/`, and `physical_payload/` are the direct owners | ECS plan and spatial tests |
+| Synth plans and playback controls | `src/gummysnake/synth/` | `src/gummysnake/synth/__init__.py` | synth unit and bridge tests |
 | Rust wrapper boundary | `src/gummysnake/rust/` | package-local typed wrappers | `tests/unit/canvas_runtime/test_rust_canvas.py`, `tests/unit/ecs/test_ecs_bridge.py`, `tests/unit/canvas_runtime/test_rust_acceleration.py` |
 | Optional acceleration | `crates/gummy_accel/` plus `src/gummysnake/rust/` wrapper | optional `_accelerated` extension | `tests/unit/canvas_runtime/test_rust_acceleration.py` |
 
-`src/gummysnake/ecs/world.py` remains an import-compatible facade, not the
-implementation home. Likewise, `ecs/expressions/` and `ecs/spatial/` are packages;
-the old singular `expressions.py` and `spatial.py` paths are not current files.
+`src/gummysnake/ecs/world_facade/world.py` is the implementation home.
+Expressions live under `logical_plan/expressions/`; spatial relations live under
+`spatial/relation_model/`.
 
 ## Lifecycle navigation
 

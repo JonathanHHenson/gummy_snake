@@ -6,7 +6,6 @@ from collections.abc import Iterable
 from typing import Any
 
 from gummysnake import constants as c
-from gummysnake._fast_draw import FastDrawScope
 from gummysnake.assets.gpu import (
     ComputeShader,
     Number,
@@ -47,6 +46,7 @@ from gummysnake.assets.graphics import (
 from gummysnake.assets.graphics import (
     create_graphics as _create_graphics,
 )
+from gummysnake.fast_draw_runtime import FastDrawScope
 from gummysnake.sketch.facade_mixins.base import SketchFacadeBaseMixin
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 from struct import Struct
 from struct import error as StructError
@@ -72,33 +71,11 @@ def pack_model_transform(transform: ModelTransformPayload) -> bytes:
     ):
         rows = cast(Sequence[Sequence[float]], transform)
         values = tuple(float(rows[row][column]) for column in range(4) for row in range(4))
-    elif len(transform) in (6, 16) and not any(isinstance(value, Sequence) for value in transform):
+    elif len(transform) == 16 and not any(isinstance(value, Sequence) for value in transform):
         values = tuple(float(value) for value in cast(Sequence[float], transform))
-        if len(values) == 6:
-            a, b, c, d, e, f = values
-            z_scale = max((math.hypot(a, b) + math.hypot(c, d)) / 2.0, 1e-9)
-            values = (
-                a,
-                b,
-                0.0,
-                0.0,
-                c,
-                d,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                z_scale,
-                0.0,
-                e,
-                -f,
-                0.0,
-                1.0,
-            )
     else:
         raise ValueError(
-            "Batched model transforms must contain 6 affine values, 16 matrix values, "
-            "or nested 4x4 rows."
+            "Batched model transforms must contain 16 matrix values or nested 4x4 rows."
         )
     return MODEL_TRANSFORM_RECORD.pack(*values)
 

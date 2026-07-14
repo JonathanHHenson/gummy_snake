@@ -18,7 +18,7 @@ from gummysnake.ecs.value_types import DataclassInstance, EcsEventValue, EcsTag
 from gummysnake.exceptions import SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
     from ..building.session import _OtherwiseBranchBuilder, _WhenBranchBuilder
     from .udf import RuntimeUdfDefinition, UdfIterableDefinition

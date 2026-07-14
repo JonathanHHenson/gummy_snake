@@ -7,15 +7,15 @@ import time
 from typing import TYPE_CHECKING, Any, cast, get_type_hints
 
 from gummysnake._async import call_maybe_async
-from gummysnake.ecs.runtime_views import _RuntimeEventWriter, _ScheduledSystem
+from gummysnake.ecs.logical_plan.specifications import EventSpec, QuerySpec, ResourceSpec
+from gummysnake.ecs.logical_plan.systems import RuntimeSystemDefinition
+from gummysnake.ecs.runtime_view_model import _RuntimeEventWriter, _ScheduledSystem
 from gummysnake.ecs.scheduling_helpers import scheduled_system_group_names
-from gummysnake.ecs.specs import EventSpec, QuerySpec, ResourceSpec
-from gummysnake.ecs.systems import RuntimeSystemDefinition
 from gummysnake.ecs.world_runtime.python_batch import PythonEcsAccessBatch
 from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 def run_python_system(world: EcsWorld, scheduled: _ScheduledSystem) -> None:

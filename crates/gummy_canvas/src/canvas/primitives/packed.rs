@@ -1,5 +1,9 @@
+use crate::canvas_state::Canvas;
 use crate::frame_commands::FrameCommandFamily;
-use crate::prelude::*;
+use crate::raster::Matrix;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 pub(super) const LINE_RECORD_BYTES: usize = 32;
 pub(super) const PRIMITIVE_RECORD_BYTES: usize = 56;

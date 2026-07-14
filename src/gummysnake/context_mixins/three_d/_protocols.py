@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from gummysnake.core.color import Color
 from gummysnake.drawing.renderer3d import Material3D, Mesh3D, Model3D, Texture3D
@@ -36,3 +36,7 @@ class ThreeDContextHost(Protocol):
     ) -> Material3D: ...
     def _effective_3d_material(self) -> Material3D: ...
     def model(self, shape: Mesh3D | Model3D) -> None: ...
+
+
+def _three_d(value: Any) -> ThreeDContextHost:
+    return cast(ThreeDContextHost, value)

@@ -6,15 +6,19 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from gummysnake.ecs.actions import Action, DefaultAction
-from gummysnake.ecs.runtime_views import SystemHandle, _ScheduledSystem, _SystemSetConfig
+from gummysnake.ecs.logical_plan.actions import Action, DefaultAction
+from gummysnake.ecs.logical_plan.specifications import ChangeTerm, QuerySpec
+from gummysnake.ecs.logical_plan.systems import (
+    PlanBuiltSystem,
+    RuntimeBuiltSystem,
+    SystemDefinition,
+)
+from gummysnake.ecs.runtime_view_model import SystemHandle, _ScheduledSystem, _SystemSetConfig
 from gummysnake.ecs.scheduling_helpers import (
     implicit_system_group_name,
     normalize_group_names,
     scheduled_system_group_names,
 )
-from gummysnake.ecs.specs import ChangeTerm, QuerySpec
-from gummysnake.ecs.systems import PlanBuiltSystem, RuntimeBuiltSystem, SystemDefinition
 from gummysnake.ecs.world_helpers import (
     _contains_direct_canvas_barrier_action,
     _contains_direct_udf_action,
@@ -22,7 +26,7 @@ from gummysnake.ecs.world_helpers import (
     _is_direct_udf_action,
     _is_sequence_action,
 )
-from gummysnake.ecs.world_runtime.physical import (
+from gummysnake.ecs.world_runtime.physical_execution import (
     prepare_scheduled_physical_plan,
     run_physical_system,
     run_physical_systems_batch,
@@ -31,7 +35,7 @@ from gummysnake.ecs.world_runtime.python_system import run_python_system
 from gummysnake.exceptions import SystemExecutionError, SystemPlanError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 @dataclass

@@ -608,7 +608,7 @@ def test_synth_dispatch_rejects_unexecuted_parameters() -> None:
         "depth": 1,
         "work_units": 4,
         "required_counters": [],
-        "legacy_scenario": "ignored",
+        "unknown_scenario": "ignored",
     }
 
     with pytest.raises(SynthWorkloadError, match="unexecuted or unsupported"):

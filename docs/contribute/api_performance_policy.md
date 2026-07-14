@@ -64,8 +64,8 @@ one retained model, prefer `draw_fast.model_instances(shape, transforms)` over a
 `pushed()`/`translate()`/`rotate_quaternion()`/`model()` loop. The bulk API captures
 the current model, camera, projection, material, and lights once, then appends
 complete column-major 4x4 transforms directly to the ordered specialized model
-batch without changing the fast transform stack. Nested row-major 4x4 and legacy
-six-value affine transforms remain accepted compatibility forms.
+batch without changing the fast transform stack. Nested row-major 4x4 matrices
+are normalized once at ingress.
 
 Current optimized hot paths include compact line batches, mixed primitive
 batches with per-record style/transform data, transformed sprite/image atlas

@@ -77,12 +77,11 @@ own scheduling, world storage, renderer implementations, or non-UDF execution.
 | System declarations | `logical_plan/systems/` | Decorators and built system definitions that validate annotations and record plans once. |
 | Plan specifications | `logical_plan/specifications.py` | Query/resource/event annotation specifications and event proxies. |
 
-The documented public compatibility surfaces are `gummysnake.ecs`,
-`gummysnake.ecs.actions`, and `gummysnake.ecs.expressions`; the older focused
-module paths forward the same objects for import compatibility. Keep exports
-explicit rather than generating them dynamically. `scripts/structure_audit.py`
-checks every Python package directory for ambiguous same-stem module/package
-pairs, including this hierarchy.
+The documented public surfaces are `gummysnake.ecs` and its focused
+`logical_plan`, `runtime_view_model`, `spatial`, and `world_facade` packages.
+Keep exports explicit rather than generating them dynamically.
+`scripts/structure_audit.py` checks every Python package directory for ambiguous
+same-stem module/package pairs, including this hierarchy.
 
 ## Source map
 
@@ -90,13 +89,13 @@ pairs, including this hierarchy.
 | --- | --- | --- |
 | Public ECS exports | `src/gummysnake/ecs/__init__.py` | Explicit user-facing ECS names. |
 | Context/global/object APIs | `src/gummysnake/api/ecs.py`, `src/gummysnake/context_mixins/ecs.py`, `src/gummysnake/sketch/facade_mixins/ecs.py` | `gs.add_entity`, `gs.add_system`, resources, events, diagnostics, object-mode forwards. |
-| Public expressions | `src/gummysnake/ecs/expressions/` | Thin compatibility package for lazy expression imports. |
-| Actions/UDFs/events | `src/gummysnake/ecs/actions.py` | Public compatibility surface for action, UDF, event, and plan-building helpers. |
-| System decorator | `src/gummysnake/ecs/systems.py` | Public compatibility surface that builds query/resource/event proxies from mandatory annotations. |
-| Python world facade | `src/gummysnake/ecs/world.py` and `src/gummysnake/ecs/world_facade/` | `world.py` is the public compatibility surface. `world_facade/world.py` is the authoritative `EcsWorld`; `initialization.py` creates facade metadata after bridge validation and `schema_validation.py` discovers/registers schemas. |
-| Runtime views and handles | `src/gummysnake/ecs/runtime_views.py` and `src/gummysnake/ecs/runtime_view_model/` | `runtime_views.py` preserves compatibility exports. The implementation package owns entity/mutation markers, Rust-backed component/resource views, entity views, event writers, and system handles without keeping component data. |
+| Expressions | `src/gummysnake/ecs/logical_plan/expressions/` | Lazy expression nodes, proxies, aggregates, and helpers. |
+| Actions/UDFs/events | `src/gummysnake/ecs/logical_plan/actions/` | Action, UDF, event, and plan-building nodes. |
+| System decorator | `src/gummysnake/ecs/logical_plan/systems/` | Builds query/resource/event proxies from mandatory annotations. |
+| Python world facade | `src/gummysnake/ecs/world_facade/` | Defines `EcsWorld`; `initialization.py` creates facade metadata after bridge validation and `schema_validation.py` discovers/registers schemas. |
+| Runtime views and handles | `src/gummysnake/ecs/runtime_view_model/` | Owns entity/mutation markers, Rust-backed component/resource views, entity views, event writers, and system handles without keeping component data. |
 | World runtime adapters | `src/gummysnake/ecs/world_runtime/` | Private adapters grouped by entity/query, resource/event, explicit Python UDF/system access, Rust physical execution, and facade diagnostics/change state. |
-| Physical payload builder | `src/gummysnake/ecs/physical.py` | Public compatibility surface for serializing Python action/expression trees into bridge payloads. |
+| Physical payload builder | `src/gummysnake/ecs/physical_payload/` | Serializes Python action/expression trees into bridge payloads. |
 | Spatial API | `src/gummysnake/ecs/spatial/` | Lazy spatial relations and algorithm config objects. |
 | Rust bridge wrapper | `src/gummysnake/rust/ecs.py` | Import, ABI validation, and protocol for ECS objects exposed by `gummysnake.rust._canvas`. |
 | Rust core ECS | `crates/gummy_ecs/` | Storage, scheduler, physical plan validation/execution, spatial indexes, diagnostics. |
@@ -131,7 +130,7 @@ performs a Rust-backed batch read of selected columns.
 
 ## Python world facade package boundaries
 
-`gummysnake.ecs.world.EcsWorld` remains the stable public class and is defined
+`gummysnake.ecs.world_facade.EcsWorld` remains the stable public class and is defined
 by `world_facade/world.py`; it delegates focused responsibilities without
 changing the public method surface:
 
@@ -141,10 +140,8 @@ changing the public method surface:
   an alternate Python world.
 - `world_facade/schema_validation.py` validates dataclass annotations and sends
   schema metadata to the Rust bridge. It does not retain component values.
-- `runtime_view_model/` is the canonical implementation package for entity
-  handles/mutation metadata, component/resource views, entity views, event
-  writers, and system handles. `runtime_views.py` is its compatibility export
-  module; both paths expose the same objects.
+- `runtime_view_model/` owns entity handles/mutation metadata,
+  component/resource views, entity views, event writers, and system handles.
 - `world_runtime/entities.py` and `query.py` adapt entities and queries;
   `resources.py` adapts resources and events; `python_batch.py` and
   `python_system.py` are the explicit Python runtime boundary; and
@@ -210,8 +207,8 @@ former allocate-then-add bridge sequence is not exposed by ECS ABI 6.
 
 The ABI marker is the complete bridge-shape contract. Python validates the native
 marker and health result before constructing `EcsWorld`; it does not probe individual
-world methods or select a compatibility implementation. Missing or stale ABI entries
-therefore fail with rebuild guidance rather than entering a legacy path.
+world methods or select an alternate implementation. Missing or stale ABI entries
+therefore fail with rebuild guidance.
 
 ## System lifecycle
 
@@ -387,30 +384,27 @@ under `ecs.spatial`:
 - algorithms: `HashGrid`, `Quadtree`, `Octree`, and `HilbertCurve`.
 
 Scheduled systems serialize these relations into Rust spatial physical plans.
-`allow_fallback` remains accepted for source compatibility, but it applies only to
-legacy relation materialization invoked from code already inside an explicit Python
-boundary. Even `allow_fallback=True` cannot redirect a scheduled non-UDF system;
-unsupported physical nodes fail closed. Dense all-moving spatial workloads may
+Unsupported physical nodes fail closed. Dense all-moving spatial workloads may
 choose rebuild-based strategies over incremental updates when that is faster and
 deterministic. Sparse numeric and spatial precompute caches are keyed
 by complete generation-safe `Entity` handles, so their memory follows live/query rows
 rather than the largest historical entity index. Query-row-specialized paths retain
 compact row-order vectors where the query itself provides a dense index.
 
-## Explicit Python and compatibility boundaries
+## Explicit Python boundaries
 
 The scheduler has only two author-selected Python runtime boundaries:
 
 - `@ecs.system` runs the declared callback with the GIL held and materializes only
-  its declared queries as Rust-backed compatibility views.
+  its declared queries as Rust-backed runtime views.
 - `@ecs.udf` runs the declared UDF action and materializes only its declared
   arguments/mutations. Mixed UDF sequences return to Rust for non-UDF actions.
 
 Those views and batches read/write canonical Rust storage; they do not form a
-Python component-column mirror or alternate executor. Logical-plan import aliases,
-view/tuple adapters, expression `eval()` hooks, and spatial `iter_contexts()` remain
-compatibility surfaces for code already inside an explicit Python/materialization
-boundary. They must never be selected after non-UDF physical compilation fails.
+Python component-column mirror or alternate executor. View adapters, expression
+`eval()` hooks, and spatial `iter_contexts()` are available only inside an explicit
+Python/materialization boundary. They must never be selected after non-UDF physical
+compilation fails.
 
 `@ecs.udf_plan` is different: its Python function expands expressions once during
 plan construction, then the prepared plan executes in Rust and

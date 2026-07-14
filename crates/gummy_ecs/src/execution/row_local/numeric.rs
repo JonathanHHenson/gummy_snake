@@ -5,11 +5,11 @@ use rayon::prelude::*;
 
 use crate::error::{EcsError, Result};
 
-use super::super::f64_program::{
+use super::super::{ExecutionEvent, PlanExecutor, SpatialPrecomputeLayout};
+use crate::execution::optimized::f64_program::{
     build_row_local_field_dependents, compile_f64_readonly_program, compiled_field_f64_value,
     execute_row_local_f64_action, invalidate_row_local_f64_cache, RowLocalAction,
 };
-use super::super::{ExecutionEvent, PlanExecutor, SpatialPrecomputeLayout};
 
 fn row_local_action_emits_events(action: &RowLocalAction) -> bool {
     match action {

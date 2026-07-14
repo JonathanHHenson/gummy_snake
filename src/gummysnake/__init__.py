@@ -2,7 +2,6 @@
 
 from gummysnake import ecs as ecs
 from gummysnake import synth as synth
-from gummysnake._fast_draw import FastDrawScope
 from gummysnake.api.global_mode import (
     acceleration_x,
     acceleration_y,
@@ -32,7 +31,6 @@ from gummysnake.api.global_mode import (
     color,
     color_mode,
     configure_ecs,
-    configure_system_set,
     contour,
     copy,
     create_canvas,
@@ -271,7 +269,7 @@ from gummysnake.api.sound import (
     load_sound,
     load_sound_async,
 )
-from gummysnake.api.three_d import (
+from gummysnake.api.three_d_api import (
     ambient_light,
     ambient_material,
     box,
@@ -477,7 +475,7 @@ from gummysnake.core.color import (
     red,
     saturation,
 )
-from gummysnake.core.input_events import (
+from gummysnake.core.input_event_model import (
     KeyboardEvent,
     MotionEvent,
     MouseEvent,
@@ -524,6 +522,7 @@ from gummysnake.exceptions import (
     GummySnakeError,
     UnsupportedFeatureError,
 )
+from gummysnake.fast_draw_runtime import FastDrawScope
 from gummysnake.sketch import (
     FunctionSketch,
     Sketch,
@@ -644,7 +643,6 @@ __all__ = [
     "enable_system",
     "disable_system",
     "configure_ecs",
-    "configure_system_set",
     "ecs_diagnostics",
     "reset_ecs_diagnostics",
     "ecs",

@@ -2,7 +2,10 @@ use super::helpers::{
     fill_primitive_batch_cache_key, fill_primitive_batch_instances, FillPrimitiveBatchRecord,
     FillPrimitiveBatchTuple,
 };
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::Matrix;
+use crate::types::BlendMode;
+use pyo3::prelude::*;
 use std::sync::Arc;
 
 impl Canvas {

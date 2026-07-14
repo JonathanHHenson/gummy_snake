@@ -1,4 +1,10 @@
-use crate::prelude::*;
+use crate::assets::CachedImage;
+use crate::canvas_state::Canvas;
+use crate::images::validate_rgba_buffer;
+use crate::raster::Matrix;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 use std::sync::Arc;
 
 impl Canvas {

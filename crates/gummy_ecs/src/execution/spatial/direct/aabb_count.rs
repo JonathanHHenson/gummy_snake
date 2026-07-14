@@ -4,8 +4,8 @@ use crate::error::{EcsError, Result};
 use crate::plan::{ExprNode, SpatialRelationNode};
 use crate::spatial::{SpatialAabb, SpatialPoint, SpatialRecord};
 
-use super::super::super::value_ops::{bool_f64, literal_expr_numeric};
 use super::super::super::{EvalContext, PlanExecutor};
+use crate::execution::interpreter::value_ops::{bool_f64, literal_expr_numeric};
 
 use super::super::support::{
     SpatialBatchValue, SpatialDistanceFilter, SpatialF64RowArray, SpatialPrecomputeLayout,

@@ -34,7 +34,6 @@ class FakeCanvasVideo:
 
 
 class FakeCanvasModule:
-    CANVAS_ABI_VERSION = EXPECTED_CANVAS_ABI_VERSION
     FRAME_COMMAND_ABI_VERSION = FRAME_COMMAND_ABI_VERSION
     Matrix2D = FakeRustMatrix2D
     Canvas = FakeCanvas
@@ -97,7 +96,6 @@ class FakeCanvasModuleWithHealthFailure(FakeCanvasModule):
 
 
 class FakeCanvasModuleWithoutAbi:
-    CANVAS_ABI_VERSION = None
     Canvas = FakeCanvas
 
     def canvas_abi_version(self) -> None:
@@ -105,7 +103,5 @@ class FakeCanvasModuleWithoutAbi:
 
 
 class FakeCanvasModuleWithBadAbi(FakeCanvasModule):
-    CANVAS_ABI_VERSION = EXPECTED_CANVAS_ABI_VERSION + 1
-
     def canvas_abi_version(self) -> int:
         return EXPECTED_CANVAS_ABI_VERSION + 1

@@ -10,7 +10,7 @@ from gummysnake import constants as c
 from gummysnake.assets.image import Image
 from gummysnake.core.color import Color
 from gummysnake.core.pixels import PixelBuffer
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 
 if TYPE_CHECKING:

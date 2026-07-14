@@ -1,13 +1,12 @@
-"""Freeze public Python names, signatures, and compatibility import paths.
+"""Freeze public Python names, signatures, and class metadata.
 
 The fingerprints below are intentionally fixed values. Update one only after an explicit public
-compatibility decision, never by generating a snapshot as part of a refactor.
+API decision, never by generating a snapshot as part of a refactor.
 """
 
 from __future__ import annotations
 
 import hashlib
-import importlib
 import inspect
 import json
 from enum import Enum
@@ -15,14 +14,13 @@ from types import ModuleType
 
 import gummysnake as gs
 import gummysnake.api.global_mode as global_mode
-import gummysnake.api.three_d as three_d
+import gummysnake.api.three_d_api as three_d
 import gummysnake.api.three_d_api.camera_api as three_d_camera
 import gummysnake.api.three_d_api.controls_and_lighting as three_d_lighting
 import gummysnake.api.three_d_api.materials_and_primitives as three_d_materials
 import gummysnake.constants as constants
 import gummysnake.ecs as ecs
 import gummysnake.synth as synth
-import gummysnake.synth.core as synth_core
 
 _PUBLIC_MODULES: dict[str, ModuleType] = {
     "gummysnake": gs,
@@ -33,14 +31,14 @@ _PUBLIC_MODULES: dict[str, ModuleType] = {
 }
 _EXPECTED_FINGERPRINTS = {
     "gummysnake": {
-        "count": 494,
-        "exports": "5c21bc631e434a507f5f5e92c0675227a458ce085984a52b5b985125cd9fa0b7",
-        "surface": "45b5a2d97ec9a2b8d79cb2000ee2092352b0488553132958d0717b074f4f7258",
+        "count": 493,
+        "exports": "5dca6bf8d40d10123a2528d07d7189da3cf86feae78c69f48616abf8f5fc6e2d",
+        "surface": "d223cb6541a03b0ef9bcde2509f8ec53c91de01cab12e091ab9f007ad2529f01",
     },
     "gummysnake.api.global_mode": {
-        "count": 331,
-        "exports": "03f56f796966de540b37c43103a9026ce09cf169eca93d67d6e55e992191eed2",
-        "surface": "38108b7df3dc1306b912d0e0c01000bdd43a13c34396407a7854e6ddfebde9ba",
+        "count": 330,
+        "exports": "298c551e15170bb0c65f997e0720b109968adde1f5ec4732addf8805917269e8",
+        "surface": "dc18ec708515c39493fbc7742b403b654e96871ff0f2a51af3288cbd1a59ae92",
     },
     "gummysnake.constants": {
         "count": 116,
@@ -48,32 +46,16 @@ _EXPECTED_FINGERPRINTS = {
         "surface": "c65552d8d0f8ba8221d46abfab2b076eaedd3c7aae73b77f0ca056a1ed494405",
     },
     "gummysnake.ecs": {
-        "count": 53,
-        "exports": "405a671c7a32ba7120bf1a8df627ba7cd634ac920b315dde797576aa852d796c",
-        "surface": "80ba8a26d6371e0759e96a883cc73f82abd74ee2e97756f503a3be8d0c2fd6ae",
+        "count": 52,
+        "exports": "3dc3b05179ed4446011ff5b0a7ef163f837e49447b78dd91f44b205038dfffb1",
+        "surface": "deb550e17350c64ce08134c6c29b8832ed8fd36e92510695a0de8a3ce55b17f4",
     },
     "gummysnake.synth": {
-        "count": 65,
-        "exports": "4cfabc23aef0c4aa8df96bf51022f891ee6af9eca51e8f3f53ccb0e776c132b0",
-        "surface": "380bc165f240199bcc6b46d7d3ad8d65f3cef9ceb35fbbd2eae3b89d5b2cab6d",
+        "count": 64,
+        "exports": "c6630523c8a5ca57fb3e74bbbac98cd8588f5d1bbf64a044e73c3f7b9c03b0a4",
+        "surface": "c110b48da4ef1df0e5e3ee28e5ad9f6b6986f25f2063d62a1271c91f592f3b9b",
     },
 }
-_COMPATIBILITY_MODULES = (
-    "gummysnake.api.advanced",
-    "gummysnake._fast_draw",
-    "gummysnake.core.input_events",
-    "gummysnake.core.state",
-    "gummysnake.assets.sound",
-    "gummysnake.ecs.actions",
-    "gummysnake.ecs.systems",
-    "gummysnake.ecs.runtime_views",
-    "gummysnake.ecs.physical",
-    "gummysnake.ecs.world",
-    "gummysnake.drawing.renderer3d",
-    "gummysnake.drawing.software3d",
-    "gummysnake.rust.canvas",
-    "gummysnake.rust.ecs",
-)
 _EXPECTED_CLASS_METADATA = {
     "Sketch": ("gummysnake.sketch.runtime", "Sketch"),
     "Image": ("gummysnake.assets.image.core", "Image"),
@@ -125,16 +107,7 @@ def test_global_mode_exports_are_top_level_identity_aliases() -> None:
         assert getattr(gs, name) is getattr(global_mode, name), name
 
 
-def test_supported_compatibility_modules_remain_importable() -> None:
-    for module_name in _COMPATIBILITY_MODULES:
-        assert importlib.import_module(module_name).__name__ == module_name
-
-
-def test_split_synth_and_three_d_facades_preserve_public_object_identity() -> None:
-    assert synth.__all__ == synth_core.__all__
-    for name in synth.__all__:
-        assert getattr(synth, name) is getattr(synth_core, name), name
-
+def test_split_three_d_modules_preserve_public_object_identity() -> None:
     implementation_modules = (three_d_camera, three_d_lighting, three_d_materials)
     for name in three_d.__all__:
         public_value = getattr(three_d, name)

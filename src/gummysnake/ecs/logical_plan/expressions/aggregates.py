@@ -12,7 +12,7 @@ from .helpers import ExpressionInput, ensure_expr
 from .proxies import QueryProxy
 
 if TYPE_CHECKING:  # pragma: no cover
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
 
 @dataclass(frozen=True, eq=False)

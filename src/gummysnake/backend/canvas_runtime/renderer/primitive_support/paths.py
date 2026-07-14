@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Protocol, cast
+from typing import Protocol
 
-from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost
+from gummysnake.backend.canvas_runtime.renderer._protocols import CanvasRendererHost, _renderer
 from gummysnake.backend.canvas_runtime.renderer.command_ingress import pack_path
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 from gummysnake.exceptions import ArgumentValidationError
 
@@ -21,10 +21,6 @@ class CapturedShapeState(Protocol):
 def captured_point(point: Iterable[float]) -> tuple[float, float]:
     x, y = tuple(point)[:2]
     return float(x), float(y)
-
-
-def _renderer(self: CanvasRendererHost) -> CanvasRendererHost:
-    return cast(CanvasRendererHost, self)
 
 
 def polygon(

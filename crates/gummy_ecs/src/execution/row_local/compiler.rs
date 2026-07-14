@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use crate::error::{EcsError, Result};
 use crate::plan::{ActionNode, ExprNode};
 
-use super::super::f64_program::{CompiledF64ReadOnlyProgram, RowLocalAction, RowLocalTarget};
 use super::super::PlanExecutor;
+use crate::execution::optimized::f64_program::{
+    CompiledF64ReadOnlyProgram, RowLocalAction, RowLocalTarget,
+};
 
 impl<'a> PlanExecutor<'a> {
     pub(in crate::execution::row_local) fn compile_row_local_action(

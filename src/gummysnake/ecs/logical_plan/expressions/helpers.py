@@ -10,7 +10,7 @@ from gummysnake.ecs.value_types import EcsLiteralValue
 
 if TYPE_CHECKING:  # pragma: no cover
     from gummysnake.ecs.logical_plan.specifications import Query
-    from gummysnake.ecs.world import EcsWorld
+    from gummysnake.ecs.world_facade import EcsWorld
 
     from .aggregates import ExistsBuilder
     from .core import Expression

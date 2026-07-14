@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from gummysnake import synth as sy
-from gummysnake.synth import core
 
 _RUNTIME_DIR = Path(__file__).parents[3] / "src/gummysnake/synth/synth_runtime"
 _INTERNAL_AREAS = {
@@ -47,10 +46,7 @@ def test_synth_runtime_uses_only_canonical_internal_areas() -> None:
 def test_public_synth_exports_retain_identity_and_canonical_metadata() -> None:
     """The public facade keeps its exports while exposing their canonical owners."""
 
-    assert len(sy.__all__) == 65
-    assert sy.__all__ == core.__all__
-    for name in sy.__all__:
-        assert getattr(sy, name) is getattr(core, name), name
+    assert len(sy.__all__) == 64
 
     assert sy.Track.__module__ == "gummysnake.synth.synth_runtime.playback_export.track"
     assert sy.PhysicalPlan.__module__ == "gummysnake.synth.synth_runtime.physical.physical_plan"

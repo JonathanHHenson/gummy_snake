@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
-from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
+from gummysnake.context_mixins.three_d._protocols import _three_d
 from gummysnake.drawing.renderer3d import Mesh3D, Model3D
 from gummysnake.drawing.renderer3d.types import VertexPropertyValue
 from gummysnake.drawing.software3d import (
@@ -20,10 +20,6 @@ from gummysnake.drawing.software3d import (
 from gummysnake.drawing.software3d import save_obj as save_obj_model
 from gummysnake.drawing.software3d import save_stl as save_stl_model
 from gummysnake.exceptions import ArgumentValidationError
-
-
-def _three_d(self: Any) -> ThreeDContextHost:
-    return cast(ThreeDContextHost, self)
 
 
 class ThreeDPrimitivesMixin:

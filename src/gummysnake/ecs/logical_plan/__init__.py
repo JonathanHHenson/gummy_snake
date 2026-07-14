@@ -9,9 +9,9 @@ The hierarchy separates plan construction from world/runtime execution:
 - :mod:`systems` owns decorators and built-plan definitions.
 - :mod:`specifications` owns annotation specifications and event proxies.
 
-Public imports remain available through :mod:`gummysnake.ecs` and its documented
-compatibility modules. This package must not import world-runtime or renderer
-implementations; Rust remains the non-UDF ECS execution boundary.
+Public imports remain available through :mod:`gummysnake.ecs`. This package must
+not import world-runtime or renderer implementations; Rust remains the non-UDF
+ECS execution boundary.
 """
 
 from __future__ import annotations

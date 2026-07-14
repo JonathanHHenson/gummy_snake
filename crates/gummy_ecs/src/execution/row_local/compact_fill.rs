@@ -3,8 +3,10 @@ use crate::error::Result;
 use crate::plan::{ActionNode, CanvasCommandNode, PhysicalPlan};
 use crate::world::World;
 
-use super::super::f64_program::{eval_compiled_f64_readonly, CompiledF64ReadOnlyProgram};
 use super::super::{truthy_f64, ExecutionCanvasCommand, ExecutionCanvasFillRecord};
+use crate::execution::optimized::f64_program::{
+    eval_compiled_f64_readonly, CompiledF64ReadOnlyProgram,
+};
 
 mod collection;
 

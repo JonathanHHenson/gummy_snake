@@ -542,7 +542,7 @@ def test_ecs_metric_contract_is_complete_and_does_not_claim_blocked_collection()
     }
 
 
-def test_ecs_suite_has_no_example_legacy_or_test_fixture_imports() -> None:
+def test_ecs_suite_has_no_example_or_test_fixture_imports() -> None:
     suite = ROOT / "benchmarks" / "suites" / "ecs"
     for path in sorted(suite.glob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -555,9 +555,7 @@ def test_ecs_suite_has_no_example_legacy_or_test_fixture_imports() -> None:
         imported.update(
             node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
         )
-        assert not any(
-            name.startswith(("examples", "tests", "benchmarks.legacy")) for name in imported
-        )
+        assert not any(name.startswith(("examples", "tests")) for name in imported)
 
 
 def test_ecs_package_init_is_documentation_only_not_a_barrel() -> None:

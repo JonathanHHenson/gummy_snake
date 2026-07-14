@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TypedDict
 
-from gummysnake.assets.audio import (
+from gummysnake.assets.audio_runtime import (
     FFT,
     Amplitude,
     AudioBuffer,

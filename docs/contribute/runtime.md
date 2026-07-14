@@ -137,7 +137,7 @@ as quickly and deterministically as possible.
 ECS systems are registered from Python. `@ecs.system_plan` functions are called
 when registered to build an `ecs.Action` tree that executes as a Rust physical
 plan, while `@ecs.system` is an explicit runtime Python boundary. The logical
-plan is serialized through `src/gummysnake/ecs/physical.py`, compiled by the Rust
+plan is serialized through `src/gummysnake/ecs/physical_payload/`, compiled by the Rust
 ECS runtime, cached by schema fingerprint, and then executed during the pre-draw
 ECS phase.
 
@@ -170,7 +170,7 @@ DSL or isolate Python-only work in `@ecs.udf` or `@ecs.system`.
 - Missing canvas runtime or missing native-window support should fail with a
   clear capability error and rebuild guidance.
 - A stale or partial canvas runtime should fail during
-  `require_canvas_runtime()` if its health check or `CANVAS_ABI_VERSION`
+  `require_canvas_runtime()` if its health check or `canvas_abi_version()`
   marker does not match the Python package.
 
 ```mermaid

@@ -1,4 +1,7 @@
-use crate::prelude::*;
+use crate::raster::Matrix;
+use crate::types::{BlendMode, Rgba, Style};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 pub(crate) const FRAME_COMMAND_ABI_VERSION: u32 = 1;
 pub(crate) const PRIMITIVE_STYLE_RECORD_BYTES: usize = 24;

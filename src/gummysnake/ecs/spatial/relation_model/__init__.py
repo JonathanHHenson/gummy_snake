@@ -1,4 +1,4 @@
-"""Implementation chunks for :mod:`gummysnake.ecs.spatial.relations`."""
+"""Implementation chunks for :mod:`gummysnake.ecs.spatial.relation_model`."""
 
 from __future__ import annotations
 

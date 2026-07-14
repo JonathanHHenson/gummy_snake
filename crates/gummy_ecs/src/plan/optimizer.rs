@@ -1,5 +1,5 @@
 use crate::column::EcsValue;
-use crate::error::{EcsError, Result};
+use crate::error::Result;
 use crate::execution::interpreter::value_ops::{eval_binary, eval_unary};
 
 use super::typed_ir::{BinaryOp, UnaryOp};
@@ -67,33 +67,10 @@ fn expr_from_value(value: EcsValue) -> ExprNode {
 }
 
 fn fold_unary_literal(op: &str, value: EcsValue) -> Result<EcsValue> {
-    // Preserve the historical folder boundary: `!` is executable but was not
-    // a constant-folding spelling in version-2 plans.
-    if op == "!" {
-        return Err(EcsError::InvalidPlan(format!(
-            "cannot constant-fold unsupported unary op {op}"
-        )));
-    }
-    if matches!(op, "pos" | "+") {
-        return match value {
-            EcsValue::I64(_) | EcsValue::U64(_) | EcsValue::F64(_) => Ok(value),
-            other => Err(EcsError::InvalidPlan(format!(
-                "cannot constant-fold unary pos for literal {}",
-                other.kind_name()
-            ))),
-        };
-    }
     eval_unary(UnaryOp::parse(op), op, value)
 }
 
 fn fold_binary_literal(op: &str, left: EcsValue, right: EcsValue) -> Result<EcsValue> {
-    // Preserve the historical folder boundary: symbolic boolean aliases are
-    // executable but were not folded by the version-2 optimizer.
-    if matches!(op, "&&" | "||") {
-        return Err(EcsError::InvalidPlan(format!(
-            "cannot constant-fold unsupported binary op {op}"
-        )));
-    }
     eval_binary(BinaryOp::parse(op), op, left, right)
 }
 

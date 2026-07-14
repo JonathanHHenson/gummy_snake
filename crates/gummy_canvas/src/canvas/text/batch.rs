@@ -2,7 +2,11 @@ use super::super::images::{
     BatchCanvasImage, BatchUniqueImage, ImageBatchBuilder, IMAGE_ATLAS_MAX_UNIQUE_IMAGES,
 };
 use super::layout::{layout_cached_text_line, text_lines};
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::raster::Matrix;
+use crate::types::Style;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn text_batch_frame_impl(

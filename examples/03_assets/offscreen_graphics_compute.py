@@ -42,17 +42,18 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
 
 def _draw_bars(target: gs.Graphics | gs.Framebuffer, values: tuple[float, ...]) -> None:
-    target.background(13, 18, 30)
-    target.no_stroke()
+    drawing = target.drawing
+    drawing.background(13, 18, 30)
+    drawing.no_stroke()
     bar_width = target.width / len(values)
     for index, value in enumerate(values):
         hue = index / max(1, len(values) - 1)
         height = value * (target.height - 34)
-        target.fill(60 + hue * 160, 120 + value * 100, 255 - hue * 80)
-        target.rect(index * bar_width + 2, target.height - height - 14, bar_width * 0.74, height)
-    target.stroke(95, 110, 140)
-    target.no_fill()
-    target.rect(0, 0, target.width, target.height)
+        drawing.fill(60 + hue * 160, 120 + value * 100, 255 - hue * 80)
+        drawing.rect(index * bar_width + 2, target.height - height - 14, bar_width * 0.74, height)
+    drawing.stroke(95, 110, 140)
+    drawing.no_fill()
+    drawing.rect(0, 0, target.width, target.height)
 
 
 def setup() -> None:

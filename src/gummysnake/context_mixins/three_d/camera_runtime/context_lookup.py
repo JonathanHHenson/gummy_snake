@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
-from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
+from gummysnake.context_mixins.three_d._protocols import _three_d as _three_d
 
 Number = int | float
-
-
-def _three_d(self: Any) -> ThreeDContextHost:
-    return cast(ThreeDContextHost, self)

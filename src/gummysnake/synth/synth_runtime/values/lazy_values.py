@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import builtins
 import random as _random
-from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, Literal, Self, SupportsIndex, cast, overload
 
 from gummysnake.exceptions import ArgumentValidationError
@@ -12,31 +12,20 @@ from gummysnake.synth.synth_runtime.values.foundation import (
     Expression,
     SynthPlanError,
     _as_int,
-    _current_repeat_depth_or_none,
-    _next_expression_id,
+    _CachedExpression,
+    _expression_id_field,
+    _repeat_depth_field,
 )
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class MusicExpression(Expression):
+class MusicExpression(_CachedExpression):
     kind: Literal["chord", "scale", "octs"]
     root: Expression
     name: str | None = None
     count: Expression | None = None
-    id: int = field(default_factory=_next_expression_id, repr=False, compare=False)
-    repeat_depth: int | None = field(
-        default_factory=_current_repeat_depth_or_none,
-        repr=False,
-        compare=False,
-    )
-
-    def evaluate(self, ctx: EvalContext) -> object:
-        return _cached_expression_value(
-            ctx,
-            self.repeat_depth,
-            self.id,
-            lambda: self._evaluate_uncached(ctx),
-        )
+    id: int = _expression_id_field()
+    repeat_depth: int | None = _repeat_depth_field()
 
     def _evaluate_uncached(self, ctx: EvalContext) -> object:
         root = resolve_value(self.root, ctx)
@@ -57,23 +46,11 @@ class MusicExpression(Expression):
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class SampleDurationExpression(Expression):
+class SampleDurationExpression(_CachedExpression):
     sample_name: Expression
     opts: Mapping[str, object]
-    id: int = field(default_factory=_next_expression_id, repr=False, compare=False)
-    repeat_depth: int | None = field(
-        default_factory=_current_repeat_depth_or_none,
-        repr=False,
-        compare=False,
-    )
-
-    def evaluate(self, ctx: EvalContext) -> object:
-        return _cached_expression_value(
-            ctx,
-            self.repeat_depth,
-            self.id,
-            lambda: self._evaluate_uncached(ctx),
-        )
+    id: int = _expression_id_field()
+    repeat_depth: int | None = _repeat_depth_field()
 
     def _evaluate_uncached(self, ctx: EvalContext) -> object:
         sample_name = resolve_value(self.sample_name, ctx)
@@ -86,24 +63,12 @@ class SampleDurationExpression(Expression):
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class TickExpression(Expression):
+class TickExpression(_CachedExpression):
     values: Expression | None = None
     name: str = "default"
     advance: bool = True
-    id: int = field(default_factory=_next_expression_id, repr=False, compare=False)
-    repeat_depth: int | None = field(
-        default_factory=_current_repeat_depth_or_none,
-        repr=False,
-        compare=False,
-    )
-
-    def evaluate(self, ctx: EvalContext) -> object:
-        return _cached_expression_value(
-            ctx,
-            self.repeat_depth,
-            self.id,
-            lambda: self._evaluate_uncached(ctx),
-        )
+    id: int = _expression_id_field()
+    repeat_depth: int | None = _repeat_depth_field()
 
     def _evaluate_uncached(self, ctx: EvalContext) -> object:
         index = ctx.ticks.get(self.name, -1)
@@ -128,30 +93,6 @@ def ensure_expr(value: object) -> Expression:
     from gummysnake.synth.synth_runtime.values.expressions import LiteralExpression
 
     return LiteralExpression(value)
-
-
-def _cached_expression_value(
-    ctx: EvalContext,
-    repeat_depth: int | None,
-    expression_id: int,
-    compute: Callable[[], object],
-) -> object:
-    key = _expression_binding_key(ctx, repeat_depth, expression_id)
-    if key is None:
-        return compute()
-    if key not in ctx.bindings:
-        ctx.bindings[key] = compute()
-    return ctx.bindings[key]
-
-
-def _expression_binding_key(
-    ctx: EvalContext,
-    repeat_depth: int | None,
-    expression_id: int,
-) -> tuple[str, tuple[object, ...], int] | None:
-    if repeat_depth is None:
-        return None
-    return ("expr", ctx.repeat_scope[:repeat_depth], expression_id)
 
 
 def _source_bind_key(

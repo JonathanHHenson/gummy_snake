@@ -1,6 +1,6 @@
 //! Contract types shared by the canonical stateful synth block renderer and its sinks.
 //!
-//! These types intentionally do not adapt legacy vector rendering. A renderer
+//! These types intentionally do not adapt whole-signal vector rendering. A renderer
 //! must own its schedule and processor state, advance only after a sink accepts
 //! PCM, and report bounded workspace/state high-water marks.
 

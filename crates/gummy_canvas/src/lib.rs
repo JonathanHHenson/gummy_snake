@@ -26,7 +26,6 @@ mod gpu;
 mod images;
 mod media;
 mod performance;
-mod prelude;
 mod raster;
 mod runtime;
 mod sketch_state;
@@ -37,7 +36,7 @@ mod types;
 
 mod bindings;
 /// Canvas extension ABI marker validated by Python before runtime construction.
-pub(crate) const CANVAS_ABI_VERSION: u32 = 21;
+pub(crate) const CANVAS_ABI_VERSION: u32 = 22;
 
 use pyo3::prelude::*;
 

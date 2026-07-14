@@ -6,7 +6,7 @@ from gummysnake.assets.image import Image
 from gummysnake.backend.canvas_renderer import CanvasRenderer, PerformanceCounters
 from gummysnake.constants import BLEND
 from gummysnake.core.color import Color
-from gummysnake.core.state import StyleState
+from gummysnake.core.state_facades import StyleState
 from gummysnake.core.transform import Matrix2D
 from gummysnake.rust.canvas import require_canvas_runtime
 

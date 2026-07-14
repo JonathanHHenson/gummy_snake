@@ -1,5 +1,13 @@
-use crate::prelude::*;
+use crate::canvas::cache::{ImageCache, TextCache, TextureCache};
+use crate::canvas_state::Canvas;
+use crate::config::*;
+use crate::performance::PerformanceCounters;
 use crate::runtime::style::*;
+use crate::runtime::DEFAULT_POINTER_LOCK_MODE;
+use crate::types::{Rgba, Style};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use std::collections::VecDeque;
 
 impl Canvas {
     pub(crate) fn new_impl(

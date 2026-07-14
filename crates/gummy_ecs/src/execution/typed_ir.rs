@@ -1,4 +1,4 @@
-//! Executor-private compilation of source-compatible bridge DTOs.
+//! Executor-private compilation of bridge DTOs.
 //!
 //! `PhysicalPlan` intentionally remains a public, directly constructible DTO.
 //! This module owns the closed typed view used by execution; it never changes
@@ -110,7 +110,8 @@ impl TypedSpatialRelation {
     fn compile(relation: &SpatialRelationNode) -> Self {
         Self {
             algorithm: SpatialAlgorithmKind::parse(&relation.algorithm.kind),
-            pair_policy: PairPolicy::parse(&relation.pair_policy),
+            pair_policy: PairPolicy::parse(&relation.pair_policy)
+                .expect("validated spatial pair policy must compile"),
         }
     }
 }

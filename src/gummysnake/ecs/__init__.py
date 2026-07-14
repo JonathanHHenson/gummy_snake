@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from gummysnake.ecs import canvas, spatial, types
-from gummysnake.ecs.actions import (
+from gummysnake.ecs.logical_plan.actions import (
     Action,
     DefaultAction,
     ForEachAction,
@@ -25,7 +25,7 @@ from gummysnake.ecs.actions import (
     udf_plan,
     when,
 )
-from gummysnake.ecs.expressions import (
+from gummysnake.ecs.logical_plan.expressions import (
     ComponentExpressionProxy,
     Expression,
     QueryProxy,
@@ -37,7 +37,7 @@ from gummysnake.ecs.expressions import (
     key_is_down,
     literal,
 )
-from gummysnake.ecs.specs import (
+from gummysnake.ecs.logical_plan.specifications import (
     Added,
     Changed,
     EventReader,
@@ -49,14 +49,14 @@ from gummysnake.ecs.specs import (
     Tag,
     Without,
 )
-from gummysnake.ecs.systems import (
+from gummysnake.ecs.logical_plan.systems import (
     RuntimeSystemDefinition,
     SystemDefinition,
     SystemPlanDefinition,
     system,
     system_plan,
 )
-from gummysnake.ecs.world import Entity, EntityMutation, EntityView, MutEntity, SystemHandle
+from gummysnake.ecs.world_facade import Entity, EntityMutation, EntityView, SystemHandle
 
 __all__ = [
     "Action",
@@ -71,7 +71,6 @@ __all__ = [
     "EventWriter",
     "Expression",
     "ForEachAction",
-    "MutEntity",
     "Query",
     "QueryProxy",
     "Removed",

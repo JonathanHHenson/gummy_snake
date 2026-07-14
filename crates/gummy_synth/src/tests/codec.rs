@@ -104,16 +104,14 @@ fn synth_wav_decoder_preserves_supported_pcm_widths_and_channel_order() {
 }
 
 #[test]
-fn synth_wav_decoder_preserves_format_and_frame_edge_policies() {
+fn synth_wav_decoder_rejects_invalid_format_and_frame_metadata() {
     let float_tagged_pcm = riff(&[
         (*b"fmt ", pcm_fmt(3, 1, 8_000, 16)),
         (*b"data", 1000_i16.to_le_bytes().to_vec()),
     ]);
     assert_eq!(
-        decode_wav_stereo(&float_tagged_pcm)
-            .expect("synth retains its legacy width/channel-only policy")
-            .left,
-        vec![1000.0 / 32768.0]
+        decode_error(&float_tagged_pcm).message(),
+        "Unsupported PCM WAV format; expected mono or stereo 8/16/32-bit PCM."
     );
 
     let zero_rate = riff(&[
@@ -121,10 +119,8 @@ fn synth_wav_decoder_preserves_format_and_frame_edge_policies() {
         (*b"data", 0_i16.to_le_bytes().to_vec()),
     ]);
     assert_eq!(
-        decode_wav_stereo(&zero_rate)
-            .expect("decoder preserves zero sample-rate metadata")
-            .sample_rate,
-        0
+        decode_error(&zero_rate).message(),
+        "Unsupported PCM WAV format; expected mono or stereo 8/16/32-bit PCM."
     );
 
     let zero_channels = riff(&[(*b"fmt ", pcm_fmt(1, 0, 8_000, 16)), (*b"data", Vec::new())]);
@@ -146,10 +142,10 @@ fn synth_wav_decoder_preserves_format_and_frame_edge_policies() {
         (*b"fmt ", pcm_fmt(1, 2, 8_000, 16)),
         (*b"data", vec![1, 0, 2, 0, 3, 0]),
     ]);
-    let decoded = decode_wav_stereo(&incomplete_stereo_frame)
-        .expect("legacy decoder drops an incomplete final stereo frame");
-    assert_eq!(decoded.left, vec![1.0 / 32768.0]);
-    assert_eq!(decoded.right, vec![2.0 / 32768.0]);
+    assert_eq!(
+        decode_error(&incomplete_stereo_frame).message(),
+        "Unsupported PCM WAV format; expected mono or stereo 8/16/32-bit PCM."
+    );
 }
 
 #[test]

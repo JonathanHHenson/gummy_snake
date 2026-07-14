@@ -7,7 +7,7 @@ from typing import Any, cast, overload
 
 from gummysnake import constants as c
 from gummysnake.assets.image import Image
-from gummysnake.context_mixins.three_d._protocols import ThreeDContextHost
+from gummysnake.context_mixins.three_d._protocols import _three_d
 from gummysnake.core.color import Color
 from gummysnake.drawing.renderer3d import (
     Light3D,
@@ -26,10 +26,6 @@ from gummysnake.exceptions import (
 
 Number = int | float
 ColorValue = Color | str
-
-
-def _three_d(self: Any) -> ThreeDContextHost:
-    return cast(ThreeDContextHost, self)
 
 
 class ThreeDMaterialMixin:

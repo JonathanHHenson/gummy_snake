@@ -1,6 +1,10 @@
 use super::ImageBatchBuilder;
+use crate::assets::CanvasImage;
+use crate::canvas_state::Canvas;
 use crate::frame_commands::{FrameCommandFamily, IMAGE_RECORD_BYTES};
-use crate::prelude::*;
+use crate::raster::Matrix;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn draw_canvas_image_impl(

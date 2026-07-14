@@ -1,7 +1,11 @@
+use crate::canvas_state::Canvas;
 use crate::frame_commands::{
     ensure_record_size, read_f64, read_u32, FrameCommandFamily, TEXT_RECORD_BYTES,
 };
-use crate::prelude::*;
+use crate::raster::Matrix;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 fn decode_text_records(records: &[u8], utf8: &[u8]) -> PyResult<Vec<(String, f64, f64)>> {
     ensure_record_size(records, "text", TEXT_RECORD_BYTES)?;

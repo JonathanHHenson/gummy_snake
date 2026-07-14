@@ -1,5 +1,10 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::config::*;
 use crate::runtime::style::*;
+use crate::runtime::InteractiveRuntime;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn open_window_impl(&mut self) -> PyResult<()> {

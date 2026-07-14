@@ -1,5 +1,11 @@
-use crate::prelude::*;
+use crate::canvas_state::Canvas;
+use crate::images::validate_rgba_buffer;
+use crate::raster::rgba_to_present_pixel;
+use crate::types::BlendMode;
 use pyo3::buffer::PyBuffer;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::PyAny;
 
 impl Canvas {
     pub(crate) fn update_pixels_impl(&mut self, pixels: Vec<u8>) -> PyResult<()> {
