@@ -187,7 +187,7 @@ impl GpuRenderer {
                         *clip_id,
                     );
                 }
-                DrawCommand::BlendEllipse { .. } => {}
+                DrawCommand::DestinationBlend { .. } => {}
                 DrawCommand::PixelPrefix { .. } => {}
                 DrawCommand::PixelFilter { .. } => {}
                 DrawCommand::Text { .. } => {}

@@ -4,7 +4,7 @@ mod model;
 mod present;
 mod primitive;
 
-pub(super) use effects::{BLEND_ELLIPSE_SHADER, PIXEL_FILTER_SHADER, PIXEL_PREFIX_SHADER};
+pub(super) use effects::{DESTINATION_BLEND_SHADER, PIXEL_FILTER_SHADER, PIXEL_PREFIX_SHADER};
 pub(super) use image::IMAGE_SHADER;
 pub(super) use model::{MODEL_SHADER, TEXTURED_MODEL_SHADER};
 pub(super) use present::TEXTURE_SHADER;

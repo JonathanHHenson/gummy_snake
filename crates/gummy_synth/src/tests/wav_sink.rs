@@ -31,6 +31,43 @@ impl Seek for SharedCursor {
     }
 }
 
+#[derive(Default)]
+struct CountingWriterState {
+    cursor: Cursor<Vec<u8>>,
+    writes: usize,
+}
+
+#[derive(Clone, Default)]
+struct CountingWriter(Rc<RefCell<CountingWriterState>>);
+
+impl CountingWriter {
+    fn write_count(&self) -> usize {
+        self.0.borrow().writes
+    }
+
+    fn bytes(&self) -> Vec<u8> {
+        self.0.borrow().cursor.get_ref().clone()
+    }
+}
+
+impl Write for CountingWriter {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        let mut state = self.0.borrow_mut();
+        state.writes += 1;
+        state.cursor.write(buffer)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.borrow_mut().cursor.flush()
+    }
+}
+
+impl Seek for CountingWriter {
+    fn seek(&mut self, position: SeekFrom) -> io::Result<u64> {
+        self.0.borrow_mut().cursor.seek(position)
+    }
+}
+
 #[test]
 fn streaming_wav_sink_patches_header_after_incremental_pcm_blocks() {
     let writer = SharedCursor::default();
@@ -73,6 +110,24 @@ fn streaming_wav_sink_patches_header_after_incremental_pcm_blocks() {
 
     let metadata = codec::parse_riff_wav(&wav).expect("patched WAV is structurally valid");
     assert_eq!(metadata.data, Some(&wav[44..]));
+}
+
+#[test]
+fn streaming_wav_sink_writes_each_supplied_pcm_block_once() {
+    let writer = CountingWriter::default();
+    let observer = writer.clone();
+    let mut sink = StereoPcmWavSink::new(writer, 48_000).expect("WAV header writes");
+    let block = [1, -2, i16::MIN, i16::MAX, 300, -400];
+
+    assert_eq!(observer.write_count(), 1);
+    sink.write_interleaved_i16(&block)
+        .expect("complete PCM block writes");
+
+    assert_eq!(observer.write_count(), 2);
+    assert_eq!(
+        &observer.bytes()[44..],
+        &[1, 0, 254, 255, 0, 128, 255, 127, 44, 1, 112, 254]
+    );
 }
 
 #[test]

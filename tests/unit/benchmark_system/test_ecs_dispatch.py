@@ -169,11 +169,29 @@ def test_plan_cache_release_keeps_query_cache_world_owned_and_releases_every_pla
     assert diagnostics["ecs_physical_plan_compiles"] == 4
     assert diagnostics["ecs_physical_system_runs"] == 16
     assert diagnostics["ecs_steady_physical_plan_reuses"] == 16
-    assert diagnostics["ecs_query_cache_hits"] == 20
+    assert diagnostics["ecs_query_cache_hits"] == 1
     assert diagnostics["ecs_query_cache_misses"] == 7
     assert diagnostics["ecs_query_cache_refreshes"] == 0
     assert diagnostics["ecs_query_cache_invalidations"] == 0
     assert diagnostics["ecs_rust_compiled_plans"] == 0
+
+
+def test_diagnostics_reset_preserves_execution_query_cache_without_dynamic_lookup() -> None:
+    catalog = load_catalog(CATALOG_PATH)
+    workload = next(
+        item for item in catalog.workloads if item.parameters["case_kind"] == "diagnostics-reset"
+    )
+
+    result = dispatch("ecs", workload.id, workload.parameters, workload.execution_class)
+
+    diagnostics = result.diagnostics["ecs"]
+    assert isinstance(diagnostics, Mapping)
+    assert diagnostics["ecs_physical_system_runs"] == 1
+    assert diagnostics["ecs_query_cache_hits"] == 1
+    assert diagnostics["ecs_query_cache_misses"] == 6
+    assert diagnostics["ecs_query_cache_refreshes"] == 0
+    assert diagnostics["ecs_query_cache_invalidations"] == 0
+    assert diagnostics["ecs_rust_compiled_plans"] == 1
 
 
 def test_remaining_epic_290_cases_freeze_scheduler_spatial_hidpi_and_lifecycle_paths() -> None:

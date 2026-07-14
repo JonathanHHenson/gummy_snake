@@ -183,7 +183,7 @@ def test_save_frames_exports_numbered_sequence_and_callback(tmp_path):
     assert callback_results == [results]
 
 
-def test_unsupported_multiply_rect_fails_instead_of_cpu_compositing():
+def test_multiply_rect_uses_native_destination_blend():
     def setup():
         gs.create_canvas(4, 1)
         gs.no_stroke()
@@ -192,8 +192,15 @@ def test_unsupported_multiply_rect_fails_instead_of_cpu_compositing():
         gs.fill(128, 255, 255, 255)
         gs.rect(0, 0, 1, 1)
 
-    with pytest.raises(BackendCapabilityError, match="CPU raster/compositing fallback"):
-        gs.run(setup=setup, headless=True, max_frames=0)
+    context = gs.run(setup=setup, headless=True, max_frames=0)
+
+    assert context.load_pixels()[0:4] == [50, 100, 100, 255]
+    counters = context.renderer_performance_counters()
+    native = counters["native"]
+    assert isinstance(native, dict)
+    assert native["gpu_blend_commands"] >= 1
+    assert native["gpu_region_effect_passes"] >= 1
+    assert native["cpu_fallbacks"] == 0
 
 
 def test_blend_region_requires_gpu_region_blend():

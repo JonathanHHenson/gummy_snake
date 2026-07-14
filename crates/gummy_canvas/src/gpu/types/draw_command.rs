@@ -4,6 +4,12 @@ use super::{
 };
 use crate::types::BlendMode;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DestinationBlendShape {
+    Ellipse,
+    Rectangle,
+}
+
 #[derive(Debug, PartialEq)]
 pub enum DrawCommand {
     Clear(GpuColor),
@@ -38,7 +44,8 @@ pub enum DrawCommand {
         clip_id: usize,
     },
 
-    BlendEllipse {
+    DestinationBlend {
+        shape: DestinationBlendShape,
         cx: f32,
         cy: f32,
         rx: f32,

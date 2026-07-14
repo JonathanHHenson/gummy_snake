@@ -1362,15 +1362,12 @@ def _plan_cache_release(plan: WorkloadPlan) -> _Outcome:
             f"released compiled plan after cycle {cycle}",
         )
     diagnostics = world.diagnostics()
-    expected_query_lookups = cycles * (frames + 1)
     assert_equal(diagnostics["ecs_physical_plan_compiles"], cycles, "plan lifecycle compiles")
     assert_equal(diagnostics["ecs_physical_system_runs"], cycles * frames, "plan lifecycle runs")
     assert_equal(
         diagnostics["ecs_steady_physical_plan_reuses"], cycles * frames, "plan lifecycle reuses"
     )
-    assert_equal(
-        diagnostics["ecs_query_cache_hits"], expected_query_lookups - 1, "query cache hits"
-    )
+    assert_equal(diagnostics["ecs_query_cache_hits"], 0, "query cache hits")
     assert_equal(diagnostics["ecs_query_cache_misses"], 1, "query cache misses")
     assert_equal(diagnostics["ecs_query_cache_refreshes"], 0, "query cache refreshes")
     assert_equal(diagnostics["ecs_query_cache_invalidations"], 0, "query cache invalidations")
@@ -2176,7 +2173,7 @@ def _diagnostics_reset(plan: WorkloadPlan) -> _Outcome:
     world.run_pre_draw_systems()
     after = world.diagnostics()
     assert_equal(after["ecs_physical_system_runs"], 1, "post-reset system runs")
-    assert_equal(after["ecs_query_cache_hits"], 1, "post-reset warm query cache hit")
+    assert_equal(after["ecs_query_cache_hits"], 0, "post-reset query cache hits")
     assert_equal(after["ecs_query_cache_misses"], 0, "post-reset query cache misses")
     assert_equal(after["ecs_query_cache_refreshes"], 0, "post-reset query cache refreshes")
     assert_equal(after["ecs_query_cache_invalidations"], 0, "post-reset query cache invalidations")
@@ -2415,7 +2412,7 @@ def _assert_runtime_path(plan: WorkloadPlan, diagnostics: Mapping[str, object]) 
                 _exact("ecs_physical_plan_compiles", cycles),
                 _exact("ecs_physical_system_runs", runs),
                 _exact("ecs_steady_physical_plan_reuses", runs),
-                _exact("ecs_query_cache_hits", cycles * (frames + 1)),
+                _exact("ecs_query_cache_hits", 1),
                 _exact("ecs_query_cache_misses", 7),
                 _exact("ecs_query_cache_refreshes", 0),
                 _exact("ecs_query_cache_invalidations", 0),
@@ -2596,7 +2593,7 @@ def _assert_runtime_path(plan: WorkloadPlan, diagnostics: Mapping[str, object]) 
         expectations.extend(
             (
                 _exact("ecs_physical_system_runs", 1),
-                _exact("ecs_query_cache_hits", 2),
+                _exact("ecs_query_cache_hits", 1),
                 _exact("ecs_query_cache_misses", 6),
                 _exact("ecs_query_cache_refreshes", 0),
                 _exact("ecs_query_cache_invalidations", 0),

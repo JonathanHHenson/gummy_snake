@@ -1,7 +1,7 @@
 //! Incremental RIFF/WAV output for canonical stereo 16-bit PCM blocks.
 //!
-//! This deliberately owns no output buffer beyond its fixed 44-byte header and
-//! writes each supplied interleaved block directly to its `Write + Seek` target.
+//! This owns only its fixed 44-byte header and reusable block-sized encoding
+//! scratch, then writes each supplied interleaved block to its `Write + Seek` target.
 //! It is an internal foundation: current public render APIs still use their
 //! established byte-returning path until they are explicitly routed through a
 //! block renderer and this sink.
@@ -110,11 +110,13 @@ enum SinkState {
 /// A streaming RIFF WAV sink for interleaved stereo 16-bit PCM.
 ///
 /// The sink writes its fixed PCM header at construction, writes each complete
-/// frame directly to the target, and patches the RIFF and `data` sizes in
+/// frame block directly to the target, and patches the RIFF and `data` sizes in
 /// [`finish`](Self::finish). The caller retains ownership of each PCM block;
-/// this sink never builds a whole WAV payload or creates a temporary file.
+/// this sink retains only reusable block-sized encoding scratch and never builds
+/// a whole WAV payload or creates a temporary file.
 pub(crate) struct StereoPcmWavSink<W> {
     writer: W,
+    block_bytes: Vec<u8>,
     header_start: u64,
     data_end: u64,
     frames: u64,
@@ -139,6 +141,7 @@ impl<W: Write + Seek> StereoPcmWavSink<W> {
 
         Ok(Self {
             writer,
+            block_bytes: Vec::new(),
             header_start,
             data_end,
             frames: 0,
@@ -186,14 +189,15 @@ impl<W: Write + Seek> StereoPcmWavSink<W> {
             .checked_add(appended_bytes)
             .ok_or(StereoWavSinkError::StreamPositionOverflow)?;
 
-        for frame in samples.chunks_exact(usize::from(PCM_CHANNELS)) {
-            let left = frame[0].to_le_bytes();
-            let right = frame[1].to_le_bytes();
-            let bytes = [left[0], left[1], right[0], right[1]];
-            if let Err(error) = self.writer.write_all(&bytes) {
-                self.state = SinkState::Failed;
-                return Err(StereoWavSinkError::Io(error));
-            }
+        self.block_bytes.clear();
+        self.block_bytes
+            .reserve(samples.len() * std::mem::size_of::<i16>());
+        for sample in samples {
+            self.block_bytes.extend_from_slice(&sample.to_le_bytes());
+        }
+        if let Err(error) = self.writer.write_all(&self.block_bytes) {
+            self.state = SinkState::Failed;
+            return Err(StereoWavSinkError::Io(error));
         }
         self.frames = next_frames;
         self.data_end = next_data_end;

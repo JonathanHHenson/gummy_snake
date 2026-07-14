@@ -242,8 +242,9 @@ impl Canvas {
         )])
     }
 
-    pub(crate) fn can_draw_gpu_blend_ellipse(&self, style: &Style) -> bool {
+    pub(crate) fn can_draw_gpu_destination_blend_shape(&self, style: &Style) -> bool {
         self.gpu.is_some()
+            && !self.cpu_compositing_active
             && !style.erasing
             && style.stroke.is_none()
             && style.fill.is_some()
@@ -276,7 +277,7 @@ impl Canvas {
                 .is_none_or(|gpu| gpu.can_append_glyphon_text_command())
     }
 
-    pub(crate) fn draw_gpu_blend_ellipse(
+    pub(crate) fn draw_gpu_destination_blend_ellipse(
         &mut self,
         cx: f64,
         cy: f64,
@@ -284,12 +285,44 @@ impl Canvas {
         ry: f64,
         style: &Style,
     ) -> PyResult<()> {
+        if rx <= 0.0 || ry <= 0.0 {
+            return Ok(());
+        }
         let Some(fill) = style.fill else {
             return Ok(());
         };
         self.upload_stale_texture(false)?;
         if let Some(gpu) = self.gpu.as_mut() {
-            gpu.draw_blend_ellipse(
+            gpu.draw_destination_blend_ellipse(
+                cx as f32,
+                cy as f32,
+                rx as f32,
+                ry as f32,
+                crate::raster::gpu_color(fill),
+                style.blend_mode_kind,
+            );
+            self.record_native_region_effect_draw(true);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_gpu_destination_blend_rect(
+        &mut self,
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+        style: &Style,
+    ) -> PyResult<()> {
+        if rx <= 0.0 || ry <= 0.0 {
+            return Ok(());
+        }
+        let Some(fill) = style.fill else {
+            return Ok(());
+        };
+        self.upload_stale_texture(false)?;
+        if let Some(gpu) = self.gpu.as_mut() {
+            gpu.draw_destination_blend_rect(
                 cx as f32,
                 cy as f32,
                 rx as f32,

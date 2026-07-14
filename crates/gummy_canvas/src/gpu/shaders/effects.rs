@@ -191,7 +191,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
-pub(in crate::gpu) const BLEND_ELLIPSE_SHADER: &str = r#"
+pub(in crate::gpu) const DESTINATION_BLEND_SHADER: &str = r#"
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
@@ -221,11 +221,12 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     return output;
 }
 
-struct BlendEllipse {
-    center_radius: vec4<f32>,
+struct DestinationBlend {
+    center_extent: vec4<f32>,
     color: vec4<f32>,
     mode: u32,
-    _padding: vec3<u32>,
+    shape: u32,
+    _padding: vec2<u32>,
 };
 
 @group(0) @binding(0)
@@ -235,7 +236,7 @@ var source_texture: texture_2d<f32>;
 var source_sampler: sampler;
 
 @group(0) @binding(2)
-var<uniform> ellipse: BlendEllipse;
+var<uniform> destination_blend: DestinationBlend;
 
 fn blend_channel(dst: f32, src: f32, mode: u32) -> f32 {
     if mode == 1u {
@@ -268,15 +269,20 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let coord = vec2<i32>(min(input.uv * vec2<f32>(dims), vec2<f32>(dims - vec2<u32>(1u, 1u))));
     let pixel = vec2<f32>(coord) + vec2<f32>(0.5, 0.5);
     let dst = textureLoad(source_texture, coord, 0);
-    let delta = (pixel - ellipse.center_radius.xy) / ellipse.center_radius.zw;
-    if dot(delta, delta) > 1.0 {
+    let delta = pixel - destination_blend.center_extent.xy;
+    if destination_blend.shape == 0u {
+        let normalized = delta / destination_blend.center_extent.zw;
+        if dot(normalized, normalized) > 1.0 {
+            return dst;
+        }
+    } else if any(abs(delta) > destination_blend.center_extent.zw) {
         return dst;
     }
-    let src = ellipse.color;
+    let src = destination_blend.color;
     let blended = vec3<f32>(
-        blend_channel(dst.r, src.r, ellipse.mode),
-        blend_channel(dst.g, src.g, ellipse.mode),
-        blend_channel(dst.b, src.b, ellipse.mode),
+        blend_channel(dst.r, src.r, destination_blend.mode),
+        blend_channel(dst.g, src.g, destination_blend.mode),
+        blend_channel(dst.b, src.b, destination_blend.mode),
     );
     let alpha = src.a;
     return vec4<f32>(mix(dst.rgb, blended, alpha), dst.a);

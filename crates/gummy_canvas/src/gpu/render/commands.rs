@@ -234,7 +234,7 @@ impl GpuRenderer {
         }
     }
 
-    pub fn draw_blend_ellipse(
+    pub fn draw_destination_blend_ellipse(
         &mut self,
         cx: f32,
         cy: f32,
@@ -243,8 +243,51 @@ impl GpuRenderer {
         color: GpuColor,
         blend_mode: BlendMode,
     ) {
+        self.draw_destination_blend(
+            DestinationBlendShape::Ellipse,
+            cx,
+            cy,
+            rx,
+            ry,
+            color,
+            blend_mode,
+        );
+    }
+
+    pub fn draw_destination_blend_rect(
+        &mut self,
+        cx: f32,
+        cy: f32,
+        rx: f32,
+        ry: f32,
+        color: GpuColor,
+        blend_mode: BlendMode,
+    ) {
+        self.draw_destination_blend(
+            DestinationBlendShape::Rectangle,
+            cx,
+            cy,
+            rx,
+            ry,
+            color,
+            blend_mode,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn draw_destination_blend(
+        &mut self,
+        shape: DestinationBlendShape,
+        cx: f32,
+        cy: f32,
+        rx: f32,
+        ry: f32,
+        color: GpuColor,
+        blend_mode: BlendMode,
+    ) {
         if rx > 0.0 && ry > 0.0 {
-            self.commands.push(DrawCommand::BlendEllipse {
+            self.commands.push(DrawCommand::DestinationBlend {
+                shape,
                 cx,
                 cy,
                 rx,

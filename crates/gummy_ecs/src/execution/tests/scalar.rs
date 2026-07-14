@@ -57,6 +57,51 @@ fn physical_plan_executes_scalar_set_over_query_rows() {
 }
 
 #[test]
+fn warming_non_spatial_compiled_plan_skips_query_resolution() {
+    let (mut world, _) = world_with_motion();
+    let payload = BridgePlanPayload {
+        version: BRIDGE_PLAN_VERSION,
+        schema_fingerprint: Some(world.schema_fingerprint()),
+        queries: vec![BridgeQueryPayload {
+            name: "entity".to_string(),
+            terms: vec![
+                QueryTerm::WithComponent("Position".to_string()),
+                QueryTerm::WithComponent("Velocity".to_string()),
+            ],
+        }],
+        expressions: vec![
+            ExprNode::Field {
+                query: "entity".to_string(),
+                component: "Position".to_string(),
+                field: "x".to_string(),
+            },
+            ExprNode::Field {
+                query: "entity".to_string(),
+                component: "Velocity".to_string(),
+                field: "dx".to_string(),
+            },
+        ],
+        actions: vec![ActionNode::SetField {
+            target: 0,
+            value: 1,
+        }],
+        root_action: 0,
+    };
+    let handle = world.compile_bridge_plan_handle(payload).unwrap();
+
+    let report = world.warm_compiled_plan_spatial_indexes(handle).unwrap();
+    assert_eq!(report, ExecutionReport::default());
+    assert_eq!(world.diagnostics().query_cache_misses, 0);
+    assert_eq!(world.diagnostics().query_matched_rows, 0);
+
+    world
+        .execute_compiled_plan_with_options(handle, false)
+        .unwrap();
+    assert_eq!(world.diagnostics().query_cache_misses, 1);
+    assert_eq!(world.diagnostics().query_matched_rows, 1);
+}
+
+#[test]
 fn prepared_handles_are_reused_and_disjoint_field_waves_avoid_world_clones() {
     let (mut world, entity) = world_with_motion();
     let schema_fingerprint = world.schema_fingerprint();

@@ -25,7 +25,8 @@ impl GpuRenderer {
         let mut depth_initialized = false;
         while index < commands.len() {
             match &commands[index] {
-                DrawCommand::BlendEllipse {
+                DrawCommand::DestinationBlend {
+                    shape,
                     cx,
                     cy,
                     rx,
@@ -39,8 +40,9 @@ impl GpuRenderer {
                         &mut render_offsets,
                         &mut depth_initialized,
                     );
-                    self.encode_blend_ellipse_pass(
+                    self.encode_destination_blend_pass(
                         encoder,
+                        *shape,
                         *cx,
                         *cy,
                         *rx,
@@ -169,7 +171,7 @@ impl GpuRenderer {
 fn is_special_command(command: &DrawCommand) -> bool {
     matches!(
         command,
-        DrawCommand::BlendEllipse { .. }
+        DrawCommand::DestinationBlend { .. }
             | DrawCommand::PixelPrefix { .. }
             | DrawCommand::PixelFilter { .. }
             | DrawCommand::Text { .. }

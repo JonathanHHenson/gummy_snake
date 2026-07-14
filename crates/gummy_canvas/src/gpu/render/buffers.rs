@@ -34,7 +34,7 @@ impl GpuRenderer {
                     stroke_path_records = aligned_stroke_path_record_offset(stroke_path_records);
                     stroke_path_records += records.len();
                 }
-                DrawCommand::BlendEllipse { .. } => {}
+                DrawCommand::DestinationBlend { .. } => {}
                 DrawCommand::PixelPrefix { .. } => {}
                 DrawCommand::PixelFilter { .. } => {}
                 DrawCommand::ErasePrimitiveInstances { instances, .. } => {

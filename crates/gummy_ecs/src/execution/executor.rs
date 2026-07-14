@@ -433,6 +433,9 @@ impl World {
         handle: PhysicalPlanHandle,
     ) -> Result<ExecutionReport> {
         let prepared = self.validated_compiled_plan(handle)?;
+        if prepared.spatial_cache_keys().is_empty() {
+            return Ok(ExecutionReport::default());
+        }
         self.warm_prepared_plan_spatial_indexes(prepared.as_ref())
     }
 

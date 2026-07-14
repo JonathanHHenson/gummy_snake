@@ -3,9 +3,11 @@ use crate::types::BlendMode;
 use wgpu::util::DeviceExt;
 
 impl GpuRenderer {
-    pub(super) fn encode_blend_ellipse_pass(
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn encode_destination_blend_pass(
         &mut self,
         encoder: &mut wgpu::CommandEncoder,
+        shape: DestinationBlendShape,
         cx: f32,
         cy: f32,
         rx: f32,
@@ -17,12 +19,16 @@ impl GpuRenderer {
             self.device_context
                 .device()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("gummy_canvas blend ellipse pass uniform"),
-                    contents: bytemuck::bytes_of(&BlendEllipseUniform {
-                        center_radius: [cx, cy, rx.max(0.0001), ry.max(0.0001)],
+                    label: Some("gummy_canvas destination blend pass uniform"),
+                    contents: bytemuck::bytes_of(&DestinationBlendUniform {
+                        center_extent: [cx, cy, rx.max(0.0001), ry.max(0.0001)],
                         color: color.as_float(),
                         mode: crate::gpu::textures::blend_mode_id(mode),
-                        _padding: [0; 7],
+                        shape: match shape {
+                            DestinationBlendShape::Ellipse => 0,
+                            DestinationBlendShape::Rectangle => 1,
+                        },
+                        _padding: [0; 2],
                     }),
                     usage: wgpu::BufferUsages::UNIFORM,
                 });
@@ -30,7 +36,7 @@ impl GpuRenderer {
             self.device_context
                 .device()
                 .create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: Some("gummy_canvas blend ellipse pass bind group"),
+                    label: Some("gummy_canvas destination blend pass bind group"),
                     layout: &self.pixel_prefix_bind_group_layout,
                     entries: &[
                         wgpu::BindGroupEntry {
@@ -72,7 +78,7 @@ impl GpuRenderer {
             },
         );
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("gummy_canvas ordered blend ellipse pass"),
+            label: Some("gummy_canvas ordered destination blend pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &self.texture_view,
                 resolve_target: None,
@@ -85,7 +91,7 @@ impl GpuRenderer {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        pass.set_pipeline(&self.blend_ellipse_pipeline);
+        pass.set_pipeline(&self.destination_blend_pipeline);
         pass.set_bind_group(0, &bind_group, &[]);
         pass.set_scissor_rect(x, y, width, height);
         pass.draw(0..6, 0..1);

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.metadata
+import json
 import math
 import shutil
 import tempfile
@@ -11,6 +13,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 
 @dataclass(frozen=True, slots=True)
@@ -441,13 +444,54 @@ def packaged_sample_catalog() -> tuple[PackagedSampleCase, ...]:
     return _PACKAGED_SAMPLE_CASES
 
 
+def _editable_distribution_file(distribution: object, relative: Path) -> Path | None:
+    read_text = getattr(distribution, "read_text", None)
+    if not callable(read_text):
+        return None
+    direct_url = read_text("direct_url.json")
+    if not isinstance(direct_url, str):
+        return None
+    try:
+        metadata = json.loads(direct_url)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(metadata, Mapping):
+        return None
+    directory = metadata.get("dir_info")
+    url = metadata.get("url")
+    if (
+        not isinstance(directory, Mapping)
+        or directory.get("editable") is not True
+        or not isinstance(url, str)
+    ):
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme != "file" or parsed.netloc not in ("", "localhost"):
+        return None
+    candidate = (Path(unquote(parsed.path)) / relative).resolve()
+    return candidate if candidate.is_file() else None
+
+
 def _packaged_sample_path(case: PackagedSampleCase) -> Path:
     relative = Path(case.relative_path)
-    for ancestor in Path(__file__).resolve().parents:
-        candidate = ancestor / relative
-        if candidate.is_file():
-            return candidate
-    raise ValueError(f"packaged Synth sample fixture is missing: {case.relative_path}")
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError(f"packaged Synth sample fixture path is invalid: {case.relative_path}")
+    try:
+        distribution = importlib.metadata.distribution("gummy-snake")
+    except importlib.metadata.PackageNotFoundError as error:
+        raise ValueError(
+            "installed gummy-snake distribution metadata is unavailable; "
+            f"cannot locate Synth sample fixture: {case.relative_path}"
+        ) from error
+    candidate = Path(str(distribution.locate_file(relative.as_posix()))).resolve()
+    if candidate.is_file():
+        return candidate
+    editable_candidate = _editable_distribution_file(distribution, relative)
+    if editable_candidate is not None:
+        return editable_candidate
+    raise ValueError(
+        f"installed gummy-snake distribution is missing Synth sample fixture: {case.relative_path}"
+    )
 
 
 def validate_packaged_sample_catalog(

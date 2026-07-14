@@ -6,6 +6,7 @@ mod draw_command;
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 pub(super) use super::renderer_state::GpuSurface;
 pub(super) use super::renderer_state::{ClipTextureAsset, GpuModelMesh, GpuRenderer, TextureAsset};
+pub(super) use draw_command::DestinationBlendShape;
 pub use draw_command::DrawCommand;
 
 pub(super) const STROKE_PATH_RECORD_ALIGNMENT: usize = 16;
@@ -86,11 +87,12 @@ pub(super) struct PixelPrefixUniform {
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
-pub(super) struct BlendEllipseUniform {
-    pub(super) center_radius: [f32; 4],
+pub(super) struct DestinationBlendUniform {
+    pub(super) center_extent: [f32; 4],
     pub(super) color: [f32; 4],
     pub(super) mode: u32,
-    pub(super) _padding: [u32; 7],
+    pub(super) shape: u32,
+    pub(super) _padding: [u32; 2],
 }
 
 #[repr(C)]

@@ -98,7 +98,7 @@ impl GpuRenderer {
                         return None;
                     }
                 }
-                DrawCommand::BlendEllipse { .. }
+                DrawCommand::DestinationBlend { .. }
                 | DrawCommand::PixelPrefix { .. }
                 | DrawCommand::PixelFilter { .. }
                 | DrawCommand::Model { .. }

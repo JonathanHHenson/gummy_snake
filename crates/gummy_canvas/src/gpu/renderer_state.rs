@@ -119,7 +119,7 @@ pub struct GpuRenderer {
     pub(super) textured_model_pipeline: wgpu::RenderPipeline,
     pub(super) pixel_prefix_pipeline: wgpu::RenderPipeline,
     pub(super) pixel_filter_pipeline: wgpu::RenderPipeline,
-    pub(super) blend_ellipse_pipeline: wgpu::RenderPipeline,
+    pub(super) destination_blend_pipeline: wgpu::RenderPipeline,
     pub(super) model_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) stroke_path_bind_group_layout: wgpu::BindGroupLayout,
     pub(super) model_uniform_buffer: wgpu::Buffer,

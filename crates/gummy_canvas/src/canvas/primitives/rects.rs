@@ -69,6 +69,14 @@ impl Canvas {
             }
             return Ok(());
         }
+        if let Some((cx, cy, rx, ry)) =
+            self.axis_aligned_ellipse_geometry(matrix, x, y, width, height)
+        {
+            if self.can_draw_gpu_destination_blend_shape(style) {
+                self.draw_gpu_destination_blend_rect(cx, cy, rx, ry, style)?;
+                return Ok(());
+            }
+        }
         if !self.can_queue_gpu_primitives(style) {
             return self.prepare_cpu_composite();
         }

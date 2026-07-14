@@ -65,8 +65,8 @@ impl Canvas {
                 )?;
                 return Ok(());
             }
-            if self.can_draw_gpu_blend_ellipse(parsed_style) {
-                self.draw_gpu_blend_ellipse(cx, cy, rx, ry, parsed_style)?;
+            if self.can_draw_gpu_destination_blend_shape(parsed_style) {
+                self.draw_gpu_destination_blend_ellipse(cx, cy, rx, ry, parsed_style)?;
                 return Ok(());
             }
             return self.prepare_cpu_composite();

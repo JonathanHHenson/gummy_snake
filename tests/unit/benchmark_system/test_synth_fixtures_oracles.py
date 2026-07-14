@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
+from benchmarks.suites.synth import fixtures as synth_fixtures
 from benchmarks.suites.synth.fixtures import (
     ffmpeg_mp3_capability,
     fixture_manifest,
@@ -82,7 +84,20 @@ def test_complete_pcm_variant_manifest_covers_rates_widths_and_channels() -> Non
     assert all(entry.byte_length > 44 and len(entry.sha256) == 64 for entry in manifest)
 
 
-def test_packaged_flac_catalog_is_pinned_and_contains_a_minimal_reviewed_case() -> None:
+def test_packaged_flac_catalog_is_pinned_and_contains_a_minimal_reviewed_case(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = Path(__file__).resolve().parents[3]
+
+    class SourceDistribution:
+        def locate_file(self, relative: str) -> Path:
+            return repository / relative
+
+    monkeypatch.setattr(
+        synth_fixtures.importlib.metadata,
+        "distribution",
+        lambda _name: SourceDistribution(),
+    )
     catalog = packaged_sample_catalog()
     paths = validate_packaged_sample_catalog()
 
@@ -94,6 +109,109 @@ def test_packaged_flac_catalog_is_pinned_and_contains_a_minimal_reviewed_case() 
     assert all(case.license == "CC0-1.0" for case in catalog)
     assert all(paths[case.name].read_bytes().startswith(b"fLaC") for case in catalog)
     assert min(case.byte_length for case in catalog) == 18_056
+
+
+def test_packaged_sample_path_uses_installed_distribution_from_copied_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = packaged_sample_catalog()[0]
+    site_packages = tmp_path / "venv" / "lib" / "python3.12" / "site-packages"
+    installed_sample = site_packages / case.relative_path
+    installed_sample.parent.mkdir(parents=True)
+    installed_sample.write_bytes(b"installed-wheel-sample")
+    worker_fixture = (
+        tmp_path / "worker-workspace" / "benchmarks" / "suites" / "synth" / "fixtures.py"
+    )
+    source_tree_sample = tmp_path / "worker-workspace" / case.relative_path
+    source_tree_sample.parent.mkdir(parents=True)
+    source_tree_sample.write_bytes(b"source-tree-sample")
+    located: list[str] = []
+
+    class FakeDistribution:
+        def locate_file(self, relative: str) -> Path:
+            located.append(relative)
+            return site_packages / relative
+
+    monkeypatch.setattr(synth_fixtures, "__file__", str(worker_fixture))
+    monkeypatch.setattr(
+        synth_fixtures.importlib.metadata,
+        "distribution",
+        lambda name: FakeDistribution() if name == "gummy-snake" else None,
+    )
+
+    assert synth_fixtures._packaged_sample_path(case) == installed_sample.resolve()
+    assert located == [case.relative_path]
+
+
+def test_packaged_sample_path_uses_verified_editable_distribution_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = packaged_sample_catalog()[0]
+    repository = tmp_path / "editable-source"
+    editable_sample = repository / case.relative_path
+    editable_sample.parent.mkdir(parents=True)
+    editable_sample.write_bytes(b"editable-source-sample")
+
+    class EditableDistribution:
+        def locate_file(self, relative: str) -> Path:
+            return tmp_path / "venv" / "site-packages" / relative
+
+        def read_text(self, name: str) -> str | None:
+            if name != "direct_url.json":
+                return None
+            return '{"url":"' + repository.as_uri() + '","dir_info":{"editable":true}}'
+
+    monkeypatch.setattr(
+        synth_fixtures.importlib.metadata,
+        "distribution",
+        lambda _name: EditableDistribution(),
+    )
+
+    assert synth_fixtures._packaged_sample_path(case) == editable_sample.resolve()
+
+
+def test_packaged_sample_path_does_not_fall_back_to_worker_ancestors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = packaged_sample_catalog()[0]
+    worker_fixture = (
+        tmp_path / "worker-workspace" / "benchmarks" / "suites" / "synth" / "fixtures.py"
+    )
+    source_tree_sample = tmp_path / "worker-workspace" / case.relative_path
+    source_tree_sample.parent.mkdir(parents=True)
+    source_tree_sample.write_bytes(b"source-tree-sample")
+
+    class FakeDistribution:
+        def locate_file(self, relative: str) -> Path:
+            return tmp_path / "venv" / "site-packages" / relative
+
+    monkeypatch.setattr(synth_fixtures, "__file__", str(worker_fixture))
+    monkeypatch.setattr(
+        synth_fixtures.importlib.metadata,
+        "distribution",
+        lambda _name: FakeDistribution(),
+    )
+
+    with pytest.raises(ValueError, match="installed gummy-snake distribution is missing"):
+        synth_fixtures._packaged_sample_path(case)
+
+
+def test_packaged_sample_path_reports_missing_distribution_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = packaged_sample_catalog()[0]
+
+    def missing_distribution(_name: str) -> None:
+        raise synth_fixtures.importlib.metadata.PackageNotFoundError("gummy-snake")
+
+    monkeypatch.setattr(
+        synth_fixtures.importlib.metadata,
+        "distribution",
+        missing_distribution,
+    )
+
+    with pytest.raises(ValueError, match="distribution metadata is unavailable"):
+        synth_fixtures._packaged_sample_path(case)
 
 
 def test_ffmpeg_mp3_capability_never_claims_a_substitute_encoder() -> None:

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::gpu::pipeline::{
-    clip_bind_group_layout, create_blend_ellipse_pipeline, create_image_pipeline,
+    clip_bind_group_layout, create_destination_blend_pipeline, create_image_pipeline,
     create_image_pipeline_for_blend_mode, create_model_pipeline, create_model_wireframe_pipeline,
     create_path_fill_erase_pipeline, create_path_fill_pipeline, create_pipeline,
     create_pipeline_for_blend_mode, create_pixel_filter_pipeline, create_pixel_prefix_pipeline,
@@ -35,7 +35,7 @@ pub(super) struct PipelineResources {
     pub(super) textured_model_pipeline: wgpu::RenderPipeline,
     pub(super) pixel_prefix_pipeline: wgpu::RenderPipeline,
     pub(super) pixel_filter_pipeline: wgpu::RenderPipeline,
-    pub(super) blend_ellipse_pipeline: wgpu::RenderPipeline,
+    pub(super) destination_blend_pipeline: wgpu::RenderPipeline,
 }
 
 pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResources {
@@ -183,7 +183,7 @@ pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResour
         &pixel_prefix_bind_group_layout,
         wgpu::TextureFormat::Rgba8Unorm,
     );
-    let blend_ellipse_pipeline = create_blend_ellipse_pipeline(
+    let destination_blend_pipeline = create_destination_blend_pipeline(
         device,
         &pixel_prefix_bind_group_layout,
         wgpu::TextureFormat::Rgba8Unorm,
@@ -212,6 +212,6 @@ pub(super) fn create_pipeline_resources(device: &wgpu::Device) -> PipelineResour
         textured_model_pipeline,
         pixel_prefix_pipeline,
         pixel_filter_pipeline,
-        blend_ellipse_pipeline,
+        destination_blend_pipeline,
     }
 }
