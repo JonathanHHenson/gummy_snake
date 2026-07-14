@@ -117,6 +117,74 @@ pub(crate) fn cutoff_envelope_enabled(opts: &OptMap) -> bool {
     .any(|key| opts.contains_key(*key))
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct SynthCutoffEnvelope {
+    cutoff_min_hz: f64,
+    attack: f64,
+    decay: f64,
+    sustain: f64,
+    release: f64,
+    attack_level: f64,
+    decay_level: f64,
+    sustain_level: f64,
+    curve: i32,
+}
+
+impl SynthCutoffEnvelope {
+    pub(crate) fn from_opts(kind: SynthKind, opts: &OptMap) -> Option<Self> {
+        if !cutoff_envelope_enabled(opts) {
+            return None;
+        }
+        let (default_attack, default_decay, default_sustain, default_release) =
+            default_synth_envelope(kind);
+        let attack = float_opt(opts, "attack", default_attack).max(0.0);
+        let decay = float_opt(opts, "decay", default_decay).max(0.0);
+        let sustain = float_opt(opts, "sustain", default_sustain).max(0.0);
+        let release = float_opt(opts, "release", default_release).max(0.0);
+        let sustain_level = float_opt(
+            opts,
+            "cutoff_sustain_level",
+            float_opt(opts, "sustain_level", 1.0),
+        )
+        .max(0.0);
+        let attack_level = float_opt(opts, "cutoff_attack_level", 1.0).max(0.0);
+        let decay_level_raw = float_opt(opts, "cutoff_decay_level", -1.0);
+        let decay_level = if decay_level_raw < 0.0 {
+            sustain_level
+        } else {
+            decay_level_raw.max(0.0)
+        };
+        Some(Self {
+            cutoff_min_hz: note_frequency(float_opt(opts, "cutoff_min", 30.0).clamp(0.001, 130.5)),
+            attack: inherit_negative(float_opt(opts, "cutoff_attack", -1.0), attack),
+            decay: inherit_negative(float_opt(opts, "cutoff_decay", -1.0), decay),
+            sustain: inherit_negative(float_opt(opts, "cutoff_sustain", -1.0), sustain),
+            release: inherit_negative(float_opt(opts, "cutoff_release", -1.0), release),
+            attack_level,
+            decay_level,
+            sustain_level,
+            curve: float_opt(opts, "cutoff_env_curve", float_opt(opts, "env_curve", 1.0)).round()
+                as i32,
+        })
+    }
+
+    pub(crate) fn cutoff_hz_at(self, cutoff_note: f64, elapsed: f64, sample_rate: u32) -> f64 {
+        let cutoff_hz = note_frequency(cutoff_note.clamp(0.001, 130.5));
+        let level = adsr_level(
+            elapsed,
+            self.attack,
+            self.decay,
+            self.sustain,
+            self.release,
+            self.attack_level,
+            self.decay_level,
+            self.sustain_level,
+            self.curve,
+        );
+        (self.cutoff_min_hz + level * cutoff_hz).clamp(20.0, sample_rate as f64 * 0.45)
+    }
+}
+
 pub(crate) fn synth_cutoff_hz_at(
     kind: SynthKind,
     opts: &OptMap,
@@ -125,54 +193,12 @@ pub(crate) fn synth_cutoff_hz_at(
     elapsed: f64,
     sample_rate: u32,
 ) -> f64 {
-    let cutoff_note = cutoff_auto(elapsed)
-        .unwrap_or(default_cutoff)
-        .clamp(0.001, 130.5);
-    let cutoff_hz = note_frequency(cutoff_note);
-    let hz = if cutoff_envelope_enabled(opts) {
-        let cutoff_min_hz = note_frequency(float_opt(opts, "cutoff_min", 30.0).clamp(0.001, 130.5));
-        cutoff_min_hz + cutoff_envelope_level(kind, opts, elapsed) * cutoff_hz
+    let cutoff_note = cutoff_auto(elapsed).unwrap_or(default_cutoff);
+    if let Some(envelope) = SynthCutoffEnvelope::from_opts(kind, opts) {
+        envelope.cutoff_hz_at(cutoff_note, elapsed, sample_rate)
     } else {
-        cutoff_hz
-    };
-    hz.clamp(20.0, sample_rate as f64 * 0.45)
-}
-
-pub(crate) fn cutoff_envelope_level(kind: SynthKind, opts: &OptMap, elapsed: f64) -> f64 {
-    let (default_attack, default_decay, default_sustain, default_release) =
-        default_synth_envelope(kind);
-    let attack = float_opt(opts, "attack", default_attack).max(0.0);
-    let decay = float_opt(opts, "decay", default_decay).max(0.0);
-    let sustain = float_opt(opts, "sustain", default_sustain).max(0.0);
-    let release = float_opt(opts, "release", default_release).max(0.0);
-    let sustain_level = float_opt(
-        opts,
-        "cutoff_sustain_level",
-        float_opt(opts, "sustain_level", 1.0),
-    )
-    .max(0.0);
-    let attack_level = float_opt(opts, "cutoff_attack_level", 1.0).max(0.0);
-    let decay_level_raw = float_opt(opts, "cutoff_decay_level", -1.0);
-    let decay_level = if decay_level_raw < 0.0 {
-        sustain_level
-    } else {
-        decay_level_raw.max(0.0)
-    };
-    let cutoff_attack = inherit_negative(float_opt(opts, "cutoff_attack", -1.0), attack);
-    let cutoff_decay = inherit_negative(float_opt(opts, "cutoff_decay", -1.0), decay);
-    let cutoff_sustain = inherit_negative(float_opt(opts, "cutoff_sustain", -1.0), sustain);
-    let cutoff_release = inherit_negative(float_opt(opts, "cutoff_release", -1.0), release);
-    adsr_level(
-        elapsed,
-        cutoff_attack,
-        cutoff_decay,
-        cutoff_sustain,
-        cutoff_release,
-        attack_level,
-        decay_level,
-        sustain_level,
-        float_opt(opts, "cutoff_env_curve", float_opt(opts, "env_curve", 1.0)).round() as i32,
-    )
+        note_frequency(cutoff_note.clamp(0.001, 130.5)).clamp(20.0, sample_rate as f64 * 0.45)
+    }
 }
 
 pub(crate) fn inherit_negative(value: f64, inherited: f64) -> f64 {

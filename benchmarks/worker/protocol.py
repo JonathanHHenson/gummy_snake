@@ -320,6 +320,8 @@ class FreshWorker:
         # a valid execution route for a release benchmark.
         environment.pop("PYTHONPATH", None)
         environment.pop("PYTHONHOME", None)
+        if self.cwd is not None:
+            environment["PYTHONPATH"] = str(self.cwd.resolve())
         environment["PYTHONHASHSEED"] = str(request.hash_seed)
         environment["PYTHONSAFEPATH"] = "1"
         try:

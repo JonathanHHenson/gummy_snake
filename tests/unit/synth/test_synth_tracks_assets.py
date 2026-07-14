@@ -134,6 +134,20 @@ def test_builtin_sonic_pi_fx_assets_are_compiled_gsfx() -> None:
     assert sy.load_builtin_synth_plan("arpeg-click").events[0].synth_name == "_layered"
 
 
+def test_all_builtin_synths_render_through_the_stateful_runtime() -> None:
+    for synth_name in sy.builtin_synth_names():
+
+        @sy.track
+        def builtin_synth_track(synth_name: str = synth_name) -> None:
+            with sy.synth(synth_name):
+                sy.play(60)
+
+        payload = builtin_synth_track().render(duration=0.02, sample_rate=8_000)
+
+        assert payload.startswith(b"RIFF"), synth_name
+        assert len(payload) > 44, synth_name
+
+
 def test_wobble_fx_is_distinct_from_slicer_fx() -> None:
     wobble_track = cast(Any, _wobble_fx_track())
     slicer_track = cast(Any, _slicer_fx_track())

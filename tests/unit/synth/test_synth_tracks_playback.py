@@ -52,6 +52,42 @@ def test_finite_track_compiles_once_and_starts_non_looping_native_session(monkey
     assert playback.playback_diagnostics()["blocks"] == 1
 
 
+def test_track_wait_polls_native_playback_so_python_signals_can_run(monkeypatch) -> None:
+    runtime = _FakeSynthRuntime()
+    patch_synth_runtime(monkeypatch, runtime)
+    playback = _short_realtime_track().play(duration=0.08)
+    native = runtime.playbacks[0]
+    waits: list[float | None] = []
+
+    def wait_until_stop(timeout: float | None = None) -> bool:
+        waits.append(timeout)
+        return len(waits) == 3
+
+    monkeypatch.setattr(native, "wait_until_stop", wait_until_stop)
+
+    assert playback.wait_until_stop()
+    assert waits == [0.05, 0.05, 0.05]
+
+
+def test_keyboard_interrupt_stops_and_closes_native_track_playback(monkeypatch) -> None:
+    runtime = _FakeSynthRuntime()
+    patch_synth_runtime(monkeypatch, runtime)
+    playback = _short_realtime_track().play(duration=0.08)
+    native = runtime.playbacks[0]
+
+    def interrupt(_timeout: float | None = None) -> bool:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(native, "wait_until_stop", interrupt)
+
+    with pytest.raises(KeyboardInterrupt):
+        playback.wait_until_stop()
+
+    assert native.stop_calls == 2
+    assert native.close_calls == 1
+    assert not playback.is_playing()
+
+
 def test_open_track_compiles_one_native_rolling_program_without_python_horizons(
     monkeypatch,
 ) -> None:

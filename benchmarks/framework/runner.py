@@ -241,7 +241,7 @@ class BenchmarkRecorderRunner:
         destination.mkdir()
         for name in ("__init__.py",):
             shutil.copy2(source / name, destination / name)
-        for name in ("governance", "schema", "suites", "worker"):
+        for name in ("framework", "governance", "schema", "suites", "worker"):
             shutil.copytree(
                 source / name,
                 destination / name,

@@ -119,6 +119,115 @@ fn stateful_primitive_voices_are_partition_invariant() {
 }
 
 #[test]
+fn stateful_cutoff_envelope_options_are_supported_audible_and_partition_invariant() {
+    let mut event = sine_event(1, 0, 0.0, 40.0);
+    event.synth_name = "_saw".to_owned();
+    event.opts = OptMap::from([
+        ("attack".to_owned(), SynthValue::Float(0.0)),
+        ("decay".to_owned(), SynthValue::Float(0.0)),
+        ("sustain".to_owned(), SynthValue::Float(0.2)),
+        ("release".to_owned(), SynthValue::Float(0.01)),
+        ("sustain_level".to_owned(), SynthValue::Float(1.0)),
+        ("cutoff".to_owned(), SynthValue::Float(120.0)),
+        ("cutoff_min".to_owned(), SynthValue::Float(30.0)),
+        ("cutoff_attack".to_owned(), SynthValue::Float(0.0)),
+        ("cutoff_decay".to_owned(), SynthValue::Float(0.08)),
+        ("cutoff_sustain".to_owned(), SynthValue::Float(0.12)),
+        ("cutoff_release".to_owned(), SynthValue::Float(0.0)),
+        ("cutoff_attack_level".to_owned(), SynthValue::Float(1.0)),
+        ("cutoff_decay_level".to_owned(), SynthValue::Float(0.0)),
+        ("cutoff_sustain_level".to_owned(), SynthValue::Float(0.0)),
+        ("cutoff_env_curve".to_owned(), SynthValue::Float(2.0)),
+        ("res".to_owned(), SynthValue::Float(0.9)),
+    ]);
+    let mut static_event = event.clone();
+    static_event
+        .opts
+        .retain(|key, _| !key.starts_with("cutoff_"));
+    let swept_program = CompiledSynthProgram::compile(vec![event], 0.21, 8_000).unwrap();
+    let static_program = CompiledSynthProgram::compile(vec![static_event], 0.21, 8_000).unwrap();
+
+    let (single, _) = render(swept_program.clone(), 1, false);
+    let (blocked, _) = render(swept_program, 37, false);
+    let (static_pcm, _) = render(static_program, 37, false);
+
+    assert_eq!(single, blocked);
+    assert_ne!(blocked, static_pcm);
+    let left = blocked
+        .chunks_exact(2)
+        .map(|frame| frame[0])
+        .collect::<Vec<_>>();
+    let average_delta = |samples: &[i16]| {
+        samples
+            .windows(2)
+            .map(|pair| (i32::from(pair[1]) - i32::from(pair[0])).unsigned_abs() as f64)
+            .sum::<f64>()
+            / samples.len().saturating_sub(1).max(1) as f64
+    };
+    let early = average_delta(&left[180..580]);
+    let late = average_delta(&left[1_280..1_600]);
+    assert!(early > late * 1.5, "early={early}, late={late}");
+}
+
+#[test]
+fn stateful_layered_pulse_and_pre_filter_options_are_audible_and_partition_invariant() {
+    let mut event = sine_event(1, 0, 0.0, 52.0);
+    event.synth_name = "_layered".to_owned();
+    event.opts = OptMap::from([
+        ("attack".to_owned(), SynthValue::Float(0.0)),
+        ("decay".to_owned(), SynthValue::Float(0.0)),
+        ("sustain".to_owned(), SynthValue::Float(0.04)),
+        ("release".to_owned(), SynthValue::Float(0.01)),
+        ("pre_shape_normalise".to_owned(), SynthValue::Bool(true)),
+        ("pre_shape_level".to_owned(), SynthValue::Float(0.8)),
+        ("pre_filter_env".to_owned(), SynthValue::Bool(true)),
+        (
+            "pre_filter_shape".to_owned(),
+            SynthValue::String("squared".to_owned()),
+        ),
+        (
+            "layers".to_owned(),
+            SynthValue::List(vec![SynthValue::Dict(OptMap::from([
+                ("wave".to_owned(), SynthValue::String("pulse".to_owned())),
+                ("transpose".to_owned(), SynthValue::Float(0.0)),
+                ("amp".to_owned(), SynthValue::Float(1.0)),
+                (
+                    "opts".to_owned(),
+                    SynthValue::Dict(OptMap::from([
+                        ("pulse_width".to_owned(), SynthValue::Float(0.2)),
+                        ("pulse_width_lfo_rate".to_owned(), SynthValue::Float(3.0)),
+                        ("pulse_width_lfo_depth".to_owned(), SynthValue::Float(0.15)),
+                        ("pulse_width_lfo_phase".to_owned(), SynthValue::Float(0.1)),
+                        ("pulse_width_lfo_wave".to_owned(), SynthValue::Float(3.0)),
+                    ])),
+                ),
+            ]))]),
+        ),
+    ]);
+    let mut plain = event.clone();
+    plain.opts.remove("pre_shape_normalise");
+    plain.opts.remove("pre_shape_level");
+    plain.opts.remove("pre_filter_env");
+    plain.opts.remove("pre_filter_shape");
+    let SynthValue::List(layers) = plain.opts.get_mut("layers").unwrap() else {
+        unreachable!();
+    };
+    let SynthValue::Dict(layer) = &mut layers[0] else {
+        unreachable!();
+    };
+    layer.insert("opts".to_owned(), SynthValue::Dict(OptMap::new()));
+    let shaped_program = CompiledSynthProgram::compile(vec![event], 0.05, 8_000).unwrap();
+    let plain_program = CompiledSynthProgram::compile(vec![plain], 0.05, 8_000).unwrap();
+
+    let (single, _) = render(shaped_program.clone(), 1, false);
+    let (blocked, _) = render(shaped_program, 29, false);
+    let (plain_pcm, _) = render(plain_program, 29, false);
+
+    assert_eq!(single, blocked);
+    assert_ne!(blocked, plain_pcm);
+}
+
+#[test]
 fn stateful_sine_amp_and_pan_controls_apply_at_the_compiled_frame() {
     let mut controlled = sine_event(1, 0, 0.0, 69.0);
     controlled.controls.push(ControlPayload {

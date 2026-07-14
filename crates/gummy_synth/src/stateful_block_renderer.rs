@@ -314,6 +314,7 @@ struct SourceFilter {
     state: StereoFilterState,
     cutoff: AutomationCursor,
     resonance: AutomationCursor,
+    cutoff_envelope: Option<SynthCutoffEnvelope>,
     static_coefficients: Option<BiquadCoefficients>,
 }
 
@@ -323,14 +324,19 @@ impl SourceFilter {
             return self.state.process_coefficients(left, right, coefficients);
         }
         let cutoff_note = self.cutoff.value_at(frame);
-        if cutoff_note <= 0.0 || cutoff_note >= 130.5 {
-            return (left, right);
-        }
+        let cutoff_hz = if let Some(envelope) = self.cutoff_envelope {
+            envelope.cutoff_hz_at(cutoff_note, frame as f64 / sample_rate as f64, sample_rate)
+        } else {
+            if cutoff_note <= 0.0 || cutoff_note >= 130.5 {
+                return (left, right);
+            }
+            note_frequency(cutoff_note).clamp(20.0, sample_rate as f64 * 0.45)
+        };
         self.state.process(
             left,
             right,
             FilterKind::Low,
-            note_frequency(cutoff_note).clamp(20.0, sample_rate as f64 * 0.45),
+            cutoff_hz,
             sample_rate,
             self.resonance.value_at(frame).clamp(0.0, 0.99),
         )
@@ -361,6 +367,31 @@ impl DcBlocker {
     }
 }
 
+#[derive(Clone, Copy)]
+enum PreFilterShape {
+    None,
+    Square,
+    SignedSquare,
+}
+
+impl PreFilterShape {
+    fn from_opts(opts: &OptMap) -> Self {
+        match string_opt(opts, "pre_filter_shape", "").as_str() {
+            "square" | "squared" => Self::Square,
+            "signed_square" | "signed_squared" => Self::SignedSquare,
+            _ => Self::None,
+        }
+    }
+
+    fn apply(self, pair: (f64, f64)) -> (f64, f64) {
+        match self {
+            Self::None => pair,
+            Self::Square => (pair.0 * pair.0, pair.1 * pair.1),
+            Self::SignedSquare => (pair.0 * pair.0.abs(), pair.1 * pair.1.abs()),
+        }
+    }
+}
+
 #[derive(Clone)]
 struct OscillatorLane {
     kind: SynthKind,
@@ -373,7 +404,42 @@ struct OscillatorLane {
     fm_divisor: f64,
     fm_depth: f64,
     pulse_width: f64,
+    pulse_width_lfo_rate: f64,
+    pulse_width_lfo_depth: f64,
+    pulse_width_lfo_phase: f64,
+    pulse_width_lfo_wave: i32,
+    uses_source_pulse_width: bool,
     noise_index: usize,
+}
+
+impl OscillatorLane {
+    fn pulse_width_at(&self, elapsed: f64) -> f64 {
+        if self.pulse_width_lfo_rate.abs() <= f64::EPSILON
+            || self.pulse_width_lfo_depth.abs() <= f64::EPSILON
+        {
+            return self.pulse_width;
+        }
+        let phase_seconds = (1.0 / self.pulse_width_lfo_rate.abs()).max(0.001);
+        let amount = lfo_amount(
+            self.pulse_width_lfo_wave,
+            elapsed,
+            phase_seconds,
+            self.pulse_width_lfo_phase,
+            0.5,
+        ) * 2.0
+            - 1.0;
+        self.pulse_width + self.pulse_width_lfo_depth * amount
+    }
+}
+
+fn causal_normalise_pair(pair: (f64, f64), level: f64, linked_peak: &mut f64) -> (f64, f64) {
+    *linked_peak = (*linked_peak).max(pair.0.abs().max(pair.1.abs()));
+    if *linked_peak <= 1e-9 || level <= 0.0 {
+        pair
+    } else {
+        let gain = level / *linked_peak;
+        (pair.0 * gain, pair.1 * gain)
+    }
 }
 
 #[derive(Clone)]
@@ -389,6 +455,12 @@ struct OscillatorSource {
     note: Option<AutomationCursor>,
     note_root: Option<f64>,
     pulse_width: AutomationCursor,
+    pre_shape_normalise_level: Option<f64>,
+    pre_shape_linked_peak: f64,
+    pre_filter_env: bool,
+    pre_filter_shape: PreFilterShape,
+    pre_filter_normalise_level: Option<f64>,
+    pre_filter_linked_peak: f64,
     filter: Option<SourceFilter>,
     normalise_level: Option<f64>,
     linked_peak: f64,
@@ -437,6 +509,15 @@ impl OscillatorSource {
                 "pulse_width_slide",
                 "cutoff",
                 "cutoff_slide",
+                "cutoff_min",
+                "cutoff_attack",
+                "cutoff_decay",
+                "cutoff_sustain",
+                "cutoff_release",
+                "cutoff_attack_level",
+                "cutoff_decay_level",
+                "cutoff_sustain_level",
+                "cutoff_env_curve",
                 "res",
                 "res_slide",
                 "amp_fudge",
@@ -449,6 +530,14 @@ impl OscillatorSource {
                 "norm",
                 "normalise_level",
                 "normalize_level",
+                "pre_shape_normalise",
+                "pre_shape_normalize",
+                "pre_shape_level",
+                "pre_filter_env",
+                "pre_filter_shape",
+                "pre_filter_normalise",
+                "pre_filter_normalize",
+                "pre_filter_level",
                 "metadata",
             ],
             "stateful oscillator option",
@@ -492,6 +581,12 @@ impl OscillatorSource {
                         fm_divisor: float_opt(&layer.opts, "divisor", 2.0).abs().max(0.001),
                         fm_depth: float_opt(&layer.opts, "depth", 1.0),
                         pulse_width: float_opt(&layer.opts, "pulse_width", 0.5),
+                        pulse_width_lfo_rate: float_opt(&layer.opts, "pulse_width_lfo_rate", 0.0),
+                        pulse_width_lfo_depth: float_opt(&layer.opts, "pulse_width_lfo_depth", 0.0),
+                        pulse_width_lfo_phase: float_opt(&layer.opts, "pulse_width_lfo_phase", 0.0),
+                        pulse_width_lfo_wave: float_opt(&layer.opts, "pulse_width_lfo_wave", 3.0)
+                            .round() as i32,
+                        uses_source_pulse_width: false,
                         noise_index: note_index * layers.len() + layer_index,
                     });
                 }
@@ -507,6 +602,11 @@ impl OscillatorSource {
                     fm_divisor: float_opt(opts, "divisor", 2.0).abs().max(0.001),
                     fm_depth: float_opt(opts, "depth", 1.0),
                     pulse_width: float_opt(opts, "pulse_width", 0.5),
+                    pulse_width_lfo_rate: 0.0,
+                    pulse_width_lfo_depth: 0.0,
+                    pulse_width_lfo_phase: 0.0,
+                    pulse_width_lfo_wave: 3,
+                    uses_source_pulse_width: kind == SynthKind::Pulse,
                     noise_index: note_index,
                 });
             }
@@ -541,7 +641,9 @@ impl OscillatorSource {
             event_frame,
             sample_rate,
         )?;
-        let filter_is_static = !cutoff.has_points() && !resonance.has_points();
+        let cutoff_envelope = SynthCutoffEnvelope::from_opts(kind, opts);
+        let filter_is_static =
+            !cutoff.has_points() && !resonance.has_points() && cutoff_envelope.is_none();
         let static_coefficients =
             (filter_is_static && cutoff.initial > 0.0 && cutoff.initial < 130.5).then(|| {
                 let cutoff_hz =
@@ -557,15 +659,17 @@ impl OscillatorSource {
                     BiquadCoefficients::filter(FilterKind::Low, cutoff_hz, sample_rate, 0.707)
                 }
             });
-        let filter = (cutoff.initial < 130.5 || cutoff.has_points()).then(|| SourceFilter {
-            state: StereoFilterState {
-                left: BiquadState::default(),
-                right: BiquadState::default(),
-            },
-            cutoff,
-            resonance,
-            static_coefficients,
-        });
+        let filter = (cutoff_envelope.is_some() || cutoff.initial < 130.5 || cutoff.has_points())
+            .then(|| SourceFilter {
+                state: StereoFilterState {
+                    left: BiquadState::default(),
+                    right: BiquadState::default(),
+                },
+                cutoff,
+                resonance,
+                cutoff_envelope,
+                static_coefficients,
+            });
         let sustain_level = float_opt(opts, "sustain_level", 1.0).max(0.0);
         let attack_level = float_opt(opts, "attack_level", 1.0).max(0.0);
         let decay_level = decay_level_opt(opts, sustain_level);
@@ -614,6 +718,16 @@ impl OscillatorSource {
                 event_frame,
                 sample_rate,
             )?,
+            pre_shape_normalise_level: (bool_opt(opts, "pre_shape_normalise", false)
+                || bool_opt(opts, "pre_shape_normalize", false))
+            .then(|| float_opt(opts, "pre_shape_level", 1.0).max(0.0)),
+            pre_shape_linked_peak: 0.0,
+            pre_filter_env: bool_opt(opts, "pre_filter_env", false),
+            pre_filter_shape: PreFilterShape::from_opts(opts),
+            pre_filter_normalise_level: (bool_opt(opts, "pre_filter_normalise", false)
+                || bool_opt(opts, "pre_filter_normalize", false))
+            .then(|| float_opt(opts, "pre_filter_level", 1.0).max(0.0)),
+            pre_filter_linked_peak: 0.0,
             filter,
             normalise_level: synth_normalise_enabled(kind, opts).then(|| {
                 float_opt(
@@ -639,6 +753,7 @@ impl OscillatorSource {
             return None;
         }
         let frame = self.rendered_frames;
+        let elapsed = frame as f64 / sample_rate as f64;
         let envelope = self.envelope.level_at(frame, sample_rate);
         let automated_note = self.note.as_mut().map(|note| note.value_at(frame));
         let pulse_width = self.pulse_width.value_at(frame).clamp(0.001, 0.999);
@@ -666,10 +781,10 @@ impl OscillatorSource {
                     lane.waveform,
                     lane.phase,
                     phase_delta,
-                    if lane.kind == SynthKind::Pulse {
+                    if lane.uses_source_pulse_width {
                         pulse_width
                     } else {
-                        lane.pulse_width
+                        lane.pulse_width_at(elapsed).clamp(0.001, 0.999)
                     },
                 ),
             };
@@ -680,6 +795,16 @@ impl OscillatorSource {
             mono /= self.base_note_count as f64;
         }
         let mut pair = (mono, mono);
+        if let Some(level) = self.pre_shape_normalise_level {
+            pair = causal_normalise_pair(pair, level, &mut self.pre_shape_linked_peak);
+        }
+        if self.pre_filter_env {
+            pair = (pair.0 * envelope, pair.1 * envelope);
+        }
+        pair = self.pre_filter_shape.apply(pair);
+        if let Some(level) = self.pre_filter_normalise_level {
+            pair = causal_normalise_pair(pair, level, &mut self.pre_filter_linked_peak);
+        }
         if let Some(filter) = &mut self.filter {
             pair = filter.process(pair.0, pair.1, frame, sample_rate);
         }

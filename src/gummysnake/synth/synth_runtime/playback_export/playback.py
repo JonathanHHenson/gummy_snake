@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 from dataclasses import dataclass
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 from gummysnake.exceptions import ArgumentValidationError, BackendCapabilityError
@@ -100,13 +101,23 @@ class TrackPlayback:
             playback.close()
 
     def join(self, timeout: float | None = None) -> bool:
-        """Wait until finite playback ends or a timeout expires."""
+        """Wait until playback ends while keeping Python signals responsive."""
 
         playback = self._rust_playback
         if playback is None:
             return True
         try:
-            finished = bool(playback.wait_until_stop(timeout))
+            deadline = None if timeout is None else monotonic() + max(0.0, float(timeout))
+            while True:
+                wait_seconds = 0.05
+                if deadline is not None:
+                    remaining = deadline - monotonic()
+                    if remaining <= 0.0:
+                        return False
+                    wait_seconds = min(wait_seconds, remaining)
+                if playback.wait_until_stop(wait_seconds):
+                    finished = True
+                    break
             self._capture_native_error()
             if finished and not self._rolling:
                 diagnostics = getattr(playback, "diagnostics", None)
@@ -116,6 +127,9 @@ class TrackPlayback:
                 self._rust_playback = None
                 self._closed = True
             return finished
+        except KeyboardInterrupt:
+            self.stop()
+            raise
         except Exception as exc:
             self._error = RuntimeError(f"Rust synth playback failed: {exc}")
             return True
